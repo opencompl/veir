@@ -99,17 +99,7 @@ def GMIR.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
-  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.exact then
-      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .g_or => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.disjoint then
-      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .g_zext => props.toAttrDict
+  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr | .g_or | .g_zext => props.toAttrDict
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
@@ -311,42 +301,42 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     return (#[.int bw (Data.LLVM.Int.ushlSat lhs rhs)], mem, none)
   | .g_saddsat => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.saddSat lhs rhs)], mem, none)
   | .g_uaddsat => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.uaddSat lhs rhs)], mem, none)
   | .g_ssubsat => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.ssubSat lhs rhs)], mem, none)
   | .g_usubsat => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.usubSat lhs rhs)], mem, none)
   | .g_smin => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.smin lhs rhs)], mem, none)
   | .g_smax => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.smax lhs rhs)], mem, none)
   | .g_umin => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.umin lhs rhs)], mem, none)
   | .g_umax => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
+    if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (Data.LLVM.Int.umax lhs rhs)], mem, none)
   | .g_abs => do

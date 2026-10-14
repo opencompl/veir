@@ -47,6 +47,12 @@ def ExactProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
   let exact ← getUnitAttr "isExact" attrDict
   return { exact := exact }
 
+def ExactProperties.toAttrDict (props : ExactProperties) : Std.HashMap ByteArray Attribute :=
+  if props.exact then
+    (Std.HashMap.emptyWithCapacity 1).insert "isExact".toUTF8 (.unitAttr UnitAttr.mk)
+  else
+    Std.HashMap.emptyWithCapacity 0
+
 /--
   Properties of operations that can have the `disjoint` flags, such as
   `llvm.or`.
@@ -59,6 +65,12 @@ def DisjointProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute)
     Except String DisjointProperties := do
   let disjoint ← getUnitAttr "isDisjoint" attrDict
   return { disjoint := disjoint }
+
+def DisjointProperties.toAttrDict (props : DisjointProperties) : Std.HashMap ByteArray Attribute :=
+  if props.disjoint then
+    (Std.HashMap.emptyWithCapacity 1).insert "isDisjoint".toUTF8 (.unitAttr UnitAttr.mk)
+  else
+    Std.HashMap.emptyWithCapacity 0
 
 /--
   Properties of operations that can have the `nneg` flag, such as `llvm.zext`.

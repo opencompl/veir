@@ -321,17 +321,7 @@ def Llvm.toAttrDict
     dict := dict.insert "operandSegmentSizes".toUTF8
       (Attribute.denseArrayAttr props.operandSegmentSizes)
     dict
-  | .udiv | .sdiv | .lshr | .ashr => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
-    if props.exact then
-      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .or => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
-    if props.disjoint then
-      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .zext | .uitofp => props.toAttrDict
+  | .udiv | .sdiv | .lshr | .ashr | .or | .zext | .uitofp => props.toAttrDict
   | .intr__ctlz | .intr__cttz =>
     let value := if props.is_zero_poison then 1 else 0
     let attr := IntegerAttr.mk value (IntegerType.signless 1)
