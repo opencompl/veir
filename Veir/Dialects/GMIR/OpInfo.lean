@@ -99,7 +99,17 @@ def GMIR.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
-  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr | .g_or | .g_zext => props.toAttrDict
+  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.exact then
+      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .g_or => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.disjoint then
+      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .g_zext => props.toAttrDict
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
