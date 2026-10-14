@@ -1,7 +1,7 @@
 module
 
 public import Veir.PatternRewriter.Puddle.Definitions
-import Veir.PatternRewriter.Puddle.Builders
+public import Veir.PatternRewriter.Puddle.Builders
 
 /-!
 # Legalization Actions
@@ -16,6 +16,49 @@ namespace Veir
 
 open Puddle
 
+public section
+
+/--
+Matches a binary `opcode` operation whose operands and result have the same integer type, which
+satisfies `typeMatcher`.
+-/
+def matchBinop (opcode : GMIR) (typeMatcher : IntegerType → Bool) :
+    MatchProg.Builder (Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
+  let type ← MatchProg.type (Attr := IntegerType) typeMatcher
+  let lhs ← MatchProg.value type
+  let rhs ← MatchProg.value type
+  let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+  return (type, lhs, rhs)
+
+/-- Extends `operand` to `wideType` with `extOpcode`, and returns the extended value. -/
+def buildExt (operand : Handle OpCode .value) (wideType : Handle OpCode .type)
+    (extOpcode : GMIR) (props : propertiesOf (OpCode.gmir extOpcode)) :
+    CreateProg.Builder (Handle OpCode .value) := do
+  let props ← CreateProg.property (.gmir extOpcode) props
+  let ext ← CreateProg.operation (.gmir extOpcode) #[operand] #[wideType] props
+  return ext.res[0]!
+
+/--
+Computes `opcode` on `lhs` and `rhs` extended to `wideType` with `g_anyext`, and returns the wide
+result. The new high bits are unconstrained, so the no-wrap flags no longer hold.
+-/
+def buildWideBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode))
+    (wideType : Handle OpCode .type) (lhs rhs : Handle OpCode .value) :
+    CreateProg.Builder (Handle OpCode .value) := do
+  let wideLhs ← buildExt lhs wideType .g_anyext ()
+  let wideRhs ← buildExt rhs wideType .g_anyext ()
+  let props ← CreateProg.property (.gmir opcode) noFlags
+  let wide ← CreateProg.operation (.gmir opcode) #[wideLhs, wideRhs] #[wideType] props
+  return wide.res[0]!
+
+/-- Truncates the wide result `wide` back to `type`. -/
+def buildTrunc (wide : Handle OpCode .value) (type : Handle OpCode .type) :
+    CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.property (.gmir .g_trunc) ⟨false, false⟩
+  CreateProg.operation (.gmir .g_trunc) #[wide] #[type] props
+
+end
+
 /--
 Extends the binary operands to `width` bits and then truncates the result back to the original
 type. The extension is performed with `g_anyext` because the high bits are assumed to not matter
@@ -24,23 +67,11 @@ for the operation. (This is not true for comparisons.)
 def widenBinop (opcode : GMIR) (noFlags : propertiesOf (OpCode.gmir opcode)) (width : Nat) :
     Pattern OpCode :=
   Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let lhs ← MatchProg.value type
-      let rhs ← MatchProg.value type
-      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
-      return (type, lhs, rhs))
+    (matchBinop opcode (·.bitwidth < width))
     (fun (type, lhs, rhs) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
-      -- The new high bits are unconstrained, so the no-wrap flags no longer hold.
-      let anyextProps ← CreateProg.property (.gmir .g_anyext) ()
-      let wideLhs ← CreateProg.operation (.gmir .g_anyext) #[lhs] #[wideType] anyextProps
-      let wideRhs ← CreateProg.operation (.gmir .g_anyext) #[rhs] #[wideType] anyextProps
-      let props ← CreateProg.property (.gmir opcode) noFlags
-      let wide ← CreateProg.operation (.gmir opcode) #[wideLhs.res[0]!, wideRhs.res[0]!]
-        #[wideType] props
-      let truncProps ← CreateProg.property (.gmir .g_trunc) ⟨false, false⟩
-      CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type] truncProps)
+      let wide ← buildWideBinop opcode noFlags wideType lhs rhs
+      buildTrunc wide type)
     (fun trunc => trunc)
 
 /--
@@ -59,11 +90,9 @@ def widenICmpOperands (width : Nat) : Pattern OpCode :=
       return (resultType, lhs, rhs, root))
     (fun (resultType, lhs, rhs, root) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
-      let sextProps ← CreateProg.property (.gmir .g_sext) ()
-      let wideLhs ← CreateProg.operation (.gmir .g_sext) #[lhs] #[wideType] sextProps
-      let wideRhs ← CreateProg.operation (.gmir .g_sext) #[rhs] #[wideType] sextProps
-      CreateProg.operation (.gmir .g_icmp) #[wideLhs.res[0]!, wideRhs.res[0]!] #[resultType]
-        root.properties)
+      let wideLhs ← buildExt lhs wideType .g_sext ()
+      let wideRhs ← buildExt rhs wideType .g_sext ()
+      CreateProg.operation (.gmir .g_icmp) #[wideLhs, wideRhs] #[resultType] root.properties)
     (fun cmp => cmp)
 
 /-- Widens the result of `g_icmp` to `width` bits and then truncates it back. -/
@@ -79,8 +108,7 @@ def widenICmpResult (width : Nat) : Pattern OpCode :=
     (fun (resultType, lhs, rhs, root) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
       let cmp ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType] root.properties
-      let truncProps ← CreateProg.property (.gmir .g_trunc) ⟨false, false⟩
-      CreateProg.operation (.gmir .g_trunc) #[cmp.res[0]!] #[resultType] truncProps)
+      buildTrunc cmp.res[0]! resultType)
     (fun trunc => trunc)
 
 public section
