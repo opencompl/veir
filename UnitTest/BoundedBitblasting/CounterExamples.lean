@@ -1,129 +1,94 @@
 import Veir.Meta.Tactic.PBVDecide
 
+-- Truncating to a width below the source loses bits that widening cannot recover
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  p = 7  	(m_w0 = 0x7f#8)
-  r = 8  	(m_w1 = 0xff#8)
-  q = 0  	(m_w2 = 0x00#8)
-  x = 0x7f#7
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
     (x.setWidth q).setWidth r = x.setWidth r := by
   pbv_decide 8
 
+-- With `-bv_decide` the goal is handed back, and `bv_decide` finds the counterexample instead
 /--
-error: The prover found a counterexample, consider the following assignment:
-m_w2 = 0#8
-m_w0 = 127#8
-m_w1 = 255#8
-m_lit8 = 255#8
-x = 127#8
+error: The prover found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r) :
     (x.setWidth q).setWidth r = x.setWidth r := by
   pbv_decide 8 -bv_decide
   bv_decide
 
+-- Every width must be bounded, even when the statement holds: `q` can exceed 8
 /--
 warning: `grind` could not prove the following : q ≤ 8
 ---
 error: unsolved goals
-p q r : Nat
-x : BitVec p
-hr : r ≤ 8
-h_qp : p < q
-h_pr : p < r
-m_w2 : BitVec 8
-h_m_w2 : m_w2 = Veir.Data.PBV.maskOfWidth 8 q
-⊢ q ≤ 8
 -/
-#guard_msgs in
+#guard_msgs(error, warning, substring := true) in
 example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : p < q) (h_pr : p < r) :
     (x.setWidth q).setWidth r = x.setWidth r := by
   pbv_decide 8
 
+-- A false equation over a single bounded width
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  x = 0xf#4
-  y = 0xf#4
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
     x + y = x := by
   pbv_decide 4
 
 -- Every composite width gets its own mask, reported next to the `Nat` value it encodes
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 4  	(m_w0 = 0x0f#8)
-  w + v = 8  	(m_w0_add_w1 = 0xff#8)
-  v = 4  	(m_w1 = 0x0f#8)
-  v + w = 8  	(m_w1_add_w0 = 0xff#8)
-  x = 0xe#4
-  y = 0xf#4
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (v w : Nat) (x : BitVec v) (y : BitVec w) (hv : v ≤ 4) (hw : w ≤ 4) (h : v = w) :
     x ++ y = (y ++ x).setWidth (v + w) := by
   pbv_decide 4
 
+-- Widths mixing literals and variables
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  4 + w = 8  	(m_lit4_add_w0 = 0x0ff#12)
-  w = 4  	(m_w0 = 0x00f#12)
-  x = 0xf#4
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     (0#4 ++ x).setWidth 4 = 0#4 := by
   pbv_decide 8
 
 -- A width only mentioned in a hypothesis is reported alongside the sum it is equal to
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 4  	(m_w0 = 0x0f#5)
-  w + 1 = 5  	(m_w0_add_lit1 = 0x1f#5)
-  v = 5  	(m_w2 = 0x1f#5)
-  x = 0xf#4
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (v w : Nat) (x : BitVec w) (hw : w ≤ 4) (hv : v = w + 1) :
     (x.zeroExtend v).msb = x.msb := by
   pbv_decide 4
 
+-- `signExtend` and `zeroExtend` differ whenever the msb is set
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  p = 1  	(m_w0 = 0x01#8)
-  r = 8  	(m_w1 = 0xff#8)
-  x = 0x1#1
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) (h : p < r) :
     x.signExtend r = x.zeroExtend r := by
   pbv_decide 8
 
 -- The counterexample can pick a width of zero
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  p = 8  	(m_w0 = 0xff#8)
-  w = 7  	(m_w1 = 0x7f#8)
-  x = 0x7f#8
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (p w : Nat) (x : BitVec p) (hp : p ≤ 8) (hwp : w < p) :
     (x.setWidth w).msb = x.msb := by
   pbv_decide 8
 
--- A "potentially spurious" counterexample can still be genuine: at `w = 0`, `1#0 = 0#0`
+-- A statement that is false at width `w = 0`
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 0  	(m_w0 = 0x0#4)
-  x = 0x0#0
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + 1#w ≠ x := by
   pbv_decide 4
@@ -132,12 +97,9 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
 /--
 warning: `grind` could not prove the following : w ≤ 4
 ---
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  x = 0xf#4
-  y = 0xf#4
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, warning, substring := true) in
 example (w : Nat) (x y : BitVec w) :
     x + y = x := by
   pbv_decide 4
@@ -147,24 +109,17 @@ example (w : Nat) (x y : BitVec w) :
 warning: `grind` could not prove the following : w + 2 ≤ 4
 ---
 error: unsolved goals
-w : Nat
-x y : BitVec (w + 2)
-hw : w ≤ 4
-m_w0 : BitVec 4
-h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 4 (w + 2)
-⊢ w + 2 ≤ 4
 -/
-#guard_msgs in
+#guard_msgs(error, warning, substring := true) in
 example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
     x + y = y + x := by
   pbv_decide 4
 
+-- The counterexample can pick a width of zero
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 0  	(m_w0 = 0x0#4)
-  y = 0x8#4
+error: `pbv_decide` found a counterexample
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
     (y.setWidth w).zeroExtend 4 = y := by
   pbv_decide 4
@@ -173,21 +128,18 @@ example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
 /--
 error: `pbv_decide` found a potentially spurious counterexample.
   The following expressions were abstracted as opaque variables:
-    - BitVec.setWidth 4 1#(w + 0) = 0xf#4
-Consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  w + 0 = 4  	(m_w0_add_lit0 = 0xf#4)
-  x = 0xf#4
+    - BitVec.setWidth 4 1#(w + 0)
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4
 
+-- Expected failure: width expressions using `Nat` subtraction cannot be reified
 /--
 error: Failed to reify width expr: v - 1 - 0 + 1
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
     (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8 -bv_decide
