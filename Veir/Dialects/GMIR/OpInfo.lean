@@ -37,7 +37,6 @@ inductive GMIR where
 | g_trunc
 | g_inttoptr
 | g_ptrtoint
-| g_ptr_add
 | g_bitcast
 | g_bswap
 | g_bitreverse
@@ -65,48 +64,11 @@ inductive GMIR where
 | g_ctpop
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-/--
-Properties of `g_ptr_add`. Each `G_PTR_ADD` that the IRTranslator builds for a GEP inherits the
-GEP's `nuw`, `nusw` and `inbounds` flags (`MachineInstr::NoUWrap`, `NoUSWrap` and `InBounds`).
-
-They are stored in the `noWrapFlags` attribute, with the same encoding as MLIR's `GEPNoWrapFlags`:
-`inbounds_flag = 1`, `nusw = 2`, `nuw = 4`.
--/
-structure PtrAddProperties where
-  inbounds : Bool
-  nusw : Bool
-  nuw : Bool
-deriving Inhabited, Repr, Hashable, DecidableEq
-
-def PtrAddProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String PtrAddProperties := do
-  let value ← match attrDict["noWrapFlags".toUTF8]? with
-    | some (.integerAttr flags) =>
-      if flags.type.bitwidth ≠ 32 then
-        .error s!"expected 'noWrapFlags' to be an integer attribute of bitwidth 32, but got i{flags.type.bitwidth}"
-      else
-        .ok flags.value
-    | some attr => .error s!"expected 'noWrapFlags' to be an optional integer attribute, but got {attr}"
-    | none => .ok 0
-  return { inbounds := (value.toNat &&& 1) ≠ 0
-           nusw := (value.toNat &&& 2) ≠ 0
-           nuw := (value.toNat &&& 4) ≠ 0 }
-
-def PtrAddProperties.toAttrDict (props : PtrAddProperties) : Std.HashMap ByteArray Attribute :=
-  let val := (if props.inbounds then 1 else 0) + (if props.nusw then 2 else 0) +
-    (if props.nuw then 4 else 0)
-  if val > 0 then
-    (Std.HashMap.emptyWithCapacity 1).insert "noWrapFlags".toUTF8
-      (.integerAttr (IntegerAttr.mk (Int.ofNat val) (IntegerType.signless 32)))
-  else
-    Std.HashMap.emptyWithCapacity 0
-
 @[expose, properties_of]
 def GMIR.propertiesOf : GMIR → Type
   | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => NswNuwProperties
   | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => ExactProperties
   | .g_or => DisjointProperties
-  | .g_ptr_add => PtrAddProperties
   | .g_icmp => IcmpProperties
   | .g_zext => NnegProperties
   | .g_anyext | .g_sext
@@ -124,7 +86,6 @@ def GMIR.fromAttrDict
   case g_add | g_sub | g_mul | g_shl | g_trunc => exact NswNuwProperties.fromAttrDict attrDict
   case g_sdiv | g_udiv | g_lshr | g_ashr => exact ExactProperties.fromAttrDict attrDict
   case g_or => exact DisjointProperties.fromAttrDict attrDict
-  case g_ptr_add => exact PtrAddProperties.fromAttrDict attrDict
   case g_icmp => exact IcmpProperties.fromAttrDictFor "gmir.g_icmp" attrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_anyext | g_sext
@@ -160,7 +121,7 @@ def GMIR.toAttrDict
     if props.disjoint then
       dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
-  | .g_zext | .g_ptr_add => props.toAttrDict
+  | .g_zext => props.toAttrDict
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem | .g_rotr | .g_rotl
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
@@ -448,19 +409,6 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if resBw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
-  /- The offset is sign-extended to the pointer width. `nuw` and `nusw` make an unsigned or
-     signed wrap of the address poison. `inbounds` is not checked. -/
-  | .g_ptr_add => do
-    let [.addr ptr, .int _ off] := operands.toList | none
-    match ptr, off with
-    | .val ptr, .val off =>
-      let addr := ptr.address.toBitVec
-      let off := off.signExtend 64
-      let unsignedWrap := (addr.toNat + off.toInt) < 0 || (addr.toNat + off.toInt) ≥ 2 ^ 64
-      if properties.nuw && unsignedWrap then return (#[.addr .poison], mem, none)
-      if properties.nusw && BitVec.saddOverflow addr off then return (#[.addr .poison], mem, none)
-      return (#[.addr (.val ⟨ptr.object, UInt64.ofBitVec (addr + off)⟩)], mem, none)
-    | _, _ => return (#[.addr .poison], mem, none)
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
@@ -532,18 +480,12 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       "gmir.g_ptrtoint: Expected operand 0 to have !llvm.ptr type"
     ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerType
       "gmir.g_ptrtoint: Expected result to have integer type"
-  | .g_ptr_add =>
-    opPtr.checkIsNonNullIntegerType ctx opIn
-    ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
-      "gmir.g_ptr_add: Expected operand 0 to have !llvm.ptr type"
-    ((opPtr.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
-      "gmir.g_ptr_add: Expected operand 1 to have integer type"
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl
-  | .g_inttoptr | .g_ptrtoint | .g_ptr_add | .g_bitcast | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
