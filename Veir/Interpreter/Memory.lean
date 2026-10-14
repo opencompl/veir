@@ -71,8 +71,9 @@ def MemoryState.arenaSize : UInt64 := 0x10000
   non-deterministic.
 -/
 def MemoryState.nextBase (mem : MemoryState) : UInt64 :=
-  let past := mem.objects.foldl (init := arenaSize) fun past obj =>
-    max past (obj.base + obj.size.toUInt64 + 1)
+  let past := match mem.objects.back? with
+    | some obj => max arenaSize (obj.base + obj.size.toUInt64 + 1)
+    | none => arenaSize
   (past + objectAlignment - 1) / objectAlignment * objectAlignment
 
 /--
@@ -133,8 +134,9 @@ def memorySize (n : Nat) : Interp UInt64 :=
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   let base := mem.nextBase
   if base.toNat + size.toNat ≥ 2 ^ 64 then Interp.fail none else
+  let index := mem.objects.size
   return ({ mem with objects := mem.objects.push (MemoryObject.ofSize base size.toNat) },
-    ⟨mem.objects.size, base⟩)
+    ⟨index, base⟩)
 
 /--
   Check if an access of `size` bytes at `p` is allowed.
