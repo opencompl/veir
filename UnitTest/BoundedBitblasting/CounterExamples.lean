@@ -132,7 +132,7 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
 -/
 #guard_msgs(error, substring := true) in
 example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
-    (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+    (x.extractLsb (v - 1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8
 
 -- A width built by subtraction is translated faithfully, so the counterexample is genuine
