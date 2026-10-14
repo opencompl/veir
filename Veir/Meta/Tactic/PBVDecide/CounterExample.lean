@@ -100,10 +100,9 @@ Convert a bv_decide counterexample into a string, mapping concrete mask `BitVec`
 values to concrete width `Nat` values, and keeping track if any counterexamples
 belong to expressions which have been abstracted as opaque variables.
 -/
-meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos : WidthInfos)
-    (bvInfos : BitVecInfos) : MetaM MessageData := do
-  let widthCexs ← getWidthCounterExamples widthInfos counterExample
-  let bitvecCexs ← getBitVecCounterExamples bvInfos widthCexs counterExample
+meta def prettyPrintCounterExample (counterExample : CounterExample) (infos : Infos) : MetaM MessageData := do
+  let widthCexs ← getWidthCounterExamples infos.width counterExample
+  let bitvecCexs ← getBitVecCounterExamples infos.bitvec widthCexs counterExample
 
   let visitedExamples : HashSet Expr := widthCexs.fold (fun acc _ cex => acc.insert cex.counterExample.fst)
                                      <| bitvecCexs.foldl (fun acc cex => acc.insert cex.counterExample.fst) {}
@@ -139,7 +138,7 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos
 Run `bv_decide` on a goal, throws with a pretty printed message if a
 counterexample was found.
 -/
-public meta def closeWithBvDecide (goal : MVarId) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) : TacticM Unit :=
+public meta def closeWithBvDecide (goal : MVarId) (infos : Infos) : TacticM Unit :=
   IO.FS.withTempFile fun _ lratFile => do
     let ctx ← TacticContext.new lratFile {}
     let params ← Grind.mkDefaultParams {}
@@ -148,7 +147,7 @@ public meta def closeWithBvDecide (goal : MVarId) (widthInfos : WidthInfos) (bvI
             <| bvDecide' (.mvarIdTarget goal) ctx with
     | .ok _ => return
     | .error counterExample => counterExample.goal.withContext do
-        let error ← prettyPrintCounterExample counterExample widthInfos bvInfos
+        let error ← prettyPrintCounterExample counterExample infos
         throwError (← addMessageContextFull error)
 
 end Veir.Meta.Tactic.PBVDecide

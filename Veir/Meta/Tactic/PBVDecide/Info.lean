@@ -16,9 +16,6 @@ structure WidthInfo where
   widthMaskFVar : FVarId
   /-- The FVarId of the pure-BV hypothesis that this width is a mask variable. -/
   widthMaskHypFvar : FVarId
-  /-- The proof obligation that the width variable is less than or equal to
-      the blast bound. -/
-  hypWidthLeBoundMVarId : Option MVarId
   /-- The hypothesis that the width variable is less than or equal to the blast
       bound. -/
   hypWidthLeBoundNote : FVarId
@@ -51,5 +48,9 @@ meta structure BitVecInfos where
 
 meta def BitVecInfos.push (this : BitVecInfos) (val : BitVecInfo) : BitVecInfos :=
   { this with infos := this.infos.push val }
+
+structure Infos where
+  width : WidthInfos
+  bitvec : BitVecInfos
 
 end Veir.Meta.Tactic.PBVDecide
