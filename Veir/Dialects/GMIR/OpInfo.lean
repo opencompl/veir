@@ -28,8 +28,6 @@ inductive GMIR where
 | g_shl
 | g_lshr
 | g_ashr
-| g_rotr
-| g_rotl
 | g_icmp
 | g_anyext
 | g_sext
@@ -64,7 +62,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_icmp => IcmpProperties
   | .g_zext => NnegProperties
   | .g_anyext | .g_sext
-  | .g_and | .g_xor | .g_srem | .g_urem | .g_rotr | .g_rotl
+  | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
@@ -80,7 +78,7 @@ def GMIR.fromAttrDict
   case g_icmp => exact IcmpProperties.fromAttrDictFor "gmir.g_icmp" attrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_anyext | g_sext
-     | g_and | g_xor | g_srem | g_urem | g_rotr | g_rotl
+     | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bitcast | g_bswap | g_bitreverse
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
@@ -113,7 +111,7 @@ def GMIR.toAttrDict
     dict
   | .g_zext => props.toAttrDict
   | .g_anyext | .g_sext
-  | .g_and | .g_xor | .g_srem | .g_urem | .g_rotr | .g_rotl
+  | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
@@ -155,7 +153,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_smin | .g_smax | .g_umin | .g_umax =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 0] }
-  | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl | .g_sshlsat | .g_ushlsat =>
+  | .g_shl | .g_lshr | .g_ashr | .g_sshlsat | .g_ushlsat =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 1] }
   | .g_icmp =>
@@ -377,6 +375,18 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType resBw := resType.val | none
     if resBw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
 
+
+private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  for i in [0:op.getNumOperands ctx.raw opIn] do
+    ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIntegerType
+      s!"{instrName}: Expected operand {i} to have integer type"
+  for i in [0:op.getNumResults ctx.raw opIn] do
+    ((op.getResult i).getType! ctx.raw).verifyIntegerType
+      s!"{instrName}: Expected result {i} to have integer type"
+
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
 containing the `gmir` dialect.
@@ -412,10 +422,12 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyTruncTypes ctx opIn (allowByte := false)
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
-  | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl
+  | .g_shl | .g_lshr | .g_ashr
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
   | .g_ctlz | .g_cttz | .g_ctpop =>
+
+
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
   | .g_bswap =>
@@ -450,12 +462,11 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
-  | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl
+  | .g_shl | .g_lshr | .g_ashr
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
-  | .g_umulh | .g_smulh | .g_ctlz | .g_cttz | .g_ctpop => true
+  | .g_ctlz | .g_cttz | .g_ctpop => true
 
 def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
   .none
