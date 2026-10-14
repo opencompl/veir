@@ -40,8 +40,8 @@ private def addressOf := func.body! ctx
 private def directCall := addressOf.next! ctx
 private def indirectCall := directCall.next! ctx
 
--- A direct call resolves to the symbol it names, and an indirect call to the operation defining
--- its callee.
+/- A direct call resolves to the symbol it names, and an indirect call to the operation defining
+   its callee. -/
 
 #guard (CallOp.of? directCall ctx).bind (·.resolveCallable?) = some func
 #guard (CallOp.of? indirectCall ctx).bind (·.resolveCallable?) = some addressOf
