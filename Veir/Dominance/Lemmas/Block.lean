@@ -235,7 +235,7 @@ private theorem idxInParent_eq_zero_of_firstOp {firstOp : OperationPtr}
   have firstParent : firstOp.getParent! ctx.raw = some block := by grind
   have wf : ctx.raw.WellFormed := by grind
   have chain : block.OpChain ctx.raw (block.operationList ctx.raw) :=
-    (wf.opChain block blockInBounds).choose_spec
+    BlockPtr.operationListWF ctx.raw block blockInBounds wf
   have zeroInBounds : 0 < (block.operationList ctx.raw).size := by grind
   have firstAtZero : (block.operationList ctx.raw)[0] = firstOp := by grind
   have firstIndex := chain.idxOf_getElem_array 0 zeroInBounds
@@ -248,6 +248,37 @@ private theorem idxInParent_eq_zero_of_firstOp {firstOp : OperationPtr}
     exact firstIndex
   · grind
 
+/-- Properly dominating an SSA block's first operation, excluding enclosing operations,
+properly dominates the block. -/
+theorem OperationPtr.ProperlyDominates.properlyDominatesBlock_of_firstOp {firstOp : OperationPtr}
+    (blockParent : block.getParent! ctx.raw = some region)
+    (regionSSA : region.hasSSADominance ctx)
+    (first : block.getFirstOp! ctx.raw = some firstOp)
+    (dominance : op.ProperlyDominates firstOp ctx false) :
+    op.ProperlyDominatesBlock block ctx false := by
+  have blockInBounds : block.InBounds ctx.raw := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  have firstParent : firstOp.getParent! ctx.raw = some block := by grind
+  cases dominance with
+  | @AncestorDominatedInRegion ancestor localRegion ancestry localDominance _ =>
+    by_cases same : ancestor = firstOp
+    · subst ancestor
+      cases localDominance with
+      | SameBlock localDominance =>
+        have firstIndex := idxInParent_eq_zero_of_firstOp blockInBounds first
+        cases localDominance <;>
+          grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+            OperationPtr.ProperlyDominatesInGraphBlock]
+      | @BlockDominance dominatorBlock dominatedBlock dominatorParent dominatedParent blockDominance =>
+        have sameBlock : dominatedBlock = block := by grind
+        subst dominatedBlock
+        exact .SameRegion dominatorParent blockDominance
+    · have properAncestry := ancestry.toProperAncestor (by simpa using same)
+      have ancestorOfBlock := properAncestry.ancestor_of_parent_descendant
+        (show (IRNode.operation firstOp).parent! ctx = some (.block block) by grind)
+      exact .AncestorOpDominated ancestorOfBlock
+        (.AncestorDominatedInRegion .refl localDominance false)
+
 /-- An operation properly dominating a successor block dominates its predecessor's exit. -/
 theorem OperationPtr.ProperlyDominatesBlock.dominatesIp_predecessor_exit
     (dominance : op.ProperlyDominatesBlock succ ctx enclosingOk)
@@ -259,8 +290,7 @@ theorem OperationPtr.ProperlyDominatesBlock.dominatesIp_predecessor_exit
       (ancestry : ancestor.Ancestor succ ctx) : ancestor.Ancestor block ctx := by
     exact IRNode.Ancestor.of_same_parent_of_properAncestor
       (ancestry.toProperAncestor (by simp)) (parent := .region region)
-      (by simp only [IRNode.parent!_block, succParent, Option.map_some])
-      (by simp only [IRNode.parent!_block, blockParent, Option.map_some])
+      (by grind) (by grind)
   cases dominance with
   | Ancestor ancestry =>
     exact .AtEndOtherBlock (.Ancestor (ancestorOfPredecessor ancestry))
@@ -290,30 +320,10 @@ theorem OperationPtr.DominatesIp.properlyDominatesBlock_of_atStart
       grind [BlockPtr.OpChain]
     | AtEndOtherBlock dominance => exact dominance
   | some firstOp =>
-    have firstParent : firstOp.getParent! ctx.raw = some block := by grind
     simp only [InsertPoint.atStart!, first] at dominance
     cases dominance with
     | Before dominance =>
-      cases dominance with
-      | @AncestorDominatedInRegion ancestor localRegion ancestry localDominance _ =>
-        by_cases same : ancestor = firstOp
-        · subst ancestor
-          cases localDominance with
-          | SameBlock localDominance =>
-            have firstIndex := idxInParent_eq_zero_of_firstOp blockInBounds first
-            cases localDominance <;>
-              grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
-                OperationPtr.ProperlyDominatesInGraphBlock]
-          | @BlockDominance dominatorBlock dominatedBlock dominatorParent dominatedParent blockDominance =>
-            have sameBlock : dominatedBlock = block := by grind
-            subst dominatedBlock
-            exact .SameRegion dominatorParent blockDominance
-        · have properAncestry := ancestry.toProperAncestor (by simpa using same)
-          have ancestorOfBlock := properAncestry.ancestor_of_parent_descendant
-            (show (IRNode.operation firstOp).parent! ctx = some (.block block) by
-              simp only [IRNode.parent!_operation, firstParent, Option.map_some])
-          exact .AncestorOpDominated ancestorOfBlock
-            (.AncestorDominatedInRegion .refl localDominance false)
+      exact dominance.properlyDominatesBlock_of_firstOp blockParent regionSSA first
 
 /-- In an SSA region, a value dominating a successor block's entry dominates the
 predecessor's exit or is an argument of the successor. -/
