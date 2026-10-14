@@ -17,34 +17,91 @@ public section
 inductive GMIR where
 | g_add
 | g_sub
+| g_mul
+| g_and
+| g_or
+| g_xor
+| g_sdiv
+| g_udiv
+| g_srem
+| g_urem
+| g_shl
+| g_lshr
+| g_ashr
+| g_rotr
+| g_rotl
 | g_icmp
 | g_anyext
 | g_sext
 | g_zext
 | g_trunc
+| g_inttoptr
+| g_ptrtoint
+| g_ptr_add
+| g_bitcast
+| g_bswap
+| g_bitreverse
+| g_saddsat
+| g_uaddsat
+| g_ssubsat
+| g_usubsat
+| g_sshlsat
+| g_ushlsat
+| g_smin
+| g_smax
+| g_umin
+| g_umax
+| g_abs
+| g_uaddo
+| g_saddo
+| g_usubo
+| g_ssubo
+| g_smulo
+| g_umulo
+| g_umulh
+| g_smulh
+| g_ctlz
+| g_cttz
+| g_ctpop
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def GMIR.propertiesOf : GMIR → Type
-  | .g_add | .g_sub | .g_trunc => NswNuwProperties
+  | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => NswNuwProperties
+  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => ExactProperties
+  | .g_or => DisjointProperties
   | .g_icmp => IcmpProperties
   | .g_zext => NnegProperties
-  | .g_anyext | .g_sext => Unit
+  | .g_anyext | .g_sext
+  | .g_and | .g_xor | .g_srem | .g_urem | .g_rotr | .g_rotl
+  | .g_inttoptr | .g_ptrtoint | .g_ptr_add | .g_bitcast | .g_bswap | .g_bitreverse
+  | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
+  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
+  | .g_umulh | .g_smulh | .g_ctlz | .g_cttz | .g_ctpop => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (GMIR.propertiesOf op) := by
   cases op
-  case g_add | g_sub | g_trunc => exact NswNuwProperties.fromAttrDict attrDict
+  case g_add | g_sub | g_mul | g_shl | g_trunc => exact NswNuwProperties.fromAttrDict attrDict
+  case g_sdiv | g_udiv | g_lshr | g_ashr => exact ExactProperties.fromAttrDict attrDict
+  case g_or => exact DisjointProperties.fromAttrDict attrDict
   case g_icmp => exact IcmpProperties.fromAttrDictFor "gmir.g_icmp" attrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
-  case g_anyext | g_sext => exact .ok ()
+  case g_anyext | g_sext
+     | g_and | g_xor | g_srem | g_urem | g_rotr | g_rotl
+     | g_inttoptr | g_ptrtoint | g_ptr_add | g_bitcast | g_bswap | g_bitreverse
+     | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
+     | g_smin | g_smax | g_umin | g_umax | g_abs
+     | g_uaddo | g_saddo | g_usubo | g_ssubo | g_smulo | g_umulo
+     | g_umulh | g_smulh | g_ctlz | g_cttz | g_ctpop => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
-  | .g_add | .g_sub | .g_trunc => Id.run do
+  | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     let val := (if props.nsw then 1 else 0) + (if props.nuw then 2 else 0)
     if val > 0 then
@@ -55,8 +112,24 @@ def GMIR.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
+  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.exact then
+      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | .g_or => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.disjoint then
+      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
   | .g_zext => props.toAttrDict
-  | .g_anyext | .g_sext => {}
+  | .g_anyext | .g_sext
+  | .g_and | .g_xor | .g_srem | .g_urem | .g_rotr | .g_rotl
+  | .g_inttoptr | .g_ptrtoint | .g_ptr_add | .g_bitcast | .g_bswap | .g_bitreverse
+  | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
+  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
+  | .g_umulh | .g_smulh | .g_ctlz | .g_cttz | .g_ctpop => {}
 
 #generate_dialect GMIR
 
@@ -88,15 +161,28 @@ structure GenericOpInfo where
 deriving Inhabited, Repr
 
 def GMIR.genericOpInfo : GMIR → GenericOpInfo
-  | .g_add | .g_sub =>
+  | .g_add | .g_sub | .g_mul | .g_and | .g_or | .g_xor
+  | .g_sdiv | .g_udiv | .g_srem | .g_urem
+  | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_umulh | .g_smulh =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 0] }
+  | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl | .g_sshlsat | .g_ushlsat | .g_ptr_add =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 0, .type 1] }
   | .g_icmp =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
-  | .g_anyext | .g_sext | .g_zext | .g_trunc =>
+  | .g_anyext | .g_sext | .g_zext | .g_trunc
+  | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_ctlz | .g_cttz | .g_ctpop =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
+  | .g_bswap | .g_bitreverse | .g_abs =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 0] }
+  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo =>
+    { outOperandList := #[.type 0, .type 1]
+      inOperandList := #[.type 0, .type 0] }
 
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
