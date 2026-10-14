@@ -76,6 +76,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_trunc => [
       .alwaysLegal,
     ]
+    -- FIXME: Add rules for the remaining operations. Until then, they are unsupported.
+    | _ => []
   legalizeCustom
     | .g_add => customLegalizeAddSub .g_add .addw ()
     | .g_sub => customLegalizeAddSub .g_sub .subw ()
