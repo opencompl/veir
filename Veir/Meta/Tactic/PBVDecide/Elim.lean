@@ -100,6 +100,23 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) : TranslateM (MVa
   match widthTm with
   | .widthAtom _ | .widthFVar _ _ => introMaskWidth g widthTm
   | .widthLit _ => introMaskLit g widthTm
+  | .widthSub v w => do
+    -- Get or create masks of the children
+    let (g, vInfo) ← getOrCreateWidthMask g v
+    let (g, wInfo) ← getOrCreateWidthMask g w
+    -- Intro the mask for this term
+    let (g, thisInfo) ← introMaskWidth g widthTm
+    -- Rewrite the mask of a subtraction of widths in terms of the underlying masks.
+    let (_hyp, g) ← g.withContext do
+      g.note (Name.mkSimple s!"bv_{← widthTm.toName}") <| ← mkAppM ``sub_eq_shiftRight_of_maskOfWidth #[
+        .fvar vInfo.hypWidthLeBoundNote,
+        .fvar wInfo.hypWidthLeBoundNote,
+        .fvar vInfo.widthMaskHypFvar,
+        .fvar wInfo.widthMaskHypFvar,
+        .fvar thisInfo.widthMaskHypFvar
+      ]
+    return (g, thisInfo)
+
   | .widthAdd v w => do
     -- Get or create masks of the children
     let (g, vInfo) ← getOrCreateWidthMask g v
@@ -108,7 +125,7 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) : TranslateM (MVa
     let (g, thisInfo) ← introMaskWidth g widthTm
     -- Rewrite the mask of a sum of widths in terms of the underlying masks.
     let (_hyp, g) ← g.withContext do
-      g.note (Name.mkSimple s!"bv_{← widthTm.toName}") <| ← mkAppM ``add_eq_shift_sum_of_maskOfWidth #[
+      g.note (Name.mkSimple s!"bv_{← widthTm.toName}") <| ← mkAppM ``add_eq_shiftLeft_of_maskOfWidth #[
         .fvar vInfo.hypWidthLeBoundNote,
         .fvar wInfo.hypWidthLeBoundNote,
         .fvar thisInfo.hypWidthLeBoundNote,
