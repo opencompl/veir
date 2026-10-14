@@ -109,13 +109,8 @@ theorem rootedAt_iff
     dominator.RootedAt root ctx ↔ dominated.RootedAt root ctx := by
   have dominatorParent := dominance.parent_dominator
   have dominatedParent := dominance.parent_dominated
-  constructor
-  · intro rooted
-    exact rooted.of_same_parent (parent := .region region)
-      (by grind) (by grind)
-  · intro rooted
-    exact rooted.of_same_parent (parent := .region region)
-      (by grind) (by grind)
+  exact IRNode.Ancestor.rootedAt_iff_of_common_ancestor
+    (ancestor := .region region) (.of_parent (by grind)) (.of_parent (by grind))
 
 /--
 If a `source` block properly dominates a distinct `target`, then it properly dominates

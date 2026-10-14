@@ -152,40 +152,25 @@ theorem OperationPtr.ProperlyDominatesInRegion.rootedAt_iff
       cases dominance <;>
         grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
           OperationPtr.ProperlyDominatesInGraphBlock]
-    constructor
-    · intro rooted
-      exact rooted.of_same_parent (parent := .block block)
-        (by grind) (by grind)
-    · intro rooted
-      exact rooted.of_same_parent (parent := .block block)
-        (by grind) (by grind)
+    exact IRNode.Ancestor.rootedAt_iff_of_common_ancestor
+      (ancestor := .block block) (.of_parent (by grind)) (.of_parent (by grind))
   | @BlockDominance dominatorBlock dominatedBlock dominatorParent dominatedParent dominance =>
-    constructor
-    · intro rooted
-      have parentRooted : dominatorBlock.RootedAt root ctx :=
-        rooted.of_ancestor (IRNode.Ancestor.of_parent (by grind))
-      exact (dominance.rootedAt_iff.mp parentRooted).of_parent (by grind)
-    · intro rooted
-      have parentRooted : dominatedBlock.RootedAt root ctx :=
-        rooted.of_ancestor (IRNode.Ancestor.of_parent (by grind))
-      exact (dominance.rootedAt_iff.mpr parentRooted).of_parent (by grind)
+    have dominatorRegionParent := dominance.parent_dominator
+    have dominatedRegionParent := dominance.parent_dominated
+    apply IRNode.Ancestor.rootedAt_iff_of_common_ancestor (ancestor := .region region)
+    · exact IRNode.Ancestor.trans_parent_ancestor (middle := .block dominatorBlock)
+        (by grind) (.of_parent (by grind))
+    · exact IRNode.Ancestor.trans_parent_ancestor (middle := .block dominatedBlock)
+        (by grind) (.of_parent (by grind))
 
 /-- Operations related by proper dominance share a root, independently of reachability. -/
 theorem OperationPtr.ProperlyDominates.rootedAt_iff
     (dominance : op₁.ProperlyDominates op₂ ctx enclosingOk) :
     op₁.RootedAt root ctx ↔ op₂.RootedAt root ctx := by
-  have ancestorRoots {ancestor descendant : IRNode}
-      (ancestry : ancestor.Ancestor descendant ctx) :
-      ancestor.RootedAt root ctx ↔ descendant.RootedAt root ctx := by
-    constructor
-    · intro rooted
-      exact ⟨rooted.ancestor.trans ancestry, rooted.root_parent_eq⟩
-    · intro rooted
-      exact rooted.of_ancestor ancestry
   cases dominance with
-  | Ancestor ancestry _ => exact ancestorRoots ancestry
+  | Ancestor ancestry _ => exact ancestry.rootedAt_iff
   | AncestorDominatedInRegion ancestry dominance =>
-    exact dominance.rootedAt_iff.trans (ancestorRoots ancestry)
+    exact dominance.rootedAt_iff.trans ancestry.rootedAt_iff
 
 /-- Operations related by dominance share a root, independently of reachability. -/
 theorem OperationPtr.Dominates.rootedAt_iff

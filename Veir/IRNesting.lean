@@ -362,6 +362,22 @@ theorem RootedAt.of_ancestor {node ancestor : IRNode}
     have hNe : root ≠ descendant := by grind [RootedAt]
     exact (hRooted.1.toProperAncestor hNe).ancestor_of_parent_descendant immediate
 
+/-- An ancestor and its descendant share a root. -/
+theorem Ancestor.rootedAt_iff {ancestor node : IRNode}
+    (ancestry : ancestor.Ancestor node ctx) :
+    ancestor.RootedAt root ctx ↔ node.RootedAt root ctx := by
+  constructor
+  · intro rooted
+    exact ⟨rooted.ancestor.trans ancestry, rooted.root_parent_eq⟩
+  · intro rooted
+    exact rooted.of_ancestor ancestry
+
+/-- Nodes with a common ancestor share a root. -/
+theorem Ancestor.rootedAt_iff_of_common_ancestor {ancestor node₁ node₂ : IRNode}
+    (first : ancestor.Ancestor node₁ ctx) (second : ancestor.Ancestor node₂ ctx) :
+    node₁.RootedAt root ctx ↔ node₂.RootedAt root ctx :=
+  first.rootedAt_iff.symm.trans second.rootedAt_iff
+
 /-- Nodes with the same parent share a root. -/
 theorem RootedAt.of_same_parent {node sibling parent : IRNode}
     (hRooted : node.RootedAt root ctx)
