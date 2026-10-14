@@ -3,10 +3,12 @@ module
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
+public import Veir.Dialects.GMIR.Properties
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 public import Veir.Data.LLVM.Int.Basic
+import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
 namespace Veir
@@ -33,6 +35,8 @@ inductive GMIR where
 | g_sext
 | g_zext
 | g_trunc
+| g_sext_inreg
+| g_constant
 | g_inttoptr
 | g_ptrtoint
 | g_bswap
@@ -60,6 +64,8 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_or => DisjointProperties
   | .g_icmp => IcmpProperties
   | .g_zext => NnegProperties
+  | .g_sext_inreg => SextInRegProperties
+  | .g_constant => GMIRConstantProperties
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
@@ -76,6 +82,8 @@ def GMIR.fromAttrDict
   case g_or => exact DisjointProperties.fromAttrDict attrDict
   case g_icmp => exact IcmpProperties.fromAttrDictFor "gmir.g_icmp" attrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
+  case g_sext_inreg => exact SextInRegProperties.fromAttrDict attrDict
+  case g_constant => exact GMIRConstantProperties.fromAttrDict attrDict
   case g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
@@ -109,6 +117,8 @@ def GMIR.toAttrDict
       dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
     dict
   | .g_zext => props.toAttrDict
+  | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
+  | .g_constant => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (.integerAttr props.value)
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
@@ -162,9 +172,12 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_inttoptr | .g_ptrtoint | .g_ctlz | .g_cttz | .g_ctpop =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
-  | .g_bswap | .g_bitreverse | .g_abs =>
+  | .g_bswap | .g_bitreverse | .g_abs | .g_sext_inreg =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
+  | .g_constant =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[] }
 
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
@@ -243,6 +256,16 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType resBw := resType.val | none
     if h : resBw.bitwidth >= w then none else
     return (#[.int resBw.bitwidth (Data.LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
+  | .g_sext_inreg => do
+    let [.int w val] := operands.toList | none
+    let sz := properties.sz.toNat
+    if h : w ≤ sz then none else
+    let low := Data.LLVM.Int.trunc val sz false false (by omega)
+    return (#[.int w (Data.LLVM.Int.sext low w (by omega))], mem, none)
+  | .g_constant => do
+    let some resType := resultTypes[0]? | none
+    let .integerType bw := resType.val | none
+    return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth properties.value.value))], mem, none)
   | .g_mul => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -391,6 +414,19 @@ private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo
     ((op.getResult i).getType! ctx.raw).verifyIntegerType
       s!"{instrName}: Expected result {i} to have integer type"
 
+/-- Verifies that `sz` is at least 1 and smaller than the bitwidth of the operand. -/
+private def OperationPtr.verifyGMIRSextInReg {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo GMIR] (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let .integerType ⟨width, _⟩ := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    | throw s!"{instrName}: Expected operand 0 to have integer type"
+  let sz := (op.getProperties! ctx.raw GMIR.g_sext_inreg).sz.toInt
+  if sz < 1 then
+    throw s!"{instrName}: Expected 'sz' to be at least 1, but got {sz}"
+  if width ≤ sz then
+    throw s!"{instrName}: Expected 'sz' to be smaller than the operand width {width}, but got {sz}"
+
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
 containing the `gmir` dialect.
@@ -448,6 +484,17 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       "gmir.g_ptrtoint: Expected operand 0 to have !llvm.ptr type"
     ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerType
       "gmir.g_ptrtoint: Expected result to have integer type"
+  | .g_sext_inreg =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRIntegerTypes ctx opIn
+    opPtr.verifyGMIRSextInReg ctx opIn
+  | .g_constant =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRIntegerTypes ctx opIn
+    let props := opPtr.getProperties! ctx.raw GMIR.g_constant
+    if props.value.type ≠ ((opPtr.getResult 0).getType! ctx.raw).val then
+      throw "gmir.g_constant: Expected result type to be equal to the constant's type"
+    opPtr.verifyNormalizedIntegerAttr ctx opIn props.value
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
@@ -456,13 +503,15 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop => true
+  | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg => true
+  | .g_constant => false
 
 def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
   .none
 
-def GMIR.isConstantLike (_op : GMIR) : Bool :=
-  false
+def GMIR.isConstantLike : GMIR → Bool
+  | .g_constant => true
+  | _ => false
 
 def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
   true
