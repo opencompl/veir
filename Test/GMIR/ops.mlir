@@ -15,7 +15,6 @@
   %ashr = "gmir.g_ashr"(%a, %b) : (i32, i32) -> i32
   %inttoptr = "gmir.g_inttoptr"(%c) : (i64) -> !llvm.ptr
   %ptrtoint = "gmir.g_ptrtoint"(%p) : (!llvm.ptr) -> i64
-  %bitcast = "gmir.g_bitcast"(%a) : (i32) -> i32
   %bswap = "gmir.g_bswap"(%a) : (i32) -> i32
   %bitreverse = "gmir.g_bitreverse"(%a) : (i32) -> i32
   %saddsat = "gmir.g_saddsat"(%a, %b) : (i32, i32) -> i32
@@ -47,7 +46,6 @@
 // CHECK: "gmir.g_ashr"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_inttoptr"(%{{.*}}) : (i64) -> !llvm.ptr
 // CHECK: "gmir.g_ptrtoint"(%{{.*}}) : (!llvm.ptr) -> i64
-// CHECK: "gmir.g_bitcast"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_bswap"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_bitreverse"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_saddsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32

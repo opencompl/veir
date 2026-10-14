@@ -35,7 +35,6 @@ inductive GMIR where
 | g_trunc
 | g_inttoptr
 | g_ptrtoint
-| g_bitcast
 | g_bswap
 | g_bitreverse
 | g_saddsat
@@ -63,7 +62,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_zext => NnegProperties
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
-  | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop => Unit
@@ -79,7 +78,7 @@ def GMIR.fromAttrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
-     | g_inttoptr | g_ptrtoint | g_bitcast | g_bswap | g_bitreverse
+     | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_ctlz | g_cttz | g_ctpop => exact .ok ()
@@ -112,7 +111,7 @@ def GMIR.toAttrDict
   | .g_zext => props.toAttrDict
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
-  | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop => {}
@@ -160,7 +159,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
   | .g_anyext | .g_sext | .g_zext | .g_trunc
-  | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_ctlz | .g_cttz | .g_ctpop =>
+  | .g_inttoptr | .g_ptrtoint | .g_ctlz | .g_cttz | .g_ctpop =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
   | .g_bswap | .g_bitreverse | .g_abs =>
@@ -373,12 +372,6 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.ctpop x))], mem, none)
-  | .g_bitcast => do
-    /- Only for the int type. -/
-    let [.int bw x] := operands.toList | none
-    let some resType := resultTypes[0]? | none
-    let .integerType resBw := resType.val | none
-    if h : bw = resBw.bitwidth then return (#[.int resBw.bitwidth (x.cast h)], mem, none) else none
   | .g_inttoptr => do
     let [.int bw val] := operands.toList | none
     if h : bw = 64 then return (#[.addr (mem.ptrFromInt (val.cast h))], mem, none) else .fail none
@@ -447,15 +440,6 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | throw "gmir.g_bswap: Expected result to have integer type"
     if intType.bitwidth ∉ [16, 32, 64] then
       throw "gmir.g_bswap: bitwidth must be 16, 32, or 64"
-  | .g_bitcast =>
-    opPtr.checkIsNonNullIntegerType ctx opIn
-    opPtr.verifyGMIRIntegerTypes ctx opIn
-    let .integerType fromType := ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).val
-      | throw "gmir.g_bitcast: Expected operand 0 to have integer type"
-    let .integerType toType := ((opPtr.getResult 0).getType! ctx.raw).val
-      | throw "gmir.g_bitcast: Expected result to have integer type"
-    if fromType.bitwidth ≠ toType.bitwidth then
-      throw "gmir.g_bitcast: Expected operand and result to have the same bitwidth"
   | .g_inttoptr =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
@@ -473,7 +457,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr
-  | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop => true
