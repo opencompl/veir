@@ -12,13 +12,23 @@ jobs:
     # The runner profile pins the machine shape (32 vCPU, eight times what the
     # GitHub-hosted runner in the sibling `Lean Action CI` workflow gets, so
     # Lake builds with `-j32` instead of `-j4`), the cache volume and the git
-    # mirror. It also carries the custom base image that provides `mlir-opt`,
-    # `uv`, `lit`, `filecheck` and `elan`; its Dockerfile is kept in
-    # `.github/docker/namespace-base-image.Dockerfile`.
+    # mirror. Nix supplies the native dependencies; the custom base image
+    # supplies `lit`, `filecheck`, and the `llubi`/`alive-exec` cross-check tools.
+    # Its Dockerfile is `.github/docker/namespace-base-image.Dockerfile`.
     runs-on: namespace-profile-veir
 
     steps:
       - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Activate the Nix development environment
+        uses: nicknovitski/nix-develop@9be7cfb4b10451d3390a75dc18ad0465bed4932a # v1.2.1
+        with:
+          arguments: --no-write-lock-file
 
       # The checkout wipes the workspace, so `.lake` does not exist when the
       # cache action runs and it has nothing to bind the volume onto. It skips
