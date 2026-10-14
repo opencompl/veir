@@ -1,13 +1,21 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
-    %x = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
-    %add = "gmir.g_add"(%x, %x) : (i64, i64) -> i64
-    // CHECK: "riscv.add"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-    %sub = "gmir.g_sub"(%x, %x) : (i64, i64) -> i64
-    // CHECK: "riscv.sub"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-    "test.test"(%add, %sub) : (i64, i64) -> ()
-    "llvm.return"() : () -> ()
-  }) : () -> ()
+    "llvm.func"()  <{function_type = !llvm.func<void ()>, sym_name = "main"}> ({
+        %a = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+        %b = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
+        %add = "gmir.g_add"(%a, %b) : (i64, i64) -> i64
+        // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        %sub = "gmir.g_sub"(%a, %b) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        "test.test"(%add) : (i64) -> ()
+        "test.test"(%sub) : (i64) -> ()
+        "llvm.return"() : () -> ()
+    }) : () -> ()
 }) : () -> ()
