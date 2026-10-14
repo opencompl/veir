@@ -261,6 +261,15 @@ theorem of_getParentOp!_eq_some {child parent : OperationPtr}
   apply IRNode.Ancestor.trans_parent_ancestor (middle := .operation child); grind
   grind
 
+/-- An operation's parent region is an ancestor through its parent block. -/
+theorem of_getParentRegion!_eq_some {op : OperationPtr} {region : RegionPtr}
+    (parentRegion : op.getParentRegion! ctx.raw = some region) :
+    IRNode.Ancestor (.region region) (.operation op) ctx := by
+  obtain ⟨block, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  exact Ancestor.trans_parent_ancestor (middle := .block block)
+    (by grind) (.of_parent (by grind))
+
 /-- An ancestry relation is either proper or relates a node to itself. -/
 theorem proper_or_eq
     (ancestry : ancestor.Ancestor descendant ctx) :
