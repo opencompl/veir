@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <lean/lean.h>
 #include <lean/lean_gmp.h>
 
