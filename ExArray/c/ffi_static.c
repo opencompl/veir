@@ -1,5 +1,3 @@
-#include <string.h>
-#include <stdio.h>
 #include <stdint.h>
 #include <lean/lean.h>
 #include <lean/lean_gmp.h>
@@ -98,7 +96,7 @@ lean_obj_res buffed_copy_ex_array(lean_obj_arg a, size_t cap) {
     lean_object * r     = buffed_alloc_ex_array(esz, sz, cap);
     uint8 * it     = buffed_ex_array_cptr(a);
     uint8 * dest   = buffed_ex_array_cptr(r);
-    memcpy(dest, it, esz*sz);
+    __builtin_memcpy(dest, it, esz*sz);
     lean_dec(a);
     return r;
 }
@@ -118,7 +116,7 @@ lean_obj_res buffed_ex_array_ensure_exclusive(lean_obj_arg a) {
     if (buffed_is_exclusive(a)) {
         return a;
     } else {
-        printf("\n\nNON EXCLUSIVE ARRAY!\n\n");
+        __builtin_printf("\n\nNON EXCLUSIVE ARRAY!\n\n");
         return buffed_copy_ex_array(a, buffed_sarray_capacity(a));
     }
 }
