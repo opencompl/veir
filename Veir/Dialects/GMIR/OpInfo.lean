@@ -51,14 +51,6 @@ inductive GMIR where
 | g_umin
 | g_umax
 | g_abs
-| g_uaddo
-| g_saddo
-| g_usubo
-| g_ssubo
-| g_smulo
-| g_umulo
-| g_umulh
-| g_smulh
 | g_ctlz
 | g_cttz
 | g_ctpop
@@ -76,8 +68,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
-  | .g_umulh | .g_smulh | .g_ctlz | .g_cttz | .g_ctpop => Unit
+  | .g_ctlz | .g_cttz | .g_ctpop => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -93,8 +84,7 @@ def GMIR.fromAttrDict
      | g_inttoptr | g_ptrtoint | g_bitcast | g_bswap | g_bitreverse
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
-     | g_uaddo | g_saddo | g_usubo | g_ssubo | g_smulo | g_umulo
-     | g_umulh | g_smulh | g_ctlz | g_cttz | g_ctpop => exact .ok ()
+     | g_ctlz | g_cttz | g_ctpop => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -127,8 +117,7 @@ def GMIR.toAttrDict
   | .g_inttoptr | .g_ptrtoint | .g_bitcast | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
-  | .g_umulh | .g_smulh | .g_ctlz | .g_cttz | .g_ctpop => {}
+  | .g_ctlz | .g_cttz | .g_ctpop => {}
 
 #generate_dialect GMIR
 
@@ -163,10 +152,10 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_add | .g_sub | .g_mul | .g_and | .g_or | .g_xor
   | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat
-  | .g_smin | .g_smax | .g_umin | .g_umax | .g_umulh | .g_smulh =>
+  | .g_smin | .g_smax | .g_umin | .g_umax =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 0] }
-  | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl | .g_sshlsat | .g_ushlsat | .g_ptr_add =>
+  | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl | .g_sshlsat | .g_ushlsat =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 1] }
   | .g_icmp =>
@@ -179,9 +168,6 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_bswap | .g_bitreverse | .g_abs =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
-  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo =>
-    { outOperandList := #[.type 0, .type 1]
-      inOperandList := #[.type 0, .type 0] }
 
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
@@ -201,90 +187,6 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
   let resultType := (op.getResult 0).getType! ctx.raw
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
 
-
-/-- Interprets a binary operation whose operands and result all have the same integer type. -/
-private def interpretIntBinop (operands : Array RuntimeValue) (mem : MemoryState)
-    (f : {w : Nat} → Data.LLVM.Int w → Data.LLVM.Int w → Data.LLVM.Int w)
-    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
-  let [.int bw lhs, .int bw' rhs] := operands.toList | none
-  if h : bw' ≠ bw then none else
-  let rhs := rhs.cast (by simp at h; exact h)
-  return (#[.int bw (f lhs rhs)], mem, none)
-
-/--
-Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
-An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
-which is also out of range and hence yields the same (poison) result.
--/
-private def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
-  | .val v => .val (if v.toNat < w then BitVec.ofNat w v.toNat else BitVec.allOnes w)
-  | .poison => .poison
-
-/-- Interprets a shift-like operation `type0 <- type0, type1`. -/
-private def interpretIntShift (operands : Array RuntimeValue) (mem : MemoryState)
-    (f : {w : Nat} → Data.LLVM.Int w → Data.LLVM.Int w → Data.LLVM.Int w)
-    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
-  let [.int bw lhs, .int _ rhs] := operands.toList | none
-  return (#[.int bw (f lhs (shiftAmount bw rhs))], mem, none)
-
-/--
-Interprets `g_rotl`/`g_rotr` as a funnel shift of the value with itself. The rotate amount is
-taken modulo the bit width, so it never produces poison on its own.
--/
-private def interpretIntRotate (operands : Array RuntimeValue) (mem : MemoryState)
-    (f : {w : Nat} → Data.LLVM.Int w → Data.LLVM.Int w → Data.LLVM.Int w → Data.LLVM.Int w)
-    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
-  let [.int bw x, .int _ amt] := operands.toList | none
-  let amt : Data.LLVM.Int bw := match amt with
-    | .val v => .val (BitVec.ofNat bw (v.toNat % bw))
-    | .poison => .poison
-  return (#[.int bw (f x x amt)], mem, none)
-
-/-- Converts a bit count to the width `w` of the result (type group 0) of `g_ctlz`/`g_cttz`/`g_ctpop`. -/
-private def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
-  | .val v => .val (BitVec.ofNat w v.toNat)
-  | .poison => .poison
-
-/-- Interprets a unary bit-counting operation `type0 <- type1`. -/
-private def interpretIntCount (operands : Array RuntimeValue) (resultTypes : Array TypeAttr)
-    (mem : MemoryState) (f : {w : Nat} → Data.LLVM.Int w → Data.LLVM.Int w)
-    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
-  let [.int _ x] := operands.toList | none
-  let some resType := resultTypes[0]? | none
-  let .integerType resBw := resType.val | none
-  return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (f x))], mem, none)
-
-/--
-Interprets an operation with an overflow (carry) result, `type0, type1 <- type0, type0`.
-The carry is `1` when `overflows` holds, zero-extended to the carry width. If either operand is
-poison, both results are poison.
--/
-private def interpretIntOverflowOp (operands : Array RuntimeValue) (resultTypes : Array TypeAttr)
-    (mem : MemoryState) (f : {w : Nat} → BitVec w → BitVec w → BitVec w)
-    (overflows : {w : Nat} → BitVec w → BitVec w → Bool)
-    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
-  let [.int bw lhs, .int bw' rhs] := operands.toList | none
-  if h : bw' ≠ bw then none else
-  let rhs := rhs.cast (by simp at h; exact h)
-  let some carryType := resultTypes[1]? | none
-  let .integerType carryBw := carryType.val | none
-  let carryW := carryBw.bitwidth
-  match lhs, rhs with
-  | .val x, .val y =>
-    let carry := (BitVec.ofBool (overflows x y)).zeroExtend carryW
-    return (#[.int bw (.val (f x y)), .int carryW (.val carry)], mem, none)
-  | _, _ => return (#[.int bw .poison, .int carryW .poison], mem, none)
-
-private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
-    (op : OperationPtr) (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  for i in [0:op.getNumOperands ctx.raw opIn] do
-    ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIntegerType
-      s!"{instrName}: Expected operand {i} to have integer type"
-  for i in [0:op.getNumResults ctx.raw opIn] do
-    ((op.getResult i).getType! ctx.raw).verifyIntegerType
-      s!"{instrName}: Expected result {i} to have integer type"
 
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -331,10 +233,26 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType resBw := resType.val | none
     if h : resBw.bitwidth >= w then none else
     return (#[.int resBw.bitwidth (Data.LLVM.Int.trunc val resBw.bitwidth properties.nsw properties.nuw (by omega))], mem, none)
-  | .g_mul => interpretIntBinop operands mem (Data.LLVM.Int.mul · · properties.nsw properties.nuw)
-  | .g_and => interpretIntBinop operands mem Data.LLVM.Int.and
-  | .g_or => interpretIntBinop operands mem (Data.LLVM.Int.or · · properties.disjoint)
-  | .g_xor => interpretIntBinop operands mem Data.LLVM.Int.xor
+  | .g_mul => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.mul lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .g_and => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.and lhs rhs)], mem, none)
+  | .g_or => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.or lhs rhs)], mem, none)
+  | .g_xor => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.xor lhs rhs)], mem, none)
   | .g_sdiv => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -359,30 +277,73 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     if Data.LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
     return (#[.int bw (Data.LLVM.Int.urem lhs rhs)], mem, none)
-  | .g_shl => interpretIntShift operands mem (Data.LLVM.Int.shl · · properties.nsw properties.nuw)
-  | .g_lshr => interpretIntShift operands mem (Data.LLVM.Int.lshr · · properties.exact)
-  | .g_ashr => interpretIntShift operands mem (Data.LLVM.Int.ashr · · properties.exact)
-  | .g_sshlsat => interpretIntShift operands mem Data.LLVM.Int.sshlSat
-  | .g_ushlsat => interpretIntShift operands mem Data.LLVM.Int.ushlSat
-  | .g_rotl => interpretIntRotate operands mem Data.LLVM.Int.fshl
-  | .g_rotr => interpretIntRotate operands mem Data.LLVM.Int.fshr
-  | .g_saddsat => interpretIntBinop operands mem Data.LLVM.Int.saddSat
-  | .g_uaddsat => interpretIntBinop operands mem Data.LLVM.Int.uaddSat
-  | .g_ssubsat => interpretIntBinop operands mem Data.LLVM.Int.ssubSat
-  | .g_usubsat => interpretIntBinop operands mem Data.LLVM.Int.usubSat
-  | .g_smin => interpretIntBinop operands mem Data.LLVM.Int.smin
-  | .g_smax => interpretIntBinop operands mem Data.LLVM.Int.smax
-  | .g_umin => interpretIntBinop operands mem Data.LLVM.Int.umin
-  | .g_umax => interpretIntBinop operands mem Data.LLVM.Int.umax
-  | .g_umulh => interpretIntBinop operands mem Data.LLVM.Int.umulHigh
-  | .g_smulh => interpretIntBinop operands mem Data.LLVM.Int.smulHigh
-  | .g_uaddo => interpretIntOverflowOp operands resultTypes mem (· + ·) BitVec.uaddOverflow
-  | .g_saddo => interpretIntOverflowOp operands resultTypes mem (· + ·) BitVec.saddOverflow
-  | .g_usubo => interpretIntOverflowOp operands resultTypes mem (· - ·) BitVec.usubOverflow
-  | .g_ssubo => interpretIntOverflowOp operands resultTypes mem (· - ·) BitVec.ssubOverflow
-  | .g_umulo => interpretIntOverflowOp operands resultTypes mem (· * ·) BitVec.umulOverflow
-  | .g_smulo => interpretIntOverflowOp operands resultTypes mem (· * ·) BitVec.smulOverflow
-  -- `G_ABS` has no "int min is poison" flag: `abs(INT_MIN) = INT_MIN`.
+  | .g_shl => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
+  | .g_lshr => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if Data.LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
+    return (#[.int bw (Data.LLVM.Int.lshr lhs rhs properties.exact)], mem, none)
+  | .g_ashr => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    if Data.LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
+    return (#[.int bw (Data.LLVM.Int.ashr lhs rhs properties.exact)], mem, none)
+  | .g_sshlsat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.sshlSat lhs rhs)], mem, none)
+  | .g_ushlsat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.ushlSat lhs rhs)], mem, none)
+  | .g_saddsat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.saddSat lhs rhs)], mem, none)
+  | .g_uaddsat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.uaddSat lhs rhs)], mem, none)
+  | .g_ssubsat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.ssubSat lhs rhs)], mem, none)
+  | .g_usubsat => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.usubSat lhs rhs)], mem, none)
+  | .g_smin => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.smin lhs rhs)], mem, none)
+  | .g_smax => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.smax lhs rhs)], mem, none)
+  | .g_umin => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.umin lhs rhs)], mem, none)
+  | .g_umax => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.umin lhs rhs)], mem, none)
   | .g_abs => do
     let [.int bw x] := operands.toList | none
     return (#[.int bw (Data.LLVM.Int.abs x false)], mem, none)
@@ -392,11 +353,17 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
   | .g_bitreverse => do
     let [.int bw x] := operands.toList | none
     return (#[.int bw (Data.LLVM.Int.bitreverse x)], mem, none)
-  -- `G_CTLZ`/`G_CTTZ` are defined at zero; the zero-is-poison forms are separate opcodes.
-  | .g_ctlz => interpretIntCount operands resultTypes mem (Data.LLVM.Int.ctlz · false)
-  | .g_cttz => interpretIntCount operands resultTypes mem (Data.LLVM.Int.cttz · false)
-  | .g_ctpop => interpretIntCount operands resultTypes mem Data.LLVM.Int.ctpop
+  | .g_ctlz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (Data.LLVM.Int.ctlz x false)], mem, none)
+  | .g_cttz => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (Data.LLVM.Int.cttz x false)], mem, none)
+  | .g_ctpop => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (Data.LLVM.Int.ctpop x)], mem, none)
   | .g_bitcast => do
+    /- only for int type -/
     let [.int bw x] := operands.toList | none
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
@@ -448,8 +415,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_shl | .g_lshr | .g_ashr | .g_rotr | .g_rotl
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
-  | .g_uaddo | .g_saddo | .g_usubo | .g_ssubo | .g_smulo | .g_umulo
-  | .g_umulh | .g_smulh | .g_ctlz | .g_cttz | .g_ctpop =>
+  | .g_ctlz | .g_cttz | .g_ctpop =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
   | .g_bswap =>
