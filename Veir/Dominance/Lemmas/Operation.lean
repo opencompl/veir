@@ -257,13 +257,6 @@ theorem OperationPtr.LocallyReachable.parentRegion
 
 grind_pattern OperationPtr.LocallyReachable.parentRegion => op.LocallyReachable region ctx
 
-/-- A dominator of a hierarchically reachable operation is hierarchically reachable. -/
-@[grind →]
-axiom OperationPtr.HierarchicallyReachable.of_dominates :
-    op₁.HierarchicallyReachable ctx →
-    op₂.Dominates op₁ ctx enclosingOk →
-    op₂.HierarchicallyReachable ctx
-
 /-- A hierarchically reachable operation is locally reachable in some parent region. -/
 @[grind .]
 theorem OperationPtr.HierarchicallyReachable.exists_locallyReachable :
@@ -286,16 +279,82 @@ theorem OperationPtr.HierarchicallyReachable.of_ancestor_block
       simp only [IRNode.parent!_operation, opParent, Option.map_some])
   exact reachable.of_ancestor (parentAncestry.trans ancestry)
 
+/-- Every ancestor operation of a hierarchically reachable operation is hierarchically reachable. -/
+theorem OperationPtr.HierarchicallyReachable.of_ancestor
+    {ancestor : OperationPtr}
+    (reachable : op.HierarchicallyReachable ctx)
+    (ancestry : ancestor.Ancestor op ctx) :
+    ancestor.HierarchicallyReachable ctx := by
+  by_cases same : ancestor = op
+  · simpa [same] using reachable
+  cases parent : op.getParent! ctx.raw with
+  | none =>
+    obtain ⟨nodes, path⟩ := ancestry.exists_parentPath
+    cases path <;> grind
+  | some block =>
+    apply OperationPtr.HierarchicallyReachable.of_ancestor_block (reachable.parent_block parent)
+    exact (ancestry.toProperAncestor (by simpa using same)).ancestor_of_parent_descendant
+      (by grind)
+
+/-- A regional dominator of a hierarchically reachable operation is hierarchically reachable. -/
+@[grind →]
+theorem OperationPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
+    (reachable : op₂.HierarchicallyReachable ctx) :
+    op₁.HierarchicallyReachable ctx := by
+  cases dominance with
+  | SameBlock dominance =>
+    cases dominance <;> rename_i dominance <;>
+      obtain ⟨dominatorParent, dominatedParent, _⟩ := dominance <;>
+      exact OperationPtr.HierarchicallyReachable.of_parent_block
+        (reachable.parent_block dominatedParent) dominatorParent
+  | BlockDominance dominatorParent dominatedParent dominance =>
+    exact OperationPtr.HierarchicallyReachable.of_parent_block
+      (dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+        (reachable.parent_block dominatedParent)) dominatorParent
+
+/-- A dominator of a hierarchically reachable operation is hierarchically reachable. -/
+@[grind →]
+theorem OperationPtr.HierarchicallyReachable.of_dominates :
+    op₁.HierarchicallyReachable ctx →
+    op₂.Dominates op₁ ctx enclosingOk →
+    op₂.HierarchicallyReachable ctx := by
+  intro reachable dominance
+  rcases dominance with same | dominance
+  · simpa [same] using reachable
+  · cases dominance with
+    | Ancestor ancestry _ => exact reachable.of_ancestor ancestry
+    | AncestorDominatedInRegion ancestry dominance =>
+      exact dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+        (reachable.of_ancestor ancestry)
+
+/-- A dominator of a hierarchically reachable block is hierarchically reachable. -/
+@[grind →]
+theorem OperationPtr.HierarchicallyReachable.of_properlyDominatesBlock
+    (reachable : block.HierarchicallyReachable ctx)
+    (dominance : op.ProperlyDominatesBlock block ctx enclosingOk) :
+    op.HierarchicallyReachable ctx := by
+  cases dominance with
+  | Ancestor ancestry => exact OperationPtr.HierarchicallyReachable.of_ancestor_block reachable ancestry
+  | SameRegion parent dominance =>
+    exact OperationPtr.HierarchicallyReachable.of_parent_block
+      (dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+        reachable) parent
+  | AncestorOpDominated ancestry dominance =>
+    exact (OperationPtr.HierarchicallyReachable.of_ancestor_block reachable ancestry).of_dominates
+      (OperationPtr.dominates_of_properlyDominates dominance)
+
 /-- An operation dominating the entry of a hierarchically reachable block in an SSA region
 is itself hierarchically reachable. -/
 @[grind →]
-axiom OperationPtr.HierarchicallyReachable.of_dominatesIp_atStart
-    (blockInBounds : block.InBounds ctx.raw)
+theorem OperationPtr.HierarchicallyReachable.of_dominatesIp_atStart
     (blockParent : block.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (reachable : block.HierarchicallyReachable ctx)
     (dominance : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx) :
-    op.HierarchicallyReachable ctx
+    op.HierarchicallyReachable ctx := by
+  exact OperationPtr.HierarchicallyReachable.of_properlyDominatesBlock reachable
+    (dominance.properlyDominatesBlock_of_atStart blockParent regionSSA)
 
 /-! ## Dominance and rootedness -/
 

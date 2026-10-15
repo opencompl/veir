@@ -226,6 +226,24 @@ theorem BlockPtr.ProperlyDominatesInSSACFGRegion.hierarchicallyReachable_dominat
     (dominance.locallyReachable_dominator_of_locallyReachable_dominated localReachable)
     dominance.2.1
 
+/-- A regional dominator of a hierarchically reachable block is hierarchically reachable. -/
+@[grind →]
+theorem BlockPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+    {dominator dominated : BlockPtr}
+    (dominance : dominator.ProperlyDominatesInRegion dominated region ctx)
+    (reachable : dominated.HierarchicallyReachable ctx) :
+    dominator.HierarchicallyReachable ctx := by
+  cases dominance with
+  | Ssa dominance =>
+    exact dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+      reachable
+  | Graph dominance =>
+    obtain ⟨dominatorParent, dominatedParent, noSSA⟩ := dominance
+    have firstDominator := region.firstBlock_of_not_hasSSADominance noSSA dominatorParent
+    have firstDominated := region.firstBlock_of_not_hasSSADominance noSSA dominatedParent
+    have same : dominator = dominated := by grind
+    simpa [same] using reachable
+
 /-! ## Dominance at block insertion points -/
 
 /-- Properly dominating an SSA block's first operation, excluding enclosing operations,

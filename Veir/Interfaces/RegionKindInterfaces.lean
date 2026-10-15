@@ -50,4 +50,24 @@ def RegionPtr.hasSSADominance (region : RegionPtr)
           ((parent.getRegions! ctx.raw).idxOf region)
   | _, _ => true
 
+/-- Every block in a region without SSA dominance is its entry block. -/
+theorem RegionPtr.firstBlock_of_not_hasSSADominance
+    {region : RegionPtr} {block : BlockPtr} {ctx : WfIRContext OpInfo}
+    (noSSA : region.hasSSADominance ctx = false)
+    (parent : block.getParent! ctx.raw = some region) :
+    region.getFirstBlock! ctx.raw = some block := by
+  have blockInBounds : block.InBounds ctx.raw := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  have regionInBounds : region.InBounds ctx.raw := by grind
+  have chain := RegionPtr.blockListWF ctx.raw region regionInBounds (by grind)
+  cases first : region.getFirstBlock! ctx.raw with
+  | none => simp [hasSSADominance, first] at noSSA
+  | some entry =>
+    have last : region.getLastBlock! ctx.raw = some entry := by
+      cases owner : region.getParent! ctx.raw <;>
+        grind [hasSSADominance]
+    have singleton := chain.eq_singleton_of_first_eq_last first last
+    have member := chain.allBlocksInChain block blockInBounds parent
+    grind
+
 end Veir

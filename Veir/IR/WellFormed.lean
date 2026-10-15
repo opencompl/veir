@@ -185,6 +185,26 @@ grind_pattern RegionPtr.BlockChain.allBlocksInChain =>
     RegionPtr.BlockChain region ctx array, (bl.getParent! ctx) where
   guard (bl.getParent! ctx) = some region
 
+/-- A block chain with the same first and last block consists of that block alone. -/
+theorem RegionPtr.BlockChain.eq_singleton_of_first_eq_last
+    (chain : RegionPtr.BlockChain region ctx array)
+    (first : region.getFirstBlock! ctx = some block)
+    (last : region.getLastBlock! ctx = some block) :
+    array = #[block] := by
+  have nonempty : 0 < array.size := by grind
+  have size : array.size = 1 := by
+    by_cases singleton : array.size = 1
+    · exact singleton
+    have previous := chain.prev (array.size - 1) (by omega) (by omega)
+    have noPrevious := chain.prevFirst first
+    grind
+  apply Array.ext
+  · simp [size]
+  · intro i hi hj
+    have : i = 0 := by simpa [size] using hi
+    subst i
+    grind
+
 structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
   result_index i (iInBounds : i < opPtr.getNumResults! ctx) : (opPtr.getResult i).getIndex! ctx = i
