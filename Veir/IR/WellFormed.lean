@@ -1484,6 +1484,33 @@ grind_pattern RegionPtr.lastBlock!_parent! =>
   ctx.WellFormed missingUses missingSuccessorUses, reg.getLastBlock! ctx, some lastBl,
   lastBl.getParent! ctx
 
+/-- An operation's position in the block's operation list is its index in its parent. -/
+theorem BlockPtr.operationList.idxInParent_getElem {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
+    ((block.operationList ctx hctx hblock)[i]).idxInParent ctx
+      ((BlockPtr.operationListWF ctx block hblock hctx).arrayInBounds
+        (Array.getElem_mem hi)) hctx = i := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  have parent := chain.opParent (Array.getElem_mem hi)
+  unfold OperationPtr.idxInParent
+  split
+  · rename_i parentBlock parentEq
+    have same : parentBlock = block := by grind
+    subst parentBlock
+    exact chain.idxOf_getElem_array i hi
+  · grind
+
+/-- The first operation of a block has index zero in its parent. -/
+theorem OperationPtr.idxInParent_eq_zero_of_getFirstOp! {block : BlockPtr} {op : OperationPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (first : block.getFirstOp! ctx = some op) :
+    op.idxInParent ctx (by grind) hctx = 0 := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  have zeroInBounds : 0 < (block.operationList ctx hctx hblock).size := by grind
+  have firstAtZero : (block.operationList ctx hctx hblock)[0] = op := by grind
+  simpa only [firstAtZero] using BlockPtr.operationList.idxInParent_getElem hctx hblock 0 zeroInBounds
+
 @[grind .]
 theorem OperationPtr.idxInParent_lt_size_operationList
     (op : OperationPtr) (ctx : IRContext OpInfo) (block : BlockPtr)
