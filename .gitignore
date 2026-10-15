@@ -1,6 +1,7 @@
 **/.lit_test_times.txt
 
 .venv
+.direnv/
 *.code-workspace
 lake-packages/
 lean_packages/
@@ -32,5 +33,6 @@ tags
 lakefile.olean
 .lake/
 Test/**/Output/**
+__pycache__
 
 **/.ruff_cache

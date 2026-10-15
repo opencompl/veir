@@ -104,7 +104,7 @@ grind_pattern getFunctionBody!_inBounds => (getFunctionBody! (ctx := ctx) funcOp
 
 /-- Returns the first block in the body region, or `none` if the body is empty. -/
 def getEntryBlock? (funcOp : FunctionOp ctx op) : Option BlockPtr :=
-  if op.getNumRegions! ctx = 0 then none else (funcOp.getFunctionBody!.get! ctx).firstBlock
+  if op.getNumRegions! ctx = 0 then none else (funcOp.getFunctionBody!.getFirstBlock! ctx)
 
 /--
 Returns true if the function has no body, e.g. a declaration of an external function.
