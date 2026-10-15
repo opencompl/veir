@@ -45,13 +45,12 @@ def isConstantPowerOfTwo (v : ValuePtr) (ctx : IRContext OpCode) : Option Nat :=
 def right_identity_zero_add_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let lhsType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let rhsType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let x ← Puddle.MatchProg.value lhsType
-      let li ← Puddle.MatchProg.operation (.riscv .li) #[] #[rhsType] (fun props => props.value == 0#64)
+      let unallocatedRegType ← Puddle.MatchProg.type (Attr := RegisterType)
+        (fun ty => ty.index.isNone)
+      let x ← Puddle.MatchProg.value unallocatedRegType
+      let li ← Puddle.MatchProg.operation (.riscv .li) #[] #[unallocatedRegType] (fun props => props.value == 0#64)
       let li_res := li.res[0]!
-      let _ ← Puddle.MatchProg.root (.riscv .add) #[x, li_res] #[resultType]
+      let _ ← Puddle.MatchProg.root (.riscv .add) #[x, li_res] #[unallocatedRegType]
       return x
   ) pure (fun x => x)
 
