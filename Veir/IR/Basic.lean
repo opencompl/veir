@@ -4,12 +4,17 @@ public import Veir.Prelude
 public import Veir.IR.OpCode
 public import Veir.ForLean
 public import Veir.IR.Simp
+import all Veir.IR.Attribute -- TODO: remove
 
 open Std (HashMap)
 
 public section
 
 namespace Veir
+
+structure AttrPtr where
+  id : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
 
 structure OperationPtr where
   id : Nat
@@ -71,7 +76,7 @@ The base class for operation results and block arguments.
 -/
 structure ValueImpl where
   /-- `type` is used to distinguish between OpResult and BlockArgument -/
-  type : TypeAttr
+  type : AttrPtr
   firstUse : Option OpOperandPtr
 deriving Inhabited, Repr, Hashable
 
@@ -171,7 +176,7 @@ structure Operation (OpInfo : Type) [IsOpCode OpInfo] where
   -- location : Location
   -- orderIndex : Nat
   opType : OpInfo
-  attrs : DictionaryAttr
+  attrs : AttrPtr
   -- This should be replaced with an arbitrary user object
   properties : propertiesOf opType
   blockOperands : Array BlockOperand
@@ -319,20 +324,37 @@ structure IRContext.Raw (OpInfo : Type) [IsOpCode OpInfo] where
   blocks : HashMap BlockPtr Block
   regions : HashMap RegionPtr Region
   nextID : Nat
+  attributeFromIdx : Array Attribute
 deriving Repr
 
+@[local grind]
+structure Operation.Inv (op : Operation OpInfo) (ctx : IRContext.Raw OpInfo) where
+  attr : ∃ (_ : op.attrs.id < ctx.attributeFromIdx.size), ctx.attributeFromIdx[op.attrs.id].isDict
+  results res (hin : res ∈ op.results) : ∃ (_ : res.type.id < ctx.attributeFromIdx.size), ctx.attributeFromIdx[res.type.id].isType
+
+@[local grind]
+structure Block.Inv (bl : Block) (ctx : IRContext.Raw OpInfo) where
+  arguments arg (hin : arg ∈ bl.arguments) : ∃ (_ : arg.type.id < ctx.attributeFromIdx.size), ctx.attributeFromIdx[arg.type.id].isType
+
+@[local grind]
 structure IRContext.Inv (ctx : IRContext.Raw OpInfo) where
+  operations op (hin : op ∈ ctx.operations) : ctx.operations[op].Inv ctx
+  blocks bl (hin : bl ∈ ctx.blocks) : ctx.blocks[bl].Inv ctx
 
 structure IRContext (OpInfo : Type) [IsOpCode OpInfo] extends IRContext.Raw OpInfo where
   attribute_inv : IRContext.Inv toRaw
 
 instance : Inhabited (IRContext.Raw OpInfo) where
-  default := IRContext.Raw.mk ∅ ∅ ∅ 0
+  default := IRContext.Raw.mk ∅ ∅ ∅ 0 #[DictionaryAttr.empty]
 
-instance : Inhabited (IRContext OpInfo) where
-  default := IRContext.mk default (by constructor)
+@[local grind =]
+theorem IRContext.Raw.default_def :
+  (default : IRContext.Raw OpInfo) = IRContext.Raw.mk ∅ ∅ ∅ 0 #[DictionaryAttr.empty] := by rfl
 
-theorem IRContext.default_def : (default : IRContext OpInfo) = IRContext.mk ⟨∅, ∅, ∅, 0⟩ (by constructor) := by rfl
+instance [IsOpCode OpInfo] : Inhabited (IRContext OpInfo) where
+  default := IRContext.mk default (by grind)
+
+theorem IRContext.default_def : (default : IRContext OpInfo) = IRContext.mk ⟨∅, ∅, ∅, 0, #[DictionaryAttr.empty]⟩ (by grind) := by rfl
 
 variable {ctx ctx' : IRContext OpInfo}
 
@@ -345,7 +367,7 @@ def Operation.empty (opType : OpInfo) (prop : propertiesOf opType) : Operation O
     next := none
     parent := none
     opType := opType
-    attrs := DictionaryAttr.empty
+    attrs := ⟨0⟩
     properties := prop
     blockOperands := #[]
     regions := #[]
@@ -371,6 +393,56 @@ def Block.empty : Block :=
     firstOp := none
     lastOp := none
   }
+/-!
+Attribute storage
+-/
+namespace AttrPtr
+
+@[local grind]
+def InBounds (attr : AttrPtr) (ctx : IRContext OpInfo) : Prop :=
+  attr.id < ctx.attributeFromIdx.size
+
+@[inline]
+private def get (attr : AttrPtr) (ctx : IRContext OpInfo) (ib : attr.InBounds ctx) : Attribute :=
+  ctx.attributeFromIdx[attr.id]
+
+@[inline]
+private def get! (attr : AttrPtr) (ctx : IRContext OpInfo) : Attribute :=
+  ctx.attributeFromIdx[attr.id]!
+
+@[grind =_, eq_bang ←]
+private theorem get!_eq_get {ptr : AttrPtr} (hin : ptr.InBounds ctx) :
+    ptr.get! ctx = (ptr.get ctx hin) := by
+  grind [get, get!, InBounds]
+
+@[inline]
+private def getType (attr : AttrPtr) (ctx : IRContext OpInfo) (ib : attr.InBounds ctx) (h : attr.get! ctx |>.isType) : TypeAttr :=
+  ctx.attributeFromIdx[attr.id].asType (by grind [get!])
+
+@[inline]
+private def getType! (attr : AttrPtr) (ctx : IRContext OpInfo) : TypeAttr :=
+  ctx.attributeFromIdx[attr.id]!.asType!
+
+@[grind =_, eq_bang ←]
+private theorem getType!_eq_getType {ptr : AttrPtr} (hin : ptr.InBounds ctx) hty :
+    ptr.getType! ctx = (ptr.getType ctx hin hty) := by
+  grind [getType, getType!, InBounds]
+
+@[inline]
+private def getDict (attr : AttrPtr) (ctx : IRContext OpInfo) (ib : attr.InBounds ctx) (h : attr.get! ctx |>.isDict) : DictionaryAttr :=
+  ctx.attributeFromIdx[attr.id].asDict (by grind [get!])
+
+@[inline]
+private def getDict! (attr : AttrPtr) (ctx : IRContext OpInfo) : DictionaryAttr :=
+  ctx.attributeFromIdx[attr.id]!.asDict!
+
+@[grind =_, eq_bang ←]
+private theorem getDict!_eq_getDict {ptr : AttrPtr} (hin : ptr.InBounds ctx) hty :
+    ptr.getDict! ctx = (ptr.getDict ctx hin hty) := by
+  grind [getDict, getDict!, InBounds]
+
+
+end AttrPtr
 
 /-!
 OperationPtr accessors
@@ -554,23 +626,25 @@ theorem getOpOperands!.getElem_eq_getOpOperand
   simp only [getOpOperands!]
   grind [getOpOperand]
 
-def getOperandTypes (op : OperationPtr) (ctx : IRContext OpInfo)
-    (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
-  (op.get ctx).operands.map fun opr =>
-    match opr.value with
-    | .opResult ptr => (ptr.op.get! ctx).results[ptr.index]!|>.type
-    | .blockArgument ptr => (ctx.blocks[ptr.block]!).arguments[ptr.index]!|>.type
+-- TODO FIXME: We need `FieldsInBounds` to prove the bounds!
+-- so this should be moved. Also this is not used anywhere.
+-- def getOperandTypes (op : OperationPtr) (ctx : IRContext OpInfo)
+--     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
+--   (op.get ctx).operands.attach.map fun ⟨opr, hopr⟩ =>
+--     match _ : opr.value with
+--     | .opResult ptr => ctx.attributeFromIdx[(ptr.op.get! ctx).results[ptr.index]'(by sorry) |>.type]!.asType (by sorry)
+--     | .blockArgument ptr => ctx.attributeFromIdx[(ctx.blocks[ptr.block]!).arguments[ptr.index]!|>.type]!.asType (by sorry)
 
 def getOperandTypes! (op : OperationPtr) (ctx : IRContext OpInfo) : Array TypeAttr :=
   (op.get! ctx).operands.map fun opr =>
     match opr.value with
-    | .opResult ptr => (ptr.op.get! ctx).results[ptr.index]!|>.type
-    | .blockArgument ptr => (ctx.blocks[ptr.block]!).arguments[ptr.index]!|>.type
+    | .opResult ptr => (ptr.op.get! ctx).results[ptr.index]! |>.type |>.getType! ctx
+    | .blockArgument ptr => (ctx.blocks[ptr.block]!).arguments[ptr.index]!|>.type |>.getType! ctx
 
-@[grind =_, eq_bang ←]
-theorem getOperandTypes!_eq_getOperandTypes {op : OperationPtr} (hin : op.InBounds ctx) :
-    op.getOperandTypes! ctx = op.getOperandTypes ctx (by grind) := by
-  grind [getOperandTypes, getOperandTypes!, get!_eq_get]
+-- @[grind =_, eq_bang ←]
+-- theorem getOperandTypes!_eq_getOperandTypes {op : OperationPtr} (hin : op.InBounds ctx) :
+--     op.getOperandTypes! ctx = op.getOperandTypes ctx (by grind) := by
+--   grind [getOperandTypes, getOperandTypes!, get!_eq_get]
 
 @[grind =]
 theorem getOperandTypes!.size_eq_getNumOperands! {op : OperationPtr} :
@@ -814,10 +888,11 @@ grind_pattern getResult_eq_of_idxOf_getResults! =>
 
 def getResultTypes (op : OperationPtr) (ctx : IRContext OpInfo)
     (inBounds : op.InBounds ctx := by grind) : Array TypeAttr :=
-  (op.get ctx).results.map (·.type)
+  (op.get ctx).results.attach.map fun ⟨res, hres⟩ =>
+    res.type.getType ctx (by sorry) (by sorry)
 
 def getResultTypes! (op : OperationPtr) (ctx : IRContext OpInfo) : Array TypeAttr :=
-  (op.get! ctx).results.map (·.type)
+  (op.get! ctx).results.map (·.type.getType! ctx)
 
 @[grind =_, eq_bang ←]
 theorem getResultTypes!_eq_getResultTypes {op : OperationPtr} (hin : op.InBounds ctx) :
@@ -1048,10 +1123,10 @@ private theorem getParent!_def {op : OperationPtr} :
     op.getParent! ctx = (op.get! ctx).parent := by rfl
 
 def getAttributes (op : OperationPtr) (ctx : IRContext OpInfo) (inBounds : op.InBounds ctx := by grind) : DictionaryAttr :=
-  (op.get ctx (by grind)).attrs
+  (op.get ctx (by grind)).attrs.getDict ctx (by sorry) (by sorry)
 
 def getAttributes! (op : OperationPtr) (ctx : IRContext OpInfo) : DictionaryAttr :=
-  (op.get! ctx).attrs
+  (op.get! ctx).attrs.getDict! ctx
 
 @[grind =_, eq_bang ←]
 theorem getAttributes!_eq_getAttributes {op : OperationPtr} (hin : op.InBounds ctx) :
@@ -1059,7 +1134,7 @@ theorem getAttributes!_eq_getAttributes {op : OperationPtr} (hin : op.InBounds c
   grind [getAttributes, getAttributes!]
 
 private theorem getAttributes!_def {op : OperationPtr} :
-    op.getAttributes! ctx = (op.get! ctx).attrs := by rfl
+    op.getAttributes! ctx = (op.get! ctx).attrs.getDict! ctx := by rfl
 
 end OperationPtr
 
@@ -1344,10 +1419,10 @@ private theorem get!_eq_of_OperationPtr_get!_eq {res : OpResultPtr} :
   grind [OperationPtr.get!, get!]
 
 def getType (result : OpResultPtr) (ctx : IRContext OpInfo) (inBounds : result.InBounds ctx := by grind) : TypeAttr :=
-  (result.get ctx (by grind)).type
+  (result.get ctx (by grind)).type.getType ctx (by sorry) (by sorry)
 
 def getType! (result : OpResultPtr) (ctx : IRContext OpInfo) : TypeAttr :=
-  (result.get! ctx).type
+  (result.get! ctx).type.getType! ctx
 
 @[grind =_, eq_bang ←]
 theorem getType!_eq_getType {result : OpResultPtr} (hin : result.InBounds ctx) :
@@ -1355,7 +1430,7 @@ theorem getType!_eq_getType {result : OpResultPtr} (hin : result.InBounds ctx) :
   grind [getType, getType!]
 
 private theorem getType!_def {result : OpResultPtr} :
-    result.getType! ctx = (result.get! ctx).type := by rfl
+    result.getType! ctx = (result.get! ctx).type.getType! ctx := by rfl
 
 def getFirstUse (result : OpResultPtr) (ctx : IRContext OpInfo) (inBounds : result.InBounds ctx := by grind) : Option OpOperandPtr :=
   (result.get ctx (by grind)).firstUse
@@ -1517,10 +1592,10 @@ theorem getArguments!.getElem_eq_getArgument
 
 def getArgumentTypes (block : BlockPtr) (ctx : IRContext OpInfo)
     (inBounds : block.InBounds ctx := by grind) : Array TypeAttr :=
-  (block.get ctx).arguments.map (·.type)
+  (block.get ctx).arguments.map (·.type.getType ctx (by sorry) (by sorry))
 
 def getArgumentTypes! (block : BlockPtr) (ctx : IRContext OpInfo) : Array TypeAttr :=
-  (block.get! ctx).arguments.map (·.type)
+  (block.get! ctx).arguments.map (·.type.getType! ctx)
 
 @[grind =_, eq_bang ←]
 theorem getArgumentTypes!_eq_getArgumentTypes {block : BlockPtr} (hin : block.InBounds ctx) :
@@ -1701,10 +1776,10 @@ theorem block_of_mem_getArguments! {blockArg : BlockArgumentPtr} (blockArgIn : b
   · grind [BlockPtr.getArgument]
 
 def getType (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) (inBounds : arg.InBounds ctx := by grind) : TypeAttr :=
-  (arg.get ctx (by grind)).type
+  (arg.get ctx (by grind)).type.getType ctx (by sorry) (by sorry)
 
 def getType! (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) : TypeAttr :=
-  (arg.get! ctx).type
+  (arg.get! ctx).type.getType! ctx
 
 @[grind =_, eq_bang ←]
 theorem getType!_eq_getType {arg : BlockArgumentPtr} (hin : arg.InBounds ctx) :
@@ -1712,7 +1787,7 @@ theorem getType!_eq_getType {arg : BlockArgumentPtr} (hin : arg.InBounds ctx) :
   grind [getType, getType!]
 
 private theorem getType!_def {arg : BlockArgumentPtr} :
-    arg.getType! ctx = (arg.get! ctx).type := by rfl
+    arg.getType! ctx = (arg.get! ctx).type.getType! ctx := by rfl
 
 def getFirstUse (arg : BlockArgumentPtr) (ctx : IRContext OpInfo) (inBounds : arg.InBounds ctx := by grind) : Option OpOperandPtr :=
   (arg.get ctx (by grind)).firstUse

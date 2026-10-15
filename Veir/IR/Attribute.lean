@@ -1,6 +1,7 @@
 module
 
 import Veir.ForLean
+public import Veir.IR.Simp
 public import Veir.Data.Float
 public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
@@ -1799,14 +1800,39 @@ instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
 instance : DecidableEq UnregisteredAttr := UnregisteredAttr.decEq
 
+namespace Attribute
+
+/--
+  Determine if an attribute is a dictionary.
+-/
+def isDict (attr : Attribute) : Bool :=
+  match attr with
+  | .dictionaryAttr _ => true
+  | _ => false
+
+@[inline]
+def asDict (attr : Attribute) (isDict : attr.isDict := by grind) : DictionaryAttr := by
+  cases attr
+  case dictionaryAttr d => exact d
+  all_goals
+    exfalso
+    grind [isDict]
+
+@[inline]
+def asDict! (attr : Attribute) : DictionaryAttr :=
+  if _ : attr.isDict then attr.asDict else default
+
+@[grind =_, eq_bang ←]
+theorem Attribute.asDict!_eq_asDict (attr : Attribute) isDict :
+    attr.asDict! = attr.asDict isDict := by
+  grind [asDict, asDict!]
+
 /-!
   ## TypeAttr definition
 
   `TypeAttr` is defined as a subtype of `Attribute` that carries the additional invariant
   that the attribute is a valid type annotation (i.e., `isType` is true).
 -/
-
-namespace Attribute
 
 /--
   Determine if an attribute can be used as a type annotation for SSA
@@ -2000,6 +2026,15 @@ theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
 @[grind]
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
+
+@[grind]
+def Attribute.asType! (attr : Attribute) : TypeAttr :=
+  if _ : attr.isType then attr.asType else default
+
+@[grind =_, eq_bang ←]
+theorem Attribute.asType!_eq_asType (attr : Attribute) isType :
+    attr.asType! = attr.asType isType := by
+  grind [asType, asType!]
 
 /-- `Attribute.asType` is the identity on the underlying attribute. Stated so that `simp` and
 `grind` can see through it without unfolding the semireducible `TypeAttr`. -/
