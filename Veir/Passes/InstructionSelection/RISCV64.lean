@@ -2311,11 +2311,14 @@ def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   LLVM's instruction selector only sees legalized gMIR.
 -/
 
-/-- Matches only if an `opcode` operation of type `type` with `properties` is legal. -/
+/--
+  Matches only if an `opcode` operation whose type groups all have type `type`, with `properties`,
+  is legal.
+-/
 def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     (properties : Handle OpCode (.prop (.gmir opcode))) : MatchProg.Builder Unit :=
   MatchProg.matchNative (type, properties) fun (type, properties) =>
-    riscv64LegalizerInfo.isLegal opcode #[type] properties
+    riscv64LegalizerInfo.isLegal opcode (.replicate opcode.numTypeGroups type) properties
 
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
@@ -2324,6 +2327,18 @@ def gmirAdd_pattern : Pattern OpCode :=
 /-- `gmir.g_sub` (`i64`) -> `riscv.sub`. -/
 def gmirSub_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_sub) (·.bitwidth = 64) .sub () (guard := matchLegal .g_sub)
+
+/-- `gmir.g_shl` (`i64`) -> `riscv.sll`. -/
+def gmirShl_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_shl) (·.bitwidth = 64) .sll () (guard := matchLegal .g_shl)
+
+/-- `gmir.g_lshr` (`i64`) -> `riscv.srl`. -/
+def gmirLshr_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_lshr) (·.bitwidth = 64) .srl () (guard := matchLegal .g_lshr)
+
+/-- `gmir.g_ashr` (`i64`) -> `riscv.sra`. -/
+def gmirAshr_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_ashr) (·.bitwidth = 64) .sra () (guard := matchLegal .g_ashr)
 
 /-- `gmir.g_trunc` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
 def gmirTrunc_pattern : Pattern OpCode :=
@@ -2339,6 +2354,9 @@ def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
+def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
+def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
+def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 
 /-! # Pass implementation -/
 
@@ -2365,7 +2383,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run]
+    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

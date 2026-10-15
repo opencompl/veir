@@ -69,6 +69,16 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   -- The high bits matter for the comparison, and sign extension preserves both the signed and
   -- the unsigned order.
   | .g_icmp, .type 1, width => widenTypeGroup .g_icmp (.type 1) .g_sext width
+  -- As for `g_add`, the high bits of the shifted value never reach the low bits of the result.
+  | .g_shl, .type 0, width => widenTypeGroup .g_shl (.type 0) .g_anyext width clearNswNuwProperties
+  -- `ashr` shifts copies of the sign bit into the result, so the high bits must be sign bits.
+  | .g_ashr, .type 0, width => widenTypeGroup .g_ashr (.type 0) .g_sext width
+  -- `lshr` shifts zeros into the result, so the high bits must be zero.
+  | .g_lshr, .type 0, width => widenTypeGroup .g_lshr (.type 0) .g_zext width
+  -- The amount is an unsigned number of bits, so its value must be kept as such.
+  | .g_shl, .type 1, width => widenTypeGroup .g_shl (.type 1) .g_zext width
+  | .g_ashr, .type 1, width => widenTypeGroup .g_ashr (.type 1) .g_zext width
+  | .g_lshr, .type 1, width => widenTypeGroup .g_lshr (.type 1) .g_zext width
   | _, _, _ => none
 
 end

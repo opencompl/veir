@@ -19,11 +19,8 @@ namespace Veir
 section
 open Puddle in
 
-/--
-  Custom legalization of `i32` `g_add`/`g_sub`.
-  LLVM emits `G_SEXT_INREG` here instead, and selects the word variant later.
--/
-def customLegalizeAddSub (opcode : GMIR) (riscvOp : Riscv)
+/-- Custom legalization of an `i32` `opcode` to its word variant `riscvOp`. -/
+def customLegalizeWordOp (opcode : GMIR) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -57,6 +54,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [32],
       .minScalar (.type 0) 64,
     ]
+    | .g_shl | .g_lshr | .g_ashr => [
+      .legalForTypePairs [(64, 64)],
+      -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
+      .customForTypePairs [(32, 32)],
+      .minScalar (.type 1) 64,
+      .minScalar (.type 0) 64,
+    ]
     | .g_icmp => [
       .legalForTypePairs [(64, 64)],
       .minScalar (.type 1) 64,
@@ -78,8 +82,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | _ => []
   legalizeCustom
-    | .g_add => customLegalizeAddSub .g_add .addw ()
-    | .g_sub => customLegalizeAddSub .g_sub .subw ()
+    -- LLVM instead emits `G_ADD` + `G_SEXT_IN_REG` instead, and matches on this later during
+    -- instruction selection. We omit the word-variant directly as a simplification.
+    | .g_add => customLegalizeWordOp .g_add .addw ()
+    | .g_sub => customLegalizeWordOp .g_sub .subw ()
+    | .g_shl => customLegalizeWordOp .g_shl .sllw ()
+    | .g_lshr => customLegalizeWordOp .g_lshr .srlw ()
+    | .g_ashr => customLegalizeWordOp .g_ashr .sraw ()
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=
