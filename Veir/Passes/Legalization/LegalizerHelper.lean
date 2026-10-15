@@ -51,12 +51,60 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
         return trunc.res[0]!)
     (fun results => results)
 
+/-- Widens a constant to `width` bits and truncates it back to its original type. -/
+def widenConstant (width : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
+      return (type, root))
+    (fun (type, root) => do
+      let wideType ← CreateProg.type (IntegerType.signless width)
+      let props ← CreateProg.applyNative root.properties fun props =>
+        let attr := props.value
+        let sourceWidth := attr.type.bitwidth
+        -- Match LLVM's extension choice when widening integer constants.
+        -- See LLVM's `LegalizerInfo::getExtOpcodeForWideningConstant`.
+        let value := if sourceWidth % 8 = 0 then attr.value
+          else (BitVec.ofInt sourceWidth attr.value).toNat
+        some (GMIRConstantProperties.mk (.ofInt value (.signless width)))
+      let wide ← CreateProg.operation (.gmir .g_constant) #[] #[wideType] props
+      let truncProps ← CreateProg.property (.gmir .g_trunc) default
+      CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type] truncProps)
+    (fun trunc => trunc)
+
 /-- Clears the no-wrap flags, which no longer hold once the high bits are unconstrained. -/
 -- NOTE: (for reviewers) we could also default construct to clear.
 def clearNswNuwProperties (props : NswNuwProperties) : NswNuwProperties :=
   { props with nsw := false, nuw := false }
 
+/-! ## Lowering patterns -/
+
+/-- Moves the `g_sext_inreg` sign bit to the top bit, then shifts it back. -/
+def lowerSextInreg : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let src ← MatchProg.value type
+      let root ← MatchProg.root (.gmir .g_sext_inreg) #[src] #[type]
+      return (type, src, root))
+    (fun (type, src, root) => do
+      let amountProps ← CreateProg.applyNative (root.properties, type) fun (⟨sz⟩, type) => do
+        let .integerType type := type.val | none
+        some (GMIRConstantProperties.mk (.ofInt (type.bitwidth - sz.toNat) type))
+      let amount ← CreateProg.operation (.gmir .g_constant) #[] #[type] amountProps
+      let shlProps ← CreateProg.property (.gmir .g_shl) default
+      let shl ← CreateProg.operation (.gmir .g_shl) #[src, amount.res[0]!] #[type] shlProps
+      let ashrProps ← CreateProg.property (.gmir .g_ashr) default
+      CreateProg.operation (.gmir .g_ashr) #[shl.res[0]!, amount.res[0]!] #[type] ashrProps)
+    (fun ashr => ashr)
+
 public section
+
+/-- The pattern that lowers `opcode`, if it can be lowered. -/
+def lower? : GMIR → Option (Pattern OpCode)
+  | .g_sext_inreg => some lowerSextInreg
+  | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
@@ -79,6 +127,10 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_shl, .type 1, width => widenTypeGroup .g_shl (.type 1) .g_zext width
   | .g_ashr, .type 1, width => widenTypeGroup .g_ashr (.type 1) .g_zext width
   | .g_lshr, .type 1, width => widenTypeGroup .g_lshr (.type 1) .g_zext width
+  -- The extension kind depends on the operand size.
+  | .g_constant, .type 0, width => widenConstant width
+  -- Only the low `sz` bits are read, so any extension is fine.
+  | .g_sext_inreg, .type 0, width => widenTypeGroup .g_sext_inreg (.type 0) .g_anyext width
   | _, _, _ => none
 
 end
