@@ -61,8 +61,10 @@ def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPt
     unconditional branch to that successor. -/
 def simplifyConstantBranch (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getNumSuccessors! rewriter.ctx.raw < 2 then return rewriter
+  let opType := op.getOpType! rewriter.ctx.raw
   let some ⟨brOpCode, brProperties⟩ :=
-      BranchOpInterface.getUnconditionalBranch? op rewriter.ctx.raw
+      opType.unconditionalBranch? (op.getProperties! rewriter.ctx.raw opType)
     | return rewriter
   let operands := (op.getOperands! rewriter.ctx.raw).map (·.constantValue rewriter.ctx.raw)
   let some index := BranchOpInterface.getSuccessorIndexForOperands? op operands rewriter.ctx.raw

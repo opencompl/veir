@@ -69,11 +69,8 @@ instance : GetElem? SuccessorOperands Nat ValuePtr
     (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
   getElem? := fun operands blockArgumentIndex => operands.forwardedOperands[blockArgumentIndex]?
 
-/--
-  Information exposed by operations that branch to successor blocks. `Dialect`
-  is the opcode type an unconditional replacement branch is drawn from.
--/
-structure BranchOpInterface (Dialect : Type) [IsOpCode Dialect] (Properties : Type) where
+/-- Information exposed by operations that branch to successor blocks. -/
+structure BranchOpInterface (Properties : Type) where
   /-- Return the operands passed to the indexed successor. -/
   getSuccessorOperandsImpl? :
     Properties → Array ValuePtr → Nat → Option SuccessorOperands
@@ -81,21 +78,6 @@ structure BranchOpInterface (Dialect : Type) [IsOpCode Dialect] (Properties : Ty
   getSuccessorIndexForOperandsImpl? :
     Properties → Array (Option RuntimeValue) → Option Nat :=
       fun _ _ => none
-  /--
-  Return the unconditional branch, with its properties, that replaces this
-  operation once its successor is known.
-  -/
-  getUnconditionalBranchImpl? : Properties → Option (Σ op : Dialect, propertiesOf op) :=
-    fun _ => none
-
-/-- Inject a dialect's branch interface into an opcode type containing the dialect. -/
-def BranchOpInterface.lift {OpInfo Dialect : Type} [IsOpCode OpInfo] [IsOpCode Dialect]
-    [HasDialect OpInfo Dialect] {Properties : Type}
-    (interface : BranchOpInterface Dialect Properties) : BranchOpInterface OpInfo Properties :=
-  { interface with
-    getUnconditionalBranchImpl? := fun props =>
-      (interface.getUnconditionalBranchImpl? props).map fun ⟨op, branchProps⟩ =>
-        ⟨ofDialect OpInfo op, HasDialect.ofDialectProperties OpInfo op branchProps⟩ }
 
 class HasOpInfo (opCode: Type)
     extends IsOpCode opCode where
@@ -170,7 +152,7 @@ class HasOpInfo (opCode: Type)
   /--
   Information about operations that branch to successor blocks.
   -/
-  branchOpInterface? : (op : opCode) → Option (BranchOpInterface opCode (propertiesOf op)) :=
+  branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
