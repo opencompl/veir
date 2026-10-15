@@ -91,6 +91,9 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_sub, .type 0, width => widenBinop .g_sub ⟨false, false⟩ width
   | .g_icmp, .type 0, width => widenICmpResult width
   | .g_icmp, .type 1, width => widenICmpOperands width
+  | .g_and, .type 0, width => widenBinop .g_and ⟨⟩ width
+  | .g_or, .type 0, width => widenBinop .g_or ⟨false⟩ width
+  | .g_xor, .type 0, width => widenBinop .g_xor ⟨⟩ width
   | _, _, _ => none
 
 end
