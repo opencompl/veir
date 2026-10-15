@@ -7,8 +7,6 @@ public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
 import all Veir.IR.Basic
-import all Veir.IRNesting
-import all Veir.Rewriter.InsertPoint
 
 /-!
 # Operation Dominance and Reachability Lemmas
@@ -65,6 +63,7 @@ theorem OperationPtr.dominates_iff_properlyDominates_or_eq :
   grind [OperationPtr.Dominates]
 
 /-- Same-region proper dominance identifies the dominator's parent region. -/
+@[grind →]
 theorem OperationPtr.ProperlyDominatesInRegion.parentRegion_dominator
     (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx) :
     op₁.getParentRegion! ctx.raw = some region := by
@@ -78,6 +77,7 @@ theorem OperationPtr.ProperlyDominatesInRegion.parentRegion_dominator
     grind
 
 /-- Same-region proper dominance identifies the dominated operation's parent region. -/
+@[grind →]
 theorem OperationPtr.ProperlyDominatesInRegion.parentRegion_dominated
     (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx) :
     op₂.getParentRegion! ctx.raw = some region := by
@@ -392,13 +392,10 @@ theorem OperationPtr.RootedAt.of_dominatesIp_atStart
     op.RootedAt root ctx := by
   cases first : block.getFirstOp! ctx.raw with
   | some firstOp =>
-    simp only [InsertPoint.atStart!, first] at opDom
-    have blockInBounds : block.InBounds ctx.raw := by
-      grind [BlockPtr.getFirstOp!, BlockPtr.get!_of_not_inBounds, Block.default_firstOp_eq]
-    have firstParent : firstOp.getParent! ctx.raw = some block := by grind
-    exact opDom.rootedAt_dominator (by grind) blockRooted
+    simp only [InsertPoint.atStart!_eq, first] at opDom
+    grind [opDom.rootedAt_dominator]
   | none =>
-    simp only [InsertPoint.atStart!, first] at opDom
-    exact opDom.rootedAt_dominator rfl blockRooted
+    simp only [InsertPoint.atStart!_eq, first] at opDom
+    exact opDom.rootedAt_dominator (by grind) blockRooted
 
 end Veir
