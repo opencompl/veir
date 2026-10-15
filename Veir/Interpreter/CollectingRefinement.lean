@@ -96,7 +96,7 @@ structure FunctionBody {ctx : WfIRContext OpCode} {op : OperationPtr}
   oneRegion : op.getNumRegions! ctx.raw = 1
   entry : BlockPtr
   entryInBounds : entry.InBounds ctx.raw
-  firstBlock : (function.getFunctionBody!.get! ctx.raw).firstBlock = some entry
+  firstBlock : function.getFunctionBody!.getFirstBlock! ctx.raw = some entry
 
 variable {sourceOp targetOp : OperationPtr}
 
@@ -121,8 +121,8 @@ theorem FunctionBody.evaluate_start {function : FunctionOp sourceCtx.raw sourceO
   unfold interpretFunction
   simp only [hregions, ne_eq, not_true_eq_false, ↓reduceDIte]
   unfold interpretRegion
-  have hfirst : ((function.getFunctionBody body.opInBounds (by omega)).get sourceCtx.raw
-      (by grind)).firstBlock = some body.entry := by
+  have hfirst : ((function.getFunctionBody body.opInBounds (by omega)).getFirstBlock sourceCtx.raw
+      (by grind)) = some body.entry := by
     have := body.firstBlock
     grind
   split

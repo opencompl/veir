@@ -34,7 +34,7 @@ private def observeEntry {ctx : WfIRContext OpCode} {initial : Entry ctx → Pro
   match bound : entry.state.variables.setArgumentValues? entry.block entry.arguments entry.inBounds with
   | none => none
   | some variables =>
-    match first : (entry.block.get! ctx.raw).firstOp with
+    match first : entry.block.getFirstOp! ctx.raw with
     | none => none
     | some op =>
       if opIn : op.InBounds ctx.raw then
@@ -46,7 +46,7 @@ private def Observation.next {ctx : WfIRContext OpCode} {initial : Entry ctx →
     (current : Observation initial) : Option (Observation initial) := do
   match executed : interpretOp current.op current.state current.opIn with
   | .ok (state, none) =>
-    match successor : (current.op.get! ctx.raw).next with
+    match successor : current.op.getNextOp! ctx.raw with
     | none => none
     | some op =>
       if opIn : op.InBounds ctx.raw then

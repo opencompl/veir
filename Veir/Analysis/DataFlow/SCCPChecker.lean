@@ -131,10 +131,10 @@ from an earlier, less precise candidate. -/
     Absorbs (candidate.constant (op.getResult i))
       ((resultUpdates ctx candidate op)[i.val]?.getD .top)) ∧
   (∀ i : Fin (op.getNumRegions! ctx.raw),
-    match (((op.get! ctx.raw).regions[i.val]!).get! ctx.raw).firstBlock with
+    match (op.getRegion! ctx.raw i.val).getFirstBlock! ctx.raw with
     | none => True
     | some block => EntryClosed ctx candidate block) ∧
-  (match (op.get! ctx.raw).parent with
+  (match op.getParent! ctx.raw with
   | none => True
   | some block =>
     (∀ i : Fin (enabledSuccessors ctx candidate op).size,
@@ -149,7 +149,7 @@ from an earlier, less precise candidate. -/
 
 instance : Decidable (OperationClosed ctx candidate op) := by
   letI (i : Fin (op.getNumRegions! ctx.raw)) : Decidable
-      (match (((op.get! ctx.raw).regions[i.val]!).get! ctx.raw).firstBlock with
+      (match (op.getRegion! ctx.raw i.val).getFirstBlock! ctx.raw with
       | none => True
       | some block => EntryClosed ctx candidate block) := by
     split <;> infer_instance
@@ -161,7 +161,7 @@ is checked separately: the arena can also contain parser wrappers or detached
 roots outside the analyzed program, which must not become implicit entry points. -/
 @[expose] def operationLive (ctx : WfIRContext OpCode) (candidate : Candidate)
     (op : OperationPtr) : Bool :=
-  match (op.get! ctx.raw).parent with
+  match op.getParent! ctx.raw with
   | none => false
   | some block => candidate.blockLive block
 
@@ -268,7 +268,7 @@ theorem checkFacts_sound {ctx : WfIRContext OpCode} {candidate : Candidate}
   obtain ⟨entries, operations⟩ := checkFacts_closed accepted
   have entryClosed := entries source.entry (by simp)
   have operationClosed : ∀ block op, op.InBounds ctx.raw →
-      (op.get! ctx.raw).parent = some block → candidate.toFacts.blockLive block →
+      op.getParent! ctx.raw = some block → candidate.toFacts.blockLive block →
       OperationClosed ctx candidate op := by
     intro block op opIn parent live
     exact operations op opIn (by simpa [operationLive, parent, Candidate.toFacts] using live)

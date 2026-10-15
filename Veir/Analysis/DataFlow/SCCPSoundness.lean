@@ -64,14 +64,14 @@ structure Facts.Valid (facts : Facts) (initial : Collecting.Entry ctx → Prop) 
   initial : ∀ entry, initial entry → facts.CoversEntry entry
   /-- Executing an operation in an executable block preserves the value facts. -/
   operation : ∀ block op (opIn : op.InBounds ctx.raw) state next action,
-    (op.get! ctx.raw).parent = some block → facts.blockLive block →
+    op.getParent! ctx.raw = some block → facts.blockLive block →
     facts.CoversState state → interpretOp op state opIn = .ok (next, action) →
     facts.CoversState next
   /-- An actual branch enables its edge and covers the destination's arguments.
 This obligation covers the edge and the argument join together. -/
   branch : ∀ block op (opIn : op.InBounds ctx.raw) state next arguments destination
       (destinationIn : destination.InBounds ctx.raw),
-    (op.get! ctx.raw).parent = some block → facts.blockLive block →
+    op.getParent! ctx.raw = some block → facts.blockLive block →
     facts.CoversState state →
     interpretOp op state opIn = .ok (next, some (.branch arguments destination)) →
     facts.edgeLive block destination ∧
@@ -80,7 +80,7 @@ This obligation covers the edge and the argument join together. -/
 private theorem Facts.Valid.covers_prefix {facts : Facts} {initial : Collecting.Entry ctx → Prop}
     (valid : facts.Valid initial) {block first op} {initialState state : InterpreterState ctx}
     (live : facts.blockLive block) (firstIn : first.InBounds ctx.raw)
-    (parent : (first.get! ctx.raw).parent = some block)
+    (parent : first.getParent! ctx.raw = some block)
     (covered : facts.CoversState initialState)
     (hprefix : Collecting.Prefix first initialState op state) : facts.CoversState state := by
   induction hprefix with

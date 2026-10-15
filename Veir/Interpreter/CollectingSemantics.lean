@@ -165,7 +165,7 @@ inductive Prefix : OperationPtr → InterpreterState ctx → OperationPtr → In
       (hprefix : Prefix first initial op state)
       (inBounds : op.InBounds ctx.raw)
       (executed : interpretOp op state inBounds = .ok (state', none))
-      (successor : (op.get! ctx.raw).next = some next) :
+      (successor : op.getNextOp! ctx.raw = some next) :
       Prefix first initial next state'
 
 theorem Prefix.trans {first initial middle state last final}
@@ -179,8 +179,8 @@ theorem Prefix.trans {first initial middle state last final}
 theorem Prefix.location {first initial op state block}
     (hprefix : Prefix (ctx := ctx) first initial op state)
     (firstIn : first.InBounds ctx.raw)
-    (firstParent : (first.get! ctx.raw).parent = some block) :
-    op.InBounds ctx.raw ∧ (op.get! ctx.raw).parent = some block := by
+    (firstParent : first.getParent! ctx.raw = some block) :
+    op.InBounds ctx.raw ∧ op.getParent! ctx.raw = some block := by
   induction hprefix with
   | refl => exact ⟨firstIn, firstParent⟩
   | next _ _ _ _ ih =>
@@ -208,13 +208,13 @@ theorem Prefix.of_interpretOpChain (first : OperationPtr) (initial : Interpreter
         rcases h with ⟨rfl, rfl⟩
         exact ⟨first, initial, firstIn, .refl _ _, hop⟩
       | none =>
-        cases hn : (first.get! ctx.raw).next with
+        cases hn : first.getNextOp! ctx.raw with
         | none =>
           rw [interpretOpChain_of_next!_eq_none hn] at executed
           simp [hop] at executed
         | some next =>
           rw [interpretOpChain_of_next!_eq_some hn] at executed
-          have hnext : (first.get ctx.raw firstIn).next = some next := by grind
+          have hnext : first.getNextOp ctx.raw firstIn = some next := by grind
           obtain ⟨op, state', opIn, hp, hlast⟩ :=
             ih state next hnext final action (by simpa [hop] using executed)
           exact ⟨op, state', opIn, (Prefix.next (.refl _ _) firstIn hop hn).trans hp, hlast⟩
@@ -223,12 +223,12 @@ theorem Prefix.of_interpretOpChain (first : OperationPtr) (initial : Interpreter
 @[expose] def AtOperation (entry : Entry ctx) (op : OperationPtr) (state : InterpreterState ctx) : Prop :=
   ∃ variables first,
     entry.state.variables.setArgumentValues? entry.block entry.arguments entry.inBounds = some variables ∧
-    (entry.block.get! ctx.raw).firstOp = some first ∧
+    entry.block.getFirstOp! ctx.raw = some first ∧
     Prefix first ⟨variables, entry.state.memory⟩ op state
 
 theorem AtOperation.location {entry : Entry ctx} {op state}
     (atOp : AtOperation entry op state) :
-    op.InBounds ctx.raw ∧ (op.get! ctx.raw).parent = some entry.block := by
+    op.InBounds ctx.raw ∧ op.getParent! ctx.raw = some entry.block := by
   obtain ⟨variables, first, _, hf, hp⟩ := atOp
   have := entry.inBounds
   exact hp.location (by grind) (by grind)
