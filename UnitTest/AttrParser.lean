@@ -249,7 +249,7 @@ macro "#assert " e:term : command =>
 -- Minimum subnormal number
 #assert expectSuccessAttr "1.0e-45 : f32" (fpAttr FloatType.f32 1)
 #assert expectSuccessAttr "1.0e-100 : f32" (fpAttr FloatType.f32 0)
--- Maximum normal nunmber
+-- Maximum normal number
 #assert expectSuccessAttr "3.4028235e38 : f32" (fpAttr FloatType.f32 0x7f7fffff)
 -- Values in the binade above the largest finite number round to a signed
 -- infinity, not to a NaN.

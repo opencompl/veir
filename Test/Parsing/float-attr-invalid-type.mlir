@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s --strict-whitespace
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 // Verify that a float attribute with an unsupported type suffix is rejected.
 

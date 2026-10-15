@@ -617,7 +617,7 @@ structure DictionaryAttr where
     not possible with either a `HashMap` or an `ExtHashMap`.
     Entries are expected to be sorted by key and each key is unique, so that we can use a
     binary search and have O(log(n)) lookup time. This invariant is not enforced proof-wise but
-    is expected to be maintained at all time.
+    is expected to be maintained at all times.
   -/
   entries : Array (ByteArray × Attribute)
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/

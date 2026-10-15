@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s --strict-whitespace
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 "builtin.module"() ({
   %a:2 = "test.test"() : () -> (i32, i64)

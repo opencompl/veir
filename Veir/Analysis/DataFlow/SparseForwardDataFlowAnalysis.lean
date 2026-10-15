@@ -136,13 +136,13 @@ private def visitBlock
   if !isBlockLive block dfCtx irCtx then
     return dfCtx
 
-  let some parentRegion := (block.get! irCtx.raw).parent
+  let some parentRegion := block.getParent! irCtx.raw
     | return dfCtx
 
   -- The argument lattices of entry blocks are set by region control flow or
   -- the callgraph.
   -- TODO: Until those are modeled, conservatively apply the analysis-specific entry state.
-  if (parentRegion.get! irCtx.raw).firstBlock = some block then
+  if parentRegion.getFirstBlock! irCtx.raw = some block then
     -- TODO: Mirror MLIR's handling of `visitCallableOperation` and
     -- `visitRegionSuccessors` and `visitNonControlFlowArgumentsImpl`
     -- for entry blocks.
@@ -155,14 +155,13 @@ private def visitBlock
   let mut dfCtx := dfCtx
 
   -- Iterate over the predecessors of the non-entry block.
-  let mut maybePredUse := (block.get! irCtx.raw).firstUse
+  let mut maybePredUse := block.getFirstUse! irCtx.raw
 
   while let some predUse := maybePredUse do
-    let predUseStruct := predUse.get! irCtx.raw
-    maybePredUse := predUseStruct.nextUse
+    maybePredUse := predUse.getNextUse! irCtx.raw
 
-    let predecessorOp := predUseStruct.owner
-    let some predecessorBlock := (predecessorOp.get! irCtx.raw).parent
+    let predecessorOp := predUse.getOwner! irCtx.raw
+    let some predecessorBlock := predecessorOp.getParent! irCtx.raw
       | continue
 
     let edge : CFGEdge := { source := predecessorBlock, target := block }
@@ -246,7 +245,7 @@ partial def visitOperation
 
   -- If the containing block is not live, bail out. Liveness is by default
   -- unreachable until proven live, so a missing state is treated as dead.
-  if let some parentBlock := (op.get! irCtx.raw).parent then
+  if let some parentBlock := op.getParent! irCtx.raw then
     if !isBlockLive parentBlock dfCtx irCtx then
       return dfCtx
 
@@ -289,21 +288,20 @@ partial def initializeRecursively
   let mut dfCtx := dfCtx
   dfCtx := visitOperation kind analysisKind transfer op dfCtx irCtx
 
-  for regionPtr in (op.get! irCtx.raw).regions do
-    let region := regionPtr.get! irCtx.raw
-    let mut maybeBlock := region.firstBlock
+  for region in op.getRegions! irCtx.raw do
+    let mut maybeBlock := region.getFirstBlock! irCtx.raw
 
     while let some block := maybeBlock do
       dfCtx := subscribeToBlockLiveness analysisKind block dfCtx irCtx
       dfCtx := visitBlock kind analysisKind entryState block dfCtx irCtx
-      let mut maybeOp := (block.get! irCtx.raw).firstOp
+      let mut maybeOp := block.getFirstOp! irCtx.raw
 
       while let some nestedOp := maybeOp do
         dfCtx := initializeRecursively kind analysisKind entryState transfer
           nestedOp dfCtx irCtx
-        maybeOp := (nestedOp.get! irCtx.raw).next
+        maybeOp := nestedOp.getNextOp! irCtx.raw
 
-      maybeBlock := (block.get! irCtx.raw).next
+      maybeBlock := block.getNextBlock! irCtx.raw
   dfCtx
 
 end
@@ -323,8 +321,8 @@ private def init
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   -- Mark the entry block arguments as having reached their entry-state fixpoints.
   let mut dfCtx := dfCtx
-  for regionPtr in (top.get! irCtx.raw).regions do
-    if let some firstBlock := (regionPtr.get! irCtx.raw).firstBlock then
+  for regionPtr in top.getRegions! irCtx.raw do
+    if let some firstBlock := regionPtr.getFirstBlock! irCtx.raw then
       for argument in firstBlock.getArguments! irCtx.raw do
         let incoming := SparseFact.mkPayload (entryState argument irCtx)
         dfCtx := joinAndPropagate kind argument incoming dfCtx irCtx

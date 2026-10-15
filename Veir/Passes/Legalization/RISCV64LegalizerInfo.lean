@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
+import Veir.PatternRewriter.Puddle.Builders
 
 /-!
 # RISC-V 64 Legalization
@@ -15,13 +16,45 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 
 namespace Veir
 
+section
+open Puddle in
+
+/--
+  Custom legalization of `i32` `g_add`/`g_sub`.
+  LLVM emits `G_SEXT_INREG` here instead, and selects the word variant later.
+-/
+def customLegalizeAddSub (opcode : GMIR) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let lhs ← MatchProg.value opType
+      let rhs ← MatchProg.value opType
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[opType]
+      return (opType, lhs, rhs))
+    (fun (opType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] castProps
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] castProps
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[opType] castProps)
+    (fun castBackOp => castBackOp)
+
+end
+
 public section
 
--- TODO: Add custom rules which help select the word variants of operations.
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
       .legalFor [64],
+      .customFor [32],
       .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
@@ -43,6 +76,11 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_trunc => [
       .alwaysLegal,
     ]
+    | _ => []
+  legalizeCustom
+    | .g_add => customLegalizeAddSub .g_add .addw ()
+    | .g_sub => customLegalizeAddSub .g_sub .subw ()
+    | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"

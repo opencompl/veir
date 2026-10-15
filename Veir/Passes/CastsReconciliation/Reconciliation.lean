@@ -18,7 +18,7 @@ def isRegToI64RoundTrip (inputType interType : TypeAttr): Bool :=
 
 /-!
  We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!llvm.ptr` and `!riscv.reg` types.
- This cast assums that the `.llvmPointerType` is bit-wide.
+ This cast assumes that the `.llvmPointerType` is bit-wide.
 -/
 def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
  match inputType.val, interType.val with
@@ -55,7 +55,7 @@ def reconcilePairingCastLocal (legal : TypeAttr → TypeAttr → Bool) (ctx : Wf
   let some input := matchCastOp op ctx.raw | return (ctx, none)
   /- Note that reconciliation matches on the second casting operation, so the input type of this op would be the intermediate type -/
   let interType := input.getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return (ctx, none)
   let some parentInput := matchCastOp op'.op ctx.raw | return (ctx, none)
@@ -76,7 +76,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let some input := matchCastOp op ctx.raw | return (ctx, none)
   /- Note that reconciliation matches on the second casting operation, so the input type of this op would be the intermediate type -/
   let interType := input.getType! ctx.raw
-  let resultType := ((op.getResult 0).get! ctx.raw).type
+  let resultType := (op.getResult 0).getType! ctx.raw
   /- If the operand's parent is a cast operation -/
   let .opResult op' := input | return (ctx, none)
   let some parentInput := matchCastOp op'.op ctx.raw | return (ctx, none)
