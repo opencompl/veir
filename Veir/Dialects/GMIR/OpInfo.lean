@@ -232,7 +232,12 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simpa using h)
-    return (#[.int 1 (Data.LLVM.Int.icmp lhs rhs properties.predicate)], mem, none)
+    let cmp := Data.LLVM.Int.icmp lhs rhs properties.predicate
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    /- LLVM leaves the value of true in a wider result to the target; it is 1, as on RISC-V. -/
+    if h : 1 < resBw.bitwidth then return (#[.int resBw.bitwidth (cmp.zext _ false h)], mem, none)
+    return (#[.int 1 cmp], mem, none)
   | .g_sub => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
