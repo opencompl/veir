@@ -25,7 +25,7 @@ meaning that `QPF.repr` and `QPF.abs` are isomorphisms.
 
 Note that this notion of being "polynomial" is syntactically wider than
 `PFunctor`, since `PFunctors` have to be defined in a particular shape.
-The literature occasionally cals this notion "semantic polynomial functors".
+The literature occasionally calls this notion "semantic polynomial functors".
 -/
 class IsPolynomial (F : TypeVec.{u} n → Type v) [q : QPF F] where
   repr_abs : ∀ {β : TypeVec (n)} (p : P F β), repr (abs p) = p

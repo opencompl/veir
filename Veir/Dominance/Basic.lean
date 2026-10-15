@@ -61,10 +61,10 @@ a CFG edge.
 inductive RegionPtr.Path (region : RegionPtr) (ctx : WfIRContext OpInfo) :
     BlockPtr → BlockPtr → List BlockPtr → Prop where
   | Single {block : BlockPtr}
-      (parent : (block.get! ctx.raw).parent = some region) :
+      (parent : block.getParent! ctx.raw = some region) :
       region.Path ctx block block [block]
   | Cons {source next target : BlockPtr} {blocks : List BlockPtr}
-      (parent : (source.get! ctx.raw).parent = some region)
+      (parent : source.getParent! ctx.raw = some region)
       (successor : next ∈ source.getSuccessors! ctx.raw)
       (tail : region.Path ctx next target blocks) :
       region.Path ctx source target (source :: blocks)
@@ -78,7 +78,7 @@ entry block to the block.
 def BlockPtr.LocallyReachable (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ entry blocks,
-    (region.get! ctx.raw).firstBlock = some entry ∧
+    region.getFirstBlock! ctx.raw = some entry ∧
     region.Path ctx entry block blocks
 
 /--
@@ -88,7 +88,7 @@ A block is reachable if every ancestor block is reachable from the entry of its 
 -/
 def BlockPtr.HierarchicallyReachable (block : BlockPtr) (ctx : WfIRContext OpInfo) : Prop :=
   ∀ block₂, (IRNode.block block₂).Ancestor block ctx →
-  ∀ region₂, (block₂.get! ctx.raw).parent = some region₂ →
+  ∀ region₂, block₂.getParent! ctx.raw = some region₂ →
   block₂.LocallyReachable region₂ ctx
 
 /--
@@ -100,8 +100,8 @@ region.
 def OperationPtr.LocallyReachable (op : OperationPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
   ∃ block,
-    (op.get! ctx.raw).parent = some block ∧
-    (block.get! ctx.raw).parent = some region ∧
+    op.getParent! ctx.raw = some block ∧
+    block.getParent! ctx.raw = some region ∧
     block.LocallyReachable region ctx
 
 /--
@@ -110,7 +110,7 @@ Syntactic reachability of `op`.
 An operation is reachable if its parent block is reachable.
 -/
 def OperationPtr.HierarchicallyReachable (op : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=
-  ∀ block, (op.get! ctx.raw).parent = some block →
+  ∀ block, op.getParent! ctx.raw = some block →
   block.HierarchicallyReachable ctx
 
 /--
@@ -121,8 +121,8 @@ graph region. In practice, if the context is verified, this means that both bloc
 -/
 def BlockPtr.ProperlyDominatesInGraphRegion (dominator dominated : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  (dominator.get! ctx.raw).parent = some region ∧
-  (dominated.get! ctx.raw).parent = some region ∧
+  dominator.getParent! ctx.raw = some region ∧
+  dominated.getParent! ctx.raw = some region ∧
   region.hasSSADominance ctx = false
 
 /--
@@ -137,12 +137,12 @@ in the region, since there are no CFG paths from the entry block to the unreacha
 -/
 def BlockPtr.ProperlyDominatesInSSACFGRegion (dominator dominated : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  (dominator.get! ctx.raw).parent = some region ∧
-  (dominated.get! ctx.raw).parent = some region ∧
+  dominator.getParent! ctx.raw = some region ∧
+  dominated.getParent! ctx.raw = some region ∧
   region.hasSSADominance ctx = true ∧
   dominator ≠ dominated ∧
   ∀ entry blocks,
-    (region.get! ctx.raw).firstBlock = some entry →
+    region.getFirstBlock! ctx.raw = some entry →
     region.Path ctx entry dominated blocks →
     dominator ∈ blocks
 
@@ -205,9 +205,9 @@ Operations in the same block are ordered by their index in the block's operation
 def OperationPtr.ProperlyDominatesInSSACFGBlock
     (dominator dominated : OperationPtr) (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  ∃ dominatorParent : (dominator.get! ctx.raw).parent = some block,
-  ∃ dominatedParent : (dominated.get! ctx.raw).parent = some block,
-  (block.get! ctx.raw).parent = some region ∧
+  ∃ dominatorParent : dominator.getParent! ctx.raw = some block,
+  ∃ dominatedParent : dominated.getParent! ctx.raw = some block,
+  block.getParent! ctx.raw = some region ∧
   region.hasSSADominance ctx = true ∧
   dominator.idxInParent ctx.raw < dominated.idxInParent ctx.raw
 
@@ -219,9 +219,9 @@ Operations in the same graph block properly dominate each other independently of
 def OperationPtr.ProperlyDominatesInGraphBlock
     (dominator dominated : OperationPtr) (block : BlockPtr) (region : RegionPtr)
     (ctx : WfIRContext OpInfo) : Prop :=
-  (dominator.get! ctx.raw).parent = some block ∧
-  (dominated.get! ctx.raw).parent = some block ∧
-  (block.get! ctx.raw).parent = some region ∧
+  dominator.getParent! ctx.raw = some block ∧
+  dominated.getParent! ctx.raw = some block ∧
+  block.getParent! ctx.raw = some region ∧
   region.hasSSADominance ctx = false
 
 /--
@@ -253,9 +253,9 @@ inductive OperationPtr.ProperlyDominatesInRegion
         dominator.ProperlyDominatesInBlock dominated block region ctx)
   | BlockDominance {dominatorBlock dominatedBlock : BlockPtr}
       (hDominatorBlock :
-        (dominator.get! ctx.raw).parent = some dominatorBlock)
+        dominator.getParent! ctx.raw = some dominatorBlock)
       (hDominatedBlock :
-        (dominated.get! ctx.raw).parent = some dominatedBlock)
+        dominated.getParent! ctx.raw = some dominatedBlock)
       (dominance :
         dominatorBlock.ProperlyDominatesInRegion dominatedBlock region ctx)
 
@@ -303,7 +303,7 @@ inductive OperationPtr.ProperlyDominatesBlock (dominator : OperationPtr) (domina
       (ancestor : dominator.Ancestor (.block dominatedBlock) ctx) :
       ProperlyDominatesBlock dominator dominatedBlock ctx true
   | SameRegion {dominatorBlock : BlockPtr} {region : RegionPtr}
-      (dominatorParent : (dominator.get! ctx.raw).parent = some dominatorBlock)
+      (dominatorParent : dominator.getParent! ctx.raw = some dominatorBlock)
       (dom : dominatorBlock.ProperlyDominatesInRegion dominatedBlock region ctx)
       : ProperlyDominatesBlock dominator dominatedBlock ctx enclosingOk
   | AncestorOpDominated {dominatedAncestor : OperationPtr}
@@ -325,7 +325,7 @@ inductive OperationPtr.DominatesIp (dominator : OperationPtr)
     (dominance : dominator.ProperlyDominates dominated ctx enclosingOk) :
     DominatesIp dominator (InsertPoint.before dominated) ctx enclosingOk
   | AtEndSameBlock {parent : BlockPtr}
-    (dominatorParent : (dominator.get! ctx.raw).parent = some parent) :
+    (dominatorParent : dominator.getParent! ctx.raw = some parent) :
     DominatesIp dominator (InsertPoint.atEnd parent) ctx enclosingOk
   | AtEndOtherBlock {ipParent : BlockPtr}
     (dominance : dominator.ProperlyDominatesBlock ipParent ctx enclosingOk)
@@ -353,7 +353,7 @@ def ValuePtr.ProperlyDominates (value : ValuePtr) (op : OperationPtr)
   match value with
   | .opResult result => result.op.ProperlyDominates op ctx false
   | .blockArgument argument =>
-      ∃ block, (op.get! ctx.raw).parent = some block ∧
+      ∃ block, op.getParent! ctx.raw = some block ∧
         argument.block.Dominates block ctx
 
 /--
@@ -395,8 +395,8 @@ reachable. Operations without a parent block or whose block has no parent region
 -/
 def WfIRContext.Dom (ctx : WfIRContext OpInfo) (root : IRNode) : Prop :=
   ∀ {op : OperationPtr}, root.Ancestor op ctx →
-    ∀ {block : BlockPtr}, (op.get! ctx.raw).parent = some block →
-    ∀ {region : RegionPtr}, (block.get! ctx.raw).parent = some region →
+    ∀ {block : BlockPtr}, op.getParent! ctx.raw = some block →
+    ∀ {region : RegionPtr}, block.getParent! ctx.raw = some region →
     block.LocallyReachable region ctx →
     ∀ {value : ValuePtr}, value ∈ op.getOperands! ctx.raw →
     value.ProperlyDominates op ctx

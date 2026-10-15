@@ -11,7 +11,7 @@ public meta import QPFTypes.Meta.QPFExpr.FinTuple
 # QPFExpr
 
 This file defines a `QPFExpr` type, which stores a Lean expression of an
-`n`-ary type function, with a correponding QPF instance.
+`n`-ary type function, with a corresponding QPF instance.
 
 Morally, this can be thought of as a specialization of QQ's `Q(...)` type,
 with additional helpers specifically for manipulating QPFs in meta-code.
@@ -131,7 +131,7 @@ public meta def mkFix (e : QPFExpr u (n + 1)) : QPFExpr u n where
     mkApp4 (mkConst ``QPF.Fix.instIsPolynomial [u]) (toExpr n) e.typefun e.qpf isPoly
 
 /--
-Create the greates/coinductive fixpoint of a qpf,
+Create the greatest/coinductive fixpoint of a qpf,
 i.e., an application of `QPF.Cofix`.
 -/
 public meta def mkCofix (e : QPFExpr u (n + 1)) : QPFExpr u n where

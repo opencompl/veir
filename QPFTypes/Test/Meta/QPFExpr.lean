@@ -13,7 +13,7 @@ Test that the QPFExpr meta helpers generate well-typed expressions.
 namespace QPFTypes.QPFExpr
 open Lean
 
-/-- Check that all compoments of a QPFExpr all well-typed, or throw an error if not. -/
+/-- Check that all components of a QPFExpr are well-typed, or throw an error if not. -/
 def check (e : QPFExpr u n) : MetaM Unit := do
   Meta.check e.typefun
   Meta.check e.qpf
