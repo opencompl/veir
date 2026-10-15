@@ -222,6 +222,20 @@ def urem64_pattern : Pattern OpCode := lowerBinary (.llvm .urem) (fun t => t.bit
 def urem32_pattern : Pattern OpCode :=
   lowerBinary (.llvm .urem) (fun t => t.bitwidth = 32) .remuw ()
 
+/-- `llvm.xor` (`i64`) -> `riscv.xor`. -/
+def xor64_pattern : Pattern OpCode := lowerBinary (.llvm .xor) (fun t => t.bitwidth = 64) .xor ()
+
+/-- `llvm.xor` (`i32`) -> `riscv.xor` (no `W` variant needed: xor is bitwise). -/
+def xor32_pattern : Pattern OpCode := lowerBinary (.llvm .xor) (fun t => t.bitwidth = 32) .xor ()
+
+/-- `llvm.and` -> `riscv.and` (bitwise, so one instruction for every legal width). -/
+def and_pattern : Pattern OpCode :=
+  lowerBinary (.llvm .and) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .and ()
+
+/-- `llvm.or` -> `riscv.or` (bitwise, so one instruction for every legal width). -/
+def or_pattern : Pattern OpCode :=
+  lowerBinary (.llvm .or) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8 ∨ t.bitwidth = 1) .or ()
+
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
 def umax_pattern : Pattern OpCode :=
@@ -501,6 +515,8 @@ def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
 /-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
 def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 
+/-- llvm.and -> riscv.and (bitwise, so one instruction for every legal width) -/
+def and : Puddle.CompiledPattern OpCode := and_pattern.compile
 
 /--
   `llvm.ashr` with an `i64`, `i32`, or `i8` result of width `bw` -> `riscv.sra` (`riscv.sraw` for
@@ -749,6 +765,15 @@ def icmp : Array (Puddle.CompiledPattern OpCode) :=
   let generic := widths.flatMap fun w =>
     preds.map fun pred => lowerIcmp (.llvm .icmp) pred w false
   (peepholes ++ generic).map (·.compile)
+
+/-- llvm.or -> riscv.or (bitwise, so one instruction for every legal width) -/
+def or : Puddle.CompiledPattern OpCode := or_pattern.compile
+
+/-- llvm.xor -> riscv.xor -/
+def xor64 : Puddle.CompiledPattern OpCode := xor64_pattern.compile
+
+/-- llvm.xor -> riscv.xor (no `W` variant needed: xor is bitwise) -/
+def xor32 : Puddle.CompiledPattern OpCode := xor32_pattern.compile
 
 /-- llvm.mul -> riscv.mul -/
 def mul64 : Puddle.CompiledPattern OpCode := mul64_pattern.compile
@@ -2315,22 +2340,21 @@ def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
 
-/-- `gmir.and` (`i64`) -> `riscv.and` (bitwise, so one instruction for every legal width). -/
+/-- `gmir.g_and` (`i64`) -> `riscv.and`. -/
 def gmirAnd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_and) (·.bitwidth = 64) .and () (guard := matchLegal .g_and)
 
-/-- `gmir.or` (`i64`) -> `riscv.or` (bitwise, so one instruction for every legal width). -/
+/-- `gmir.g_or` (`i64`) -> `riscv.or`. -/
 def gmirOr_pattern : Pattern OpCode :=
-  lowerBinary (.gmir .g_or)  (·.bitwidth = 64) .or () (guard := matchLegal .g_or)
+  lowerBinary (.gmir .g_or) (·.bitwidth = 64) .or () (guard := matchLegal .g_or)
 
-/-- `gmir.xor` (`i64`) -> `riscv.xor` (bitwise, so one instruction for every legal width). -/
+/-- `gmir.g_xor` (`i64`) -> `riscv.xor`. -/
 def gmirXor_pattern : Pattern OpCode :=
-  lowerBinary (.gmir .g_xor)  (·.bitwidth = 64) .xor () (guard := matchLegal .g_xor)
+  lowerBinary (.gmir .g_xor) (·.bitwidth = 64) .xor () (guard := matchLegal .g_xor)
 
 def gmirAnd : Puddle.CompiledPattern OpCode := gmirAnd_pattern.compile
-def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 def gmirOr : Puddle.CompiledPattern OpCode := gmirOr_pattern.compile
-
+def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 
 /-! # Pass implementation -/
 
@@ -2348,8 +2372,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run, ashr64.run, ashr32.run, ashr8.run] ++
-    icmp.map (·.run) ++ #[mul32.run, mul64.run,
+    constant.run, addressof, add32.run, add64.run, and.run, ashr64.run, ashr32.run, ashr8.run] ++
+    icmp.map (·.run) ++ #[or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
     sub64.run, sub32.run, bitcast.run] ++
@@ -2358,7 +2382,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run,
-    gmirAnd.run, gmirXor.run, gmirOr.run]
+    gmirAnd.run, gmirOr.run, gmirXor.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
