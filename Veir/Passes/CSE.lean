@@ -116,7 +116,7 @@ def icmpKey
 def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
   guard (op.isMemoryIndependent ctx)
   guard (op.getNumSuccessors! ctx = 0)
-  guard ((op.get! ctx).attrs.entries.size = 0)
+  guard ((op.getAttributes! ctx).entries.size = 0)
   guard (op.getNumResults! ctx > 0)
   let opType := op.getOpType! ctx
   let properties := op.getProperties! ctx opType

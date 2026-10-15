@@ -19,7 +19,7 @@ private def run (mlir : String) (queries : Array Query) : String :=
     for query in queries do
       let some block := names.blocks[query.regionBlock]?
         | return #[s!"missing region block {query.regionBlock}"]
-      let region := (block.get! ctx.raw).parent.get!
+      let region := (block.getParent! ctx.raw).get!
       let some definitions := query.definitions.mapM (names.blocks[·]?)
         | return #["missing definition block"]
       let frontier := DominanceFrontier.compute region dfCtx ctx

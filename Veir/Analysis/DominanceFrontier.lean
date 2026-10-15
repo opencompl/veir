@@ -40,9 +40,9 @@ require quadratic space. The result can be reused for multiple IDF queries.
 def compute (region : RegionPtr) (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DominanceFrontier := Id.run do
   let mut result : DominanceFrontier := {}
-  let mut current := (region.get! irCtx.raw).firstBlock
+  let mut current := region.getFirstBlock! irCtx.raw
   while let some block := current do
-    current := (block.get! irCtx.raw).next
+    current := block.getNextBlock! irCtx.raw
     if block.isReachable dfCtx then
       result := { result with
         blocks := result.blocks.push block
