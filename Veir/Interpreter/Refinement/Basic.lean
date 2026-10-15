@@ -337,7 +337,7 @@ def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
   sv ⊒ tv
 
 /--
-A refinement relation for intepreter states in two different locations.
+A refinement relation for interpreter states in two different locations.
 This asserts that memory is equal, and that the variable states are refined at the given points.
 -/
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}

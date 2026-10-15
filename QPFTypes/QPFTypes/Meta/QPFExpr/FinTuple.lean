@@ -9,9 +9,9 @@ This file defines two meta helpers, `mkTuple` and `mkDTuple` for creating expres
 of fin-based non-dependent tuples or dependent tuples, respectively.
 
 These helpers generate these tuples via list literals, to avoid having to
-vendor an analogou to the Mathlib module `Mathlib/Data/Fin/Tuple`.
+vendor an analogue of the Mathlib module `Mathlib/Data/Fin/Tuple`.
 
-This is primarily used to make it easier to generate the composistion of QPFs at
+This is primarily used to make it easier to generate the composition of QPFs at
 meta-time, in `QPFExpr.mkComp`.
 -/
 
@@ -46,7 +46,7 @@ For dependent tuples, we still use a list literal.
 However, to encode for the dependent types of each element,
 we create a list of sigmas.
 Then, we effectively use `by decide` to prove (a) that the list literal
-has the correct length and, more imporantly, (b) that the first component of
+has the correct length and, more importantly, (b) that the first component of
 the `i`-th element of the list literal is the index `i`.
 To facilitate constructions of a list with these conditions, we define the
 `DList` abbreviation, and then define `DList.get` as the getter of the
@@ -128,7 +128,7 @@ where
       throwError "While constructing a dependent tuple with type family:{indentExpr typefam}
 and the following elements: {xs.toList}
 
-The following error occured:
+The following error occurred:
 {err.toMessageData}"
 
 /-!

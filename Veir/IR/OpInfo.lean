@@ -190,6 +190,11 @@ class HasOpInfo (opCode: Type)
   nested regions.
   -/
   isIsolatedFromAbove : opCode → Bool := fun _ => false
+  /--
+  Whether this operation has MLIR's `SymbolTable` trait: the symbols in its single region can be
+  looked up by name.
+  -/
+  isSymbolTable : opCode → Bool := fun _ => false
 
 attribute [get_effects] HasOpInfo.getEffects
 attribute [is_terminator] HasOpInfo.isTerminator
@@ -208,10 +213,9 @@ abbrev OperationPtr.verifyLocalInvariants (op : OperationPtr) (ctx : WfIRContext
 -/
 @[expose, inline]
 public def RegionPtr.hasNoTerminator (region : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
-  match (region.get! ctx.raw).parent with
+  match region.getParent! ctx.raw with
   | some parentOp =>
-    let parent := parentOp.get! ctx.raw
-    HasOpInfo.hasNoTerminator parent.opType (parent.regions.idxOf region)
+    HasOpInfo.hasNoTerminator (parentOp.getOpType! ctx.raw) ((parentOp.getRegions! ctx.raw).idxOf region)
   | none => false
 
 end -- public section

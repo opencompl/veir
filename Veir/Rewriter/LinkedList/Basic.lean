@@ -17,19 +17,21 @@ variable {ctx : IRContext OpInfo}
 def OpOperandPtr.removeFromCurrent (ctx: IRContext OpInfo) (operandPtr: OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
-  let operand := operandPtr.get ctx
-  let ctx := operand.back.set ctx operand.nextUse
-  match hNextUse: operand.nextUse with
+  let back := operandPtr.getBack ctx
+  let nextUse := operandPtr.getNextUse ctx
+  let ctx := back.set ctx nextUse
+  match hNextUse: nextUse with
   | none => ctx
-  | some nextPtr => nextPtr.setBack ctx operand.back
+  | some nextPtr => nextPtr.setBack ctx back
 
 @[irreducible]
 def OpOperandPtr.removeFromCurrent! (ctx : IRContext OpInfo) (operandPtr : OpOperandPtr) : IRContext OpInfo :=
-  let operand := operandPtr.get! ctx
-  let ctx := operand.back.set! ctx operand.nextUse
-  match operand.nextUse with
+  let back := operandPtr.getBack! ctx
+  let nextUse := operandPtr.getNextUse! ctx
+  let ctx := back.set! ctx nextUse
+  match nextUse with
   | none => ctx
-  | some nextPtr => nextPtr.setBack! ctx operand.back
+  | some nextPtr => nextPtr.setBack! ctx back
 
 @[grind _=_, eq_bang ←]
 theorem OpOperandPtr.removeFromCurrent!_eq_removeFromCurrent
@@ -50,7 +52,7 @@ theorem OpOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
 @[irreducible]
 def OpOperandPtr.insertIntoCurrent (ctx: IRContext OpInfo) (operandPtr: OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.FieldsInBounds) : IRContext OpInfo :=
-  let value := (operandPtr.get ctx).value
+  let value := operandPtr.getValue ctx
   let ctx := operandPtr.setBack ctx (OpOperandPtrPtr.valueFirstUse value)
   let newNextUse := value.getFirstUse ctx
   let ctx := operandPtr.setNextUse ctx newNextUse
@@ -61,7 +63,7 @@ def OpOperandPtr.insertIntoCurrent (ctx: IRContext OpInfo) (operandPtr: OpOperan
 
 @[irreducible]
 def OpOperandPtr.insertIntoCurrent! (ctx : IRContext OpInfo) (operandPtr : OpOperandPtr) : IRContext OpInfo :=
-  let value := (operandPtr.get! ctx).value
+  let value := operandPtr.getValue! ctx
   let ctx := operandPtr.setBack! ctx (OpOperandPtrPtr.valueFirstUse value)
   let newNextUse := value.getFirstUse! ctx
   let ctx := operandPtr.setNextUse! ctx newNextUse
@@ -94,20 +96,22 @@ theorem OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
 def BlockOperandPtr.removeFromCurrent (ctx: IRContext OpInfo) (operandPtr: BlockOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
     (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
-  let operand := operandPtr.get ctx
-  let ctx := operand.back.set ctx operand.nextUse
-  match hNextUse: operand.nextUse with
+  let back := operandPtr.getBack ctx
+  let nextUse := operandPtr.getNextUse ctx
+  let ctx := back.set ctx nextUse
+  match hNextUse: nextUse with
   | none => ctx
-  | some nextPtr => nextPtr.setBack ctx operand.back
+  | some nextPtr => nextPtr.setBack ctx back
 
 @[irreducible]
 def BlockOperandPtr.removeFromCurrent! (ctx : IRContext OpInfo) (operandPtr : BlockOperandPtr) :
     IRContext OpInfo :=
-  let operand := operandPtr.get! ctx
-  let ctx := operand.back.set! ctx operand.nextUse
-  match operand.nextUse with
+  let back := operandPtr.getBack! ctx
+  let nextUse := operandPtr.getNextUse! ctx
+  let ctx := back.set! ctx nextUse
+  match nextUse with
   | none => ctx
-  | some nextPtr => nextPtr.setBack! ctx operand.back
+  | some nextPtr => nextPtr.setBack! ctx back
 
 @[grind _=_, eq_bang ←]
 theorem BlockOperandPtr.removeFromCurrent!_eq_removeFromCurrent
@@ -128,9 +132,9 @@ theorem BlockOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
 @[irreducible]
 def BlockOperandPtr.insertIntoCurrent (ctx: IRContext OpInfo) (operandPtr: BlockOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.FieldsInBounds) : IRContext OpInfo :=
-  let block := (operandPtr.get ctx).value
+  let block := operandPtr.getValue ctx
   let ctx := operandPtr.setBack ctx (BlockOperandPtrPtr.blockFirstUse block)
-  let newNextUse := (block.get ctx).firstUse
+  let newNextUse := block.getFirstUse ctx
   let ctx := operandPtr.setNextUse ctx newNextUse
   let ctx := block.setFirstUse ctx operandPtr
   match hNextUse: newNextUse with
@@ -139,9 +143,9 @@ def BlockOperandPtr.insertIntoCurrent (ctx: IRContext OpInfo) (operandPtr: Block
 
 @[irreducible]
 def BlockOperandPtr.insertIntoCurrent! (ctx : IRContext OpInfo) (operandPtr : BlockOperandPtr) : IRContext OpInfo :=
-  let block := (operandPtr.get! ctx).value
+  let block := operandPtr.getValue! ctx
   let ctx := operandPtr.setBack! ctx (BlockOperandPtrPtr.blockFirstUse block)
-  let newNextUse := (block.get! ctx).firstUse
+  let newNextUse := block.getFirstUse! ctx
   let ctx := operandPtr.setNextUse! ctx newNextUse
   let ctx := block.setFirstUse! ctx operandPtr
   match newNextUse with
@@ -227,14 +231,14 @@ theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
 @[irreducible]
 def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext OpInfo) (parent: BlockPtr)
     (selfIn: self.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
-  match (self.get ctx (by grind)).parent with
+  match (self.getParent ctx (by grind)) with
   | some _ => none
   | none => self.setParent ctx (some parent)
 
 @[irreducible]
 def OperationPtr.setParentWithCheck! (self : OperationPtr) (ctx : IRContext OpInfo) (parent : BlockPtr) :
     Option (IRContext OpInfo)  :=
-  match (self.get! ctx).parent with
+  match self.getParent! ctx with
   | some _ => none
   | none => self.setParent! ctx (some parent)
 
@@ -389,14 +393,14 @@ theorem BlockPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
 @[irreducible]
 def BlockPtr.setParentWithCheck (self: BlockPtr) (ctx: IRContext OpInfo) (parent: RegionPtr)
     (selfIn: self.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
-  match (self.get ctx (by grind)).parent with
+  match (self.getParent ctx (by grind)) with
   | some _ => none
   | none => self.setParent ctx (some parent)
 
 @[irreducible]
 def BlockPtr.setParentWithCheck! (self : BlockPtr) (ctx : IRContext OpInfo) (parent : RegionPtr) :
     Option (IRContext OpInfo) :=
-  match (self.get! ctx).parent with
+  match self.getParent! ctx with
   | some _ => none
   | none => self.setParent! ctx (some parent)
 

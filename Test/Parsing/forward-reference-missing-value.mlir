@@ -1,5 +1,5 @@
 // RUN: not veir-opt %s 2>&1 | filecheck %s --strict-whitespace
-// RUN: MLIR_INVALID
+// RUN: MLIR_UNREGISTERED_INVALID
 
 // A value that is used but never defined anywhere is reported once top-level parsing
 // finishes.
