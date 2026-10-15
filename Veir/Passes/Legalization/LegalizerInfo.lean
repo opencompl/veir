@@ -150,6 +150,12 @@ def customIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
 def customFor (types : List LLT) : LegalizeRule opcode :=
   customIf fun query => types.contains (query.getLLT! (.type 0))
 
+/--
+Use the target's `legalizeCustom` pattern when type groups 0 and 1 are any type pair in `pairs`.
+-/
+def customForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule opcode :=
+  customIf fun query => pairs.contains (query.getLLT! (.type 0), query.getLLT! (.type 1))
+
 /-- Widen the scalar to the one selected by `mutation` if `predicate` is true. -/
 def widenScalarIf (predicate : LegalityPredicate opcode)
     (mutation : LegalityQuery opcode → TypeGroup × LLT) : LegalizeRule opcode :=
