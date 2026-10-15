@@ -1,6 +1,7 @@
 module
 
 public import Veir.Dominance.Basic
+public import Veir.Dominance.Lemmas.Path
 public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
@@ -103,30 +104,32 @@ axiom OperationPtr.HierarchicallyReachable.of_dominates :
 
 /-- A hierarchically reachable operation is locally reachable in some parent region. -/
 @[grind .]
-axiom OperationPtr.HierarchicallyReachable.exists_locallyReachable :
+theorem OperationPtr.HierarchicallyReachable.exists_locallyReachable :
   op.HierarchicallyReachable ctx →
   op.getParentRegion! ctx.raw = some region →
-  ∃ region, op.LocallyReachable region ctx
-
-/-- A hierarchically reachable operation has a hierarchically reachable parent block. -/
-@[grind .]
-axiom OperationPtr.HierarchicallyReachable.exists_parent :
-  op.HierarchicallyReachable ctx →
-  ∃ (block : BlockPtr),
-    (op.get! ctx.raw).parent = some block ∧
-    block.HierarchicallyReachable ctx
+  ∃ region, op.LocallyReachable region ctx := by
+  intro reachable parentRegion
+  obtain ⟨block, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  exact ⟨region, OperationPtr.LocallyReachable.of_parent_block
+    ((reachable.parent_block opParent).locallyReachable blockParent) opParent⟩
 
 /-- An operation enclosing a hierarchically reachable block is hierarchically reachable. -/
-axiom OperationPtr.HierarchicallyReachable.of_ancestor_block
+theorem OperationPtr.HierarchicallyReachable.of_ancestor_block
     (reachable : block.HierarchicallyReachable ctx) (ancestry : op.Ancestor block ctx) :
-    op.HierarchicallyReachable ctx
+    op.HierarchicallyReachable ctx := by
+  intro parent opParent
+  have parentAncestry : (IRNode.block parent).Ancestor op ctx :=
+    IRNode.Ancestor.of_parent (by
+      simp only [IRNode.parent!_operation, opParent, Option.map_some])
+  exact reachable.of_ancestor (parentAncestry.trans ancestry)
 
 /-- An operation dominating the entry of a hierarchically reachable block in an SSA region
 is itself hierarchically reachable. -/
 @[grind →]
 axiom OperationPtr.HierarchicallyReachable.of_dominatesIp_atStart
     (blockInBounds : block.InBounds ctx.raw)
-    (blockParent : (block.get! ctx.raw).parent = some region)
+    (blockParent : block.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (reachable : block.HierarchicallyReachable ctx)
     (dominance : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx) :
@@ -142,7 +145,7 @@ reachable from the region entry.
 axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
     (rooted : ∃ root, IRNode.RootedAt op₃ root ctx)
     (reachable : ∀ block region, (IRNode.block block).Ancestor op₃ ctx →
-      (block.get! ctx.raw).parent = some region → region.hasSSADominance ctx = true →
+      block.getParent! ctx.raw = some region → region.hasSSADominance ctx = true →
       block.LocallyReachable region ctx) :
     op₁.ProperlyDominates op₂ ctx true →
     op₂.ProperlyDominates op₃ ctx true →
@@ -154,7 +157,7 @@ if it exists.
 -/
 axiom OperationPtr.dominates_next :
   op₁.Dominates op₂ ctx enclosingOk →
-  (op₂.get! ctx.raw).next = some op₂Next →
+  op₂.getNextOp! ctx.raw = some op₂Next →
   op₁.Dominates op₂Next ctx enclosingOk
 
 /-- A dominator is rooted at the same root as the operation it dominates. -/
@@ -216,7 +219,7 @@ theorem OperationPtr.ProperlyDominatesBlock.exists_parentRegion
 theorem OperationPtr.DominatesIp.exists_parentRegion {ip : InsertPoint}
     (dominance : op.DominatesIp ip ctx false)
     (ipParent : ip.block! ctx.raw = some block)
-    (blockParent : (block.get! ctx.raw).parent = some region) :
+    (blockParent : block.getParent! ctx.raw = some region) :
     ∃ region, op.getParentRegion! ctx.raw = some region := by
   cases dominance with
   | Before dominance => exact dominance.exists_parentRegion
@@ -243,8 +246,24 @@ theorem OperationPtr.DominatesIp.before_iff :
 grind_pattern OperationPtr.DominatesIp.before_iff => op₁.DominatesIp (.before op₂) ctx enclosingOk
 
 /-- A value dominates the point before an operation exactly when it properly dominates its user. -/
-axiom ValuePtr.DominatesIp.before_iff {value : ValuePtr} :
-    value.DominatesIp (.before op) ctx ↔ value.ProperlyDominates op ctx
+theorem ValuePtr.DominatesIp.before_iff {value : ValuePtr} :
+    value.DominatesIp (.before op) ctx ↔ value.ProperlyDominates op ctx := by
+  cases value with
+  | opResult result =>
+    constructor
+    · intro dominance
+      cases dominance with
+      | OpResult dominance => exact OperationPtr.DominatesIp.before_iff.mp dominance
+    · intro dominance
+      exact .OpResult (.Before dominance)
+  | blockArgument argument =>
+    constructor
+    · intro dominance
+      cases dominance with
+      | BlockArg parentEq dominance =>
+        exact ⟨_, by simpa only [InsertPoint.block!_before_eq] using parentEq, dominance⟩
+    · rintro ⟨parent, parentEq, dominance⟩
+      exact .BlockArg (by simpa only [InsertPoint.block!_before_eq] using parentEq) dominance
 
 /--
 A value dominating the program point before an operation `op₁` also dominates the program

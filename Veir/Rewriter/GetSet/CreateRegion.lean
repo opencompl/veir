@@ -3,49 +3,11 @@ module
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
+import all Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WfRewriter.GetSetTactic
 
 
 public section
-
-/-
- - The getters we consider are:
- - * BlockPtr.get! optionally replaced by the following special cases:
- -   * Block.firstUse
- -   * Block.prev
- -   * Block.next
- -   * Block.parent
- -   * Block.firstOp
- -   * Block.lastOp
- - * OperationPtr.get! optionally replaced by the following special cases:
- -   * Operation.prev
- -   * Operation.next
- -   * Operation.parent
- -   * OperationPtr.getOpType!
- -   * Operation.attrs
- - * OperationPtr.getProperties!
- - * OperationPtr.getNumResults!
- - * OpResultPtr.get!
- - * OperationPtr.getNumOperands!
- - * OpOperandPtr.get! optionally replaced by the following special case:
- - * OperationPtr.getOperands!
- - * OperationPtr.getNumSuccessors!
- - * BlockOperandPtr.get!
- - * OperationPtr.getSuccessor!
- - * OperationPtr.getSuccessors!
- - * OperationPtr.getNumRegions!
- - * OperationPtr.getRegion!
- - * BlockOperandPtrPtr.get!
- - * BlockPtr.getNumArguments!
- - * BlockArgumentPtr.get!
- - * RegionPtr.get! with optionally special cases for:
- -   * firstBlock
- -   * lastBlock
- -   * parent
- - * ValuePtr.getFirstUse!
- - * ValuePtr.getType!
- - * OpOperandPtrPtr.get!
- -/
 
 namespace Veir
 
@@ -61,15 +23,95 @@ variable {reg : RegionPtr}
 attribute [local grind] Rewriter.createRegion
 
 @[simp, grind =>, simp_getset]
-theorem BlockPtr.get!_createRegion {block : BlockPtr} :
+private theorem BlockPtr.get!_createRegion {block : BlockPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     block.get! ctx' = block.get! ctx := by
   grind
 
 @[simp, grind =>, simp_getset]
-theorem OperationPtr.get!_createRegion {operation : OperationPtr} :
+theorem BlockPtr.getParent!_createRegion {block : BlockPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    block.getParent! ctx' =
+    block.getParent! ctx := by
+  simp only [BlockPtr.getParent!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getFirstUse!_createRegion {block : BlockPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    block.getFirstUse! ctx' =
+    block.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getFirstOp!_createRegion {block : BlockPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    block.getFirstOp! ctx' =
+    block.getFirstOp! ctx := by
+  simp only [BlockPtr.getFirstOp!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getLastOp!_createRegion {block : BlockPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    block.getLastOp! ctx' =
+    block.getLastOp! ctx := by
+  simp only [BlockPtr.getLastOp!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getNextBlock!_createRegion {block : BlockPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    block.getNextBlock! ctx' =
+    block.getNextBlock! ctx := by
+  simp only [BlockPtr.getNextBlock!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockPtr.getPrevBlock!_createRegion {block : BlockPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    block.getPrevBlock! ctx' =
+    block.getPrevBlock! ctx := by
+  simp only [BlockPtr.getPrevBlock!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+private theorem OperationPtr.get!_createRegion {operation : OperationPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     operation.get! ctx' = operation.get! ctx := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getNextOp!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getNextOp! ctx' =
+    operation.getNextOp! ctx := by
+  simp only [OperationPtr.getNextOp!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getPrevOp!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getPrevOp! ctx' =
+    operation.getPrevOp! ctx := by
+  simp only [OperationPtr.getPrevOp!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getParent!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getParent! ctx' =
+    operation.getParent! ctx := by
+  simp only [OperationPtr.getParent!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OperationPtr.getAttributes!_createRegion {operation : OperationPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operation.getAttributes! ctx' =
+    operation.getAttributes! ctx := by
+  simp only [OperationPtr.getAttributes!_def]
   grind
 
 @[simp, grind =>, simp_getset]
@@ -91,9 +133,41 @@ theorem OperationPtr.getNumResults!_createRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =>, simp_getset]
-theorem OpResultPtr.get!_createRegion {opResult : OpResultPtr} :
+private theorem OpResultPtr.get!_createRegion {opResult : OpResultPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     opResult.get! ctx' = opResult.get! ctx := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpResultPtr.getIndex!_createRegion {opResult : OpResultPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    opResult.getIndex! ctx' =
+    opResult.getIndex! ctx := by
+  simp only [OpResultPtr.getIndex!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpResultPtr.getType!_createRegion {opResult : OpResultPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    opResult.getType! ctx' =
+    opResult.getType! ctx := by
+  simp only [OpResultPtr.getType!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpResultPtr.getFirstUse!_createRegion {opResult : OpResultPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    opResult.getFirstUse! ctx' =
+    opResult.getFirstUse! ctx := by
+  simp only [OpResultPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpResultPtr.getOwner!_createRegion {opResult : OpResultPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    opResult.getOwner! ctx' =
+    opResult.getOwner! ctx := by
+  simp only [OpResultPtr.getOwner!_def]
   grind
 
 @[simp, grind =>, simp_getset]
@@ -103,9 +177,41 @@ theorem OperationPtr.getNumOperands!_createRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =>, simp_getset]
-theorem OpOperandPtr.get!_createRegion {operand : OpOperandPtr} :
+private theorem OpOperandPtr.get!_createRegion {operand : OpOperandPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     operand.get! ctx' = operand.get! ctx := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getNextUse!_createRegion {operand : OpOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getNextUse! ctx' =
+    operand.getNextUse! ctx := by
+  simp only [OpOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getBack!_createRegion {operand : OpOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getBack! ctx' =
+    operand.getBack! ctx := by
+  simp only [OpOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getOwner!_createRegion {operand : OpOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getOwner! ctx' =
+    operand.getOwner! ctx := by
+  simp only [OpOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem OpOperandPtr.getValue!_createRegion {operand : OpOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getValue! ctx' =
+    operand.getValue! ctx := by
+  simp only [OpOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =>, simp_getset]
@@ -121,9 +227,41 @@ theorem OperationPtr.getNumSuccessors!_createRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =>, simp_getset]
-theorem BlockOperandPtr.get!_createRegion {operand : BlockOperandPtr} :
+private theorem BlockOperandPtr.get!_createRegion {operand : BlockOperandPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     operand.get! ctx' = operand.get! ctx := by
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getNextUse!_createRegion {operand : BlockOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getNextUse! ctx' =
+    operand.getNextUse! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getBack!_createRegion {operand : BlockOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getBack! ctx' =
+    operand.getBack! ctx := by
+  simp only [BlockOperandPtr.getBack!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getOwner!_createRegion {operand : BlockOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getOwner! ctx' =
+    operand.getOwner! ctx := by
+  simp only [BlockOperandPtr.getOwner!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockOperandPtr.getValue!_createRegion {operand : BlockOperandPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    operand.getValue! ctx' =
+    operand.getValue! ctx := by
+  simp only [BlockOperandPtr.getValue!_def]
   grind
 
 @[simp, grind =>, simp_getset]
@@ -153,7 +291,7 @@ theorem OperationPtr.getRegion!_createRegion {operation : OperationPtr} :
   grind
 
 @[simp, grind =>, simp_getset]
-theorem BlockOperandPtrPtr.get!_createRegion {operandPtr : BlockOperandPtrPtr} :
+private theorem BlockOperandPtrPtr.get!_createRegion {operandPtr : BlockOperandPtrPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     operandPtr.get! ctx' = operandPtr.get! ctx := by
   grind
@@ -165,30 +303,69 @@ theorem BlockPtr.getNumArguments!_createRegion {block : BlockPtr} :
   grind
 
 @[simp, grind =>, simp_getset]
-theorem BlockArgumentPtr.get!_createRegion {blockArg : BlockArgumentPtr} :
+private theorem BlockArgumentPtr.get!_createRegion {blockArg : BlockArgumentPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     blockArg.get! ctx' = blockArg.get! ctx := by
   grind
 
-@[grind =>, simp_getset]
-theorem RegionPtr.firstBlock!_createRegion {region : RegionPtr} :
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getType!_createRegion {blockArg : BlockArgumentPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
-    (region.get! ctx').firstBlock =
-    if region = reg then none else (region.get! ctx).firstBlock := by
+    blockArg.getType! ctx' =
+    blockArg.getType! ctx := by
+  simp only [BlockArgumentPtr.getType!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getFirstUse!_createRegion {blockArg : BlockArgumentPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    blockArg.getFirstUse! ctx' =
+    blockArg.getFirstUse! ctx := by
+  simp only [BlockArgumentPtr.getFirstUse!_def]
+  grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getIndex!_createRegion {blockArg : BlockArgumentPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    blockArg.getIndex! ctx' =
+    blockArg.getIndex! ctx := by
+  simp only [BlockArgumentPtr.getIndex!_def]
+  grind
+
+@[simp, simp_getset]
+theorem BlockArgumentPtr.getLoc!_createRegion {blockArg : BlockArgumentPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    blockArg.getLoc! ctx' =
+    blockArg.getLoc! ctx := by
+  simp only [BlockArgumentPtr.getLoc!_def] <;> grind
+
+@[simp, grind =>, simp_getset]
+theorem BlockArgumentPtr.getOwner!_createRegion {blockArg : BlockArgumentPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    blockArg.getOwner! ctx' =
+    blockArg.getOwner! ctx := by
+  simp only [BlockArgumentPtr.getOwner!_def]
+  grind
+
+@[grind =>, simp_getset]
+theorem RegionPtr.getFirstBlock!_createRegion {region : RegionPtr} :
+    Rewriter.createRegion ctx = some (ctx', reg) →
+    region.getFirstBlock! ctx' =
+    if region = reg then none else (region.getFirstBlock! ctx) := by
   grind [Region.empty]
 
 @[grind =>, simp_getset]
-theorem RegionPtr.lastBlock!_createRegion {region : RegionPtr} :
+theorem RegionPtr.getLastBlock!_createRegion {region : RegionPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
-    (region.get! ctx').lastBlock =
-    if region = reg then none else (region.get! ctx).lastBlock := by
+    region.getLastBlock! ctx' =
+    if region = reg then none else (region.getLastBlock! ctx) := by
   grind [Region.empty]
 
 @[grind =>, simp_getset]
-theorem RegionPtr.parent!_createRegion {region : RegionPtr} :
+theorem RegionPtr.getParent!_createRegion {region : RegionPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
-    (region.get! ctx').parent =
-    if region = reg then none else (region.get! ctx).parent := by
+    region.getParent! ctx' =
+    if region = reg then none else (region.getParent! ctx) := by
   grind [Region.empty]
 
 @[simp, grind =>, simp_getset]
@@ -204,7 +381,7 @@ theorem ValuePtr.getType!_createRegion {value : ValuePtr} :
   grind
 
 @[simp, grind =>, simp_getset]
-theorem OpOperandPtrPtr.get!_createRegion {opOperandPtr : OpOperandPtrPtr} :
+private theorem OpOperandPtrPtr.get!_createRegion {opOperandPtr : OpOperandPtrPtr} :
     Rewriter.createRegion ctx = some (ctx', reg) →
     opOperandPtr.get! ctx' = opOperandPtr.get! ctx := by
   grind

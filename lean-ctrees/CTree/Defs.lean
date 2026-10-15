@@ -15,7 +15,7 @@ with "Vis" nodes for various kinds of runtime effects, and "Tau"/"Br"/"Choice" (
 for (demonic) nondeterministic choices happening.
 
 The first implementation of CTrees is in Rocq (https://doi.org/10.1017/S0956796825100105).
-the present implementation makes slightly different design choices in how nondeterminism is handled.
+The present implementation makes slightly different design choices in how nondeterminism is handled.
 -/
 
 /-! Definitions and monotonicity proofs are partly adapted from the ones in Coinductive and EffectSSA. -/

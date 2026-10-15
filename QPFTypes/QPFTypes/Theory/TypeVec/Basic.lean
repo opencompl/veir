@@ -168,7 +168,7 @@ protected theorem casesCons_append1 (n : Nat) {β : TypeVec (n + 1) → Sort _}
 /-- `repeat n t` is a `n-length` type vector that contains `n` occurrences of `t` -/
 -- TODO(WS):
 -- 1. This could just be the constant function, which has better defeqs,
--- 2. fundementally this is also just a constant function so should mby not be called repeat
+-- 2. fundamentally this is also just a constant function so should maybe not be called repeat
 def «repeat» : ∀ (n : Nat), Type u → TypeVec n
   | 0, _ => Fin.elim0
   | Nat.succ i, t => append1 («repeat» i t) t
