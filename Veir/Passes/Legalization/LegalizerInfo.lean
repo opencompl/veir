@@ -116,6 +116,8 @@ inductive LegalizeAction where
   | legal
   /-- The operation should be implemented with type group `typeIdx` widened to `newType`. -/
   | widenScalar (typeIdx : TypeGroup) (newType : LLT)
+  /-- The operation is expanded into legal operations, as in `LegalizerHelper::lower`. -/
+  | lower
   /-- The operation is legalized by the target's `legalizeCustom` pattern. -/
   | custom
   /-- This operation is completely unsupported on the target. -/
@@ -141,6 +143,14 @@ def legalForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule opcode :=
 /-- The operation is always legal. -/
 def alwaysLegal : LegalizeRule opcode :=
   legalIf fun _ => true
+
+/-- Lower the operation if `predicate` is true. -/
+def lowerIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
+  fun query => if predicate query then some .lower else none
+
+/-- Always lower the operation. -/
+def lower : LegalizeRule opcode :=
+  lowerIf fun _ => true
 
 /-- Use the target's `legalizeCustom` pattern if `predicate` is true. -/
 def customIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=

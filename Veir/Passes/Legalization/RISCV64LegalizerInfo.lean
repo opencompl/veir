@@ -61,6 +61,18 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
+    | .g_constant => [
+      -- The lowering only creates a 64-bit shift-count constant.
+      .legalFor [64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_sext_inreg => [
+      -- The backend assumes Zbb, so `sext.b` and `sext.h` are available.
+      .legalIf fun query =>
+        query.getLLT! (.type 0) == 64 && [8, 16, 32].contains query.properties.sz.toNat,
+      .minScalar (.type 0) 64,
+      .lower,
+    ]
     | .g_icmp => [
       .legalForTypePairs [(64, 64)],
       .minScalar (.type 1) 64,
