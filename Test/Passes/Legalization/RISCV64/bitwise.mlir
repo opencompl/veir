@@ -21,7 +21,7 @@
     %or = "gmir.g_or"(%lhs, %rhs) <{isDisjoint}> : (i32, i32) -> i32
     // CHECK:      "gmir.g_anyext"({{.*}}) : (i32) -> i64
     // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i32) -> i64
-    // CHECK-NEXT: "gmir.g_or"({{.*}}) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_or"({{.*}}) <{isDisjoint}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
 
     // Widths that are not a power of two are widened to `i64` directly.
