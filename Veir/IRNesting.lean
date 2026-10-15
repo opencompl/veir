@@ -143,7 +143,7 @@ theorem unique_ancestor_of_eq_length
     grind [ne_nil, cases ParentPath]
 
 /-- Parent paths to a node without a parent are unique. -/
-theorem unique_of_parent_eq_none
+private theorem unique_of_parent_eq_none
     (left : ParentPath ctx descendant ancestor nodes₁)
     (right : ParentPath ctx descendant ancestor nodes₂)
     (parent : ancestor.parent! ctx = none) : nodes₁ = nodes₂ := by
@@ -330,9 +330,9 @@ grind_pattern ancestor_of_parent_descendant =>
 
 /-- A proper operation ancestor also encloses the descendant's parent region. -/
 theorem ancestor_of_parentRegion_descendant {ancestor descendant : OperationPtr} {region : RegionPtr}
-    (ancestry : (IRNode.operation ancestor).ProperAncestor (.operation descendant) ctx)
+    (ancestry : (ancestor : IRNode).ProperAncestor descendant ctx)
     (parentRegion : descendant.getParentRegion! ctx.raw = some region) :
-    (IRNode.operation ancestor).Ancestor (.region region) ctx := by
+    (ancestor : IRNode).Ancestor region ctx := by
   obtain ⟨block, opParent, blockParent⟩ :=
     OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
   have ancestorOfBlock := ancestry.ancestor_of_parent_descendant

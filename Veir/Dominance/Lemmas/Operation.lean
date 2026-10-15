@@ -113,14 +113,27 @@ theorem OperationPtr.Dominates.parentRegion_ancestor
       subst otherRegion
       exact ancestry
 
+@[grind →]
+theorem OperationPtr.ProperlyDominatesInSSARegion.toProperlyDominatesInRegion
+    (dominance : op₁.ProperlyDominatesInSSARegion op₂ region ctx) :
+    op₁.ProperlyDominatesInRegion op₂ region ctx :=
+  dominance.1
+
+@[grind →]
+theorem OperationPtr.ProperlyDominatesInSSARegion.hasSSADominance
+    (dominance : op₁.ProperlyDominatesInSSARegion op₂ region ctx) :
+    region.hasSSADominance ctx = true :=
+  dominance.2
+
 /-- SSA operation dominance is either strict order in one block or proper block dominance. -/
-theorem OperationPtr.ProperlyDominatesInRegion.ssa_cases
-    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
-    (ssa : region.hasSSADominance ctx) :
-    ∃ block₁ block₂, ∃ parent₁ : op₁.getParent! ctx.raw = some block₁,
-      ∃ parent₂ : op₂.getParent! ctx.raw = some block₂,
+theorem OperationPtr.ProperlyDominatesInSSARegion.block_cases
+    (dominance : op₁.ProperlyDominatesInSSARegion op₂ region ctx) :
+    ∃ block₁ block₂, op₁.getParent! ctx.raw = some block₁ ∧
+      op₂.getParent! ctx.raw = some block₂ ∧
       ((block₁ = block₂ ∧ op₁.idxInParent ctx.raw < op₂.idxInParent ctx.raw) ∨
         block₁.ProperlyDominatesInSSACFGRegion block₂ region ctx) := by
+  have ssa := dominance.hasSSADominance
+  have dominance := dominance.toProperlyDominatesInRegion
   cases dominance with
   | @SameBlock block dominance =>
     cases dominance with
@@ -134,33 +147,28 @@ theorem OperationPtr.ProperlyDominatesInRegion.ssa_cases
     | Graph dominance => grind [BlockPtr.ProperlyDominatesInGraphRegion]
 
 /-- Same-region SSA proper dominance is irreflexive, independently of reachability. -/
-theorem OperationPtr.not_properlyDominatesInRegion_self
-    (ssa : region.hasSSADominance ctx) :
-    ¬ op.ProperlyDominatesInRegion op region ctx := by
+theorem OperationPtr.properlyDominatesInSSARegion_irrefl :
+    ¬ op.ProperlyDominatesInSSARegion op region ctx := by
   intro dominance
-  obtain ⟨block₁, block₂, parent₁, parent₂, same | dominance⟩ := dominance.ssa_cases ssa
+  obtain ⟨block₁, block₂, parent₁, parent₂, same | dominance⟩ := dominance.block_cases
   · grind
   · have distinct : block₁ ≠ block₂ := dominance.2.2.2.1
     grind
 
 /-- Same-region SSA proper dominance cannot run backwards when the target is locally reachable. -/
-theorem OperationPtr.ProperlyDominatesInRegion.not_dominated_of_locallyReachable_dominated
-    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
-    (ssa : region.hasSSADominance ctx)
+theorem OperationPtr.ProperlyDominatesInSSARegion.asymm
+    (dominance : op₁.ProperlyDominatesInSSARegion op₂ region ctx)
     (reachable : op₂.LocallyReachable region ctx) :
-    ¬ op₂.ProperlyDominatesInRegion op₁ region ctx := by
+    ¬ op₂.ProperlyDominatesInSSARegion op₁ region ctx := by
   intro reverse
-  obtain ⟨block₁, block₂, parent₁, parent₂, forwardCases⟩ := dominance.ssa_cases ssa
+  obtain ⟨block₁, block₂, parent₁, parent₂, forwardCases⟩ := dominance.block_cases
   obtain ⟨reverseBlock₂, reverseBlock₁, reverseParent₂, reverseParent₁, reverseCases⟩ :=
-    reverse.ssa_cases ssa
+    reverse.block_cases
   have same₁ : reverseBlock₁ = block₁ := by grind
   have same₂ : reverseBlock₂ = block₂ := by grind
   subst reverseBlock₁ reverseBlock₂
   rcases forwardCases with ⟨same, order⟩ | forward
-  · rcases reverseCases with ⟨_, reverseOrder⟩ | reverse
-    · grind
-    · have distinct : block₂ ≠ block₁ := reverse.2.2.2.1
-      grind
+  · rcases reverseCases with ⟨_, reverseOrder⟩ | ⟨_, _, _, distinct, _⟩ <;> grind
   · rcases reverseCases with ⟨same, _⟩ | reverse
     · have distinct : block₁ ≠ block₂ := forward.2.2.2.1
       grind
@@ -362,7 +370,7 @@ theorem OperationPtr.not_properlyDominates_self {op : OperationPtr}
     have same := OperationPtr.Ancestor.eq_of_parentRegion_ancestor ancestry opRooted opRegion
       (IRNode.Ancestor.of_getParentRegion!_eq_some localDominance.parentRegion_dominated)
     subst ancestor
-    exact OperationPtr.not_properlyDominatesInRegion_self opRegionSSA localDominance
+    exact OperationPtr.properlyDominatesInSSARegion_irrefl ⟨localDominance, opRegionSSA⟩
 
 /-- If a rooted operation dominates a hierarchically reachable operation in an SSA region,
 the dominated operation cannot properly dominate it with `enclosingOk = false`. -/
@@ -383,14 +391,15 @@ theorem OperationPtr.not_properlyDominates_reverse_of_dominates
     rcases ancestorDominance.inRegion op₂Rooted localDominance.parentRegion_dominated
         op₂ParentRegion with same | localForward
     · subst ancestor
-      exact OperationPtr.not_properlyDominatesInRegion_self op₂RegionSSA localDominance
+      exact OperationPtr.properlyDominatesInSSARegion_irrefl ⟨localDominance, op₂RegionSSA⟩
     · obtain ⟨reachableRegion, localReachable⟩ :=
         OperationPtr.HierarchicallyReachable.exists_locallyReachable op₂Reachable op₂ParentRegion
       have sameRegion : reachableRegion = region₂ :=
         Option.some.inj (localReachable.parentRegion.symm.trans op₂ParentRegion)
       subst reachableRegion
-      exact localForward.not_dominated_of_locallyReachable_dominated
-        op₂RegionSSA localReachable localDominance
+      have ssaForward : ancestor.ProperlyDominatesInSSARegion op₂ region₂ ctx :=
+        ⟨localForward, op₂RegionSSA⟩
+      exact ssaForward.asymm localReachable ⟨localDominance, op₂RegionSSA⟩
 
 grind_pattern OperationPtr.not_properlyDominates_reverse_of_dominates =>
     op₁.RootedAt root ctx, op₂.HierarchicallyReachable ctx,
