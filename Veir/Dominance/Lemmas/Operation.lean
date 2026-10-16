@@ -370,7 +370,7 @@ theorem OperationPtr.not_properlyDominates_self {op : OperationPtr}
     have same := OperationPtr.Ancestor.eq_of_parentRegion_ancestor ancestry opRooted opRegion
       (IRNode.Ancestor.of_getParentRegion!_eq_some localDominance.parentRegion_dominated)
     subst ancestor
-    exact OperationPtr.properlyDominatesInSSARegion_irrefl ⟨localDominance, opRegionSSA⟩
+    exact OperationPtr.ProperlyDominatesInSSARegion.irrefl ⟨localDominance, opRegionSSA⟩
 
 /-- If a rooted operation dominates a hierarchically reachable operation in an SSA region,
 the dominated operation cannot properly dominate it with `enclosingOk = false`. -/
@@ -391,7 +391,7 @@ theorem OperationPtr.not_properlyDominates_reverse_of_dominates
     rcases ancestorDominance.inRegion op₂Rooted localDominance.parentRegion_dominated
         op₂ParentRegion with same | localForward
     · subst ancestor
-      exact OperationPtr.properlyDominatesInSSARegion_irrefl ⟨localDominance, op₂RegionSSA⟩
+      exact OperationPtr.ProperlyDominatesInSSARegion.irrefl ⟨localDominance, op₂RegionSSA⟩
     · obtain ⟨reachableRegion, localReachable⟩ :=
         OperationPtr.HierarchicallyReachable.exists_locallyReachable op₂Reachable op₂ParentRegion
       have sameRegion : reachableRegion = region₂ :=
