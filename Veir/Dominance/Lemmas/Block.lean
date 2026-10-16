@@ -295,8 +295,7 @@ theorem OperationPtr.DominatesIp.properlyDominatesBlock_of_atStart
     simp only [InsertPoint.atStart!_eq, first] at dominance
     cases dominance with
     | AtEndSameBlock opParent =>
-      have wf : ctx.raw.WellFormed := by grind
-      obtain ⟨array, chain⟩ := wf.opChain block blockInBounds
+      obtain ⟨array, chain⟩ := ctx.wellFormed.opChain block blockInBounds
       grind
     | AtEndOtherBlock dominance => exact dominance
   | some firstOp =>

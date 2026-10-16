@@ -1484,22 +1484,21 @@ grind_pattern RegionPtr.lastBlock!_parent! =>
   ctx.WellFormed missingUses missingSuccessorUses, reg.getLastBlock! ctx, some lastBl,
   lastBl.getParent! ctx
 
+/-- Every indexed operation in a block's operation list is in bounds. -/
+@[grind .]
+theorem BlockPtr.operationList.inBounds_getElem {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
+    ((block.operationList ctx hctx hblock)[i]).InBounds ctx :=
+  (BlockPtr.operationListWF ctx block hblock hctx).arrayInBounds (Array.getElem_mem hi)
+
 /-- An operation's position in the block's operation list is its index in its parent. -/
 theorem BlockPtr.operationList.idxInParent_getElem {block : BlockPtr}
     (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
     (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
-    ((block.operationList ctx hctx hblock)[i]).idxInParent ctx
-      ((BlockPtr.operationListWF ctx block hblock hctx).arrayInBounds
-        (Array.getElem_mem hi)) hctx = i := by
+    ((block.operationList ctx hctx hblock)[i]).idxInParent ctx (by grind) hctx = i := by
   have chain := BlockPtr.operationListWF ctx block hblock hctx
-  have parent := chain.opParent (Array.getElem_mem hi)
-  unfold OperationPtr.idxInParent
-  split
-  · rename_i parentBlock parentEq
-    have same : parentBlock = block := by grind
-    subst parentBlock
-    exact chain.idxOf_getElem_array i hi
-  · grind
+  grind [OperationPtr.idxInParent, chain.idxOf_getElem_array i hi]
 
 /-- The first operation of a block has index zero in its parent. -/
 theorem OperationPtr.idxInParent_eq_zero_of_getFirstOp! {block : BlockPtr} {op : OperationPtr}
