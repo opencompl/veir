@@ -15,14 +15,11 @@
     %urem64 = "gmir.g_urem"(%x_i64, %x_i64) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_urem"({{.*}}) : (i64, i64) -> i64
 
-    // `i32` division and unsigned remainder -> the RISC-V word variants (custom legalization).
-    // As in LLVM, `i32` multiplication and signed remainder are widened to `i64` instead.
+    // `i32` -> the RISC-V word variants (custom legalization), except for the signed remainder,
+    // which is widened to `i64`.
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
     %mul32 = "gmir.g_mul"(%x_i32, %x_i32) <{overflowFlags = 3 : i32}> : (i32, i32) -> i32
-    // CHECK:      "gmir.g_anyext"({{.*}}) : (i32) -> i64
-    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i32) -> i64
-    // CHECK-NEXT: "gmir.g_mul"({{.*}}) : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
+    // CHECK:      "riscv.mulw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %sdiv32 = "gmir.g_sdiv"(%x_i32, %x_i32) : (i32, i32) -> i32
     // CHECK:      "riscv.divw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %udiv32 = "gmir.g_udiv"(%x_i32, %x_i32) : (i32, i32) -> i32
