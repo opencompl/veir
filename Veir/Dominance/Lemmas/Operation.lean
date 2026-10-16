@@ -147,7 +147,7 @@ theorem OperationPtr.ProperlyDominatesInSSARegion.block_cases
     | Graph dominance => grind [BlockPtr.ProperlyDominatesInGraphRegion]
 
 /-- Same-region SSA proper dominance is irreflexive, independently of reachability. -/
-theorem OperationPtr.properlyDominatesInSSARegion_irrefl :
+theorem OperationPtr.ProperlyDominatesInSSARegion.irrefl :
     ¬ op.ProperlyDominatesInSSARegion op region ctx := by
   intro dominance
   obtain ⟨block₁, block₂, parent₁, parent₂, same | dominance⟩ := dominance.block_cases
