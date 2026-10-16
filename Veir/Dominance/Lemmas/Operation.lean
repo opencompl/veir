@@ -6,7 +6,6 @@ public import Veir.Dominance.Lemmas.Block
 public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
-import all Veir.IR.Basic
 
 /-!
 # Operation Dominance and Reachability Lemmas
