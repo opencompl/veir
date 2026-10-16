@@ -239,10 +239,7 @@ theorem BlockPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator_of_
       reachable
   | Graph dominance =>
     obtain ⟨dominatorParent, dominatedParent, noSSA⟩ := dominance
-    have firstDominator := region.firstBlock_of_not_hasSSADominance noSSA dominatorParent
-    have firstDominated := region.firstBlock_of_not_hasSSADominance noSSA dominatedParent
-    have same : dominator = dominated := by grind
-    simpa [same] using reachable
+    grind
 
 /-! ## Dominance at block insertion points -/
 

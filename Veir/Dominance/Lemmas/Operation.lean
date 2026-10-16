@@ -296,9 +296,11 @@ theorem OperationPtr.HierarchicallyReachable.of_ancestor
     exact (ancestry.toProperAncestor (by simpa using same)).ancestor_of_parent_descendant
       (by grind)
 
+namespace OperationPtr.ProperlyDominatesInRegion
+
 /-- A regional dominator of a hierarchically reachable operation is hierarchically reachable. -/
 @[grind →]
-theorem OperationPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+theorem hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
     (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
     (reachable : op₂.HierarchicallyReachable ctx) :
     op₁.HierarchicallyReachable ctx := by
@@ -312,6 +314,8 @@ theorem OperationPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator
     exact OperationPtr.HierarchicallyReachable.of_parent_block
       (dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
         (reachable.parent_block dominatedParent)) dominatorParent
+
+end OperationPtr.ProperlyDominatesInRegion
 
 /-- A dominator of a hierarchically reachable operation is hierarchically reachable. -/
 @[grind →]

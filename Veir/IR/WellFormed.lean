@@ -200,10 +200,7 @@ theorem RegionPtr.BlockChain.eq_singleton_of_first_eq_last
     grind
   apply Array.ext
   · simp [size]
-  · intro i hi hj
-    have : i = 0 := by simpa [size] using hi
-    subst i
-    grind
+  · grind
 
 structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
@@ -1089,6 +1086,20 @@ theorem RegionPtr.blockListWF (ctx : IRContext OpInfo) (region : RegionPtr)
     (hctx : ctx.WellFormed := by grind) :
     RegionPtr.BlockChain region ctx (RegionPtr.blockList region ctx hctx hregion) :=
   Exists.choose_spec (hctx.blockChain region hregion)
+
+/-- If a region's first and last blocks coincide, every block in the region equals them. -/
+theorem RegionPtr.block_eq_of_first_eq_last {entry : BlockPtr}
+    (hctx : ctx.WellFormed)
+    (parent : bl.getParent! ctx = some region)
+    (first : region.getFirstBlock! ctx = some entry)
+    (last : region.getLastBlock! ctx = some entry) :
+    bl = entry := by
+  have blockInBounds : bl.InBounds ctx := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  obtain ⟨array, chain⟩ := hctx.blockChain region (by grind)
+  have singleton := chain.eq_singleton_of_first_eq_last first last
+  have member := chain.allBlocksInChain bl blockInBounds parent
+  grind
 
 @[grind =]
 theorem RegionPtr.blockList_iff_RegionPtr_BlockChain :
