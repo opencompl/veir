@@ -22,7 +22,7 @@ open Puddle in
 /--
   Custom legalization of `i32` binary operations into their RISC-V word variant
   (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
-  For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
+  For `g_add`/`g_sub`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
   later. For `g_sdiv`/`g_udiv`/`g_urem`, LLVM custom-legalizes into `RISCV::G_DIVW` etc.
 -/
 def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
@@ -83,19 +83,22 @@ def riscv64LegalizerInfo : LegalizerInfo where
         .legalFor [64],
         .minScalar (.type 0) 64,
       ]
-    | .g_mul | .g_sdiv | .g_udiv | .g_srem | .g_urem => [
+    | .g_mul | .g_srem => [
+      .legalFor [64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_sdiv | .g_udiv | .g_urem => [
       .legalFor [64],
       .customFor [32],
+      .minScalar (.type 0) 32,
       .minScalar (.type 0) 64,
     ]
     | _ => []
   legalizeCustom
     | .g_add => customLegalizeWord .g_add .addw ()
     | .g_sub => customLegalizeWord .g_sub .subw ()
-    | .g_mul => customLegalizeWord .g_mul .mulw ()
     | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
     | .g_udiv => customLegalizeWord .g_udiv .divuw ()
-    | .g_srem => customLegalizeWord .g_srem .remw ()
     | .g_urem => customLegalizeWord .g_urem .remuw ()
     | _ => none
 

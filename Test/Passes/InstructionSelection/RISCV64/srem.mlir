@@ -15,9 +15,11 @@
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "bar"}> ({
     ^bb0(%a: i32, %b: i32):
         %srem32 = "llvm.srem"(%a, %b) : (i32, i32) -> i32
-        // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.remw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
+        // CHECK-NEXT: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.rem"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
         "test.test"(%srem32) : (i32) -> ()
         "func.return"() : () -> ()

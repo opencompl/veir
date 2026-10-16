@@ -15,16 +15,23 @@
     %urem64 = "gmir.g_urem"(%x_i64, %x_i64) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_urem"({{.*}}) : (i64, i64) -> i64
 
-    // `i32` -> the RISC-V word variants (custom legalization).
+    // `i32` division and unsigned remainder -> the RISC-V word variants (custom legalization).
+    // As in LLVM, `i32` multiplication and signed remainder are widened to `i64` instead.
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
     %mul32 = "gmir.g_mul"(%x_i32, %x_i32) <{overflowFlags = 3 : i32}> : (i32, i32) -> i32
-    // CHECK:      "riscv.mulw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_anyext"({{.*}}) : (i32) -> i64
+    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i32) -> i64
+    // CHECK-NEXT: "gmir.g_mul"({{.*}}) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
     %sdiv32 = "gmir.g_sdiv"(%x_i32, %x_i32) : (i32, i32) -> i32
     // CHECK:      "riscv.divw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %udiv32 = "gmir.g_udiv"(%x_i32, %x_i32) : (i32, i32) -> i32
     // CHECK:      "riscv.divuw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     %srem32 = "gmir.g_srem"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.remw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_sext"({{.*}}) : (i32) -> i64
+    // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i32) -> i64
+    // CHECK-NEXT: "gmir.g_srem"({{.*}}) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
     %urem32 = "gmir.g_urem"(%x_i32, %x_i32) : (i32, i32) -> i32
     // CHECK:      "riscv.remuw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 
@@ -40,12 +47,13 @@
     // CHECK-NEXT: "gmir.g_mul"(%[[WIDE_LHS]], %[[WIDE_RHS]]) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
 
-    // Signed division and remainder sign-extend their operands.
+    // Signed division and remainder sign-extend their operands. Division is widened to `i32` only,
+    // and then custom-legalized.
     %sdiv = "gmir.g_sdiv"(%lhs, %rhs) <{isExact}> : (i8, i8) -> i8
-    // CHECK:      "gmir.g_sext"({{.*}}) : (i8) -> i64
-    // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i8) -> i64
-    // CHECK-NEXT: "gmir.g_sdiv"({{.*}}) <{isExact}> : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
+    // CHECK:      "gmir.g_sext"({{.*}}) : (i8) -> i32
+    // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i8) -> i32
+    // CHECK:      "riscv.divw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_trunc"({{.*}}) : (i32) -> i8
     %srem = "gmir.g_srem"(%lhs, %rhs) : (i8, i8) -> i8
     // CHECK:      "gmir.g_sext"({{.*}}) : (i8) -> i64
     // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i8) -> i64
@@ -54,18 +62,18 @@
 
     // Unsigned division and remainder zero-extend their operands.
     %udiv = "gmir.g_udiv"(%lhs, %rhs) : (i8, i8) -> i8
-    // CHECK:      "gmir.g_zext"({{.*}}) : (i8) -> i64
-    // CHECK-NEXT: "gmir.g_zext"({{.*}}) : (i8) -> i64
-    // CHECK-NEXT: "gmir.g_udiv"({{.*}}) : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
+    // CHECK:      "gmir.g_zext"({{.*}}) : (i8) -> i32
+    // CHECK-NEXT: "gmir.g_zext"({{.*}}) : (i8) -> i32
+    // CHECK:      "riscv.divuw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_trunc"({{.*}}) : (i32) -> i8
 
-    // Widths that are not a power of two are widened to `i64` directly.
+    // Widths that are not a power of two are widened to `i32` directly.
     %x_i3 = "llvm.mlir.constant"() <{value = 1 : i3}> : () -> i3
     %urem3 = "gmir.g_urem"(%x_i3, %x_i3) : (i3, i3) -> i3
-    // CHECK:      "gmir.g_zext"({{.*}}) : (i3) -> i64
-    // CHECK-NEXT: "gmir.g_zext"({{.*}}) : (i3) -> i64
-    // CHECK-NEXT: "gmir.g_urem"({{.*}}) : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i3
+    // CHECK:      "gmir.g_zext"({{.*}}) : (i3) -> i32
+    // CHECK-NEXT: "gmir.g_zext"({{.*}}) : (i3) -> i32
+    // CHECK:      "riscv.remuw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_trunc"({{.*}}) : (i32) -> i3
 
     "test.test"(%mul64, %sdiv64, %udiv64, %srem64, %urem64) : (i64, i64, i64, i64, i64) -> ()
     "test.test"(%mul32, %sdiv32, %udiv32, %srem32, %urem32) : (i32, i32, i32, i32, i32) -> ()
