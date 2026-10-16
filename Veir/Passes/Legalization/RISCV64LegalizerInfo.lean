@@ -83,9 +83,6 @@ def riscv64LegalizerInfo : LegalizerInfo where
         .legalFor [64],
         .minScalar (.type 0) 64,
       ]
-    -- LLVM's GlobalISel widens `i32` `g_mul`, and only selects `mulw` if all users of the result
-    -- read the low 32 bits. We follow SelectionDAG instead, which custom-legalizes it like
-    -- `g_add`/`g_sub`.
     | .g_mul => [
       .legalFor [64],
       .customFor [32],
