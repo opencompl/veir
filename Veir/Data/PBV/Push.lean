@@ -156,6 +156,11 @@ theorem sle_setWidth (o : Nat) {w : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a.sle b) = (a.msb != b.msb).xor ((a.setWidth o).ule (b.setWidth o)) := by
   rw [BitVec.sle_eq_ule, ← ule_setWidth o h]
 
+@[pbv_push]
+theorem setWidth_bif {c : Bool} {o w : Nat} (a b : BitVec w) :
+    (bif c then a else b).setWidth o
+      = bif c then (a.setWidth o) else (b.setWidth o) := by grind
+
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
 @[pbv_push low]
@@ -398,8 +403,3 @@ theorem ofNatClamp_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ 
     exact Nat.lt_pow_self (by grind)
   · apply Nat.lt_trans (Nat.lt_pow_self (a := 2) (by decide)) ?_
     exact Nat.pow_lt_pow_right (a := 2) (by decide) (by lia)
-
-@[pbv_push]
-theorem setWidth_bif {c : Bool} {o w : Nat} (a b : BitVec w) :
-    (bif c then a else b).setWidth o
-      = bif c then (a.setWidth o) else (b.setWidth o) := by grind
