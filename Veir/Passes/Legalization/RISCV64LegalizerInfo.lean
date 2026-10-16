@@ -48,17 +48,22 @@ def customLegalizeAddSub (opcode : GMIR) (riscvOp : Riscv)
 
 end
 
+private def s16 : LLT := .scalar 16
+private def s32 : LLT := .scalar 32
+private def s64 : LLT := .scalar 64
+private def p0 : LLT := .pointer 0
+
 public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
-      .legalFor [64],
-      .customFor [32],
+      .legalFor [s64],
+      .customFor [s32],
       .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
-      .legalForTypePairs [(64, 64)],
+      .legalForTypePairs [(s64, s64), (s64, p0)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
@@ -70,7 +75,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
       -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
       -- or `g_and`.
       -- FIXME: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths always legal.
-      .legalForTypePairs [(32, 16), (64, 16), (64, 32)],
+      .legalForTypePairs [(s32, s16), (s64, s16), (s64, s32)],
       .alwaysLegal
     ]
     | .g_trunc => [
@@ -78,7 +83,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | .g_and | .g_or | .g_xor =>
       [
-        .legalFor [64],
+        .legalFor [s64],
         .minScalar (.type 0) 64,
       ]
     | _ => []
