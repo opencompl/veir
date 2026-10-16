@@ -21,13 +21,7 @@
         gmp
         gnumake
         (llvmPackages pkgs).llvm
-        ((llvmPackages pkgs).mlir.overrideAttrs (oldAttrs: {
-          # Nixpkgs does not enable MLIR's test dialect. VeIR's PDL tests
-          # use that dialect when checking compatibility with mlir-opt.
-          cmakeFlags = oldAttrs.cmakeFlags ++ [
-            (lib.cmakeBool "MLIR_INCLUDE_TESTS" true)
-          ];
-        }))
+        (llvmPackages pkgs).mlir
         pkg-config
         uv
       ];
