@@ -15,3 +15,7 @@ private def allocated (mem : MemoryState) (size : UInt64) : Option (MemoryState 
 
 #guard (allocated .empty 4).map (·.2) = some 0x10000
 #guard ((allocated .empty 4).bind fun (m, _) => allocated m 4).map (·.2) = some 0x10010
+
+/- The guard byte after an object may be the last address, but no further. -/
+#guard (allocated .empty (0 - 0x10000 - 1)).isSome
+#guard (allocated .empty (0 - 0x10000)).isNone
