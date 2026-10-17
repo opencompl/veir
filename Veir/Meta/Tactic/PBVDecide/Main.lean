@@ -35,9 +35,9 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × L
   -- Construct the width environment
   let widthEnv ← createWidthEnv g
   -- Find `BitVec`s and reify their widths
-  let (g, widthTms, bvsToRevert) ← visitExprRec g { env := widthEnv } {} (← g.getType)
+  let (widthTms, bvsToRevert) ← visitExprRec { env := widthEnv } {} (← g.getType)
   -- Find `BitVec`s in the hypotheses that will be reverted along with them
-  let (g, widthTms, bvsToRevert) ← visitDependentHyps g widthTms bvsToRevert
+  let (widthTms, bvsToRevert) ← visitDependentHyps widthTms bvsToRevert
   -- Traverse the context to find props on widths (preconditions)
   let widthProps ← reifyPreconditions widthEnv
   -- Compute the blast width

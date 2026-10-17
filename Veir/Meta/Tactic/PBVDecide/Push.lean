@@ -18,9 +18,6 @@ meta def addLiftThms (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) 
   liftThms.foldlM (init := simp) fun simp name => do
     simp.addTheorem (.other name) <| ← mkAppM name #[mkNatLit blastWidth]
 
-/--
-Add theorems to the Simp theorem context that push the `setWidth`s in.
--/
 meta def addPushTheorems (g : MVarId) (blastWidth : Nat) (simp : SimpTheoremsArray) :
     MetaM SimpTheoremsArray := g.withContext do
   -- Push theorems which require specifying the blastWidth explicitly.
@@ -58,13 +55,12 @@ meta def addWidthInfosSimpLemmas (g : MVarId) (widthInfos : WidthInfos)
   return simp
 
 /--
-Run simp on an MVarId given a set of simp theorems.
 Throws if `simp` closes the goal outright.
 -/
 meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
     (config : Simp.Config := { decide := false }) : MetaM MVarId := g.withContext do
   let simpCtx ← Simp.mkContext (config := config) (simpTheorems := simp)
-  let (some g, _) ← g.withContext do simpTarget g simpCtx
+  let (some g, _) ← simpTarget g simpCtx
     | throwError "goal solved by simp"
   return g
 
