@@ -631,6 +631,23 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
     }
   | _ => none
 
+/--
+  The alignment an `llvm.load` or `llvm.store` of a value of `type` requires:
+  its `alignment` attribute, or, when the attribute is absent, which the parser
+  records as `0`, the ABI alignment of `type` under `layout`, as in LLVM. A
+  type the layout does not know requires none.
+-/
+def Llvm.accessAlignment (layout : DataLayout) (alignment : IntegerAttr) (type : Attribute) : Nat :=
+  if alignment.value ≠ 0 then alignment.value.toNat
+  else (layout.getTypeABIAlignment type).getD 1
+
+/-- The type of a value an `llvm.store` can store, for the data layout. -/
+def RuntimeValue.storedType : RuntimeValue → Option Attribute
+  | .int bw _ => some (.integerType (IntegerType.signless bw))
+  | .byte bw _ => some (.byteType ⟨bw⟩)
+  | .addr _ => some (.llvmPointerType ⟨⟩)
+  | _ => none
+
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
@@ -1592,11 +1609,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
     let [type] := resultTypes.toList | none
+    addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type.val)
     let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
+    if let some type := val.storedType then
+      addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type)
     let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .intr__memset => do

@@ -153,6 +153,13 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
   Interp.ub none
 
 /--
+  Check that `p` is aligned to `alignment` bytes.
+  Yields UB if the address is not a multiple of the alignment.
+-/
+def Data.Pointer.checkAlignment (p : Pointer) (alignment : Nat) : Interp Unit :=
+  if alignment = 0 ∨ p.address.toNat % alignment = 0 then return () else Interp.ub none
+
+/--
   Store raw bytes to the given address in memory,
   and set the corresponding poison bits as requested (by default, unset).
   Yields UB if the access is out of bounds.
