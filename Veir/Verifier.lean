@@ -294,8 +294,7 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
 -/
 private def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
-  let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
-    | throw "dominance analysis did not reach a fixpoint"
+  let dfCtx := DominanceAnalysis root .empty ctx
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := op.getParent ctx.raw opIn | return
     if !block.isReachable dfCtx then return
