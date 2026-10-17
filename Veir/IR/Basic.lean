@@ -314,14 +314,25 @@ The owning context of an MLIR module.
 It contains a top-level Module operation, and a maps from pointers to
 operations, blocks, and regions.
 -/
-structure IRContext (OpInfo : Type) [IsOpCode OpInfo] where
+structure IRContext.Raw (OpInfo : Type) [IsOpCode OpInfo] where
   operations : HashMap OperationPtr (Operation OpInfo)
   blocks : HashMap BlockPtr Block
   regions : HashMap RegionPtr Region
   nextID : Nat
-deriving Inhabited, Repr
+deriving Repr
 
-theorem IRContext.default_def : (default : IRContext OpInfo) = IRContext.mk ∅ ∅ ∅ 0 := by rfl
+structure IRContext.Inv (ctx : IRContext.Raw OpInfo) where
+
+structure IRContext (OpInfo : Type) [IsOpCode OpInfo] extends IRContext.Raw OpInfo where
+  attribute_inv : IRContext.Inv toRaw
+
+instance : Inhabited (IRContext.Raw OpInfo) where
+  default := IRContext.Raw.mk ∅ ∅ ∅ 0
+
+instance : Inhabited (IRContext OpInfo) where
+  default := IRContext.mk default (by constructor)
+
+theorem IRContext.default_def : (default : IRContext OpInfo) = IRContext.mk ⟨∅, ∅, ∅, 0⟩ (by constructor) := by rfl
 
 variable {ctx ctx' : IRContext OpInfo}
 
