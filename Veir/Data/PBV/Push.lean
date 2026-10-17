@@ -59,11 +59,11 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Unsigned mod (`%`)              | `BitVec.umod`                | `setWidth_umod`                    |
 | Pow (`^`)                       | `BitVec.pow`                 | —                                  |
 | Abs                             | `BitVec.abs`                 | —                                  |
-| Signed div                      | `BitVec.sdiv`                | —                                  |
-| Signed rem                      | `BitVec.srem`                | —                                  |
-| Signed mod                      | `BitVec.smod`                | —                                  |
-| SMT unsigned div                | `BitVec.smtUDiv`             | —                                  |
-| SMT signed div                  | `BitVec.smtSDiv`             | —                                  |
+| Signed div                      | `BitVec.sdiv`                | `sdiv_eq_bif_udiv`                 |
+| Signed rem                      | `BitVec.srem`                | `srem_eq_bif_umod`                 |
+| Signed mod                      | `BitVec.smod`                | `smod_eq_bif_umod`                 |
+| SMT unsigned div                | `BitVec.smtUDiv`             | `setWidth_smtUDiv`                 |
+| SMT signed div                  | `BitVec.smtSDiv`             | `smtSDiv_eq_bif_smtUDiv`           |
 | And (`&&&`)                     | `BitVec.and`                 | `setWidth_and`                     |
 | Or (`\|\|\|`)                   | `BitVec.or`                  | `setWidth_or`                      |
 | Xor (`^^^`)                     | `BitVec.xor`                 | `setWidth_xor`                     |
@@ -210,11 +210,55 @@ theorem setWidth_udiv {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
     Nat.div_mod_eq_div a.isLt]
 
 @[pbv_push]
+theorem setWidth_smtUDiv {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    (a.smtUDiv b).setWidth o =
+      bif (b.setWidth o == (0#w).setWidth o)
+      then maskOfWidth o w
+      else (a / b).setWidth o := by
+  rw [BitVec.smtUDiv_eq, ← beq_setWidth o h, maskOfWidth_eq_allOnes h, ← setWidth_bif]
+  simp only [cond_eq_ite, beq_iff_eq]
+
+@[pbv_push]
 theorem setWidth_umod {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
     (a % b).setWidth o = (a.setWidth o % b.setWidth o) &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   simp only [BitVec.toNat_umod, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
     Nat.mod_mod_eq_mod_of_lt_right a.isLt]
+
+@[pbv_push]
+theorem sdiv_eq_bif_udiv {w : Nat} (a b : BitVec w) :
+    a.sdiv b =
+      let div := (bif a.msb then -a else a) / (bif b.msb then -b else b)
+      bif a.msb ^^ b.msb then -div else div := by
+  rw [BitVec.sdiv_eq]
+  cases a.msb <;> cases b.msb <;> rfl
+
+@[pbv_push]
+theorem smtSDiv_eq_bif_smtUDiv {w : Nat} (a b : BitVec w) :
+    a.smtSDiv b =
+      let div := (bif a.msb then -a else a).smtUDiv (bif b.msb then -b else b)
+      bif a.msb ^^ b.msb then -div else div := by
+  rw [BitVec.smtSDiv_eq]
+  cases a.msb <;> cases b.msb <;> rfl
+
+@[pbv_push]
+theorem srem_eq_bif_umod {w : Nat} (a b : BitVec w) :
+    a.srem b =
+      let rem := (bif a.msb then -a else a) % (bif b.msb then -b else b)
+      bif a.msb then -rem else rem := by
+  rw [BitVec.srem_eq]
+  cases a.msb <;> cases b.msb <;> rfl
+
+@[pbv_push_bound]
+theorem smod_eq_bif_umod (o : Nat) {w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    a.smod b =
+      let rem := (bif a.msb then -a else a) % (bif b.msb then -b else b)
+      bif a.msb ^^ b.msb then
+        bif (rem.setWidth o == (0#w).setWidth o) then rem else (bif b.msb then b + rem else b - rem)
+      else bif a.msb && b.msb then -rem else rem := by
+  simp only [BitVec.smod_eq, ← beq_setWidth o h]
+  cases a.msb <;> cases b.msb <;> simp [BitVec.add_comm]
+
 
 /-- ## Push `setWidth` into `BitVec` ops -/
 
