@@ -8,8 +8,13 @@ It is implemented in C, by always keeping the backing array zero initialized.
 
 ## Dependencies
 
-One needs to have `gmp`, `pkgconf` and `llvm` installed (on MacOS, `llvm` should
-be installed with brew as the Apple-shipped version does not ship with
-`llvm-ar`), and to source `.envrc` in the parent directory, which can be
-automated with `direnv`.
+Depends on the project's Lean toolchain, GMP development headers, and `pkg-config`
+(or `pkgconf`).
+Lake uses Lean's bundled compiler, archiver, and linker to build the native C code with
+LTO.
+Override the compiler and archiver with `LEAN_CC` and `LEAN_AR`, using tools
+compatible with the linker for LTO.
+Use `direnv` or `nix develop` from the repository root to supply dependencies via nix.
 
+To test, run `lake exe test` from this directory or `make tests` from the parent
+directory to run alongside VeIR's test suites.
