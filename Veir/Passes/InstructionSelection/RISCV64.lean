@@ -190,38 +190,6 @@ def sub64_pattern : Pattern OpCode := lowerBinary (.llvm .sub) (fun t => t.bitwi
 /-- `llvm.sub` (`i32`) -> `riscv.subw`. -/
 def sub32_pattern : Pattern OpCode := lowerBinary (.llvm .sub) (fun t => t.bitwidth = 32) .subw ()
 
-/-- `llvm.mul` (`i64`) -> `riscv.mul`. -/
-def mul64_pattern : Pattern OpCode := lowerBinary (.llvm .mul) (fun t => t.bitwidth = 64) .mul ()
-
-/-- `llvm.mul` (`i32`) -> `riscv.mulw` (sign-extends the result). -/
-def mul32_pattern : Pattern OpCode := lowerBinary (.llvm .mul) (fun t => t.bitwidth = 32) .mulw ()
-
-/-- `llvm.sdiv` (`i64`) -> `riscv.div`. -/
-def sdiv64_pattern : Pattern OpCode := lowerBinary (.llvm .sdiv) (fun t => t.bitwidth = 64) .div ()
-
-/-- `llvm.sdiv` (`i32`) -> `riscv.divw`. -/
-def sdiv32_pattern : Pattern OpCode := lowerBinary (.llvm .sdiv) (fun t => t.bitwidth = 32) .divw ()
-
-/-- `llvm.udiv` (`i64`) -> `riscv.divu`. -/
-def udiv64_pattern : Pattern OpCode := lowerBinary (.llvm .udiv) (fun t => t.bitwidth = 64) .divu ()
-
-/-- `llvm.udiv` (`i32`) -> `riscv.divuw`. -/
-def udiv32_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .udiv) (fun t => t.bitwidth = 32) .divuw ()
-
-/-- `llvm.srem` (`i64`) -> `riscv.rem`. -/
-def srem64_pattern : Pattern OpCode := lowerBinary (.llvm .srem) (fun t => t.bitwidth = 64) .rem ()
-
-/-- `llvm.srem` (`i32`) -> `riscv.remw`. -/
-def srem32_pattern : Pattern OpCode := lowerBinary (.llvm .srem) (fun t => t.bitwidth = 32) .remw ()
-
-/-- `llvm.urem` (`i64`) -> `riscv.remu`. -/
-def urem64_pattern : Pattern OpCode := lowerBinary (.llvm .urem) (fun t => t.bitwidth = 64) .remu ()
-
-/-- `llvm.urem` (`i32`) -> `riscv.remuw`. -/
-def urem32_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .urem) (fun t => t.bitwidth = 32) .remuw ()
-
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
 def umax_pattern : Pattern OpCode :=
@@ -748,36 +716,6 @@ def icmp : Array (Puddle.CompiledPattern OpCode) :=
   let generic := widths.flatMap fun w =>
     preds.map fun pred => lowerIcmp (.llvm .icmp) pred w false
   (peepholes ++ generic).map (·.compile)
-
-/-- llvm.mul -> riscv.mul -/
-def mul64 : Puddle.CompiledPattern OpCode := mul64_pattern.compile
-
-/-- llvm.mul -> riscv.mulw (sign-extends the result) -/
-def mul32 : Puddle.CompiledPattern OpCode := mul32_pattern.compile
-
-/-- llvm.sdiv -> riscv.div -/
-def sdiv64 : Puddle.CompiledPattern OpCode := sdiv64_pattern.compile
-
-/-- llvm.sdiv -> riscv.divw -/
-def sdiv32 : Puddle.CompiledPattern OpCode := sdiv32_pattern.compile
-
-/-- llvm.udiv -> riscv.divu -/
-def udiv64 : Puddle.CompiledPattern OpCode := udiv64_pattern.compile
-
-/-- llvm.udiv -> riscv.divuw -/
-def udiv32 : Puddle.CompiledPattern OpCode := udiv32_pattern.compile
-
-/-- llvm.srem -> riscv.rem -/
-def srem64 : Puddle.CompiledPattern OpCode := srem64_pattern.compile
-
-/-- llvm.srem -> riscv.remw -/
-def srem32 : Puddle.CompiledPattern OpCode := srem32_pattern.compile
-
-/-- llvm.urem -> riscv.remu -/
-def urem64 : Puddle.CompiledPattern OpCode := urem64_pattern.compile
-
-/-- llvm.urem -> riscv.remuw -/
-def urem32 : Puddle.CompiledPattern OpCode := urem32_pattern.compile
 
 /-- llvm.sub -> riscv.sub -/
 def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
@@ -2330,6 +2268,32 @@ def gmirAnd : Puddle.CompiledPattern OpCode := gmirAnd_pattern.compile
 def gmirOr : Puddle.CompiledPattern OpCode := gmirOr_pattern.compile
 def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 
+/-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
+def gmirMul_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_mul) (·.bitwidth = 64) .mul () (guard := matchLegal .g_mul)
+
+/-- `gmir.g_sdiv` (`i64`) -> `riscv.div`. -/
+def gmirSdiv_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_sdiv) (·.bitwidth = 64) .div () (guard := matchLegal .g_sdiv)
+
+/-- `gmir.g_udiv` (`i64`) -> `riscv.divu`. -/
+def gmirUdiv_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_udiv) (·.bitwidth = 64) .divu () (guard := matchLegal .g_udiv)
+
+/-- `gmir.g_srem` (`i64`) -> `riscv.rem`. -/
+def gmirSrem_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_srem) (·.bitwidth = 64) .rem () (guard := matchLegal .g_srem)
+
+/-- `gmir.g_urem` (`i64`) -> `riscv.remu`. -/
+def gmirUrem_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_urem) (·.bitwidth = 64) .remu () (guard := matchLegal .g_urem)
+
+def gmirMul : Puddle.CompiledPattern OpCode := gmirMul_pattern.compile
+def gmirSdiv : Puddle.CompiledPattern OpCode := gmirSdiv_pattern.compile
+def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
+def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
+def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -2347,8 +2311,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     #[selectCzeroeqz.run, selectCzeronez.run, selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
     constant.run, addressof, add32.run, add64.run, ashr64.run, ashr32.run, ashr8.run] ++
-    icmp.map (·.run) ++ #[ mul32.run, mul64.run,
-    sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
+    icmp.map (·.run) ++ #[
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
     sub64.run, sub32.run, bitcast.run] ++
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
@@ -2356,7 +2319,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run, fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run,
-    gmirAnd.run, gmirOr.run, gmirXor.run]
+    gmirAnd.run, gmirOr.run, gmirXor.run,
+    gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
