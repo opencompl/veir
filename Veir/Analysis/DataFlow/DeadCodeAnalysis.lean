@@ -41,8 +41,9 @@ def propagate (state : LivenessFact) (anchor : LatticeAnchor)
         dfCtx := dfCtx.enqueue (point, analysisKind)
         maybeOp := op.getNextOp! irCtx.raw
   | .CFGEdge edge =>
+    let target := edge.terminator.getSuccessor! irCtx.raw edge.successorIndex
     for analysisKind in state.subscribers do
-      dfCtx := dfCtx.enqueue (InsertPoint.atStart! edge.target irCtx.raw, analysisKind)
+      dfCtx := dfCtx.enqueue (InsertPoint.atStart! target irCtx.raw, analysisKind)
   | _ =>
     pure ()
   dfCtx
@@ -61,19 +62,20 @@ def kind : AnalysisKind :=
   .deadCode
 
 /--
-Mark the CFG edge from `src` to `dst` as live.
+Mark the specified successor slot as live.
 This also marks the destination block entry point as live.
 -/
 def markEdgeLive
-    (src : BlockPtr)
-    (dst : BlockPtr)
+    (terminator : OperationPtr)
+    (successorIndex : Nat)
     (dfCtx : DataFlowContext)
     (irCtx : WfIRContext OpCode) : DataFlowContext := Id.run do
   let mut dfCtx := dfCtx
+  let dst := terminator.getSuccessor! irCtx.raw successorIndex
   let point := InsertPoint.atStart! dst irCtx.raw
   dfCtx := dfCtx.modifyFactAndPropagate .liveness (.InsertPoint point) (fun fact =>
     (fact.setToLive, !fact.live)) irCtx
-  dfCtx := dfCtx.modifyFactAndPropagate .liveness (.CFGEdge { source := src, target := dst }) (fun fact =>
+  dfCtx := dfCtx.modifyFactAndPropagate .liveness (.CFGEdge { terminator, successorIndex }) (fun fact =>
     (fact.setToLive, !fact.live)) irCtx
   dfCtx
 
@@ -143,17 +145,17 @@ def visitBranchOperation
   let (dfCtx, operands?) := getOperandValues branch dfCtx irCtx
   let some operands := operands?
     | return dfCtx
-  let some parentBlock := branch.getParent! irCtx.raw
+  let some _ := branch.getParent! irCtx.raw
     | return dfCtx
 
-  match BranchOpInterface.getSuccessorForOperands? branch operands irCtx.raw with
-  | some successor =>
-    markEdgeLive parentBlock successor dfCtx irCtx
+  match BranchOpInterface.getSuccessorIndexForOperands? branch operands irCtx.raw with
+  | some index =>
+    markEdgeLive branch index dfCtx irCtx
   | none =>
     -- Otherwise, mark all successors as executable and outgoing edges.
     let mut dfCtx := dfCtx
-    for successor in branch.getSuccessors! irCtx.raw do
-      dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
+    for index in [0:branch.getNumSuccessors! irCtx.raw] do
+      dfCtx := markEdgeLive branch index dfCtx irCtx
     dfCtx
 /--
 Visit an operation and deduce which of its successors are live.
@@ -193,16 +195,14 @@ private def visitOp
   -- terminator semantics once VeIR has the necessary interfaces.
 
   if op.getNumSuccessors! irCtx.raw ≠ 0 then
-    if hParent : (op.getParent! irCtx.raw).isSome then
-      let parentBlock := (op.getParent! irCtx.raw).get hParent
-
+    if (op.getParent! irCtx.raw).isSome then
       -- Check if we can reason about the control-flow.
       if op.isBranchLike irCtx.raw then
         dfCtx := visitBranchOperation op dfCtx irCtx
       else
         -- Conservatively mark all successors as live.
-        for successor in op.getSuccessors! irCtx.raw do
-          dfCtx := markEdgeLive parentBlock successor dfCtx irCtx
+        for index in [0:op.getNumSuccessors! irCtx.raw] do
+          dfCtx := markEdgeLive op index dfCtx irCtx
     else
       -- TODO: Handle standalone operations with successors if VeIR ever models them.
       pure ()

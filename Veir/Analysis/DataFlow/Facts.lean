@@ -27,11 +27,11 @@ edge).
 -/
 
 /--
-A directed control flow edge between two blocks.
+A successor slot of a branching operation. Distinct slots may target the same block.
 -/
 structure CFGEdge where
-  source : BlockPtr
-  target : BlockPtr
+  terminator : OperationPtr
+  successorIndex : Nat
 deriving BEq, Hashable, DecidableEq
 
 /--

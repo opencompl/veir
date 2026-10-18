@@ -161,10 +161,10 @@ private def visitBlock
     maybePredUse := predUse.getNextUse! irCtx.raw
 
     let predecessorOp := predUse.getOwner! irCtx.raw
-    let some predecessorBlock := predecessorOp.getParent! irCtx.raw
+    let some _ := predecessorOp.getParent! irCtx.raw
       | continue
 
-    let edge : CFGEdge := { source := predecessorBlock, target := block }
+    let edge : CFGEdge := { terminator := predecessorOp, successorIndex := predUse.index }
     dfCtx := subscribeToEdgeLiveness analysisKind edge dfCtx
 
     -- If the edge from the predecessor block to the current block is not live,

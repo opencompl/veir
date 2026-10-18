@@ -170,13 +170,18 @@ def isBlockLive (dfCtx : DataFlowContext) (block : BlockPtr) (irCtx : WfIRContex
   | none => false
 
 /--
-Return whether the control flow edge from `src` to `dst` has a live edge fact.
+Return whether any successor slot from `src` to `dst` has a live edge fact.
 A missing liveness fact is treated as dead.
 -/
-def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr) : Bool :=
-  match dfCtx.getFact? .liveness (.CFGEdge { source := src, target := dst }) with
-  | some fact => fact.live
-  | none => false
+def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr)
+    (irCtx : WfIRContext OpCode) : Bool := Id.run do
+  let some terminator := src.getLastOp! irCtx.raw | return false
+  for index in [0:terminator.getNumSuccessors! irCtx.raw] do
+    if terminator.getSuccessor! irCtx.raw index = dst then
+      if let some fact := dfCtx.getFact? .liveness
+          (.CFGEdge { terminator, successorIndex := index }) then
+        if fact.live then return true
+  return false
 
 /--
 Compare the observed liveness of named blocks with `expected`, reporting missing
@@ -204,13 +209,14 @@ missing block labels and mismatches. Edges without a stored liveness fact are ob
 -/
 def checkNamedEdgeLiveness
     (dfCtx : DataFlowContext)
+    (irCtx : WfIRContext OpCode)
     (blockMap : HashMap String BlockPtr)
     (expected : Array ((String × String) × Bool)) : MismatchReport := Id.run do
   let mut report := #[]
   for ((srcName, dstName), live) in expected do
     match blockMap[srcName]?, blockMap[dstName]? with
     | some src, some dst =>
-      let observed := isEdgeLive dfCtx src dst
+      let observed := isEdgeLive dfCtx src dst irCtx
       if observed != live then
         report := report.push s!"edge {srcName} -> {dstName}: expected live={live}, observed live={observed}"
     | _, _ =>
