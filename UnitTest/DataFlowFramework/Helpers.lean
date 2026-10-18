@@ -174,14 +174,14 @@ Return whether any successor slot from `src` to `dst` has a live edge fact.
 A missing liveness fact is treated as dead.
 -/
 def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr)
-    (irCtx : WfIRContext OpCode) : Bool := Id.run do
-  let some terminator := src.getLastOp! irCtx.raw | return false
-  for index in [0:terminator.getNumSuccessors! irCtx.raw] do
-    if terminator.getSuccessor! irCtx.raw index = dst then
-      let edge := LatticeAnchor.CFGEdge { terminator, successorIndex := index }
-      if (dfCtx.getFact? .liveness edge).any (·.live) then
-        return true
-  return false
+    (irCtx : WfIRContext OpCode) : Bool :=
+  match src.getLastOp! irCtx.raw with
+  | none => false
+  | some terminator =>
+    (terminator.getSuccessors! irCtx.raw).zipIdx.any fun (target, index) =>
+      target == dst &&
+        (dfCtx.getFact? .liveness
+          (.CFGEdge { terminator, successorIndex := index })).any (·.live)
 
 /--
 Compare the observed liveness of named blocks with `expected`, reporting missing
