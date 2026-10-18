@@ -38,7 +38,7 @@ theorem trace_add_comm_manual (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
   have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit4_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-      eq_iff (o := 4),             -- Introduce `setWidth` to goal
+      eq_setWidth (o := 4),       -- Introduce `setWidth` to goal
       setWidth_add,       -- Push `setWidth` down add
       setWidth_setWidth,  -- Push `setWidth` down setWidth
       BitVec.setWidth_eq,         -- Remove redundant setWidths
@@ -89,7 +89,7 @@ theorem trace_zero_zero_extend (p q r : Nat) (x : BitVec p)
   have bv_q_lt_r := lt_of_lt_of_eq_maskOfWidth q_le_bw r_le_bw h_mq h_mr h_qr
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8),
+    eq_setWidth (o := 8),
     setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
@@ -142,7 +142,7 @@ theorem trace_zero_zero_extend_conj (p q r : Nat) (x : BitVec p)
     · apply lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq (And.right h)
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8),
+    eq_setWidth (o := 8),
     setWidth_setWidth,
     BitVec.zeroExtend_eq_setWidth,
     BitVec.setWidth_eq,
@@ -195,7 +195,7 @@ theorem trace_zero_sign_extend (p q r : Nat) (x : BitVec p)
   have bv_p_lt_q := lt_of_lt_of_eq_maskOfWidth p_le_bw q_le_bw h_mp h_mq hpq
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down
   simp only [
-    eq_iff (o := 8),
+    eq_setWidth (o := 8),
     msb_eq_and_signBitOfMask_ne_zero (o := 8),          -- Replace the sign bit test with a mask test
     setWidth_signExtend,          -- Push `setWidth` down signExtend
     BitVec.zeroExtend_eq_setWidth,
@@ -245,7 +245,7 @@ theorem trace_append (w : Nat) (a b : BitVec w) (hw : w ≤ 8) :
   have bv_hw := le_of_le_of_eq_maskOfWidth w_le_bw (by decide) h_mw h_lit8_mask hw
 -- Step 6: Remove natural numbers from goal and hyps, by pushing setWidths down.
   simp only [
-    eq_iff (o := 16),
+    eq_setWidth (o := 16),
     setWidth_add,
     setWidth_append (o := 16),
     setWidth_setWidth,

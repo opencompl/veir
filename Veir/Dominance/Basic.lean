@@ -259,6 +259,13 @@ inductive OperationPtr.ProperlyDominatesInRegion
       (dominance :
         dominatorBlock.ProperlyDominatesInRegion dominatedBlock region ctx)
 
+/-- Proper dominance between operations in an SSA region. -/
+def OperationPtr.ProperlyDominatesInSSARegion
+    (dominator dominated : OperationPtr) (region : RegionPtr)
+    (ctx : WfIRContext OpInfo) : Prop :=
+  dominator.ProperlyDominatesInRegion dominated region ctx ∧
+    region.hasSSADominance ctx = true
+
 /--
 Proper dominance between `dominator` and `dominated` across regions, optionally allowing the
 `dominator` operation to be an ancestor of the `dominated` operation depending on the boolean flag

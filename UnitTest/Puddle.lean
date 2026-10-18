@@ -193,6 +193,29 @@ example : (nativeRootGuard false).StructurallyWellFormed := by native_decide
 
 example : (nativeRootGuard false).matcher.ConstrainsRoot := by cbv
 
+/-- Only rewrite an addition whose parent operation has the requested opcode. -/
+private def parentOpGuard (parentOpCode : OpCode) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let ty ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value ty
+      let zero ← matchConstant ty 0
+      let root ← MatchProg.root (.arith .addi) #[x, zero] #[ty]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op (fun ctx op => do
+        let parent ← op.getParentOp! ctx
+        guard (parent.getOpType! ctx == parentOpCode))
+      return x)
+    pure
+    (fun x => x)
+
+example (parentOpCode : OpCode) : Pattern.Valid (parentOpGuard parentOpCode) := by
+  simp only [parentOpGuard, matchConstant]
+  provePuddleValid
+  simp only [RuntimeValue.Conforms.integerType,
+    forall_exists_index, forall_eq_apply_imp_iff]
+  rintro ⟨w⟩ x cstProp val propzero hinterpCst
+  grind [add_zero_refines, constant_iff, addi_iff]
+
 /- ## Test matcher builder validation -/
 
 /-- A matcher that is missing a root declaration. -/
@@ -294,6 +317,28 @@ info: "builtin.module"() ({
 -/
 #guard_msgs in
 #eval! rewriteAndPrint addZeroProgram (nativeRootGuard true)
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    "test.test"(%5) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (parentOpGuard (.builtin .module))
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+    %7 = "arith.addi"(%5, %6) : (i32, i32) -> i32
+    "test.test"(%7) : (i32) -> ()
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (parentOpGuard (.func .func))
 
 /--
 info: "builtin.module"() ({

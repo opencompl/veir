@@ -29,19 +29,25 @@ The legality of a gMIR operation depends on its opcode, on the type of each of i
 /--
 Low Level Type
 
-The type's size in bits.
 For legalization, we only care about the bits occupied by a *scalar*, not by floats or integers.
-
-TODO: Make this a dedicated type once pointers or vectors are part of legalization.
 
 Also see: https://llvm.org/docs/GlobalISel/GMIR.html#low-level-type
 -/
-abbrev LLT := Nat
+inductive LLT where
+  /-- A scalar of `width` bits. -/
+  | scalar (width : Nat)
+  /-- A pointer in address space `addressSpace`. -/
+  | pointer (addressSpace : Nat)
+deriving Inhabited, Repr, DecidableEq
 
-/-- The low-level type of `type`. Returns `none` if `type` is not an integer type. -/
+/--
+The low-level type of `type`. Returns `none` if `type` is neither an integer nor a pointer type.
+A `!llvm.ptr` has no address space, so it is in address space 0.
+-/
 def LLT.ofType? (type : TypeAttr) : Option LLT :=
   match type.val with
-  | .integerType type => some type.bitwidth
+  | .integerType type => some (.scalar type.bitwidth)
+  | .llvmPointerType _ => some (.pointer 0)
   | _ => none
 
 /--
@@ -68,14 +74,14 @@ def GMIR.getTypeGroupTypes! (opCode : GMIR) (op : OperationPtr) (ctx : IRContext
 
 /--
 The legality query of an `opcode` operation whose type groups have `types` and whose properties are
-`properties`. Returns `none` if one of the types is not a scalar integer.
+`properties`. Returns `none` if one of the types has no low-level type.
 TODO: Support the byte type.
 -/
 def LegalityQuery.ofTypes? (types : Array TypeAttr) (properties : GMIR.propertiesOf opcode) :
     Option (LegalityQuery opcode) := do
   return { types := ← types.mapM LLT.ofType?, properties }
 
-/-- The legality query of `op`. Returns `none` if one of its types is not a scalar integer. -/
+/-- The legality query of `op`. Returns `none` if one of its types has no low-level type. -/
 def LegalityQuery.of? (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR) :
     Option (LegalityQuery opcode) :=
   LegalityQuery.ofTypes? (opcode.getTypeGroupTypes! op ctx) (op.getProperties! ctx opcode)
@@ -93,6 +99,12 @@ namespace LegalityPredicate
 /-- True if type group `typeIdx` is `type`. -/
 def typeIs (typeIdx : TypeGroup) (type : LLT) : LegalityPredicate opcode :=
   fun query => query.getLLT! typeIdx == type
+
+/-- True if type group `typeIdx` is a scalar narrower than `width` bits. -/
+def scalarNarrowerThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate opcode :=
+  fun query => match query.getLLT! typeIdx with
+    | .scalar width' => width' < width
+    | .pointer _ => false
 
 /-- True if all of `predicates` hold. -/
 def all (predicates : List (LegalityPredicate opcode)) : LegalityPredicate opcode :=
@@ -114,8 +126,8 @@ inductive LegalizeAction where
   necessary.
   -/
   | legal
-  /-- The operation should be implemented with type group `typeIdx` widened to `newType`. -/
-  | widenScalar (typeIdx : TypeGroup) (newType : LLT)
+  /-- The operation should be implemented with type group `typeIdx` widened to `width` bits. -/
+  | widenScalar (typeIdx : TypeGroup) (width : Nat)
   /-- The operation is legalized by the target's `legalizeCustom` pattern. -/
   | custom
   /-- This operation is completely unsupported on the target. -/
@@ -150,17 +162,17 @@ def customIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
 def customFor (types : List LLT) : LegalizeRule opcode :=
   customIf fun query => types.contains (query.getLLT! (.type 0))
 
-/-- Widen the scalar to the one selected by `mutation` if `predicate` is true. -/
+/-- Widen the scalar to the width selected by `mutation` if `predicate` is true. -/
 def widenScalarIf (predicate : LegalityPredicate opcode)
-    (mutation : LegalityQuery opcode → TypeGroup × LLT) : LegalizeRule opcode :=
+    (mutation : LegalityQuery opcode → TypeGroup × Nat) : LegalizeRule opcode :=
   fun query => if predicate query then
-    let (typeIdx, newType) := mutation query
-    some (.widenScalar typeIdx newType)
+    let (typeIdx, width) := mutation query
+    some (.widenScalar typeIdx width)
   else none
 
-/-- Ensure the scalar of type group `typeIdx` is at least as wide as `type`. -/
-def minScalar (typeIdx : TypeGroup) (newType : LLT) : LegalizeRule opcode :=
-  widenScalarIf (fun query => (query.getLLT! typeIdx) < newType) fun _ => (typeIdx, newType)
+/-- Ensure the scalar of type group `typeIdx` is at least `width` bits wide. -/
+def minScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule opcode :=
+  widenScalarIf (.scalarNarrowerThan typeIdx width) fun _ => (typeIdx, width)
 
 end LegalizeRule
 

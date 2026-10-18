@@ -47,7 +47,7 @@ RUN apt-get update \
 # exceptions, which the packaged one does not promise.
 #
 # Only the two binaries are kept; the sources and the LLVM build go again.
-ARG LLVM_RELEASE=llvmorg-23.1.2
+ARG LLVM_RELEASE=llvmorg-23.1.3
 ARG ALIVE2_COMMIT=01a5ec45c8152995755f7331827407a9de19f262
 
 RUN apt-get update \
