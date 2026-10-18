@@ -178,9 +178,9 @@ def isEdgeLive (dfCtx : DataFlowContext) (src dst : BlockPtr)
   let some terminator := src.getLastOp! irCtx.raw | return false
   for index in [0:terminator.getNumSuccessors! irCtx.raw] do
     if terminator.getSuccessor! irCtx.raw index = dst then
-      if let some fact := dfCtx.getFact? .liveness
-          (.CFGEdge { terminator, successorIndex := index }) then
-        if fact.live then return true
+      let edge := LatticeAnchor.CFGEdge { terminator, successorIndex := index }
+      if (dfCtx.getFact? .liveness edge).any (·.live) then
+        return true
   return false
 
 /--

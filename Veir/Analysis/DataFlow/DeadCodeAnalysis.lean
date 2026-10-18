@@ -133,9 +133,8 @@ private def getOperandValues
   (dfCtx, some operands)
 
 /--
-Visit the given region branch operation, which defines regions, and
-compute any necessary lattice state. This also resolves the lattice state
-of both the operation results and any nested regions.
+Mark the selected successor slot live when operands determine it;
+otherwise mark all successor slots live.
 -/
 def visitBranchOperation
     (branch : OperationPtr)
@@ -192,18 +191,15 @@ private def visitOp
   -- TODO: If `op` is a region or callable return, visit the corresponding
   -- terminator semantics once VeIR has the necessary interfaces.
 
-  if op.getNumSuccessors! irCtx.raw ≠ 0 then
-    if (op.getParent! irCtx.raw).isSome then
-      -- Check if we can reason about the control-flow.
-      if op.isBranchLike irCtx.raw then
-        dfCtx := visitBranchOperation op dfCtx irCtx
-      else
-        -- Conservatively mark all successors as live.
-        for index in [0:op.getNumSuccessors! irCtx.raw] do
-          dfCtx := markEdgeLive op index dfCtx irCtx
+  -- TODO: Handle standalone operations with successors if VeIR ever models them.
+  if op.getNumSuccessors! irCtx.raw ≠ 0 && (op.getParent! irCtx.raw).isSome then
+    -- Check if we can reason about the control-flow.
+    if op.isBranchLike irCtx.raw then
+      dfCtx := visitBranchOperation op dfCtx irCtx
     else
-      -- TODO: Handle standalone operations with successors if VeIR ever models them.
-      pure ()
+      -- Conservatively mark all successors as live.
+      for index in [0:op.getNumSuccessors! irCtx.raw] do
+        dfCtx := markEdgeLive op index dfCtx irCtx
 
   dfCtx
 
