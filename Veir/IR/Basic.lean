@@ -1584,6 +1584,12 @@ theorem getFirstOp!_eq_getFirstOp {block : BlockPtr} (hin : block.InBounds ctx) 
 private theorem getFirstOp!_def {block : BlockPtr} :
     block.getFirstOp! ctx = (block.get! ctx).firstOp := by rfl
 
+/-- A block containing a first operation is in bounds. -/
+@[grind →]
+theorem inBounds_of_getFirstOp!_eq_some {block : BlockPtr} {firstOp : OperationPtr}
+    (first : block.getFirstOp! ctx = some firstOp) : block.InBounds ctx := by
+  grind [getFirstOp!, get!_of_not_inBounds, Block.default_firstOp_eq]
+
 def getLastOp (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option OperationPtr :=
   (block.get ctx (by grind)).lastOp
 
