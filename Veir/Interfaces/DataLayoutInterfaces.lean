@@ -114,17 +114,12 @@ def getTypeAllocSize (layout : DataLayout) (type : Attribute) : Option Nat :=
 /--
   Decompose the address a `getelementptr` over `elemType` computes into a
   constant byte offset plus, for each dynamic index, its byte stride: the address
-  is the base, plus the constant, plus each dynamic index times its stride. The
-  first index steps over whole `elemType` objects; each later one steps into the
-  current type, to an array element or to a struct field (whose index must be a
-  constant). Any other type returns `none`.
+  is the base, plus the constant, plus each dynamic index times its stride.
 -/
 def gepOffsets (layout : DataLayout) (elemType : Attribute) (indices : Array (GEPIndex α)) :
     Option (Int × Array (α × Nat)) := do
   let mut offset : Int := 0
   let mut dynamic := #[]
-  /- The type the next index steps through: the first index steps through an
-     array of `elemType`. -/
   let mut outer := Attribute.llvmArrayType { size := 0, type := elemType }
   for index in indices do
     match outer, index with
