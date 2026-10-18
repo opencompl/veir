@@ -1293,6 +1293,10 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
+  | .addr (.val pointer), .llvmPointerType _ =>
+    if pointer = Pointer.null then some (.of Llvm.mlir__zero ()) else none
+  | .addr .poison, .llvmPointerType _ =>
+    some (.of Llvm.mlir__poison ())
   | .float type value, .floatType floatType =>
     -- Materialize the constant as long as the runtime float type matches the result type.
     if type = floatType then
