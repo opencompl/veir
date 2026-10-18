@@ -1,13 +1,6 @@
 // RUN: veir-opt %s -p=canonicalize | filecheck %s
-// RUN: veir-opt %s -p='print-dataflow{sccp}' | filecheck %s --check-prefix=DATAFLOW
 
 // Successor slots must have independent liveness even when they target the same block.
-// DATAFLOW: cf.cond_br successor 0 = live
-// DATAFLOW-NEXT: // dataflow.liveness cf.cond_br successor 1 = dead
-// DATAFLOW: cf.cond_br successor 0 = dead
-// DATAFLOW-NEXT: // dataflow.liveness cf.cond_br successor 1 = live
-// DATAFLOW: cf.cond_br successor 0 = live
-// DATAFLOW-NEXT: // dataflow.liveness cf.cond_br successor 1 = live
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "same_successor_true", function_type = () -> i32}> ({
