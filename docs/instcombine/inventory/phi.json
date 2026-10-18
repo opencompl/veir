@@ -1,0 +1,1156 @@
+[
+  {
+    "id": "phi-L74",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 74,
+    "line_end": 77,
+    "function": "InstCombinerImpl::foldDeadPhiWeb",
+    "description": "For a closed, dead web of mutually connected PHIs (no non-PHI users), replace every PHI use with poison and erase every PHI in the web.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "transitive PHI user graph only",
+      "web size remains below 16",
+      "every user of every PHI is a PHI"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires whole-use-graph/cycle analysis and deletion of multiple PHIs; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L247",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 247,
+    "line_end": 250,
+    "function": "InstCombinerImpl::foldIntegerTypedPHI",
+    "description": "Replace an integer PHI\u2019s `inttoptr` user with an already existing pointer PHI whose incoming values exactly match the collected pointer equivalents; erase the inttoptr and integer PHI.",
+    "match_opcodes": [
+      "phi",
+      "inttoptr",
+      "ptrtoint",
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "integer PHI has one use, its user is inttoptr and that result has a pointer use",
+      "pointer width equals integer operand width",
+      "incoming pointer equivalents come from matching ptrtoint, dominating inttoptr, PHI, or one-use load",
+      "same-block pointer PHI type and incoming values exactly match"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires dominance, use graph, memory/load inspection, and PHI deletion; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L329",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 278,
+    "line_end": 332,
+    "function": "InstCombinerImpl::foldIntegerTypedPHI",
+    "description": "Replace one-use integer-PHI-to-inttoptr with a new pointer PHI, inserting per-edge bit/pointer casts for incoming values that need conversion; erase original inttoptr and integer PHI.",
+    "match_opcodes": [
+      "phi",
+      "inttoptr",
+      "ptrtoint",
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "bitcast",
+      "addrspacecast",
+      "inttoptr"
+    ],
+    "extra_conditions": [
+      "no matching pointer PHI was found",
+      "some incoming values need pointer conversion",
+      "casts have legal insertion points and are not terminators",
+      "integer and pointer widths match",
+      "per-edge incoming values preserve original order"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires CFG edge insertion, dominance, pointer/load semantics and multi-PHI construction; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L349",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 349,
+    "line_end": 355,
+    "function": "InstCombinerImpl::foldPHIArgIntToPtrToPHI",
+    "description": "Unwrap round-trip `inttoptr(ptrtoint(X))` incoming operands of a PHI used only by ptrtoint users, mutating those PHI operands to X.",
+    "match_opcodes": [
+      "phi",
+      "ptrtoint",
+      "inttoptr"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "all PHI users are ptrtoint",
+      "at least one incoming round-trip cast is simplified"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "mutates incoming edges of an existing PHI; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L395",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 372,
+    "line_end": 395,
+    "function": "InstCombinerImpl::foldPHIArgInsertValueInstructionIntoPHI",
+    "description": "Transform a PHI of one-use insertvalue instructions with identical indices into two operand PHIs and one insertvalue over those PHIs.",
+    "match_opcodes": [
+      "phi",
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "insertvalue"
+    ],
+    "extra_conditions": [
+      "all incoming values are one-use insertvalue with identical indices",
+      "same aggregate/index types"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L432",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 414,
+    "line_end": 432,
+    "function": "InstCombinerImpl::foldPHIArgExtractValueInstructionIntoPHI",
+    "description": "Transform a PHI of one-use extractvalue instructions with identical indices and aggregate type into a PHI of aggregates followed by one extractvalue.",
+    "match_opcodes": [
+      "phi",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "extractvalue"
+    ],
+    "extra_conditions": [
+      "all incoming values are one-use extractvalue",
+      "indices and aggregate types identical"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L516",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 516,
+    "line_end": 516,
+    "function": "InstCombinerImpl::foldPHIArgBinOpIntoPHI",
+    "description": "For incoming comparisons with the same opcode, predicate, operand types and one-use each, PHI the varying operands (at most one side varies) then create one comparison.",
+    "match_opcodes": [
+      "phi",
+      "icmp",
+      "fcmp"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "icmp",
+      "fcmp"
+    ],
+    "extra_conditions": [
+      "all incoming instructions same comparison opcode and predicate",
+      "same operand types",
+      "each incoming comparison has one user",
+      "at most one operand position varies"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L529",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 529,
+    "line_end": 529,
+    "function": "InstCombinerImpl::foldPHIArgBinOpIntoPHI",
+    "description": "For incoming binary operators with same opcode and operand types, PHI the varying operand position (at most one position varies), then emit one operator with common flags intersected across all inputs.",
+    "match_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra_conditions": [
+      "all incoming operations have identical opcode and operand types",
+      "each incoming op one-use",
+      "not both operand positions vary",
+      "output IR flags are the intersection of incoming flags"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates. Also requires exact poison/flag intersection proof.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L641",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 608,
+    "line_end": 641,
+    "function": "InstCombinerImpl::foldPHIArgGEPIntoPHI",
+    "description": "For a PHI of one-use GEPs with same source element type/arity, create at most one operand PHI for a varying nonconstant same-typed operand and one GEP with intersected nowrap flags.",
+    "match_opcodes": [
+      "phi",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "incoming GEPs one-use and same source element type/operand count",
+      "no differing operand is constant",
+      "all differing operand types match",
+      "at most one operand varies",
+      "not all base pointers are allocas with constant indices",
+      "nowrap flags intersect across GEPs"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates. Requires DataLayout/GEP no-wrap and pointer semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L766-sameaddr",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 766,
+    "line_end": 773,
+    "function": "InstCombinerImpl::foldPHIArgLoadIntoPHI",
+    "description": "For one-use simple loads in predecessor blocks whose pointer operands are all the same, replace the load pointer with that common pointer and return the single merged load.",
+    "match_opcodes": [
+      "phi",
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "load"
+    ],
+    "extra_conditions": [
+      "all loads simple, same loaded type and address space",
+      "all loads one-use",
+      "each load is in corresponding incoming block",
+      "load sinking proven safe/profitable",
+      "all pointer operands identical; merged alignment is minimum"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "load/memory operations are effectful and absent from Puddle; also requires scan proving no intervening writes",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L773-varyingaddr",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 751,
+    "line_end": 773,
+    "function": "InstCombinerImpl::foldPHIArgLoadIntoPHI",
+    "description": "For one-use simple loads in predecessor blocks with varying pointers, create a PHI of pointer operands and one merged load with minimum alignment and combined metadata.",
+    "match_opcodes": [
+      "phi",
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "load"
+    ],
+    "extra_conditions": [
+      "all loads simple, same loaded type/address space",
+      "each load one-use and in corresponding incoming block",
+      "load can be safely sunk past all intervening writes",
+      "pointer operands not all identical",
+      "metadata combined for CSE"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "load/memory operations and metadata alias analysis are absent; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L853",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 837,
+    "line_end": 853,
+    "function": "InstCombinerImpl::foldPHIArgZextsIntoPHI",
+    "description": "Replace a PHI with at least three incoming values, at least two one-use zexts from one narrow type and at least one losslessly truncatable constant, by a narrow PHI followed by zext/bitcast to original type.",
+    "match_opcodes": [
+      "phi",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "zext",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "PHI block permits insertion after PHI",
+      "at least 3 incoming values",
+      "all zexts have same source type and one use",
+      "constants losslessly unsigned-truncate",
+      "at least 2 zext incoming values and at least 1 constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates. plus constant truncation and type legality proof.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L868",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 868,
+    "line_end": 868,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "Dispatch PHI-of-GEP operands to `foldPHIArgGEPIntoPHI`; transformation is defined at cmpa-L641 / phi-L641.",
+    "match_opcodes": [
+      "phi",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "first incoming value is GEP",
+      "PHI insertion block is not EHPad"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L870",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 870,
+    "line_end": 870,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "Dispatch PHI-of-load operands to `foldPHIArgLoadIntoPHI`; transformations are defined at phi-L766-sameaddr and phi-L773-varyingaddr.",
+    "match_opcodes": [
+      "phi",
+      "load"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "first incoming value is load",
+      "PHI insertion block is not EHPad"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L872",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 872,
+    "line_end": 872,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "Dispatch PHI-of-insertvalue operands to `foldPHIArgInsertValueInstructionIntoPHI`; transformation is defined at phi-L395.",
+    "match_opcodes": [
+      "phi",
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "first incoming value is insertvalue",
+      "PHI insertion block is not EHPad"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L874",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 874,
+    "line_end": 874,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "Dispatch PHI-of-extractvalue operands to `foldPHIArgExtractValueInstructionIntoPHI`; transformation is defined at phi-L432.",
+    "match_opcodes": [
+      "phi",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "first incoming value is extractvalue",
+      "PHI insertion block is not EHPad"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L897",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 897,
+    "line_end": 897,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "Delegate PHI of same-opcode binary/comparison inputs with nonconstant RHS to `foldPHIArgBinOpIntoPHI`; output forms are defined at phi-L516 and phi-L529.",
+    "match_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "first incoming is binop/cmp with nonconstant RHS",
+      "PHI insertion block is not EHPad"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L950",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 950,
+    "line_end": 950,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "For identical one-use cast instructions on each PHI edge, create a PHI of cast inputs and apply one cast to the merged input.",
+    "match_opcodes": [
+      "phi",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "uitofp",
+      "sitofp",
+      "fptoui",
+      "fptosi",
+      "ptrtoint",
+      "inttoptr",
+      "bitcast",
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "uitofp",
+      "sitofp",
+      "fptoui",
+      "fptosi",
+      "ptrtoint",
+      "inttoptr",
+      "bitcast",
+      "addrspacecast"
+    ],
+    "extra_conditions": [
+      "same cast opcode/type across all incoming values",
+      "all incoming cast ops one-use",
+      "cast source type matches",
+      "integer width change passes shouldChangeType"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates. and cast-specific poison/type semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L961",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 961,
+    "line_end": 961,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "For one-use incoming binary ops with identical opcode and a common constant RHS, create a PHI of LHS operands and one binop, intersecting IR flags across inputs.",
+    "match_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra_conditions": [
+      "all incoming ops same operation and one-use",
+      "same RHS constant",
+      "compatible LHS type",
+      "flags intersected across inputs"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates. and poison/flag intersection proof.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L968",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 968,
+    "line_end": 968,
+    "function": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "description": "For one-use incoming comparisons with identical opcode/predicate and a common constant RHS, create a PHI of LHS operands and one comparison.",
+    "match_opcodes": [
+      "phi",
+      "icmp",
+      "fcmp"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "icmp",
+      "fcmp"
+    ],
+    "extra_conditions": [
+      "same comparison opcode/predicate and operand types across incoming values",
+      "all incoming comparisons one-use",
+      "common RHS constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1142",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1142,
+    "line_end": 1142,
+    "function": "InstCombinerImpl::SliceUpIllegalIntegerPHI",
+    "description": "When the recursively inspected PHI web has no truncation users (only self/PHI cycles), replace the root PHI with poison; later visitor cleanup handles the remaining cycle.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "all users across inspected PHIs are PHIs",
+      "no eligible truncation users",
+      "no unsplittable insertion edge or catchswitch predecessor"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires recursive CFG/use-graph analysis and cyclic PHI deletion; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1236-slice",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1173,
+    "line_end": 1244,
+    "function": "InstCombinerImpl::SliceUpIllegalIntegerPHI",
+    "description": "Split each illegal-width PHI web into extracted-width PHIs, inserting predecessor `lshr`/`trunc` as needed (reusing identical slices and preserving self cycles), replace trunc users with slice PHIs, then poison old PHI uses.",
+    "match_opcodes": [
+      "phi",
+      "trunc",
+      "lshr"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "lshr",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "only users are PHIs, truncs, or one-use lshr-by-constant feeding trunc",
+      "shift amounts in range",
+      "all predecessor blocks permit insertion",
+      "no invoke-defined incoming on critical edge requiring split",
+      "reuse identical lowered PHI slices"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires arbitrary cyclic PHI graph, predecessor-edge insertion, critical-edge analysis and use rewrites; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1329-analysis",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1329,
+    "line_end": 1329,
+    "function": "simplifyUsingControlFlow",
+    "description": "For a PHI whose constant incoming values consistently correspond to dominating successor edges, return the dominating branch/switch condition; visitPHINode then replaces the PHI with this value.",
+    "match_opcodes": [
+      "phi",
+      "br",
+      "switch"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "PHI inputs are ConstantInt",
+      "PHI block reachable",
+      "idom terminator is conditional branch or switch",
+      "condition type equals PHI type",
+      "each value maps to a unique successor and edge dominates its incoming edge",
+      "all inputs agree that no condition inversion is required"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires CFG and DominatorTree edge-dominance analysis, unavailable to Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "replace PHI uses with existing branch/switch condition"
+    ]
+  },
+  {
+    "id": "phi-L1337-analysis",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1337,
+    "line_end": 1337,
+    "function": "simplifyUsingControlFlow",
+    "description": "When the PHI constants consistently correspond to the inverse of the dominating branch/switch condition, insert xor condition, true at the PHI block insertion point and let visitPHINode replace the PHI with it.",
+    "match_opcodes": [
+      "phi",
+      "br",
+      "switch"
+    ],
+    "rewrite_opcodes": [
+      "xor"
+    ],
+    "extra_conditions": [
+      "all CFG/value correspondence guards of phi-L1329-analysis",
+      "inversion is required",
+      "PHI block has an insertion point"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires CFG/DominatorTree edge-dominance and insertion-point analysis, unavailable to Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1385",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1385,
+    "line_end": 1386,
+    "function": "foldDependentIVs",
+    "description": "For a dependent two-input induction PHI whose nested recurrence uses GEP and whose base combines with the inner recurrence identity, compute and return GEP(Start, Iv2) carrying original GEP no-wrap flags.",
+    "match_opcodes": [
+      "phi",
+      "getelementptr",
+      "add",
+      "sub",
+      "mul",
+      "or",
+      "and",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "outer PHI has exactly two incoming values",
+      "outer recurrence is commutative binary op or GEP using Start and inner recurrence",
+      "inner recurrence is simple and in same block",
+      "inner start equals operation identity/null pointer"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires induction-variable recurrence recognition and insertion in CFG block",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1392",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1390,
+    "line_end": 1392,
+    "function": "foldDependentIVs",
+    "description": "For a dependent two-input induction PHI with commutative binary outer recurrence and inner-start identity, replace recurrence with one operation `Iv2 op Start` and copy flags from recurrence instruction.",
+    "match_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "mul",
+      "fmul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "fadd",
+      "mul",
+      "fmul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra_conditions": [
+      "outer recurrence is a commutative BinaryOperator; only operations with a defined identity for the start type match",
+      "inner recurrence is a simple structural recurrence in the same block",
+      "inner start equals the ConstantExpr binary identity for the outer opcode/type",
+      "copy original outer recurrence IR flags"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires recognizing and rewriting a two-level induction recurrence across PHIs; this is CFG/recurrence reasoning beyond local Puddle execution.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1398",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1398,
+    "line_end": 1399,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Delegate the PHI to `simplifyInstruction` under the PHI-local SimplifyQuery and replace its uses with the returned value when simplification succeeds.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "simplifyInstruction returns a replacement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "external instruction simplifier can use contextual analyses not represented as a fixed local graph",
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1401",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1401,
+    "line_end": 1402,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Delegate PHI-of-zexts/constants to `foldPHIArgZextsIntoPHI`; exact transform at phi-L853.",
+    "match_opcodes": [
+      "phi",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper returns non-null"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1404",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1404,
+    "line_end": 1405,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Delegate integer PHI with inttoptr use to `foldIntegerTypedPHI`; its matching/synthesized pointer-PHI rewrites are at phi-L247 and phi-L329.",
+    "match_opcodes": [
+      "phi",
+      "inttoptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper reports a successful rewrite"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "dominance/use/memory conditions described by the helper rewrites",
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1407",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1413,
+    "line_end": 1414,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "When first two PHI incoming instructions share opcode and first is one-use, delegate to foldPHIArgOpIntoPHI; helper branches are separately inventoried at phi-L395,432,516,529,641,766,773,868\u2013897,950,961,968.",
+    "match_opcodes": [
+      "phi",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "uitofp",
+      "sitofp",
+      "fptoui",
+      "fptosi",
+      "ptrtoint",
+      "inttoptr",
+      "bitcast",
+      "addrspacecast",
+      "icmp",
+      "fcmp",
+      "getelementptr",
+      "load",
+      "insertvalue",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "at least two incoming values",
+      "first two incoming instructions share opcode",
+      "first instruction one-use",
+      "operation-specific helper guards apply"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1416",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1430,
+    "line_end": 1430,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Replace a pointer PHI with one pointer cast from the first incoming value after all incoming values strip to that same cast base.",
+    "match_opcodes": [
+      "phi",
+      "bitcast",
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "addrspacecast"
+    ],
+    "extra_conditions": [
+      "PHI result pointer-typed",
+      "block permits non-PHI insertion",
+      "first incoming value differs from stripped base",
+      "all incoming values strip to identical base"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "requires pointer-cast chain analysis and CFG insertion placement",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1432",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1434,
+    "line_end": 1435,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Delegate a PHI whose def-use web contains only PHIs to `foldDeadPhiWeb`; its poison-and-delete transformation is phi-L74.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "all PHI-web users are PHIs and web size below 16"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "whole-use-graph cycle analysis and multi-PHI deletion",
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1436",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1439,
+    "line_end": 1440,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "For a one-use integer PHI feeding inttoptr, delegate to foldIntegerTypedPHI; see phi-L247 and phi-L329.",
+    "match_opcodes": [
+      "phi",
+      "inttoptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "PHI has one use",
+      "integer type",
+      "helper-specific pointer-conversion guards"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "dominance, uses, loads and CFG edge transformations",
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1440",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1453,
+    "line_end": 1453,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Replace a single-use PHI with poison when its only user is a one-use unary/binary/GEP instruction that feeds back into the PHI, removing a dead induction recurrence.",
+    "match_opcodes": [
+      "phi",
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "PHI has one use",
+      "user has one use",
+      "user is unary, binary or GEP",
+      "user\u2019s user is the PHI"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "detects cyclic SSA use graph; PHI replacement occurs inside loop recurrence",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1507",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1498,
+    "line_end": 1507,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "In an integer PHI used only by EQ/NE comparisons against zero (optionally through one-use OR), replace incoming values proven nonzero at their predecessor terminator with a shared nonzero constant; drop poison-generating flags from OR users.",
+    "match_opcodes": [
+      "phi",
+      "icmp",
+      "or"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "or"
+    ],
+    "extra_conditions": [
+      "integer PHI has fewer than three uses",
+      "every use ends at EQ/NE compare against zero, optionally one-use OR",
+      "isKnownNonZero succeeds at each incoming predecessor terminator",
+      "shared nonzero constant selected from incoming values or 1"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires contextual KnownNonZero at predecessor terminators and in-place PHI/use/flag mutation; Puddle rejects PHI/control-flow rewrites and multi-block reconstruction; this branch needs predecessor-edge values and SSA updates.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1544",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1544,
+    "line_end": 1544,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Replace a PHI with its unique non-PHI incoming value when recursive PHI-cycle traversal confirms all incoming PHIs resolve to that same value.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "all non-PHI incoming values agree",
+      "cyclic PHI traversal succeeds before recursion limit 16"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires recursive potentially cross-block PHI-cycle analysis; CFG/PHI replacement unsupported",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1563",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1562,
+    "line_end": 1565,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Canonicalize PHI incoming block/value order to match the first PHI encountered in each block, swapping both incoming blocks and values while preserving use edges.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "PredOrder already records a PHI order for this block",
+      "incoming block order differs"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "depends on block predecessor ordering and mutates PHI CFG edge labels",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1589",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1589,
+    "line_end": 1589,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Replace a PHI by an identical PHI in the same block when `isIdenticalToWhenDefined` succeeds.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "another PHI in same block",
+      "identical when defined after canonicalization"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires same-block PHI CSE and PHI semantic identity",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "phi-L1599",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1598,
+    "line_end": 1599,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Delegate an illegal-width integer PHI whose uses are only truncation forms to SliceUpIllegalIntegerPHI; transformations are phi-L1142 and phi-L1236-slice.",
+    "match_opcodes": [
+      "phi",
+      "trunc",
+      "lshr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "integer PHI width illegal under DataLayout",
+      "slice helper finds only supported trunc/lshr users and insertable edges"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires DataLayout legality and CFG/use-graph reconstruction",
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "phi-L1603",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1602,
+    "line_end": 1603,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Replace the PHI with the condition (or its inverse) proven equivalent by `simplifyUsingControlFlow`; proof and inversion construction are at phi-L1329-analysis and phi-L1337-analysis.",
+    "match_opcodes": [
+      "phi",
+      "br",
+      "switch"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "control-flow simplifier returns a value"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires DominatorTree and successor-edge reasoning; see analysis-helper entries",
+    "status": "pending",
+    "kind": "delegation",
+    "related_inventory_ids": [
+      "phi-L1329-analysis",
+      "phi-L1337-analysis"
+    ]
+  },
+  {
+    "id": "phi-L1606",
+    "file": "InstCombinePHI.cpp",
+    "line_start": 1605,
+    "line_end": 1606,
+    "function": "InstCombinerImpl::visitPHINode",
+    "description": "Replace PHI with the dependent induction value returned by foldDependentIVs; output alternatives are separate at phi-L1385 and phi-L1392.",
+    "match_opcodes": [
+      "phi",
+      "getelementptr",
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "two-input dependent recurrence and identity conditions succeed"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "requires loop recurrence analysis",
+    "status": "pending",
+    "kind": "delegation"
+  }
+]

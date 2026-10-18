@@ -1,0 +1,408 @@
+{
+  "review_kind": "Luna source review of unsupported scalar-capable rewrite entries",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "source_basis": "docs/instcombine/source pinned snapshots, docs/instcombine/inventory partitions, updated docs/instcombine/puddle-capabilities.md, and Puddle LLVM verifier/interpreter sources.",
+  "scope": "Targeted screen of unsupported rewrite rows for scalar GEP/pointer forms, one-use conditions, integer flag semantics, intrinsic call syntax, undef guards, and generic comparison families. Delegations/helpers excluded; already-corrected select-L718, addhelper-L1210, and cmpb-L8701 not re-audited as new findings.",
+  "scope_counts": {
+    "unsupported_rewrite_rows_in_partitions": 1090,
+    "source_deep_review": "Targeted families selected by blocker/opcode terms; this report does not claim individual source verification of every unsupported row."
+  },
+  "findings": [
+    {
+      "inventory_id": "ic-gep-gep-select-constant-index-L2922",
+      "assessment": "candidate_pending_narrow_scalar_restoration",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2370,
+          "text": "shouldMergeGEPs only rejects a special all-zero outer GEP with a nontrivial multi-use source."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2924,
+          "text": "Source result element type must equal outer GEP source element type."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2930,
+          "text": "The source and outer GEPs each have one index; source one-use is additionally checked."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2937,
+          "text": "One index is constant and the other is select(condition, constant, constant), in either orientation."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2946,
+          "text": "Select one-use guard."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2961,
+          "text": "Merged no-wrap flags are carried to a new single-index GEP from the original base."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2964,
+          "text": "New GEP uses the selected constant-offset sum."
+        },
+        {
+          "file": "OpInfo.lean",
+          "line": 1618,
+          "text": "Puddle interpreter supports a scalar one-index GEP and scales by DataLayout allocation stride."
+        }
+      ],
+      "finding": "The inventory blocker says scalar GEP/DataLayout semantics are not modeled, but Puddle does model one-index scalar GEPs, scalar i1 select conditions, and integer constants. The source's source-GEP and select one-use checks limit growth; the rewrite replaces only the root and remains semantically meaningful if those values have other uses. A narrow form with two one-index GEPs, identical element/result type, i64 indices, default RV64 layout, and no GEP nowrap flags fits the represented graph and pointer operations.",
+      "recommended_guard": "Restrict both GEPs to one i64 scalar index, same supported scalar/array element type and matching element type, default RV64, and no GEP flags. Match one index as an i64 constant and the other as select(i1 condition, i64 constant, i64 constant). The zero-index dispatch guard must also be satisfied; the select-valued index is not an all-zero constant. Treat source one-use checks as profitability only; do not use them in Pattern.Valid.",
+      "classification": "Recommend pending narrow specialization/proof review; no proof claim."
+    },
+    {
+      "inventory_id": "ic-gep-gep-sequential-index-add-L2956",
+      "assessment": "candidate_pending_narrow_scalar_restoration",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2970,
+          "text": "The source GEP must end in a sequential index."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2983,
+          "text": "The two sequential indices must have the same type."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2990,
+          "text": "simplifyAddInst must return a non-null already-simplified Value; this code does not build a generic add."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3002,
+          "text": "The merged index list may contain at most one nonzero index."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3010,
+          "text": "The returned simplified index is placed in the merged GEP from the original base."
+        },
+        {
+          "file": "OpInfo.lean",
+          "line": 1618,
+          "text": "Puddle's one-index GEP interpretation uses the element allocation stride and preserves pointer object identity."
+        }
+      ],
+      "finding": "The generic pointer blocker misses one-index chained GEP cases, but this source arm does not necessarily emit a generic add: `simplifyAddInst` must return a non-null already-simplified `Value`, and the combine then places that value in the merged GEP. This requires matching the source helper's actual successful simplification forms (for example, cancellation or constant folding) for an exact source-equivalent specialization. A general algebraic transformation from `gep (gep P, A), B` to `gep P, add(A,B)` is broader than this source rewrite and should not be counted as a restoration of this inventory row.",
+      "recommended_guard": "Restrict any restoration to exact `simplifyAddInst` success shapes verified against this pinned source, such as a cancellation or constant-fold case, with both GEPs one-index sequential, indices same-width i64, matching element types, default RV64, and no GEP nowrap flags. Preserve the actual returned simplified index. Do not propose arbitrary `add(A,B)` composition under this source ID; that is a separate algebraic candidate requiring distinct source/semantic review.",
+      "classification": "Only exact source-success specialization is a pending candidate; generic GEP composition is outside this source rewrite. No proof claim."
+    },
+    {
+      "inventory_id": "ic-gep-split-add-index-L3657",
+      "assessment": "candidate_pending_narrow_scalar_restoration",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3657,
+          "text": "This rewrite arm is limited to one-index GEP."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3660,
+          "text": "No-wrap flags are preserved only under additional NUW facts."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3670,
+          "text": "Index must match one-use add-like with two operands."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3677,
+          "text": "Source only preserves GEP flags when both GEP NUW and index add NUW hold."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3680,
+          "text": "Replacement builds two one-index GEPs over the two add operands."
+        },
+        {
+          "file": "puddle-capabilities.md",
+          "line": 115,
+          "text": "Puddle models scalar one-index GEP with DataLayout stride; pointer values retain object/address."
+        }
+      ],
+      "finding": "The blocker names pointer arithmetic and nowrap proof broadly. For plain unflagged i64 add and an unflagged one-index GEP under default RV64, the source emits two one-index GEPs with no nowrap flags. The add's one-use requirement prevents instruction growth; it is not needed for the address identity. Puddle can interpret both nested one-index GEPs and the i64 add.",
+      "recommended_guard": "Restrict to scalar i64 plain add with no NSW/NUW/disjoint flags, a one-index unflagged GEP, default RV64, and supported fixed allocation stride; replace by two unflagged one-index GEPs using the add operands. Do not rely on add one-use in semantic validity. Keep the sext/constant-add arm and all flagged cases separate.",
+      "classification": "Recommend pending narrow specialization/proof review; no proof claim."
+    },
+    {
+      "inventory_id": "ic-gep-exact-div-to-byte-index-L3565",
+      "assessment": "candidate_pending_narrow_scalar_restoration",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3541,
+          "text": "Enclosing source family requires one GEP index."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3543,
+          "text": "Index width must equal DataLayout pointer index width."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3545,
+          "text": "Element allocation size is read from DataLayout."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3565,
+          "text": "Exact shift/division index can be canonicalized to a byte index."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3569,
+          "text": "Exact flag and exact shift-by-log2(size) or division by allocation size are source guards."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3576,
+          "text": "Replacement is a GEP over i8 using the dividend."
+        },
+        {
+          "file": "OpInfo.lean",
+          "line": 1618,
+          "text": "Puddle models i64 one-index GEP and allocation stride."
+        }
+      ],
+      "finding": "The generic pointer/DataLayout blocker overlooks the scalar default-layout case. The input and output each have one i64 index; Puddle models exact lshr/udiv/sdiv/ashr integer semantics and GEP element stride. With GEP nowrap flags absent, source exact-poison behavior may be represented by the exact integer operation; the replacement's byte GEP uses stride one. LLVM permits poison refinement when an inexact exact-operation input is simplified, but proof review must establish the model relation.",
+      "recommended_guard": "Use a scalar one-index i64 GEP, default RV64 layout, no GEP nowrap flags, and a modeled exact integer operation whose constant shift/divisor matches the allocation stride as the source requires. Keep arbitrary target layouts, vector indices, and GEP flags unsupported.",
+      "classification": "Candidate for pending specialization/proof review, not an established semantic proof."
+    },
+    {
+      "inventory_id": "ic-gep-fold-exact-divisor-L3581",
+      "assessment": "candidate_pending_narrow_scalar_restoration",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3581,
+          "text": "Requires exact index instruction and source one-use guard."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3588,
+          "text": "For power-of-two allocation size, shift amount is reduced by log2(size)."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3592,
+          "text": "For UDiv, allocation size must divide the constant divisor."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3598,
+          "text": "For SDiv, allocation size must divide the signed constant and quotient -1 is rejected."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3607,
+          "text": "Rebuild same exact division/shift opcode with adjusted constant."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3611,
+          "text": "Replacement is a one-index GEP over i8."
+        }
+      ],
+      "finding": "The scalar exact division and right-shift opcodes (including ashr and lshr) and exact property are modeled; the inventory's blanket GEP/DataLayout blocker is too broad for one-index i64 cases under default RV64. The source one-use condition controls whether folding the allocation scale into the constant is profitable; exactness and divisibility are correctness-relevant and must be included.",
+      "recommended_guard": "Restrict to one scalar i64 GEP with no nowrap flags, default RV64 allocation size, exact scalar lshr/ashr/udiv/sdiv with constant RHS, and the exact source divisibility/shift conditions (including rejection of signed quotient -1). Do not drop exactness or divisor conditions. Keep source one-use out of proof validity.",
+      "classification": "Candidate for pending specialization/proof review; no proof claim."
+    },
+    {
+      "inventory_id": "ic-gep-pointer-difference-replace-L3541",
+      "assessment": "blocker_confirmed",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3547,
+          "text": "The transformation replaces a GEP over a ptrtoint/ptrtoaddr difference with Y only under restricted result uses."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3554,
+          "text": "Matched difference uses pointer-to-integer/address operations with a common base."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3559,
+          "text": "replaceUsesWithIf selectively redirects only permitted address-observing uses from the GEP to Y."
+        },
+        {
+          "file": "puddle-capabilities.md",
+          "line": 135,
+          "text": "Puddle pointer values retain object identity plus address; its GEP preserves identity."
+        }
+      ],
+      "finding": "This fold is about replacing selected uses of the root GEP with Y when a byte GEP computes the address difference between ptrtoint/ptrtoaddr values. It does not reconstruct a pointer with inttoptr. The limitation is pointer-object identity and selective address-observing uses: Puddle's GEP retains the original object's identity, while replacing the root by an arbitrary Y can change pointer identity even when selected address observations agree. Its current replacement model does not express the source's restricted use graph and address-equivalence reasoning.",
+      "recommendation": "Keep unsupported until pointer-object identity/equality and the restricted address-observing use graph can be modeled for this replacement. The blocker is not inttoptr reconstruction."
+    },
+    {
+      "inventory_id": "ic-narrow-math-no-overflow-L2722",
+      "assessment": "blocker_confirmed_correctness_guard",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 2722,
+          "text": "Narrow math branch requires willNotOverflow for arbitrary SSA operands before constructing a no-wrap narrow operation."
+        },
+        {
+          "file": "puddle-capabilities.md",
+          "line": 102,
+          "text": "Overflow flags are modeled, but Puddle has no LLVM willNotOverflow analysis."
+        }
+      ],
+      "finding": "Puddle can match and construct NSW/NUW flags, but the source overflow analysis is essential to ensure narrowing and then re-extending preserves the original arbitrary SSA arithmetic. One-use is profitability and does not establish the required no-overflow premise. Flag support alone does not remove the blocker.",
+      "recommendation": "Keep the general family unsupported unless a source-pattern restriction itself proves no overflow; do not count constant toy cases as the full arbitrary-SSA family."
+    },
+    {
+      "inventory_id": "calls-sat-neveroverflow-L2973",
+      "assessment": "blocker_confirmed_analysis_not_generic_call",
+      "source_evidence": [
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2964,
+          "text": "Source dispatch recognizes saturating add/sub intrinsic IDs."
+        },
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2973,
+          "text": "computeOverflow determines the relevant overflow class."
+        },
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2979,
+          "text": "Only NeverOverflows permits replacing saturation with NSW/NUW add/sub."
+        },
+        {
+          "file": "puddle-capabilities.md",
+          "line": 84,
+          "text": "Scalar signed/unsigned saturating add/sub intrinsics have dedicated interpreted Puddle opcodes."
+        }
+      ],
+      "finding": "Although LLVM represents the source as an intrinsic call in C++, the model has dedicated saturating intrinsic operations. The blocker is not generic-call syntax. `computeOverflow` is essential: saturation and wrapping arithmetic differ when overflow occurs, so the rewrite may only fire when the source proves none.",
+      "recommendation": "Keep arbitrary-SSA version unsupported for lack of overflow analysis. A dedicated intrinsic matcher can be considered as a pattern representation, but is not itself a restoration of the rewrite."
+    },
+    {
+      "inventory_id": "bitwise-L5608",
+      "assessment": "blocker_confirmed_analysis_not_generic_call",
+      "source_evidence": [
+        {
+          "file": "InstCombineAndOrXor.cpp",
+          "line": 5596,
+          "text": "Source documents the ctlz/cttz swap only for power-of-two-or-zero input with zero input poison."
+        },
+        {
+          "file": "InstCombineAndOrXor.cpp",
+          "line": 5600,
+          "text": "The xor constant must equal width minus one."
+        },
+        {
+          "file": "InstCombineAndOrXor.cpp",
+          "line": 5602,
+          "text": "Matched intrinsic must be ctlz or cttz."
+        },
+        {
+          "file": "InstCombineAndOrXor.cpp",
+          "line": 5604,
+          "text": "isKnownToBeAPowerOfTwo(..., OrZero=true) is a semantic guard."
+        },
+        {
+          "file": "puddle-capabilities.md",
+          "line": 79,
+          "text": "Puddle has interpreted ctlz/cttz with is_zero_poison."
+        }
+      ],
+      "finding": "The source's call-like intrinsic maps to dedicated Puddle ctlz/cttz operations, so generic call absence is not the problem. The power-of-two-or-zero fact is essential to the count relation; source one-use is a profitability condition. Puddle lacks a sound matcher fact for arbitrary SSA power-of-two inputs.",
+      "recommendation": "Retain unsupported for the general dynamic operand. Restricting to a power-of-two constant or other structurally proven source shape would be a distinct specialization requiring its own exact source match and proof."
+    },
+    {
+      "inventory_id": "calls-extrema-movenot-L2441",
+      "assessment": "blocker_confirmed_use_graph_not_one_use",
+      "source_evidence": [
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2443,
+          "text": "One-use NOT around A is checked before the rewrite."
+        },
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2444,
+          "text": "isFreeToInvert(A, A->hasOneUse()) determines whether A can be safely complemented in place or needs another representation."
+        },
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2445,
+          "text": "getFreelyInverted(Y, Y->hasOneUse()) must construct a safe inverted Y."
+        },
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2447,
+          "text": "Source creates inverse min/max intrinsic."
+        },
+        {
+          "file": "InstCombineCalls.cpp",
+          "line": 2448,
+          "text": "Source wraps result in NOT."
+        }
+      ],
+      "finding": "The blocker correctly identifies freely-invert/use-graph poison analysis as the main limitation. One-use itself is an extra profitability guard, but dropping that guard does not make the source transformation expressible: it still needs `isFreeToInvert`/`getFreelyInverted` behavior across arbitrary SSA values.",
+      "recommendation": "Do not remove unsupported solely because use-count is a profitability condition; the associated freely-invert analysis remains a true blocker."
+    },
+    {
+      "inventory_id": "integer-flag-analysis-family",
+      "assessment": "blocker_confirmed_across_checked_examples",
+      "source_evidence": [
+        {
+          "file": "InstCombineCasts.cpp",
+          "line": 1347,
+          "text": "trunc NSW inference depends on ComputeMaxSignificantBits."
+        },
+        {
+          "file": "InstCombineCasts.cpp",
+          "line": 1352,
+          "text": "trunc NUW inference depends on MaskedValueIsZero."
+        },
+        {
+          "file": "InstCombineAddSub.cpp",
+          "line": 1983,
+          "text": "add NSW inference depends on willNotOverflowSignedAdd."
+        },
+        {
+          "file": "InstCombineAddSub.cpp",
+          "line": 1987,
+          "text": "add NUW inference depends on willNotOverflowUnsignedAdd."
+        },
+        {
+          "file": "puddle-capabilities.md",
+          "line": 102,
+          "text": "Flags are modeled, but LLVM overflow/KnownBits analysis is unavailable."
+        }
+      ],
+      "finding": "The blocker families checked here depend on KnownBits, range, or overflow facts about arbitrary SSA values. These are semantic guards, not missing flag metadata support. The capability guide correctly separates represented NSW/NUW/exact/disjoint/nneg properties from absent source-side analysis.",
+      "recommendation": "Keep general inference rows unsupported unless a narrower source pattern establishes the flag condition without analysis."
+    },
+    {
+      "inventory_id": "comparison-fp-only-blockers",
+      "assessment": "no_additional_shared_family_misclassification_found",
+      "finding": "Targeted compare-partition screening found no additional generic CmpInst family where an FP-only blocker hides a scalar integer rewrite. The known shared fold `cmpb-L8701` has already been restored and was excluded as instructed. Entries containing `fcmp` in this scan either require actual FP/FCmp semantics or have explicit integer-specialized rows.",
+      "recommendation": "No new restoration recommended from this category."
+    },
+    {
+      "inventory_id": "use-count-and-undef-screen",
+      "assessment": "no_new_false_blocker_after_exclusions",
+      "finding": "In the reviewed blocker matches, one-use conditions on vector splice and call min/max transforms control profitability or accompany a separate unsupported graph/analysis feature; no standalone unsupported scalar row was found whose only obstacle is one-use. The already-reviewed select-L718 and addhelper-L1210 no-undef guards were excluded. No-undef guards are distinct from matching an undef operation.",
+      "recommendation": "Do not remove unsupported status on one-use wording alone; inspect whether any source use-graph/poison transform remains."
+    }
+  ],
+  "conclusion": "The clearest overbroad unsupported family is scalar GEP composition: several one-index default-RV64 forms fit the implemented pointer/GEP interpreter when narrowed to i64 indices and no GEP nowrap flags. Their exact source guards and candidate pattern restrictions are recorded above for proof review. The other inspected use-count, flag-inference, intrinsic-call, pointer-difference, and comparison blockers reflect missing semantic facts or graph behavior and should remain unsupported."
+}

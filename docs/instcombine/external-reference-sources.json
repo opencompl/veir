@@ -1,0 +1,48 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "scope": "Pinned references used to verify matcher/guard/type semantics. These files are outside the transformation inventory; their definitions are not counted as local InstCombine rewrites.",
+  "files": [
+    {
+      "path": "llvm/include/llvm/IR/PatternMatch.h",
+      "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h",
+      "raw_url": "https://raw.githubusercontent.com/llvm/llvm-project/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h",
+      "sha256": "cc98d83d95fcd7d2f2efe6323712b677921b0e709f9cd74dea4178417ce10382",
+      "purpose": "Matcher aliases, commutative NOT, undef/poison and immediate constants."
+    },
+    {
+      "path": "llvm/lib/Analysis/InstructionSimplify.cpp",
+      "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Analysis/InstructionSimplify.cpp",
+      "raw_url": "https://raw.githubusercontent.com/llvm/llvm-project/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Analysis/InstructionSimplify.cpp",
+      "sha256": "2c089233a43208c90d66e407801b7b62e82ae4ffc8771a3bdae7ccb995c404b2",
+      "purpose": "Preceding freeze simplification guard; external implementation is not inventoried as an InstCombine rewrite."
+    },
+    {
+      "path": "llvm/lib/IR/Instructions.cpp",
+      "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/IR/Instructions.cpp",
+      "raw_url": "https://raw.githubusercontent.com/llvm/llvm-project/29eff20316c550d8e689a318c614e40186107820/llvm/lib/IR/Instructions.cpp",
+      "sha256": "30cd959bbfdf7cfbfbf6e95fceb56489acbbe245b76b2392c6662a075a4ff1e3",
+      "purpose": "Cast type legality and eliminable cast-pair table."
+    },
+    {
+      "path": "llvm/lib/IR/Instruction.cpp",
+      "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/IR/Instruction.cpp",
+      "raw_url": "https://raw.githubusercontent.com/llvm/llvm-project/29eff20316c550d8e689a318c614e40186107820/llvm/lib/IR/Instruction.cpp",
+      "sha256": "aab377409016565ba9e6af55a262bacd0a33ad7e332119e8ae3421efeac01d33",
+      "purpose": "LLVM printed opcode names, including conditional/unconditional branch."
+    },
+    {
+      "path": "llvm/include/llvm/IR/Instruction.def",
+      "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/Instruction.def",
+      "raw_url": "https://raw.githubusercontent.com/llvm/llvm-project/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/Instruction.def",
+      "sha256": "9b1ffe8672e6d0a0a9160c715f8f65f5b86de9566333bde1dd8ce86330c93d47",
+      "purpose": "Instruction opcode enumeration."
+    },
+    {
+      "path": "llvm/lib/Analysis/ValueTracking.cpp",
+      "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Analysis/ValueTracking.cpp",
+      "raw_url": "https://raw.githubusercontent.com/llvm/llvm-project/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Analysis/ValueTracking.cpp",
+      "sha256": "e48903c1ed625471e6ebb3cb17a47dc4b9c32096fa5d8f2c1d946e1327c0b57a",
+      "purpose": "Source analysis helper semantics used to interpret InstCombine guards."
+    }
+  ]
+}

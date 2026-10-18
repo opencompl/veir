@@ -1,0 +1,579 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "title": "Proof queue: scalar integer comparisons",
+  "selection_note": "Twenty-six pending source-local scalar comparison rewrites, selected for fixed-width bit-vector/algebra proofs. Each item records a flag-free specialization where LLVM ICmpProperties does not model samesign; source use-count and match guards are separated from the mathematical identity. The comparison source branch may admit additional flagged or analysis-dependent cases beyond the stated proof scope.",
+  "items": [
+    {
+      "rank": 1,
+      "inventory_id": "cmpb-L5202",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5195,
+        "line_end": 5203,
+        "function": "foldICmpAndXX"
+      },
+      "input_tree": "(X & Y) icmp ult X",
+      "output_tree": "(X & Y) icmp ne X",
+      "operand_permutations_and_match_shape": [
+        "This branch needs no one-use guard. If the matcher reaches it after swapping compare operands, use the correspondingly swapped predicate; the listed form is the exact direct orientation."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; X and Y have identical type."
+      ],
+      "source_flags_and_output_flags": "The source builds a plain icmp ne; the input and output comparisons are flag-free in this proof scope.",
+      "poison_and_freeze": "The AND and compare propagate poison from operands identically; no freeze or nowrap flags are involved.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite (x & y) ult x as (x & y) != x."
+    },
+    {
+      "rank": 2,
+      "inventory_id": "cmpb-L5206",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5203,
+        "line_end": 5207,
+        "function": "foldICmpAndXX"
+      },
+      "input_tree": "(X & Y) icmp uge X",
+      "output_tree": "(X & Y) icmp eq X",
+      "operand_permutations_and_match_shape": [
+        "No one-use guard; the source also recognizes the symmetric compare orientation by swapping operands/predicate."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; X and Y have identical type."
+      ],
+      "source_flags_and_output_flags": "Plain flag-free icmp uge becomes plain flag-free icmp eq.",
+      "poison_and_freeze": "The AND and compare propagate poison from operands identically; no freeze or nowrap flags are involved.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite (x & y) uge x as (x & y) == x."
+    },
+    {
+      "rank": 3,
+      "inventory_id": "cmpb-L5264",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5256,
+        "line_end": 5265,
+        "function": "foldICmpOrXX"
+      },
+      "input_tree": "(X | Y) icmp ule X",
+      "output_tree": "(X | Y) icmp eq X",
+      "operand_permutations_and_match_shape": [
+        "No one-use guard; source accepts the symmetric compare orientation by swapping operands/predicate."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; X and Y have identical type."
+      ],
+      "source_flags_and_output_flags": "Plain flag-free icmp ule becomes plain flag-free icmp eq.",
+      "poison_and_freeze": "The OR and compare propagate poison from operands identically; no freeze or nowrap flags are involved.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite (x | y) ule x as (x | y) == x."
+    },
+    {
+      "rank": 4,
+      "inventory_id": "cmpb-L5268",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5265,
+        "line_end": 5269,
+        "function": "foldICmpOrXX"
+      },
+      "input_tree": "(X | Y) icmp ugt X",
+      "output_tree": "(X | Y) icmp ne X",
+      "operand_permutations_and_match_shape": [
+        "No one-use guard; source accepts the symmetric compare orientation by swapping operands/predicate."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; X and Y have identical type."
+      ],
+      "source_flags_and_output_flags": "Plain flag-free icmp ugt becomes plain flag-free icmp ne.",
+      "poison_and_freeze": "The OR and compare propagate poison from operands identically; no freeze or nowrap flags are involved.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite (x | y) ugt x as (x | y) != x."
+    },
+    {
+      "rank": 5,
+      "inventory_id": "cmpb-L5477",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5468,
+        "line_end": 5477,
+        "function": "InstCombinerImpl::foldICmpBinOp"
+      },
+      "input_tree": "(A + B) icmp eq/ne A",
+      "output_tree": "B icmp eq/ne 0",
+      "operand_permutations_and_match_shape": [
+        "Either add operand may be the shared A. Source branch is the equality case, which does not need a no-wrap proof."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; source scope uses plain add with no nuw/nsw/disjoint flags."
+      ],
+      "source_flags_and_output_flags": "The output is a new flag-free icmp with the same EQ or NE predicate; input add flags are absent in this proof scope.",
+      "poison_and_freeze": "For defined operands this is modular cancellation. Poison from A or B propagates through both sides. No freeze. The LLVM source also handles add-like/disjoint forms and flagged relational cases; those are outside this queue item scope.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel a shared operand from add-like comparison (a+b) compared with a to compare b with zero."
+    },
+    {
+      "rank": 6,
+      "inventory_id": "cmpb-L5483",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5479,
+        "line_end": 5483,
+        "function": "InstCombinerImpl::foldICmpBinOp"
+      },
+      "input_tree": "A icmp eq/ne (A + D)",
+      "output_tree": "0 icmp eq/ne D",
+      "operand_permutations_and_match_shape": [
+        "Either add operand can match A; compare operands are in the listed right-expression orientation."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; source scope uses plain add with no nuw/nsw/disjoint flags."
+      ],
+      "source_flags_and_output_flags": "The output is a new flag-free icmp with the same EQ or NE predicate.",
+      "poison_and_freeze": "For defined operands this is modular cancellation; poison propagates through both sides. No freeze. This item restricts the source add-like branch to plain add and equality predicates.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel shared operand from comparison c vs (c+d) to compare zero with d."
+    },
+    {
+      "rank": 7,
+      "inventory_id": "cmpb-L5509",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5488,
+        "line_end": 5509,
+        "function": "InstCombinerImpl::foldICmpBinOp"
+      },
+      "input_tree": "(A + B) icmp eq/ne (A + D)",
+      "output_tree": "B icmp eq/ne D",
+      "operand_permutations_and_match_shape": [
+        "At least one source add is one-use for this branch; A can match any operand on either add, and B/D are the unmatched operands. No vector lanes."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; both source operations are plain add with no nowrap/disjoint flags."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp with the same EQ or NE predicate; no arithmetic flags are emitted.",
+      "poison_and_freeze": "For defined operands, equal modular sums with common addend are equivalent to equal remaining addends. Poison propagates; no freeze. This proof scope chooses equality predicates, so source does not need a no-wrap condition.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel shared add operand from comparison (a+b) vs (a+d) to compare b and d."
+    },
+    {
+      "rank": 8,
+      "inventory_id": "cmpb-L5631",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5623,
+        "line_end": 5631,
+        "function": "InstCombinerImpl::foldICmpBinOp"
+      },
+      "input_tree": "(A - B) icmp eq/ne A",
+      "output_tree": "0 icmp eq/ne B",
+      "operand_permutations_and_match_shape": [
+        "The shared minuend A is the compared RHS. Equality branch does not require a no-wrap fact."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; source scope uses plain sub with no nuw/nsw flags."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp preserving EQ or NE.",
+      "poison_and_freeze": "For defined operands, modular subtraction cancellation is exact. Poison propagates from operands; no freeze. Scope excludes nowrap flags.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Reduce (a-b) compared with a to zero compared with b."
+    },
+    {
+      "rank": 9,
+      "inventory_id": "cmpb-L5654",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 5652,
+        "line_end": 5654,
+        "function": "InstCombinerImpl::foldICmpBinOp"
+      },
+      "input_tree": "(A - B) icmp eq/ne (C - B)",
+      "output_tree": "A icmp eq/ne C",
+      "operand_permutations_and_match_shape": [
+        "B must be the exact shared SSA subtrahend. Equality predicates do not require no-wrap proofs."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; both source operations are plain sub with no nuw/nsw flags."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp preserving EQ or NE.",
+      "poison_and_freeze": "For defined operands, modular subtraction cancellation is exact. Poison propagates from operands; no freeze. Scope excludes nowrap flags.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel shared subtrahend from (a-b) vs (c-b)."
+    },
+    {
+      "rank": 10,
+      "inventory_id": "cmpb-L6275",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 6265,
+        "line_end": 6275,
+        "function": "InstCombinerImpl::foldICmpEquality"
+      },
+      "input_tree": "(A xor B) icmp eq/ne A",
+      "output_tree": "B icmp eq/ne 0",
+      "operand_permutations_and_match_shape": [
+        "Either XOR operand may be the compared A. The source also matches the symmetric case when the compare is against the other XOR operand."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; XOR result and compare operands share type."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp with the original EQ or NE predicate.",
+      "poison_and_freeze": "Strict bitwise semantics make cancellation exact; poison from A or B propagates through both expressions. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Reduce (A xor B) eq/ne A to B eq/ne zero, with either xor operand matching A."
+    },
+    {
+      "rank": 11,
+      "inventory_id": "cmpb-L6290",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 6289,
+        "line_end": 6290,
+        "function": "InstCombinerImpl::foldICmpEquality"
+      },
+      "input_tree": "(A xor B) icmp eq/ne (A xor D)",
+      "output_tree": "B icmp eq/ne D",
+      "operand_permutations_and_match_shape": [
+        "This source branch is specifically the common first operand A in both XORs."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; all XOR operands have same type."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp preserving EQ or NE.",
+      "poison_and_freeze": "XOR is cancellation over fixed-width bit-vectors; poison propagates through both sides. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel common xor input A in A^B == A^D, yielding B == D."
+    },
+    {
+      "rank": 12,
+      "inventory_id": "cmpb-L6292",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 6291,
+        "line_end": 6292,
+        "function": "InstCombinerImpl::foldICmpEquality"
+      },
+      "input_tree": "(A xor B) icmp eq/ne (C xor A)",
+      "output_tree": "B icmp eq/ne C",
+      "operand_permutations_and_match_shape": [
+        "The shared A is left in the first XOR and right in the second."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; all XOR operands have same type."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp preserving EQ or NE.",
+      "poison_and_freeze": "XOR is cancellation over fixed-width bit-vectors; poison propagates through both sides. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel common xor input A in A^B == C^A, yielding B == C."
+    },
+    {
+      "rank": 13,
+      "inventory_id": "cmpb-L6294",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 6293,
+        "line_end": 6294,
+        "function": "InstCombinerImpl::foldICmpEquality"
+      },
+      "input_tree": "(A xor B) icmp eq/ne (B xor D)",
+      "output_tree": "A icmp eq/ne D",
+      "operand_permutations_and_match_shape": [
+        "The shared B is right in the first XOR and left in the second."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; all XOR operands have same type."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp preserving EQ or NE.",
+      "poison_and_freeze": "XOR is cancellation over fixed-width bit-vectors; poison propagates through both sides. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel common xor input B in A^B == B^D, yielding A == D."
+    },
+    {
+      "rank": 14,
+      "inventory_id": "cmpb-L6296",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 6295,
+        "line_end": 6296,
+        "function": "InstCombinerImpl::foldICmpEquality"
+      },
+      "input_tree": "(A xor B) icmp eq/ne (C xor B)",
+      "output_tree": "A icmp eq/ne C",
+      "operand_permutations_and_match_shape": [
+        "The shared B is the right operand of both XORs."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; all XOR operands have same type."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp preserving EQ or NE.",
+      "poison_and_freeze": "XOR is cancellation over fixed-width bit-vectors; poison propagates through both sides. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Cancel common xor input B in A^B == C^B, yielding A == C."
+    },
+    {
+      "rank": 15,
+      "inventory_id": "cmpb-L6484",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 6479,
+        "line_end": 6484,
+        "function": "InstCombinerImpl::foldICmpEquality"
+      },
+      "input_tree": "(A xor K) icmp eq/ne B",
+      "output_tree": "(A xor B) icmp eq/ne K",
+      "operand_permutations_and_match_shape": [
+        "The matched `(A xor K)` instruction must have one use; source commutes the equality operands and the XOR operands. This queue uses the displayed orientation."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; K is an integer immediate constant of the same width; B is not an immediate constant."
+      ],
+      "source_flags_and_output_flags": "Output is flag-free icmp with the original EQ or NE; source creates a plain xor and compare.",
+      "poison_and_freeze": "XOR cancellation is exact modulo 2^N. Poison from A, B, or K propagates; K is a defined immediate. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Move a one-use xor constant across equality/inequality by xor-ing the other operand with the same value."
+    },
+    {
+      "rank": 16,
+      "inventory_id": "cmpb-L7526",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 7521,
+        "line_end": 7526,
+        "function": "canonicalizeICmpBool"
+      },
+      "input_tree": "icmp eq/ule/sge i1 A, 0",
+      "output_tree": "not A",
+      "operand_permutations_and_match_shape": [
+        "Exact source predicate set is EQ, ULE, or SGE with zero on RHS; output opcode is not."
+      ],
+      "required_constants_and_type": [
+        "i1 operands only; the second operand is constant false."
+      ],
+      "source_flags_and_output_flags": "Source returns bitwise not of A; no comparison flags remain.",
+      "poison_and_freeze": "i1 has two values and the three listed predicates all mean A is false. Poison of A propagates through not. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "For i1 comparison with zero in the EQ/ULE/SGE cases, replace the comparison by not A."
+    },
+    {
+      "rank": 17,
+      "inventory_id": "cmpb-L7546",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 7541,
+        "line_end": 7546,
+        "function": "canonicalizeICmpBool"
+      },
+      "input_tree": "icmp eq i1 A, B",
+      "output_tree": "not (A xor B)",
+      "operand_permutations_and_match_shape": [
+        "Exact predicate EQ; source uses the direct operand order."
+      ],
+      "required_constants_and_type": [
+        "i1 operands only."
+      ],
+      "source_flags_and_output_flags": "Source returns xor followed by bitwise not; no comparison flags remain.",
+      "poison_and_freeze": "The i1 truth table for equality is complement of XOR. Poison propagates through XOR/not; no freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Replace i1 equality with bitwise not of xor."
+    },
+    {
+      "rank": 18,
+      "inventory_id": "cmpb-L7550",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 7548,
+        "line_end": 7550,
+        "function": "canonicalizeICmpBool"
+      },
+      "input_tree": "icmp ne i1 A, B",
+      "output_tree": "A xor B",
+      "operand_permutations_and_match_shape": [
+        "Exact predicate NE; source uses the direct operand order."
+      ],
+      "required_constants_and_type": [
+        "i1 operands only."
+      ],
+      "source_flags_and_output_flags": "Source returns plain xor; no comparison flags remain.",
+      "poison_and_freeze": "The i1 truth table for inequality is XOR. Poison propagates; no freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Replace i1 inequality with xor."
+    },
+    {
+      "rank": 19,
+      "inventory_id": "cmpb-L7558",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 7552,
+        "line_end": 7558,
+        "function": "canonicalizeICmpBool"
+      },
+      "input_tree": "icmp ult i1 A, B",
+      "output_tree": "(not A) and B",
+      "operand_permutations_and_match_shape": [
+        "The source also handles UGT by swapping A and B before applying this rule."
+      ],
+      "required_constants_and_type": [
+        "i1 operands only."
+      ],
+      "source_flags_and_output_flags": "Source returns bitwise not of A followed by AND with B; no comparison flags remain.",
+      "poison_and_freeze": "For Boolean values, unsigned less-than is true exactly for A=false and B=true. Poison propagates; no freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Replace i1 unsigned less-than with (~A)&B, swapping operands for greater-than."
+    },
+    {
+      "rank": 20,
+      "inventory_id": "cmpb-L8114",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 8110,
+        "line_end": 8114,
+        "function": "InstCombinerImpl::visitICmpInst"
+      },
+      "input_tree": "icmp ugt iN X, signed_max(iN)",
+      "output_tree": "icmp slt iN X, 0",
+      "operand_permutations_and_match_shape": [
+        "Exact predicate UGT and signed-max RHS. This is a direct boundary identity, not an arbitrary KnownBits query."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 2; RHS is the signed maximum 2^(N-1)-1."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free signed less-than comparison of X with zero.",
+      "poison_and_freeze": "For defined X, unsigned X > signed-max iff the sign bit is set. Poison propagates through the comparison. Source does not copy samesign; queue scope is flag-free comparisons.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite x ugt signed-max as x slt zero."
+    },
+    {
+      "rank": 21,
+      "inventory_id": "cmpb-L8120",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 8116,
+        "line_end": 8120,
+        "function": "InstCombinerImpl::visitICmpInst"
+      },
+      "input_tree": "icmp ult iN X, signed_min(iN)",
+      "output_tree": "icmp sgt iN X, -1",
+      "operand_permutations_and_match_shape": [
+        "Exact predicate ULT and signed-min RHS."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 2; RHS is the signed minimum 2^(N-1)."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free signed greater-than comparison of X with all-ones (-1).",
+      "poison_and_freeze": "For defined X, unsigned X < signed-min iff the sign bit is clear, equivalently signed X > -1. Poison propagates; queue scope excludes samesign.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite x ult signed-min as x sgt all-ones."
+    },
+    {
+      "rank": 22,
+      "inventory_id": "cmpa-L1815",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 1815,
+        "line_end": 1815,
+        "function": "InstCombinerImpl::foldICmpAndConstConst"
+      },
+      "input_tree": "icmp ne iN (and X, 1), 0",
+      "output_tree": "trunc X to i1",
+      "operand_permutations_and_match_shape": [
+        "Source requires NE, compare RHS zero, and constant 1 in the AND second operand after canonical operand ordering; no one-use check in this branch."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; RHS compare constant zero, mask constant one."
+      ],
+      "source_flags_and_output_flags": "Source replaces comparison and AND by trunc to i1.",
+      "poison_and_freeze": "The low bit is one exactly when `(X & 1) != 0`; poison propagates. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite `(X & 1) != 0` as `trunc X to i1`."
+    },
+    {
+      "rank": 23,
+      "inventory_id": "cmpa-L2005",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 2005,
+        "line_end": 2005,
+        "function": "InstCombinerImpl::foldICmpAndConstant"
+      },
+      "input_tree": "(X & -X) icmp eq/ne 0",
+      "output_tree": "X icmp eq/ne 0",
+      "operand_permutations_and_match_shape": [
+        "The matcher accepts either AND operand order and requires the other operand to be negation of the same X."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN > 1; negation is modular two\u2019s-complement negation."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp with the input EQ/NE predicate.",
+      "poison_and_freeze": "The low-bit isolate is zero iff X is zero. Poison from X propagates; no freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite `(X & -X)==/!=0` as `X==/!=0`."
+    },
+    {
+      "rank": 24,
+      "inventory_id": "cmpa-L2009",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 2009,
+        "line_end": 2009,
+        "function": "InstCombinerImpl::foldICmpAndConstant"
+      },
+      "input_tree": "(X & -X) icmp eq 1",
+      "output_tree": "trunc X to i1",
+      "operand_permutations_and_match_shape": [
+        "Exact EQ predicate. Source matches `X & -X` in either operand order; no one-use guard for EQ."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN > 1; compared constant is one."
+      ],
+      "source_flags_and_output_flags": "Source replaces comparison and AND by trunc to i1.",
+      "poison_and_freeze": "The isolated low bit equals one exactly when X is odd. Poison from X propagates; no freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite `(X & -X)==1` as `trunc X to i1`."
+    },
+    {
+      "rank": 25,
+      "inventory_id": "cmpa-L1674",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 1674,
+        "line_end": 1674,
+        "function": "InstCombinerImpl::foldICmpXorConstant"
+      },
+      "input_tree": "(X xor C) icmp ugt C",
+      "output_tree": "X icmp ugt C",
+      "operand_permutations_and_match_shape": [
+        "Exact UGT predicate; source tests `XorC == C` and `(C+1).isPowerOf2()`. The `~C` twin is a separate source entry."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; C is an iN constant and C+1 is a power of two in width-N APInt arithmetic."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp ugt; source requires the XOR constant to equal the compared C.",
+      "poison_and_freeze": "For defined X, XOR with C cannot move a value across this specific power-of-two boundary. Poison propagates through XOR/icmp; no freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite `(X xor C) ugt C` as `X ugt C` when C+1 is a power of two."
+    },
+    {
+      "rank": 26,
+      "inventory_id": "cmpa-L1679",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "line_start": 1679,
+        "line_end": 1680,
+        "function": "InstCombinerImpl::foldICmpXorConstant"
+      },
+      "input_tree": "(X xor -C) icmp ult C",
+      "output_tree": "X icmp ugt ~C",
+      "operand_permutations_and_match_shape": [
+        "Exact ULT predicate; source requires XOR constant equal to `-C` and C power-of-two. The branch for XOR constant C with `-C` power-of-two is a separate inventory entry."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer iN, iN >= 1; C is a power-of-two iN constant; negation and complement are APInt modulo 2^N."
+      ],
+      "source_flags_and_output_flags": "Output is a new flag-free icmp ugt with constant `~C`.",
+      "poison_and_freeze": "Fixed-width XOR and unsigned comparison identity; poison propagates from X. No freeze.",
+      "proof_scope": "Scalar fixed-width integer semantics only; flag-free ICmp inputs; no vectors, pointers, floating point, arbitrary SSA analysis, or samesign comparisons.",
+      "source_description": "Rewrite `(X xor -C) ult C` as `X ugt ~C` when C is a power of two."
+    }
+  ]
+}

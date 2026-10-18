@@ -1,0 +1,26 @@
+[
+  {
+    "context_sha256": "70f5234b5c6d814c64ef54dbc1daf23b589231711eb8a4fff0d92465206f8b6f",
+    "status": "counterexample",
+    "inventory_id": "ic-freeze-push-through-op-L5236",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreezePushThroughAddCounterexample.freezePushThroughAdd_not_valid",
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreezePushThroughAddCounterexample.lean",
+    "sha256": "0604ff37398f65e5c481d4a38dbf5b919a89b8b83d8818a7e89a255a6c1a20cf"
+  },
+  {
+    "context_sha256": "70f5234b5c6d814c64ef54dbc1daf23b589231711eb8a4fff0d92465206f8b6f",
+    "status": "counterexample",
+    "inventory_id": "ic-freeze-undef-use-choice-L5446",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreezeUndefUseChoiceCounterexample.freezePoisonOrAllOnes_not_valid",
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreezeUndefUseChoiceCounterexample.lean",
+    "sha256": "4c7d6ebc106f078e352c1deab484a3b9916d1bb22c253623e86ba2059dd22994"
+  },
+  {
+    "context_sha256": "70f5234b5c6d814c64ef54dbc1daf23b589231711eb8a4fff0d92465206f8b6f",
+    "status": "counterexample",
+    "inventory_id": "ic-visit-gep-normalize-indices-L3346",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPIndexNormalizationCounterexample.normalizeNarrowGepIndex_not_valid",
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPIndexNormalizationCounterexample.lean",
+    "sha256": "081a01a58c2c9af082f5c48a33cb13b013c449cb7962dc46850b33b7e69d876c"
+  }
+]

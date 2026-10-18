@@ -1,0 +1,15 @@
+{
+  "files": {
+    "InstCombineCompares.cpp": {
+      "covered_ranges": [
+        [
+          4831,
+          9622
+        ]
+      ],
+      "complete": false,
+      "range_complete": true,
+      "notes": "All in-scope return and mutation candidates from candidate-sites.json are covered by a source-span inventory record or an explicit line-specific helper exclusion. This is complete for the assigned range 4831\u20139622; file-level complete remains false because lines 1\u20134830 are owned by the other compare inventory slice."
+    }
+  }
+}

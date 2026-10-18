@@ -1,0 +1,5 @@
+{
+  "description": "Advisory opcode review of enclosing C++ if-guards outside source entry spans.\n\nUses optional tree-sitter==0.25.2 and tree-sitter-cpp==0.23.4. It complements the\nspan-local matcher audit: many inventory references name only a return statement.\nNegative/exclusion guards, sibling spans and constant expressions need review.",
+  "findings": [],
+  "candidate_count": 0
+}

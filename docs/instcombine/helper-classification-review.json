@@ -1,0 +1,342 @@
+{
+  "review_kind": "read-only analysis-helper IR-outcome classification audit",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "review_note": "Followed helper constructors and mutation sites to callers and existing concrete rewrite entries. The report distinguishes utilities/shared installation from independent source outcomes. It does not claim proof soundness.",
+  "items": [
+    {
+      "helper_id": "vector-index-canonical-helper-L401",
+      "source": {
+        "file": "InstCombineVectorOps.cpp",
+        "lines": [
+          401,
+          411
+        ]
+      },
+      "source_evidence": "getPreferredVectorIndex returns a ConstantInt (zero-extended/truncated to i64) or null. It does not create an instruction or mutate IR.",
+      "callers": [
+        {
+          "source_lines": [
+            496,
+            503
+          ],
+          "inventory_ids": [
+            "vector-extract-canonical-index-L496"
+          ],
+          "outcome": "replace the extractelement index operand with the returned constant."
+        },
+        {
+          "source_lines": [
+            1799,
+            1802
+          ],
+          "inventory_ids": [
+            "vector-insert-index-canonical-L1799"
+          ],
+          "outcome": "replace the insertelement index operand with the returned constant."
+        }
+      ],
+      "disposition": "analysis-helper classification is correct; both actual operand rewrites have concrete caller entries."
+    },
+    {
+      "helper_id": "vector-build-reordered-op-helper-L2031",
+      "source": {
+        "file": "InstCombineVectorOps.cpp",
+        "lines": [
+          2031,
+          2114
+        ]
+      },
+      "source_evidence": "buildNew uses IRBuilder to create a same-opcode binop/compare/cast/GEP with reordered vector operands and copies source arithmetic, exact, fast-math, compare, or GEP flags. It is called only from evaluateInDifferentElementOrder at line 2186.",
+      "callers": [
+        {
+          "source_lines": [
+            2116,
+            2216
+          ],
+          "inventory_ids": [
+            "vector-evaluate-different-element-order-L2116"
+          ],
+          "outcome": "recursive constant/vector expression lane-reordering and instruction reconstruction."
+        },
+        {
+          "source_lines": [
+            3119,
+            3122
+          ],
+          "inventory_ids": [
+            "vector-shuffle-evaluate-reordered-lanes-L3119"
+          ],
+          "outcome": "replace shufflevector(V, poison, Mask) with the evaluated reordered value when the safety predicate succeeds."
+        }
+      ],
+      "disposition": "constructor helper is shared implementation; the evaluation and shuffle caller entries cover the transformation. One scope mismatch to correct/confirm: vector-shuffle-evaluate-reordered-lanes lists select among output opcodes, but canEvaluateShuffled (1945-2029) rejects Select and buildNew has no Select case, so select is unreachable through this caller.",
+      "coordinator_resolution": "Applied: removed unreachable select, retained floating binary opcodes, and corrected poison-mask guard to integer div/rem only across caller and helper records."
+    },
+    {
+      "helper_id": "loadstore-combine-load-newtype-L597",
+      "source": {
+        "file": "InstCombineLoadStoreAlloca.cpp",
+        "lines": [
+          597,
+          615
+        ]
+      },
+      "source_evidence": "Creates a load from the same pointer with requested type and retained load properties; the helper itself does not replace the old load or users.",
+      "callers": [
+        {
+          "source_lines": [
+            718,
+            726
+          ],
+          "inventory_ids": [
+            "loadstore-load-optype-helper-L671"
+          ],
+          "outcome": "replace a compatible no-op cast after an unordered load with a load of the cast destination type."
+        },
+        {
+          "source_lines": [
+            748,
+            759
+          ],
+          "inventory_ids": [
+            "loadstore-unpack-load-struct-single-L748"
+          ],
+          "outcome": "load the sole struct field and rebuild with insertvalue."
+        },
+        {
+          "source_lines": [
+            793,
+            801
+          ],
+          "inventory_ids": [
+            "loadstore-unpack-load-array-single-L793"
+          ],
+          "outcome": "load the sole array element and rebuild with insertvalue."
+        }
+      ],
+      "disposition": "constructor utility; the concrete callers are inventoried."
+    },
+    {
+      "helper_id": "ic-select-cast-match-and-constant-helper-L1111",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1111,
+          1135
+        ]
+      },
+      "source_evidence": "Matches cast/select operands and returns per-arm binop values with arm constants selected from condition polarity; it does not install or return the final select.",
+      "callers": [
+        {
+          "source_lines": [
+            1137,
+            1148
+          ],
+          "inventory_ids": [
+            "ic-select-cast-condition-aligned-L1137",
+            "ic-select-cast-condition-inverted-L1144"
+          ],
+          "outcome": "construct the final select for direct or inverted condition relation."
+        },
+        {
+          "source_files": [
+            "InstCombineMulDivRem.cpp:612-613",
+            "InstCombineAddSub.cpp:2047-2048",
+            "InstCombineAddSub.cpp:3069-3070"
+          ],
+          "inventory_ids": [
+            "ic-select-cast-condition-aligned-L1137",
+            "ic-select-cast-condition-inverted-L1144"
+          ],
+          "outcome": "dispatch from add/sub/mul visitors to the two inventoried result forms."
+        }
+      ],
+      "disposition": "shared construction helper; both actual condition-orientation outcomes are recorded."
+    },
+    {
+      "helper_id": "ic-select-arm-fold-L1809",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1809,
+          1816
+        ]
+      },
+      "source_evidence": "Clones an operation with a select arm substituted, then returns the clone only if generic simplification changes it; this is one arm of a select-level transform.",
+      "callers": [
+        {
+          "source_lines": [
+            1857,
+            1881
+          ],
+          "inventory_ids": [
+            "ic-fold-operation-into-select-L1818"
+          ],
+          "outcome": "simplify either/both arms and build the replacement select, retaining allowed metadata."
+        }
+      ],
+      "disposition": "not an independent peephole; the caller record owns the resulting select rewrite."
+    },
+    {
+      "helper_id": "ic-gep-offset-single-L187",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          187,
+          206
+        ]
+      },
+      "source_evidence": "EmitGEPOffset can replace a nonconstant non-i8 input GEP when RewriteGEP is true, by byte GEP plus use replacement and erasure.",
+      "callers": [
+        {
+          "source_lines": [
+            198,
+            204
+          ],
+          "inventory_ids": [
+            "ic-gep-offset-rewrite-L198"
+          ],
+          "outcome": "explicitly inventoried optional GEP mutation."
+        }
+      ],
+      "disposition": "the mutation is separated from the offset-construction helper."
+    },
+    {
+      "helper_id": "ic-gep-offset-array-L208",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          208,
+          273
+        ]
+      },
+      "source_evidence": "Builds byte-offset arithmetic; when RewriteGEPs is enabled it can also replace eligible source GEPs with ptradd and erase them.",
+      "callers": [
+        {
+          "source_lines": [
+            249,
+            261
+          ],
+          "inventory_ids": [
+            "ic-gep-offset-mutation-L228"
+          ],
+          "outcome": "explicitly inventoried optional source-GEP replacement."
+        }
+      ],
+      "disposition": "offset construction and source mutation have separate records."
+    },
+    {
+      "helper_id": "ic-unreachable-walk-L4316",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4316,
+          4344
+        ]
+      },
+      "source_evidence": "The helper coordinates poison-use replacement, suffix erasure, outgoing dead edges, and additionally calls handleUnreachableTerminator at 4335, recording returned changed values for the worklist.",
+      "related_inventory_ids": [
+        "ic-unreachable-use-poison-L4323",
+        "ic-unreachable-erase-L4330",
+        "ic-dead-edge-mark-L4297"
+      ],
+      "disposition": "poison, erase, and dead-edge outcomes are covered. No concrete entry was found for the terminator mutation performed by handleUnreachableTerminator at line 4335; that call outcome remains under-described unless its effect is intentionally treated as external delegated cleanup.",
+      "coordinator_resolution": "Applied: added ic-unreachable-terminator-dispatch-L4335 as delegation to the externally defined cleanup routine."
+    },
+    {
+      "helper_id": "divrem-selectzero-context-L1171",
+      "source": {
+        "file": "InstCombineMulDivRem.cpp",
+        "lines": [
+          1171,
+          1216
+        ]
+      },
+      "source_evidence": "After simplifying div/rem(select(cond,0,Y)), scans earlier instructions in the same block until a non-returning instruction and replaces all uses of the divisor select with Y and of its condition with the proven boolean, enqueueing each changed instruction.",
+      "related_inventory_ids": [
+        "divrem-selectzero-L1153"
+      ],
+      "disposition": "this is a concrete context-sensitive multi-use IR rewrite, not analysis-only. The current analysis-helper kind and empty rewrite-opcode list understate the outcome; recommend a distinct rewrite or mutation record with exact per-use scope. Its nonlocal use/CFG requirement can remain the blocker.",
+      "coordinator_resolution": "Applied: classified as mutation and described arbitrary earlier same-block instruction operand substitutions and exact traversal stops; no newly constructed opcode."
+    },
+    {
+      "helper_id": "cmpb-L7001-shared-overflow-postlude",
+      "source": {
+        "file": "InstCombineCompares.cpp",
+        "lines": [
+          6974,
+          7001
+        ]
+      },
+      "source_evidence": "The shared tail can replace eligible trunc users, mutate trunc operands, rebuild masked uses with and+zext, and replace the root comparison with the computed overflow check.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul"
+      ],
+      "disposition": "appropriate as a shared postlude rather than a new arithmetic formula, but currently rewrite_opcodes is empty despite concrete user/root mutations and constructors. Confirm the add/mul records or this helper explicitly account for the multi-use trunc/mask outputs and the root icmp replacement.",
+      "coordinator_resolution": "Applied: explicit trunc user mutation and and/zext reconstruction recorded in shared postlude and referenced by the add/mul outcomes."
+    },
+    {
+      "helper_id": "ic-run-worklist-L5815",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5815,
+          6007
+        ]
+      },
+      "source_evidence": "Contains three generic isInstructionTriviallyDead/erase paths at 5824-5827, 5837-5841, and 5994-5996. tryToSinkInstruction is called at 5921; root result installation and enqueueing are visitor plumbing.",
+      "related_inventory_ids": [
+        "ic-sink-instruction-between-blocks-L5591"
+      ],
+      "disposition": "DCE is an actual generic transformation and should have a direct outcome record for the three source sites; parent reports B is adding it. Sinking and visitor installation are already represented as helper/caller plumbing.",
+      "coordinator_resolution": "Applied: canonical trivially-dead-instruction removal and repeated-site delegation records are present."
+    },
+    {
+      "helper_id": "demanded-fpclass-recurse-oneuse-multiuse-L3874",
+      "source": {
+        "file": "InstCombineSimplifyDemanded.cpp",
+        "lines": [
+          3874,
+          3902
+        ]
+      },
+      "source_evidence": "Installs a value returned by recursive demanded-class simplification into the current operand and salvages debug info; the recursive result/formula is supplied by the specific child rewrite.",
+      "disposition": "generic recursive installation, not an independent source optimization; the entry describes the action and keeps child transformations canonical."
+    },
+    {
+      "helper_id": "ic-binop-vector-reverse-constructor-L2524",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2524,
+          2532
+        ]
+      },
+      "source_evidence": "Builds the flagged inner binop and wraps it in llvm.vector.reverse; called from the two-reverse and reverse/splat match branches.",
+      "related_inventory_ids": [
+        "ic-binop-two-vector-reverses-L2564",
+        "ic-binop-left-reverse-right-splat-L2585",
+        "ic-binop-left-splat-right-reverse-L2591"
+      ],
+      "disposition": "constructor is shared implementation; all three real source match outcomes have concrete leaf entries."
+    },
+    {
+      "helper_id": "ic-binop-vp-reverse-constructor-L2553",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2553,
+          2565
+        ]
+      },
+      "source_evidence": "Builds the flagged inner binop, all-true vector mask, and vp_reverse call with the matched EVL; called from the three VP reverse/splat branch shapes.",
+      "related_inventory_ids": [
+        "ic-binop-two-vp-reverses-L2598",
+        "ic-binop-left-vp-reverse-right-splat-L2614",
+        "ic-binop-left-splat-right-vp-reverse-L2621"
+      ],
+      "disposition": "constructor is shared implementation; branch-specific caller outcomes are separately inventoried."
+    }
+  ]
+}

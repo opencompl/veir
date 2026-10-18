@@ -1,0 +1,166 @@
+[
+  {
+    "file": "CMakeLists.txt",
+    "complete": true,
+    "reason": "Build configuration or command-line option declarations; no rewrite definitions."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 338,
+    "completed_range_union_through": 0,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 452,
+    "completed_range_union_through": 0,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 25,
+    "completed_range_union_through": 157,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineCLOptions.cpp",
+    "complete": true,
+    "reason": "Build configuration or command-line option declarations; no rewrite definitions."
+  },
+  {
+    "file": "InstCombineCLOptions.h",
+    "complete": true,
+    "reason": "Build configuration or command-line option declarations; no rewrite definitions."
+  },
+  {
+    "file": "InstCombineCLOptions.td",
+    "complete": true,
+    "reason": "Build configuration or command-line option declarations; no rewrite definitions."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 419,
+    "completed_range_union_through": 5740,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 229,
+    "completed_range_union_through": 3630,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 765,
+    "completed_range_union_through": 9622,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "manual_audit_complete": true,
+    "candidate_sites": 15,
+    "completed_range_union_through": 0,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 76,
+    "completed_range_union_through": 1778,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 302,
+    "completed_range_union_through": 0,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 48,
+    "completed_range_union_through": 0,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 59,
+    "completed_range_union_through": 1609,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 335,
+    "completed_range_union_through": 5529,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 196,
+    "completed_range_union_through": 0,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 274,
+    "completed_range_union_through": 3902,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 158,
+    "completed_range_union_through": 3543,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "manual_audit_complete": true,
+    "candidate_sites": 333,
+    "completed_range_union_through": 6439,
+    "unresolved_sites": [],
+    "incomplete_family_ids": [],
+    "complete": true
+  }
+]

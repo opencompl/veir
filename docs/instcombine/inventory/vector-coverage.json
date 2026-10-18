@@ -1,0 +1,15 @@
+{
+  "files": {
+    "InstCombineVectorOps.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          3543
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "All 3543 pinned source lines and helper/visitor branches were reviewed. Distinct successful rewrite branches and helper delegations have separate records; query and mask-collection helpers are marked analysis-helper. Of 158 mechanically identified return/mutation sites, 157 map to source-specific records and line 3391 is a reviewed shared changed-state commit return for the mapped mutation at line 3211. Puddle gaps use the specific vector/CFG/analysis limitations in puddle-capabilities.md."
+    }
+  }
+}

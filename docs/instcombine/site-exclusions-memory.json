@@ -1,0 +1,7 @@
+[
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 402,
+    "reason": "PointerReplacer::replace returns immediately when this instruction already has a mapped replacement; no new instruction or use is changed."
+  }
+]

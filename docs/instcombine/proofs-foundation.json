@@ -1,0 +1,2895 @@
+[
+  {
+    "inventory_id": "negator-L137a",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 122,
+    "lean_file": "Veir/Passes/InstCombineLLVM/DoubleNegation.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.DoubleNegation.doubleNegation",
+    "theorem": "Veir.Passes.InstCombineLLVM.DoubleNegation.doubleNegation_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width; arbitrary nsw/nuw flags on both matched sub operations; poison and overflow-to-poison are modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.DoubleNegation; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L140",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 126,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateConstant.negateConstant",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateConstant.negateConstant_valid",
+    "status": "proven",
+    "scope": "Scalar integer constants of arbitrary bit width; the replacement uses the matched integer type and normalizes modular negation; arbitrary nsw/nuw flags on the outer sub, poison, and overflow-to-poison are modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector integral constants, including poison/undef-containing vector constants: this Puddle pattern specializes to scalar IntegerType and IntegerAttr."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateConstant UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L125b",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 116,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateI1.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateI1.negateI1",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateI1.negateI1_valid",
+    "status": "proven",
+    "scope": "Scalar i1 values; arbitrary nsw/nuw flags on the matched negating sub; poison and overflow-to-poison are modeled. Vector i1 values are outside the current scalar Puddle specialization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateI1; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L154",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 154,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateIncrement.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateIncrement.negateIncrement",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateIncrement.negateIncrement_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width, with the increment in canonical x+1 operand order; arbitrary nsw/nuw flags on the matched add and outer sub; poison and overflow-to-poison are modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NegateIncrement.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NegateIncrement.negateIncrementCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.NegateIncrement.negateIncrementCommuted_valid",
+        "scope": "Scalar integers of arbitrary bit width, commuted 1+x operand order; arbitrary nsw/nuw flags on the matched add and outer sub; poison and overflow-to-poison are modeled."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateIncrement; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L159",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 160,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateNot.negateNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateNot.negateNot_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width; bitwise not is matched in both xor x, -1 and xor -1, x operand orders; arbitrary nsw/nuw flags on the outer sub; poison and overflow-to-poison are modeled; replacement add has no no-wrap flags. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateNot; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NegateNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NegateNot.negateNotConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NegateNot.negateNotConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "negator-L164",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 166,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateRightShift.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateRightShift.negateAShrSignBit",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateRightShift.negateAShrSignBit_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width; the shift amount is an actual integer constant equal modulo its matched type to W-1; exact is copied from the source arithmetic shift; arbitrary nsw/nuw flags on the outer sub, poison, overshift, and exactness poison are modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NegateRightShift.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NegateRightShift.negateLShrSignBit",
+        "theorem": "Veir.Passes.InstCombineLLVM.NegateRightShift.negateLShrSignBit_valid",
+        "scope": "Scalar integers of arbitrary bit width; the shift amount is an actual integer constant equal modulo its matched type to W-1; exact is copied from the source logical shift; arbitrary nsw/nuw flags on the outer sub, poison, overshift, and exactness poison are modeled."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateRightShift UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L181",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 186,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateBooleanExtension.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateBooleanExtension.negateSExtI1",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateBooleanExtension.negateSExtI1_valid",
+    "status": "proven",
+    "scope": "Scalar i1 sources extended to scalar integers of arbitrary destination width; arbitrary nsw/nuw flags on the outer sub and poison are modeled; the replacement zero extension has nneg=false.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NegateBooleanExtension.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NegateBooleanExtension.negateZExtI1",
+        "theorem": "Veir.Passes.InstCombineLLVM.NegateBooleanExtension.negateZExtI1_valid",
+        "scope": "Scalar i1 sources extended to scalar integers of arbitrary destination width; arbitrary nneg on the matched zero extension and arbitrary nsw/nuw flags on the outer sub are modeled, including poison introduced by nneg; the replacement sign extension has no flags."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateBooleanExtension UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L215",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 219,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubSwap.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubSwap.subSwap",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubSwap.subSwap_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width; arbitrary nsw/nuw flags on both matched sub operations; poison and overflow-to-poison are modeled. This general conservative form clears output flags. Profitability guards (one use or constant minuend) are outside semantic validity and are not matched.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubSwap.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubSwap.subSwapNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubSwap.subSwapNSW_valid",
+        "scope": "Exact upstream NSW-propagating form for scalar integers of arbitrary bit width when both the inner subtraction and negating outer subtraction are NSW; arbitrary NUW flags on matched operations; replacement has nsw=true and nuw=false; poison and signed/unsigned overflow-to-poison are modeled."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubSwap; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "negator-L391",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 391,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegateTrunc.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegateTrunc.negateTruncCommute",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegateTrunc.negateTruncCommute_valid",
+    "status": "proven",
+    "scope": "General scalar algebraic form -(trunc X) -> trunc(-X), materializing the recursive helper's wide negation directly. Arbitrary source and destination integer widths satisfying destination width < source width; arbitrary nsw/nuw flags on the matched truncation and outer subtraction; poison and all overflow-to-poison cases are modeled. The created wide subtraction and replacement truncation clear nsw/nuw. The source helper may recursively simplify the wide negation and applies its own use/depth profitability checks, which this local semantic pattern does not model.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType.",
+      "Exact fused graphs produced by arbitrary recursive calls to Negator: a Puddle Pattern is a finite static match/create graph and has no operation for recursively invoking the source helper or dynamically splicing its returned graph. The registered arbitrary-width commute pattern proves the local semantic law by materializing the wide negation, and the double-negation pattern records one exact recursive specialization."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NegateTrunc.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NegateTrunc.negateTruncDoubleNegation",
+        "theorem": "Veir.Passes.InstCombineLLVM.NegateTrunc.negateTruncDoubleNegation_valid",
+        "scope": "Concrete scalar recursive specialization where the truncation operand is itself a negation, so recursive negation with NSW disabled succeeds by double negation. Arbitrary valid source/destination widths and arbitrary nsw/nuw flags on both subtractions and the matched truncation are modeled."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegateTrunc UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "add-i1-L1655",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 1654,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddI1.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddI1.addI1ToXor",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddI1.addI1ToXor_valid",
+    "status": "proven",
+    "scope": "Scalar i1 integers; arbitrary nsw/nuw flags on the matched add, poison, and overflow-to-poison are modeled. Vector i1 values are outside the current scalar Puddle specialization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddI1 UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-i1-L2528",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2528,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubI1.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubI1.subI1ToXor",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubI1.subI1ToXor_valid",
+    "status": "proven",
+    "scope": "Scalar i1 integers; arbitrary nsw/nuw flags on the matched subtraction, poison, and overflow-to-poison are modeled. Vector i1 values are outside the current scalar Puddle specialization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubI1 UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2531",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2531,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AllOnesSub.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AllOnesSub.allOnesSubToNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.AllOnesSub.allOnesSubToNot_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width; the all-ones minuend is matched as an actual typed integer constant; arbitrary nsw/nuw flags on the subtraction, poison, and overflow-to-poison are modeled; replacement xor has no poison-generating flags. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AllOnesSub UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "add-L1652",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 1666,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddNegNeg.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddNegNeg.addNegNeg",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddNegNeg.addNegNeg_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width; both recognized negations are explicit subtractions from typed zero constants. Arbitrary nsw/nuw flags on both inner subtractions and the outer add, poison, and overflow-to-poison are modeled. Created add and subtraction clear no-wrap flags.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddNegNeg UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "add-L1657",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 1672,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddNegLeft.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddNegLeft.addNegLeft",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddNegLeft.addNegLeft_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary width where -A is an explicit subtraction from a typed zero constant. The conservative variant accepts arbitrary nsw/nuw flags and clears result flags; the NSW variant preserves nsw when both the matched negation and root add are nsw. Poison and overflow-to-poison are modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddNegLeft UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddNegLeft.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddNegLeft.addNegLeftNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddNegLeft.addNegLeftNSW_valid",
+        "scope": "Arbitrary-width scalar NSW-preserving variant when the explicit negation and root add are both NSW; NUW remains unrestricted and is cleared."
+      }
+    ]
+  },
+  {
+    "inventory_id": "add-L1665",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 1680,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddNegRight.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddNegRight.addNegRight",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddNegRight.addNegRight_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary width where -B is an explicit subtraction from a typed zero constant. The conservative variant accepts arbitrary nsw/nuw flags and clears result flags; the NSW variant preserves nsw when both the matched negation and root add are nsw. Poison and overflow-to-poison are modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddNegRight UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddNegRight.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddNegRight.addNegRightNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddNegRight.addNegRightNSW_valid",
+        "scope": "Arbitrary-width scalar NSW-preserving variant when the explicit negation and root add are both NSW; NUW remains unrestricted and is cleared."
+      }
+    ]
+  },
+  {
+    "inventory_id": "sub-L2443",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2443,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubNegRight.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegRight",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegRight_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary width for X-(-A) -> X+A. Explicit subtraction negations and scalar IntegerAttr negations are covered. Conservative variants accept arbitrary source nsw/nuw flags and clear result flags. NSW variants preserve nsw under the source guards: both subtractions are nsw for an explicit negation, or the root is nsw and the literal is not signed-min for an IntegerAttr negation. Poison and overflow-to-poison are modeled; created constants retain the matched type and use modular normalization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType.",
+      "Non-IntegerAttr LLVM constant forms recognized by dynCastNegVal: Puddle constant operations currently expose scalar IntegerAttr properties only."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubNegRight UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubNegRight.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegRightNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegRightNSW_valid",
+        "scope": "Arbitrary-width scalar NSW-preserving explicit-negation variant when both matched subtractions are NSW; NUW remains unrestricted and is cleared."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubNegRight.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegConstant",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegConstant_valid",
+        "scope": "Arbitrary-width scalar IntegerAttr arm of dyn_castNegVal; matches any normalized literal, creates its typed modular negation, and clears result flags."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubNegRight.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegConstantNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubNegRight.subNegConstantNSW_valid",
+        "scope": "Arbitrary-width scalar NSW-preserving IntegerAttr arm when the root subtraction is NSW and the matched literal is not the signed minimum; NUW remains unrestricted and is cleared."
+      }
+    ]
+  },
+  {
+    "inventory_id": "sub-L2718",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2718,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubCancellation.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubCancellation.subAddSelf",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubCancellation.subAddSelf_valid",
+    "status": "proven",
+    "scope": "Scalar integers of arbitrary bit width for X-(X+Y)->-Y; arbitrary nsw/nuw flags on both operations, poison, overflow-to-poison, and poison lost with the cancelled shared X are modeled. The created zero is normalized at the matched integer type and the replacement subtraction has no flags.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubCancellation.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubCancellation.subAddSelfCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubCancellation.subAddSelfCommuted_valid",
+        "scope": "Scalar arbitrary-width commuted form X-(Y+X)->-Y with arbitrary flags and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubCancellation.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubCancellation.subSelfFromSub",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubCancellation.subSelfFromSub_valid",
+        "scope": "Scalar arbitrary-width form (X-Y)-X->-Y with arbitrary flags and poison modeled, including poison lost with cancelled X."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubCancellation UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "calls-i1-minmax-and-L2353",
+    "file": "InstCombineCalls.cpp",
+    "line_start": 2353,
+    "lean_file": "Veir/Passes/InstCombineLLVM/I1MinMaxAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.I1MinMaxAnd.uminI1ToAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.I1MinMaxAnd.uminI1ToAnd_valid",
+    "status": "proven",
+    "scope": "Scalar i1 llvm.umin values, including poison, rewritten to llvm.and. Vector i1 values are outside this scalar Puddle specialization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/I1MinMaxAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.I1MinMaxAnd.smaxI1ToAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.I1MinMaxAnd.smaxI1ToAnd_valid",
+        "scope": "Scalar i1 llvm.smax values, including poison, rewritten to llvm.and."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.I1MinMaxAnd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "calls-i1-minmax-or-L2360",
+    "file": "InstCombineCalls.cpp",
+    "line_start": 2360,
+    "lean_file": "Veir/Passes/InstCombineLLVM/I1MinMaxOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.I1MinMaxOr.umaxI1ToOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.I1MinMaxOr.umaxI1ToOr_valid",
+    "status": "proven",
+    "scope": "Scalar i1 llvm.umax values, including poison, rewritten to llvm.or with disjoint false. Vector i1 values are outside this scalar Puddle specialization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/I1MinMaxOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.I1MinMaxOr.sminI1ToOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.I1MinMaxOr.sminI1ToOr_valid",
+        "scope": "Scalar i1 llvm.smin values, including poison, rewritten to llvm.or with disjoint false."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.I1MinMaxOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "calls-count-i1-L487",
+    "file": "InstCombineCalls.cpp",
+    "line_start": 487,
+    "lean_file": "Veir/Passes/InstCombineLLVM/I1CountZeros.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.I1CountZeros.ctlzI1ToNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.I1CountZeros.ctlzI1ToNot_valid",
+    "status": "proven",
+    "scope": "Scalar i1 llvm.ctlz with is_zero_poison false, including poison, rewritten to xor with a typed normalized all-ones constant. Vector i1 values are outside this scalar Puddle specialization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/I1CountZeros.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.I1CountZeros.cttzI1ToNot",
+        "theorem": "Veir.Passes.InstCombineLLVM.I1CountZeros.cttzI1ToNot_valid",
+        "scope": "Scalar i1 llvm.cttz with is_zero_poison false rewritten to xor with typed all-ones."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/I1CountZeros.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.I1CountZeros.ctlzI1ToZero",
+        "theorem": "Veir.Passes.InstCombineLLVM.I1CountZeros.ctlzI1ToZero_valid",
+        "scope": "Scalar i1 llvm.ctlz with is_zero_poison true rewritten to a typed zero constant; the zero-input poison source refines the concrete replacement."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/I1CountZeros.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.I1CountZeros.cttzI1ToZero",
+        "theorem": "Veir.Passes.InstCombineLLVM.I1CountZeros.cttzI1ToZero_valid",
+        "scope": "Scalar i1 llvm.cttz with is_zero_poison true rewritten to a typed zero constant; the zero-input poison source refines the concrete replacement."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.I1CountZeros UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "add-L1787",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 1802,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddXorAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddXorAnd.addXorAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddXorAnd.addXorAnd_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary root nsw/nuw flags; canonical xor/and operand order.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddXorAnd.addXorAndCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddXorAnd.addXorAndCommutedAnd_valid",
+        "scope": "Arbitrary-width scalar integers with the inner and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddXorAnd.addAndXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddXorAnd.addAndXor_valid",
+        "scope": "Arbitrary-width scalar integers with the root add operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddXorAnd.addCommutedAndXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddXorAnd.addCommutedAndXor_valid",
+        "scope": "Arbitrary-width scalar integers with both commutative matcher permutations."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddXorAnd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2727",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2727,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubOrAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubOrAnd.subOrAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubOrAnd.subOrAnd_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary root nsw/nuw flags, and arbitrary or.disjoint.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubOrAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubOrAnd.subCommutedOrAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubOrAnd.subCommutedOrAnd_valid",
+        "scope": "Arbitrary-width scalar integers with the source or operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubOrAnd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2735",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2735,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubAddOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubAddOr.subAddOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubAddOr.subAddOr_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary add/sub nsw/nuw flags, and arbitrary or.disjoint.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubAddOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubAddOr.subAddCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubAddOr.subAddCommutedOr_valid",
+        "scope": "Arbitrary-width scalar integers with the source or operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubAddOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2743",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2743,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubAddAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubAddAnd.subAddAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubAddAnd.subAddAnd_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary add/sub nsw/nuw flags; replacement or has disjoint false.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubAddAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubAddAnd.subAddCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubAddAnd.subAddCommutedAnd_valid",
+        "scope": "Arbitrary-width scalar integers with the source and operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubAddAnd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2760",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2760,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubOrXor.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubOrXor.subOrXor",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubOrXor.subOrXor_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary root nsw/nuw flags, and arbitrary or.disjoint.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubOrXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubOrXor.subCommutedOrXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubOrXor.subCommutedOrXor_valid",
+        "scope": "Arbitrary-width scalar integers with the source or operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubOrXor UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2874",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2874,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubAndNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubAndNot.subAndNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubAndNot.subAndNot_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary root nsw/nuw flags. The LLVM one-use-or-constant gate is profitability-only; this semantic Puddle specialization accepts all Y values and creates a typed normalized all-ones constant.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubAndNot.subCommutedAndNot",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubAndNot.subCommutedAndNot_valid",
+        "scope": "Arbitrary-width scalar integers with the inner and operands commuted; the same profitability-only generalization applies."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubAndNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L4832",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 4830,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorAndOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorAndOr.xorAndOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorAndOr.xorAndOr_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source or.disjoint; canonical `(A and B) xor (A or B)` form.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndOr.xorAndCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndOr.xorAndCommutedOr_valid",
+        "scope": "Source inner or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndOr.xorOrAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndOr.xorOrAnd_valid",
+        "scope": "Source root xor operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndOr.xorOrCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndOr.xorOrCommutedAnd_valid",
+        "scope": "Source root terms and inner and operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorAndOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5716",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5714,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorAndXor.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorAndXor.xorAndXor",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorAndXor.xorAndXor_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison; canonical `(A and B) xor (A xor B)` form, creating plain or with disjoint false.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndXor.xorAndCommutedXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndXor.xorAndCommutedXor_valid",
+        "scope": "Source inner xor operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndXor.xorXorAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndXor.xorXorAnd_valid",
+        "scope": "Source root terms commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndXor.xorXorCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndXor.xorXorCommutedAnd_valid",
+        "scope": "Source root terms and inner and operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorAndXor UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5681",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5680,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorOrSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorOrSelf.xorOrSelf",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorOrSelf.xorOrSelf_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source or.disjoint. The source one-use condition is profitability-only; canonical Y xor (X or Y) form.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorOrSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorOrSelf.xorCommutedOrSelf",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorOrSelf.xorCommutedOrSelf_valid",
+        "scope": "Source inner or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorOrSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorOrSelf.orSelfXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorOrSelf.orSelfXor_valid",
+        "scope": "Source root xor operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorOrSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorOrSelf.commutedOrSelfXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorOrSelf.commutedOrSelfXor_valid",
+        "scope": "Source root and inner operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorOrSelf UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5690",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5689,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorAndSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorAndSelf.xorAndSelf",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorAndSelf.xorAndSelf_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison. The source one-use and nonconstant conditions are profitability and canonicality guards; canonical Y xor (X and Y) form.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndSelf.xorCommutedAndSelf",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndSelf.xorCommutedAndSelf_valid",
+        "scope": "Source inner and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndSelf.andSelfXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndSelf.andSelfXor_valid",
+        "scope": "Source root xor operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndSelf.commutedAndSelfXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndSelf.commutedAndSelfXor_valid",
+        "scope": "Source root and inner operands commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorAndSelf UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5726",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5724,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNot_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison; canonical `(A and ~B) xor ~A` form with NOT represented by xor with a matched same-width all-ones constant. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNot",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNot_valid",
+        "scope": "Source inner and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotFirstNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotFirstNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotSecondNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotSecondNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotFirstNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotFirstNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotSecondNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotSecondNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorAndNotNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5730",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5729,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorNotAndSelf",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorNotAndSelf_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison; canonical `(~A and B) xor A` form with NOT represented by xor with a matched same-width all-ones constant. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorCommutedNotAndSelf",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorCommutedNotAndSelf_valid",
+        "scope": "Source inner and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfNotAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfNotAnd_valid",
+        "scope": "Source root xor operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfCommutedNotAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfCommutedNotAnd_valid",
+        "scope": "Source root and inner operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorNotAndSelfConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorNotAndSelfConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorCommutedNotAndSelfConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorCommutedNotAndSelfConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfNotAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfNotAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfCommutedNotAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfCommutedNotAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorNotAndSelf UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5704",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5702,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorOrShared",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorOrShared_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source or.disjoint, for both source shared-operand branches and all root-XOR/inner-OR commutations. Both source one-use conditions are profitability-only.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorCommutedOrShared",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorCommutedOrShared_valid",
+        "scope": "Source inner or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorOrSharedXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorOrSharedXor_valid",
+        "scope": "Source root xor operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorCommutedOrSharedXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorCommutedOrSharedXor_valid",
+        "scope": "Source root and inner or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorOrSharedRight",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorOrSharedRight_valid",
+        "scope": "Second shared-operand source branch `(A xor B) xor (B or C)`."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorCommutedOrSharedRight",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorCommutedOrSharedRight_valid",
+        "scope": "Second shared-operand branch with inner OR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorOrSharedRightXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorOrSharedRightXor_valid",
+        "scope": "Second shared-operand branch with root XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorCommutedOrSharedRightXor",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorXorOrShared.xorCommutedOrSharedRightXor_valid",
+        "scope": "Second shared-operand branch with root XOR and inner OR commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorXorOrShared UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L1956",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 1954,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AndOrNotAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotAnd_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source or.disjoint; canonical `(A or B) and ~(A and B)` form with NOT matched as xor with a same-width all-ones constant. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndOrNotAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotCommutedAnd_valid",
+        "scope": "Source complemented inner and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndOrNotAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndOrNotAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotCommutedAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotCommutedAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AndOrNotAnd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L1999",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 1993,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasks",
+    "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasks_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source or.disjoint; canonical `(A and ~B) or (~A and B)` form with each NOT matched as xor with the same-width all-ones constant. The two masks are proved disjoint, so the source disjoint flag cannot introduce poison. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasks",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasks_valid",
+        "scope": "Left source and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasks",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasks_valid",
+        "scope": "Right source and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasks",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasks_valid",
+        "scope": "Both source and nodes commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.OrComplementaryMasks UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L4848",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 4846,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasks",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasks_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison; exact first source orientation with both complemented operands represented by same-width all-ones xor. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasks",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasks_valid",
+        "scope": "Second source orientation: left inner operation commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasks",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasks_valid",
+        "scope": "Third source orientation: root xor operands swapped."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasks",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasks_valid",
+        "scope": "Fourth source orientation: swapped root with its first inner operation commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorComplementaryMasks UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L4840",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 4838,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrs",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrs_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary disjoint flags on both source ors; exact first source orientation with both complements represented by same-width all-ones xor. Source disjoint flags may only make the source poison. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrs",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrs_valid",
+        "scope": "Second source orientation: left inner or commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrs",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrs_valid",
+        "scope": "Third source orientation: root xor operands swapped."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrs",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrs_valid",
+        "scope": "Fourth source orientation: swapped root with its first inner or commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorComplementaryOrs UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L1983",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 1980,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OrAndNotOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotOr_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary disjoint flags on the inner and root ors; `(A and B) or ~(A or B) -> ~(A xor B)`. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrAndNotOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotCommutedOr_valid",
+        "scope": "Pinned-source variant with the complemented inner or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrAndNotOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrAndNotOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotCommutedOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotCommutedOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.OrAndNotOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L1991",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 1988,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OrXorNotOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotOr_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary disjoint flags on the inner and root ors; `(A xor B) or ~(A or B) -> ~(A and B)`. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrXorNotOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotCommutedOr_valid",
+        "scope": "Pinned-source variant with the complemented inner or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrXorNotOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrXorNotOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotCommutedOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotCommutedOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.OrXorNotOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L1965",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 1962,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrs",
+    "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrs_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary disjoint flags on both source ors; `(A or ~B) and (~A or B) -> ~(A xor B)`. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrs",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrs_valid",
+        "scope": "Second pinned-source orientation with the left or commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrs",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrs_valid",
+        "scope": "Third pinned-source orientation with the right or commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrs",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrs_valid",
+        "scope": "Fourth pinned-source orientation with both ors commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsNotBLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsNotALeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AndComplementaryOrs UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5270",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5268,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNot_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison; `~(~X and Y) -> X or ~Y`. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNot",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNot_valid",
+        "scope": "Pinned-source variant with the inner operation operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotFirstNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotFirstNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotSecondNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotSecondNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotFirstNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotFirstNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotSecondNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotSecondNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotAndNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5284",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5282,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNot_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, with arbitrary source or.disjoint; `~(~X or Y) -> X and ~Y`. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNot",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNot_valid",
+        "scope": "Pinned-source variant with the inner operation operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotFirstNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotFirstNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotSecondNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotSecondNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotFirstNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotFirstNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotSecondNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotSecondNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotBothNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotBothNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotOrNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L4863",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 4859,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotAnd_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source or.disjoint; `(A or B) xor ~(A and B) -> ~(A xor B)`. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotCommutedAnd_valid",
+        "scope": "Second pinned-source orientation with the complemented and operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotOr_valid",
+        "scope": "Third pinned-source orientation `(A and B) xor ~(A or B)` with arbitrary inner or.disjoint."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotCommutedOr_valid",
+        "scope": "Fourth pinned-source orientation with the complemented or operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotCommutedAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotCommutedAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotCommutedOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotCommutedOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants",
+      "UnitTest.InstCombineLLVMNormalizedBitwise"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorNotMixed UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "mul-doubleneg-L426",
+    "file": "InstCombineMulDivRem.cpp",
+    "line_start": 426,
+    "lean_file": "Veir/Passes/InstCombineLLVM/MulDoubleNeg.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.MulDoubleNeg.mulDoubleNeg",
+    "theorem": "Veir.Passes.InstCombineLLVM.MulDoubleNeg.mulDoubleNeg_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for (-X)*(-Y) -> X*Y, including poison and arbitrary NUW. The conservative variant clears flags. The NSW variant preserves nsw exactly when the outer multiply and both matched negations are nsw.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.MulDoubleNeg UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MulDoubleNeg.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MulDoubleNeg.mulDoubleNegNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.MulDoubleNeg.mulDoubleNegNSW_valid",
+        "scope": "Arbitrary-width scalar NSW-preserving variant when the outer multiply and both explicit negations are NSW; NUW remains unrestricted and is cleared."
+      }
+    ]
+  },
+  {
+    "inventory_id": "mul-sinkneg-L435",
+    "file": "InstCombineMulDivRem.cpp",
+    "line_start": 435,
+    "lean_file": "Veir/Passes/InstCombineLLVM/MulSinkNeg.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.MulSinkNeg.mulSinkNeg",
+    "theorem": "Veir.Passes.InstCombineLLVM.MulSinkNeg.mulSinkNeg_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary NSW/NUW on the matched negation and source multiply; `(-X) * Y -> -(X * Y)` with plain created operations. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MulSinkNeg.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MulSinkNeg.mulSinkNegCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MulSinkNeg.mulSinkNegCommuted_valid",
+        "scope": "Pinned-source commuted root variant `Y * (-X) -> -(X * Y)`."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.MulSinkNeg UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "mul-negconst-L420",
+    "file": "InstCombineMulDivRem.cpp",
+    "line_start": 420,
+    "lean_file": "Veir/Passes/InstCombineLLVM/MulNegConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.MulNegConstant.mulNegConstant",
+    "theorem": "Veir.Passes.InstCombineLLVM.MulNegConstant.mulNegConstant_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary same-width integral constants, and arbitrary NSW/NUW on the matched negation and source multiply; `(-X) * C -> X * (-C)` with a plain result. The creator constructs the negated constant at the matched integer type, including modular signed-min normalization.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType.",
+      "Non-literal LLVM constants accepted by m_Constant, including ConstantExpr and relocation-bearing constants: Puddle constant operations currently expose scalar IntegerAttr properties only."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.MulNegConstant UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "addconst-L882",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 882,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddSubAllOnes.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddSubAllOnes.addSubAllOnes",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddSubAllOnes.addSubAllOnes_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary NSW/NUW on the matched subtraction and addition; `add (sub X, Y), -1 -> add (not Y), X` with plain created operations. This semantic generalization omits the source one-use profitability guard because Puddle has no use-count predicate. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddSubAllOnes UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "addconst-L876",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 876,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddSubConstants.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddSubConstants.addSubConstants",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddSubConstants.addSubConstants_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary same-width integral constants, and arbitrary NSW/NUW on both matched operations; folds C1+C2 at the matched integer width and creates a plain subtraction.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddSubConstants UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "add-L1673",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 1691,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.addOneNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.addOneNot_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for the canonical `(A+1)+~B` graph and the alternate `(~B+A)+1` graph, including poison and arbitrary NSW/NUW on matched additions; creates a plain subtraction. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddOneNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.notAddOne",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.notAddOne_valid",
+        "scope": "Arbitrary-width scalar integers for outer-commuted `~B + (A + 1)`."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.addNotOne",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.addNotOne_valid",
+        "scope": "Arbitrary-width scalar integers for `(~B + A) + 1`."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.addCommutedNotOne",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.addCommutedNotOne_valid",
+        "scope": "Arbitrary-width scalar integers for inner-commuted `(A + ~B) + 1`."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.addOneNotConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.addOneNotConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.notAddOneConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.notAddOneConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.addNotOneConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.addNotOneConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOneNot.addCommutedNotOneConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOneNot.addCommutedNotOneConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "sub-addnot-L2535",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2535,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubAddAllOnes.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubAddAllOnes.subAddAllOnes",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubAddAllOnes.subAddAllOnes_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary NSW/NUW on the matched add/sub; `(X + -1) - Y -> ~Y + X` with plain created operations. The proof is semantically broader than the source one-use profitability guard. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubAddAllOnes UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "sub-L2678",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2678,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubSubConstants.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubSubConstants.subSubConstants",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubSubConstants.subSubConstants_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary same-width integral constants, and arbitrary NSW/NUW on both subtractions; folds C-C2 at the matched width and creates a plain add.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubSubConstants UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "bitwise-L5031",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5028,
+    "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNot_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for all eight operand orders admitted by the source commutative root-XOR, inner-AND, and delta-XOR matchers, including poison; creates plain AND/XOR operations. The proof omits the source one-use profitability guard. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.MaskedMergeNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotDeltaCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotDeltaCommuted_valid",
+        "scope": "Delta XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndCommuted_valid",
+        "scope": "Inner AND operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndDeltaCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndDeltaCommuted_valid",
+        "scope": "Inner AND and delta XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootCommuted_valid",
+        "scope": "Root XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootDeltaCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootDeltaCommuted_valid",
+        "scope": "Root and delta XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootAndCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootAndCommuted_valid",
+        "scope": "Root XOR and inner AND operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAllCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAllCommuted_valid",
+        "scope": "Root XOR, inner AND, and delta XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotDeltaCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotDeltaCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndDeltaCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndDeltaCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootDeltaCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootDeltaCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootAndCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootAndCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAllCommutedNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAllCommutedNotLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "bitwise-L5067",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5064,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorOr_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for the shared-first operand form `~((A&B) xor (A|D))`, including poison and arbitrary `or disjoint`; the source one-use guard is a profitability condition omitted by this semantic pattern. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotAndXorOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorCommutedOr_valid",
+        "scope": "Arbitrary-width scalar integers with the OR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorOr_valid",
+        "scope": "Arbitrary-width scalar integers with the AND operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorCommutedOr",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorCommutedOr_valid",
+        "scope": "Arbitrary-width scalar integers with both common-operand expressions commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorCommutedOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorCommutedOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorCommutedOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorCommutedOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "bitwise-L5075",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5072,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorAnd_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for the shared-first operand form `~((A|D) xor (A&B))`, including poison and arbitrary `or disjoint`; the source one-use guard is a profitability condition omitted by this semantic pattern. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotOrXorAnd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorAnd_valid",
+        "scope": "Arbitrary-width scalar integers with the OR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorCommutedAnd_valid",
+        "scope": "Arbitrary-width scalar integers with the AND operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorCommutedAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorCommutedAnd_valid",
+        "scope": "Arbitrary-width scalar integers with both common-operand expressions commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorCommutedAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorCommutedAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorCommutedAndConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorCommutedAndConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "bitwise-L5302",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5298,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotNegOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotNegOr.notNegOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotNegOr.notNegOr_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for both commuted OR arrangements of `~((-X)|Y)`, including poison and arbitrary NSW/NUW/disjoint source flags; creates plain wrapping add, complement, and AND. Source one-use checks are profitability conditions omitted by the semantic patterns. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotNegOr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotNegOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotNegOr.notOrNeg",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotNegOr.notOrNeg_valid",
+        "scope": "Arbitrary-width scalar integers with the OR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotNegOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotNegOr.notNegOrConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotNegOr.notNegOrConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotNegOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotNegOr.notOrNegConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotNegOr.notOrNegConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "bitwise-L5341",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5340,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotAddConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotAddConstant.notAddConstant",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotAddConstant.notAddConstant_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison, arbitrary same-width integral C, and arbitrary NSW/NUW on the source add; folds ~C at the matched width and creates a plain subtraction. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotAddConstant UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotAddConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotAddConstant.notAddConstantConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotAddConstant.notAddConstantConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "bitwise-L5347",
+    "file": "InstCombineAndOrXor.cpp",
+    "line_start": 5345,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NotSub.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NotSub.notSub",
+    "theorem": "Veir.Passes.InstCombineLLVM.NotSub.notSub_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary NSW/NUW on the source subtraction; creates plain complement and add. The semantic pattern is broader than the source constant-LHS-or-one-use profitability guard. LLVM `m_Not` operand order is covered in both `xor V, -1` and `xor -1, V` spellings; for entries with two NOT nodes, their operand-order choices are independent. All-ones matching compares the width-normalized bit pattern at the matched SSA type, including parsed signless i1 value 1.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NotSub UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/NotSub.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.NotSub.notSubConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.NotSub.notSubConstantLeft_valid",
+        "scope": "Scalar integers of arbitrary bit width; this concrete matcher covers a constant-left `xor -1, V` spelling of one or more LLVM `m_Not` nodes, with the other operand permutations and flag behavior indicated by the definition."
+      }
+    ]
+  },
+  {
+    "inventory_id": "sub-L2779",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 2779,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubOrSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubOrSelf.subOrSelf",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubOrSelf.subOrSelf_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for `(X | Y) - X -> (~X) & Y`, including both OR operand orders, poison, arbitrary source nsw/nuw flags, and the OR disjoint flag. The replacement complement constant is normalized at the matched type. The source one-use condition is a profitability guard omitted by the semantic patterns.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: Puddle patterns currently specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubOrSelf UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubOrSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubOrSelf.subCommutedOrSelf",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubOrSelf.subCommutedOrSelf_valid",
+        "scope": "Arbitrary-width scalar integers with the matched OR operands commuted."
+      }
+    ]
+  },
+  {
+    "inventory_id": "addconst-L932",
+    "file": "InstCombineAddSub.cpp",
+    "line_start": 932,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddOrNegatedConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddOrNegatedConstant.addOrNegatedConstant",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddOrNegatedConstant.addOrNegatedConstant_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for `(X | C2) + C -> (X | C2) xor C2` when the matched IntegerAttrs satisfy the width-normalized APInt relation C2 = -C. Both OR operand orders, poison, arbitrary source nsw/nuw flags, and the OR disjoint flag are modeled; the replacement xor reuses the matched OR result and typed C2 literal.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms and non-IntegerAttr immediate constants: Puddle constant operations currently expose scalar IntegerAttr properties only."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddOrNegatedConstant UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddOrNegatedConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddOrNegatedConstant.addCommutedOrNegatedConstant",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddOrNegatedConstant.addCommutedOrNegatedConstant_valid",
+        "scope": "Arbitrary-width scalar integers with the matched OR operands commuted."
+      }
+    ]
+  },
+  {
+    "inventory_id": "mul-shl-constant-L233",
+    "file": "InstCombineMulDivRem.cpp",
+    "line_start": 233,
+    "lean_file": "Veir/Passes/InstCombineLLVM/MulShiftConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstant",
+    "theorem": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstant_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers for the unflagged source specialization `((X << C2) * C1) -> X * (C1 << C2)`. Both immediate constants are matched as same-width IntegerAttrs, the shift amount is guarded in range, and the creator folds and normalizes the new constant at the matched type. Poison input is modeled.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "Mixed source-flag combinations that propagate neither flag but have a flagged outer multiply are not yet matched.",
+      "When both source operations carry NSW and NUW and the folded constant is not signed minimum, the exact source result carries both flags. The independently proved NSW and NUW patterns each conservatively drop the other flag; a combined-output variant remains to match the source flags exactly."
+    ],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector immediate constants: Puddle constant operations currently expose scalar IntegerAttr properties only."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.MulShiftConstant UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MulShiftConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantOuterUnflagged",
+        "theorem": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantOuterUnflagged_valid",
+        "scope": "Arbitrary-width scalar integers with an unflagged outer multiply and arbitrary NSW/NUW flags on the inner shift; the exact source rule produces an unflagged replacement."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MulShiftConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantNUW",
+        "theorem": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantNUW_valid",
+        "scope": "Arbitrary-width scalar integers when both the inner shift and outer multiply carry NUW. The replacement preserves NUW and conservatively drops NSW; this exactly matches source flag computation whenever at least one source operation lacks NSW, and remains a valid refinement when both carry NSW."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/MulShiftConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantNSW",
+        "theorem": "Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantNSW_valid",
+        "scope": "Arbitrary-width scalar integers when both source operations carry NSW and the folded constant is not signed minimum. The replacement preserves NSW and conservatively drops NUW; poison and all independent source NUW settings are modeled."
+      }
+    ]
+  },
+  {
+    "inventory_id": "negator-L125a",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 111,
+    "lean_file": "Veir/Passes/InstCombineLLVM/NegatePoison.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.NegatePoison.negatePoison",
+    "theorem": "Veir.Passes.InstCombineLLVM.NegatePoison.negatePoison_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integer poison: `sub 0, poison -> poison`. The zero is a same-typed IntegerAttr, arbitrary nsw/nuw flags on the outer subtraction are modeled, and the creator returns the matched poison SSA value.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "True undef values are not represented by the deterministic Puddle runtime-value semantics.",
+      "LLVM fixed/scalable vector and aggregate m_Undef forms, including poison/undef composites, are outside the scalar IntegerType pattern."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.NegatePoison UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "demanded-drop-wrap-unused-high-L240",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 240,
+    "lean_file": "Veir/Passes/InstCombineLLVM/DropWrapFlagsUnusedHigh.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropAddWrapFlags",
+    "theorem": "Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropAddWrapFlags_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integer add/sub/mul flag weakening. A source operation with nsw or nuw is matched and the replacement clears both flags; already-unflagged operations are rejected to guarantee rewrite progress. The source NLZ>0 demanded-bits condition controls when LLVM invokes this weakening; validity is proved without assuming that profitability trigger.",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: the three Puddle patterns specialize to scalar IntegerType.",
+      "The surrounding demanded-bits operand simplification and its use-context analysis are separate source entries; this proof covers the isolated flag mutation at lines 240-252."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/DropWrapFlagsUnusedHigh.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropSubWrapFlags",
+        "theorem": "Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropSubWrapFlags_valid",
+        "scope": "Arbitrary-width scalar integer sub with at least one nsw/nuw flag; the replacement clears both flags and the matcher rejects an already-unflagged no-op."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/DropWrapFlagsUnusedHigh.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropMulWrapFlags",
+        "theorem": "Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropMulWrapFlags_valid",
+        "scope": "Arbitrary-width scalar integer mul with at least one nsw/nuw flag; the replacement clears both flags and the matcher rejects an already-unflagged no-op."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-double-not-L3024",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3024,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDoubleNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNot_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: these Puddle patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width scalar integers, including poison; exact direct source case ~~X -> X with all four independent inner/outer m_Not XOR operand orders. All-ones matching uses the normalized bit pattern, including parsed signless i1 value 1.",
+    "remaining_supported_scope": [],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDoubleNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDoubleNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDoubleNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-constant-L3030",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3030,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertIntegerConstant",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertIntegerConstant_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "Actual LLVM undef values: Puddle has poison but no per-use undef runtime value.",
+      "LLVM fixed/scalable vector constants, including poison/undef-containing vectors: these patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width scalar IntegerAttr constants and scalar poison; both contextual outer m_Not XOR operand orders. Integer complements are created with IntegerAttr.ofInt at the matched type; normalized i1 all-ones matching and modular complement are exercised.",
+    "remaining_supported_scope": [],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertConstant UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertIntegerConstantNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertIntegerConstantNotLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertPoison",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertPoison_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertPoisonNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertPoisonNotLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-add-L3050",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3050,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRight",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRight_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: these Puddle patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source add nsw/nuw flags; exact successful recursive-child specializations B=~X and A=~X, every inner/outer NOT order, creating a plain subtraction. The left-child specialization is a sound broader match when the source helper would prioritize an independently invertible right child.",
+    "remaining_supported_scope": [
+      "Other finite recursively invertible child graphs accepted by getFreelyInverted are not yet materialized as bounded Puddle patterns."
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertAdd UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-xor-L3061",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3061,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRight",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRight_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: these Puddle patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width scalar integers, including poison; exact successful recursive-child specializations B=~X and A=~X with every inner/outer NOT order, producing plain X xor Other.",
+    "remaining_supported_scope": [
+      "Other finite recursively invertible child graphs accepted by getFreelyInverted are not yet materialized as bounded Puddle patterns."
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertXor UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-sub-L3073",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3073,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertSub.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSub",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSub_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: these Puddle patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width scalar integers, including poison and arbitrary source sub nsw/nuw flags; exact successful recursively inverted left-child specialization A=~X with all inner/outer NOT orders, creating a plain add.",
+    "remaining_supported_scope": [
+      "Other finite recursively invertible left-child graphs accepted by getFreelyInverted are not yet materialized as bounded Puddle patterns."
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertSub UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertSub.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertSub.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertSub.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-ashr-L3080",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3080,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAShr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShr",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShr_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: these Puddle patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width scalar integers, including poison and either source exact flag; exact successful recursively inverted value specialization A=~X with all inner/outer NOT orders. The replacement arithmetic shift intentionally clears exact.",
+    "remaining_supported_scope": [
+      "Other finite recursively invertible shifted-value graphs accepted by getFreelyInverted are not yet materialized as bounded Puddle patterns."
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertAShr UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAShr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAShr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAShr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrBothLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-demorgan-L3165",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3165,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOr_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "unsupported_scope": [
+      "LLVM fixed/scalable vector forms: these Puddle patterns specialize to scalar IntegerType."
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMConstants"
+    ],
+    "scope": "Arbitrary-width strict scalar bitwise AND/OR, including poison; exact complemented-input specializations with every independent NOT operand order. ~(~X or ~Y) creates X and Y, and ~(~X and ~Y) creates X or Y.",
+    "remaining_supported_scope": [
+      "Short-circuit logical AND/OR select forms from this source branch remain to be registered with their distinct masked-poison semantics.",
+      "Other finite recursively invertible operand graphs accepted by getFreelyInverted are not yet materialized as bounded Puddle patterns."
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan UnitTest.InstCombineLLVMConstants; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrXLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrXLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrYLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrYLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrBothInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrBothInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrXOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrXOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrYOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrYOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrAllLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrAllLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAnd",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAnd_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndXLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndXLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndYLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndYLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndBothInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndBothInnerLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndXOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndXOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndYOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndYOuterLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDeMorgan.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndAllLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndAllLeft_valid",
+        "scope": "Arbitrary-width scalar integer specialization with the indicated independent inner/outer NOT operand order."
+      }
+    ]
+  }
+]

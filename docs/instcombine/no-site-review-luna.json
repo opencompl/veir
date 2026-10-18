@@ -1,0 +1,2609 @@
+{
+  "review_kind": "Per-entry Luna source verification of entries without heuristic candidate sites",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "source_basis": "Pinned vendored LLVM source snapshots under docs/instcombine/source; line text quoted from those snapshots.",
+  "audit_count": 70,
+  "summary": "All 70 entries were checked against the pinned source and each row includes concrete guard/action line evidence. Fifty entries have source actions consistent with their description despite no heuristic candidate site; 19 ranges miss or confuse the described branch/action, and one entry is a mislocated duplicate of an already inventoried vector rewrite.",
+  "entries": [
+    {
+      "id": "bitwise-L2452",
+      "file": "InstCombineAndOrXor.cpp",
+      "recorded_range": [
+        2452,
+        2454
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Reassociate LHS op (X op/lop Y) by folding LHS op X, then combine the result with Y.",
+      "source_evidence": [
+        {
+          "line": 2450,
+          "text": "// LHS bop (X lop Y) --> (LHS bop X) lop Y"
+        },
+        {
+          "line": 2452,
+          "text": "if (Value *Res = foldBooleanAndOr(LHS, X, I, IsAnd, /*IsLogical=*/false))"
+        },
+        {
+          "line": 2453,
+          "text": "Folded = RHSIsLogical ? Builder.CreateLogicalOp(Opcode, Res, Y)"
+        },
+        {
+          "line": 2454,
+          "text": ": Builder.CreateBinOp(Opcode, Res, Y);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "bitwise-L2457",
+      "file": "InstCombineAndOrXor.cpp",
+      "recorded_range": [
+        2457,
+        2459
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Reassociate LHS op (X op/lop Y) by folding LHS op Y, then combine X with the result.",
+      "source_evidence": [
+        {
+          "line": 2455,
+          "text": "// LHS bop (X bop Y) --> X bop (LHS bop Y)"
+        },
+        {
+          "line": 2457,
+          "text": "else if (Value *Res = foldBooleanAndOr(LHS, Y, I, IsAnd, /*IsLogical=*/false))"
+        },
+        {
+          "line": 2458,
+          "text": "Folded = RHSIsLogical ? Builder.CreateLogicalOp(Opcode, X, Res)"
+        },
+        {
+          "line": 2459,
+          "text": ": Builder.CreateBinOp(Opcode, X, Res);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "calls-ptrmask-nonnull-L2872",
+      "file": "InstCombineCalls.cpp",
+      "recorded_range": [
+        2872,
+        2878
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Add nonnull return attribute to ptrmask call when KnownBits or isKnownNonZero proves its result nonzero.",
+      "source_evidence": [
+        {
+          "line": 2873,
+          "text": "if (!CI.hasRetAttr(Attribute::NonNull) &&"
+        },
+        {
+          "line": 2875,
+          "text": "isKnownNonZero(II, getSimplifyQuery().getWithInstruction(II)))) {"
+        },
+        {
+          "line": 2877,
+          "text": "Changed = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "calls-assume-separate-storage-L4000",
+      "file": "InstCombineCalls.cpp",
+      "recorded_range": [
+        4000,
+        4016
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Canonicalize separate-storage bundle pointers to underlying allocation objects.",
+      "source_evidence": [
+        {
+          "line": 4008,
+          "text": "// Not having a limit is safe because InstCombine removes unreachable"
+        },
+        {
+          "line": 4011,
+          "text": "if (Hint != UnderlyingObject)"
+        },
+        {
+          "line": 4012,
+          "text": "replaceUse(const_cast<Use &>(U), UnderlyingObject);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "calls-ptrauth-callee-resign-L4939",
+      "file": "InstCombineCalls.cpp",
+      "recorded_range": [
+        4939,
+        4955
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "For a call through ptrauth.resign, remove the resign from the callee when its result key/discriminator match the call bundle and its input auth key matches; preserve authentication by replacing the bundle with the input key/discriminator.",
+      "source_evidence": [
+        {
+          "line": 4941,
+          "text": "if (II->getOperand(3) != PtrAuthBundleOrNone->Inputs[0])"
+        },
+        {
+          "line": 4944,
+          "text": "if (II->getOperand(4) != PtrAuthBundleOrNone->Inputs[1])"
+        },
+        {
+          "line": 4949,
+          "text": "if (II->getOperand(1) != PtrAuthBundleOrNone->Inputs[0])"
+        },
+        {
+          "line": 4952,
+          "text": "Value *NewBundleOps[] = {II->getOperand(1), II->getOperand(2)};"
+        },
+        {
+          "line": 4954,
+          "text": "NewCallee = II->getOperand(0);"
+        },
+        {
+          "line": 4978,
+          "text": "NewCallee = Builder.CreateBitOrPointerCast(NewCallee, Callee->getType());"
+        },
+        {
+          "line": 4979,
+          "text": "CallBase *NewCall = CallBase::Create(&Call, NewBundles);"
+        },
+        {
+          "line": 4980,
+          "text": "NewCall->setCalledOperand(NewCallee);"
+        },
+        {
+          "line": 4981,
+          "text": "return NewCall;"
+        }
+      ],
+      "finding": "The range ends at the resign case guards (4955); construction and called-operand replacement are at 4978-4981. Expand through line 4981 so the span includes the rewrite."
+    },
+    {
+      "id": "calls-inlineasm-nounwind-L5180",
+      "file": "InstCombineCalls.cpp",
+      "recorded_range": [
+        5180,
+        5187
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Mark inline-asm call nounwind when asm cannot throw.",
+      "source_evidence": [
+        {
+          "line": 5180,
+          "text": "if (isa<InlineAsm>(Callee) && !Call.doesNotThrow()) {"
+        },
+        {
+          "line": 5182,
+          "text": "if (!IA->canThrow()) {"
+        },
+        {
+          "line": 5185,
+          "text": "Call.setDoesNotThrow();"
+        },
+        {
+          "line": 5186,
+          "text": "Changed = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "calls-drop-callee-type-metadata-L5209",
+      "file": "InstCombineCalls.cpp",
+      "recorded_range": [
+        5209,
+        5214
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Drop callee_type metadata after indirect call becomes direct.",
+      "source_evidence": [
+        {
+          "line": 5211,
+          "text": "if (Call.getMetadata(LLVMContext::MD_callee_type) && !Call.isIndirectCall()) {"
+        },
+        {
+          "line": 5212,
+          "text": "Call.setMetadata(LLVMContext::MD_callee_type, nullptr);"
+        },
+        {
+          "line": 5213,
+          "text": "Changed = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "calls-gc-relocate-nonnull-L5278",
+      "file": "InstCombineCalls.cpp",
+      "recorded_range": [
+        5278,
+        5285
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Add nonnull return attribute to gc.relocate when known-nonzero analysis proves its derived pointer nonnull; requeue users.",
+      "source_evidence": [
+        {
+          "line": 5279,
+          "text": "if (!GCR.hasRetAttr(Attribute::NonNull) &&"
+        },
+        {
+          "line": 5280,
+          "text": "isKnownNonZero(DerivedPtr,"
+        },
+        {
+          "line": 5282,
+          "text": "GCR.addRetAttr(Attribute::NonNull);"
+        },
+        {
+          "line": 5284,
+          "text": "Worklist.pushUsersToWorkList(GCR);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "cmpb-L6807-neutral-overflow",
+      "file": "InstCombineCompares.cpp",
+      "recorded_range": [
+        6804,
+        6807
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "For a neutral RHS, return the left operand as the arithmetic result and constant false as the overflow bit; the caller uses those values to simplify the overflow result.",
+      "source_evidence": [
+        {
+          "line": 6804,
+          "text": "if (isNeutralValue(BinaryOp, RHS, IsSigned)) {"
+        },
+        {
+          "line": 6805,
+          "text": "Result = LHS;"
+        },
+        {
+          "line": 6806,
+          "text": "Overflow = ConstantInt::getFalse(OverflowTy);"
+        },
+        {
+          "line": 6807,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "cmpb-L6818-always-overflow",
+      "file": "InstCombineCompares.cpp",
+      "recorded_range": [
+        6813,
+        6818
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "When computeOverflow classifies the requested add/sub/mul as always overflowing, synthesize the arithmetic result and return constant true as the overflow bit.",
+      "source_evidence": [
+        {
+          "line": 6813,
+          "text": "case OverflowResult::AlwaysOverflowsLow:"
+        },
+        {
+          "line": 6815,
+          "text": "Result = Builder.CreateBinOp(BinaryOp, LHS, RHS);"
+        },
+        {
+          "line": 6816,
+          "text": "Result->takeName(&OrigI);"
+        },
+        {
+          "line": 6817,
+          "text": "Overflow = ConstantInt::getTrue(OverflowTy);"
+        },
+        {
+          "line": 6818,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "cmpb-L7001-add",
+      "file": "InstCombineCompares.cpp",
+      "recorded_range": [
+        6953,
+        6962
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Replace zero-extended add and overflow comparison by a width-normalized add plus unsigned wrap comparison against an operand.",
+      "source_evidence": [
+        {
+          "line": 6953,
+          "text": "if (Opcode == Instruction::Add) {"
+        },
+        {
+          "line": 6955,
+          "text": "ArithResult = Builder.CreateAdd(ResultA, ResultB, \"add\");"
+        },
+        {
+          "line": 6957,
+          "text": "if (I.getPredicate() == ICmpInst::ICMP_ULT)"
+        },
+        {
+          "line": 6962,
+          "text": "Builder.CreateICmpULT(ArithResult, ResultA, \"add.overflow\");"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "cmpb-L7001-mul",
+      "file": "InstCombineCompares.cpp",
+      "recorded_range": [
+        6963,
+        6972
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Replace zero-extended multiply and overflow comparison by umul.with.overflow and its overflow result.",
+      "source_evidence": [
+        {
+          "line": 6963,
+          "text": "} else {"
+        },
+        {
+          "line": 6965,
+          "text": "Value *Call = Builder.CreateIntrinsic(Intrinsic::umul_with_overflow,"
+        },
+        {
+          "line": 6968,
+          "text": "ArithResult = Builder.CreateExtractValue(Call, 0, \"umul.value\");"
+        },
+        {
+          "line": 6969,
+          "text": "OverflowCheck = Builder.CreateExtractValue(Call, 1, \"umul.overflow\");"
+        },
+        {
+          "line": 6971,
+          "text": "OverflowCheck = Builder.CreateNot(OverflowCheck);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "cmpb-L7141-replaced-select-operand",
+      "file": "InstCombineCompares.cpp",
+      "recorded_range": [
+        7121,
+        7144
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For an EQ comparison on a select in an eligible select-cmp-branch chain, replace uses of the selected arm outside the select block with that arm when the successor has one predecessor and the compare dominates all those uses.",
+      "source_evidence": [
+        {
+          "line": 7125,
+          "text": "if (isChainSelectCmpBranch(SI) && Icmp->getPredicate() == ICmpInst::ICMP_EQ) {"
+        },
+        {
+          "line": 7138,
+          "text": "if (Succ->getSinglePredecessor() && dominatesAllUses(SI, Icmp, Succ)) {"
+        },
+        {
+          "line": 7140,
+          "text": "SI->replaceUsesOutsideBlock(SI->getOperand(SIOpd), SI->getParent());"
+        },
+        {
+          "line": 7141,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-pointer-replacer-phi-newtype-L430",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        430,
+        441
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Rebuild a collected PHI with the replacement pointer type and mapped incoming values when address-space replacement changes the PHI type.",
+      "source_evidence": [
+        {
+          "line": 420,
+          "text": "Type *NewType = V ? V->getType() : FirstIncoming->getType();"
+        },
+        {
+          "line": 430,
+          "text": "auto *NewPHI = PHINode::Create(NewType, PHI->getNumIncomingValues(), \"\");"
+        },
+        {
+          "line": 431,
+          "text": "IC.InsertNewInstWith(NewPHI, PHI->getIterator());"
+        },
+        {
+          "line": 434,
+          "text": "WorkMap[PHI] = NewPHI;"
+        },
+        {
+          "line": 440,
+          "text": "NewPHI->addIncoming(V, IncomingBlock);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-pointer-replacer-gep-L442",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        442,
+        451
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Rebuild a collected GEP using the replacement base pointer and original indices, source element type, and no-wrap flags.",
+      "source_evidence": [
+        {
+          "line": 442,
+          "text": "} else if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {"
+        },
+        {
+          "line": 447,
+          "text": "GetElementPtrInst::Create(GEP->getSourceElementType(), V, Indices);"
+        },
+        {
+          "line": 448,
+          "text": "IC.InsertNewInstWith(NewI, GEP->getIterator());"
+        },
+        {
+          "line": 450,
+          "text": "NewI->setNoWrapFlags(GEP->getNoWrapFlags());"
+        },
+        {
+          "line": 451,
+          "text": "WorkMap[GEP] = NewI;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-pointer-replacer-select-L452",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        452,
+        463
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Rebuild a collected select with its original condition and replacement values for either arm when available.",
+      "source_evidence": [
+        {
+          "line": 452,
+          "text": "} else if (auto *SI = dyn_cast<SelectInst>(I)) {"
+        },
+        {
+          "line": 455,
+          "text": "if (Value *Replacement = getReplacement(TrueValue))"
+        },
+        {
+          "line": 459,
+          "text": "auto *NewSI = SelectInst::Create(SI->getCondition(), TrueValue, FalseValue,"
+        },
+        {
+          "line": 461,
+          "text": "IC.InsertNewInstWith(NewSI, SI->getIterator());"
+        },
+        {
+          "line": 463,
+          "text": "WorkMap[SI] = NewSI;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-pointer-replacer-addrspacecast-L483",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        483,
+        501
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Recreate a collected address-space cast when replacement source and destination spaces differ and the cast is target-valid; otherwise reuse the replacement pointer directly.",
+      "source_evidence": [
+        {
+          "line": 483,
+          "text": "} else if (auto *ASC = dyn_cast<AddrSpaceCastInst>(I)) {"
+        },
+        {
+          "line": 486,
+          "text": "assert(isEqualOrValidAddrSpaceCast("
+        },
+        {
+          "line": 490,
+          "text": "if (V->getType()->getPointerAddressSpace() !="
+        },
+        {
+          "line": 492,
+          "text": "auto *NewI = new AddrSpaceCastInst(V, ASC->getType(), \"\");"
+        },
+        {
+          "line": 494,
+          "text": "IC.InsertNewInstWith(NewI, ASC->getIterator());"
+        },
+        {
+          "line": 497,
+          "text": "WorkMap[ASC] = V;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-nonnull-phi-L1083",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1083,
+        1096
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For a PHI incoming value, recursively simplify incoming pointers, replace each successful incoming use, and requeue the PHI if any incoming changed.",
+      "source_evidence": [
+        {
+          "line": 1083,
+          "text": "if (auto *PHI = dyn_cast<PHINode>(V)) {"
+        },
+        {
+          "line": 1085,
+          "text": "for (Use &U : PHI->incoming_values()) {"
+        },
+        {
+          "line": 1088,
+          "text": "simplifyNonNullOperand(U.get(), UseProvenance, RecursionLimit)) {"
+        },
+        {
+          "line": 1089,
+          "text": "replaceUse(U, Res);"
+        },
+        {
+          "line": 1093,
+          "text": "if (Changed)"
+        },
+        {
+          "line": 1094,
+          "text": "addToWorklist(PHI);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-store-retype-bitcast-L1323",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1321,
+        1336
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "For an unordered non-elementwise store of a bitcast value, store the source value directly when it is not x86_amx and the resulting type is supported for atomic access; preserve store metadata through combineStoreToNewValue.",
+      "source_evidence": [
+        {
+          "line": 1324,
+          "text": "if (auto *BC = dyn_cast<BitCastInst>(V)) {"
+        },
+        {
+          "line": 1327,
+          "text": "V = BC->getOperand(0);"
+        },
+        {
+          "line": 1332,
+          "text": "if (!SI.isAtomic() || isSupportedAtomicType(V->getType())) {"
+        },
+        {
+          "line": 1333,
+          "text": "combineStoreToNewValue(IC, SI, V);"
+        },
+        {
+          "line": 1334,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-store-retype-vector-L1338",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1338,
+        1342
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "When likeBitCastFromVector recognizes an isomorphic vector-to-aggregate insertvalue/extractelement chain, store the underlying vector value with its original width; require supported atomic type if atomic.",
+      "source_evidence": [
+        {
+          "line": 1338,
+          "text": "if (Value *U = likeBitCastFromVector(IC, V))"
+        },
+        {
+          "line": 1339,
+          "text": "if (!SI.isAtomic() || isSupportedAtomicType(U->getType())) {"
+        },
+        {
+          "line": 1340,
+          "text": "combineStoreToNewValue(IC, SI, U);"
+        },
+        {
+          "line": 1341,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-unpack-store-struct-single-L1361",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1361,
+        1368
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "For a simple one-field struct store, extract its field, build a store of the field type at the same pointer, and erase the aggregate store.",
+      "source_evidence": [
+        {
+          "line": 1361,
+          "text": "if (auto *ST = dyn_cast<StructType>(T)) {"
+        },
+        {
+          "line": 1364,
+          "text": "if (Count == 1) {"
+        },
+        {
+          "line": 1365,
+          "text": "V = IC.Builder.CreateExtractValue(V, 0);"
+        },
+        {
+          "line": 1366,
+          "text": "combineStoreToNewValue(IC, SI, V);"
+        },
+        {
+          "line": 1367,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-unpack-store-struct-many-L1370",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1370,
+        1398
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "For a simple multi-field struct store without padding, extract every field and emit aligned stores at DataLayout offsets, preserving AA metadata, then erase the aggregate store.",
+      "source_evidence": [
+        {
+          "line": 1373,
+          "text": "auto *SL = DL.getStructLayout(ST);"
+        },
+        {
+          "line": 1375,
+          "text": "if (SL->hasPadding())"
+        },
+        {
+          "line": 1387,
+          "text": "for (unsigned i = 0; i < Count; i++) {"
+        },
+        {
+          "line": 1391,
+          "text": "auto *Val = IC.Builder.CreateExtractValue(V, i, EltName);"
+        },
+        {
+          "line": 1394,
+          "text": "llvm::Instruction *NS = IC.Builder.CreateAlignedStore(Val, Ptr, EltAlign);"
+        },
+        {
+          "line": 1395,
+          "text": "NS->setAAMetadata(SI.getAAMetadata());"
+        },
+        {
+          "line": 1398,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-unpack-store-array-single-L1401",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1401,
+        1408
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "For a simple one-element array store, extract the element and build a store of the element type at the same pointer.",
+      "source_evidence": [
+        {
+          "line": 1401,
+          "text": "if (auto *AT = dyn_cast<ArrayType>(T)) {"
+        },
+        {
+          "line": 1404,
+          "text": "if (NumElements == 1) {"
+        },
+        {
+          "line": 1405,
+          "text": "V = IC.Builder.CreateExtractValue(V, 0);"
+        },
+        {
+          "line": 1406,
+          "text": "combineStoreToNewValue(IC, SI, V);"
+        },
+        {
+          "line": 1407,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "loadstore-unpack-store-array-many-L1410",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "recorded_range": [
+        1410,
+        1447
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "For a simple array store within maxarray_size, extract each element and emit aligned stores at element offsets, preserving AA metadata, then erase the aggregate store.",
+      "source_evidence": [
+        {
+          "line": 1414,
+          "text": "if (NumElements > IC.CLOpts.maxarray_size)"
+        },
+        {
+          "line": 1431,
+          "text": "for (uint64_t i = 0; i < NumElements; i++) {"
+        },
+        {
+          "line": 1437,
+          "text": "IC.Builder.CreateInBoundsGEP(AT, Addr, ArrayRef(Indices), AddrName);"
+        },
+        {
+          "line": 1438,
+          "text": "auto *Val = IC.Builder.CreateExtractValue(V, i, EltName);"
+        },
+        {
+          "line": 1440,
+          "text": "Instruction *NS = IC.Builder.CreateAlignedStore(Val, Ptr, EltAlign);"
+        },
+        {
+          "line": 1441,
+          "text": "NS->setAAMetadata(SI.getAAMetadata());"
+        },
+        {
+          "line": 1445,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "divrem-selectzero-context-L1171",
+      "file": "InstCombineMulDivRem.cpp",
+      "recorded_range": [
+        1171,
+        1216
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "After div/rem(X, select(C, 0, Y)) or div/rem(X, select(C, Y, 0)), replace earlier same-block uses of the divisor select with Y and uses of C with false or true respectively. Stop at an instruction not guaranteed to transfer execution, the block start, or after passing both definitions.",
+      "source_evidence": [
+        {
+          "line": 1160,
+          "text": "// div/rem X, (Cond ? 0 : Y) -> div/rem X, Y"
+        },
+        {
+          "line": 1162,
+          "text": "else if (match(SI->getFalseValue(), m_Zero()))"
+        },
+        {
+          "line": 1168,
+          "text": "// Change the div/rem to use 'Y' instead of the select."
+        },
+        {
+          "line": 1169,
+          "text": "replaceOperand(I, 1, SI->getOperand(NonNullOperand));"
+        },
+        {
+          "line": 1180,
+          "text": "if (SI->use_empty() && SelectCond->hasOneUse())"
+        },
+        {
+          "line": 1190,
+          "text": "if (!isGuaranteedToTransferExecutionToSuccessor(&*BBI))"
+        },
+        {
+          "line": 1195,
+          "text": "if (Op == SI) {"
+        },
+        {
+          "line": 1196,
+          "text": "replaceUse(Op, SI->getOperand(NonNullOperand));"
+        },
+        {
+          "line": 1198,
+          "text": "} else if (Op == SelectCond) {"
+        },
+        {
+          "line": 1199,
+          "text": "replaceUse(Op, NonNullOperand == 1 ? ConstantInt::getTrue(CondTy)"
+        },
+        {
+          "line": 1216,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "select-L1657",
+      "file": "InstCombineSelect.cpp",
+      "recorded_range": [
+        1648,
+        1657
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "When the cttz/ctlz result and optional zext/trunc arm are one-use and the select avoids using count on zero input, set is_zero_poison=true and drop UB-implying attributes/metadata.",
+      "source_evidence": [
+        {
+          "line": 1651,
+          "text": "if (II->hasOneUse() && SelectArg->hasOneUse() &&"
+        },
+        {
+          "line": 1653,
+          "text": "II->setArgOperand(1, ConstantInt::getTrue(II->getContext()));"
+        },
+        {
+          "line": 1655,
+          "text": "II->dropUBImplyingAttrsAndMetadata();"
+        },
+        {
+          "line": 1656,
+          "text": "IC.addToWorklist(II);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "select-L3411",
+      "file": "InstCombineSelect.cpp",
+      "recorded_range": [
+        3410,
+        3412
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Propagate nnan from fcmp to select when absent.",
+      "source_evidence": [
+        {
+          "line": 3410,
+          "text": "if (FMF.noNaNs() && !SI.hasNoNaNs()) {"
+        },
+        {
+          "line": 3411,
+          "text": "SI.setHasNoNaNs(true);"
+        },
+        {
+          "line": 3412,
+          "text": "ChangedFMF = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "select-L3414",
+      "file": "InstCombineSelect.cpp",
+      "recorded_range": [
+        3414,
+        3416
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Propagate ninf from fcmp to select when absent.",
+      "source_evidence": [
+        {
+          "line": 3414,
+          "text": "if (FMF.noInfs() && !SI.hasNoInfs()) {"
+        },
+        {
+          "line": 3415,
+          "text": "SI.setHasNoInfs(true);"
+        },
+        {
+          "line": 3416,
+          "text": "ChangedFMF = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "select-L3422",
+      "file": "InstCombineSelect.cpp",
+      "recorded_range": [
+        3420,
+        3423
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "confirmed_source_action",
+      "description": "Propagate nnan from selected fneg to select when predicate polarity selects that arm for NaN.",
+      "source_evidence": [
+        {
+          "line": 3420,
+          "text": "if (!SI.hasNoNaNs() && cast<FPMathOperator>(TrueVal)->hasNoNaNs() &&"
+        },
+        {
+          "line": 3421,
+          "text": "(Swap ? FCmpInst::isOrdered(Pred) : FCmpInst::isUnordered(Pred))) {"
+        },
+        {
+          "line": 3422,
+          "text": "SI.setHasNoNaNs(true);"
+        },
+        {
+          "line": 3423,
+          "text": "ChangedFMF = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-bits-operand-L152",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        152,
+        199
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For constant operands compute KnownBits only; replace zero-demanded operand with undef; recursively simplify single-use producer or cloneable multi-use producer under bounded depth and replace this use, salvaging debug info.",
+      "source_evidence": [
+        {
+          "line": 162,
+          "text": "if (isa<Constant>(V)) {"
+        },
+        {
+          "line": 168,
+          "text": "if (DemandedMask.isZero()) {"
+        },
+        {
+          "line": 170,
+          "text": "replaceUse(U, UndefValue::get(V->getType()));"
+        },
+        {
+          "line": 184,
+          "text": "if (VInst->hasOneUse()) {"
+        },
+        {
+          "line": 186,
+          "text": "NewVal = SimplifyDemandedUseBits(VInst, DemandedMask, Known, Q, Depth);"
+        },
+        {
+          "line": 190,
+          "text": "NewVal ="
+        },
+        {
+          "line": 193,
+          "text": "if (!NewVal) return false;"
+        },
+        {
+          "line": 197,
+          "text": "replaceUse(U, NewVal);"
+        },
+        {
+          "line": 198,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-use-sub-zero-lhs-lsb-L668",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        668,
+        672
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Return RHS for subtraction only when the demanded operand mask is exactly bit zero and LHS is known zero there.",
+      "source_evidence": [
+        {
+          "line": 664,
+          "text": "if (DemandedFromOps.isOne() && DemandedFromOps.isSubsetOf(LHSKnown.Zero))"
+        },
+        {
+          "line": 665,
+          "text": "return I->getOperand(1);"
+        },
+        {
+          "line": 669,
+          "text": "if (match(I->getOperand(0), m_LowBitMask(LHSC)) &&"
+        },
+        {
+          "line": 670,
+          "text": "DemandedFromOps.isSubsetOf(*LHSC)) {"
+        },
+        {
+          "line": 673,
+          "text": "return Builder.CreateNot(I->getOperand(1));"
+        }
+      ],
+      "finding": "The described LSB-only return is guarded and executed at 664-665, outside the recorded 668-672 range. Set the range to 664-665; current range instead captures the separate low-bit-mask-to-not fold."
+    },
+    {
+      "id": "demanded-use-shl-propagate-variable-L792",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        792,
+        797
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "For variable shl with undemanded high result bits, simplify source high bits and drop wrap flags when source changes.",
+      "source_evidence": [
+        {
+          "line": 786,
+          "text": "if (unsigned CTLZ = DemandedMask.countl_zero()) {"
+        },
+        {
+          "line": 788,
+          "text": "if (SimplifyDemandedBits(I, 0, DemandedFromOp, Known, Q, Depth + 1)) {"
+        },
+        {
+          "line": 790,
+          "text": "I->dropPoisonGeneratingFlags();"
+        },
+        {
+          "line": 791,
+          "text": "return I;"
+        }
+      ],
+      "finding": "The variable-shift guard, recursive simplify, flag drop, and return are at 786-791, not 792-797. Correct range to 786-792."
+    },
+    {
+      "id": "demanded-use-ashr-to-lshr-L920",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        920,
+        929
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Replace arithmetic right shift with logical right shift when source sign is known zero or no shifted-in sign bits are demanded; preserve exact.",
+      "source_evidence": [
+        {
+          "line": 912,
+          "text": "// If the input sign bit is known to be zero, or if none of the shifted in"
+        },
+        {
+          "line": 914,
+          "text": "if (Known.Zero[BitWidth - 1] || !ShiftedInBitsDemanded) {"
+        },
+        {
+          "line": 915,
+          "text": "BinaryOperator *LShr = BinaryOperator::CreateLShr(I->getOperand(0),"
+        },
+        {
+          "line": 917,
+          "text": "LShr->setIsExact(cast<BinaryOperator>(I)->isExact());"
+        },
+        {
+          "line": 919,
+          "text": "return InsertNewInstWith(LShr, I->getIterator());"
+        }
+      ],
+      "finding": "The known-zero/no-shifted-bits guard and LShr constructor are at 912-919; range 920-929 begins after this branch. Correct range to 912-920."
+    },
+    {
+      "id": "demanded-vector-zero-demand-L1533",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1533,
+        1535
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "When no fixed-vector lane is demanded, return a poison vector and mark every lane poison.",
+      "source_evidence": [
+        {
+          "line": 1534,
+          "text": "if (match(V, m_Poison())) {"
+        },
+        {
+          "line": 1536,
+          "text": "PoisonElts = EltMask;"
+        },
+        {
+          "line": 1540,
+          "text": "if (DemandedElts.isZero()) { // If nothing is demanded, provide poison."
+        },
+        {
+          "line": 1541,
+          "text": "PoisonElts = EltMask;"
+        },
+        {
+          "line": 1542,
+          "text": "return PoisonValue::get(V->getType());"
+        }
+      ],
+      "finding": "The recorded range covers already-poison input. The described zero-demand poison result is the next guard at 1540-1542. Correct range to 1540-1542."
+    },
+    {
+      "id": "demanded-vector-gep-demand-L1616",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1616,
+        1652
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Propagate output lane demand to each vector GEP operand; return lane-poison information from the base pointer operand only.",
+      "source_evidence": [
+        {
+          "line": 1616,
+          "text": "case Instruction::GetElementPtr: {"
+        },
+        {
+          "line": 1619,
+          "text": "auto mayIndexStructType = [](GetElementPtrInst &GEP) {"
+        },
+        {
+          "line": 1626,
+          "text": "if (mayIndexStructType(cast<GetElementPtrInst>(*I)))"
+        },
+        {
+          "line": 1634,
+          "text": "for (unsigned i = 0; i < I->getNumOperands(); i++) {"
+        },
+        {
+          "line": 1643,
+          "text": "simplifyAndSetOp(I, i, DemandedElts, PoisonEltsOp);"
+        },
+        {
+          "line": 1647,
+          "text": "if (i == 0)"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-insert-variable-index-L1654",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1654,
+        1674
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For variable-index insertelement, propagate demanded lanes unchanged to the base vector because the overwritten lane is unknown.",
+      "source_evidence": [
+        {
+          "line": 1662,
+          "text": "// If this is a variable index, we don't know which element it overwrites."
+        },
+        {
+          "line": 1664,
+          "text": "ConstantInt *Idx = dyn_cast<ConstantInt>(I->getOperand(2));"
+        },
+        {
+          "line": 1665,
+          "text": "if (!Idx) {"
+        },
+        {
+          "line": 1668,
+          "text": "simplifyAndSetOp(I, 0, DemandedElts, PoisonElts2);"
+        },
+        {
+          "line": 1669,
+          "text": "break;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-shuffle-poison-mask-write-L1842",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1842,
+        1853
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "When lane analysis found newly poison or undemanded output lanes, replace those shuffle mask elements with poison elements and mark the shuffle changed.",
+      "source_evidence": [
+        {
+          "line": 1842,
+          "text": "if (NewPoisonElts) {"
+        },
+        {
+          "line": 1846,
+          "text": "if (PoisonElts[i])"
+        },
+        {
+          "line": 1847,
+          "text": "Elts.push_back(PoisonMaskElem);"
+        },
+        {
+          "line": 1851,
+          "text": "Shuffle->setShuffleMask(Elts);"
+        },
+        {
+          "line": 1852,
+          "text": "MadeChange = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-select-constant-condition-L1856",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1856,
+        1888
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Propagate demand through vector select condition and arms; constant zero/one condition lanes suppress demand in the unselected arm, with output poison where both arm lanes are poison.",
+      "source_evidence": [
+        {
+          "line": 1871,
+          "text": "if (auto *CV = dyn_cast<ConstantVector>(Sel->getCondition())) {"
+        },
+        {
+          "line": 1876,
+          "text": "if (CElt->isNullValue())"
+        },
+        {
+          "line": 1877,
+          "text": "DemandedLHS.clearBit(i);"
+        },
+        {
+          "line": 1878,
+          "text": "else if (CElt->isOneValue())"
+        },
+        {
+          "line": 1879,
+          "text": "DemandedRHS.clearBit(i);"
+        },
+        {
+          "line": 1883,
+          "text": "simplifyAndSetOp(I, 1, DemandedLHS, PoisonElts2);"
+        },
+        {
+          "line": 1884,
+          "text": "simplifyAndSetOp(I, 2, DemandedRHS, PoisonElts3);"
+        },
+        {
+          "line": 1888,
+          "text": "PoisonElts = PoisonElts2 & PoisonElts3;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-bitcast-equal-lanes-L1891",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1891,
+        1913
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For vector bitcast with equal lane counts, pass demand and poison lane masks through unchanged.",
+      "source_evidence": [
+        {
+          "line": 1891,
+          "text": "case Instruction::BitCast: {"
+        },
+        {
+          "line": 1900,
+          "text": "if (VWidth == InVWidth) {"
+        },
+        {
+          "line": 1904,
+          "text": "InputDemandedElts = DemandedElts;"
+        },
+        {
+          "line": 1926,
+          "text": "simplifyAndSetOp(I, 0, InputDemandedElts, PoisonElts2);"
+        },
+        {
+          "line": 1928,
+          "text": "if (VWidth == InVWidth) {"
+        },
+        {
+          "line": 1929,
+          "text": "PoisonElts = PoisonElts2;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-bitcast-output-multiple-L1914",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1914,
+        1925
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "When output has an integer multiple of source lanes, demand a source lane if any corresponding output lane is demanded; replicate source poison to corresponding outputs.",
+      "source_evidence": [
+        {
+          "line": 1905,
+          "text": "} else if ((VWidth % InVWidth) == 0) {"
+        },
+        {
+          "line": 1910,
+          "text": "for (unsigned OutIdx = 0; OutIdx != VWidth; ++OutIdx)"
+        },
+        {
+          "line": 1912,
+          "text": "InputDemandedElts.setBit(OutIdx / Ratio);"
+        },
+        {
+          "line": 1930,
+          "text": "} else if ((VWidth % InVWidth) == 0) {"
+        },
+        {
+          "line": 1936,
+          "text": "PoisonElts.setBit(OutIdx);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-bitcast-input-multiple-L1926",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1926,
+        1949
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "When input lane count is an integer multiple of output lanes, demand all source lanes belonging to demanded output lanes; mark output poison only if every corresponding input lane is poison.",
+      "source_evidence": [
+        {
+          "line": 1913,
+          "text": "} else if ((InVWidth % VWidth) == 0) {"
+        },
+        {
+          "line": 1917,
+          "text": "Ratio = InVWidth / VWidth;"
+        },
+        {
+          "line": 1919,
+          "text": "if (DemandedElts[InIdx / Ratio])"
+        },
+        {
+          "line": 1920,
+          "text": "InputDemandedElts.setBit(InIdx);"
+        },
+        {
+          "line": 1926,
+          "text": "simplifyAndSetOp(I, 0, InputDemandedElts, PoisonElts2);"
+        },
+        {
+          "line": 1937,
+          "text": "} else if ((InVWidth % VWidth) == 0) {"
+        },
+        {
+          "line": 1943,
+          "text": "if (SubUndef.popcount() == Ratio)"
+        },
+        {
+          "line": 1944,
+          "text": "PoisonElts.setBit(OutIdx);"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-fp-conversions-L1951",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1951,
+        1954
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Pass demanded lane mask through fptrunc/fpext and report corresponding poison lanes.",
+      "source_evidence": [
+        {
+          "line": 1951,
+          "text": "case Instruction::FPTrunc:"
+        },
+        {
+          "line": 1952,
+          "text": "case Instruction::FPExt:"
+        },
+        {
+          "line": 1953,
+          "text": "simplifyAndSetOp(I, 0, DemandedElts, PoisonElts);"
+        },
+        {
+          "line": 1954,
+          "text": "break;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-masked-memory-L1956",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1956,
+        1985
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For masked load/gather keep pointer lanes demanded unless a constant mask proves them inactive; suppress pass-through demand where mask is all-ones and intersect poison from pointer and pass-through.",
+      "source_evidence": [
+        {
+          "line": 1956,
+          "text": "case Instruction::Call: {"
+        },
+        {
+          "line": 1967,
+          "text": "if (auto *CMask = dyn_cast<Constant>(II->getOperand(1))) {"
+        },
+        {
+          "line": 1970,
+          "text": "if (CElt->isNullValue())"
+        },
+        {
+          "line": 1972,
+          "text": "else if (CElt->isAllOnesValue())"
+        },
+        {
+          "line": 1978,
+          "text": "if (II->getIntrinsicID() == Intrinsic::masked_gather)"
+        },
+        {
+          "line": 1979,
+          "text": "simplifyAndSetOp(II, 0, DemandedPtrs, PoisonElts2);"
+        },
+        {
+          "line": 1980,
+          "text": "simplifyAndSetOp(II, 2, DemandedPassThrough, PoisonElts3);"
+        },
+        {
+          "line": 1984,
+          "text": "PoisonElts = PoisonElts2 & PoisonElts3;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-vector-elementwise-intrinsic-L1995",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        1995,
+        2018
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Pass lane demand unchanged to each vector argument of a trivially vectorizable intrinsic, skipping designated scalar arguments; union operand poison only for intrinsic IDs documented as elementwise poison-propagating.",
+      "source_evidence": [
+        {
+          "line": 1999,
+          "text": "if (isTriviallyVectorizable(IID)) {"
+        },
+        {
+          "line": 2004,
+          "text": "if (isVectorIntrinsicWithScalarOpAtArg(IID, OpNo, /*TTI=*/nullptr))"
+        },
+        {
+          "line": 2007,
+          "text": "simplifyAndSetOp(II, OpNo, DemandedElts, OpPoisonElts);"
+        },
+        {
+          "line": 2012,
+          "text": "if (intrinsicPropagatesPoison(IID))"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-fpclass-empty-demand-operand-L3834",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        3834,
+        3847
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Replace an operand with poison when no FP class is demanded, unless it is already poison.",
+      "source_evidence": [
+        {
+          "line": 3843,
+          "text": "if (DemandedMask == fcNone) {"
+        },
+        {
+          "line": 3846,
+          "text": "replaceUse(U, PoisonValue::get(VTy));"
+        },
+        {
+          "line": 3847,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "demanded-fpclass-constant-operand-L3848",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "recorded_range": [
+        3848,
+        3873
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Compute operand known classes, replace with poison if no demanded class remains, or replace a nonconstant operand with an exact singleton-class constant.",
+      "source_evidence": [
+        {
+          "line": 3854,
+          "text": "Known = computeKnownFPClass(V, fcAllFlags, SQ, Depth);"
+        },
+        {
+          "line": 3857,
+          "text": "if (Known.getKnownFPClasses() == fcNone) {"
+        },
+        {
+          "line": 3860,
+          "text": "replaceUse(U, PoisonValue::get(VTy));"
+        },
+        {
+          "line": 3861,
+          "text": "return true;"
+        },
+        {
+          "line": 3870,
+          "text": "Value *FoldedToConst = getFPClassConstant(VTy, Known.getKnownFPClasses());"
+        },
+        {
+          "line": 3874,
+          "text": "replaceUse(U, FoldedToConst);"
+        },
+        {
+          "line": 3875,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The successful exact-class replacement is at 3874-3875, just after the range. Extend the range through 3875."
+    },
+    {
+      "id": "ic-ctpop-not-sub-L851",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        914,
+        916
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "Rewrite C - ctpop(not X) as ctpop(X) + (C - bitwidth(X)).",
+      "source_evidence": [
+        {
+          "line": 851,
+          "text": "Instruction *InstCombinerImpl::tryFoldInstWithCtpopWithNot(Instruction *I) {"
+        },
+        {
+          "line": 914,
+          "text": "case Instruction::Sub:"
+        },
+        {
+          "line": 915,
+          "text": "R = Builder.CreateAdd(CtpopOfNotOp, ConstantExpr::getSub(C, BitWidthC));"
+        },
+        {
+          "line": 929,
+          "text": "return replaceInstUsesWith(*I, R);"
+        }
+      ],
+      "finding": "The helper branch constructs the add at 915, but the shared replacement return is at 929 outside the range. Extend through 929 and preserve the Sub branch guard at 914."
+    },
+    {
+      "id": "ic-ctpop-not-add-L861",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        918,
+        920
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "Rewrite ctpop(not X) + C as (C + bitwidth(X)) - ctpop(X).",
+      "source_evidence": [
+        {
+          "line": 851,
+          "text": "Instruction *InstCombinerImpl::tryFoldInstWithCtpopWithNot(Instruction *I) {"
+        },
+        {
+          "line": 918,
+          "text": "case Instruction::Add:"
+        },
+        {
+          "line": 919,
+          "text": "R = Builder.CreateSub(ConstantExpr::getAdd(C, BitWidthC), CtpopOfNotOp);"
+        },
+        {
+          "line": 929,
+          "text": "return replaceInstUsesWith(*I, R);"
+        }
+      ],
+      "finding": "The Add arm constructs the sub at 919; shared use replacement is at 929 outside the range. Extend through 929 and retain the Add guard at 917-920."
+    },
+    {
+      "id": "ic-ctpop-not-disjoint-or-L865",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        918,
+        920
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "Rewrite disjoint-or(C, ctpop(not X)) as (C + bitwidth(X)) - ctpop(X).",
+      "source_evidence": [
+        {
+          "line": 870,
+          "text": "case Instruction::Or:"
+        },
+        {
+          "line": 871,
+          "text": "if (!match(I, m_DisjointOr(m_Value(), m_Value())))"
+        },
+        {
+          "line": 874,
+          "text": "case Instruction::Add:"
+        },
+        {
+          "line": 918,
+          "text": "case Instruction::Add:"
+        },
+        {
+          "line": 919,
+          "text": "R = Builder.CreateSub(ConstantExpr::getAdd(C, BitWidthC), CtpopOfNotOp);"
+        },
+        {
+          "line": 929,
+          "text": "return replaceInstUsesWith(*I, R);"
+        }
+      ],
+      "finding": "The disjoint-or acceptance guard is at 870-873 and its shared result constructor is 919; replacement return is 929. Range 918-920 misses the distinguishing guard and final replacement. Extend to cover 870-873 and 919-929."
+    },
+    {
+      "id": "ic-select-feed-binop-common-condition-L1381",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        1438,
+        1449
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "Rewrite (A?B:C) op (A?E:F) as A ? simplify(B op E) : simplify(C op F); if one arm simplifies and both selects are one-use, build the other binop unsimplified.",
+      "source_evidence": [
+        {
+          "line": 1381,
+          "text": "Value *InstCombinerImpl::SimplifySelectsFeedingBinaryOp(BinaryOperator &I,"
+        },
+        {
+          "line": 1385,
+          "text": "bool LHSIsSelect = match(LHS, m_Select(m_Value(A), m_Value(B), m_Value(C)));"
+        },
+        {
+          "line": 1438,
+          "text": "if (LHSIsSelect && RHSIsSelect && A == D) {"
+        },
+        {
+          "line": 1441,
+          "text": "True = simplifyBinOp(Opcode, B, E, FMF, Q);"
+        },
+        {
+          "line": 1442,
+          "text": "False = simplifyBinOp(Opcode, C, F, FMF, Q);"
+        },
+        {
+          "line": 1444,
+          "text": "if (LHS->hasOneUse() && RHS->hasOneUse()) {"
+        },
+        {
+          "line": 1470,
+          "text": "if (!True || !False)"
+        },
+        {
+          "line": 1473,
+          "text": "Value *NewSI = Builder.CreateSelect(Cond, True, False, I.getName(), SI);"
+        },
+        {
+          "line": 1474,
+          "text": "NewSI->takeName(&I);"
+        },
+        {
+          "line": 1475,
+          "text": "return NewSI;"
+        }
+      ],
+      "finding": "This branch simplifies both matching-condition selects at 1438-1449; shared result-select creation and return are at 1473-1475. Extend range through 1475."
+    },
+    {
+      "id": "ic-select-feed-binop-left-select-L1434",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        1450,
+        1456
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "Rewrite one-use (A?B:C) op Y as A ? simplify(B op Y) : simplify(C op Y), resolving a nested select in Y when A implies its condition. If both per-arm operations are available, the shared installer emits the corresponding result select.",
+      "source_evidence": [
+        {
+          "line": 1450,
+          "text": "} else if (LHSIsSelect && LHS->hasOneUse()) {"
+        },
+        {
+          "line": 1453,
+          "text": "Value *TrueRHS = simplifySelectWithImpliedCond(RHS, Cond, true);"
+        },
+        {
+          "line": 1455,
+          "text": "True = simplifyBinOp(Opcode, B, TrueRHS, FMF, Q);"
+        },
+        {
+          "line": 1456,
+          "text": "False = simplifyBinOp(Opcode, C, FalseRHS, FMF, Q);"
+        },
+        {
+          "line": 1457,
+          "text": "if (Value *NewSel = foldAddNegate(B, C, RHS))"
+        },
+        {
+          "line": 1470,
+          "text": "if (!True || !False)"
+        },
+        {
+          "line": 1473,
+          "text": "Value *NewSI = Builder.CreateSelect(Cond, True, False, I.getName(), SI);"
+        },
+        {
+          "line": 1474,
+          "text": "NewSI->takeName(&I);"
+        },
+        {
+          "line": 1475,
+          "text": "return NewSI;"
+        }
+      ],
+      "finding": "The left-select arm-specific simplification is 1450-1458; its shared select constructor/return is at 1473-1475. Extend range through 1475."
+    },
+    {
+      "id": "ic-select-feed-binop-right-select-L1451",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        1459,
+        1465
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "Rewrite X op (D?E:F) symmetrically, resolving a nested select in X when D implies its condition. If both per-arm operations are available, the shared installer emits the corresponding result select.",
+      "source_evidence": [
+        {
+          "line": 1459,
+          "text": "} else if (RHSIsSelect && RHS->hasOneUse()) {"
+        },
+        {
+          "line": 1462,
+          "text": "Value *TrueLHS = simplifySelectWithImpliedCond(LHS, Cond, true);"
+        },
+        {
+          "line": 1464,
+          "text": "True = simplifyBinOp(Opcode, TrueLHS, E, FMF, Q);"
+        },
+        {
+          "line": 1465,
+          "text": "False = simplifyBinOp(Opcode, FalseLHS, F, FMF, Q);"
+        },
+        {
+          "line": 1466,
+          "text": "if (Value *NewSel = foldAddNegate(E, F, LHS))"
+        },
+        {
+          "line": 1470,
+          "text": "if (!True || !False)"
+        },
+        {
+          "line": 1473,
+          "text": "Value *NewSI = Builder.CreateSelect(Cond, True, False, I.getName(), SI);"
+        },
+        {
+          "line": 1474,
+          "text": "NewSI->takeName(&I);"
+        },
+        {
+          "line": 1475,
+          "text": "return NewSI;"
+        }
+      ],
+      "finding": "The right-select arm-specific simplification is 1459-1467; its shared select constructor/return is at 1473-1475. Extend range through 1475."
+    },
+    {
+      "id": "ic-fold-binop-select-true-nested-L1947",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        1947,
+        1951
+      ],
+      "classification": "direct_rewrite_or_mutation",
+      "assessment": "span_mismatch",
+      "description": "When true arm is one-use (base op C2) and false arm is base, fold outer constant C with C2 in true arm, then return op(select(cond,newTrue,C),base).",
+      "source_evidence": [
+        {
+          "line": 1947,
+          "text": "if (TV->hasOneUse() && match(TV, m_BinOp(Op.getOpcode(), m_Specific(FV),"
+        },
+        {
+          "line": 1948,
+          "text": "m_ImmConstant(Const2)))) {"
+        },
+        {
+          "line": 1949,
+          "text": "NewTV = ConstantFoldBinaryInstruction(Op.getOpcode(), Const, Const2);"
+        },
+        {
+          "line": 1950,
+          "text": "NewFV = Const;"
+        },
+        {
+          "line": 1964,
+          "text": "Value *NewSI = Builder.CreateSelect(SI->getCondition(), NewTV, NewFV, \"\", SI);"
+        },
+        {
+          "line": 1965,
+          "text": "return BinaryOperator::Create(Op.getOpcode(), NewSI, Input);"
+        }
+      ],
+      "finding": "The true-arm match and constant fold start at 1947, but returned select/binop are constructed at 1964-1965. Extend range through 1965."
+    },
+    {
+      "id": "ic-vector-binop-splat-reassociate-L2719",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        2719,
+        2720
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "mislocated_duplicate",
+      "description": "Reassociate associative commutative binop through one-use splat shuffle and one-use nested same-op binop when either nested operand is splatted at selected lane; intersect FMF, drop other flags.",
+      "source_evidence": [
+        {
+          "line": 2671,
+          "text": "// Try to reassociate to sink a splat shuffle after a binary operation."
+        },
+        {
+          "line": 2697,
+          "text": "// X and Y are splatted values, so perform the binary operation on those"
+        },
+        {
+          "line": 2700,
+          "text": "Value *NewBO = Builder.CreateBinOp(Opcode, X, Y);"
+        },
+        {
+          "line": 2702,
+          "text": "Value *NewSplat = Builder.CreateShuffleVector(NewBO, NewMask);"
+        },
+        {
+          "line": 2703,
+          "text": "Instruction *R = BinaryOperator::Create(Opcode, NewSplat, OtherOp);"
+        },
+        {
+          "line": 2713,
+          "text": "return R;"
+        },
+        {
+          "line": 2719,
+          "text": "/// Try to narrow the width of a binop if at least 1 operand is an extend of"
+        },
+        {
+          "line": 2722,
+          "text": "Instruction *InstCombinerImpl::narrowMathIfNoOverflow(BinaryOperator &BO) {"
+        }
+      ],
+      "finding": "Lines 2719-2722 begin narrowMathIfNoOverflow, unrelated to splat reassociation. The actual described rewrite is already fully inventoried as ic-vector-binop-splat-shuffle-reassociate-L2671 (lines 2671-2714). Retire this stale duplicate ID; keep the precise existing replacement ID."
+    },
+    {
+      "id": "ic-condbr-constant-dead-successor-L4424",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        4431,
+        4439
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For undef or constant condition, mark no successor or only chosen successor live and update dead-edge PHIs/blocks.",
+      "source_evidence": [
+        {
+          "line": 4431,
+          "text": "if (isa<UndefValue>(Cond)) {"
+        },
+        {
+          "line": 4432,
+          "text": "handlePotentiallyDeadSuccessors(BI.getParent(), /*LiveSucc*/ nullptr);"
+        },
+        {
+          "line": 4433,
+          "text": "return nullptr;"
+        },
+        {
+          "line": 4435,
+          "text": "if (auto *CI = dyn_cast<ConstantInt>(Cond)) {"
+        },
+        {
+          "line": 4436,
+          "text": "handlePotentiallyDeadSuccessors(BI.getParent(),"
+        },
+        {
+          "line": 4438,
+          "text": "return nullptr;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-condbr-dominated-condition-uses-L4435",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        4441,
+        4458
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Replace condition uses dominated by true edge with true and uses dominated by false edge with false; enqueue users.",
+      "source_evidence": [
+        {
+          "line": 4444,
+          "text": "if (!isa<Constant>(Cond) && BI.getSuccessor(0) != BI.getSuccessor(1)) {"
+        },
+        {
+          "line": 4447,
+          "text": "if (DT.dominates(Edge0, U)) {"
+        },
+        {
+          "line": 4448,
+          "text": "replaceUse(U, ConstantInt::getTrue(Cond->getType()));"
+        },
+        {
+          "line": 4453,
+          "text": "if (DT.dominates(Edge1, U)) {"
+        },
+        {
+          "line": 4454,
+          "text": "replaceUse(U, ConstantInt::getFalse(Cond->getType()));"
+        },
+        {
+          "line": 4455,
+          "text": "addToWorklist(cast<Instruction>(U.getUser()));"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-switch-constant-dead-successors-L4614",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        4618,
+        4626
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For undef or constant switch condition, mark nonselected successors dead and rewrite affected PHIs/blocks.",
+      "source_evidence": [
+        {
+          "line": 4618,
+          "text": "if (isa<UndefValue>(Cond)) {"
+        },
+        {
+          "line": 4619,
+          "text": "handlePotentiallyDeadSuccessors(SI.getParent(), /*LiveSucc*/ nullptr);"
+        },
+        {
+          "line": 4620,
+          "text": "return nullptr;"
+        },
+        {
+          "line": 4622,
+          "text": "if (auto *CI = dyn_cast<ConstantInt>(Cond)) {"
+        },
+        {
+          "line": 4623,
+          "text": "handlePotentiallyDeadSuccessors(SI.getParent(),"
+        },
+        {
+          "line": 4625,
+          "text": "return nullptr;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-landingpad-duplicate-catch-L4950",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        4950,
+        4969
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Drop repeated catch typeinfo after pointer-cast stripping; retain first occurrence.",
+      "source_evidence": [
+        {
+          "line": 4945,
+          "text": "Constant *CatchClause = LI.getClause(i);"
+        },
+        {
+          "line": 4946,
+          "text": "Constant *TypeInfo = CatchClause->stripPointerCasts();"
+        },
+        {
+          "line": 4950,
+          "text": "if (AlreadyCaught.insert(TypeInfo).second) {"
+        },
+        {
+          "line": 4952,
+          "text": "NewClauses.push_back(CatchClause);"
+        },
+        {
+          "line": 4954,
+          "text": "// Repeated catch clause - drop the redundant copy."
+        },
+        {
+          "line": 4955,
+          "text": "MakeNewInstruction = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-landingpad-catchall-stop-L4970",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        4970,
+        4981
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "After recognized catch-all, discard later clauses and clear cleanup.",
+      "source_evidence": [
+        {
+          "line": 4958,
+          "text": "// If this is a catch-all then there is no point in keeping any following"
+        },
+        {
+          "line": 4960,
+          "text": "if (isCatchAll(Personality, TypeInfo)) {"
+        },
+        {
+          "line": 4961,
+          "text": "if (!isLastClause)"
+        },
+        {
+          "line": 4963,
+          "text": "CleanupFlag = false;"
+        },
+        {
+          "line": 4964,
+          "text": "break;"
+        }
+      ],
+      "finding": "The described catch-all catch branch is 4958-4964; 4970-4981 is explanatory filter text and the empty-filter case. Correct range to 4958-4964."
+    },
+    {
+      "id": "ic-landingpad-empty-filter-stop-L4993",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        4993,
+        5006
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Keep empty filter as terminal catch-everything clause and clear cleanup.",
+      "source_evidence": [
+        {
+          "line": 4979,
+          "text": "// An empty filter catches everything, so there is no point in keeping any"
+        },
+        {
+          "line": 4982,
+          "text": "if (!NumTypeInfos) {"
+        },
+        {
+          "line": 4983,
+          "text": "NewClauses.push_back(FilterClause);"
+        },
+        {
+          "line": 4985,
+          "text": "MakeNewInstruction = true;"
+        },
+        {
+          "line": 4986,
+          "text": "CleanupFlag = false;"
+        },
+        {
+          "line": 4987,
+          "text": "break;"
+        }
+      ],
+      "finding": "The empty filter guard and cleanup update are at 4982-4987. Recorded lines 4993-5006 are the separate zero-aggregate nonempty-filter case. Correct range to 4982-4987 and rename suffix to L4982 if IDs follow start line."
+    },
+    {
+      "id": "ic-landingpad-zero-filter-L5008",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        5008,
+        5029
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Drop filter if zero aggregate contains catch-all; otherwise deduplicate its null typeinfos.",
+      "source_evidence": [
+        {
+          "line": 4992,
+          "text": "if (isa<ConstantAggregateZero>(FilterClause)) {"
+        },
+        {
+          "line": 4998,
+          "text": "if (isCatchAll(Personality, TypeInfo)) {"
+        },
+        {
+          "line": 5000,
+          "text": "MakeNewInstruction = true;"
+        },
+        {
+          "line": 5001,
+          "text": "continue;"
+        },
+        {
+          "line": 5004,
+          "text": "// There is no point in having multiple copies of this typeinfo, so"
+        },
+        {
+          "line": 5006,
+          "text": "NewFilterElts.push_back(TypeInfo);"
+        },
+        {
+          "line": 5008,
+          "text": "MakeNewFilter = true;"
+        }
+      ],
+      "finding": "The zero-aggregate filter handling is at 4992-5008; current range starts at 5008 and mostly excludes the described catch-all test/deduplication. Expand to 4992-5008."
+    },
+    {
+      "id": "ic-landingpad-array-filter-L5030",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        5030,
+        5099
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Deduplicate filter typeinfos; discard filter if any element is catch-all; rebuild only when changed.",
+      "source_evidence": [
+        {
+          "line": 5010,
+          "text": "ConstantArray *Filter = cast<ConstantArray>(FilterClause);"
+        },
+        {
+          "line": 5018,
+          "text": "for (unsigned j = 0; j != NumTypeInfos; ++j) {"
+        },
+        {
+          "line": 5021,
+          "text": "if (isCatchAll(Personality, TypeInfo)) {"
+        },
+        {
+          "line": 5046,
+          "text": "if (SeenInFilter.insert(TypeInfo).second)"
+        },
+        {
+          "line": 5047,
+          "text": "NewFilterElts.push_back(cast<Constant>(Elt));"
+        },
+        {
+          "line": 5050,
+          "text": "if (SawCatchAll) {"
+        },
+        {
+          "line": 5052,
+          "text": "MakeNewInstruction = true;"
+        },
+        {
+          "line": 5060,
+          "text": "if (MakeNewFilter) {"
+        },
+        {
+          "line": 5064,
+          "text": "MakeNewInstruction = true;"
+        }
+      ],
+      "finding": "Array filter iteration/deduplication/rebuild is at 5010-5065. Range 5030-5099 starts inside a comment and spills into subsequent sort logic. Correct to 5010-5065."
+    },
+    {
+      "id": "ic-landingpad-sort-filters-L5120",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        5120,
+        5148
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Stable-sort each contiguous filter run by ascending element count if out of order.",
+      "source_evidence": [
+        {
+          "line": 5081,
+          "text": "// If several filters occur in a row then reorder them so that the shortest"
+        },
+        {
+          "line": 5086,
+          "text": "for (unsigned i = 0, e = NewClauses.size(); i + 1 < e; ) {"
+        },
+        {
+          "line": 5096,
+          "text": "for (unsigned k = i; k + 1 < j; ++k)"
+        },
+        {
+          "line": 5100,
+          "text": "std::stable_sort(NewClauses.begin() + i, NewClauses.begin() + j,"
+        },
+        {
+          "line": 5102,
+          "text": "MakeNewInstruction = true;"
+        },
+        {
+          "line": 5107,
+          "text": "i = j + 1;"
+        }
+      ],
+      "finding": "Filter sorting is at 5081-5108; range 5120-5148 instead describes subset-filter elimination. Correct range to 5081-5108 and update the ID suffix to L5081."
+    },
+    {
+      "id": "ic-landingpad-subset-filter-L5158",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        5158,
+        5205
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "span_mismatch",
+      "description": "Drop later filter when earlier filter is a subset, including empty/zero-only special cases.",
+      "source_evidence": [
+        {
+          "line": 5121,
+          "text": "for (unsigned i = 0; i + 1 < NewClauses.size(); ++i) {"
+        },
+        {
+          "line": 5137,
+          "text": "// If Filter is a subset of LFilter, i.e. every element of Filter is also"
+        },
+        {
+          "line": 5143,
+          "text": "NewClauses.erase(J);"
+        },
+        {
+          "line": 5157,
+          "text": "if (isa<ConstantAggregateZero>(Filter)) {"
+        },
+        {
+          "line": 5160,
+          "text": "NewClauses.erase(J);"
+        },
+        {
+          "line": 5174,
+          "text": "NewClauses.erase(J);"
+        },
+        {
+          "line": 5200,
+          "text": "if (AllFound) {"
+        },
+        {
+          "line": 5202,
+          "text": "NewClauses.erase(J);"
+        },
+        {
+          "line": 5203,
+          "text": "MakeNewInstruction = true;"
+        }
+      ],
+      "finding": "Subset elimination is the nested filter loop at 5121-5204; current range begins mid-case at 5158. Expand start to 5121 (end 5205 is reasonable)."
+    },
+    {
+      "id": "ic-sink-instruction-between-blocks-L5591",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        5591,
+        5685
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Move safe instruction to destination block start; reject PHI/EH/throwing/nonreturning/terminator/alloca/catchswitch/convergent; writes only when sole write to dead local; loads only to unique successor with no intervening writes; repair droppable users, sink assume and debug records.",
+      "source_evidence": [
+        {
+          "line": 5591,
+          "text": "bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,"
+        },
+        {
+          "line": 5596,
+          "text": "if (isa<PHINode>(I) || I->isEHPad() || I->mayThrow() || !I->willReturn() ||"
+        },
+        {
+          "line": 5604,
+          "text": "if (isa<AllocaInst>(I))"
+        },
+        {
+          "line": 5619,
+          "text": "if (I->mayWriteToMemory()) {"
+        },
+        {
+          "line": 5620,
+          "text": "if (!SoleWriteToDeadLocal(I, TLI))"
+        },
+        {
+          "line": 5626,
+          "text": "if (I->mayReadFromMemory() &&"
+        },
+        {
+          "line": 5631,
+          "text": "if (DestBlock->getUniquePredecessor() != I->getParent())"
+        },
+        {
+          "line": 5655,
+          "text": "BasicBlock::iterator InsertPos = DestBlock->getFirstInsertionPt();"
+        },
+        {
+          "line": 5656,
+          "text": "I->moveBefore(*DestBlock, InsertPos);"
+        },
+        {
+          "line": 5684,
+          "text": "return true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-worklist-dead-edge-poison-phi-L6117",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        6117,
+        6125
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "When predecessor edge is excluded, replace that predecessor value in every successor PHI with poison and record IR change.",
+      "source_evidence": [
+        {
+          "line": 6115,
+          "text": "auto HandleOnlyLiveSuccessor = [&](BasicBlock *BB, BasicBlock *LiveSucc) {"
+        },
+        {
+          "line": 6117,
+          "text": "if (Succ != LiveSucc && DeadEdges.insert({BB, Succ}).second)"
+        },
+        {
+          "line": 6118,
+          "text": "for (PHINode &PN : Succ->phis())"
+        },
+        {
+          "line": 6120,
+          "text": "if (PN.getIncomingBlock(U) == BB && !isa<PoisonValue>(U)) {"
+        },
+        {
+          "line": 6121,
+          "text": "U.set(PoisonValue::get(PN.getType()));"
+        },
+        {
+          "line": 6122,
+          "text": "MadeIRChange = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-worklist-instruction-constant-fold-L6140",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        6135,
+        6148
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Constant-fold instruction with no operands or constant first operand; replace all uses, count fold, and erase instruction if trivially dead.",
+      "source_evidence": [
+        {
+          "line": 6137,
+          "text": "if (!Inst.use_empty() &&"
+        },
+        {
+          "line": 6139,
+          "text": "if (Constant *C = ConstantFoldInstruction(&Inst, DL, &TLI)) {"
+        },
+        {
+          "line": 6142,
+          "text": "Inst.replaceAllUsesWith(C);"
+        },
+        {
+          "line": 6144,
+          "text": "if (isInstructionTriviallyDead(&Inst, &TLI))"
+        },
+        {
+          "line": 6145,
+          "text": "Inst.eraseFromParent();"
+        },
+        {
+          "line": 6146,
+          "text": "MadeIRChange = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-worklist-constant-operand-fold-L6156",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        6150,
+        6167
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Fold ConstantVector or ConstantExpr operands through cache and mutate operand when folded value differs.",
+      "source_evidence": [
+        {
+          "line": 6151,
+          "text": "for (Use &U : Inst.operands()) {"
+        },
+        {
+          "line": 6152,
+          "text": "if (!isa<ConstantVector>(U) && !isa<ConstantExpr>(U))"
+        },
+        {
+          "line": 6155,
+          "text": "auto *C = cast<Constant>(U);"
+        },
+        {
+          "line": 6157,
+          "text": "if (!FoldRes)"
+        },
+        {
+          "line": 6160,
+          "text": "if (FoldRes != C) {"
+        },
+        {
+          "line": 6164,
+          "text": "U = FoldRes;"
+        },
+        {
+          "line": 6165,
+          "text": "MadeIRChange = true;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-worklist-constant-branch-switch-edges-L6180",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        6178,
+        6204
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "For undef or constant condbr/switch condition, mark only feasible successors live (or none for undef) and poison PHI values on dead edges.",
+      "source_evidence": [
+        {
+          "line": 6181,
+          "text": "if (CondBrInst *BI = dyn_cast<CondBrInst>(TI)) {"
+        },
+        {
+          "line": 6182,
+          "text": "if (isa<UndefValue>(BI->getCondition())) {"
+        },
+        {
+          "line": 6184,
+          "text": "HandleOnlyLiveSuccessor(BB, nullptr);"
+        },
+        {
+          "line": 6187,
+          "text": "if (auto *Cond = dyn_cast<ConstantInt>(BI->getCondition())) {"
+        },
+        {
+          "line": 6189,
+          "text": "HandleOnlyLiveSuccessor(BB, BI->getSuccessor(!CondVal));"
+        },
+        {
+          "line": 6192,
+          "text": "} else if (SwitchInst *SI = dyn_cast<SwitchInst>(TI)) {"
+        },
+        {
+          "line": 6193,
+          "text": "if (isa<UndefValue>(SI->getCondition())) {"
+        },
+        {
+          "line": 6195,
+          "text": "HandleOnlyLiveSuccessor(BB, nullptr);"
+        },
+        {
+          "line": 6198,
+          "text": "if (auto *Cond = dyn_cast<ConstantInt>(SI->getCondition())) {"
+        },
+        {
+          "line": 6200,
+          "text": "SI->findCaseValue(Cond)->getCaseSuccessor());"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    },
+    {
+      "id": "ic-worklist-unreachable-block-cleanup-L6202",
+      "file": "InstructionCombining.cpp",
+      "recorded_range": [
+        6206,
+        6218
+      ],
+      "classification": "analysis_or_helper_based_rewrite",
+      "assessment": "confirmed_source_action",
+      "description": "Remove nonterminator and non-EH-pad instructions from blocks not reached in live-block traversal.",
+      "source_evidence": [
+        {
+          "line": 6206,
+          "text": "// Remove instructions inside unreachable blocks. This prevents the"
+        },
+        {
+          "line": 6209,
+          "text": "for (BasicBlock &BB : F) {"
+        },
+        {
+          "line": 6210,
+          "text": "if (LiveBlocks.count(&BB))"
+        },
+        {
+          "line": 6214,
+          "text": "NumDeadInstInBB = removeAllNonTerminatorAndEHPadInstructions(&BB);"
+        },
+        {
+          "line": 6216,
+          "text": "MadeIRChange |= NumDeadInstInBB != 0;"
+        },
+        {
+          "line": 6217,
+          "text": "NumDeadInst += NumDeadInstInBB;"
+        }
+      ],
+      "finding": "The referenced source contains the inventory-described guard and rewrite action; no heuristic site was emitted because the action is implemented as a helper/analysis update, an in-place mutation, or a shared terminal action rather than a directly detected replacement return."
+    }
+  ]
+}

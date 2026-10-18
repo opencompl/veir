@@ -1,0 +1,1890 @@
+{
+  "review_kind": "bounded Luna review of pending core and demanded inventory entries",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "scope": {
+    "core_pending_reviewed": 56,
+    "demanded_pending_reviewed": 4,
+    "total": 60,
+    "selection": "First 56 pending core rows in inventory order plus all 4 pending demanded rows; prioritizes beginnings as requested. This is not a completion claim for either inventory.",
+    "limits": "Review classifies scoped model support and blockers, not proof truth; pending includes helper/delegation rows with no independent rewrite."
+  },
+  "entries": [
+    {
+      "id": "ic-assoc-cast-zext-logic-L385",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          385,
+          431
+        ],
+        "function": "simplifyAssocCastAssoc",
+        "source_scope": "For one-use bitwise op over one-use zext(bitwise X,C2), fold C1 with zext(C2) in destination type and replace inner chain by op(zext(X), folded constant); clear poison flags."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer bitwise/zext/constant-fold forms are interpreted, and the source clears poison-generating flags. The two one-use checks limit mutation/instruction growth, not semantic validity. Keep only exact source constant-fold shapes pending proof."
+    },
+    {
+      "id": "ic-inttoptr-ptrtoint-roundtrip-L434",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_pointer_provenance",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          434,
+          451
+        ],
+        "function": "simplifyIntToPtrRoundTripCast",
+        "source_scope": "Replace inttoptr(ptrtoint(p)) with p when pointer and integer widths agree at both casts and both pointer address spaces match."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            126,
+            153
+          ],
+          "evidence": "Pointer reconstruction is memory-state-dependent; pointer icmp/select, arbitrary nested GEPs, flags/address spaces are limited."
+        }
+      ],
+      "review": "The rewrite eliminates a pointer roundtrip based on object/provenance identity. Puddle inttoptr depends on memory state, while InterpretsTo needs a fixed result; this is a real semantic blocker."
+    },
+    {
+      "id": "ic-assoc-reassociate-left-fold-L470",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          470,
+          563
+        ],
+        "function": "SimplifyAssociativeOrCommutative",
+        "source_scope": "Reassociate (A op B) op C to A op (simplify(B op C)); clear disjoint and recompute NUW/NSW only when the original and inner flags / signed constant overflow checks justify them."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "The integer scalar subfamily can be represented: integer arithmetic/bitwise operations and NSW/NUW/disjoint/exact poison semantics are modeled; dropped flags are not a blocker. `simplifyBinOp` success is a dynamic source simplification condition, so only exact structurally matched successful folds are pending. FP variants remain unsupported absent FP semantic coverage."
+    },
+    {
+      "id": "ic-assoc-reassociate-right-fold-L524",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          524,
+          585
+        ],
+        "function": "SimplifyAssociativeOrCommutative",
+        "source_scope": "Reassociate A op (B op C) to simplify(A op B) op C, clearing poison-generating flags for non-FP operations."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "The integer scalar subfamily can be represented: integer arithmetic/bitwise operations and NSW/NUW/disjoint/exact poison semantics are modeled; dropped flags are not a blocker. `simplifyBinOp` success is a dynamic source simplification condition, so only exact structurally matched successful folds are pending. FP variants remain unsupported absent FP semantic coverage."
+    },
+    {
+      "id": "ic-assoc-commutative-cross-fold-L590",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          580,
+          617
+        ],
+        "function": "SimplifyAssociativeOrCommutative",
+        "source_scope": "For commutative associative op, fold C op A from (A op B) op C and retain (folded op B), dropping non-FP poison flags."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "No independent unsupported opcode is identified from this row; classify only the exact scalar source subfamily after checking its delegated helper conditions. Proof work remains pending; do not infer source success solely from opcode availability."
+    },
+    {
+      "id": "ic-assoc-commutative-right-cross-fold-L612",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          612,
+          617
+        ],
+        "function": "SimplifyAssociativeOrCommutative",
+        "source_scope": "For A op (B op C), fold C op A and retain B op folded result; clear poison-generating flags outside FP."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "No independent unsupported opcode is identified from this row; classify only the exact scalar source subfamily after checking its delegated helper conditions. Proof work remains pending; do not infer source success solely from opcode availability."
+    },
+    {
+      "id": "ic-assoc-constant-pair-L629",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          629,
+          663
+        ],
+        "function": "SimplifyAssociativeOrCommutative",
+        "source_scope": "Transform (A op C1) op (B op C2) into (A op B) op fold(C1 op C2), for matching one-use inner ops; preserve only intersected FMF, and conservatively retain NUW for add when all inputs have NUW."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer forms use modeled operations/constants, and one-use inner nodes are mutation/profitability checks. Constant folding and flag clearing are representable; keep FP cases separate and prove exact integer poison refinement."
+    },
+    {
+      "id": "ic-symmetric-pair-reassociate-mutate-L1352",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_phi_cfg_and_nonroot_mutation",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1352,
+          1379
+        ],
+        "function": "tryReassociateAndFoldSymmetricPair",
+        "source_scope": "In-place mutation for commutative associative same-op nesting: when the sibling pair is symmetric (swapped select arms, matching PHIs or min/max), substitute the paired operands and remove poison-generating flags/UB metadata."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            62,
+            67
+          ],
+          "evidence": "Terminators and memory effects are outside supported fragment."
+        }
+      ],
+      "review": "This entry covers in-place mutation of two existing binary instructions and includes PHI/call-minmax cases. The source transformation is multi-node and can depend on CFG-aligned PHIs or intrinsic semantics; it is not rescued by scalar arithmetic opcode support."
+    },
+    {
+      "id": "ic-sext-bool-binop-to-select-L1764",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1764,
+          1782
+        ],
+        "function": "foldBinopOfSextBoolToSelect",
+        "source_scope": "Replace binop(sext(i1 x), C) with select(x, binop(-1,C), binop(0,C)) for immediate constant C."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "This is a narrow scalar i1-to-integer identity. Puddle interprets sext, select, and integer binops; poison condition/value behavior is represented. No one-use or unmodeled analysis is required by this source arm; pending proof work."
+    },
+    {
+      "id": "ic-fold-operation-into-select-L1818",
+      "inventory_status": "pending",
+      "assessment": "unsupported_general_analysis_dependent",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1818,
+          1881
+        ],
+        "function": "FoldOpIntoSelect",
+        "source_scope": "Move an operation through a select to fold/simplify each arm; constant comparison implication and zext(condition) arm become constants; clone unsimplified arms; preserves valid select metadata."
+      },
+      "model_evidence": [
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "lines": [
+            1627,
+            1636
+          ],
+          "evidence": "Freeze is interpreted deterministically for integer/byte poison and pointer poison."
+        }
+      ],
+      "review": "Source arm simplification can depend on implication/nonpoison and value analysis, and clones an unsimplified operation into arms. Retain unsupported for the full family; a separately matched concrete scalar simplification could be pending."
+    },
+    {
+      "id": "ic-visit-gep-normalize-indices-L3346",
+      "inventory_status": "pending",
+      "assessment": "unsupported_model_mismatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3375,
+          3421
+        ],
+        "function": "visitGetElementPtrInst",
+        "source_scope": "Canonicalize each non-struct GEP index to the DataLayout index width: sign-extend narrow indices (or zext nneg when GEP has both nuw and nusw), truncate wide indices with compatible flags, and replace displacement through a zero-size element by a typed zero index."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            62,
+            67
+          ],
+          "evidence": "Terminators and memory effects are outside supported fragment."
+        }
+      ],
+      "review": "The source explicitly sign-extends narrow indices to the DataLayout width. Puddle currently scales idx.toNat at its original width; the validated i8 negative-index counterexample makes this an actual model mismatch for the central transformation."
+    },
+    {
+      "id": "ic-freeze-push-through-op-L5236",
+      "inventory_status": "pending",
+      "assessment": "unsupported_model_mismatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5236,
+          5296
+        ],
+        "function": "pushFreezeToPreventPoisonFromPropagating",
+        "source_scope": "Push freeze through a one-use non-PHI operation that cannot create poison except by flags, dropping such flags and freezing its unique operand not proven nonpoison; if all operands nonpoison, remove freeze."
+      },
+      "model_evidence": [
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "lines": [
+            1627,
+            1636
+          ],
+          "evidence": "Freeze is interpreted deterministically for integer/byte poison and pointer poison."
+        }
+      ],
+      "review": "The deterministic freeze interpreter maps freeze(poison) to zero. The scalar source-eligible freeze(add X,1) -> add(freeze X,1) counterexample yields zero versus one for poison X; this blocks a valid proof in the current model, not LLVM semantics."
+    },
+    {
+      "id": "ic-dyn-cast-neg-helper-L1526",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1526,
+          1568
+        ],
+        "function": "dyn_castNegVal",
+        "source_scope": "Analysis-only matcher for explicit negation or negatable scalar/vector integer constants, including undef-containing integer constant vectors."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Analysis-only matching helper; no rewrite is performed here."
+    },
+    {
+      "id": "ic-switch-select-range-helper-L4467",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4467,
+          4494
+        ],
+        "function": "simplifySwitchOnSelectUsingRanges",
+        "source_scope": "Analysis-only switch select fold test: select constant arm must dispatch to default, and every case value must lie outside exact comparison predicate region."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Analysis-only ConstantRange predicate; no rewrite is performed here."
+    },
+    {
+      "id": "ic-should-canonicalize-gep-to-ptradd-L3207",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3207,
+          3234
+        ],
+        "function": "shouldCanonicalizeGEPToPtrAdd",
+        "source_scope": "Analysis-only profitability/canonicalization predicate deciding when scalable, mul/shift indexed, or nested constant GEPs should become ptradd."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Profitability/canonicalization query only; CreatePtrAdd elsewhere emits a byte GEP and is not a distinct opcode."
+    },
+    {
+      "id": "ic-gep-const-gep-i8-helper-L2811",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2811,
+          2854
+        ],
+        "function": "canonicalizeGEPOfConstGEPI8",
+        "source_scope": "Combine byte ptradd constant with one-index typed GEP whose index is variable plus constant into constant byte offset plus variable typed GEP; retain nowrap flags only when both source and index add justify."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "A scalar, one-index, i64/default-RV64, unflagged subset is representable using Puddle GEP and integer arithmetic. `CreatePtrAdd` is a builder spelling that emits getelementptr i8, not a separate opcode. Keep DataLayout/offset and no-wrap variants outside the narrow scope."
+    },
+    {
+      "id": "ic-gep-combine-separated-constant-offset-helper-L2856",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2856,
+          2908
+        ],
+        "function": "combineConstantOffsets",
+        "source_scope": "Combine constant offsets in outer and inner GEPs across intervening one-use variable GEPs by moving base pointer and accumulating byte offsets; intersect nowrap flags."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Nested constant-offset GEPs can have a narrow one-index/default-RV64 scalar form using modeled GEPs; one-use checks are profitability. The general helper accumulates arbitrary multi-index/layout offsets and flag intersections, so those cases remain out of scope."
+    },
+    {
+      "id": "ic-factorization-construction-L746",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          761,
+          840
+        ],
+        "function": "tryFactorization",
+        "source_scope": "When InnerOpcode distributes over TopLevelOpcode and both nested operands share A (accounting for commutativity), construct A inner (B top D) only if the new residual op simplifies or an existing nested op is one-use; then apply common nowrap/flag propagation and return the result."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer factorization can be expressed with modeled integer ops and flags; one-use is a cost/mutation guard. General simplifyBinOp/overflow-based flag preservation is analysis-dependent, so review exact distributive opcode/constant forms separately; FP cases remain unsupported."
+    },
+    {
+      "id": "ic-binop-select-or-phi-dispatch-L2354",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2354,
+          2369
+        ],
+        "function": "foldBinOpIntoSelectOrPhi",
+        "source_scope": "Try moving a binary operation into select then PHI operand, swapping operand order on fallback; implementation dispatch only."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Dispatch only to the select/PHI transformations; classify those helpers separately."
+    },
+    {
+      "id": "ic-gep-merged-nowrapp-flags-L2777",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2777,
+          2783
+        ],
+        "function": "getMergedGEPNoWrapFlags",
+        "source_scope": "Analysis helper intersects GEP no-wrap flags for offset addition."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Metadata/flag intersection helper only; flag semantics are modeled."
+    },
+    {
+      "id": "ic-store-merge-successor-dispatch-L4275",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_memory_cfg",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4275,
+          4294
+        ],
+        "function": "visitUncondBrInst",
+        "source_scope": "Find terminal sinkable store immediately before unconditional branch (ignoring probes) and delegate mergeStoreIntoSuccessor transformation."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            62,
+            67
+          ],
+          "evidence": "Terminators and memory effects are outside supported fragment."
+        }
+      ],
+      "review": "This dispatch delegates a store merge across an unconditional branch. Puddle excludes stores/effects and terminators/control-flow from the supported semantic fragment."
+    },
+    {
+      "id": "ic-target-valid-addrspace-cast-L180",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          180,
+          185
+        ],
+        "function": "isValidAddrSpaceCast",
+        "source_scope": "Target legality query used to guard addrspacecast elimination; no source rewrite itself."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Target legality query only; it does not itself rewrite IR."
+    },
+    {
+      "id": "ic-debug-sink-order-L5687",
+      "inventory_status": "pending",
+      "assessment": "unsupported_outside_value_semantics",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5687,
+          5813
+        ],
+        "function": "tryToSinkInstructionDbgVariableRecords",
+        "source_scope": "Analysis/utility and debug-info helper: order and deduplicate debug records, salvage source locations, and clone/move records alongside sunk instruction."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            62,
+            67
+          ],
+          "evidence": "Terminators and memory effects are outside supported fragment."
+        }
+      ],
+      "review": "This helper mutates debug records and source-location metadata; these are outside the Puddle rewrite/value semantics."
+    },
+    {
+      "id": "ic-run-worklist-L5815",
+      "inventory_status": "pending",
+      "assessment": "unsupported_orchestration_not_single_rewrite",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5815,
+          6007
+        ],
+        "function": "run",
+        "source_scope": "Generic InstCombine worklist engine: dispatch canonical trivial-dead-instruction erasure at ic-run-dce-L5824 (including repeated call sites ic-run-dce-repeat-L5837 and ic-run-dce-post-visit-L5994), optionally sink safe instructions, invoke per-instruction visitors, replace/mutate roots, and enqueue users."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            62,
+            67
+          ],
+          "evidence": "Terminators and memory effects are outside supported fragment."
+        }
+      ],
+      "review": "This is the general worklist engine, dispatching arbitrary visitors, DCE, code sinking, and multi-root changes. It cannot be represented as one semantic pattern; individually inventoried visitor rewrites remain reviewable."
+    },
+    {
+      "id": "ic-free-invert-double-not-L3024",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3024,
+          3028
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "When asked to construct the complement of V and V is already ~A, return A: the contextual identity is ~(~A) -> A."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Base case over scalar integer bitwise complement/constants is directly representable; helper has no use-count blocker. Pending proof of exact poison semantics for the scoped case."
+    },
+    {
+      "id": "ic-free-invert-constant-L3030",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3030,
+          3031
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Complement immediate constant using ConstantExpr::getNot."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Base case over scalar integer bitwise complement/constants is directly representable; helper has no use-count blocker. Pending proof of exact poison semantics for the scoped case."
+    },
+    {
+      "id": "ic-free-invert-compare-L3042",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3042,
+          3046
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Invert comparison predicate while retaining operands."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-add-L3050",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3050,
+          3058
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Complement A+B as complement(B)-A, with symmetric operand alternative."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-xor-L3061",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3061,
+          3070
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Complement A xor B as A xor complement(B), with symmetric operand alternative."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-sub-L3073",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3073,
+          3078
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Complement A-B as complement(A)+B."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-ashr-L3080",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3080,
+          3088
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Construct ~(A ashr B) as (recursively constructed ~A) ashr B. For A=~X this specializes to ~(~X ashr B) -> X ashr B."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-select-minmax-L3094",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3094,
+          3118
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Complement a select by recursively complementing both arms and retaining the condition."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-casts-L3150",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3150,
+          3162
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Construct the complement of sext(A) (or zext nneg(A)) as sext(~A), and the complement of trunc(A) as trunc(~A), using a recursively constructed complement of A."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-free-invert-demorgan-L3165",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          3165,
+          3200
+        ],
+        "function": "getFreelyInvertedImpl",
+        "source_scope": "Apply De Morgan to bitwise/logical and/or after both operands pass inversion checks."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar integer complement construction uses modeled operations/casts/select and modeled poison flags; source use-count/depth/all-uses checks control mutation/profitability. A direct root replacement can be constructed without mutating shared child users. Exact recursive poison refinement remains proof work; vector/FP cases are excluded."
+    },
+    {
+      "id": "ic-extractvalue-simplify-L4766",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4766,
+          4769
+        ],
+        "function": "InstCombinerImpl::visitExtractValueInst",
+        "source_scope": "Delegate indexed aggregate simplification to simplifyExtractValueInst and replace the extract when the helper returns a value."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Delegates to external simplifyExtractValueInst; no local rewrite is defined here."
+    },
+    {
+      "id": "ic-extractvalue-overflow-intrinsic-L4838",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_with_overflow_intrinsic",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4831,
+          4832
+        ],
+        "function": "InstCombinerImpl::visitExtractValueInst",
+        "source_scope": "Delegate extraction of a with.overflow result field to the local foldExtractOfOverflowIntrinsic helper."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            88,
+            92
+          ],
+          "evidence": "with.overflow has no corresponding opcode/interpreter case."
+        }
+      ],
+      "review": "The local fold extracts fields of a with.overflow operation. Puddle capability documentation explicitly notes with.overflow operations have no corresponding opcode/interpreter case."
+    },
+    {
+      "id": "ic-freeze-inst-simplify-L5428",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5428,
+          5433
+        ],
+        "function": "InstCombinerImpl::visitFreeze",
+        "source_scope": "Delegate freeze simplification to external InstSimplify and install its returned replacement; no independent local rewrite is defined here."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Delegates to InstSimplify; this visitor arm defines no independent rewrite."
+    },
+    {
+      "id": "ic-freeze-phi-recurrence-L5435",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5435,
+          5440
+        ],
+        "function": "InstCombinerImpl::visitFreeze",
+        "source_scope": "Dispatch a freeze of a PHI to generic PHI folding and then recurrence folding; the corresponding helpers define the transformations."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Dispatch only; actual PHI/freeze transformations belong to delegated helpers."
+    },
+    {
+      "id": "ic-freeze-safe-op-push-L5442",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5442,
+          5444
+        ],
+        "function": "InstCombinerImpl::visitFreeze",
+        "source_scope": "Install the result of the separately inventoried freeze-pushing helper."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Dispatch only to separately inventoried freeze-push helper."
+    },
+    {
+      "id": "ic-freeze-undef-use-choice-L5446",
+      "inventory_status": "pending",
+      "assessment": "unsupported_undef_freeze_choice_semantics",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5446,
+          5507
+        ],
+        "function": "InstCombinerImpl::visitFreeze",
+        "source_scope": "Choose one shared safe replacement for freeze(undef or poison) from its users: all ones for OR, true for a select condition with constant true arm, a known-nonpoison other select arm, a common safe PHI constant, or typed zero when choices disagree/default."
+      },
+      "model_evidence": [
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "lines": [
+            1627,
+            1636
+          ],
+          "evidence": "Freeze is interpreted deterministically for integer/byte poison and pointer poison."
+        }
+      ],
+      "review": "The source deliberately chooses a safe replacement for freeze(undef or poison) based on uses, including nonconstant safe select arms. Puddle has deterministic freeze behavior for modeled poison and lacks LLVM arbitrary-choice freeze semantics; this is not automatically a source/LLVM bug."
+    },
+    {
+      "id": "ic-freeze-undef-shuffle-guard-L5509",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5509,
+          5516
+        ],
+        "function": "InstCombinerImpl::visitFreeze",
+        "source_scope": "For freeze of undef or poison, exclude direct/bitcast-mediated shuffle users, then install the shared use-choice helper result."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Eligibility guard and dispatch only; the replacement choice is implemented in ic-freeze-undef-use-choice-L5446."
+    },
+    {
+      "id": "ic-freeze-other-uses-L5539",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_dominance_and_use_graph",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          5539,
+          5544
+        ],
+        "function": "InstCombinerImpl::visitFreeze",
+        "source_scope": "Dispatch to the separately inventoried dominance-aware freeze motion and use-replacement helper."
+      },
+      "model_evidence": [
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "lines": [
+            1627,
+            1636
+          ],
+          "evidence": "Freeze is interpreted deterministically for integer/byte poison and pointer poison."
+        }
+      ],
+      "review": "The delegated helper moves/replaces freeze across other uses with dominance-sensitive, non-root use mutation. That graph/dominance behavior is outside the current single-root proof pattern."
+    },
+    {
+      "id": "ic-gep-gep-select-constant-index-L2922",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2927,
+          2967
+        ],
+        "function": "InstCombiner::visitGEPOfGEP",
+        "source_scope": "Fold chained one-index GEPs with one constant offset and one select of constant offsets into a select of summed indices and one GEP."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "No independent unsupported opcode is identified from this row; classify only the exact scalar source subfamily after checking its delegated helper conditions. Proof work remains pending; do not infer source success solely from opcode availability."
+    },
+    {
+      "id": "ic-gep-gep-sequential-index-add-L2956",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2970,
+          3014
+        ],
+        "function": "InstCombiner::visitGEPOfGEP",
+        "source_scope": "Merge matching-element-type chained GEPs when the final source index is sequential and has the same type as the outer first index; use the existing value returned by simplifyAddInst and require at most one nonzero merged index. This branch does not construct an add instruction."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "No independent unsupported opcode is identified from this row; classify only the exact scalar source subfamily after checking its delegated helper conditions. Proof work remains pending; do not infer source success solely from opcode availability."
+    },
+    {
+      "id": "ic-fpbinop-entry-scalar-shape-L1723",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_fp_analysis",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1730,
+          1759
+        ],
+        "function": "InstCombinerImpl::foldFBinOpOfIntCasts",
+        "source_scope": "Reject vector result; match scalar LHS int-to-FP and RHS int-to-FP or constant, cache KnownBits, then call the signedness-specific helper unsigned-first and signed only on failure."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            62,
+            67
+          ],
+          "evidence": "Terminators and memory effects are outside supported fragment."
+        }
+      ],
+      "review": "This entry is dispatch-only, but the helper uses floating exactness, KnownBits, and overflow facts. Puddle float interpretation/opcode support does not supply these source-side dynamic analyses."
+    },
+    {
+      "id": "ic-gep-offset-mutation-L228",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          249,
+          261
+        ],
+        "function": "InstCombinerImpl::EmitGEPOffsets",
+        "source_scope": "When RewriteGEPs is enabled and a GEP is eligible, replace its uses with ptradd from the accumulated base and byte offset, preserving intersected no-wrap flags, then erase the original GEP."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "The helper emits CreatePtrAdd (which is getelementptr i8), not a separate ptradd opcode. A scalar one-index unflagged GEP with i64 offset under default RV64 can be represented by the modeled GEP; arbitrary accumulated nested offsets, no-wrap flags, and vector cases remain outside the narrow pending scope."
+    },
+    {
+      "id": "ic-overflow-read-nuw-L371",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          371,
+          374
+        ],
+        "function": "hasNoUnsignedWrap",
+        "source_scope": "Return whether an instruction carries NUW."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Attribute query only; no rewrite."
+    },
+    {
+      "id": "ic-overflow-read-nsw-L376",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          376,
+          379
+        ],
+        "function": "hasNoSignedWrap",
+        "source_scope": "Return whether an instruction carries NSW."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Attribute query only; no rewrite."
+    },
+    {
+      "id": "ic-distribution-left-L669",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          669,
+          686
+        ],
+        "function": "leftDistributesOverRight",
+        "source_scope": "Recognize opcode pairs where left operator distributes over right operator, including integer add/sub/mul, bitwise combinations, and shift forms."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Opcode-pair classification helper only; no rewrite."
+    },
+    {
+      "id": "ic-distribution-right-L690",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          690,
+          701
+        ],
+        "function": "rightDistributesOverLeft",
+        "source_scope": "Recognize right-over-left distribution by reversing arguments or handling scalar/vector arithmetic cases."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Opcode-pair classification helper only; no rewrite."
+    },
+    {
+      "id": "ic-distribution-identities-L705",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          705,
+          710
+        ],
+        "function": "getIdentityValue",
+        "source_scope": "Return zero/all-ones/one identity constant for supported integer opcodes; return null when none applies."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Identity-constant helper only; no rewrite."
+    },
+    {
+      "id": "ic-distribution-factorization-ops-L717",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          717,
+          742
+        ],
+        "function": "getBinOpsForFactorization",
+        "source_scope": "Select an inner operator and residual operands for distributive factorization, including shift/multiply normalization."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Opcode/operand selection helper only; no rewrite."
+    },
+    {
+      "id": "ic-symmetric-phi-match-L1288",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1288,
+          1313
+        ],
+        "function": "matchSymmetricPhiNodesPair",
+        "source_scope": "Match two PHIs in same block with aligned incoming blocks and swapped value pairs; return corresponding operand pair."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "PHI-shape matcher only; no rewrite."
+    },
+    {
+      "id": "ic-symmetric-value-match-L1315",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          1315,
+          1350
+        ],
+        "function": "InstCombinerImpl::matchSymmetricPair",
+        "source_scope": "Match symmetric selects with common condition/swapped arms, PHIs via helper, or reciprocal min/max calls."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Symmetry matcher only; no rewrite."
+    },
+    {
+      "id": "ic-eh-catchall-personality-L4890",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4890,
+          4918
+        ],
+        "function": "isCatchAll",
+        "source_scope": "Treat null typeinfo as catch-all for listed C++/ObjC/SEH/CLR/Wasm/D personalities; return false for unknown/cleanup-only personalities."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Personality classification helper only; no rewrite."
+    },
+    {
+      "id": "ic-eh-filter-order-L4920",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          4920,
+          4925
+        ],
+        "function": "shorter_filter",
+        "source_scope": "Order filter clauses by array length ascending."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Array-clause ordering helper only; no rewrite."
+    },
+    {
+      "id": "demanded-bitwidth-helper-L112",
+      "inventory_status": "pending",
+      "assessment": "pending_nonrewrite_helper_or_dispatch",
+      "source_evidence": {
+        "file": "InstCombineSimplifyDemanded.cpp",
+        "lines": [
+          112,
+          117
+        ],
+        "function": "getBitWidth",
+        "source_scope": "Analysis helper returns scalar element bitwidth, falling back to DataLayout pointer size when scalar size is zero."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Scalar width/DataLayout helper only; no rewrite."
+    },
+    {
+      "id": "demanded-bits-wrapper-L134",
+      "inventory_status": "pending",
+      "assessment": "unsupported_missing_demanded_bits_analysis",
+      "source_evidence": {
+        "file": "InstCombineSimplifyDemanded.cpp",
+        "lines": [
+          134,
+          137
+        ],
+        "function": "InstCombinerImpl::SimplifyDemandedInstructionBits",
+        "source_scope": "Initialize KnownBits from instruction scalar width and delegate to demanded-use-bits simplification; the overload itself does not define a distinct rewrite."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            101,
+            104
+          ],
+          "evidence": "Source-side KnownBits/range analyses are distinct from modeled flags."
+        }
+      ],
+      "review": "The wrapper initializes KnownBits and delegates to demand-mask propagation. Puddle has no sound demanded-bits/KnownBits source analysis; the wrapper itself defines no fixed-mask transformation."
+    },
+    {
+      "id": "demanded-drop-wrap-unused-high-L240",
+      "inventory_status": "pending",
+      "assessment": "supported_semantics_proof_pending",
+      "source_evidence": {
+        "file": "InstCombineSimplifyDemanded.cpp",
+        "lines": [
+          240,
+          252
+        ],
+        "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+        "source_scope": "Remove nsw and nuw after high output bits are simplified away, because discarded sign/high bits no longer constrain overflow."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            50,
+            60
+          ],
+          "evidence": "Scalar integer operations, casts, select, freeze, GEP, and pure integer intrinsics are structurally supported subject to interpreter type coverage."
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            94,
+            104
+          ],
+          "evidence": "Integer poison-generating flags are modeled; source-side dynamic analyses can still constrain exact cases."
+        }
+      ],
+      "review": "Removing NSW/NUW is a modeled poison refinement, not an absent flag feature. However the source fact `NLZ>0` comes from demanded-bit/KnownBits analysis; a fixed explicit demand mask specialization may be pending, but the full use-derived mask family remains unsupported."
+    },
+    {
+      "id": "demanded-vector-target-intrinsic-delegation-L1987",
+      "inventory_status": "pending",
+      "assessment": "unsupported_target_hook_semantics",
+      "source_evidence": {
+        "file": "InstCombineSimplifyDemanded.cpp",
+        "lines": [
+          1987,
+          1994
+        ],
+        "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+        "source_scope": "Delegate target-specific intrinsic lane-demand simplification and return the target hook result when present."
+      },
+      "model_evidence": [
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "lines": [
+            101,
+            104
+          ],
+          "evidence": "Source-side KnownBits/range analyses are distinct from modeled flags."
+        }
+      ],
+      "review": "The branch calls a target-specific demanded-vector-elt hook. Its behavior is target-dependent and no corresponding Puddle operation or target hook is modeled."
+    }
+  ],
+  "coordinator_review": {
+    "status": "advisory_not_applied",
+    "limitations": [
+      "Selection included nonrewrite helpers and already manifested source entries; inventory pending status alone is not current proof status.",
+      "Some model_evidence citations are generic or unrelated to the particular blocker and require correction.",
+      "Counterexample entries must retain validated counterexample status rather than be reclassified unsupported.",
+      "Multi-node source mutation alone does not preclude constructing the equivalent replacement DAG; scalar symmetric-select/minmax specializations need further review."
+    ]
+  }
+}

@@ -1,0 +1,1291 @@
+{
+  "entries_without_candidate_site": [
+    {
+      "id": "bitwise-L2452",
+      "file": "InstCombineAndOrXor.cpp",
+      "range": [
+        2452,
+        2454
+      ],
+      "description": "Reassociate LHS op (X op/lop Y) by folding LHS op X, then combine the result with Y."
+    },
+    {
+      "id": "bitwise-L2457",
+      "file": "InstCombineAndOrXor.cpp",
+      "range": [
+        2457,
+        2459
+      ],
+      "description": "Reassociate LHS op (X op/lop Y) by folding LHS op Y, then combine X with the result."
+    },
+    {
+      "id": "calls-ptrmask-nonnull-L2872",
+      "file": "InstCombineCalls.cpp",
+      "range": [
+        2872,
+        2878
+      ],
+      "description": "Add nonnull return attribute to ptrmask call when KnownBits or isKnownNonZero proves its result nonzero."
+    },
+    {
+      "id": "calls-assume-separate-storage-L4000",
+      "file": "InstCombineCalls.cpp",
+      "range": [
+        4000,
+        4016
+      ],
+      "description": "Canonicalize separate-storage bundle pointers to underlying allocation objects."
+    },
+    {
+      "id": "calls-ptrauth-callee-resign-L4939",
+      "file": "InstCombineCalls.cpp",
+      "range": [
+        4939,
+        4955
+      ],
+      "description": "For a call through ptrauth.resign, remove the resign from the callee when its result key/discriminator match the call bundle and its input auth key matches; preserve authentication by replacing the bundle with the input key/discriminator."
+    },
+    {
+      "id": "calls-inlineasm-nounwind-L5180",
+      "file": "InstCombineCalls.cpp",
+      "range": [
+        5180,
+        5187
+      ],
+      "description": "Mark inline-asm call nounwind when asm cannot throw."
+    },
+    {
+      "id": "calls-drop-callee-type-metadata-L5209",
+      "file": "InstCombineCalls.cpp",
+      "range": [
+        5209,
+        5214
+      ],
+      "description": "Drop callee_type metadata after indirect call becomes direct."
+    },
+    {
+      "id": "calls-gc-relocate-nonnull-L5278",
+      "file": "InstCombineCalls.cpp",
+      "range": [
+        5278,
+        5285
+      ],
+      "description": "Add nonnull return attribute to gc.relocate when known-nonzero analysis proves its derived pointer nonnull; requeue users."
+    },
+    {
+      "id": "cmpb-L6807-neutral-overflow",
+      "file": "InstCombineCompares.cpp",
+      "range": [
+        6804,
+        6807
+      ],
+      "description": "For a neutral RHS, return the left operand as the arithmetic result and constant false as the overflow bit; the caller uses those values to simplify the overflow result."
+    },
+    {
+      "id": "cmpb-L6818-always-overflow",
+      "file": "InstCombineCompares.cpp",
+      "range": [
+        6813,
+        6818
+      ],
+      "description": "When computeOverflow classifies the requested add/sub/mul as always overflowing, synthesize the arithmetic result and return constant true as the overflow bit."
+    },
+    {
+      "id": "cmpb-L7001-add",
+      "file": "InstCombineCompares.cpp",
+      "range": [
+        6953,
+        6962
+      ],
+      "description": "Replace zero-extended add and overflow comparison by a width-normalized add plus unsigned wrap comparison against an operand."
+    },
+    {
+      "id": "cmpb-L7001-mul",
+      "file": "InstCombineCompares.cpp",
+      "range": [
+        6963,
+        6972
+      ],
+      "description": "Replace zero-extended multiply and overflow comparison by umul.with.overflow and its overflow result."
+    },
+    {
+      "id": "cmpb-L7141-replaced-select-operand",
+      "file": "InstCombineCompares.cpp",
+      "range": [
+        7121,
+        7144
+      ],
+      "description": "For an EQ comparison on a select in an eligible select-cmp-branch chain, replace uses of the selected arm outside the select block with that arm when the successor has one predecessor and the compare dominates all those uses."
+    },
+    {
+      "id": "loadstore-pointer-replacer-phi-newtype-L430",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        430,
+        441
+      ],
+      "description": "Rebuild a collected PHI with the replacement pointer type and mapped incoming values when address-space replacement changes the PHI type."
+    },
+    {
+      "id": "loadstore-pointer-replacer-gep-L442",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        442,
+        451
+      ],
+      "description": "Rebuild a collected GEP using the replacement base pointer and original indices, source element type, and no-wrap flags."
+    },
+    {
+      "id": "loadstore-pointer-replacer-select-L452",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        452,
+        463
+      ],
+      "description": "Rebuild a collected select with its original condition and replacement values for either arm when available."
+    },
+    {
+      "id": "loadstore-pointer-replacer-addrspacecast-L483",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        483,
+        501
+      ],
+      "description": "Recreate a collected address-space cast when replacement source and destination spaces differ and the cast is target-valid; otherwise reuse the replacement pointer directly."
+    },
+    {
+      "id": "loadstore-nonnull-phi-L1083",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1083,
+        1096
+      ],
+      "description": "For a PHI incoming value, recursively simplify incoming pointers, replace each successful incoming use, and requeue the PHI if any incoming changed."
+    },
+    {
+      "id": "loadstore-store-retype-bitcast-L1323",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1321,
+        1336
+      ],
+      "description": "For an unordered non-elementwise store of a bitcast value, store the source value directly when it is not x86_amx and the resulting type is supported for atomic access; preserve store metadata through combineStoreToNewValue."
+    },
+    {
+      "id": "loadstore-store-retype-vector-L1338",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1338,
+        1342
+      ],
+      "description": "When likeBitCastFromVector recognizes an isomorphic vector-to-aggregate insertvalue/extractelement chain, store the underlying vector value with its original width; require supported atomic type if atomic."
+    },
+    {
+      "id": "loadstore-unpack-store-struct-single-L1361",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1361,
+        1368
+      ],
+      "description": "For a simple one-field struct store, extract its field, build a store of the field type at the same pointer, and erase the aggregate store."
+    },
+    {
+      "id": "loadstore-unpack-store-struct-many-L1370",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1370,
+        1398
+      ],
+      "description": "For a simple multi-field struct store without padding, extract every field and emit aligned stores at DataLayout offsets, preserving AA metadata, then erase the aggregate store."
+    },
+    {
+      "id": "loadstore-unpack-store-array-single-L1401",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1401,
+        1408
+      ],
+      "description": "For a simple one-element array store, extract the element and build a store of the element type at the same pointer."
+    },
+    {
+      "id": "loadstore-unpack-store-array-many-L1410",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "range": [
+        1410,
+        1447
+      ],
+      "description": "For a simple array store within maxarray_size, extract each element and emit aligned stores at element offsets, preserving AA metadata, then erase the aggregate store."
+    },
+    {
+      "id": "divrem-selectzero-context-L1171",
+      "file": "InstCombineMulDivRem.cpp",
+      "range": [
+        1171,
+        1216
+      ],
+      "description": "After div/rem(X, select(C, 0, Y)) or div/rem(X, select(C, Y, 0)), replace earlier same-block uses of the divisor select with Y and uses of C with false or true respectively. Stop at an instruction not guaranteed to transfer execution, the block start, or after passing both definitions."
+    },
+    {
+      "id": "select-L1657",
+      "file": "InstCombineSelect.cpp",
+      "range": [
+        1648,
+        1657
+      ],
+      "description": "When the cttz/ctlz result and optional zext/trunc arm are one-use and the select avoids using count on zero input, set is_zero_poison=true and drop UB-implying attributes/metadata."
+    },
+    {
+      "id": "select-L3411",
+      "file": "InstCombineSelect.cpp",
+      "range": [
+        3410,
+        3412
+      ],
+      "description": "Propagate nnan from fcmp to select when absent."
+    },
+    {
+      "id": "select-L3414",
+      "file": "InstCombineSelect.cpp",
+      "range": [
+        3414,
+        3416
+      ],
+      "description": "Propagate ninf from fcmp to select when absent."
+    },
+    {
+      "id": "select-L3422",
+      "file": "InstCombineSelect.cpp",
+      "range": [
+        3420,
+        3423
+      ],
+      "description": "Propagate nnan from selected fneg to select when predicate polarity selects that arm for NaN."
+    },
+    {
+      "id": "demanded-bits-operand-L152",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        152,
+        199
+      ],
+      "description": "For constant operands compute KnownBits only; replace zero-demanded operand with undef; recursively simplify single-use producer or cloneable multi-use producer under bounded depth and replace this use, salvaging debug info."
+    },
+    {
+      "id": "demanded-use-sub-zero-lhs-lsb-L668",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        668,
+        672
+      ],
+      "description": "Return RHS for subtraction only when the demanded operand mask is exactly bit zero and LHS is known zero there."
+    },
+    {
+      "id": "demanded-use-shl-propagate-variable-L792",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        792,
+        797
+      ],
+      "description": "For variable shl with undemanded high result bits, simplify source high bits and drop wrap flags when source changes."
+    },
+    {
+      "id": "demanded-use-ashr-to-lshr-L920",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        920,
+        929
+      ],
+      "description": "Replace arithmetic right shift with logical right shift when source sign is known zero or no shifted-in sign bits are demanded; preserve exact."
+    },
+    {
+      "id": "demanded-vector-zero-demand-L1533",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1533,
+        1535
+      ],
+      "description": "When no fixed-vector lane is demanded, return a poison vector and mark every lane poison."
+    },
+    {
+      "id": "demanded-vector-gep-demand-L1616",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1616,
+        1652
+      ],
+      "description": "Propagate output lane demand to each vector GEP operand; return lane-poison information from the base pointer operand only."
+    },
+    {
+      "id": "demanded-vector-insert-variable-index-L1654",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1654,
+        1674
+      ],
+      "description": "For variable-index insertelement, propagate demanded lanes unchanged to the base vector because the overwritten lane is unknown."
+    },
+    {
+      "id": "demanded-vector-shuffle-poison-mask-write-L1842",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1842,
+        1853
+      ],
+      "description": "When lane analysis found newly poison or undemanded output lanes, replace those shuffle mask elements with poison elements and mark the shuffle changed."
+    },
+    {
+      "id": "demanded-vector-select-constant-condition-L1856",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1856,
+        1888
+      ],
+      "description": "Propagate demand through vector select condition and arms; constant zero/one condition lanes suppress demand in the unselected arm, with output poison where both arm lanes are poison."
+    },
+    {
+      "id": "demanded-vector-bitcast-equal-lanes-L1891",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1891,
+        1913
+      ],
+      "description": "For vector bitcast with equal lane counts, pass demand and poison lane masks through unchanged."
+    },
+    {
+      "id": "demanded-vector-bitcast-output-multiple-L1914",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1914,
+        1925
+      ],
+      "description": "When output has an integer multiple of source lanes, demand a source lane if any corresponding output lane is demanded; replicate source poison to corresponding outputs."
+    },
+    {
+      "id": "demanded-vector-bitcast-input-multiple-L1926",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1926,
+        1949
+      ],
+      "description": "When input lane count is an integer multiple of output lanes, demand all source lanes belonging to demanded output lanes; mark output poison only if every corresponding input lane is poison."
+    },
+    {
+      "id": "demanded-vector-fp-conversions-L1951",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1951,
+        1954
+      ],
+      "description": "Pass demanded lane mask through fptrunc/fpext and report corresponding poison lanes."
+    },
+    {
+      "id": "demanded-vector-masked-memory-L1956",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1956,
+        1985
+      ],
+      "description": "For masked load/gather keep pointer lanes demanded unless a constant mask proves them inactive; suppress pass-through demand where mask is all-ones and intersect poison from pointer and pass-through."
+    },
+    {
+      "id": "demanded-vector-elementwise-intrinsic-L1995",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        1995,
+        2018
+      ],
+      "description": "Pass lane demand unchanged to each vector argument of a trivially vectorizable intrinsic, skipping designated scalar arguments; union operand poison only for intrinsic IDs documented as elementwise poison-propagating."
+    },
+    {
+      "id": "demanded-fpclass-empty-demand-operand-L3834",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        3834,
+        3847
+      ],
+      "description": "Replace an operand with poison when no FP class is demanded, unless it is already poison."
+    },
+    {
+      "id": "demanded-fpclass-constant-operand-L3848",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "range": [
+        3848,
+        3873
+      ],
+      "description": "Compute operand known classes, replace with poison if no demanded class remains, or replace a nonconstant operand with an exact singleton-class constant."
+    },
+    {
+      "id": "ic-ctpop-not-sub-L851",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        914,
+        916
+      ],
+      "description": "Rewrite C - ctpop(not X) as ctpop(X) + (C - bitwidth(X))."
+    },
+    {
+      "id": "ic-ctpop-not-add-L861",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        918,
+        920
+      ],
+      "description": "Rewrite ctpop(not X) + C as (C + bitwidth(X)) - ctpop(X)."
+    },
+    {
+      "id": "ic-ctpop-not-disjoint-or-L865",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        918,
+        920
+      ],
+      "description": "Rewrite disjoint-or(C, ctpop(not X)) as (C + bitwidth(X)) - ctpop(X)."
+    },
+    {
+      "id": "ic-select-feed-binop-common-condition-L1381",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        1438,
+        1449
+      ],
+      "description": "Rewrite (A?B:C) op (A?E:F) as A ? simplify(B op E) : simplify(C op F); if one arm simplifies and both selects are one-use, build the other binop unsimplified."
+    },
+    {
+      "id": "ic-select-feed-binop-left-select-L1434",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        1450,
+        1456
+      ],
+      "description": "Rewrite one-use (A?B:C) op Y as A ? simplify(B op Y) : simplify(C op Y), resolving a nested select in Y when A implies its condition. If both per-arm operations are available, the shared installer emits the corresponding result select."
+    },
+    {
+      "id": "ic-select-feed-binop-right-select-L1451",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        1459,
+        1465
+      ],
+      "description": "Rewrite X op (D?E:F) symmetrically, resolving a nested select in X when D implies its condition. If both per-arm operations are available, the shared installer emits the corresponding result select."
+    },
+    {
+      "id": "ic-fold-binop-select-true-nested-L1947",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        1947,
+        1951
+      ],
+      "description": "When true arm is one-use (base op C2) and false arm is base, fold outer constant C with C2 in true arm, then return op(select(cond,newTrue,C),base)."
+    },
+    {
+      "id": "ic-vector-binop-splat-reassociate-L2719",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        2719,
+        2720
+      ],
+      "description": "Reassociate associative commutative binop through one-use splat shuffle and one-use nested same-op binop when either nested operand is splatted at selected lane; intersect FMF, drop other flags."
+    },
+    {
+      "id": "ic-condbr-constant-dead-successor-L4424",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        4431,
+        4439
+      ],
+      "description": "For undef or constant condition, mark no successor or only chosen successor live and update dead-edge PHIs/blocks."
+    },
+    {
+      "id": "ic-condbr-dominated-condition-uses-L4435",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        4441,
+        4458
+      ],
+      "description": "Replace condition uses dominated by true edge with true and uses dominated by false edge with false; enqueue users."
+    },
+    {
+      "id": "ic-switch-constant-dead-successors-L4614",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        4618,
+        4626
+      ],
+      "description": "For undef or constant switch condition, mark nonselected successors dead and rewrite affected PHIs/blocks."
+    },
+    {
+      "id": "ic-landingpad-duplicate-catch-L4950",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        4950,
+        4969
+      ],
+      "description": "Drop repeated catch typeinfo after pointer-cast stripping; retain first occurrence."
+    },
+    {
+      "id": "ic-landingpad-catchall-stop-L4970",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        4970,
+        4981
+      ],
+      "description": "After recognized catch-all, discard later clauses and clear cleanup."
+    },
+    {
+      "id": "ic-landingpad-empty-filter-stop-L4993",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        4993,
+        5006
+      ],
+      "description": "Keep empty filter as terminal catch-everything clause and clear cleanup."
+    },
+    {
+      "id": "ic-landingpad-zero-filter-L5008",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        5008,
+        5029
+      ],
+      "description": "Drop filter if zero aggregate contains catch-all; otherwise deduplicate its null typeinfos."
+    },
+    {
+      "id": "ic-landingpad-array-filter-L5030",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        5030,
+        5099
+      ],
+      "description": "Deduplicate filter typeinfos; discard filter if any element is catch-all; rebuild only when changed."
+    },
+    {
+      "id": "ic-landingpad-sort-filters-L5120",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        5120,
+        5148
+      ],
+      "description": "Stable-sort each contiguous filter run by ascending element count if out of order."
+    },
+    {
+      "id": "ic-landingpad-subset-filter-L5158",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        5158,
+        5205
+      ],
+      "description": "Drop later filter when earlier filter is a subset, including empty/zero-only special cases."
+    },
+    {
+      "id": "ic-sink-instruction-between-blocks-L5591",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        5591,
+        5685
+      ],
+      "description": "Move safe instruction to destination block start; reject PHI/EH/throwing/nonreturning/terminator/alloca/catchswitch/convergent; writes only when sole write to dead local; loads only to unique successor with no intervening writes; repair droppable users, sink assume and debug records."
+    },
+    {
+      "id": "ic-worklist-dead-edge-poison-phi-L6117",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        6117,
+        6125
+      ],
+      "description": "When predecessor edge is excluded, replace that predecessor value in every successor PHI with poison and record IR change."
+    },
+    {
+      "id": "ic-worklist-instruction-constant-fold-L6140",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        6135,
+        6148
+      ],
+      "description": "Constant-fold instruction with no operands or constant first operand; replace all uses, count fold, and erase instruction if trivially dead."
+    },
+    {
+      "id": "ic-worklist-constant-operand-fold-L6156",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        6150,
+        6167
+      ],
+      "description": "Fold ConstantVector or ConstantExpr operands through cache and mutate operand when folded value differs."
+    },
+    {
+      "id": "ic-worklist-constant-branch-switch-edges-L6180",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        6178,
+        6204
+      ],
+      "description": "For undef or constant condbr/switch condition, mark only feasible successors live (or none for undef) and poison PHI values on dead edges."
+    },
+    {
+      "id": "ic-worklist-unreachable-block-cleanup-L6202",
+      "file": "InstructionCombining.cpp",
+      "range": [
+        6206,
+        6218
+      ],
+      "description": "Remove nonterminator and non-EH-pad instructions from blocks not reached in live-block traversal."
+    }
+  ],
+  "sites_with_multiple_rewrite_entries": [
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 4978,
+      "kind": "mutation",
+      "text": "Y->setPredicate(Y->getInversePredicate());",
+      "inventory_ids": [
+        "bitwise-L4995",
+        "bitwise-L4995-shared-users"
+      ]
+    },
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 4992,
+      "kind": "return",
+      "text": "[NotY](Use &U) { return U.getUser() != NotY; });",
+      "inventory_ids": [
+        "bitwise-L4995",
+        "bitwise-L4995-shared-users"
+      ]
+    },
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 4995,
+      "kind": "return",
+      "text": "return Builder.CreateAnd(LHS, RHS);",
+      "inventory_ids": [
+        "bitwise-L4995",
+        "bitwise-L4995-shared-users"
+      ]
+    },
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5361,
+      "kind": "mutation",
+      "text": "cast<CmpInst>(NotOp)->setPredicate(CmpInst::getInversePredicate(Pred));",
+      "inventory_ids": [
+        "bitwise-L5363",
+        "bitwise-L5363-shared-users"
+      ]
+    },
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5363,
+      "kind": "return",
+      "text": "return &I;",
+      "inventory_ids": [
+        "bitwise-L5363",
+        "bitwise-L5363-shared-users"
+      ]
+    },
+    {
+      "file": "InstCombineAtomicRMW.cpp",
+      "line": 148,
+      "kind": "mutation",
+      "text": "RMWI.setOperation(AtomicRMWInst::Or);",
+      "inventory_ids": [
+        "atomicrmw-L139f",
+        "atomicrmw-L139i"
+      ]
+    },
+    {
+      "file": "InstCombineAtomicRMW.cpp",
+      "line": 149,
+      "kind": "return",
+      "text": "return replaceOperand(RMWI, 1, ConstantInt::get(RMWI.getType(), 0));",
+      "inventory_ids": [
+        "atomicrmw-L139f",
+        "atomicrmw-L139i"
+      ]
+    },
+    {
+      "file": "InstCombineCasts.cpp",
+      "line": 2950,
+      "kind": "return",
+      "text": "return new ShuffleVectorInst(InVal, V2, ShuffleMask);",
+      "inventory_ids": [
+        "cast-L2950-trunc",
+        "cast-L2950-zext"
+      ]
+    },
+    {
+      "file": "InstCombineCompares.cpp",
+      "line": 4828,
+      "kind": "return",
+      "text": "return IC.Builder.CreateICmp(DstPred, X, M);",
+      "inventory_ids": [
+        "cmpa-L4828-notx-or-mask",
+        "cmpa-L4828-x-and-complement-bound",
+        "cmpa-L4828-x-and-complement-zero",
+        "cmpa-L4828-x-and-mask"
+      ]
+    },
+    {
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1687,
+      "kind": "return",
+      "text": "return !SI.isElementwise() ||",
+      "inventory_ids": [
+        "loadstore-storemerge-L1695",
+        "loadstore-storemerge-L1710"
+      ]
+    },
+    {
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1775,
+      "kind": "mutation",
+      "text": "eraseInstFromFunction(SI);",
+      "inventory_ids": [
+        "loadstore-storemerge-L1695",
+        "loadstore-storemerge-L1710"
+      ]
+    },
+    {
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1776,
+      "kind": "mutation",
+      "text": "eraseInstFromFunction(*OtherStore);",
+      "inventory_ids": [
+        "loadstore-storemerge-L1695",
+        "loadstore-storemerge-L1710"
+      ]
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "line": 489,
+      "kind": "return",
+      "text": "return replaceInstUsesWith(I, X);",
+      "inventory_ids": [
+        "mul-divexact-times-divisor-L486",
+        "mul-divexact-times-negdivisor-L486"
+      ]
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "line": 501,
+      "kind": "return",
+      "text": "return BinaryOperator::CreateSub(XFreeze, Rem);",
+      "inventory_ids": [
+        "mul-divrem-times-divisor-L493",
+        "mul-divrem-times-negdivisor-L493"
+      ]
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "line": 1608,
+      "kind": "return",
+      "text": "return SelectInst::Create(Cond, Op0, NewDiv, \"\", nullptr,",
+      "inventory_ids": [
+        "div-select-one-first-L1608-signed-constant",
+        "div-select-one-first-L1608-unsigned-analysis"
+      ]
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "line": 1615,
+      "kind": "return",
+      "text": "return SelectInst::Create(Cond, NewDiv, Op0, \"\", nullptr,",
+      "inventory_ids": [
+        "div-select-one-second-L1615-signed-constant",
+        "div-select-one-second-L1615-unsigned-analysis"
+      ]
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "line": 2192,
+      "kind": "return",
+      "text": "return BinaryOperator::CreateFMulFMF(Op0, Pow, &I);",
+      "inventory_ids": [
+        "fdiv-pow-L2143",
+        "fdiv-powi-L2166",
+        "fdiv-exp-divisor-L2179"
+      ]
+    },
+    {
+      "file": "InstCombinePHI.cpp",
+      "line": 766,
+      "kind": "mutation",
+      "text": "NewLI->setOperand(0, InVal);",
+      "inventory_ids": [
+        "phi-L773-varyingaddr",
+        "phi-L766-sameaddr"
+      ]
+    },
+    {
+      "file": "InstCombinePHI.cpp",
+      "line": 773,
+      "kind": "return",
+      "text": "return NewLI;",
+      "inventory_ids": [
+        "phi-L773-varyingaddr",
+        "phi-L766-sameaddr"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 141,
+      "kind": "return",
+      "text": "return IC.replaceOperand(Sel, IsEq ? 1 : 2, FoldedVal);",
+      "inventory_ids": [
+        "select-L141-fmul-zero",
+        "select-L141-identity"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 1114,
+      "kind": "mutation",
+      "text": "IC.replaceOperand(*FalseValI,",
+      "inventory_ids": [
+        "select-L1120-freeze",
+        "select-L1120-divrem"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 1120,
+      "kind": "return",
+      "text": "return IC.replaceInstUsesWith(SI, FalseValI);",
+      "inventory_ids": [
+        "select-L1120-freeze",
+        "select-L1120-divrem"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 1685,
+      "kind": "return",
+      "text": "return IC.Builder.CreateNeg(Abs); // Always without NSW flag!",
+      "inventory_ids": [
+        "select-L1685-nabs",
+        "select-L1686-abs"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 1775,
+      "kind": "return",
+      "text": "return replaceOperand(Sel, Swapped ? 2 : 1, V);",
+      "inventory_ids": [
+        "select-L1775",
+        "select-L1785"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2205,
+      "kind": "return",
+      "text": "return Builder.CreateBinaryIntrinsic(Intrinsic::umax, V, TVal);",
+      "inventory_ids": [
+        "select-L2205",
+        "select-L2208",
+        "select-L2211",
+        "select-L2214"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2208,
+      "kind": "return",
+      "text": "return Builder.CreateBinaryIntrinsic(Intrinsic::umin, V, TVal);",
+      "inventory_ids": [
+        "select-L2208",
+        "select-L2211",
+        "select-L2214"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2211,
+      "kind": "return",
+      "text": "return Builder.CreateBinaryIntrinsic(Intrinsic::smax, V, TVal);",
+      "inventory_ids": [
+        "select-L2211",
+        "select-L2214"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2235,
+      "kind": "mutation",
+      "text": "Op->dropPoisonGeneratingFlags();",
+      "inventory_ids": [
+        "select-L2236",
+        "select-L2245"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2236,
+      "kind": "return",
+      "text": "return Op;",
+      "inventory_ids": [
+        "select-L2236",
+        "select-L2245"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2384,
+      "kind": "return",
+      "text": "return Builder.CreateBinaryIntrinsic(Opcode, MinMax, C2);",
+      "inventory_ids": [
+        "select-L2384-intrinsic",
+        "select-L2403-binop"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2629,
+      "kind": "return",
+      "text": "return RI;",
+      "inventory_ids": [
+        "select-L2629-fp",
+        "select-L2631-int"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2666,
+      "kind": "return",
+      "text": "auto IsZeroOrOne = [](const APInt &C) { return C.isZero() || C.isOne(); };",
+      "inventory_ids": [
+        "select-L2754-sadd",
+        "select-L2754-ssub",
+        "select-L2754-uadd",
+        "select-L2754-usub"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2670,
+      "kind": "return",
+      "text": "return match(Min, m_SpecificInt(MinVal)) &&",
+      "inventory_ids": [
+        "select-L2754-sadd",
+        "select-L2754-ssub",
+        "select-L2754-uadd",
+        "select-L2754-usub"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2754,
+      "kind": "return",
+      "text": "return CallInst::Create(F, {X, Y});",
+      "inventory_ids": [
+        "select-L2754-sadd",
+        "select-L2754-ssub",
+        "select-L2754-uadd",
+        "select-L2754-usub"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 3489,
+      "kind": "return",
+      "text": "return IC.replaceInstUsesWith(SI, Fabs);",
+      "inventory_ids": [
+        "select-L3489",
+        "select-L3490"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 4394,
+      "kind": "return",
+      "text": "return replaceInstUsesWith(",
+      "inventory_ids": [
+        "select-L4394-forms1",
+        "select-L4394-forms2",
+        "select-L4394-minus1",
+        "select-L4394-nested",
+        "select-L4394-plus1"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 5163,
+      "kind": "mutation",
+      "text": "replaceOperand(SI, 0, And);",
+      "inventory_ids": [
+        "select-L5166-and",
+        "select-L5166-and-not"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 5164,
+      "kind": "mutation",
+      "text": "replaceOperand(SI, 1, OtherVal);",
+      "inventory_ids": [
+        "select-L5166-and",
+        "select-L5166-and-not"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 5166,
+      "kind": "return",
+      "text": "return &SI;",
+      "inventory_ids": [
+        "select-L5166-and",
+        "select-L5166-and-not"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 5194,
+      "kind": "mutation",
+      "text": "replaceOperand(SI, 0, Or);",
+      "inventory_ids": [
+        "select-L5197-or",
+        "select-L5197-or-not"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 5195,
+      "kind": "mutation",
+      "text": "replaceOperand(SI, 2, OtherVal);",
+      "inventory_ids": [
+        "select-L5197-or",
+        "select-L5197-or-not"
+      ]
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 5197,
+      "kind": "return",
+      "text": "return &SI;",
+      "inventory_ids": [
+        "select-L5197-or",
+        "select-L5197-or-not"
+      ]
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 521,
+      "kind": "return",
+      "text": "return BinaryOperator::CreateExactLShr(",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ]
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 524,
+      "kind": "return",
+      "text": "return BinaryOperator::CreateExactAShr(",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ]
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 530,
+      "kind": "mutation",
+      "text": "Shl->setHasNoSignedWrap();",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ]
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 531,
+      "kind": "return",
+      "text": "return Shl;",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ]
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 534,
+      "kind": "return",
+      "text": "return BinaryOperator::CreateNUWShl(",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ]
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 536,
+      "kind": "return",
+      "text": "return BinaryOperator::CreateNSWShl(ConstantInt::get(Ty, AC->ashr(C2)),",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 524,
+      "kind": "mutation",
+      "text": "I.setHasNoUnsignedWrap(IsNUW);",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 525,
+      "kind": "mutation",
+      "text": "I.setHasNoSignedWrap(IsNSW);",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 541,
+      "kind": "mutation",
+      "text": "I.swapOperands();",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 550,
+      "kind": "mutation",
+      "text": "replaceOperand(I, 0, V);",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 551,
+      "kind": "mutation",
+      "text": "replaceOperand(I, 1, C);",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 555,
+      "kind": "mutation",
+      "text": "I.dropPoisonGeneratingFlags();",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 585,
+      "kind": "mutation",
+      "text": "replaceOperand(I, 0, V);",
+      "inventory_ids": [
+        "ic-assoc-reassociate-right-fold-L524",
+        "ic-assoc-commutative-cross-fold-L590"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 612,
+      "kind": "mutation",
+      "text": "replaceOperand(I, 0, B);",
+      "inventory_ids": [
+        "ic-assoc-commutative-cross-fold-L590",
+        "ic-assoc-commutative-right-cross-fold-L612"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 613,
+      "kind": "mutation",
+      "text": "replaceOperand(I, 1, V);",
+      "inventory_ids": [
+        "ic-assoc-commutative-cross-fold-L590",
+        "ic-assoc-commutative-right-cross-fold-L612"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 617,
+      "kind": "mutation",
+      "text": "I.dropPoisonGeneratingFlags();",
+      "inventory_ids": [
+        "ic-assoc-commutative-cross-fold-L590",
+        "ic-assoc-commutative-right-cross-fold-L612"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 834,
+      "kind": "mutation",
+      "text": "cast<Instruction>(RetVal)->setHasNoSignedWrap(HasNSW);",
+      "inventory_ids": [
+        "ic-factorization-construction-L746",
+        "ic-factorization-right-distributes-L781"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 837,
+      "kind": "mutation",
+      "text": "cast<Instruction>(RetVal)->setHasNoUnsignedWrap(HasNUW);",
+      "inventory_ids": [
+        "ic-factorization-construction-L746",
+        "ic-factorization-right-distributes-L781"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 840,
+      "kind": "return",
+      "text": "return RetVal;",
+      "inventory_ids": [
+        "ic-factorization-construction-L746",
+        "ic-factorization-right-distributes-L781"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 3111,
+      "kind": "return",
+      "text": "return Builder->CreateBinaryIntrinsic(",
+      "inventory_ids": [
+        "ic-free-invert-select-minmax-L3094",
+        "ic-free-invert-minmax-L3097"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 3113,
+      "kind": "return",
+      "text": "return Builder->CreateSelect(Cond, NotA, NotB, \"\",",
+      "inventory_ids": [
+        "ic-free-invert-select-minmax-L3094",
+        "ic-free-invert-minmax-L3097"
+      ]
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 3116,
+      "kind": "return",
+      "text": "return NonNull;",
+      "inventory_ids": [
+        "ic-free-invert-select-minmax-L3094",
+        "ic-free-invert-minmax-L3097"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "purpose": "Source-reviewed scalar symmetric-pair specializations; pending proof work, not outcomes.",
+  "items": [
+    {
+      "inventory_id": "ic-symmetric-pair-reassociate-mutate-L1352",
+      "source": "InstructionCombining.cpp:1352-1379; matcher1315-1349",
+      "shape": "op(op(Z,select(c,X,Y)),select(c,Y,X)) -> op(op(X,Y),Z), with original operand positions preserved as the source mutates them",
+      "scope": "Commutative associative integer add/mul/and/or/xor; source inner one-use. Drop output poison flags. Complementary min/max siblings are additional modeled variants. FP/PHI outside scalar scope. All operand orders require explicit coverage.",
+      "notes": "Rebuilding one-use inner op and outer root is an equivalent Puddle DAG replacement, even though C++ mutates two existing nodes."
+    },
+    {
+      "inventory_id": "calls-symmetric-pair-L2147",
+      "source": "InstCombineCalls.cpp:2147-2155; matcher InstructionCombining.cpp1315-1349",
+      "shape": "commutative_intrinsic(select(c,X,Y),select(c,Y,X)) -> same_intrinsic(X,Y)",
+      "scope": "Check pinned IntrinsicInst::isCommutative before choosing concrete supported intrinsic IDs. Min/max, saturating add and other candidates require source dispatch verification; no generic call proof. Opposite min/max sibling variants also need proof.",
+      "notes": "Model scalar dedicated intrinsic opcodes, preserve exact source flag dropping, and document remaining unmodeled intrinsic/PHI/vector cases separately."
+    }
+  ]
+}

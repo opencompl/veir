@@ -119,15 +119,20 @@ deriving DecidableEq
 namespace HandleContext
 
 /-- The empty handle context. -/
+@[expose]
 def empty : HandleContext := ⟨[], []⟩
 
+/-- Look up an identifier in a list of handle bindings. -/
+@[expose]
+def lookupBindings (id : Nat) : List (Nat × HandleType OpCode) → Option (HandleType OpCode)
+  | [] => none
+  | (definedId, kind) :: rest =>
+      if definedId = id then some kind else lookupBindings id rest
+
 /-- Look up the kind occupying an identifier. -/
+@[expose]
 def lookup (handles : HandleContext) (id : Nat) : Option (HandleType OpCode) :=
-  let rec lookupBindings : List (Nat × HandleType OpCode) → Option (HandleType OpCode)
-    | [] => none
-    | (definedId, kind) :: rest =>
-        if definedId = id then some kind else lookupBindings rest
-  lookupBindings handles.bindings
+  lookupBindings id handles.bindings
 
 /-- Succeed exactly when a typed handle has already been defined with precisely that kind. -/
 @[expose]
@@ -140,6 +145,7 @@ def requireMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Bo
   handles.all ctx.require
 
 /-- Record an output, requiring its identifier to be fresh in the context. -/
+@[expose]
 def insertFresh (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
   match ctx.lookup handle.id with
   | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
@@ -152,6 +158,7 @@ def insertManyFresh (ctx : HandleContext) (handles : List (Handle OpCode kind))
   handles.foldlM insertFresh ctx
 
 /-- Mark an allocated handle as unavailable to creation and replacement inputs. -/
+@[expose]
 def forbid (ctx : HandleContext) (handle : Handle OpCode kind) : HandleContext :=
   ⟨ctx.bindings, handle.id :: ctx.unavailable⟩
 

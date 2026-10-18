@@ -1,0 +1,1449 @@
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExt_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeTrunc_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExt_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtSExt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToZExt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToTrunc_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToBitcast_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToSExt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToTrunc_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToBitcast_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeTruncBitcast_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtBitcast_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtBitcast_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastTrunc_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastZExt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastSExt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastBitcast_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIIB_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIBI_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIBB_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBII_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBIB_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBBI_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBBB_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPPP_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPPB_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPBB_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPBI_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.CountBitReverse.ctlzBitReverse_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.CountBitReverse.cttzBitReverse_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.CountBitReverse.ctlzBitReverseZeroPoison_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.CountBitReverse.cttzBitReverseZeroPoison_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopBitReverse_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopBSwap_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopFShl_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopFShr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtNNegI1.zextNNegI1ToZero_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcLt.zextTruncLowMaskSrcLt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcEq.zextTruncLowMaskSrcEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcGt.zextTruncLowMaskSrcGt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtAndTruncMask.zextAndTruncMask_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtXorAndTruncMask.zextXorAndTruncMask_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.ZExtNegTruncLowMask.zextNegTruncLowMask_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.TopShiftTruncToICmp.truncLShrTopToICmpSlt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.TopShiftTruncToICmp.truncAShrTopToICmpSlt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.LShrTruncToBitTest.lshrTruncToBitTest_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrLShrTruncToBitTest.orLShrTruncToBitTest_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrLShrTruncToBitTest.orLShrTruncToBitTestCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OddShlTruncToICmp.oddShlTruncToICmpEqZero_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FlaggedXorTruncToICmp.flaggedXorTruncToICmpNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.UsubSatTruncToICmp.usubSatOneTruncToICmpEqZero_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExt_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNeg_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTrunc_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndUltToNe.andUltToNe_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndUltToNe.andUltToNeSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndUgeToEq.andUgeToEq_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndUgeToEq.andUgeToEqSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEq_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqDisjoint_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqSwappedDisjoint_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNe_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeDisjoint_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeSwappedDisjoint_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellation.xorCompareCancellation_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellation.xorCompareCancellationNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellationRight.xorCompareCancellationRight_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellationRight.xorCompareCancellationRightNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellationCross.xorCompareCancellationCross_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellationCross.xorCompareCancellationCrossNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond.xorCompareCancellationSecond_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond.xorCompareCancellationSecondNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfEqCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfNeCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfUnsigned_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfUnsignedCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfSigned_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfSignedCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.orDisjointCompareSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareSelf.orDisjointCompareSelfCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddEqCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddNeCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddUnsigned_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddUnsignedCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddSigned_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddSignedCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareOrDisjoint_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareOrDisjointCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsigned_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSigned_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompare_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompare_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompare_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareRightCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareLeftCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareBothCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfRelational_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubRelational_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqCommutedSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeCommutedSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantEq_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantEqSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantNe_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantNeSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.DoubleNegation.doubleNegation_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateConstant.negateConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateI1.negateI1_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateIncrement.negateIncrement_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateIncrement.negateIncrementCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateNot.negateNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateNot.negateNotConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateRightShift.negateAShrSignBit_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateRightShift.negateLShrSignBit_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateBooleanExtension.negateSExtI1_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateBooleanExtension.negateZExtI1_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubSwap.subSwap_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubSwap.subSwapNSW_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateTrunc.negateTruncCommute_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegateTrunc.negateTruncDoubleNegation_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddI1.addI1ToXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubI1.subI1ToXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AllOnesSub.allOnesSubToNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddNegNeg.addNegNeg_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddNegLeft.addNegLeft_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddNegLeft.addNegLeftNSW_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddNegRight.addNegRight_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddNegRight.addNegRightNSW_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubNegRight.subNegRight_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubNegRight.subNegRightNSW_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubNegRight.subNegConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubNegRight.subNegConstantNSW_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCancellation.subAddSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCancellation.subAddSelfCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubCancellation.subSelfFromSub_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1MinMaxAnd.uminI1ToAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1MinMaxAnd.smaxI1ToAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1MinMaxOr.umaxI1ToOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1MinMaxOr.sminI1ToOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1CountZeros.ctlzI1ToNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1CountZeros.cttzI1ToNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1CountZeros.ctlzI1ToZero_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.I1CountZeros.cttzI1ToZero_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddXorAnd.addXorAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddXorAnd.addXorAndCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddXorAnd.addAndXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddXorAnd.addCommutedAndXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubOrAnd.subOrAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubOrAnd.subCommutedOrAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAddOr.subAddOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAddOr.subAddCommutedOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAddAnd.subAddAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAddAnd.subAddCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubOrXor.subOrXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubOrXor.subCommutedOrXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAndNot.subAndNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAndNot.subCommutedAndNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndOr.xorAndOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndOr.xorAndCommutedOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndOr.xorOrAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndOr.xorOrCommutedAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndXor.xorAndXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndXor.xorAndCommutedXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndXor.xorXorAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndXor.xorXorCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorOrSelf.xorOrSelf_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorOrSelf.xorCommutedOrSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorOrSelf.orSelfXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorOrSelf.commutedOrSelfXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndSelf.xorAndSelf_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndSelf.xorCommutedAndSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndSelf.andSelfXor_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndSelf.commutedAndSelfXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotFirstNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotSecondNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorAndNotNotBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotFirstNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotSecondNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorAndNotNot.xorNotAndNotBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorNotAndSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorCommutedNotAndSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfNotAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfCommutedNotAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorNotAndSelfConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorCommutedNotAndSelfConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfNotAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotAndSelf.xorSelfCommutedNotAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorOrShared_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorCommutedOrShared_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorOrSharedXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorCommutedOrSharedXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorOrSharedRight_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorXorCommutedOrSharedRight_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorOrSharedRightXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorXorOrShared.xorCommutedOrSharedRightXor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndOrNotAnd.andOrNotCommutedAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orLeftCommutedComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orRightCommutedComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrComplementaryMasks.orCommutedComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasks_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorLeftCommutedComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryMasks.xorSwappedCommutedComplementaryMasksBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorLeftCommutedComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorComplementaryOrs.xorSwappedCommutedComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotCommutedOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrAndNotOr.orAndNotCommutedOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotCommutedOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.OrXorNotOr.orXorNotCommutedOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrs_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andLeftCommutedComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andRightCommutedComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AndComplementaryOrs.andCommutedComplementaryOrsBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notAndNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotFirstNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotSecondNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notAndNotBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotFirstNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotSecondNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndNot.notCommutedAndNotBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notOrNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotFirstNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotSecondNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notOrNotBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotFirstNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotSecondNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrNot.notCommutedOrNotBothNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotCommutedOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorOrNotCommutedAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.XorNotMixed.xorAndNotCommutedOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulDoubleNeg.mulDoubleNeg_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulDoubleNeg.mulDoubleNegNSW_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulSinkNeg.mulSinkNeg_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulSinkNeg.mulSinkNegCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulNegConstant.mulNegConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddSubAllOnes.addSubAllOnes_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddSubConstants.addSubConstants_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.addOneNot_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.notAddOne_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.addNotOne_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.addCommutedNotOne_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.addOneNotConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.notAddOneConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.addNotOneConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOneNot.addCommutedNotOneConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubAddAllOnes.subAddAllOnes_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubSubConstants.subSubConstants_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotDeltaCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndDeltaCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootDeltaCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootAndCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAllCommuted_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotDeltaCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAndDeltaCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootDeltaCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotRootAndCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MaskedMergeNot.maskedMergeNotAllCommutedNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorCommutedOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorCommutedOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notAndXorCommutedOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAndXorOr.notCommutedAndXorCommutedOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorAnd_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorCommutedAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notOrXorCommutedAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotOrXorAnd.notCommutedOrXorCommutedAndConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotNegOr.notNegOr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotNegOr.notOrNeg_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotNegOr.notNegOrConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotNegOr.notOrNegConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAddConstant.notAddConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotAddConstant.notAddConstantConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotSub.notSub_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.NotSub.notSubConstantLeft_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubOrSelf.subOrSelf_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.SubOrSelf.subCommutedOrSelf_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOrNegatedConstant.addOrNegatedConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.AddOrNegatedConstant.addCommutedOrNegatedConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantOuterUnflagged_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantNUW_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.MulShiftConstant.mulShiftConstantNSW_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.NegatePoison.negatePoison_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropAddWrapFlags_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropSubWrapFlags_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.DropWrapFlagsUnusedHigh.dropMulWrapFlags_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDoubleNot.doubleNotBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertIntegerConstant_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertIntegerConstantNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertPoison_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertConstant.invertPoisonNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRight_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddRightBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAdd.invertAddLeftBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRight_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorRightBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertXor.invertXorLeftBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSub_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertSub.invertSubBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShr_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertAShr.invertAShrBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrXLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrYLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrBothInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrXOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrYOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertOrAllLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndXLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndYLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndBothInnerLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndXOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndYOuterLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreeInvertDeMorgan.invertAndAllLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.GEPConstantOffsetToPtrAdd.gepConstantOffsetToPtrAdd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.GEPSplitAddIndex.gepSplitAddIndex_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.GEPSelectConstantIndex.gepSelectConstantIndex_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.GEPExactDivToByteIndex.gepExactDivToByteIndex_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.GEPFoldExactDivisor.gepFoldExactDivisor_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreezePushThroughAddCounterexample.freezePushThroughAdd_not_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.FreezeUndefUseChoiceCounterexample.freezePoisonOrAllOnes_not_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.GEPIndexNormalizationCounterexample.normalizeNarrowGepIndex_not_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectInvertFalse.selectInvertFalse_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectInvertTrue.selectInvertTrue_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectNestedTrue.selectNestedTrue_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectNestedFalse.selectNestedFalse_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectSymmetricNested.selectSymmetricNested_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAbsorbNot.selectAbsorbNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAbsorbNot.selectAbsorbNotConstantLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectNestedLogicalAnd.selectNestedLogicalAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectNestedLogicalOr.selectNestedLogicalOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectNestedLogicalAndNot.selectNestedLogicalAndNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectNestedLogicalOrNot.selectNestedLogicalOrNot_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAnd_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOr_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrNotBLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrNotALeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrBothLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotCondition_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionOrSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionBothSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArm_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmAndSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmBothSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArm_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmOrSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmBothSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalse_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseAndSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseNotLeft_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseBothSwapped_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00000_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00001_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00010_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00011_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00100_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00101_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00110_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00111_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01000_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01001_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01010_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01011_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01100_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01101_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01110_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01111_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10000_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10001_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10010_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10011_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10100_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10101_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10110_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10111_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11000_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11001_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11010_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11011_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11100_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11101_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11110_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11111_valid' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

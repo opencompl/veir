@@ -1,0 +1,486 @@
+{
+  "review_kind": "Manual Luna source review of multi-entry source-site groups",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "source_basis": "Vendored docs/instcombine/source snapshots and corresponding inventory ranges/descriptions.",
+  "audit_counts": {
+    "overlap_sites": 70,
+    "distinct_overlap_groups": 35
+  },
+  "conclusion": "No exact duplicate rewrite outcomes requiring retirement found. Recommend tightening div-L1443 to its gcd branch (roughly lines 1414-1431) and ic-extractvalue-insert-disjoint-path-L4792 to the disjoint-index branch. All remaining overlaps are legitimate shared helpers, common terminal actions, or mutually exclusive sibling outcomes.",
+  "groups": [
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "inventory_ids": [
+        "bitwise-L4995",
+        "bitwise-L4995-shared-users"
+      ],
+      "shared_lines": [
+        4978,
+        4992,
+        4995
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "inventory_ids": [
+        "bitwise-L5363",
+        "bitwise-L5363-shared-users"
+      ],
+      "shared_lines": [
+        5361,
+        5363
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineAtomicRMW.cpp",
+      "inventory_ids": [
+        "atomicrmw-L139f",
+        "atomicrmw-L139i"
+      ],
+      "shared_lines": [
+        148,
+        149
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Integer guard canonicalizes to or 0; floating guard canonicalizes to fadd -0.0. Mutually exclusive type branches; keep both."
+    },
+    {
+      "file": "InstCombineCasts.cpp",
+      "inventory_ids": [
+        "cast-L2950-trunc",
+        "cast-L2950-zext"
+      ],
+      "shared_lines": [
+        2950
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineCompares.cpp",
+      "inventory_ids": [
+        "cmpa-L4828-notx-or-mask",
+        "cmpa-L4828-x-and-complement-bound",
+        "cmpa-L4828-x-and-complement-zero",
+        "cmpa-L4828-x-and-mask"
+      ],
+      "shared_lines": [
+        4828
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "inventory_ids": [
+        "loadstore-storemerge-L1695",
+        "loadstore-storemerge-L1710"
+      ],
+      "shared_lines": [
+        1687,
+        1775,
+        1776
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Straight-line and if/then-triangle CFG shapes converge on shared legality helper/final erase. Distinct CFG alternatives, keep both; spans may be narrowed."
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "inventory_ids": [
+        "mul-divexact-times-divisor-L486",
+        "mul-divexact-times-negdivisor-L486"
+      ],
+      "shared_lines": [
+        489
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "inventory_ids": [
+        "mul-divrem-times-divisor-L493",
+        "mul-divrem-times-negdivisor-L493"
+      ],
+      "shared_lines": [
+        501
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "inventory_ids": [
+        "div-L1421",
+        "div-L1443"
+      ],
+      "shared_lines": [
+        1400,
+        1401,
+        1409,
+        1410,
+        1411
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Distinct early-return cases (quotient multiple, then multiplier multiple) versus later one-use gcd reduction. The shared mutations belong only to early branches; the gcd entry range is broad and includes preceding branches. Keep both; narrow div-L1443 to roughly lines 1414-1431."
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "inventory_ids": [
+        "div-select-one-first-L1608-signed-constant",
+        "div-select-one-first-L1608-unsigned-analysis"
+      ],
+      "shared_lines": [
+        1608
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "inventory_ids": [
+        "div-select-one-second-L1615-signed-constant",
+        "div-select-one-second-L1615-unsigned-analysis"
+      ],
+      "shared_lines": [
+        1615
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "inventory_ids": [
+        "fdiv-pow-L2143",
+        "fdiv-powi-L2166",
+        "fdiv-exp-divisor-L2179"
+      ],
+      "shared_lines": [
+        2192
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombinePHI.cpp",
+      "inventory_ids": [
+        "phi-L773-varyingaddr",
+        "phi-L766-sameaddr"
+      ],
+      "shared_lines": [
+        766,
+        773
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L141-fmul-zero",
+        "select-L141-identity"
+      ],
+      "shared_lines": [
+        141
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L1120-freeze",
+        "select-L1120-divrem"
+      ],
+      "shared_lines": [
+        1114,
+        1120
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L1685-nabs",
+        "select-L1686-abs"
+      ],
+      "shared_lines": [
+        1685
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L1775",
+        "select-L1785"
+      ],
+      "shared_lines": [
+        1775
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2205",
+        "select-L2208",
+        "select-L2211",
+        "select-L2214"
+      ],
+      "shared_lines": [
+        2205
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Four consecutive, mutually exclusive constant boundary checks select umax/umin/smax/smin. Shared constructor lines are expected; keep all."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2208",
+        "select-L2211",
+        "select-L2214"
+      ],
+      "shared_lines": [
+        2208
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2211",
+        "select-L2214"
+      ],
+      "shared_lines": [
+        2211
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2236",
+        "select-L2245"
+      ],
+      "shared_lines": [
+        2235,
+        2236
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2384-intrinsic",
+        "select-L2403-binop"
+      ],
+      "shared_lines": [
+        2384
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2629-fp",
+        "select-L2631-int"
+      ],
+      "shared_lines": [
+        2629
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L2754-sadd",
+        "select-L2754-ssub",
+        "select-L2754-uadd",
+        "select-L2754-usub"
+      ],
+      "shared_lines": [
+        2666,
+        2670,
+        2754
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Four different overflow intrinsic and signedness cases share recognizer/constructor. Distinct outcomes; keep all."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L3489",
+        "select-L3490"
+      ],
+      "shared_lines": [
+        3489
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L4394-forms1",
+        "select-L4394-forms2",
+        "select-L4394-minus1",
+        "select-L4394-nested",
+        "select-L4394-plus1"
+      ],
+      "shared_lines": [
+        4394
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L5166-and",
+        "select-L5166-and-not"
+      ],
+      "shared_lines": [
+        5163,
+        5164,
+        5166
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "inventory_ids": [
+        "select-L5197-or",
+        "select-L5197-or-not"
+      ],
+      "shared_lines": [
+        5194,
+        5195,
+        5197
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "inventory_ids": [
+        "shift-common-nuwsub-static-L510",
+        "shift-common-nuwsub-xor-knownbits-L513"
+      ],
+      "shared_lines": [
+        521,
+        524,
+        530,
+        531,
+        534,
+        536
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Static constant shift amount and xor-as-subtraction proven with KnownBits converge on shared shift simplification; distinct recognition paths, keep both."
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "inventory_ids": [
+        "ic-assoc-reassociate-left-fold-L470",
+        "ic-assoc-reassociate-right-fold-L524"
+      ],
+      "shared_lines": [
+        524,
+        525,
+        541,
+        550,
+        551,
+        555
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "Opposite reassociation directions and left-/right-nested commutative forms use shared operand and flag helpers. Distinct shapes, keep entries; some overlap is at helper boundaries."
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "inventory_ids": [
+        "ic-assoc-reassociate-right-fold-L524",
+        "ic-assoc-commutative-cross-fold-L590"
+      ],
+      "shared_lines": [
+        585
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "inventory_ids": [
+        "ic-assoc-commutative-cross-fold-L590",
+        "ic-assoc-commutative-right-cross-fold-L612"
+      ],
+      "shared_lines": [
+        612,
+        613,
+        617
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "inventory_ids": [
+        "ic-factorization-construction-L746",
+        "ic-factorization-right-distributes-L781"
+      ],
+      "shared_lines": [
+        834,
+        837,
+        840
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "inventory_ids": [
+        "ic-free-invert-select-minmax-L3094",
+        "ic-free-invert-minmax-L3097"
+      ],
+      "shared_lines": [
+        3111,
+        3113,
+        3116
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The shared source site is a helper, common constructor/mutation, or terminal action reached from distinct guarded sibling patterns. Inspection of the pinned source found no pair describing the same reachable rewrite outcome. Retain these entries; narrow broad spans only where the exact branch is obscured."
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "inventory_ids": [
+        "ic-extractvalue-insert-disjoint-path-L4792",
+        "ic-extractvalue-insert-exact-path-L4812"
+      ],
+      "shared_lines": [
+        4803
+      ],
+      "assessment": "legitimate_shared_helper_or_sibling_outcome",
+      "finding": "The exact-index case returns inserted value at line 4803. Disjoint-path handling is separate; its broad range includes this sibling. Keep both; narrow the disjoint span to its actual branch."
+    }
+  ],
+  "match_alias_review_sanity": {
+    "file": "docs/instcombine/match-alias-review.json",
+    "checked_against": "vendored source and /tmp/instcombine-PatternMatch.h",
+    "candidate_count": 11,
+    "unreviewed_candidates": 0,
+    "result": "All 11 exclusions match the local source guards or separately inventoried sibling outcomes; no incorrect exclusion found. Examples checked include the negative m_Shr rejection test, ICMP-specific matcher, LogicalAnd alternatives, select versus min/max, and IDiv/IRem split.",
+    "provenance_note": "The audit and vendored source identify LLVM pin 29eff20316c550d8e689a318c614e40186107820. The local temporary PatternMatch.h was present and supports the generic alias families, though the temporary file itself has no independently verified provenance."
+  }
+}

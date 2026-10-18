@@ -1,0 +1,997 @@
+{
+  "review_kind": "manual evidence review of successful Boolean returns flagged by mutation audit",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "source_root": "docs/instcombine/source",
+  "method": "Read each containing function body and its documented caller/result path; classify whether the successful Boolean return itself mutates/constructs IR or only reports a match, guard, analysis fact, or local helper outcome. A referenced inventory ID denotes the concrete caller/result transformation, not a separate rewrite at the Boolean return.",
+  "count": 95,
+  "items": [
+    {
+      "key": "InstCombineAddSub.cpp:1066",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1066,
+      "function": "matchesSquareSum",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return reports that this Value graph matches the documented square-sum idiom and binds A/B. It neither mutates an LLVM instruction nor constructs a result; callers perform the arithmetic simplification.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1113",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1113,
+      "function": "MatchMul",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts a mul-by-constant or shl-by-constant form after writing local Op/C output parameters. It is an operand decoder used by arithmetic folding, with no IR mutation.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1118",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1118,
+      "function": "MatchMul",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts a mul-by-constant or shl-by-constant form after writing local Op/C output parameters. It is an operand decoder used by arithmetic folding, with no IR mutation.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1133",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1133,
+      "function": "MatchRem",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts srem/urem-by-constant or a low-bit-mask equivalent and writes local match outputs; it does not rewrite the matched instruction.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1137",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1137,
+      "function": "MatchRem",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts srem/urem-by-constant or a low-bit-mask equivalent and writes local match outputs; it does not rewrite the matched instruction.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1141",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1141,
+      "function": "MatchRem",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts srem/urem-by-constant or a low-bit-mask equivalent and writes local match outputs; it does not rewrite the matched instruction.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1153",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1153,
+      "function": "MatchDiv",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts signed/unsigned division or logical-shift equivalents for the requested signedness and writes local match outputs only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1158",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1158,
+      "function": "MatchDiv",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts signed/unsigned division or logical-shift equivalents for the requested signedness and writes local match outputs only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAddSub.cpp:1163",
+      "file": "InstCombineAddSub.cpp",
+      "line": 1163,
+      "function": "MatchDiv",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The return accepts signed/unsigned division or logical-shift equivalents for the requested signedness and writes local match outputs only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAndOrXor.cpp:203",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 203,
+      "function": "decomposeBitTest",
+      "source_text": "return true;",
+      "disposition": "analysis-result",
+      "reason": "The helper writes predicate/value/constant out parameters from llvm::decomposeBitTest; it does not create or mutate IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAndOrXor.cpp:874",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 874,
+      "function": "foldSignedTruncationCheck",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "These returns are inside local lambdas that recognize the signed-truncation/bit-test shape and fill local values/masks. The outer helper emits the comparison only after all checks at its final Builder.CreateICmp; the lambdas themselves are not separate rewrites.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAndOrXor.cpp:902",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 902,
+      "function": "foldSignedTruncationCheck",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "These returns are inside local lambdas that recognize the signed-truncation/bit-test shape and fill local values/masks. The outer helper emits the comparison only after all checks at its final Builder.CreateICmp; the lambdas themselves are not separate rewrites.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAndOrXor.cpp:1777",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 1777,
+      "function": "InstCombinerImpl::shouldOptimizeCast",
+      "source_text": "return true;",
+      "disposition": "policy-predicate",
+      "reason": "True means the cast is a candidate for downstream optimization after trivial/eliminable pairs are excluded. The helper does not alter the cast or produce a replacement.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAndOrXor.cpp:3277",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 3277,
+      "function": "areInverseVectorBitmasks",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The loop only checks whether fixed-vector constant lanes are pairwise zero/all-ones inverses; it creates no IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineAtomicRMW.cpp:86",
+      "file": "InstCombineAtomicRMW.cpp",
+      "line": 86,
+      "function": "isSaturating",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "This checks whether an atomic RMW operand is the operation-specific extreme constant (or matching FP infinity/NaN). It only classifies the operation for its caller.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:863",
+      "file": "InstCombineCalls.cpp",
+      "line": 863,
+      "function": "haveSameOperands",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "This compares intrinsic argument pointers and returns a match result; no IR is changed.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:1207",
+      "file": "InstCombineCalls.cpp",
+      "line": 1207,
+      "function": "getKnownSign",
+      "source_text": "return true;",
+      "disposition": "analysis-result",
+      "reason": "The optional bool encodes known sign from KnownBits or a dominating condition; it is a query and performs no rewrite.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:1674",
+      "file": "InstCombineCalls.cpp",
+      "line": 1674,
+      "function": "isIdempotentBinaryIntrinsic",
+      "source_text": "return true;",
+      "disposition": "opcode-property-query",
+      "reason": "The return classifies intrinsic IDs as idempotent extrema; it has no values or IR side effects.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:1785",
+      "file": "InstCombineCalls.cpp",
+      "line": 1785,
+      "function": "leftDistributesOverRight",
+      "source_text": "return true;",
+      "disposition": "legality-predicate",
+      "reason": "The return tests opcode/nowrap combinations that make a later distribution legal. It does not distribute or construct instructions.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:1787",
+      "file": "InstCombineCalls.cpp",
+      "line": 1787,
+      "function": "leftDistributesOverRight",
+      "source_text": "return true;",
+      "disposition": "legality-predicate",
+      "reason": "The return tests opcode/nowrap combinations that make a later distribution legal. It does not distribute or construct instructions.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:4706",
+      "file": "InstCombineCalls.cpp",
+      "line": 4706,
+      "function": "isAspectNeeded",
+      "source_text": "return true;",
+      "disposition": "format-analysis-predicate",
+      "reason": "The returns inspect printf format specifiers or argument types to decide whether a formatting aspect must be retained. This is call-format analysis only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:4718",
+      "file": "InstCombineCalls.cpp",
+      "line": 4718,
+      "function": "isAspectNeeded",
+      "source_text": "return true;",
+      "disposition": "format-analysis-predicate",
+      "reason": "The returns inspect printf format specifiers or argument types to decide whether a formatting aspect must be retained. This is call-format analysis only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCalls.cpp:4721",
+      "file": "InstCombineCalls.cpp",
+      "line": 4721,
+      "function": "isAspectNeeded",
+      "source_text": "return true;",
+      "disposition": "format-analysis-predicate",
+      "reason": "The returns inspect printf format specifiers or argument types to decide whether a formatting aspect must be retained. This is call-format analysis only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:351",
+      "file": "InstCombineCasts.cpp",
+      "line": 351,
+      "function": "canEvaluate",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The recursive type-evaluation helper populates its Visited/Pending analysis state and invokes a supplied predicate; true means the graph can be evaluated in another type. It does not rewrite the graph.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:499",
+      "file": "InstCombineCasts.cpp",
+      "line": 499,
+      "function": "TypeEvaluationHelper::canAlwaysEvaluateInType",
+      "source_text": "return true;",
+      "disposition": "type-predicate",
+      "reason": "The return recognizes constants or a cast pattern that is always evaluable in the requested type; no instruction is changed.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:508",
+      "file": "InstCombineCasts.cpp",
+      "line": 508,
+      "function": "TypeEvaluationHelper::canNotEvaluateInType",
+      "source_text": "return true;",
+      "disposition": "profitability-predicate",
+      "reason": "The return rejects non-instructions or multi-use values that would require duplication. It is an eligibility check only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:512",
+      "file": "InstCombineCasts.cpp",
+      "line": 512,
+      "function": "TypeEvaluationHelper::canNotEvaluateInType",
+      "source_text": "return true;",
+      "disposition": "profitability-predicate",
+      "reason": "The return rejects non-instructions or multi-use values that would require duplication. It is an eligibility check only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:634",
+      "file": "InstCombineCasts.cpp",
+      "line": 634,
+      "function": "TypeEvaluationHelper::canEvaluateTruncatedPred",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether an operation graph can be evaluated at a narrower integer type, sometimes consulting KnownBits. The function returns a Boolean and does not create/rewrite instructions.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:639",
+      "file": "InstCombineCasts.cpp",
+      "line": 639,
+      "function": "TypeEvaluationHelper::canEvaluateTruncatedPred",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether an operation graph can be evaluated at a narrower integer type, sometimes consulting KnownBits. The function returns a Boolean and does not create/rewrite instructions.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1511",
+      "file": "InstCombineCasts.cpp",
+      "line": 1511,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1526",
+      "file": "InstCombineCasts.cpp",
+      "line": 1526,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1538",
+      "file": "InstCombineCasts.cpp",
+      "line": 1538,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1553",
+      "file": "InstCombineCasts.cpp",
+      "line": 1553,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1568",
+      "file": "InstCombineCasts.cpp",
+      "line": 1568,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1582",
+      "file": "InstCombineCasts.cpp",
+      "line": 1582,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1594",
+      "file": "InstCombineCasts.cpp",
+      "line": 1594,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1610",
+      "file": "InstCombineCasts.cpp",
+      "line": 1610,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1617",
+      "file": "InstCombineCasts.cpp",
+      "line": 1617,
+      "function": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether a graph can be zero-extended and update the local BitsToClear analysis result. They do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1913",
+      "file": "InstCombineCasts.cpp",
+      "line": 1913,
+      "function": "TypeEvaluationHelper::canEvaluateSExtdPred",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether the graph can be evaluated at a sign-extended width. The helper changes only local analysis outputs.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:1939",
+      "file": "InstCombineCasts.cpp",
+      "line": 1939,
+      "function": "TypeEvaluationHelper::canEvaluateSExtdPred",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish whether the graph can be evaluated at a sign-extended width. The helper changes only local analysis outputs.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2247",
+      "file": "InstCombineCasts.cpp",
+      "line": 2247,
+      "function": "InstCombiner::canBeCastedExactlyIntToFP",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns prove a cast is exact using widths, KnownBits, or sign-bit counts; no cast or FP instruction is constructed here.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2264",
+      "file": "InstCombineCasts.cpp",
+      "line": 2264,
+      "function": "InstCombiner::canBeCastedExactlyIntToFP",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns prove a cast is exact using widths, KnownBits, or sign-bit counts; no cast or FP instruction is constructed here.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2274",
+      "file": "InstCombineCasts.cpp",
+      "line": 2274,
+      "function": "InstCombiner::canBeCastedExactlyIntToFP",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns prove a cast is exact using widths, KnownBits, or sign-bit counts; no cast or FP instruction is constructed here.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2281",
+      "file": "InstCombineCasts.cpp",
+      "line": 2281,
+      "function": "InstCombiner::canBeCastedExactlyIntToFP",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns prove a cast is exact using widths, KnownBits, or sign-bit counts; no cast or FP instruction is constructed here.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2750",
+      "file": "InstCombineCasts.cpp",
+      "line": 2750,
+      "function": "InstCombinerImpl::visitIntToPtr",
+      "source_text": "return true;",
+      "disposition": "use-shape-predicate",
+      "reason": "This nested predicate accepts only ICmp/PtrToInt uses, or a one-use PHI ending in those uses, for the subsequent ptrtoint/inttoptr-to-GEP fold. It does not itself change uses.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2979",
+      "file": "InstCombineCasts.cpp",
+      "line": 2979,
+      "function": "collectInsertionElements",
+      "source_text": "return true;",
+      "disposition": "local-data-collection",
+      "reason": "The successful returns indicate that poison/null contribute no elements or that a local Elements slot/constant slice was collected. Mutations are to a temporary vector used by the caller; the helper does not modify IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2987",
+      "file": "InstCombineCasts.cpp",
+      "line": 2987,
+      "function": "collectInsertionElements",
+      "source_text": "return true;",
+      "disposition": "local-data-collection",
+      "reason": "The successful returns indicate that poison/null contribute no elements or that a local Elements slot/constant slice was collected. Mutations are to a temporary vector used by the caller; the helper does not modify IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:2998",
+      "file": "InstCombineCasts.cpp",
+      "line": 2998,
+      "function": "collectInsertionElements",
+      "source_text": "return true;",
+      "disposition": "local-data-collection",
+      "reason": "The successful returns indicate that poison/null contribute no elements or that a local Elements slot/constant slice was collected. Mutations are to a temporary vector used by the caller; the helper does not modify IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:3032",
+      "file": "InstCombineCasts.cpp",
+      "line": 3032,
+      "function": "collectInsertionElements",
+      "source_text": "return true;",
+      "disposition": "local-data-collection",
+      "reason": "The successful returns indicate that poison/null contribute no elements or that a local Elements slot/constant slice was collected. Mutations are to a temporary vector used by the caller; the helper does not modify IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCasts.cpp:3283",
+      "file": "InstCombineCasts.cpp",
+      "line": 3283,
+      "function": "hasStoreUsersOnly",
+      "source_text": "return true;",
+      "disposition": "use-shape-predicate",
+      "reason": "The function checks whether every cast user is a StoreInst; it has no IR effects.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:77",
+      "file": "InstCombineCompares.cpp",
+      "line": 77,
+      "function": "hasBranchUse",
+      "source_text": "return true;",
+      "disposition": "use-shape-predicate",
+      "reason": "The function reports whether an ICmp has a conditional-branch user; it does not change the comparison or branch.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:95",
+      "file": "InstCombineCompares.cpp",
+      "line": 95,
+      "function": "isSignTest",
+      "source_text": "return true;",
+      "disposition": "matcher-with-local-output",
+      "reason": "The successful cases recognize signed comparisons against 0/1/-1 and may normalize the caller-owned local predicate reference. They do not mutate an LLVM ICmp.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:100",
+      "file": "InstCombineCompares.cpp",
+      "line": 100,
+      "function": "isSignTest",
+      "source_text": "return true;",
+      "disposition": "matcher-with-local-output",
+      "reason": "The successful cases recognize signed comparisons against 0/1/-1 and may normalize the caller-owned local predicate reference. They do not mutate an LLVM ICmp.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:483",
+      "file": "InstCombineCompares.cpp",
+      "line": 483,
+      "function": "canRewriteGEPAsOffset",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The successful return means the explored PHI/GEP graph meets the same-block safety condition for pointer-offset rewriting. The helper only tracks analysis state; the caller constructs the offset comparison.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:669",
+      "file": "InstCombineCompares.cpp",
+      "line": 669,
+      "function": "InstCombinerImpl::foldGEPICmp",
+      "source_text": "return true;",
+      "disposition": "guard-predicate",
+      "reason": "This return is from local CanFold and permits equality or suitably nowrap unsigned comparisons. The surrounding function later builds the replacement ICmp; this Boolean itself is not an outcome.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:4606",
+      "file": "InstCombineCompares.cpp",
+      "line": 4606,
+      "function": "isMaskOrZero",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The function recursively recognizes mask/zero shapes and returns a Boolean classification; no IR mutation or output value is produced.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:4608",
+      "file": "InstCombineCompares.cpp",
+      "line": 4608,
+      "function": "isMaskOrZero",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The function recursively recognizes mask/zero shapes and returns a Boolean classification; no IR mutation or output value is produced.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:4794",
+      "file": "InstCombineCompares.cpp",
+      "line": 4794,
+      "function": "foldICmpWithLowBitMaskedVal",
+      "source_text": "return true;",
+      "disposition": "rewrite-guard-and-local-construction",
+      "reason": "These returns are from local Check lambdas after getFreelyInverted succeeds; they set local X/M operands for the parent fold. The concrete replacement is the final Builder.CreateICmp at line 4828, already represented by cmpa-L4828-notx-or-mask, cmpa-L4828-x-and-complement-bound, cmpa-L4828-x-and-complement-zero, and cmpa-L4828-x-and-mask. No separate Boolean-return rewrite is omitted.",
+      "related_inventory_ids": [
+        "cmpa-L4828-notx-or-mask",
+        "cmpa-L4828-x-and-complement-bound",
+        "cmpa-L4828-x-and-complement-zero",
+        "cmpa-L4828-x-and-mask"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:4800",
+      "file": "InstCombineCompares.cpp",
+      "line": 4800,
+      "function": "foldICmpWithLowBitMaskedVal",
+      "source_text": "return true;",
+      "disposition": "rewrite-guard-and-local-construction",
+      "reason": "These returns are from local Check lambdas after getFreelyInverted succeeds; they set local X/M operands for the parent fold. The concrete replacement is the final Builder.CreateICmp at line 4828, already represented by cmpa-L4828-notx-or-mask, cmpa-L4828-x-and-complement-bound, cmpa-L4828-x-and-complement-zero, and cmpa-L4828-x-and-mask. No separate Boolean-return rewrite is omitted.",
+      "related_inventory_ids": [
+        "cmpa-L4828-notx-or-mask",
+        "cmpa-L4828-x-and-complement-bound",
+        "cmpa-L4828-x-and-complement-zero",
+        "cmpa-L4828-x-and-mask"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:4812",
+      "file": "InstCombineCompares.cpp",
+      "line": 4812,
+      "function": "foldICmpWithLowBitMaskedVal",
+      "source_text": "return true;",
+      "disposition": "rewrite-guard-and-local-construction",
+      "reason": "These returns are from local Check lambdas after getFreelyInverted succeeds; they set local X/M operands for the parent fold. The concrete replacement is the final Builder.CreateICmp at line 4828, already represented by cmpa-L4828-notx-or-mask, cmpa-L4828-x-and-complement-bound, cmpa-L4828-x-and-complement-zero, and cmpa-L4828-x-and-mask. No separate Boolean-return rewrite is omitted.",
+      "related_inventory_ids": [
+        "cmpa-L4828-notx-or-mask",
+        "cmpa-L4828-x-and-complement-bound",
+        "cmpa-L4828-x-and-complement-zero",
+        "cmpa-L4828-x-and-mask"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:4818",
+      "file": "InstCombineCompares.cpp",
+      "line": 4818,
+      "function": "foldICmpWithLowBitMaskedVal",
+      "source_text": "return true;",
+      "disposition": "rewrite-guard-and-local-construction",
+      "reason": "These returns are from local Check lambdas after getFreelyInverted succeeds; they set local X/M operands for the parent fold. The concrete replacement is the final Builder.CreateICmp at line 4828, already represented by cmpa-L4828-notx-or-mask, cmpa-L4828-x-and-complement-bound, cmpa-L4828-x-and-complement-zero, and cmpa-L4828-x-and-mask. No separate Boolean-return rewrite is omitted.",
+      "related_inventory_ids": [
+        "cmpa-L4828-notx-or-mask",
+        "cmpa-L4828-x-and-complement-bound",
+        "cmpa-L4828-x-and-complement-zero",
+        "cmpa-L4828-x-and-mask"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:5458",
+      "file": "InstCombineCompares.cpp",
+      "line": 5458,
+      "function": "InstCombinerImpl::foldICmpBinOp",
+      "source_text": "return true;",
+      "disposition": "guard-predicate",
+      "reason": "This return marks the local hasNoWrapProblem check for equality, signed/unsigned nowrap, or disjoint-or semantics. The enclosing function\u2019s concrete ICmp replacements are the inventoried rewrite outcomes; the guard does not mutate IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:5897",
+      "file": "InstCombineCompares.cpp",
+      "line": 5897,
+      "function": "InstCombinerImpl::foldICmpWithMinMax",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The local IsCondKnownTrue helper maps simplified comparison constants to optional booleans; it is analysis used to choose the subsequent min/max comparison fold.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:7064",
+      "file": "InstCombineCompares.cpp",
+      "line": 7064,
+      "function": "InstCombinerImpl::dominatesAllUses",
+      "source_text": "return true;",
+      "disposition": "CFG-analysis-predicate",
+      "reason": "True means all other uses are dominated by the specified block, a guard for the caller\u2019s select-use replacement. No CFG/IR mutation occurs here.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:7078",
+      "file": "InstCombineCompares.cpp",
+      "line": 7078,
+      "function": "isChainSelectCmpBranch",
+      "source_text": "return true;",
+      "disposition": "CFG-shape-predicate",
+      "reason": "The helper verifies select -> equality compare -> conditional branch shape only. The actual replaceUsesOutsideBlock transformation is at cmpb-L7141-replaced-select-operand and is now inventoried separately.",
+      "related_inventory_ids": [
+        "cmpb-L7141-replaced-select-operand"
+      ]
+    },
+    {
+      "key": "InstCombineLoadStoreAlloca.cpp:1461",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1461,
+      "function": "equivalentAddressValues",
+      "source_text": "if (A == B) return true;",
+      "disposition": "equivalence-predicate",
+      "reason": "The helper recognizes pointer/address values that are pointer-identical or identical arithmetic/cast/PHI/GEP instructions; it only returns a comparison result.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineLoadStoreAlloca.cpp:1474",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1474,
+      "function": "equivalentAddressValues",
+      "source_text": "return true;",
+      "disposition": "equivalence-predicate",
+      "reason": "The helper recognizes pointer/address values that are pointer-identical or identical arithmetic/cast/PHI/GEP instructions; it only returns a comparison result.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombinePHI.cpp:153",
+      "file": "InstCombinePHI.cpp",
+      "line": 153,
+      "function": "InstCombinerImpl::foldIntegerTypedPHI",
+      "source_text": "return true;",
+      "disposition": "guard-predicate",
+      "reason": "These lines are nested predicates: line 153 detects an actual pointer use of inttoptr; lines 270/273 reject values that cannot receive an inserted cast. Actual outcomes are the already-inventoried existing-pointer-PHI replacement (phi-L247) and synthesized pointer-PHI rewrite (phi-L329).",
+      "related_inventory_ids": [
+        "phi-L247",
+        "phi-L329"
+      ]
+    },
+    {
+      "key": "InstCombinePHI.cpp:270",
+      "file": "InstCombinePHI.cpp",
+      "line": 270,
+      "function": "InstCombinerImpl::foldIntegerTypedPHI",
+      "source_text": "return true;",
+      "disposition": "guard-predicate",
+      "reason": "These lines are nested predicates: line 153 detects an actual pointer use of inttoptr; lines 270/273 reject values that cannot receive an inserted cast. Actual outcomes are the already-inventoried existing-pointer-PHI replacement (phi-L247) and synthesized pointer-PHI rewrite (phi-L329).",
+      "related_inventory_ids": [
+        "phi-L247",
+        "phi-L329"
+      ]
+    },
+    {
+      "key": "InstCombinePHI.cpp:273",
+      "file": "InstCombinePHI.cpp",
+      "line": 273,
+      "function": "InstCombinerImpl::foldIntegerTypedPHI",
+      "source_text": "return true;",
+      "disposition": "guard-predicate",
+      "reason": "These lines are nested predicates: line 153 detects an actual pointer use of inttoptr; lines 270/273 reject values that cannot receive an inserted cast. Actual outcomes are the already-inventoried existing-pointer-PHI replacement (phi-L247) and synthesized pointer-PHI rewrite (phi-L329).",
+      "related_inventory_ids": [
+        "phi-L247",
+        "phi-L329"
+      ]
+    },
+    {
+      "key": "InstCombinePHI.cpp:692",
+      "file": "InstCombinePHI.cpp",
+      "line": 692,
+      "function": "isSafeAndProfitableToSinkLoad",
+      "source_text": "return true;",
+      "disposition": "safety-predicate",
+      "reason": "True permits sinking a load after rejecting the static-alloca constant-offset case and other unsafe patterns; actual load movement is performed by the caller, not this predicate.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombinePHI.cpp:978",
+      "file": "InstCombinePHI.cpp",
+      "line": 978,
+      "function": "PHIsEqualValue",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The successful return detects revisited PHIs in a bounded cyclic equality walk, and the final return succeeds only after all incoming values agree with the non-PHI value. The caller performs the PHI replacement (phi-L1544).",
+      "related_inventory_ids": [
+        "phi-L1544"
+      ]
+    },
+    {
+      "key": "InstCombinePHI.cpp:997",
+      "file": "InstCombinePHI.cpp",
+      "line": 997,
+      "function": "PHIsEqualValue",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The successful return detects revisited PHIs in a bounded cyclic equality walk, and the final return succeeds only after all incoming values agree with the non-PHI value. The caller performs the PHI replacement (phi-L1544).",
+      "related_inventory_ids": [
+        "phi-L1544"
+      ]
+    },
+    {
+      "key": "InstCombinePHI.cpp:1021",
+      "file": "InstCombinePHI.cpp",
+      "line": 1021,
+      "function": "operator<",
+      "source_text": "if (PHIId < RHS.PHIId) return true;",
+      "disposition": "ordering-predicate",
+      "reason": "These returns implement deterministic lexicographic ordering for PHI usage records; there is no IR effect.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombinePHI.cpp:1023",
+      "file": "InstCombinePHI.cpp",
+      "line": 1023,
+      "function": "operator<",
+      "source_text": "if (Shift < RHS.Shift) return true;",
+      "disposition": "ordering-predicate",
+      "reason": "These returns implement deterministic lexicographic ordering for PHI usage records; there is no IR effect.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombinePHI.cpp:1360",
+      "file": "InstCombinePHI.cpp",
+      "line": 1360,
+      "function": "foldDependentIVs",
+      "source_text": "return true;",
+      "disposition": "matcher-success",
+      "reason": "The local MatchOuterIV lambda recognizes an outer recurrence and binds Start/IvNext. The helper later constructs a GEP or binary operation, which is a separate caller transformation outcome already mapped to phi dependent-IV records; the Boolean return itself is not a rewrite.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombinePHI.cpp:1485",
+      "file": "InstCombinePHI.cpp",
+      "line": 1485,
+      "function": "InstCombinerImpl::visitPHINode",
+      "source_text": "return true;",
+      "disposition": "use-shape-predicate",
+      "reason": "The return is from AllUsesOfPhiEndsInCmp: each use must be an equality compare with zero (possibly through eligible one-use OR). The actual nonzero-incoming replacement and poison-flag cleanup are guarded by MadeChange at lines 1498-1507 and inventoried at phi-L1498.",
+      "related_inventory_ids": [
+        "phi-L1507"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:2958",
+      "file": "InstCombineSelect.cpp",
+      "line": 2958,
+      "function": "foldSelectCmpXchg",
+      "source_text": "return true;",
+      "disposition": "match-predicate",
+      "reason": "The return is from isCompareSameAsValue and accepts pointer-equal/bitcast-equal values; its caller returns an existing select arm as the replacement. The predicate return is not a separate rewrite.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:3808",
+      "file": "InstCombineSelect.cpp",
+      "line": 3808,
+      "function": "impliesPoisonOrCond",
+      "source_text": "return true;",
+      "disposition": "semantic-analysis-predicate",
+      "reason": "The function answers whether one value\u2019s poison condition implies another condition using poison, samesign range, or known-bits reasoning. It does not change IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:4142",
+      "file": "InstCombineSelect.cpp",
+      "line": 4142,
+      "function": "isSafeToRemoveBitCeilSelect",
+      "source_text": "return true;",
+      "disposition": "range-analysis-predicate",
+      "reason": "These returns are local MatchForward guards that transform a ConstantRange and report whether the bitceil select can be removed. They do not modify IR; the select/call replacement is in the caller\u2019s separate fold.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:4146",
+      "file": "InstCombineSelect.cpp",
+      "line": 4146,
+      "function": "isSafeToRemoveBitCeilSelect",
+      "source_text": "return true;",
+      "disposition": "range-analysis-predicate",
+      "reason": "These returns are local MatchForward guards that transform a ConstantRange and report whether the bitceil select can be removed. They do not modify IR; the select/call replacement is in the caller\u2019s separate fold.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:4151",
+      "file": "InstCombineSelect.cpp",
+      "line": 4151,
+      "function": "isSafeToRemoveBitCeilSelect",
+      "source_text": "return true;",
+      "disposition": "range-analysis-predicate",
+      "reason": "These returns are local MatchForward guards that transform a ConstantRange and report whether the bitceil select can be removed. They do not modify IR; the select/call replacement is in the caller\u2019s separate fold.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:4155",
+      "file": "InstCombineSelect.cpp",
+      "line": 4155,
+      "function": "isSafeToRemoveBitCeilSelect",
+      "source_text": "return true;",
+      "disposition": "range-analysis-predicate",
+      "reason": "These returns are local MatchForward guards that transform a ConstantRange and report whether the bitceil select can be removed. They do not modify IR; the select/call replacement is in the caller\u2019s separate fold.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:4435",
+      "file": "InstCombineSelect.cpp",
+      "line": 4435,
+      "function": "hasAffectedValue",
+      "source_text": "return true;",
+      "disposition": "dataflow-analysis-predicate",
+      "reason": "The return reports whether a bounded operand walk reaches an affected value (with PHI recursion limits); it does not change IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:4687",
+      "file": "InstCombineSelect.cpp",
+      "line": 4687,
+      "function": "isSelectZeroSignInsignificant",
+      "source_text": "return true;",
+      "disposition": "use-analysis-predicate",
+      "reason": "True means every reachable use either ignores the sign of zero or is another select/PHI through which the scan can continue. This is a precondition for an FP select fold, not a mutation.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:606",
+      "file": "InstCombineShifts.cpp",
+      "line": 606,
+      "function": "canEvaluateShiftedShift",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns establish whether nested shifts can be evaluated in a shifted form under the requested semantics and known-zero constraints. The caller constructs the shifted replacement separately.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:621",
+      "file": "InstCombineShifts.cpp",
+      "line": 621,
+      "function": "canEvaluateShiftedShift",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns establish whether nested shifts can be evaluated in a shifted form under the requested semantics and known-zero constraints. The caller constructs the shifted replacement separately.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:646",
+      "file": "InstCombineShifts.cpp",
+      "line": 646,
+      "function": "InstCombinerImpl::canEvaluateShifted",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish that a single-use integer expression can be evaluated after a shift; they do not change the source graph. getShiftedValue performs construction elsewhere.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:691",
+      "file": "InstCombineShifts.cpp",
+      "line": 691,
+      "function": "InstCombinerImpl::canEvaluateShifted",
+      "source_text": "return true;",
+      "disposition": "analysis-predicate",
+      "reason": "The returns recursively establish that a single-use integer expression can be evaluated after a shift; they do not change the source graph. getShiftedValue performs construction elsewhere.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:885",
+      "file": "InstCombineShifts.cpp",
+      "line": 885,
+      "function": "canShiftBinOpWithConstantRHS",
+      "source_text": "return true;",
+      "disposition": "legality-predicate",
+      "reason": "The return allows only shift/binop combinations that may be pulled through by the caller; it checks opcode/NOT form and constructs no IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:1491",
+      "file": "InstCombineShifts.cpp",
+      "line": 1491,
+      "function": "InstCombinerImpl::visitLShr",
+      "source_text": "return true;",
+      "disposition": "opcode-predicate",
+      "reason": "The local helper accepts add/and/or/xor for an existing shift fold. The return reports opcode eligibility only; all resulting shifts/binops are emitted by the surrounding branches.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstructionCombining.cpp:2377",
+      "file": "InstructionCombining.cpp",
+      "line": 2377,
+      "function": "shouldMergeGEPs",
+      "source_text": "return true;",
+      "disposition": "profitability-predicate",
+      "reason": "The return approves merging GEPs after the zero-index/multi-use profitability check. The caller constructs the merged GEP.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstructionCombining.cpp:5421",
+      "file": "InstructionCombining.cpp",
+      "line": 5421,
+      "function": "isUsedWithinShuffleVector",
+      "source_text": "return true;",
+      "disposition": "use-analysis-predicate",
+      "reason": "The helper recursively follows bitcasts and reports whether a shuffle user exists; it does not mutate the value graph.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstructionCombining.cpp:5423",
+      "file": "InstructionCombining.cpp",
+      "line": 5423,
+      "function": "isUsedWithinShuffleVector",
+      "source_text": "return true;",
+      "disposition": "use-analysis-predicate",
+      "reason": "The helper recursively follows bitcasts and reports whether a shuffle user exists; it does not mutate the value graph.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstructionCombining.cpp:5584",
+      "file": "InstructionCombining.cpp",
+      "line": 5584,
+      "function": "SoleWriteToDeadLocal",
+      "source_text": "return true;",
+      "disposition": "use-analysis-predicate",
+      "reason": "True means every alloca-derived use is a GEP/address-space cast or the target call, with no other accesses. This is a safety precondition for the caller\u2019s sink/removal transformation.",
+      "related_inventory_ids": []
+    }
+  ],
+  "finding": "No additional unrepresented IR transformation was found among these 95 returns. The newly identified replacedSelectWithOperand rewrite at InstCombineCompares.cpp:7140-7141 is now covered by cmpb-L7141-replaced-select-operand; helper-local successful returns inspected here were predicates or already mapped caller outcomes."
+}

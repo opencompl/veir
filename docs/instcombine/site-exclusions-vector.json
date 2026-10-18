@@ -1,0 +1,8 @@
+[
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "line": 3391,
+    "reason": "Final return commits the earlier bitcast-user replacements at vector-shuffle-bitcast-extract-use-L3124 (recorded mutation at line 3211) if nested-shuffle composition did not produce a separate replacement; this is a shared changed-state bookkeeping return, not another transformation branch.",
+    "reviewed": true
+  }
+]

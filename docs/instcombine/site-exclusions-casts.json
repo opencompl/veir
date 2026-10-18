@@ -1,0 +1,317 @@
+[
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 47,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 50,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 74,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 84,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 94,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 95,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 189,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 197,
+    "reason": "Expression evaluator creates intermediate replacement values as support for enclosing cast folds; these returns are internal construction steps, not independent root rewrites."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 222,
+    "reason": "isEliminableCastPair computes a cast opcode/type decision for callers; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 338,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 339,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 376,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 455,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 494,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 532,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 541,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 542,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 559,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 573,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 585,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 606,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 610,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 628,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 642,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 650,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 652,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 664,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 667,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 675,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 696,
+    "reason": "TypeEvaluationHelper returns a predicate/result used to decide whether a cast expression can be evaluated in another type; analysis helper, not a rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1215,
+    "reason": "GetNewShAmt lambda returns a constant-folded shift amount used by the enclosing trunc/shift rewrite; helper computation, not a separate transform."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1384,
+    "reason": "Return Changed only reports whether the preceding nsw/nuw flag mutation changed the trunc; not a distinct rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1500,
+    "reason": "TypeEvaluationHelper return is a recursive type-evaluation predicate used to guard cast rewriting, not an IR transformation."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1895,
+    "reason": "TypeEvaluationHelper return is a recursive type-evaluation predicate used to guard cast rewriting, not an IR transformation."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1899,
+    "reason": "TypeEvaluationHelper return is a recursive type-evaluation predicate used to guard cast rewriting, not an IR transformation."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1900,
+    "reason": "TypeEvaluationHelper return is a recursive type-evaluation predicate used to guard cast rewriting, not an IR transformation."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1921,
+    "reason": "TypeEvaluationHelper return is a recursive type-evaluation predicate used to guard cast rewriting, not an IR transformation."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1928,
+    "reason": "TypeEvaluationHelper return is a recursive type-evaluation predicate used to guard cast rewriting, not an IR transformation."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 1384,
+    "reason": "Return Changed only reports whether preceding trunc flag mutation happened; not a separate rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2129,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2136,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2139,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2142,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2147,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2163,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2199,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2205,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2211,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2219,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2226,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2231,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2233,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2293,
+    "reason": "Floating-point type/constant exactness helper returns a chosen type or predicate; query/helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2323,
+    "reason": "Local IsLosslesslyConvertibleTo lambda returns a type-semantics predicate for the enclosing floating rewrite; not an independent transform."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2752,
+    "reason": "UsesPointerAsInt local lambda returns a use-shape predicate during pattern recognition, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2803,
+    "reason": "foldPtrToIntOrAddrOfGEP returns the computed integer address to ptrtoint/ptrtoaddr callers; helper result, not an independent root rewrite."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2954,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 2958,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 3009,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 3044,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 3051,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 3054,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "line": 3064,
+    "reason": "Vector element-size or collectInsertionElements helper returns a sizing/pattern-recognition result; it does not independently rewrite the root cast."
+  }
+]

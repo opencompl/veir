@@ -1,0 +1,320 @@
+[
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 96,
+    "reason": "getPromotedType utility return; it chooses the C vararg promotion type and defines no successful rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 98,
+    "reason": "getPromotedType utility identity return; no transformation branch.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 111,
+    "reason": "hasUndefSource query helper return; this is a use-count/allocation predicate consumed by a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 986,
+    "reason": "inputDenormalIsIEEE predicate return used to gate FP-class folds; not a transformation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 991,
+    "reason": "inputDenormalIsDAZ predicate return used to gate FP-class folds; not a transformation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 998,
+    "reason": "mayFlushDenormalsToPositiveZero predicate return used to gate odd FP-call folds; not a transformation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1211,
+    "reason": "getKnownSign analysis-helper return from dominance implication; no IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1219,
+    "reason": "getKnownSignOrZero helper returns an already-computed sign result; no IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1223,
+    "reason": "getKnownSignOrZero analysis-helper return from dominance implication; no IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1237,
+    "reason": "signBitMustBeTheSame predicate return; this only supplies a legality fact to ldexp reassociation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1258,
+    "reason": "ldexpSaturatingAddIsSafe legality predicate return; not a transformation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1759,
+    "reason": "Constant-bound predicate lambda return inside foldMinimumOverTrailingOrLeadingZeroCount; not a rewrite result.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 2090,
+    "reason": "IsPointerUndefined lambda return; local query used by memory-intrinsic folding, not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3769,
+    "reason": "Classify lambda returns an enum category for stackrestore scanning; helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3774,
+    "reason": "Classify lambda returns an enum category for stackrestore scanning; helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3777,
+    "reason": "Classify lambda returns an enum category for stackrestore scanning; helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3780,
+    "reason": "Classify lambda returns an enum category for stackrestore scanning; helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3784,
+    "reason": "Classify lambda returns an enum category for stackrestore scanning; helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4692,
+    "reason": "parseFormatStringSpecifiers returns parsed format data; utility, not rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4702,
+    "reason": "isAspectNeeded helper returns a format-aspect predicate; no IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4707,
+    "reason": "isAspectNeeded helper returns whether any variadic operand has FP type; predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4710,
+    "reason": "Lambda returns an FP-type predicate used by isAspectNeeded; helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4715,
+    "reason": "isAspectNeeded helper returns fixed-format predicate; no IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4867,
+    "reason": "findInitTrampolineFromAlloca query helper returns a matching initialization intrinsic; not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4881,
+    "reason": "findInitTrampolineFromBB query helper returns a matching initialization intrinsic; not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4901,
+    "reason": "findInitTrampoline query helper returns matched trampoline initialization; not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4903,
+    "reason": "findInitTrampoline query helper returns matched trampoline initialization; not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 5342,
+    "reason": "visitCallBase visitor returns whether earlier metadata/attribute changes occurred; its individual mutations are separately inventoried.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1009,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1013,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1017,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1021,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1025,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1029,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1033,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1037,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1041,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1045,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1049,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1053,
+    "reason": "fpclassTestIsFCmp0 helper returns an FCmp predicate selected by FP class mask and denormal mode; analysis/conversion helper, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1059,
+    "reason": "fpclassTestIsFCmp0 default returns BAD_FCMP_PREDICATE to indicate no rewrite predicate; not an IR transformation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1759,
+    "reason": "LessBitWidth lambda returns whether a constant is below the bit width; query predicate, not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1885,
+    "reason": "foldNeonShift Check lambda validates one shift-amount lane; predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1888,
+    "reason": "foldNeonShift Check lambda validates one shift-amount lane; predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1788,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1791,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1793,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1802,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1806,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1809,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1811,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1813,
+    "reason": "leftDistributesOverRight/rightDistributesOverLeft legality helper returns a boolean predicate consumed by foldIntrinsicUsingDistributiveLaws; not a separate rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 941,
+    "reason": "createOverflowTuple constructs aggregate output for an already-selected with.overflow rewrite; this utility return does not define a separate rewrite branch.",
+    "reviewed": true
+  }
+]

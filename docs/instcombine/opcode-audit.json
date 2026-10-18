@@ -1,0 +1,97 @@
+{
+  "description": "Advisory comparison of explicit C++ constructors with output opcode fields.\n\nAn enclosing source span may include other branches, and IRBuilder can fold\nconstants. Consequently these are review candidates, never automatic edits.",
+  "recognized_constructor_sites": 2624,
+  "candidate_sites": 9,
+  "findings": [
+    {
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5573,
+      "constructor": "CreateNot(",
+      "opcode": "xor",
+      "inventory_ids_missing_opcode": [
+        "bitwise-L5572"
+      ],
+      "source": "Builder.CreateNot(Op1));"
+    },
+    {
+      "file": "InstCombineCalls.cpp",
+      "line": 3697,
+      "constructor": "CreateMul(",
+      "opcode": "mul",
+      "inventory_ids_missing_opcode": [
+        "calls-neon-widen-mul-constant-pair-L3688"
+      ],
+      "source": "return replaceInstUsesWith(CI, Builder.CreateMul(V0, V1));"
+    },
+    {
+      "file": "InstCombineMulDivRem.cpp",
+      "line": 2175,
+      "constructor": "CreateNeg(",
+      "opcode": "sub",
+      "inventory_ids_missing_opcode": [
+        "fdiv-pow-L2143"
+      ],
+      "source": "Args.push_back(Builder.CreateNeg(II->getArgOperand(1)));"
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 1112,
+      "constructor": "new FreezeInst(",
+      "opcode": "freeze",
+      "inventory_ids_missing_opcode": [
+        "select-L1120-divrem"
+      ],
+      "source": "auto *FrY = IC.InsertNewInstBefore(new FreezeInst(Y, Y->getName() + \".fr\"),"
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2605,
+      "constructor": "CreateFNeg(",
+      "opcode": "fneg",
+      "inventory_ids_missing_opcode": [
+        "select-L2631-int"
+      ],
+      "source": "NegVal = Builder.CreateFNeg(SubOp->getOperand(1));"
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2612,
+      "constructor": "CreateNeg(",
+      "opcode": "sub",
+      "inventory_ids_missing_opcode": [
+        "select-L2629-fp"
+      ],
+      "source": "NegVal = Builder.CreateNeg(SubOp->getOperand(1));"
+    },
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2624,
+      "constructor": "CreateFAdd(",
+      "opcode": "fadd",
+      "inventory_ids_missing_opcode": [
+        "select-L2631-int"
+      ],
+      "source": "BinaryOperator::CreateFAdd(SubOp->getOperand(0), NewSel);"
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 3111,
+      "constructor": "CreateBinaryIntrinsic(",
+      "opcode": "call",
+      "inventory_ids_missing_opcode": [
+        "ic-free-invert-select-minmax-L3094"
+      ],
+      "source": "return Builder->CreateBinaryIntrinsic("
+    },
+    {
+      "file": "InstructionCombining.cpp",
+      "line": 3113,
+      "constructor": "CreateSelect(",
+      "opcode": "select",
+      "inventory_ids_missing_opcode": [
+        "ic-free-invert-minmax-L3097"
+      ],
+      "source": "return Builder->CreateSelect(Cond, NotA, NotB, \"\","
+    }
+  ]
+}

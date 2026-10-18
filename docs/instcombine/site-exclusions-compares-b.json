@@ -1,0 +1,192 @@
+[
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6118,
+    "reason": "collectOffsetOp early exit when input is not an instruction or does not have one use; this is analysis/control flow for candidate discovery, not a rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6157,
+    "reason": "OffsetResult invalid-value constructor; utility return, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6160,
+    "reason": "OffsetResult value constructor; utility return, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6164,
+    "reason": "OffsetResult select constructor; utility return, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6166,
+    "reason": "OffsetResult validity query; analysis helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6172,
+    "reason": "OffsetResult materialization selects an already-computed value; helper used by foldICmpEqualityWithOffset, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6174,
+    "reason": "OffsetResult materialization builds a select for the enclosing comparison rewrite; helper return, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6226,
+    "reason": "ApplyOffsetImpl returns a proof/analysis result from poison implication; helper return, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6233,
+    "reason": "ApplyOffset failure sentinel for a multi-use select; helper control flow, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6236,
+    "reason": "ApplyOffset failure sentinel when true arm cannot be transformed; helper control flow, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6239,
+    "reason": "ApplyOffset failure sentinel when false arm cannot be transformed; helper control flow, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6240,
+    "reason": "OffsetResult select constructor for transformed arms; helper return, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6243,
+    "reason": "OffsetResult value constructor for a transformed operand; helper return, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6244,
+    "reason": "ApplyOffset failure sentinel; helper control flow, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6704,
+    "reason": "CompatibleSizes returns a target data-layout width predicate used only to guard the pointer-cast rewrite; this is an analysis helper, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6754,
+    "reason": "isNeutralValue helper returns a constant classification used by the overflow-check folder; analysis helper, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6756,
+    "reason": "isNeutralValue helper returns a constant classification used by the overflow-check folder; analysis helper, not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6770,
+    "reason": "computeOverflow dispatches to signed-add overflow analysis; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6772,
+    "reason": "computeOverflow dispatches to unsigned-add overflow analysis; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6775,
+    "reason": "computeOverflow dispatches to signed-sub overflow analysis; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6777,
+    "reason": "computeOverflow dispatches to unsigned-sub overflow analysis; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6780,
+    "reason": "computeOverflow dispatches to signed-mul overflow analysis; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 6782,
+    "reason": "computeOverflow dispatches to unsigned-mul overflow analysis; query helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7010,
+    "reason": "getDemandedBitsLHSMask returns an all-ones APInt mask for a demanded-bits query; analysis helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7016,
+    "reason": "getDemandedBitsLHSMask returns the sign-mask for a demanded-bits query; analysis helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7024,
+    "reason": "getDemandedBitsLHSMask returns a mask derived from trailing ones; analysis helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7029,
+    "reason": "getDemandedBitsLHSMask returns a mask derived from trailing zeros; analysis helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7032,
+    "reason": "getDemandedBitsLHSMask returns an all-ones APInt mask for a demanded-bits query; analysis helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7648,
+    "reason": "foldVectorCmp local createCmpReverse helper returns a vector_reverse call; the caller sites 7655, 7659, and 7663 record the actual vector comparison rewrites."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7938,
+    "reason": "foldICmpCommutative local CheckUGT1 predicate helper checks constant divisor > 1; not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7953,
+    "reason": "foldICmpCommutative local CheckNE0 predicate helper checks nonzero constant shift; not an independent rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 8797,
+    "reason": "foldFCmpFpTrunc local ConvertFltSema helper returns a converted APFloat used by the enclosing fptrunc comparison rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 8803,
+    "reason": "foldFCmpFpTrunc local NextValue helper returns the adjacent APFloat used by the enclosing fptrunc comparison rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 8902,
+    "reason": "foldFabsWithFcmpZero local replacePredAndOp0 helper returns the mutated compare; the switch call sites record each actual fabs fold."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 8966,
+    "reason": "foldSqrtWithFcmpZero local ReplacePredAndOp0 helper mutates the predicate for its caller; caller return sites record the actual sqrt folds."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 8967,
+    "reason": "foldSqrtWithFcmpZero local ReplacePredAndOp0 helper returns the mutated compare; caller return sites record the actual sqrt folds."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 7184,
+    "reason": "PropagateSignBit lambda early return; temporary KnownBits propagation helper, not an IR rewrite."
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 8901,
+    "reason": "replacePredAndOp0 lambda mutates the predicate as a shared utility used by later branch-specific rewrites."
+  }
+]

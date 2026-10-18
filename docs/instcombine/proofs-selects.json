@@ -1,0 +1,670 @@
+[
+  {
+    "inventory_id": "select-L3966",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 3961,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectInvertFalse.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectInvertFalse.selectInvertFalse",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectInvertFalse.selectInvertFalse_valid",
+    "status": "proven",
+    "scope": "Scalar i1 select with an exact full-zero true arm; creates xor(A, 1) and the condition-inverted select; non-strict select and poison-condition semantics are modeled.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectInvertFalse UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "branch-weight metadata swapping: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L3974",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 3969,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectInvertTrue.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectInvertTrue.selectInvertTrue",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectInvertTrue.selectInvertTrue_valid",
+    "status": "proven",
+    "scope": "Scalar i1 select with an exact full-one false arm; creates xor(A, 1) and the condition-inverted select; non-strict select and poison-condition semantics are modeled.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectInvertTrue UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "branch-weight metadata swapping: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L4002",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4000,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectNestedTrue.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectNestedTrue.selectNestedTrue",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectNestedTrue.selectNestedTrue_valid",
+    "status": "proven",
+    "scope": "Scalar i1 `select(select(A, true, B), true, B)` with exact full-one constants and shared SSA value B; rewrites to the matched inner select; non-strict and poison semantics are modeled.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectNestedTrue UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar"
+    ]
+  },
+  {
+    "inventory_id": "select-L4006",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4004,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectNestedFalse.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectNestedFalse.selectNestedFalse",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectNestedFalse.selectNestedFalse_valid",
+    "status": "proven",
+    "scope": "Scalar i1 `select(select(A, B, false), B, false)` with exact full-zero constants and shared SSA value B; rewrites to the matched inner select; non-strict and poison semantics are modeled.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectNestedFalse UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar"
+    ]
+  },
+  {
+    "inventory_id": "select-L3709",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 3702,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectSymmetricNested.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectSymmetricNested.selectSymmetricNested",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectSymmetricNested.selectSymmetricNested_valid",
+    "status": "proven",
+    "scope": "Scalar i1 inner and outer conditions with arbitrary-width scalar integer arms; exact reversed-arm DAG and both inner one-use guards are matched; output xor/select and poison behavior are modeled.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectSymmetricNested UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "profile metadata reset to explicitly unknown: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L5252",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 5249,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectAbsorbNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectAbsorbNot.selectAbsorbNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectAbsorbNot.selectAbsorbNot_valid",
+    "status": "proven",
+    "scope": "Scalar i1 condition with arbitrary-width scalar integer arms; both normalized i1 m_Not xor operand orientations are covered; selects in the modeled metadata-free domain satisfy the absorption guard; arms are swapped with poison semantics preserved.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAbsorbNot.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAbsorbNot.selectAbsorbNotConstantLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAbsorbNot.selectAbsorbNotConstantLeft_valid",
+        "scope": "Scalar i1 condition; m_Not form xor(1, condition) with normalized i1 all-ones constant; arbitrary-width scalar integer arms."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectAbsorbNot UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "profile metadata swapping and profitability states outside the modeled select properties: LLVM select properties in Puddle contain no profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L5166-and",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 5148,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectNestedLogicalAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalAnd.selectNestedLogicalAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalAnd.selectNestedLogicalAnd_valid",
+    "status": "proven",
+    "scope": "Scalar i1 conditions with arbitrary-width scalar integer arms; exact shared false arm and inner-select one-use guard; output logical AND is represented as a short-circuit i1 select, preserving poison behavior.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectNestedLogicalAnd UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "explicitly unknown branch-weight metadata: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L5197-or",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 5179,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectNestedLogicalOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalOr.selectNestedLogicalOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalOr.selectNestedLogicalOr_valid",
+    "status": "proven",
+    "scope": "Scalar i1 conditions with arbitrary-width scalar integer arms; exact shared true arm and inner-select one-use guard; output logical OR is represented as a short-circuit i1 select, preserving poison behavior.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectNestedLogicalOr UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "explicitly unknown branch-weight metadata: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L5166-and-not",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 5148,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectNestedLogicalAndNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalAndNot.selectNestedLogicalAndNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalAndNot.selectNestedLogicalAndNot_valid",
+    "status": "proven",
+    "scope": "Scalar i1 conditions with arbitrary-width scalar integer arms; exact swapped inner arms and inner-select one-use guard; generated NOT is normalized xor(C1, 1), and logical AND is a short-circuit i1 select preserving poison behavior.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectNestedLogicalAndNot UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "explicitly unknown branch-weight metadata: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L5197-or-not",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 5179,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectNestedLogicalOrNot.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalOrNot.selectNestedLogicalOrNot",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectNestedLogicalOrNot.selectNestedLogicalOrNot_valid",
+    "status": "proven",
+    "scope": "Scalar i1 conditions with arbitrary-width scalar integer arms; exact swapped inner arms and inner-select one-use guard; generated NOT is normalized xor(C1, 1), and logical OR is a short-circuit i1 select preserving poison behavior.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectNestedLogicalOrNot UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "explicitly unknown branch-weight metadata: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L3985",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 3979,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganAnd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAnd",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAnd_valid",
+    "status": "proven",
+    "scope": "Scalar i1 select-form logical AND with exact false arm; either negated operand must be one-use, and all four normalized i1 m_Not xor operand orientations are covered; non-strict select and poison semantics are modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndNotBLeft_valid",
+        "scope": "Scalar i1; A NOT constant-right and B NOT constant-left; source one-use disjunction enforced."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndNotALeft_valid",
+        "scope": "Scalar i1; A NOT constant-left and B NOT constant-right; source one-use disjunction enforced."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganAnd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganAnd.selectDeMorganAndBothLeft_valid",
+        "scope": "Scalar i1; both NOT operations use normalized all-ones constants on the left; source one-use disjunction enforced."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectDeMorganAnd UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "LLVM ConstantExpr operands: Puddle has no ConstantExpr graph representation",
+      "profile metadata swapping: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L3996",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 3990,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganOr.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOr",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOr_valid",
+    "status": "proven",
+    "scope": "Scalar i1 select-form logical OR with exact true arm; either negated operand must be one-use, and all four normalized i1 m_Not xor operand orientations are covered; non-strict select and poison semantics are modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrNotBLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrNotBLeft_valid",
+        "scope": "Scalar i1; A NOT constant-right and B NOT constant-left; source one-use disjunction enforced."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrNotALeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrNotALeft_valid",
+        "scope": "Scalar i1; A NOT constant-left and B NOT constant-right; source one-use disjunction enforced."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectDeMorganOr.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectDeMorganOr.selectDeMorganOrBothLeft_valid",
+        "scope": "Scalar i1; both NOT operations use normalized all-ones constants on the left; source one-use disjunction enforced."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectDeMorganOr UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "LLVM ConstantExpr operands: Puddle has no ConstantExpr graph representation",
+      "profile metadata swapping: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L4020",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4018,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrNotCondition.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotCondition",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotCondition_valid",
+    "status": "proven",
+    "scope": "Scalar i1 select((~A) | C, A, B); both normalized i1 m_Not xor operand orientations and both m_c_Or commutations are covered, the source OR one-use guard is enforced, and both plain and disjoint OR poison semantics are proved.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrNotCondition.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionOrSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionOrSwapped_valid",
+        "scope": "Scalar i1; m_Not constant-right and commuted OR operands; one-use OR guard; plain/disjoint OR."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrNotCondition.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionNotLeft_valid",
+        "scope": "Scalar i1; m_Not constant-left and ordered OR operands; one-use OR guard; plain/disjoint OR."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrNotCondition.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionBothSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectOrNotCondition.selectOrNotConditionBothSwapped_valid",
+        "scope": "Scalar i1; m_Not constant-left and commuted OR operands; one-use OR guard; plain/disjoint OR."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectOrNotCondition UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "profile metadata creation: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L4027",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4025,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndFalseArm.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArm",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArm_valid",
+    "status": "proven",
+    "scope": "Scalar i1 specialization where freely inverted C is an explicit normalized NOT; both m_Not xor orientations and both m_c_And commutations are covered, the condition AND one-use guard is enforced, and strict-AND versus select poison refinement is proved.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndFalseArm.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmAndSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmAndSwapped_valid",
+        "scope": "Scalar i1 explicit-NOT inversion; m_Not constant-right and commuted AND operands; one-use AND guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndFalseArm.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmNotLeft_valid",
+        "scope": "Scalar i1 explicit-NOT inversion; m_Not constant-left and ordered AND operands; one-use AND guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndFalseArm.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmBothSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAndFalseArm.selectAndFalseArmBothSwapped_valid",
+        "scope": "Scalar i1 explicit-NOT inversion; m_Not constant-left and commuted AND operands; one-use AND guard."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectAndFalseArm UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "getFreelyInverted-generated scalar graphs beyond explicit double-NOT elimination, including inverse comparisons and recursive add/sub/xor forms"
+    ],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "profile metadata creation: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L4037",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4035,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrTrueArm.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArm",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArm_valid",
+    "status": "proven",
+    "scope": "Scalar i1 specialization where freely inverted C is an explicit normalized NOT; both m_Not xor orientations and both m_c_Or commutations are covered, the condition OR one-use guard is enforced, and plain/disjoint strict-OR poison refinement is proved.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrTrueArm.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmOrSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmOrSwapped_valid",
+        "scope": "Scalar i1 explicit-NOT inversion; m_Not constant-right and commuted OR operands; one-use OR guard; plain/disjoint OR."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrTrueArm.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmNotLeft_valid",
+        "scope": "Scalar i1 explicit-NOT inversion; m_Not constant-left and ordered OR operands; one-use OR guard; plain/disjoint OR."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectOrTrueArm.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmBothSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectOrTrueArm.selectOrTrueArmBothSwapped_valid",
+        "scope": "Scalar i1 explicit-NOT inversion; m_Not constant-left and commuted OR operands; one-use OR guard; plain/disjoint OR."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectOrTrueArm UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "getFreelyInverted-generated scalar graphs beyond explicit double-NOT elimination, including inverse comparisons and recursive add/sub/xor forms"
+    ],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "profile metadata creation: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L4045",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4043,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndNotFalse.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalse",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalse_valid",
+    "status": "proven",
+    "scope": "Scalar i1 select(C & ~B, A, B); both normalized m_Not xor orientations and both m_c_And commutations are covered, the condition AND one-use guard is enforced, and strict-AND versus select poison refinement is proved.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndNotFalse.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseAndSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseAndSwapped_valid",
+        "scope": "Scalar i1; m_Not constant-right and commuted AND operands; one-use AND guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndNotFalse.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseNotLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseNotLeft_valid",
+        "scope": "Scalar i1; m_Not constant-left and ordered AND operands; one-use AND guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectAndNotFalse.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseBothSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectAndNotFalse.selectAndNotFalseBothSwapped_valid",
+        "scope": "Scalar i1; m_Not constant-left and commuted AND operands; one-use AND guard."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectAndNotFalse UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "profile metadata creation: LLVM select properties in Puddle do not model profile metadata"
+    ]
+  },
+  {
+    "inventory_id": "select-L4011",
+    "file": "InstCombineSelect.cpp",
+    "line_start": 4008,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00000",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00000_valid",
+    "status": "proven",
+    "scope": "All 32 modeled scalar i1 graph arrangements from the source matcher: strict or select-shaped inner logical AND/OR, both normalized m_Not xor orientations, both outer m_c_LogicalAnd arrangements, and both inner m_c_LogicalOr arrangements. Strict OR is proved for plain and disjoint properties; all strict/select poison combinations refine xor(A,B).",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00001",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00001_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00010",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00010_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00011",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00011_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00100",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00100_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00101",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00101_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00110",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00110_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00111",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor00111_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01000",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01000_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01001",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01001_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01010",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01010_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01011",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01011_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01100",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01100_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01101",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01101_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01110",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01110_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01111",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor01111_valid",
+        "scope": "Scalar i1; inner logical AND is strict llvm.and, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10000",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10000_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10001",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10001_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10010",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10010_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10011",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10011_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10100",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10100_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10101",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10101_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10110",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10110_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are ordered; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10111",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor10111_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is strict llvm.or, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are commuted; plain/disjoint OR properties."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11000",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11000_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11001",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11001_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are ordered, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11010",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11010_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11011",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11011_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the right, outer logical-AND operands are commuted, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11100",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11100_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11101",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11101_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are ordered, and inner logical-OR operands are commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11110",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11110_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are ordered."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelectLogicalXor.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11111",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelectLogicalXor.selectLogicalXor11111_valid",
+        "scope": "Scalar i1; inner logical AND is select-shaped, inner logical OR is select-shaped, NOT constant is on the left, outer logical-AND operands are commuted, and inner logical-OR operands are commuted."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMSelects"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelectLogicalXor UnitTest.InstCombineLLVMSelects; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar"
+    ]
+  }
+]

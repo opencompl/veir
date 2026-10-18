@@ -1,0 +1,122 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "purpose": "Source-reviewed next proof tranche; queue entries are not implemented/proved outcomes.",
+  "scope_rule": "One new Lean file per source entry. Helpers may reuse existing semantic theorems. Document generic algebra, exact optimized specializations, remaining supported variants, and actual model limitations separately. Arbitrary finite alternative patterns are proof work, not a model blocker.",
+  "items": [
+    {
+      "inventory_id": "ic-free-invert-double-not-L3024",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3024,
+      "line_end": 3028,
+      "formula": "~(~X) -> X",
+      "implementation_notes": "4 combinations of inner/outer NOT operand order. Source helper consumes the inner NOT directly, before depth/all-uses checks.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/BitwiseSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-constant-L3030",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3030,
+      "line_end": 3031,
+      "formula": "~C -> width-normalized complement(C)",
+      "implementation_notes": "Scalar IntegerAttr constants plus scalar poison are supported variants; both contextual outer-NOT orders. Use IntegerAttr.ofInt. m_ImmConstant excludes scalar ConstantExpr, but accepts undef/poison; actual undef and vector constants need their own unsupported scope.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/NegateConstant.lean",
+        "Veir/Passes/InstCombineLLVM/NotAddConstant.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-add-L3050",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3050,
+      "line_end": 3058,
+      "formula": "~(A+B) -> ~B-A; fallback ~A-B",
+      "implementation_notes": "Prioritize exact successful recursive specializations B=~X and A=~X, which remove those NOTs. The source tries B before A; generic explicit complement algebra may be documented separately, not confused with the optimized recursive result.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/ArithmeticBitwiseSemantics.lean",
+        "Veir/Passes/InstCombineLLVM/NotAddConstant.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-xor-L3061",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3061,
+      "line_end": 3070,
+      "formula": "~(A xor B) -> A xor ~B; fallback ~A xor B",
+      "implementation_notes": "Prioritize B=~X and A=~X exact simplifications. Cover independent NOT operand orders; the recursive source branch chooses the first successful operand.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/BitwiseSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-sub-L3073",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3073,
+      "line_end": 3078,
+      "formula": "~(A-B) -> ~A+B",
+      "implementation_notes": "Existing NotSub semantics proves generic algebra. Exact successful A=~X specialization should eliminate both complements. Separate source-entry module may reuse the theorem/template.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/NotSub.lean",
+        "Veir/Passes/InstCombineLLVM/ArithmeticBitwiseSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-ashr-L3080",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3080,
+      "line_end": 3088,
+      "formula": "~(A ashr B) -> (~A) ashr B",
+      "implementation_notes": "Exact A=~X specialization; output shift has no copied exact flag. Arbitrary-width and both NOT positions.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/ArithmeticShiftSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-select-minmax-L3094",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3094,
+      "line_end": 3118,
+      "formula": "~select(c,A,B) -> select(c,~A,~B)",
+      "implementation_notes": "Exact A=~X,B=~Y specialization with all independent NOT positions; preserve masked-poison select semantics. Source excludes shouldAvoidAbsorbingNotIntoSelect cases for profitability.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/SelectSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-minmax-L3097",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3097,
+      "line_end": 3118,
+      "formula": "~minmax(A,B) -> inverse_minmax(~A,~B)",
+      "implementation_notes": "All umin/umax/smin/smax. Exact complemented operand specializations permit direct reuse of underlying X,Y. Signed and unsigned complement order reversal requires semantic lemmas.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/CompareSemantics.lean",
+        "Veir/Passes/InstCombineLLVM/CastIntrinsicSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-casts-L3150",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3150,
+      "line_end": 3162,
+      "formula": "~sext(A) -> sext(~A); ~zext_nneg(A) -> sext(~A); ~trunc(A) -> trunc(~A)",
+      "implementation_notes": "Exact A=~X variants at arbitrary valid widths. Source uses SExtLike (including zext nneg), and clears output trunc/extension flags. Coordinate cast worker ownership.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/CastIntrinsicSemantics.lean"
+      ]
+    },
+    {
+      "inventory_id": "ic-free-invert-demorgan-L3165",
+      "file": "InstructionCombining.cpp",
+      "line_start": 3165,
+      "line_end": 3200,
+      "formula": "~(A and B) -> ~A or ~B; ~logical_and(A,B) -> logical_or(~A,~B), and duals",
+      "implementation_notes": "Strict bitwise and short-circuit select forms are distinct. Exact complemented input cases; all NOT operand choices. Do not replace logical OR/AND with strict bitwise unless poison refinement proved.",
+      "reuse_candidates": [
+        "Veir/Passes/InstCombineLLVM/BitwiseSemantics.lean",
+        "Veir/Passes/InstCombineLLVM/SelectSemantics.lean"
+      ]
+    }
+  ]
+}

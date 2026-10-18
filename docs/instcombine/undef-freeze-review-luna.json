@@ -1,0 +1,262 @@
+{
+  "review_kind": "Targeted Luna source and inventory correction review",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "source_basis": "Pinned snapshots in docs/instcombine/source plus /tmp/instcombine-PatternMatch.h and /tmp/instcombine-InstructionSimplify.cpp from the same LLVM checkout.",
+  "scope": [
+    "m_Undef matcher semantics and inventory mappings",
+    "freeze visit dispatches and shared rewrite logic",
+    "GEP index normalization boundary",
+    "select-L718 and addhelper-L1210 unsupported blockers",
+    "quick scan of similar delegation entries"
+  ],
+  "findings": [
+    {
+      "id": "patternmatch-m-undef",
+      "assessment": "classification_scope_correction",
+      "source_evidence": [
+        {
+          "file": "llvm/include/llvm/IR/PatternMatch.h",
+          "line": 156,
+          "text": "if (isa<UndefValue>(V)) return true;",
+          "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h#L156"
+        },
+        {
+          "file": "llvm/include/llvm/IR/PatternMatch.h",
+          "line": 158,
+          "text": "if (const auto *CA = dyn_cast<ConstantAggregate>(V)) return checkAggregate(CA);",
+          "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h#L158"
+        },
+        {
+          "file": "llvm/include/llvm/IR/PatternMatch.h",
+          "line": 165,
+          "text": "This matches poison as well.",
+          "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h#L165"
+        },
+        {
+          "file": "llvm/include/llvm/IR/PatternMatch.h",
+          "line": 168,
+          "text": "inline auto m_Undef() { return undef_match(); }",
+          "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h#L168"
+        }
+      ],
+      "finding": "m_Undef matches scalar UndefValue and PoisonValue, and aggregate constants whose elements are undef/poison. It is not an undef-only predicate. The repo inventory source snapshots omit PatternMatch.h; this evidence is from the pinned external checkout artifact.",
+      "recommendation": "Review each inventory entry whose match_details or source pattern says undef: distinguish actual undef (uninterpreted in Puddle) from poison (modeled), and aggregate/vector forms. Do not blanket-mark the whole rewrite unsupported solely because one matched alternative is undef; a distinct poison-only declarative specialization may be expressible."
+    },
+    {
+      "id": "negator-L125a",
+      "classification": "split_candidate",
+      "inventory_status": "unsupported",
+      "source_evidence": [
+        {
+          "file": "InstCombineNegator.cpp",
+          "line": 113,
+          "text": "if (match(V, m_Undef())) return V;"
+        }
+      ],
+      "finding": "For scalar V, this returns the operand unchanged for either undef or poison. Puddle's lack of undef does not preclude a poison-only identity specialization. Current entry describes only undef and its unsupported blocker hides that scalar poison case.",
+      "recommendation": "Split/retarget a poison-only scalar specialization as pending for proof review; retain an undef-specific entry as unsupported. Avoid asserting the whole m_Undef branch is unsupported."
+    },
+    {
+      "id": "m-undef-occurrences",
+      "assessment": "mapped_occurrence_families",
+      "finding": "Every m_Undef occurrence in the InstCombine source inventory was scanned. Scalar/general occurrences include InstCombineNegator.cpp:113 (negator-L125a), InstCombineLoadStoreAlloca.cpp:1263, InstCombineVectorOps.cpp:2126, InstCombineVectorOps.cpp:3061, and InstructionCombining.cpp:5465/5509/5525 (freeze family). Composite or vector matching occurs in InstCombineVectorOps.cpp:1490, 1751, 1820, 2452, 2916-19, 3038, 3433; InstCombineCompares.cpp:3639, 7666-73; InstructionCombining.cpp:2682; InstCombineCalls.cpp:1715; InstCombineMulDivRem.cpp:1337; InstCombineSelect.cpp:1107 and 5301-15; InstCombineSimplifyDemanded.cpp:1635. The latter families are vector/aggregate/mask/combined patterns; preserve their vector or context-specific blockers, but ensure scalar poison subcases are not hidden by a blanket undef limitation.",
+      "recommendation": "For each source family, inspect adjacent type/pattern guards before splitting. In particular, never treat aggregate/vector m_Undef support as equivalent to scalar poison support."
+    },
+    {
+      "id": "ic-freeze-inst-simplify-L5428",
+      "classification_recommendation": "delegation",
+      "inventory_status": "unsupported",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5428,
+          "text": "if (Value *V = simplifyFreezeInst(Op0, SQ.getWithInstruction(&I)))"
+        },
+        {
+          "file": "llvm/lib/Analysis/InstructionSimplify.cpp",
+          "line": 7709,
+          "text": "if (llvm::isGuaranteedNotToBeUndefOrPoison(Op0, Q.AC, Q.CtxI, Q.DT)) return Op0;",
+          "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Analysis/InstructionSimplify.cpp#L7709"
+        },
+        {
+          "file": "llvm/lib/Analysis/InstructionSimplify.cpp",
+          "line": 7712,
+          "text": "return nullptr;",
+          "url": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Analysis/InstructionSimplify.cpp#L7712"
+        }
+      ],
+      "finding": "This visitor arm delegates to InstructionSimplify; it returns operand only when proven non-undef and non-poison. In particular, freeze(poison) does not preempt the later freeze(undef-or-poison) replacement path.",
+      "recommendation": "Mark as delegation/dispatch and avoid counting a separate local rewrite. Existing capability blocker is appropriate for semantic proof of the external simplifier, but not a distinct visitFreeze rewrite."
+    },
+    {
+      "id": "ic-freeze-phi-recurrence-L5435",
+      "classification_recommendation": "helper_dispatch",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5435,
+          "text": "if (Instruction *NV = foldOpIntoPhi(I, PN))"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5437,
+          "text": "if (Instruction *NV = foldFreezeIntoRecurrence(I, PN))"
+        }
+      ],
+      "finding": "This arm dispatches to two substantive helpers, one generic PHI fold and one recurrence fold. The inventory description combines distinct possible transforms.",
+      "recommendation": "Keep substantive helper implementations inventoried as rewrites where present; classify this visitor line as dispatch/delegation or narrow it to a call-site family without counting it as a third independent rewrite."
+    },
+    {
+      "id": "ic-freeze-safe-op-push-L5442",
+      "classification_recommendation": "helper_dispatch",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5442,
+          "text": "if (Value *NI = pushFreezeToPreventPoisonFromPropagating(I))"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5443,
+          "text": "return replaceInstUsesWith(I, NI);"
+        }
+      ],
+      "finding": "The substantive transformation is returned by pushFreezeToPreventPoisonFromPropagating; visitor arm is a dispatch plus common replacement.",
+      "recommendation": "Represent as a delegation/helper dispatch if that helper's rewrite is already inventoried, to avoid duplicate rewrite counts."
+    },
+    {
+      "id": "ic-freeze-undef-use-choice-L5446",
+      "finding": "The shared-use choice is not limited to constants. The m_c_Select arm (lines 5491-5493) can bind an arbitrary other select arm V, accepts it when V is not self and guaranteed non-undef/non-poison, and otherwise falls back to null. The all-ones choice for OR and boolean choice for constant select cases are further alternatives.",
+      "recommendation": "Broaden description/rewrite_details from constant-only to a chosen safe value (which may be arbitrary SSA V), while retaining consistent-across-all-uses constraint. Its source match m_Undef also includes poison."
+    },
+    {
+      "id": "ic-freeze-undef-shuffle-guard-L5509",
+      "classification_recommendation": "guard_not_separate_rewrite",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5509,
+          "text": "if (match(Op0, m_Undef())) {"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5513,
+          "text": "if (isUsedWithinShuffleVector(&I)) return nullptr;"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5515,
+          "text": "return replaceInstUsesWith(I, getUndefReplacement(I.getType()));"
+        }
+      ],
+      "finding": "The shuffle test only blocks the use-choice transform; otherwise it calls the same getUndefReplacement and replaces all uses. It is a guard/wrapper over ic-freeze-undef-use-choice-L5446, not an additional rewrite. The check catches direct and bitcast-mediated shuffle use.",
+      "recommendation": "Reclassify as guard/analysis or fold into the use-choice entry; avoid counting a separate rewrite. Preserve the vector-shuffle blocker for the guard itself."
+    },
+    {
+      "id": "ic-freeze-other-uses-L5539",
+      "classification_recommendation": "duplicate_helper_dispatch",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5539,
+          "text": "if (freezeOtherUses(I))"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5540,
+          "text": "return &I;"
+        }
+      ],
+      "finding": "This duplicates the already-inventoried freezeOtherUses implementation at L5366, which moves freeze, replaces dominated uses, and queues users.",
+      "recommendation": "Mark this visitor arm as dispatch/delegation linked to ic-freeze-other-uses-L5366, not another rewrite."
+    },
+    {
+      "id": "freeze-poison-or-counterexample",
+      "assessment": "candidate_model_counterexample_pending_formal_validation",
+      "finding": "Under a deterministic Puddle freeze choice, freeze(poison) feeding OR can be assigned the model's chosen value (e.g. zero), making OR produce zero while the LLVM visitor's valid choice for OR is all-ones. LLVM freeze(poison) may choose an arbitrary fixed non-poison value, so InstCombine's all-ones outcome is legal; the mismatch demonstrates that the current deterministic model choice is too narrow for this refinement argument, not an LLVM bug.",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 5450,
+          "text": "- or: pick -1"
+        }
+      ],
+      "recommendation": "Do not record this as an LLVM counterexample. The L7707 simplifier evidence confirms poison input is not returned unchanged first."
+    },
+    {
+      "id": "ic-visit-gep-normalize-indices-L3346",
+      "assessment": "source_boundary_confirmed_with_modeling_warning",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3351,
+          "text": "simplifyGEPInst(...) dispatch occurs first."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3360,
+          "text": "fixed-vector demanded-element dispatch occurs next."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3375,
+          "text": "DataLayout index type selection and non-struct index loop begin."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3409,
+          "text": "narrow index uses zext only when both nuw and nusw; otherwise sext."
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3414,
+          "text": "wide index is truncated with corresponding flags."
+        }
+      ],
+      "finding": "The narrowed inventory span 3375-3421 and matched opcode only getelementptr correctly isolate the local normalization family; preceding simplifyGEPInst and demanded-vector dispatches are separately represented by ic-gep-simplify-dispatch-L3351 and ic-gep-demanded-vector-dispatch-L3360. Scalar/vector cast opcodes are outputs, not source matched producers. However, Puddle's single dynamic-index GEP uses unsigned index-to-natural interpretation, so i8 -1 sext-to-i64 and zext-to-i64 yield different modeled addresses; the source's signed extension case cannot be assumed covered by current GEP semantics.",
+      "recommendation": "Keep the source boundary and separate dispatch rows. Treat narrow signed-index normalization as requiring cast/GEP interpreter alignment or a tightly proven modeled specialization; do not infer support merely from generic sext and one-index GEP capabilities."
+    },
+    {
+      "id": "select-L718",
+      "assessment": "unsupported_reason_too_broad_for_modeled_scalar_subset",
+      "source_evidence": [
+        {
+          "file": "InstCombineSelect.cpp",
+          "line": 715,
+          "text": "guard isGuaranteedNotToBeUndef(CmpLHS, SQ.AC, SQ.CtxI, SQ.DT)"
+        }
+      ],
+      "finding": "The actual rewrite is scalar smin plus nsw sub and the guard excludes undef for a free SSA operand. This does not match an undef opcode; it relies on a source analysis fact. Since Puddle's runtime value is deterministic scalar/poison and has no undef, this guard may be vacuously true for the modeled domain. That is separate from proving the rewrite itself.",
+      "recommendation": "Don't classify the rule as blocked solely by absent undef opcode interpretation; preserve exact ssa-analysis guard in audit and let proof review determine validity over modeled runtime values."
+    },
+    {
+      "id": "addhelper-L1210",
+      "assessment": "unsupported_reason_too_broad_for_modeled_scalar_subset",
+      "source_evidence": [
+        {
+          "file": "InstCombineAddSub.cpp",
+          "line": 1214,
+          "text": "Division/remainder pattern additionally applies one-use checks."
+        },
+        {
+          "file": "InstCombineAddSub.cpp",
+          "line": 1226,
+          "text": "Nonzero NewC requires remainder product one-use."
+        },
+        {
+          "file": "InstCombineAddSub.cpp",
+          "line": 1228,
+          "text": "isGuaranteedNotToBeUndef(X, &AC, &I, &DT)"
+        }
+      ],
+      "finding": "This is scalar algebra with exact matching x and constants, source-specific profitability/use guards, and an analysis guard excluding undef. The operation duplicates an arbitrary SSA X between an original quotient-derived expression and a fresh multiplication; the guard is an LLVM per-use undef correlation condition. A Puddle deterministic runtime domain may make this guard redundant, but this review does not decide semantic validity of the algebraic rewrite.",
+      "recommendation": "Record actual source guard as analysis-based exclusion of undef, not a matched undef operand. Leave proof truth to the worker; don't make missing undef opcode semantics by itself the unsupported reason for the modeled scalar subset."
+    }
+  ],
+  "quick_scan": {
+    "findings": "Freeze visit arms L5428, L5435, L5442 and L5539 are dispatch wrappers around helpers or an external simplifier; L5509 is a guard followed by the shared L5446 replacement. Source-to-helper rows that describe no independent local action should generally use kind=delegation/analysis-helper, not kind=rewrite with empty rewrite_opcodes.",
+    "evidence": "GEP has correctly separated analogous dispatch rows: ic-gep-simplify-dispatch-L3351 and ic-gep-demanded-vector-dispatch-L3360."
+  },
+  "limitations": "This review is source/inventory only. It recommends inventory distinctions and proof-review follow-up; it does not establish Lean proof validity or alter statuses.",
+  "coordinator_resolution": "Confirmed source distinctions and corrected several report line references against numbered pinned source. Reclassified five freeze dispatch wrappers as delegations, restored four scalar-capable source families to pending, corrected shared freeze replacement description, and retained the refined GEP boundaries. Formal counterexamples are not credited by this source-only report."
+}

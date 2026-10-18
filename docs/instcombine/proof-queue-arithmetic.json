@@ -1,0 +1,558 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "title": "Proof queue: scalar integer arithmetic and shifts",
+  "selection_note": "Pending non-analysis-dependent integer rewrites, excluding the current AddSub proof-manifest IDs. Ranked from local modular arithmetic identities toward flag-sensitive exact-shift algebra. Source profitability guards are documented but may be omitted from the theorem only if the proved pattern specialization remains equivalent.",
+  "items": [
+    {
+      "rank": 1,
+      "inventory_id": "mul-negconst-L420",
+      "source": {
+        "file": "InstCombineMulDivRem.cpp",
+        "line_start": 420,
+        "line_end": 424,
+        "function": "visitMul"
+      },
+      "input_tree": "mul(0-X,C)",
+      "output_tree": "mul(X,0-C)",
+      "operand_permutations_and_source_guards": [
+        "left operand matches m_Neg(X), i.e. 0-X",
+        "right operand is any constant of the same result type",
+        "source accepts only this operand order"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New multiply has no NSW/NUW flags; source negation and outer multiply flags are not copied.",
+      "poison_and_freeze": "Modulo-2^N identity; dropping source nowrap flags can only remove poison.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(-X) * C -> X * (-C)."
+    },
+    {
+      "rank": 2,
+      "inventory_id": "mul-doubleneg-L426",
+      "source": {
+        "file": "InstCombineMulDivRem.cpp",
+        "line_start": 426,
+        "line_end": 432,
+        "function": "visitMul"
+      },
+      "input_tree": "mul(0-X,0-Y)",
+      "output_tree": "mul(X,Y)",
+      "operand_permutations_and_source_guards": [
+        "both multiply operands match m_Neg of X and Y",
+        "source order is left negation then right negation"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Output NUW is clear. Output NSW is set iff the outer source multiply and both matched negations carry NSW (HasNSW is I.hasNoSignedWrap(), not an option).",
+      "poison_and_freeze": "Modulo-2^N product identity; source negations may be poison under flags, and output flags are exactly the source conditional propagation.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(-X) * (-Y) -> X * Y, forwarding nsw only when outer mul and both negations carry nsw."
+    },
+    {
+      "rank": 3,
+      "inventory_id": "mul-sinkneg-L435",
+      "source": {
+        "file": "InstCombineMulDivRem.cpp",
+        "line_start": 435,
+        "line_end": 438,
+        "function": "visitMul"
+      },
+      "input_tree": "mul(0-X,Y), or mul(X,0-Y)",
+      "output_tree": "0-mul(X,Y)",
+      "operand_permutations_and_source_guards": [
+        "commutative root multiply matcher accepts either negated factor",
+        "matched negation has one use",
+        "the other factor is arbitrary"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "The new product and negation carry no copied NSW/NUW flags.",
+      "poison_and_freeze": "Modulo-2^N identity; dropping source no-wrap poison conditions is a conservative refinement.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(-X) * Y or X * (-Y) -> -(X * Y), with the negated operand one-use."
+    },
+    {
+      "rank": 4,
+      "inventory_id": "mul-shl-constant-L233",
+      "source": {
+        "file": "InstCombineMulDivRem.cpp",
+        "line_start": 233,
+        "line_end": 252,
+        "function": "InstCombinerImpl::visitMul"
+      },
+      "input_tree": "mul(shl(X,C2),C1)",
+      "output_tree": "mul(X,shl(C1,C2))",
+      "operand_permutations_and_source_guards": [
+        "outer multiplier C1 is an immediate APInt constant",
+        "inner shift amount C2 is immediate constant",
+        "constant folding of C1 shl C2 succeeds; source includes vector constant lanes but queue specializes to scalar"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Output NUW iff the outer multiply and inner shift both have NUW. Output NSW iff the outer multiply and inner shift both have NSW and the folded shifted constant is not signed minimum. HasNUW and HasNSW are the outer source instruction flags, not options.",
+      "poison_and_freeze": "Both source shift and multiply may be poison under flags/overshift; the output flags are exactly these guarded source rules.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "((X << C2) * C1) -> X * (C1 << C2), folding the two constants and forwarding nuw/nsw only when both source operations justify them."
+    },
+    {
+      "rank": 5,
+      "inventory_id": "addconst-L876",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 876,
+        "line_end": 880,
+        "function": "foldAddWithConstant"
+      },
+      "input_tree": "add(sub(C1,X),C2)",
+      "output_tree": "sub(C1+C2,X)",
+      "operand_permutations_and_source_guards": [
+        "inner subtraction left operand C1 is constant",
+        "root add RHS C2 is immediate constant",
+        "source branch has this operand orientation"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New subtraction has no NSW/NUW flags; original add/sub flags are cleared.",
+      "poison_and_freeze": "Wrapping arithmetic is modulo 2^N; clearing no-wrap flags only removes poison cases.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "add(sub(C1,X),C2) -> sub(C1+C2,X)."
+    },
+    {
+      "rank": 6,
+      "inventory_id": "addconst-L882",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 882,
+        "line_end": 886,
+        "function": "foldAddWithConstant"
+      },
+      "input_tree": "add(sub(X,Y),-1)",
+      "output_tree": "add(~Y,X)",
+      "operand_permutations_and_source_guards": [
+        "inner subtraction is one-use",
+        "root RHS is all-ones (-1)",
+        "source requires this orientation"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New add has no NSW/NUW flags.",
+      "poison_and_freeze": "The complement is xor with all-ones. Strict poison propagation; input nowrap poison may be weakened by flag clearing.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "add(sub(X,Y),-1) -> add(~Y,X)."
+    },
+    {
+      "rank": 7,
+      "inventory_id": "addconst-L932",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 932,
+        "line_end": 936,
+        "function": "foldAddWithConstant"
+      },
+      "input_tree": "add(or(X,C2),C), where C2=-C",
+      "output_tree": "xor(or(X,C2),C2)",
+      "operand_permutations_and_source_guards": [
+        "root RHS C is immediate constant",
+        "inner OR contains immediate C2",
+        "APInt equality C2 == -C at width N"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New xor has no NSW/NUW flags; original add flags are not copied.",
+      "poison_and_freeze": "Modulo-2^N; exact APInt negation is width-N modular negation.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(X|C2)+C -> (X|C2) xor C2 when C2=-C."
+    },
+    {
+      "rank": 8,
+      "inventory_id": "addconst-L955",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 955,
+        "line_end": 957,
+        "function": "foldAddWithConstant"
+      },
+      "input_tree": "add(xor(X,2^(N-1)),C)",
+      "output_tree": "add(X,2^(N-1) xor C)",
+      "operand_permutations_and_source_guards": [
+        "XOR constant is exactly the scalar sign bit",
+        "root RHS C is immediate constant",
+        "source uses the XOR operand as root operand 0"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New add has no NSW/NUW flags; original add flags are dropped.",
+      "poison_and_freeze": "Modulo-2^N bit-vector algebra.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(X xor signmask)+C -> X+(signmask xor C)."
+    },
+    {
+      "rank": 9,
+      "inventory_id": "add-self-L1659",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 1658,
+        "line_end": 1663,
+        "function": "InstCombinerImpl::visitAdd"
+      },
+      "input_tree": "add(X,X)",
+      "output_tree": "shl(X,1)",
+      "operand_permutations_and_source_guards": [
+        "both root operands are the same SSA value",
+        "integer width greater than one is not required; for i1 the earlier dedicated branch takes precedence"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Copy NSW and NUW independently from the original add to the new shift.",
+      "poison_and_freeze": "Shl by one and add X+X have the same modular result; copied flags preserve overflow-to-poison.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "Replace A+A with A<<1 and copy the original NSW/NUW flags onto the shift."
+    },
+    {
+      "rank": 10,
+      "inventory_id": "add-L1673",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 1691,
+        "line_end": 1698,
+        "function": "InstCombinerImpl::visitAdd"
+      },
+      "input_tree": "add(add(A,1),~B), or add(add(~B,A),1)",
+      "output_tree": "sub(A,B)",
+      "operand_permutations_and_source_guards": [
+        "either of the two source trees matches exactly",
+        "the +1 and NOT may be in the stated swapped order",
+        "no one-use condition in this branch"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New subtraction has no NSW/NUW flags.",
+      "poison_and_freeze": "Uses ~B == -1-B modulo 2^N; clearing source add flags weakens poison constraints only.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(A+1)+~B or (~B+A)+1 -> A-B."
+    },
+    {
+      "rank": 11,
+      "inventory_id": "sub-addnot-L2535",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2535,
+        "line_end": 2539,
+        "function": "visitSub"
+      },
+      "input_tree": "sub(add(X,-1),Y)",
+      "output_tree": "add(~Y,X)",
+      "operand_permutations_and_source_guards": [
+        "left add is one-use",
+        "left add contains all-ones (-1) as either operand",
+        "root right operand is Y"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New add has no NSW/NUW flags; source subtraction/add flags are not copied.",
+      "poison_and_freeze": "Modulo-2^N; bitwise NOT is xor with all-ones.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(X + -1) - Y -> ~Y + X."
+    },
+    {
+      "rank": 12,
+      "inventory_id": "sub-L2540",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2540,
+        "line_end": 2548,
+        "function": "visitSub"
+      },
+      "input_tree": "sub(and(X,C1),and(X,C2))",
+      "output_tree": "and(X,C1 xor C2)",
+      "operand_permutations_and_source_guards": [
+        "both ANDs use exactly the same SSA value X",
+        "C1,C2 are immediate constants",
+        "C1 & C2 == C2, checked by APInt constant folding"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New AND has no NSW/NUW flags; original subtraction flags are dropped.",
+      "poison_and_freeze": "Modulo bitwise arithmetic; flag clearing removes only overflow poison.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(X&C1)-(X&C2) -> X&(C1 xor C2) when C1&C2=C2."
+    },
+    {
+      "rank": 13,
+      "inventory_id": "sub-L2678",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2678,
+        "line_end": 2680,
+        "function": "visitSub"
+      },
+      "input_tree": "sub(C,sub(C2,X))",
+      "output_tree": "add(X,C-C2)",
+      "operand_permutations_and_source_guards": [
+        "outer minuend C is constant",
+        "inner subtraction minuend C2 is immediate constant",
+        "source matches this nested subtraction order"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New add has no NSW/NUW flags.",
+      "poison_and_freeze": "Modulo-2^N reassociation; source flags are not propagated.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "C-(C2-X) -> X+(C-C2)."
+    },
+    {
+      "rank": 14,
+      "inventory_id": "shift-common-srem-L545",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 545,
+        "line_end": 551,
+        "function": "InstCombinerImpl::commonShiftTransforms"
+      },
+      "input_tree": "shift(X,srem(A,2^k))",
+      "output_tree": "shift(X,and(A,2^k-1))",
+      "operand_permutations_and_source_guards": [
+        "root shift is shl, lshr, or ashr",
+        "shift amount srem is one-use",
+        "Divisor is a one-bit (APInt power-of-two) constant, including the sign-bit constant; do not silently restrict it to signed-positive divisors."
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Mutates only the existing shift amount; root opcode, exact, NSW, and NUW fields remain unchanged.",
+      "poison_and_freeze": "A nonnegative signed remainder equals the low-bit mask for a one-bit divisor magnitude; a negative remainder is an out-of-range shift amount and makes the source poison. Negative A can also have zero remainder, which must be handled explicitly. Include the sign-bit divisor case.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "Replace shift amount A srem 2^k with A & (2^k-1), then use that as the shift amount."
+    },
+    {
+      "rank": 15,
+      "inventory_id": "shift-common-oramount-L557",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 557,
+        "line_end": 558,
+        "function": "InstCombinerImpl::commonShiftTransforms"
+      },
+      "input_tree": "shift(X, A | (W-1))",
+      "output_tree": "shift(X,W-1)",
+      "operand_permutations_and_source_guards": [
+        "root is shl, lshr, or ashr",
+        "shift amount matches OR with the exact bit-width-minus-one constant",
+        "W is the scalar width of the shifted value"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Mutates only the existing shift amount; all root shift flags remain unchanged.",
+      "poison_and_freeze": "The unsigned OR amount is >= W-1. If the source shift is defined it is also < W, hence exactly W-1. Otherwise the source is poison and the fixed-amount replacement is a refinement; the OR itself need not equal W-1. This works for non-power-of-two widths as well.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "Replace shift(X,A|(W-1)) with shift(X,W-1); a source amount other than W-1 is out of range."
+    },
+    {
+      "rank": 16,
+      "inventory_id": "shift-L1216",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 1213,
+        "line_end": 1216,
+        "function": "InstCombinerImpl::visitShl"
+      },
+      "input_tree": "shl(shr(X,C),C)",
+      "output_tree": "and(X, highbits_mask(N-C))",
+      "operand_permutations_and_source_guards": [
+        "outer shift amount C is immediate and 0<=C<N",
+        "inner opcode is lshr or ashr and uses the exact same constant C",
+        "source formula is valid for either right-shift kind"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New AND has no flags; shift flags on source operations disappear.",
+      "poison_and_freeze": "Equal in-range shifts preserve the high N-C bits; no freeze/select semantics.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(x lshr C) shl C or (x ashr C) shl C -> x & (-1 shl C), keeping the high W-C bits."
+    },
+    {
+      "rank": 17,
+      "inventory_id": "shift-L1330",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 1371,
+        "line_end": 1375,
+        "function": "InstCombinerImpl::visitShl"
+      },
+      "input_tree": "shl(shr(X,Y),Y)",
+      "output_tree": "and(X, shl(-1,Y))",
+      "operand_permutations_and_source_guards": [
+        "outer and inner shift amounts are the identical SSA value Y",
+        "inner right-shift result is one-use",
+        "inner right shift may be lshr or ashr"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New mask shl and AND have no copied nowrap/exact flags.",
+      "poison_and_freeze": "When Y>=N, source inner/outer shift is poison and mask shift is poison too; in-range identity keeps upper bits starting at Y.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(x >> y)<<y -> x & (-1<<y), for a one-use right-shift result and the identical variable amount."
+    },
+    {
+      "rank": 18,
+      "inventory_id": "shift-shl-allones-L1378",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 1377,
+        "line_end": 1380,
+        "function": "InstCombinerImpl::visitShl"
+      },
+      "input_tree": "shl(lshr(-1,Y),Y)",
+      "output_tree": "shl(-1,Y)",
+      "operand_permutations_and_source_guards": [
+        "inner is logical right shift of all-ones",
+        "inner and outer shift amounts are the same SSA value",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New shl has no flags copied from either source shift.",
+      "poison_and_freeze": "For in-range Y, logical shift of all-ones has low N-Y ones and the outer left shift restores the high-bit mask; out-of-range source is poison and output remains poison.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "(-1 lshr y) << y -> -1 << y."
+    },
+    {
+      "rank": 19,
+      "inventory_id": "shift-L1346",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 1383,
+        "line_end": 1390,
+        "function": "InstCombinerImpl::visitShl"
+      },
+      "input_tree": "shl(mul(X,C2),C1)",
+      "output_tree": "mul(X, shl(C2,C1))",
+      "operand_permutations_and_source_guards": [
+        "outer shift amount C1 is immediate constant",
+        "inner multiplier C2 is immediate constant",
+        "source supports scalar specialization; constant shift fold is defined for the matched amount"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "New multiply and constant shift carry no copied NSW/NUW flags.",
+      "poison_and_freeze": "Modulo-2^N distributivity. Out-of-range C1 makes source shift poison; ensure the proof guard restricts C1<N or treats poison refinement.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "For an immediate constant multiplier, (X*C)<<S -> X*(C<<S)."
+    },
+    {
+      "rank": 20,
+      "inventory_id": "shift-exact-rshift-L1220-less",
+      "source": {
+        "file": "InstCombineShifts.cpp",
+        "line_start": 1219,
+        "line_end": 1233,
+        "function": "InstCombinerImpl::visitShl"
+      },
+      "input_tree": "shl(exact_shr(X,C1),C), where C1<C",
+      "output_tree": "shl(X,C-C1)",
+      "operand_permutations_and_source_guards": [
+        "inner lshr/ashr is exact",
+        "0<=C1<C<N and both amounts are constants",
+        "when outer NSW is set, source copies NSW to result",
+        "source NUW result is outer NUW OR (C1!=0 AND inner opcode is lshr AND outer NSW)"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Result NSW = outer NSW. Result NUW = outer NUW OR (C1!=0 AND inner is lshr AND outer NSW). Inner exact is consumed by the proof; no exact flag on the new shl.",
+      "poison_and_freeze": "Exactness guarantees discarded low bits are zero; overshift is excluded by in-range constants. Must prove these exact flag conditions rather than assume flags clear.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width; prove exact source guard specialization, not broader algebraic assumptions.",
+      "source_description": "For exact (X >> C1) << C with C1<C, replace by shl X,C-C1 and propagate only justified NUW/NSW flags."
+    },
+    {
+      "rank": 21,
+      "inventory_id": "sub-bool-zext-L2643",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2643,
+        "line_end": 2652,
+        "function": "visitSub"
+      },
+      "input_tree": "sub(C,zext(x))",
+      "output_tree": "select(x,C-1,C)",
+      "operand_permutations_and_source_guards": [
+        "C is a scalar integer constant",
+        "x is scalar i1 and is the source of the zext",
+        "root operands are constant minuend then zext"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "No NSW/NUW flags are emitted. Source sets branch weights to explicitly unknown if profiling metadata is enabled.",
+      "poison_and_freeze": "The select condition x being poison makes the result poison; for defined x, zext(x) is 0 or 1 and C-zext(x) equals the selected C or C-1. No freeze is introduced.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width, except the explicitly constrained boolean source for the zext/sext cases. Prove exact source guards.",
+      "source_description": "constant - zext(i1 x) -> select(x,C-1,C)."
+    },
+    {
+      "rank": 22,
+      "inventory_id": "sub-bool-sext-L2653",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2653,
+        "line_end": 2660,
+        "function": "visitSub"
+      },
+      "input_tree": "sub(C,sext(x))",
+      "output_tree": "select(x,C+1,C)",
+      "operand_permutations_and_source_guards": [
+        "C is a scalar integer constant",
+        "x is scalar i1 and is the source of the sext",
+        "root operands are constant minuend then sext"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "No NSW/NUW flags are emitted. Source sets branch weights to explicitly unknown if profiling metadata is enabled.",
+      "poison_and_freeze": "The select condition x being poison makes the result poison; for defined x, sext(x) is 0 or -1 and C-sext(x) equals C or C+1. No freeze is introduced.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width, except the explicitly constrained boolean source for the zext/sext cases. Prove exact source guards.",
+      "source_description": "constant - sext(i1 x) -> select(x,C+1,C)."
+    },
+    {
+      "rank": 23,
+      "inventory_id": "sub-L2779",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2779,
+        "line_end": 2784,
+        "function": "visitSub"
+      },
+      "input_tree": "sub(or(X,Y),X)",
+      "output_tree": "and(Y,not(X))",
+      "operand_permutations_and_source_guards": [
+        "root LHS OR is one-use",
+        "OR operand is identical to root RHS X; commuted OR order is accepted",
+        "Y is the other OR operand"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer type iN, arbitrary width N>=1; all constants have the LLVM operand/result type unless the source explicitly uses a shift amount type."
+      ],
+      "source_flags_and_output_flags": "Plain AND; no NSW/NUW flags.",
+      "poison_and_freeze": "Modulo bitwise/arithmetic identity: (X|Y)-X equals Y&~X. Strict poison propagation; no select/freeze.",
+      "proof_scope": "scalar integers only; arbitrary positive bit width, except the explicitly constrained boolean source for the zext/sext cases. Prove exact source guards.",
+      "source_description": "(X|Y)-X -> (~X)&Y."
+    }
+  ]
+}

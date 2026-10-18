@@ -1,0 +1,758 @@
+[
+  {
+    "inventory_id": "cmpb-L5202",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5195,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AndUltToNe.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AndUltToNe.andUltToNe",
+    "theorem": "Veir.Passes.InstCombineLLVM.AndUltToNe.andUltToNe_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; direct and symmetric source orientations; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndUltToNe.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndUltToNe.andUltToNeSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndUltToNe.andUltToNeSwapped_valid",
+        "scope": "Arbitrary-width scalar integers; symmetric comparison orientation x ugt (x & y); poison propagation modeled; flag-free icmp."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AndUltToNe UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ]
+  },
+  {
+    "inventory_id": "cmpb-L5206",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5203,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AndUgeToEq.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AndUgeToEq.andUgeToEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.AndUgeToEq.andUgeToEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; direct and symmetric source orientations; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AndUgeToEq.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AndUgeToEq.andUgeToEqSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.AndUgeToEq.andUgeToEqSwapped_valid",
+        "scope": "Arbitrary-width scalar integers; symmetric comparison orientation x ule (x & y); poison propagation modeled; flag-free icmp."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AndUgeToEq UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ]
+  },
+  {
+    "inventory_id": "cmpb-L5264",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5256,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OrUleToEq.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; direct and symmetric source orientations; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrUleToEq.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqSwapped_valid",
+        "scope": "Arbitrary-width scalar integers; symmetric comparison orientation x uge (x | y); plain OR; poison propagation modeled; flag-free icmp."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrUleToEq.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqDisjoint",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqDisjoint_valid",
+        "scope": "Arbitrary-width scalar integers; direct comparison orientation; disjoint OR poison semantics modeled; flag-free icmp."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrUleToEq.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqSwappedDisjoint",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrUleToEq.orUleToEqSwappedDisjoint_valid",
+        "scope": "Arbitrary-width scalar integers; symmetric comparison orientation; disjoint OR poison semantics modeled; flag-free icmp."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.OrUleToEq UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ]
+  },
+  {
+    "inventory_id": "cmpb-L5268",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5265,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OrUgtToNe.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNe",
+    "theorem": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNe_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; direct and symmetric source orientations; poison propagation modeled; both plain and disjoint OR flags and flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrUgtToNe.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeSwapped_valid",
+        "scope": "Arbitrary-width scalar integers; symmetric comparison orientation x ult (x | y); plain OR; poison propagation modeled; flag-free icmp."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrUgtToNe.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeDisjoint",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeDisjoint_valid",
+        "scope": "Arbitrary-width scalar integers; direct comparison orientation; disjoint OR poison semantics modeled; flag-free icmp."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrUgtToNe.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeSwappedDisjoint",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrUgtToNe.orUgtToNeSwappedDisjoint_valid",
+        "scope": "Arbitrary-width scalar integers; symmetric comparison orientation; disjoint OR poison semantics modeled; flag-free icmp."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.OrUgtToNe UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L6290",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 6289,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellation.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellation.xorCompareCancellation",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellation.xorCompareCancellation_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; source operand shape; EQ and NE predicates; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellation.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellation.xorCompareCancellationNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellation.xorCompareCancellationNe_valid",
+        "scope": "Arbitrary-width scalar integers; common first XOR operand; NE predicate; poison propagation modeled; flag-free icmp."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorCompareCancellation UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L6292",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 6291,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellationRight.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellationRight.xorCompareCancellationRight",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellationRight.xorCompareCancellationRight_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; source operand shape; EQ and NE predicates; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellationRight.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellationRight.xorCompareCancellationRightNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellationRight.xorCompareCancellationRightNe_valid",
+        "scope": "Arbitrary-width scalar integers; common operand right in the second XOR; NE predicate; poison propagation modeled; flag-free icmp."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorCompareCancellationRight UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L6294",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 6293,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellationCross.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellationCross.xorCompareCancellationCross",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellationCross.xorCompareCancellationCross_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; source operand shape; EQ and NE predicates; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellationCross.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellationCross.xorCompareCancellationCrossNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellationCross.xorCompareCancellationCrossNe_valid",
+        "scope": "Arbitrary-width scalar integers; shared operand left in the second XOR; NE predicate; poison propagation modeled; flag-free icmp."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorCompareCancellationCross UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L6296",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 6295,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellationSecond.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond.xorCompareCancellationSecond",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond.xorCompareCancellationSecond_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; source operand shape; EQ and NE predicates; poison propagation modeled; flag-free icmp.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareCancellationSecond.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond.xorCompareCancellationSecondNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond.xorCompareCancellationSecondNe_valid",
+        "scope": "Arbitrary-width scalar integers; common second XOR operand; NE predicate; poison propagation modeled; flag-free icmp."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorCompareCancellationSecond UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L5477",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5468,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; add or disjoint-OR AddLike source in both operand orientations; EQ/NE with arbitrary add flags, unsigned relations with nuw, signed relations with nsw; poison propagation and disjoint violations modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfEqCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfEqCommuted_valid",
+        "scope": "EQ with commuted `b+a`; arbitrary nsw/nuw and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfNe_valid",
+        "scope": "NE direct add orientation; arbitrary nsw/nuw and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfNeCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfNeCommuted_valid",
+        "scope": "NE commuted add orientation; arbitrary nsw/nuw and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfUnsigned",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfUnsigned_valid",
+        "scope": "All four unsigned relational predicates; direct add orientation; nuw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfUnsignedCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfUnsignedCommuted_valid",
+        "scope": "All four unsigned relational predicates; commuted add orientation; nuw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfSigned",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfSigned_valid",
+        "scope": "All four signed relational predicates; direct add orientation; nsw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfSignedCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.addCompareSelfSignedCommuted_valid",
+        "scope": "All four signed relational predicates; commuted add orientation; nsw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.orDisjointCompareSelf",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.orDisjointCompareSelf_valid",
+        "scope": "Disjoint OR in source operand order; all ten predicates; disjoint poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareSelf.orDisjointCompareSelfCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareSelf.orDisjointCompareSelfCommuted_valid",
+        "scope": "Disjoint OR with commuted operands; all ten predicates; disjoint poison modeled."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddCompareSelf UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L5483",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5479,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; compared value versus add or disjoint-OR AddLike source in both operand orientations; EQ/NE with arbitrary add flags, unsigned relations with nuw, signed relations with nsw; poison propagation and disjoint violations modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddEqCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddEqCommuted_valid",
+        "scope": "EQ with commuted `d+a`; arbitrary nsw/nuw and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddNe_valid",
+        "scope": "NE direct add orientation; arbitrary nsw/nuw and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddNeCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddNeCommuted_valid",
+        "scope": "NE commuted add orientation; arbitrary nsw/nuw and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddUnsigned",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddUnsigned_valid",
+        "scope": "All four unsigned relational predicates; direct add orientation; nuw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddUnsignedCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddUnsignedCommuted_valid",
+        "scope": "All four unsigned relational predicates; commuted add orientation; nuw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddSigned",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddSigned_valid",
+        "scope": "All four signed relational predicates; direct add orientation; nsw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddSignedCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareAddSignedCommuted_valid",
+        "scope": "All four signed relational predicates; commuted add orientation; nsw required and overflow-to-poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareOrDisjoint",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareOrDisjoint_valid",
+        "scope": "Disjoint OR in source operand order; all ten predicates; disjoint poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SelfCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareOrDisjointCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.SelfCompareAdd.selfCompareOrDisjointCommuted_valid",
+        "scope": "Disjoint OR with commuted operands; all ten predicates; disjoint poison modeled."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SelfCompareAdd UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L5509",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5488,
+    "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; both independently matched AddLike operands may be add or disjoint OR in all four shared-operand orientations; all ten predicates with arbitrary flags for EQ/NE and matching nsw/nuw guards for relational add operands; poison and disjoint violations modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqRightCommuted_valid",
+        "scope": "EQ; shared addend right in RHS add; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqLeftCommuted_valid",
+        "scope": "EQ; shared addend right in LHS add; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddEqBothCommuted_valid",
+        "scope": "EQ; shared addend right in both adds; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNe_valid",
+        "scope": "NE; shared addend first in both adds; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeRightCommuted_valid",
+        "scope": "NE; shared addend right in RHS add; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeLeftCommuted_valid",
+        "scope": "NE; shared addend right in LHS add; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddNeBothCommuted_valid",
+        "scope": "NE; shared addend right in both adds; arbitrary flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsigned",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsigned_valid",
+        "scope": "All four unsigned relational predicates; shared addend first in both adds; nuw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedRightCommuted_valid",
+        "scope": "All four unsigned relational predicates; right add commuted; nuw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedLeftCommuted_valid",
+        "scope": "All four unsigned relational predicates; left add commuted; nuw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddUnsignedBothCommuted_valid",
+        "scope": "All four unsigned relational predicates; both adds commuted; nuw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSigned",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSigned_valid",
+        "scope": "All four signed relational predicates; shared addend first in both adds; nsw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedRightCommuted_valid",
+        "scope": "All four signed relational predicates; right add commuted; nsw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedLeftCommuted_valid",
+        "scope": "All four signed relational predicates; left add commuted; nsw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addCompareAddSignedBothCommuted_valid",
+        "scope": "All four signed relational predicates; both adds commuted; nsw required on both and poison modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompare",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompare_valid",
+        "scope": "Disjoint OR on both sides; shared operand first on both; all ten predicates."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareRightCommuted_valid",
+        "scope": "Disjoint OR on both sides; right OR commuted; all ten predicates."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareLeftCommuted_valid",
+        "scope": "Disjoint OR on both sides; left OR commuted; all ten predicates."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orOrCompareBothCommuted_valid",
+        "scope": "Disjoint OR on both sides; both ORs commuted; all ten predicates."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompare",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompare_valid",
+        "scope": "Left disjoint OR and right add; shared operand first on both; dynamic predicate with matching right-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareRightCommuted_valid",
+        "scope": "Left disjoint OR and commuted right add; dynamic predicate with matching right-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareLeftCommuted_valid",
+        "scope": "Commuted left disjoint OR and right add; dynamic predicate with matching right-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.orAddCompareBothCommuted_valid",
+        "scope": "Left disjoint OR and right add both commuted; dynamic predicate with matching right-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompare",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompare_valid",
+        "scope": "Left add and right disjoint OR; shared operand first on both; dynamic predicate with matching left-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareRightCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareRightCommuted_valid",
+        "scope": "Left add and commuted right disjoint OR; dynamic predicate with matching left-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareLeftCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareLeftCommuted_valid",
+        "scope": "Commuted left add and right disjoint OR; dynamic predicate with matching left-add nowrap guard."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/AddCompareAdd.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareBothCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.AddCompareAdd.addOrCompareBothCommuted_valid",
+        "scope": "Left add and right disjoint OR both commuted; dynamic predicate with matching left-add nowrap guard."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.AddCompareAdd UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L5631",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5623,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubCompareSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; EQ/NE with arbitrary subtraction flags and all relational predicates under the source nsw/nuw condition; subtraction overflow-to-poison modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfNe_valid",
+        "scope": "NE; arbitrary nsw/nuw flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfRelational",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubCompareSelf.subCompareSelfRelational_valid",
+        "scope": "All ten predicates through a native predicate/property guard: EQ/NE or unsigned+nuw or signed+nsw; arbitrary-width poison semantics."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubCompareSelf UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L5654",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 5652,
+    "lean_file": "Veir/Passes/InstCombineLLVM/SubCompareSub.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; shared subtrahend; EQ/NE with arbitrary independent subtraction flags and all relational predicates when both subtractions satisfy the source nsw/nuw condition; overflow-to-poison modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubCompareSub.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubNe_valid",
+        "scope": "NE; arbitrary independent nsw/nuw flags and poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/SubCompareSub.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubRelational",
+        "theorem": "Veir.Passes.InstCombineLLVM.SubCompareSub.subCompareSubRelational_valid",
+        "scope": "All ten predicates through a native predicate/property guard on both subtractions: EQ/NE or matching nsw/nuw; arbitrary-width poison semantics."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.SubCompareSub UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L6275",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 6265,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integers; EQ direct XOR/compare orientation; poison modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqSwapped_valid",
+        "scope": "EQ with comparison operands swapped."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqCommuted_valid",
+        "scope": "EQ with XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqCommutedSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfEqCommutedSwapped_valid",
+        "scope": "EQ with XOR and comparison operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNe_valid",
+        "scope": "NE direct orientation."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeSwapped_valid",
+        "scope": "NE with comparison operands swapped."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeCommuted_valid",
+        "scope": "NE with XOR operands commuted."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorCompareSelf.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeCommutedSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorCompareSelf.xorCompareSelfNeCommutedSwapped_valid",
+        "scope": "NE with XOR and comparison operands commuted."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorCompareSelf UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cmpb-L6484",
+    "file": "InstCombineCompares.cpp",
+    "line_start": 6479,
+    "lean_file": "Veir/Passes/InstCombineLLVM/XorMoveConstant.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantEq_valid",
+    "status": "proven",
+    "scope": "Arbitrary-width scalar integer immediate constant; displayed source orientation; EQ; poison modeled. The source one-use and modeled constant-like exclusion on the other comparison operand are enforced by contextual operation inspection; validity does not rely on them.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorMoveConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantEqSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantEqSwapped_valid",
+        "scope": "Comparison operands swapped; EQ; arbitrary-width scalar integer immediate constant and poison; one-use and modeled constant-like exclusion guards enforced."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorMoveConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantNe",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantNe_valid",
+        "scope": "Displayed source orientation; NE; arbitrary-width scalar integer immediate constant and poison; one-use and modeled constant-like exclusion guards enforced."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/XorMoveConstant.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantNeSwapped",
+        "theorem": "Veir.Passes.InstCombineLLVM.XorMoveConstant.xorMoveConstantNeSwapped_valid",
+        "scope": "Comparison operands swapped; NE; arbitrary-width scalar integer immediate constant and poison; one-use and modeled constant-like exclusion guards enforced."
+      }
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vectors: Puddle integer runtime values are scalar",
+      "samesign icmp: IcmpProperties does not model samesign"
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMComparisons"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.XorMoveConstant UnitTest.InstCombineLLVMComparisons; Tools/InstCombine/check_proofs.py"
+  }
+]

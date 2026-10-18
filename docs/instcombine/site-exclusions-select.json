@@ -1,0 +1,206 @@
+[
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 2950,
+    "reason": "isExtractFromCmpXchg returns the cmpxchg aggregate for a matching extractvalue index, optionally through a bitcast; matcher helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 2962,
+    "reason": "isCompareSameAsValue compares identity/bitcast equality or exact integer/FP constant bit patterns; matcher helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3137,
+    "reason": "createSelReverse lambda builds vector_reverse(select(...)); shared constructor for caller rewrites at 3144/3148/3153.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3166,
+    "reason": "Return of the original select signals no SimplifyDemandedVectorElts replacement; no rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3310,
+    "reason": "FoldToBitwiseAnd lambda constructs common result for the separate srem cases at select-L3322 and select-L3331.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3347,
+    "reason": "simplifyNestedSelectsUsingImpliedCond returns an implied inner arm; helper result feeds enclosing select simplifier, not a direct rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3493,
+    "reason": "Return &SI is only the worklist signal for fast-math flag mutations inventoried at select-L3411/L3414/L3422.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3534,
+    "reason": "MatchFAbsOfInnerSel returns whether a one-use fabs of the NaN-scrubbing inner select matches; matcher helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3764,
+    "reason": "matchOuterCond lambda checks whether outer AND/OR contains the inner condition or its inverse; matcher predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3838,
+    "reason": "computeKnownBits result checks the NUW trunc source range in impliesPoisonOrCond; analysis query only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4179,
+    "reason": "isSafeToRemoveBitCeilSelect returns ConstantRange proof about ctlz result; analysis helper query only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4404,
+    "reason": "fmulByZeroIsZero uses KnownFPClass to prove no NaN/infinity and signed-zero conditions; analysis helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4419,
+    "reason": "matchFMulByZeroIfResultEqZero returns the fmulByZeroIsZero result; pattern predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4443,
+    "reason": "hasAffectedValue recursively examines select operand graph/PHIs; analysis helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4444,
+    "reason": "hasAffectedValue recurses only through integer operands; query guard only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4488,
+    "reason": "TryFoldIntoAddConstant returns the shared fadd constructor result; actual arm orientations are at select-L4505 and select-L4509.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4596,
+    "reason": "matchNegNot lambda recognizes one-use negation and not of shared X; matcher helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 4688,
+    "reason": "isSelectZeroSignInsignificant returns whether bounded traversal through PHI/select uses proves sign of zero unobservable; analysis helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3896,
+    "reason": "AndFactorization lambda returns a select representation of the common-factor Boolean formula; its caller branches are inventoried at select-L3902.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3898,
+    "reason": "AndFactorization lambda returns the AND representation of the common-factor formula; caller branches are inventoried at select-L3902.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3942,
+    "reason": "OrFactorization lambda returns a select representation of the common-factor Boolean formula; caller branches are inventoried at select-L3948.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 3944,
+    "reason": "OrFactorization lambda returns the OR representation of the common-factor formula; caller branches are inventoried at select-L3948.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 260,
+    "reason": "getSelectFoldableOperands returns an operand-eligibility bitmask; foldSelectIntoOp performs the rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 267,
+    "reason": "getSelectFoldableOperands returns an operand-eligibility bitmask; foldSelectIntoOp performs the rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 329,
+    "reason": "getCommonOp lambda returns the shared SSA operand to foldSelectOpOp; it does not emit or perform a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 334,
+    "reason": "getCommonOp lambda returns the shared SSA operand to foldSelectOpOp; it does not emit or perform a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 348,
+    "reason": "getCommonOp lambda returns the shared SSA operand to foldSelectOpOp; it does not emit or perform a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 353,
+    "reason": "getCommonOp lambda returns the shared SSA operand to foldSelectOpOp; it does not emit or perform a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 593,
+    "reason": "isSelect01 is a constant classification predicate used as a profitability guard; it does not rewrite IR.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 1724,
+    "reason": "replaceInInstruction returns whether a recursive operand substitution changed an instruction; the caller owns the select rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 2541,
+    "reason": "foldSelectInstWithICmp returns Changed, which remains initialized false and is never set true in this function; all successful rewrites are the preceding individually delegated or direct branches.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 2666,
+    "reason": "IsSignedSaturateLimit lambda returns true to signal a matching signed saturation limit; the enclosing foldOverflowingAddSubSelect call at line 2754 performs the rewrite and is inventoried by output intrinsic.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 2670,
+    "reason": "IsSignedSaturateLimit lambda returns true to signal a matching signed saturation limit; the enclosing foldOverflowingAddSubSelect call at line 2754 performs the rewrite and is inventoried by output intrinsic.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "line": 2366,
+    "reason": "FoldBinaryOpOrIntrinsic lambda performs constant evaluation only; its result is a matching guard used by the actual rewrite at 2384/2403.",
+    "reviewed": true
+  }
+]

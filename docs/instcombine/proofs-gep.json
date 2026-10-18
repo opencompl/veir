@@ -1,0 +1,127 @@
+[
+  {
+    "inventory_id": "ic-gep-constant-offset-to-ptradd-L3423",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3423,
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPConstantOffsetToPtrAdd.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.GEPConstantOffsetToPtrAdd.gepConstantOffsetToPtrAdd",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPConstantOffsetToPtrAdd.gepConstantOffsetToPtrAdd_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "other RV64 scalar element allocation strides supported by DataLayout, with the byte-offset property transformation generalized by that stride"
+    ],
+    "unsupported_scope": [
+      "GEP nowrap flags: the current Puddle GEP interpreter ignores inbounds/nusw/nuw rather than modeling their poison constraints, while the source rewrite preserves them",
+      "multi-index aggregate GEPs: the current Puddle GEP verifier and interpreter support exactly one dynamic integer index",
+      "vector GEP forms: elementwise vector pointer/index semantics are absent",
+      "target layouts other than the fixed RV64 DataLayout"
+    ],
+    "scope": "Proves the full arbitrary-i64-constant family for unflagged RV64 one-index scalar i32 GEPs with a free pointer base: getelementptr i32 by constant C is replaced by the equivalent i8-element ptradd form with wrapped byte offset C*4. The proof preserves pointer object identity and poison. Executable fixtures instantiate C=3 and C=-3, assert root erasure, original-base reuse, generated normalized byte offsets 12 and -12, i8 element type, and graph verification.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMGEPs"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.GEPConstantOffsetToPtrAdd UnitTest.InstCombineLLVMGEPs"
+  },
+  {
+    "inventory_id": "ic-gep-split-add-index-L3657",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3657,
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPSplitAddIndex.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.GEPSplitAddIndex.gepSplitAddIndex",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPSplitAddIndex.gepSplitAddIndex_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "the same unflagged one-i64-index add specialization for other RV64 element allocation strides",
+      "disjoint-or AddLike indices once the source disjoint property and equivalent integer semantics are matched",
+      "source integer-add nsw/nuw flag combinations whose arithmetic result is unchanged; replacement GEPs remain unflagged"
+    ],
+    "unsupported_scope": [
+      "GEP nowrap flags: the current Puddle GEP interpreter ignores inbounds/nusw/nuw rather than modeling their poison constraints",
+      "multi-index aggregate GEPs: the current Puddle GEP verifier and interpreter support exactly one dynamic integer index",
+      "narrow scalar indices: Puddle currently treats them as unsigned and differs from LLVM sign extension",
+      "vector GEP forms and target layouts other than fixed RV64"
+    ],
+    "scope": "Proves the unflagged RV64 one-index i32 GEP specialization with a free pointer base and two free i64 addends: GEP(base, x+y) becomes GEP(GEP(base,x),y). The source add is unflagged, as are both source and replacement GEPs. The source one-use condition is a profitability guard, so omitting it yields a broader semantically valid matcher. Poison and UInt64 address wrap are covered by the kernel proof.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMGEPs"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.GEPSplitAddIndex UnitTest.InstCombineLLVMGEPs"
+  },
+  {
+    "inventory_id": "ic-gep-gep-select-constant-index-L2922",
+    "file": "InstructionCombining.cpp",
+    "line_start": 2927,
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPSelectConstantIndex.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.GEPSelectConstantIndex.gepSelectConstantIndex",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPSelectConstantIndex.gepSelectConstantIndex_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "the symmetric source orientation with the select index on the inner GEP and constant index on the outer GEP",
+      "other modeled RV64 scalar element strides"
+    ],
+    "unsupported_scope": [
+      "GEP nowrap flags: the current Puddle GEP interpreter ignores their poison constraints",
+      "multi-index aggregate and vector GEP forms are absent from the modeled GEP semantics",
+      "narrow scalar indices are excluded because the modeled GEP unsigned interpretation differs from LLVM sign extension"
+    ],
+    "scope": "Proves the arbitrary-i64-constant family for the unflagged RV64 one-index i32 orientation gep(gep(base,C), select(cond,T,F)) to gep(base,select(cond,C+T,C+F)), with free pointer base and free i1 condition. Omitting the source profitability one-use checks yields a broader scalar matcher. The runtime fixture instantiates C=3, T=5, F=7, asserts root replacement and generated constants 8 and 10, and verifies the graph.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMGEPs"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.GEPSelectConstantIndex UnitTest.InstCombineLLVMGEPs"
+  },
+  {
+    "inventory_id": "ic-gep-exact-div-to-byte-index-L3565",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3565,
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPExactDivToByteIndex.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.GEPExactDivToByteIndex.gepExactDivToByteIndex",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPExactDivToByteIndex.gepExactDivToByteIndex_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "the exact ashr-by-two arm for the same RV64 one-i64-index i32 GEP family",
+      "exact udiv and sdiv by four for the same fixed i32 allocation stride",
+      "the shift and exact-divide arms for other modeled RV64 scalar allocation strides"
+    ],
+    "unsupported_scope": [
+      "GEP nowrap flags: the current Puddle GEP interpreter ignores their poison constraints",
+      "multi-index aggregate and vector GEP forms are absent from the modeled GEP semantics",
+      "narrow scalar indices are excluded because the modeled GEP unsigned interpretation differs from LLVM sign extension"
+    ],
+    "scope": "Proves the exact logical-shift arm for an unflagged RV64 one-i64-index i32 GEP: GEP i32 by (lshr exact bytes,2) becomes GEP i8 by bytes. The proof covers poison, the exactness precondition, and UInt64 address wrap. The runtime fixture uses free base and byte-index block arguments, asserts root replacement and direct argument reuse, and verifies the graph.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMGEPs"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.GEPExactDivToByteIndex UnitTest.InstCombineLLVMGEPs"
+  },
+  {
+    "inventory_id": "ic-gep-fold-exact-divisor-L3581",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3581,
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPFoldExactDivisor.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.GEPFoldExactDivisor.gepFoldExactDivisor",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPFoldExactDivisor.gepFoldExactDivisor_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "arbitrary exact lshr constants C at least two, producing the exact shift C-2 for the fixed i32 allocation stride",
+      "the corresponding exact ashr constant family",
+      "exact udiv and sdiv constant-divisor families satisfying the source divisibility and signed-overflow guards",
+      "the exact shift/divide families for other modeled RV64 scalar allocation strides"
+    ],
+    "unsupported_scope": [
+      "GEP nowrap flags: the current Puddle GEP interpreter ignores their poison constraints",
+      "multi-index aggregate and vector GEP forms are absent from the modeled GEP semantics",
+      "narrow scalar indices are excluded because the modeled GEP unsigned interpretation differs from LLVM sign extension"
+    ],
+    "scope": "Proves the C=3 exact logical-shift specialization for an unflagged RV64 one-i64-index i32 GEP: GEP i32 by (lshr exact bytes,3) becomes GEP i8 by (lshr exact bytes,1). The source one-use check is a profitability guard; the proved matcher is semantically valid on a broader graph. The proof derives replacement exactness and address equality from the source exactness condition. The runtime fixture asserts root replacement, the generated exact shift by one, free-input reuse, and graph verification.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMGEPs"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.GEPFoldExactDivisor UnitTest.InstCombineLLVMGEPs"
+  }
+]

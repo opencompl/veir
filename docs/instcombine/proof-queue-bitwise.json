@@ -1,0 +1,604 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "title": "Proof queue: scalar bitwise algebra",
+  "selection_note": "Pending source-local rewrites, ranked from elementary truth-table identities to flag-sensitive arithmetic/bitwise identities. Delegated InstSimplify families excluded. Match guards and source profitability/use-count checks are recorded separately from semantic assumptions.",
+  "items": [
+    {
+      "rank": 1,
+      "inventory_id": "bitwise-L1956",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1954,
+        "line_end": 1956,
+        "function": "foldAndToXor"
+      },
+      "input_tree": "(A | B) & ~(A & B)",
+      "output_tree": "A xor B",
+      "operand_permutations_and_match_shape": [
+        "source root is AND; canonical operand complexity puts OR in operand 0",
+        "inner AND operands match the same A and B, in either order",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "no flags are copied or created; output is plain xor.",
+      "poison_and_freeze": "The NOT is bitwise complement. This is the truth table for exclusive-or.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A|B)&~(A&B) -> A^B."
+    },
+    {
+      "rank": 2,
+      "inventory_id": "bitwise-L1999",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1993,
+        "line_end": 1999,
+        "function": "foldOrToXor"
+      },
+      "input_tree": "(A & ~B) | (~A & B)",
+      "output_tree": "A xor B",
+      "operand_permutations_and_match_shape": [
+        "source root is OR",
+        "both AND arms share A and B; source accepts four commuted forms across each AND",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor; no flags.",
+      "poison_and_freeze": "Strict integer bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A&~B)|(~A&B) -> A^B."
+    },
+    {
+      "rank": 3,
+      "inventory_id": "bitwise-L4832",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4830,
+        "line_end": 4832,
+        "function": "foldXorToXor"
+      },
+      "input_tree": "(A & B) xor (A | B)",
+      "output_tree": "A xor B",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; source matcher accepts four inner/outer commuted variants",
+        "AND and OR refer to identical SSA values A and B",
+        "no one-use guard in this branch"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor; no flags.",
+      "poison_and_freeze": "Strict integer bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A&B)^(A|B) -> A^B, including commuted inner/outer operands."
+    },
+    {
+      "rank": 4,
+      "inventory_id": "bitwise-L4840",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4838,
+        "line_end": 4840,
+        "function": "foldXorToXor"
+      },
+      "input_tree": "(A | ~B) xor (~A | B)",
+      "output_tree": "A xor B",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; four commuted variants listed in source",
+        "the two OR nodes use matching A and B, with opposite complement placement",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor; no flags.",
+      "poison_and_freeze": "Each NOT is bitwise complement; strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A|~B)^(~A|B) -> A^B."
+    },
+    {
+      "rank": 5,
+      "inventory_id": "bitwise-L4848",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4846,
+        "line_end": 4848,
+        "function": "foldXorToXor"
+      },
+      "input_tree": "(A & ~B) xor (~A & B)",
+      "output_tree": "A xor B",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; four commuted variants listed in source",
+        "the two AND nodes use matching A and B, with opposite complement placement",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A&~B)^(~A&B) -> A^B."
+    },
+    {
+      "rank": 6,
+      "inventory_id": "bitwise-L1965",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1962,
+        "line_end": 1965,
+        "function": "foldAndToXor"
+      },
+      "input_tree": "(A | ~B) & (~A | B)",
+      "output_tree": "~(A xor B)",
+      "operand_permutations_and_match_shape": [
+        "source root AND; commuted operand arrangements accepted by m_c matchers",
+        "both inner ORs match the same A and B",
+        "at least one root operand (an inner OR) is one-use; source guard avoids retaining extra work"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor followed by complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A|~B)&(~A|B) -> ~(A^B)."
+    },
+    {
+      "rank": 7,
+      "inventory_id": "bitwise-L1983",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1980,
+        "line_end": 1983,
+        "function": "foldOrToXor"
+      },
+      "input_tree": "(A & B) | ~(A | B)",
+      "output_tree": "~(A xor B)",
+      "operand_permutations_and_match_shape": [
+        "source root OR; canonical operand complexity places AND first",
+        "inner AND and OR share A and B; OR operand order may commute",
+        "at least one root operand is one-use"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor followed by complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A&B)|~(A|B) -> ~(A^B)."
+    },
+    {
+      "rank": 8,
+      "inventory_id": "bitwise-L4863",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4859,
+        "line_end": 4863,
+        "function": "foldXorToXor"
+      },
+      "input_tree": "(A | B) xor ~(A & B), or (A & B) xor ~(A | B)",
+      "output_tree": "~(A xor B)",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; either matching OR/NOT-AND or AND/NOT-OR arrangement",
+        "inner operands share A and B; commuted order accepted by m_c matchers",
+        "at least one XOR operand is one-use; source uses complexity order to place NOT on the right"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain xor followed by complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A|B)^~(A&B) or (A&B)^~(A|B) -> ~(A^B)."
+    },
+    {
+      "rank": 9,
+      "inventory_id": "bitwise-L1991",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1988,
+        "line_end": 1991,
+        "function": "foldOrToXor"
+      },
+      "input_tree": "(A xor B) | ~(A | B)",
+      "output_tree": "~(A & B)",
+      "operand_permutations_and_match_shape": [
+        "source root OR; canonical complexity puts XOR first",
+        "inner OR contains the same A and B as the XOR; OR operands may commute",
+        "at least one root operand is one-use"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain and followed by complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A^B)|~(A|B) -> ~(A&B)."
+    },
+    {
+      "rank": 10,
+      "inventory_id": "bitwise-L5270",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5268,
+        "line_end": 5270,
+        "function": "InstCombinerImpl::foldNot"
+      },
+      "input_tree": "~(~X & Y)",
+      "output_tree": "X | ~Y",
+      "operand_permutations_and_match_shape": [
+        "root is NOT (xor with all-ones) of an inner AND",
+        "inner AND is one-use; source accepts either operand order for the negated child",
+        "other input is a bitwise NOT of X"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain OR; no flags.",
+      "poison_and_freeze": "Strict integer bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~(~X & Y) -> X | ~Y."
+    },
+    {
+      "rank": 11,
+      "inventory_id": "bitwise-L5284",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5282,
+        "line_end": 5284,
+        "function": "InstCombinerImpl::foldNot"
+      },
+      "input_tree": "~(~X | Y)",
+      "output_tree": "X & ~Y",
+      "operand_permutations_and_match_shape": [
+        "root is NOT of an inner OR",
+        "inner OR is one-use; source accepts either operand order for the negated child",
+        "other input is a bitwise NOT of X"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain AND; no flags.",
+      "poison_and_freeze": "Strict integer bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~(~X | Y) -> X & ~Y."
+    },
+    {
+      "rank": 12,
+      "inventory_id": "bitwise-L5031",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5028,
+        "line_end": 5031,
+        "function": "visitMaskedMerge"
+      },
+      "input_tree": "B xor ((B xor X) & ~M)",
+      "output_tree": "((B xor X) & M) xor X",
+      "operand_permutations_and_match_shape": [
+        "root XOR uses commutative matching",
+        "one XOR operand is one-use AND(D,M), with D matching B xor X in either operand order",
+        "M is syntactically NOT(NotM); source substitutes the non-inverted NotM mask",
+        "no one-use guard on the inner xor beyond matcher structure"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain AND and XOR; no nowrap or other flags.",
+      "poison_and_freeze": "Strict integer bitwise semantics; verify the complement variable carefully: source matches M = ~NotM and constructs D & NotM.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "((X^Y)&~M)^Y -> ((X^Y)&M)^X by removing mask inversion and swapping final XOR value."
+    },
+    {
+      "rank": 13,
+      "inventory_id": "bitwise-L5067",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5064,
+        "line_end": 5067,
+        "function": "foldNotXor"
+      },
+      "input_tree": "~((A & B) xor (C | D)), where {A,B} intersects {C,D}",
+      "output_tree": "(A & B) | ~(C | D)",
+      "operand_permutations_and_match_shape": [
+        "root NOT wraps one-use XOR",
+        "XOR operands are AND and OR in either order",
+        "at least one SSA operand of AND is identical to one SSA operand of OR"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain OR plus complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~((A&B)^(A|?)) -> (A&B)|~(A|?) when the inner forms share an operand."
+    },
+    {
+      "rank": 14,
+      "inventory_id": "bitwise-L5075",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5072,
+        "line_end": 5075,
+        "function": "foldNotXor"
+      },
+      "input_tree": "~((C | D) xor (A & B)), where {A,B} intersects {C,D}",
+      "output_tree": "(A & B) | ~(C | D)",
+      "operand_permutations_and_match_shape": [
+        "root NOT wraps one-use XOR",
+        "XOR operands are OR and AND in this commuted branch",
+        "at least one SSA operand is shared"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain OR plus complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "Commuted ~((A|?)^(A&B)) -> (A&B)|~(A|?)."
+    },
+    {
+      "rank": 15,
+      "inventory_id": "bitwise-L5302",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5298,
+        "line_end": 5302,
+        "function": "InstCombinerImpl::foldNot"
+      },
+      "input_tree": "~((-X) | Y)",
+      "output_tree": "(X + (2^N-1)) & ~Y",
+      "operand_permutations_and_match_shape": [
+        "root NOT wraps OR",
+        "OR is one-use; negation `-X` is a one-use `0-X` form and may occur on either side",
+        "no scalar analysis guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain wrapping add, complement, and AND; source does not copy nowrap flags from the matched negation.",
+      "poison_and_freeze": "Strict integer bitwise/arithmetic semantics; `X-1` is modular arithmetic.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~((-X)|Y) -> (X-1)&~Y."
+    },
+    {
+      "rank": 16,
+      "inventory_id": "bitwise-L5341",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5340,
+        "line_end": 5341,
+        "function": "InstCombinerImpl::foldNot"
+      },
+      "input_tree": "~(X + C)",
+      "output_tree": "(~C) - X",
+      "operand_permutations_and_match_shape": [
+        "root NOT wraps add; RHS C is an immediate integer constant",
+        "match permits source add operands as X,C",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain sub; source does not copy nsw/nuw from the original add.",
+      "poison_and_freeze": "Complement and arithmetic are modulo 2^N. Dropping input nowrap flags can turn source poison into a defined result, which is a valid refinement direction.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~(X+C) -> ~C-X."
+    },
+    {
+      "rank": 17,
+      "inventory_id": "bitwise-L5347",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5345,
+        "line_end": 5347,
+        "function": "InstCombinerImpl::foldNot"
+      },
+      "input_tree": "~(X - Y)",
+      "output_tree": "(~X) + Y",
+      "operand_permutations_and_match_shape": [
+        "root NOT wraps sub",
+        "if X is not a constant, the subtraction is one-use; source accepts constant X without that guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain add; source does not copy nowrap flags from the original subtraction.",
+      "poison_and_freeze": "Complement and arithmetic are modulo 2^N; dropping source flags only removes poison cases.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~(X-Y) -> ~X+Y."
+    },
+    {
+      "rank": 18,
+      "inventory_id": "bitwise-L5351",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5350,
+        "line_end": 5352,
+        "function": "InstCombinerImpl::foldNot"
+      },
+      "input_tree": "~((~X) + Y)",
+      "output_tree": "X - Y",
+      "operand_permutations_and_match_shape": [
+        "root NOT wraps add",
+        "commutative matcher permits complemented X in either operand position",
+        "no use-count guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "CreateWithCopiedFlags copies the inner add flags (including nsw/nuw) to the new subtraction.",
+      "poison_and_freeze": "Strict bitwise/arithmetic semantics; flag preservation is part of the source rewrite.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "~(~X+Y) -> X-Y, copying arithmetic flags."
+    },
+    {
+      "rank": 19,
+      "inventory_id": "bitwise-L5464",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5455,
+        "line_end": 5464,
+        "function": "foldMaskedAddXorPattern"
+      },
+      "input_tree": "((X + C) & M) xor M",
+      "output_tree": "((~C) - X) & M",
+      "operand_permutations_and_match_shape": [
+        "root XOR has M on either side; inner AND and add are one-use",
+        "AND mask is the same SSA value as XOR other operand",
+        "add operand is X plus immediate constant C, with commuted add operands accepted"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "New subtraction copies both nsw and nuw from the matched add; outer AND is plain.",
+      "poison_and_freeze": "Complement and arithmetic are modulo 2^N; preserving add flags on sub is source-exact and must be included in the lemma.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "((X+C)&M)^M -> (~C-X)&M, preserving add nsw/nuw on subtraction."
+    },
+    {
+      "rank": 20,
+      "inventory_id": "bitwise-L5681",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5680,
+        "line_end": 5681,
+        "function": "InstCombinerImpl::visitXor"
+      },
+      "input_tree": "Y xor (X | Y), or Y xor (Y | X)",
+      "output_tree": "X & ~Y",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; OR is one-use and contains the exact other XOR operand Y",
+        "both OR operand orders accepted"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain AND plus complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "Y^(X|Y) -> X&~Y."
+    },
+    {
+      "rank": 21,
+      "inventory_id": "bitwise-L5690",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5689,
+        "line_end": 5690,
+        "function": "InstCombinerImpl::visitXor"
+      },
+      "input_tree": "Y xor (X & Y), or Y xor (Y & X)",
+      "output_tree": "~X & Y",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; AND is one-use and contains the exact other XOR operand Y",
+        "both AND operand orders accepted"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain AND plus complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "Y^(X&Y) -> ~X&Y."
+    },
+    {
+      "rank": 22,
+      "inventory_id": "bitwise-L5704",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5702,
+        "line_end": 5705,
+        "function": "InstCombinerImpl::visitXor"
+      },
+      "input_tree": "(A xor B) xor (A | C)",
+      "output_tree": "(~A & C) xor B",
+      "operand_permutations_and_match_shape": [
+        "root XOR has commuted matching",
+        "inner XOR and OR are each one-use",
+        "OR shares A with inner XOR; source has a separate symmetric branch for shared B at L5710"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain NOT, AND, and XOR; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A^B)^(A|C) -> (~A&C)^B."
+    },
+    {
+      "rank": 23,
+      "inventory_id": "bitwise-L5716",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5714,
+        "line_end": 5716,
+        "function": "InstCombinerImpl::visitXor"
+      },
+      "input_tree": "(A & B) xor (A xor B)",
+      "output_tree": "A | B",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; first operand is AND, second is commuted XOR over the same A,B",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain OR; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A&B)^(A^B) -> A|B."
+    },
+    {
+      "rank": 24,
+      "inventory_id": "bitwise-L5726",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5724,
+        "line_end": 5726,
+        "function": "InstCombinerImpl::visitXor"
+      },
+      "input_tree": "(A & ~B) xor ~A, or (~B & A) xor ~A",
+      "output_tree": "~(A & B)",
+      "operand_permutations_and_match_shape": [
+        "source root XOR uses fixed operand order for outer terms",
+        "first AND matches A and complement of B; second operand is NOT of the same A",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain AND plus complement; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(A&~B)^~A -> ~(A&B)."
+    },
+    {
+      "rank": 25,
+      "inventory_id": "bitwise-L5730",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5729,
+        "line_end": 5730,
+        "function": "InstCombinerImpl::visitXor"
+      },
+      "input_tree": "(~A & B) xor A",
+      "output_tree": "A | B",
+      "operand_permutations_and_match_shape": [
+        "source root XOR; commutative matcher accepts the four operand permutations noted by source",
+        "AND contains complement of the identical A used by XOR",
+        "no one-use guard"
+      ],
+      "required_constants_and_type": [
+        "iN, arbitrary integer bit width; complement is xor with all-ones of the same width."
+      ],
+      "source_flags_and_output_flags": "plain OR; no flags.",
+      "poison_and_freeze": "Strict bitwise semantics.",
+      "proof_scope": "scalar integer only; arbitrary positive bit width; no vector specialization.",
+      "source_description": "(~A&B)^A -> A|B."
+    }
+  ]
+}

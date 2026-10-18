@@ -1,0 +1,27 @@
+{
+  "description": "Find explicit PatternMatch opcodes absent from enclosing inventory match lists.\n\nThis is advisory: a source span can include sibling guards, and generic helpers\nor ConstantExpr patterns need human interpretation. It does not edit entries.",
+  "recognized_matcher_sites": 1719,
+  "candidate_sites": 2,
+  "findings": [
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2123,
+      "matcher": "m_Add(",
+      "opcode": "add",
+      "inventory_ids_missing_opcode": [
+        "select-L2095"
+      ],
+      "source": "if (Pred == CmpInst::ICMP_ULT && match(X, m_Add(m_Value(), m_Constant())))"
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 517,
+      "matcher": "m_Xor(",
+      "opcode": "xor",
+      "inventory_ids_missing_opcode": [
+        "shift-common-nuwsub-static-L510"
+      ],
+      "source": "(match(Op1, m_Xor(m_Value(X), m_ConstantInt(C2))) &&"
+    }
+  ]
+}

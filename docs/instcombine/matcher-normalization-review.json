@@ -1,0 +1,276 @@
+{
+  "status": "resolved_and_globally_validated",
+  "discovered": "2026-10-19",
+  "evidence": {
+    "normalization": "Veir/IR/Attribute.lean:138-146",
+    "matcher": "Veir/Passes/InstCombineLLVM/Semantics.lean:26-32"
+  },
+  "scope": "Candidate list, not proof failures. Existing validity proofs remain valid for the narrower matcher. Review source width guards before recording an actual missing variant. Unsigned Puddle integer attributes also use positive all-ones values; LLVM source uses signless integers.",
+  "findings": [
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/AddOneNot.lean",
+      "inventory_id": "add-L1673",
+      "lines": [
+        18
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/AddSubAllOnes.lean",
+      "inventory_id": "addconst-L882",
+      "lines": [
+        20
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/AllOnesSub.lean",
+      "inventory_id": "sub-L2531",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+      "inventory_id": "bitwise-L1965",
+      "lines": [
+        22
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/AndOrNotAnd.lean",
+      "inventory_id": "bitwise-L1956",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertAdd.lean",
+      "inventory_id": "ic-free-invert-add-L3050",
+      "lines": [
+        19
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized, compiled module and passed full core runtime orientation fixture including normalized i1 in UnitTest.InstCombineLLVMConstants. Next combined context validation remains pending while other legacy migrations continue."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertDoubleNot.lean",
+      "inventory_id": "ic-free-invert-double-not-L3024",
+      "lines": [
+        17
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized, compiled module and passed full core runtime orientation fixture including normalized i1 in UnitTest.InstCombineLLVMConstants. Next combined context validation remains pending while other legacy migrations continue."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertXor.lean",
+      "inventory_id": "ic-free-invert-xor-L3061",
+      "lines": [
+        19
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized, compiled module and passed full core runtime orientation fixture including normalized i1 in UnitTest.InstCombineLLVMConstants. Next combined context validation remains pending while other legacy migrations continue."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/MaskedMergeNot.lean",
+      "inventory_id": "bitwise-L5031",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NegateNot.lean",
+      "inventory_id": "negator-L159",
+      "lines": [
+        27
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotAddConstant.lean",
+      "inventory_id": "bitwise-L5341",
+      "lines": [
+        35
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+      "inventory_id": "bitwise-L5270",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotAndXorOr.lean",
+      "inventory_id": "bitwise-L5067",
+      "lines": [
+        20
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotNegOr.lean",
+      "inventory_id": "bitwise-L5302",
+      "lines": [
+        20,
+        43,
+        140,
+        163
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+      "inventory_id": "bitwise-L5284",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotOrXorAnd.lean",
+      "inventory_id": "bitwise-L5075",
+      "lines": [
+        20
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/NotSub.lean",
+      "inventory_id": "bitwise-L5347",
+      "lines": [
+        19
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/OrAndNotOr.lean",
+      "inventory_id": "bitwise-L1983",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+      "inventory_id": "bitwise-L1999",
+      "lines": [
+        22
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/OrXorNotOr.lean",
+      "inventory_id": "bitwise-L1991",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/SubAddAllOnes.lean",
+      "inventory_id": "sub-addnot-L2535",
+      "lines": [
+        19
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Foundation Sol5.6 worker migrated to matchIntConstantNormalized and rebuilt every existing Valid theorem in the13retained legacy modules. UnitTest.InstCombineLLVMConstants passes parsed signless i1 firing/progress/verifier smoke cases for each entry and existing i8 orientation fixtures. The7newcore modules/full48orientation fixtures also pass. Next combined context certificate pending edit barrier."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+      "inventory_id": "bitwise-L5726",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+      "inventory_id": "bitwise-L4848",
+      "lines": [
+        22
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+      "inventory_id": "bitwise-L4840",
+      "lines": [
+        22
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+      "inventory_id": "bitwise-L5730",
+      "lines": [
+        21
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    },
+    {
+      "lean_file": "Veir/Passes/InstCombineLLVM/XorNotMixed.lean",
+      "inventory_id": "bitwise-L4863",
+      "lines": [
+        21,
+        86
+      ],
+      "assessment": "Review i1 applicability: literal -1 cannot match normalized signless i1 all-ones (+1). A source restriction excluding width1 may make this harmless; otherwise add normalized matching/variant and parsed runtime fixture.",
+      "resolution": "fixed",
+      "resolution_evidence": "Migrated to matchIntConstantNormalized at matched SSA width. Sol5.6 worker rebuilt all100 existing public Valid orientation theorems across these10modules, checked allowed axioms, and passed UnitTest.InstCombineLLVMNormalizedBitwise: every orientation fires on parsed i1 all-ones1, with root-shape/progress and verifier checks; representative i8 -1 also fires. Await next combined global context certificate."
+    }
+  ],
+  "global_validation": "Final combined checkpoint at user-requested wrap-up:127modules,530Pattern.Valid proofs and3negated Pattern.Valid counterexample proofs; runtime fixture builds passed. See verified-proofs.json, verified-counterexamples.json, proof-validation.log, and summary.json."
+}

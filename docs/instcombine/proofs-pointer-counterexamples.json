@@ -1,0 +1,28 @@
+[
+  {
+    "inventory_id": "ic-visit-gep-normalize-indices-L3346",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3375,
+    "lean_file": "Veir/Passes/InstCombineLLVM/GEPIndexNormalizationCounterexample.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.GEPIndexNormalizationCounterexample.normalizeNarrowGepIndex",
+    "theorem": "Veir.Passes.InstCombineLLVM.GEPIndexNormalizationCounterexample.normalizeNarrowGepIndex_not_valid",
+    "status": "counterexample",
+    "scope": "RV64 scalar specialization with a free pointer base, a free i8 dynamic index, i8 element stride, and no GEP nowrap flags. The source GEP and replacement GEP after sext i8 to i64 are modeled by the executable pattern. At index 255 and base address zero, Puddle evaluates the source with unsigned BitVec.toNat to address 255 but evaluates the sign-extended replacement to address 2^64-1.",
+    "reason": "Puddle's llvm.getelementptr interpreter converts every dynamic integer index with BitVec.toNat, independent of its original width. LLVM interprets a narrow GEP index as sign-extended to the target index width, so making that sign extension explicit must preserve LLVM behavior but changes Puddle behavior for a negative narrow index. This is a Puddle model counterexample, not evidence of an LLVM bug.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMGEPCounterexample"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.GEPIndexNormalizationCounterexample UnitTest.InstCombineLLVMGEPCounterexample; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "other narrow-to-i64 scalar index widths, including the nuw+nusw zext nneg arm",
+      "wide scalar index truncation to the RV64 index width with propagated nowrap flags",
+      "replacement of indices over sized zero-allocation-size elements by a typed zero"
+    ],
+    "unsupported_scope": [
+      "vector GEP indices lack modeled elementwise vector cast and GEP semantics",
+      "struct-index traversal and multi-index GEPs are not supported by Puddle's one-dynamic-index GEP interpreter"
+    ]
+  }
+]

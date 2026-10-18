@@ -1,0 +1,2821 @@
+[
+  {
+    "id": "vector-cheap-scalarize-helper-L53",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 53,
+    "line_end": 95,
+    "function": "cheapToScalarize",
+    "description": "Classify extraction scalarization as cheap for constants, valid stepvector index, insertelement, one-use load/unary op, or one-use binary/compare with cheap operand.",
+    "match_opcodes": [
+      "extractelement",
+      "load",
+      "fneg",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "icmp",
+      "fcmp",
+      "call",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "one-use requirement for loads, unary ops, binops and comparisons",
+      "constant extract index for stepvector/insert cases",
+      "stepvector case matches the `llvm.stepvector` call intrinsic and in-range lane"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector/use graph or memory effects.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-scalarize-phi-L97",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 97,
+    "line_end": 195,
+    "function": "InstCombinerImpl::scalarizePHI",
+    "description": "Replace vector loop PHI used by same-index extracts and one cheap one-use binary recurrence with scalar PHI; extract each incoming lane, preserve operand order/flags, reuse duplicate predecessor values.",
+    "match_opcodes": [
+      "phi",
+      "extractelement",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "extractelement",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "only same constant extract index; one non-extract user; user one-use binary feeds PHI; operation cheap to scalarize"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no CFG/PHI/dominance/vector lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-bitcast-extract-scalar-int-L197",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 197,
+    "line_end": 234,
+    "function": "InstCombinerImpl::foldBitcastExtElt",
+    "description": "Fold extractelement(bitcast integer to fixed vector, constant lane) to optional logical shift-right and truncation; bitcast truncated integer back when result is FP.",
+    "match_opcodes": [
+      "extractelement",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "trunc",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "scalar source integer; fixed result vector; constant lane; endian adjusts lane; one-use bitcast; shift is zero or source integer width desirable"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/bitcast and data-layout endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-bitcast-extract-same-lanes-L236",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 236,
+    "line_end": 249,
+    "function": "InstCombinerImpl::foldBitcastExtElt",
+    "description": "For equal source/destination vector lane counts, replace extractelement(bitcast vector, lane) with bitcast(findScalarElement(source,lane)) when source lane is discoverable.",
+    "match_opcodes": [
+      "extractelement",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "source is vector with same ElementCount; constant lane; source value helper identifies lane"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/bitcast and data-layout endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-bitcast-extract-unused-insert-L251",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 251,
+    "line_end": 280,
+    "function": "InstCombinerImpl::foldBitcastExtElt",
+    "description": "When narrowed bitcast extraction does not select the inserted source lane, bypass the one-use insertelement and bitcast to extract from its original base vector.",
+    "match_opcodes": [
+      "extractelement",
+      "bitcast",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "source vector has fewer lanes than bitcast result; fixed/scalable kind matches; constant insertion and extraction lane; extracted lane outside inserted lane chunk; both insert source and bitcast one-use"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/bitcast and data-layout endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-bitcast-extract-inserted-scalar-L281",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 281,
+    "line_end": 331,
+    "function": "InstCombinerImpl::foldBitcastExtElt",
+    "description": "When narrowed bitcast extraction selects a chunk of the inserted scalar, compute that chunk with endian-adjusted logical shift and truncation, with bitcasts around FP source/result as needed.",
+    "match_opcodes": [
+      "extractelement",
+      "bitcast",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "lshr",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "source lane widened into narrower output lane count; constant insert/extract indices select same inserted lane; not FP-to-FP source/result; conversions needing bitcasts constrained by one-use profitability; endianness determines chunk"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/bitcast and data-layout endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-demanded-single-user-helper-L338",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 336,
+    "line_end": 375,
+    "function": "findDemandedEltsBySingleUser",
+    "description": "For one fixed-vector user, add the constant in-range extracted lane or lanes selected by a shuffle mask; return failure when the user kind/index is not fully understood.",
+    "match_opcodes": [
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed vector; extract index constant and in-range; shuffle users recognized on either operand; poison/invalid mask lanes ignored"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane semantics or SSA use-graph analysis.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-demanded-all-users-helper-L381",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 377,
+    "line_end": 399,
+    "function": "findDemandedEltsByAllUsers",
+    "description": "Union lane demands across every user, conservatively returning all lanes if any user is non-instruction or unsupported by the single-user analysis.",
+    "match_opcodes": [
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed vector; scans all SSA uses; stops early when all lanes are demanded"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane semantics or SSA use-graph analysis.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-index-canonical-helper-L401",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 401,
+    "line_end": 411,
+    "function": "getPreferredVectorIndex",
+    "description": "Canonicalize constant extract/insert index to zero-extended i64 unless already 64-bit or wider value cannot fit.",
+    "match_opcodes": [
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "index width !=64 and active bits <=64"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-strided-pointer-helper-L413",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 413,
+    "line_end": 467,
+    "function": "foldExtractOfStridedPointerVector",
+    "description": "Replace variable extract from fixed pointer vector whose lanes share base and arithmetic-stride constant offsets with ptradd(base, index*stride + first offset).",
+    "match_opcodes": [
+      "extractelement",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "zext",
+      "trunc",
+      "mul",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "fixed pointer vector >=2 lanes; every lane extractable; same base; constant offsets form arithmetic progression"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no pointer/vector lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-strided-pointer-callsite-L469",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 469,
+    "line_end": 469,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Delegate extracting a variable-index pointer from affine-stride pointer vector.",
+    "match_opcodes": [
+      "extractelement",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no pointer/vector lane semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldExtractOfStridedPointerVector"
+  },
+  {
+    "id": "vector-extract-simplify-delegation-L472",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 472,
+    "line_end": 474,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Delegate constant/vector extract simplification to InstructionSimplify.",
+    "match_opcodes": [
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [],
+    "uses_analysis": true,
+    "puddle_blocker": "External simplify semantics and vector element model absent.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "simplifyExtractElementInst"
+  },
+  {
+    "id": "vector-extract-select-L476",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 476,
+    "line_end": 489,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Push constant-index extract through scalar-condition select into selected vector lanes.",
+    "match_opcodes": [
+      "extractelement",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "select",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "scalar condition; constant index; FoldOpIntoSelect succeeds"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane extraction and scalar select matching semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-extract-strided-delegation-L492",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 492,
+    "line_end": 495,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Delegate variable-index pointer vector affine-stride fold.",
+    "match_opcodes": [
+      "extractelement",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no pointer/vector lane semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldExtractOfStridedPointerVector"
+  },
+  {
+    "id": "vector-extract-canonical-index-L496",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 496,
+    "line_end": 508,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Canonicalize a constant extractelement index to preferred vector index width.",
+    "match_opcodes": [
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "constant index; index canonicalization helper returns a preferred i64 constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-stepvector-L509",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 509,
+    "line_end": 525,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Replace in-range extractelement(stepvector,index) with the zero-extended index constant.",
+    "match_opcodes": [
+      "extractelement",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "constant index below known minimum element count; index value fits result integer width; out-of-range value currently not truncated",
+      "source is a call to `llvm.stepvector`; index is constant and below the known minimum lane count; result index fits the scalar element bit width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no llvm.stepvector vector-value semantics; the rewrite depends on modeling a selected stepvector lane.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-bitcast-delegation-L533",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 533,
+    "line_end": 535,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Delegate extraction through bitcasted vector/scalar.",
+    "match_opcodes": [
+      "extractelement",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "trunc",
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no vector bitcast/lane semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldBitcastExtElt"
+  },
+  {
+    "id": "vector-extract-scalarize-phi-callsite-L536",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 536,
+    "line_end": 540,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Delegate scalarization of vector PHI recurrence to scalar PHI.",
+    "match_opcodes": [
+      "extractelement",
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi",
+      "extractelement"
+    ],
+    "extra_conditions": [],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no CFG/PHI semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "scalarizePHI"
+  },
+  {
+    "id": "vector-extract-subvector-L543",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 543,
+    "line_end": 549,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Replace extractelement(vector.extract(source,0),index) with extractelement(source,index).",
+    "match_opcodes": [
+      "extractelement",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "vector.extract offset is zero",
+      "source intrinsic ID is `llvm.vector.extract`; source subvector begins at index zero"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-unary-scalarize-L553",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 553,
+    "line_end": 558,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Move extraction through cheap vector unary operation and copy flags to scalar unary operation.",
+    "match_opcodes": [
+      "extractelement",
+      "fneg",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "bitcast",
+      "addrspacecast",
+      "inttoptr",
+      "ptrtoint",
+      "ptrtoaddr"
+    ],
+    "rewrite_opcodes": [
+      "extractelement",
+      "fneg",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "fptrunc",
+      "fpext",
+      "trunc",
+      "zext",
+      "sext",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "cheapToScalarize true"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-binop-scalarize-L560",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 560,
+    "line_end": 571,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Push extraction through vector binary operator by extracting both operands at the same lane and recreating scalar binop with copied flags.",
+    "match_opcodes": [
+      "extractelement",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "extractelement",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "cheapToScalarize true; index known valid or binop safe under variable replacement/speculation; operation flags copied"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-compare-scalarize-L573",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 573,
+    "line_end": 583,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Push extraction through vector icmp/fcmp and recreate scalar comparison with same predicate and copied flags.",
+    "match_opcodes": [
+      "extractelement",
+      "icmp",
+      "fcmp"
+    ],
+    "rewrite_opcodes": [
+      "extractelement",
+      "icmp",
+      "fcmp"
+    ],
+    "extra_conditions": [
+      "cheapToScalarize true; comparison predicate retained and flags copied"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-insert-L585",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 585,
+    "line_end": 591,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "If extracting from insertelement with distinct constant insertion/extract indices, bypass insertion to base vector.",
+    "match_opcodes": [
+      "extractelement",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "both indices constant; equality already handled by instsimplify"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-vector-gep-L592",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 592,
+    "line_end": 628,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Scalarize extract from one-use vector GEP with exactly one vector operand into scalar GEP with extracted pointer/index operands, preserving no-wrap flags.",
+    "match_opcodes": [
+      "extractelement",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "extractelement",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "constant in-range index; one-use GEP; exactly one vector operand"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-shuffle-zero-splat-L629",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 629,
+    "line_end": 636,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Extracting a zero-mask splat from lane zero returns extractelement of shuffle source operand zero at index zero.",
+    "match_opcodes": [
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "shuffle mask splat index is zero; valid for fixed or scalable vectors"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-shuffle-fixed-lane-L637",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 637,
+    "line_end": 663,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "For fixed shuffle, resolve constant or splat source lane to selected operand extraction, or poison for poison mask.",
+    "match_opcodes": [
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "fixed vector shuffle; source lane known from splat or constant extraction lane; poison mask maps to poison; constant lane rewritten to i64 source index"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-cast-L664",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 664,
+    "line_end": 680,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "Move extract through one-use non-bitcast cast to cast(extract(source,index), result type).",
+    "match_opcodes": [
+      "extractelement",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "ptrtoint",
+      "inttoptr",
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [
+      "extractelement",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "ptrtoint",
+      "inttoptr",
+      "addrspacecast"
+    ],
+    "extra_conditions": [
+      "cast one-use; same block or constant index; bitcast excluded",
+      "one-use source cast; bitcast is excluded and the cast opcode is one of the listed scalar cast operations"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-extract-demanded-elts-L683",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 683,
+    "line_end": 721,
+    "function": "InstCombinerImpl::visitExtractElementInst",
+    "description": "For fixed vectors and constant lane, simplify one-use source for that lane; for multi-use source union lane demands across supported users and replace all uses if demanded-element simplifier rewrites it.",
+    "match_opcodes": [
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "fixed vector >1 lane; one-use exact demand or multi-use union not all lanes"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector lane-demand and use-graph analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-collect-single-shuffle-helper-L724",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 724,
+    "line_end": 794,
+    "function": "collectSingleShuffleElements",
+    "description": "Recognize a fixed vector composed from poison, identity source lanes, or constant-index insertions of extracts from LHS/RHS, and compute the corresponding two-source shuffle mask.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed vector; constant indices; inserted extraction sourced from LHS/RHS"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no vector lane or shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-widen-extract-helper-L796",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 796,
+    "line_end": 888,
+    "function": "replaceExtractElements",
+    "description": "Widen narrow fixed source vector with poison-padded shuffle so extracts can form one shuffle with wider insertelement; replace source extracts subject to same-block/infinite-loop guards.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "same element type; source narrower; nonconstant data; insertion block matches; avoid one-use insert chain"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-collect-shuffle-elements-L889",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 889,
+    "line_end": 979,
+    "function": "collectShuffleElements",
+    "description": "Recursively recognize poison/zero/identity vectors and insert(extract(source,index)) chains, returning compatible source vectors plus the composed shuffle mask.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed vectors; constant insertion and extraction indices; permitted-RHS constraint prevents a third source; source element types and vector lengths must align; requests one widening retry when source widths mismatch"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no vector lane or shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-collect-widen-extract-call-L938",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 935,
+    "line_end": 939,
+    "function": "collectShuffleElements",
+    "description": "When collected source vector type differs from permitted RHS type, ask replaceExtractElements to widen the extracted-from vector by poison padding and replace same-block lane extracts, then rerun mask collection.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "source vector type mismatch with RHS; replaceExtractElements confirms same element type, source narrower, nonconstant source, insertion block matches and chain guard"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane and shuffle semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "replaceExtractElements"
+  },
+  {
+    "id": "vector-aggregate-reuse-direct-L1181",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 981,
+    "line_end": 1182,
+    "function": "InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse",
+    "description": "When every field of a one- or two-element aggregate is reinserted from matching extractvalue indices of the same aggregate, replace the final insertvalue with that source aggregate.",
+    "match_opcodes": [
+      "insertvalue",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "aggregate is struct/array of at most two elements; one-level element paths; insert chain fully defines fields within depth 2*field-count; every inserted value is an instruction extractvalue with matching aggregate type and field index; all fields name identical source aggregate",
+      "direct source-aggregate discovery succeeds before predecessor PHI translation; common chain/type/index checks are shared with the PHI-aware alternative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no aggregate extract/insert semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-aggregate-reuse-predecessor-phi-L1322",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1184,
+    "line_end": 1323,
+    "function": "InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse",
+    "description": "When matching aggregate extracts are exposed only after PHI translation, build any missing predecessor aggregates and replace the result with a PHI of per-predecessor source aggregates.",
+    "match_opcodes": [
+      "insertvalue",
+      "extractvalue",
+      "phi",
+      "br"
+    ],
+    "rewrite_opcodes": [
+      "insertvalue",
+      "phi"
+    ],
+    "extra_conditions": [
+      "all inserted elements defined in one block; predecessor count at most 64; each predecessor has a common matching source aggregate or unconditional branch; no use-block-defined translated value; only when original insert is in merge block to avoid loop hazards; do not synthesize constant aggregates",
+      "uses the same aggregate-chain and matching-index checks as the direct alternative; PHI translation supplies per-predecessor sources or inserts reconstructed aggregate in eligible predecessor"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no CFG, PHI translation, or aggregate semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insertvalue-same-index-chain-L1325",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1325,
+    "line_end": 1367,
+    "function": "InstCombinerImpl::visitInsertValueInst",
+    "description": "Erase an insertvalue when a one-use chain of later insertvalues overwrites the exact same index path (bounded traversal).",
+    "match_opcodes": [
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [
+      "insertvalue"
+    ],
+    "extra_conditions": [
+      "same full indices path; each link has one use; chain scan depth below 10"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no aggregate value semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-select-predicate-L1369",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1369,
+    "line_end": 1392,
+    "function": "isShuffleEquivalentToSelect",
+    "description": "Recognize fixed same-width shuffle as vector select when every lane selects same-index LHS/RHS or undef.",
+    "match_opcodes": [
+      "shufflevector",
+      "select"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed vector; equal input/output widths; each mask lane undef, i, or i+width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle matcher has no vector shuffle-mask model for same-lane select-equivalence.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-fold-insert-splat-helper-L1394",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1394,
+    "line_end": 1470,
+    "function": "foldInsSequenceIntoSplat",
+    "description": "Collapse same scalar inserted at sequential lane indices into one insert at lane 0 followed by zero-mask splat shuffle.",
+    "match_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "constant distinct indices cover lanes in recognized sequence"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-insert-splat-value-L1471",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1471,
+    "line_end": 1507,
+    "function": "foldInsEltIntoSplat",
+    "description": "Turn insert into an undef/poison base or matching splat into splat of inserted scalar.",
+    "match_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "insert index and base shape satisfy helper recognizer"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-insert-identity-shuffle-L1508",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1508,
+    "line_end": 1556,
+    "function": "foldInsEltIntoIdentityShuffle",
+    "description": "Fold insertelement into identity-like shuffle mask by changing selected output lane and composing through compatible insert chain.",
+    "match_opcodes": [
+      "insertelement",
+      "shufflevector",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "constant distinct insert indices; identity lanes; source widths/mask permit"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-hoist-constant-insert-definition-L1567",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1567,
+    "line_end": 1585,
+    "function": "hoistInsEltConst",
+    "description": "Hoist a constant insert before a distinct-index variable insert in a one-use insert chain.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "inner insert one-use; inner inserted scalar nonconstant; both indices constant and unequal; outer scalar constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-constant-into-select-shuffle-L1590",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1590,
+    "line_end": 1645,
+    "function": "foldConstantInsEltIntoShuffle",
+    "description": "Fold a constant lane insertion into the constant vector operand and mask of a select-equivalent shuffle.",
+    "match_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "shuffle parent one-use; shuffle RHS is fully constant; inserted scalar/index constant; fixed-width shuffle equivalent to lane-wise select; constant aggregate elements all available"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle, bitcast layout, and endian semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-two-constant-inserts-shuffle-L1645",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1645,
+    "line_end": 1688,
+    "function": "foldConstantInsEltIntoShuffle",
+    "description": "Replace a one-use chain of two constant insertelements with a shuffle over the original base and a constant vector containing those values plus poison for untouched lanes.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector; parent insert one-use; both indices and scalars constant; duplicate insertion index keeps outermost value; untouched mask lanes select base"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle, bitcast layout, and endian semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-narrow-insert-matching-extension-L1694",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1694,
+    "line_end": 1723,
+    "function": "narrowInsElt",
+    "description": "Move insertelement below matching fpext/sext/zext operations on both vector and scalar, then extend the narrow inserted vector.",
+    "match_opcodes": [
+      "insertelement",
+      "fpext",
+      "sext",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "fpext",
+      "sext",
+      "zext"
+    ],
+    "extra_conditions": [
+      "extended vector one-use; same extension opcode on vector and scalar; source scalar type equals source vector element type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle, bitcast layout, and endian semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-trunc-insert-pair-definition-L1727",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1727,
+    "line_end": 1788,
+    "function": "foldTruncInsEltPair",
+    "description": "Combine adjacent inserts of the low/high truncated halves of one scalar into a single insert of that scalar into a bitcasted half-length vector.",
+    "match_opcodes": [
+      "insertelement",
+      "trunc",
+      "lshr",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "fixed even-lane vector; base undef; constant adjacent indices with first even; scalar width twice lane width; shift equals lane width; endian-specific insertion order; insertion indices scaled by two"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle, bitcast layout, and endian semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-simplify-delegation-L1795",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1795,
+    "line_end": 1797,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Delegate insertelement folding to simplifyInsertElementInst.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "simplifyInsertElementInst returns a replacement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector element semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-insert-index-canonical-L1799",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1799,
+    "line_end": 1803,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Canonicalize a constant insertelement index to preferred i64 index type.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "constant index is not already preferred-width and value fits"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-reorder-lower-index-L1804",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1804,
+    "line_end": 1813,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Reorder nested inserts so the lower constant index is inserted last, placing it nearer the result.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "outer index constant; inner insert one-use; inner scalar nonconstant; inner index greater than outer index"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-bitcast-scalar-undef-L1816",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1816,
+    "line_end": 1832,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Move scalar bitcast after an insertion into undef/poison by inserting the source scalar in a correspondingly typed vector, then bitcasting.",
+    "match_opcodes": [
+      "insertelement",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "base is undef; scalar bitcast one-use; source scalar integer or FP; preserve undef vs poison base"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-bitcast-vector-scalar-L1834",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1834,
+    "line_end": 1847,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Move matching vector/scalar bitcasts after insertelement when source vector element type equals scalar source type.",
+    "match_opcodes": [
+      "insertelement",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "at least one bitcast one-use; vector source; scalar source; element types match"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-extract-chain-shuffle-L1849",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1849,
+    "line_end": 1905,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Collapse eligible extractelement-to-insertelement chain into a two-source shufflevector using collected lane mask.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vectors; constant valid insertion/extraction indices; current insert is root or not a one-use child insertelement; collected result is nontrivial; rerun collection if source widening requested"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics and use graph.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-demanded-elements-L1907",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1907,
+    "line_end": 1917,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Simplify demanded lanes of a fixed-vector insertelement and replace it or retain an in-place simplification.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "fixed vector base; all output lanes demanded; demanded-element simplifier reports change"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector demanded-lane analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-insert-constant-shuffle-call-L1919",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1919,
+    "line_end": 1921,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Delegate folding constant insertion into shuffle or constant insert chains.",
+    "match_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "foldConstantInsEltIntoShuffle recognizes one-use shuffle or insert parent with constants"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-insert-hoist-constant-call-L1922",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1922,
+    "line_end": 1924,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Delegate hoisting a constant insertion before a variable insertion.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "helper recognizes one-use nested insert, constant indices distinct, inner scalar variable and outer scalar constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no vector insertelement value semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-insert-splat-fold-call-L1925",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1925,
+    "line_end": 1930,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Delegate insertion-chain splat formation and extension of a canonical splat shuffle.",
+    "match_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "helper-recognized fixed vector constant indices and splat shape"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-insert-identity-shuffle-call-L1931",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1931,
+    "line_end": 1933,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Delegate extract/insert lane folding into identity shuffle mask.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector; constant insertion lane; scalar is extract from identity shuffle input at same lane"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-insert-narrow-extend-call-L1934",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1934,
+    "line_end": 1936,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Move insertelement before matching fpext/sext/zext when vector and scalar are extended from corresponding narrow source types.",
+    "match_opcodes": [
+      "insertelement",
+      "fpext",
+      "sext",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "fpext",
+      "sext",
+      "zext"
+    ],
+    "extra_conditions": [
+      "extended vector one-use; both casts same opcode; scalar and vector source element types match"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector cast lane semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-insert-trunc-pair-call-L1937",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1937,
+    "line_end": 1939,
+    "function": "InstCombinerImpl::visitInsertElementInst",
+    "description": "Combine adjacent low/high truncated halves of one scalar into a single insertion after bitcasting the undef base to half as many wider lanes.",
+    "match_opcodes": [
+      "insertelement",
+      "trunc",
+      "lshr"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "fixed even-width vector; base undef; adjacent insertion indices start even; scalar widths exactly 2x lane width; shift amount equals lane width; endian selects expected low/high ordering"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector bitcast/layout and target-endian semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-can-evaluate-shuffled-helper-L1945",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 1943,
+    "line_end": 2029,
+    "function": "canEvaluateShuffled",
+    "description": "Check whether lane reordering is safe for constants or a one-use supported expression tree, with bounded recursion and special rejection for poison/undef mask lanes into integer div/rem and duplicate insertelement targets.",
+    "match_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "fptrunc",
+      "fpext",
+      "getelementptr",
+      "insertelement",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "constant accepted; otherwise instruction must have one use; depth at most 5; listed lane-wise opcode family only; div/rem rejects undef mask; insertelement index constant and unique in mask; vector result cannot widen beyond mask length"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane permutation/evaluation semantics; integer RuntimeValue semantics are scalar.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-build-reordered-op-helper-L2031",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2031,
+    "line_end": 2114,
+    "function": "buildNew",
+    "description": "Rebuild a vector binary op, compare, cast, or GEP with reordered operands, preserving arithmetic/exact/fast-math/compare flags and GEP no-wrap flags.",
+    "match_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "fptrunc",
+      "fpext",
+      "getelementptr",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "fptrunc",
+      "fpext",
+      "getelementptr",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "caller supplies corresponding new operand types; same source opcode/predicate; flags copied; cast destination lane count recomputed from reordered operands"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane permutation/evaluation semantics; integer RuntimeValue semantics are scalar.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-evaluate-different-element-order-L2116",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2116,
+    "line_end": 2216,
+    "function": "evaluateInDifferentElementOrder",
+    "description": "Reorder a vector expression by applying the shuffle mask recursively to vector operands and rebuilding supported elementwise operations; remap constant insertelement index or drop its scalar when lane is omitted.",
+    "match_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "fptrunc",
+      "fpext",
+      "getelementptr",
+      "insertelement",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "fptrunc",
+      "fpext",
+      "getelementptr",
+      "insertelement",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "input is vector; constants become unary shuffles/poison/undef/zero of mask length; supported lane-wise operations only; insert index constant and occurrence unique as checked by caller; rebuild only when operands or lane count changed"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane permutation/evaluation semantics; integer RuntimeValue semantics are scalar.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "audit_note": "The source switch contains a Select label, but the only external caller requires canEvaluateShuffled, which rejects Select; buildNew also has no Select case. Reachable rewritten expressions therefore exclude Select. Integer div/rem reject poison shuffle-mask lanes; shifts do not have that exclusion."
+  },
+  {
+    "id": "vector-shuffle-mask-contiguous-helper-L2218",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2218,
+    "line_end": 2237,
+    "function": "isShuffleExtractingFromLHS",
+    "description": "Recognize when a fixed shuffle mask extracts a contiguous increasing lane range entirely from operand zero.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "nonempty fixed mask; first<=last; last within LHS; mask element i equals begin+i"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no vector lane permutation/evaluation semantics; integer RuntimeValue semantics are scalar.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-alternate-binop-helper-L2255",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2255,
+    "line_end": 2285,
+    "function": "getAlternateBinop",
+    "description": "Return alternate scalar operands for constant shl as mul by 2^C, disjoint or as add, or 0-X as X*(-1).",
+    "match_opcodes": [
+      "shl",
+      "or",
+      "sub"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "shl operand is immediate; or is marked disjoint; sub lhs is zero"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "vector-select-shuffle-merge-shared-L2290",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2290,
+    "line_end": 2335,
+    "function": "foldSelectShuffleOfSelectShuffle",
+    "description": "Compose two select-equivalent shuffle masks sharing one vector operand into one select shuffle.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector; outer and inner shuffles are select-equivalent; inner shares one operand with outer; masks have same width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-select-shuffle-one-binop-L2347",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2347,
+    "line_end": 2411,
+    "function": "foldSelectShuffleWith1Binop",
+    "description": "Fold a select-equivalent shuffle between X and binop(X,C) into the same binop over X with C shuffled against its identity constant.",
+    "match_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "one operand exactly shared X; other is binop X with constant; binop has identity constant; for FP X proven never NaN and noinf removed unless X proven never infinity; poison mask safe constants/flags handled"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics and known-NaN/infinity analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-canonicalize-insert-splat-L2413",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2413,
+    "line_end": 2443,
+    "function": "canonicalizeInsertSplat",
+    "description": "Canonicalize splat from a nonzero lane of poison-based insertelement to lane zero and preserve poison mask lanes.",
+    "match_opcodes": [
+      "shufflevector",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector; mask is splat and not all-zero; input is one-use insert into poison at nonzero constant lane; RHS poison"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-select-shuffle-commute-L2445",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2445,
+    "line_end": 2460,
+    "function": "InstCombinerImpl::foldSelectShuffle",
+    "description": "Commute select-equivalent shuffle so operand 0 is selected first when operand 1 is defined.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "select-equivalent fixed-width mask; RHS is not undef; lane zero currently selects RHS"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-select-shuffle-nested-delegation-L2460",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2460,
+    "line_end": 2461,
+    "function": "InstCombinerImpl::foldSelectShuffle",
+    "description": "Delegate select-shuffle folding: Compose nested select shuffles with shared source.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "corresponding helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldSelectShuffleOfSelectShuffle"
+  },
+  {
+    "id": "vector-select-shuffle-one-binop-delegation-L2463",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2463,
+    "line_end": 2465,
+    "function": "InstCombinerImpl::foldSelectShuffle",
+    "description": "Delegate select-shuffle folding: Fold select shuffle between X and a single binop(X, constant).",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "corresponding helper returns a replacement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector shuffle semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldSelectShuffleWith1Binop"
+  },
+  {
+    "id": "vector-fold-select-shuffle-binops-L2500",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2500,
+    "line_end": 2579,
+    "function": "InstCombinerImpl::foldSelectShuffle",
+    "description": "Fold shuffle of two same-opcode binops with constant operands into binop over selected constants, and either shared variable operand or a shuffle of the variable operands.",
+    "match_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "select-equivalent mask; constants in same operand position or recognized alternate forms shl-to-mul/disjoint-or-to-add/zero-sub-to-mul-minus-one; if distinct variable operands at least one binop one-use; safe constants for div/rem/shift poison lanes; no unsafe undef variable operand; flags intersected, nsw may be dropped after shift alternate"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector lane/shuffle semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-fold-trunc-shuffle-helper-L2584",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2581,
+    "line_end": 2620,
+    "function": "foldTruncShuffle",
+    "description": "Replace a narrowing shuffle of a bitcasted integer vector with truncation when its mask selects each output lane\u2019s endian-correct low-bit chunk.",
+    "match_opcodes": [
+      "shufflevector",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "trunc"
+    ],
+    "extra_conditions": [
+      "RHS poison; destination and source are integer vectors with equal fixed lane counts; source element width divisible by destination; shuffle narrows; each defined mask lane equals i*ratio little-endian or (i+1)*ratio-1 big-endian"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no vector bitcast layout or shuffle lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-narrow-select-helper-L2625",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2622,
+    "line_end": 2656,
+    "function": "narrowVectorSelect",
+    "description": "Move a narrowing identity shuffle after a wide vector select by narrowing each arm and using the original narrow condition.",
+    "match_opcodes": [
+      "shufflevector",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "select"
+    ],
+    "extra_conditions": [
+      "outer RHS poison and identity-with-extract; wide select one-use; condition is one-use identity-with-padding shuffle of narrow condition; narrow condition lane count equals result"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector select/shuffle lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-unary-op-L2657",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2657,
+    "line_end": 2690,
+    "function": "foldShuffleOfUnaryOps",
+    "description": "Move matching fneg or fabs operations after a two-input shuffle: shuffle(unary X, unary Y, M) becomes unary(shuffle(X,Y,M)).",
+    "match_opcodes": [
+      "shufflevector",
+      "fneg",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "fneg",
+      "call"
+    ],
+    "extra_conditions": [
+      "both operands are same unary opcode; at least one unary has one use; flags intersect from both source operations",
+      "unary opcode is `fneg` or the `llvm.fabs` call intrinsic; both input unary instructions have same opcode and at least one is one-use"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle and FP operation semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-cast-poison-rhs-L2692",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2692,
+    "line_end": 2731,
+    "function": "foldCastShuffle",
+    "description": "Move a supported one-use cast after an identity-with-extract shuffle with poison RHS.",
+    "match_opcodes": [
+      "shufflevector",
+      "sext",
+      "zext",
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "sext",
+      "zext",
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "RHS poison; shuffle identity-with-extract; cast one-use; no length-increasing shuffle"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle and cast lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-matching-casts-L2732",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2732,
+    "line_end": 2754,
+    "function": "foldCastShuffle",
+    "description": "Move matching casts after a two-input shuffle.",
+    "match_opcodes": [
+      "shufflevector",
+      "sext",
+      "zext",
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "sext",
+      "zext",
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "both casts have same opcode and source type; source and shuffle element counts fixed; cast does not narrow element size; at least one cast one-use"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle and cast lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-identity-extract-inserted-scalar-L2756",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2756,
+    "line_end": 2768,
+    "function": "foldIdentityExtractShuffle",
+    "description": "Replace identity-with-extract shuffle of bitcast(insert scalar into vector lane zero) with bitcast of that scalar.",
+    "match_opcodes": [
+      "shufflevector",
+      "bitcast",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "RHS poison; identity-with-extract mask; inserted lane zero; scalar and result have equal bit size"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle/lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-identity-extract-compose-shuffle-L2769",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2769,
+    "line_end": 2802,
+    "function": "foldIdentityExtractShuffle",
+    "description": "Compose an identity-with-extract shuffle over an inner shuffle by taking the corresponding prefix of its mask and propagating outer poison lanes.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "RHS poison; outer identity-with-extract; inner shuffle one-use; extracted result narrower than inner mask"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle/lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-drop-unused-insert-operand-L2815",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2815,
+    "line_end": 2834,
+    "function": "foldShuffleWithInsert",
+    "description": "Replace a shuffle insertelement operand with its original vector when the shuffle mask never selects the inserted lane.",
+    "match_opcodes": [
+      "shufflevector",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "insert index constant; lane not present in relevant source-index range (offset by input width for RHS)"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle/lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-insert-selected-scalar-L2835",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2835,
+    "line_end": 2891,
+    "function": "foldShuffleWithInsert",
+    "description": "Replace a same-width select-like shuffle that chooses one inserted scalar exactly once and otherwise preserves the other vector lanes with a direct insertelement into that other vector.",
+    "match_opcodes": [
+      "shufflevector",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "shuffle preserves vector width; inserted lane occurs exactly once; other non-poison mask lanes choose corresponding lane from operand 1; also retries after commuting inputs/mask"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle/lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-identity-padded-shuffle-L2894",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2894,
+    "line_end": 2962,
+    "function": "foldIdentityPaddedShuffles",
+    "description": "When both operands are poison-padded identity shuffles from same-typed non-undef vectors and vector widths are powers of two, compose masks to directly shuffle the narrow sources.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "both inner shuffles identity-with-padding; source types equal and non-undef; output, padded, and source lane counts power-of-two; mask lane validity remapped with poison propagation"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle/lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-binop-splats-L2963",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2963,
+    "line_end": 2989,
+    "function": "InstCombinerImpl::simplifyBinOpSplats",
+    "description": "Simplify binary operation with splat vectors by computing scalar op then splatting result, or canonicalize splat operands.",
+    "match_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "both splat values or one splat plus supported pattern"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-simplify-delegation-L2994",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2994,
+    "line_end": 2996,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to simplifyShuffleVectorInst.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "extractelement",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "simplifyShuffleVectorInst returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "simplifyShuffleVectorInst"
+  },
+  {
+    "id": "vector-shuffle-binop-splat-delegation-L2998",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 2998,
+    "line_end": 2999,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to InstCombinerImpl::simplifyBinOpSplats.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "InstCombinerImpl::simplifyBinOpSplats returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "InstCombinerImpl::simplifyBinOpSplats"
+  },
+  {
+    "id": "vector-shuffle-splat-poison-rhs-L3001",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3001,
+    "line_end": 3005,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Canonicalize a zero-mask splat shuffle to use poison as its RHS.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "zero splat mask; RHS is not poison; supports scalable vectors"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-distribute-bitcasts-L3012",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3012,
+    "line_end": 3028,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Move matching bitcasts after a shuffle: shuffle(bitcast X,bitcast Y,M) becomes bitcast(shuffle(X,Y,M).",
+    "match_opcodes": [
+      "shufflevector",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "source vectors have identical type and element width is unchanged; at least one input bitcast has one use"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-scale-mask-through-bitcast-L3032",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3032,
+    "line_end": 3050,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Scale a shuffle mask through a bitcasted LHS and, when the inner shuffle simplifies, replace with bitcast of that simplified source shuffle.",
+    "match_opcodes": [
+      "shufflevector",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "fixed equal lane counts at outer input/result; RHS undef; scaled mask is representable; simplifyShuffleVectorInst succeeds"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-identical-operands-L3053",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3053,
+    "line_end": 3058,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "For shuffle(X,X,M), canonicalize to unary shuffle(X,poison,M adjusted to one source).",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "LHS and RHS identical; undef pair already simplified"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-undef-left-commute-L3060",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3060,
+    "line_end": 3064,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Commute shuffle(undef,X,M) to put the defined source first and adjust the mask.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector after scalable-vector early return; LHS undef"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle structurally accepts vector opcodes, but its interpreter has no vector elementwise/lane semantics (puddle-capabilities.md, coverage limit 5).",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-canonical-insert-splat-delegation-L3066",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3066,
+    "line_end": 3067,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to canonicalizeInsertSplat.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "canonicalizeInsertSplat returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "canonicalizeInsertSplat"
+  },
+  {
+    "id": "vector-shuffle-select-delegation-L3069",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3069,
+    "line_end": 3070,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to InstCombinerImpl::foldSelectShuffle.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "InstCombinerImpl::foldSelectShuffle returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "InstCombinerImpl::foldSelectShuffle"
+  },
+  {
+    "id": "vector-shuffle-trunc-delegation-L3072",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3072,
+    "line_end": 3073,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to foldTruncShuffle.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "trunc"
+    ],
+    "extra_conditions": [
+      "foldTruncShuffle returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldTruncShuffle"
+  },
+  {
+    "id": "vector-shuffle-narrow-select-delegation-L3075",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3075,
+    "line_end": 3076,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to narrowVectorSelect.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "select"
+    ],
+    "extra_conditions": [
+      "narrowVectorSelect returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "narrowVectorSelect"
+  },
+  {
+    "id": "vector-shuffle-unary-delegation-L3078",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3078,
+    "line_end": 3079,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to foldShuffleOfUnaryOps.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "fneg",
+      "call"
+    ],
+    "extra_conditions": [
+      "foldShuffleOfUnaryOps returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldShuffleOfUnaryOps"
+  },
+  {
+    "id": "vector-shuffle-cast-delegation-L3081",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3081,
+    "line_end": 3082,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to foldCastShuffle.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "sext",
+      "zext",
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "foldCastShuffle returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldCastShuffle"
+  },
+  {
+    "id": "vector-shuffle-demanded-elements-L3084",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3084,
+    "line_end": 3090,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Use demanded-element simplification to rewrite or update a shuffle when output-lane demands make input lanes irrelevant.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector; demanded mask is all output lanes; SimplifyDemandedVectorElts reports a change"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector demanded-lane analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-identity-extract-delegation-L3092",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3092,
+    "line_end": 3093,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to foldIdentityExtractShuffle.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "foldIdentityExtractShuffle returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldIdentityExtractShuffle"
+  },
+  {
+    "id": "vector-shuffle-insert-fold-delegation-L3097",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3097,
+    "line_end": 3098,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate to foldShuffleWithInsert, which can bypass unused insert lanes or replace eligible shuffle with insertelement.",
+    "match_opcodes": [
+      "shufflevector",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "helper identifies a supported insert/shuffle mask relation"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle/lane semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "vector-shuffle-padded-delegation-L3099",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3099,
+    "line_end": 3100,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle folding to foldIdentityPaddedShuffles.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "foldIdentityPaddedShuffles returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "foldIdentityPaddedShuffles"
+  },
+  {
+    "id": "vector-shuffle-fold-op-into-select-L3102",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3102,
+    "line_end": 3111,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Push a shuffle operation into a scalar-condition select when FoldOpIntoSelect supports the pattern.",
+    "match_opcodes": [
+      "shufflevector",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "select",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "RHS constant; select condition scalar integer; RHS poison or condition proven nonpoison"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector and poison analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-fold-op-into-phi-L3113",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3113,
+    "line_end": 3116,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Push shuffle operation through a PHI using foldOpIntoPhi.",
+    "match_opcodes": [
+      "shufflevector",
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "RHS constant; foldOpIntoPhi succeeds with multiple uses allowed"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no CFG/PHI semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-evaluate-reordered-lanes-L3119",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3119,
+    "line_end": 3122,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Delegate shuffle(V,poison,M) lane reordering when canEvaluateShuffled accepts the expression.",
+    "match_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "getelementptr",
+      "insertelement",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor",
+      "icmp",
+      "fcmp",
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "getelementptr",
+      "insertelement",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem"
+    ],
+    "extra_conditions": [
+      "RHS poison; canEvaluateShuffled accepts tree with depth<=5; all nonconstant instructions one-use; integer div/rem reject poison mask; fixed vector; insert index constant and unique in mask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane permutation/rebuilding semantics.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "canEvaluateShuffled + evaluateInDifferentElementOrder",
+    "audit_note": "canEvaluateShuffled rejects Select, and buildNew has no Select case. This caller cannot produce a reordered select; the concrete reconstruction family is vector-evaluate-different-element-order-L2116."
+  },
+  {
+    "id": "vector-shuffle-bitcast-extract-use-L3124",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3124,
+    "line_end": 3213,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Replace bitcast users of a contiguous shuffle extraction with bitcast of original vector and extractelement; insert an intermediate shuffle when extraction start is misaligned.",
+    "match_opcodes": [
+      "shufflevector",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "mask is contiguous extraction from LHS; user is live bitcast; target element bitwidth divides vector width and is valid; each replacement is per bitcast user"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks vector layout, bitwidth, and lane semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-shuffle-compose-nested-L3388",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3216,
+    "line_end": 3389,
+    "function": "InstCombinerImpl::visitShuffleVectorInst",
+    "description": "Compose nested shuffle operands by remapping the outer mask through one or both inner shuffles: (1) inner LHS plus poison RHS, (2) padded inner LHS with full-width RHS, (3) full-width LHS with padded inner RHS, or (4) both padded inner shuffles with equal narrow-source widths. Preserve poison mask lanes; emit the composition only when the new mask is a splat, equals either inner mask, or equals the original mask.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vectors; inner RHS poison (and LHS inner RHS poison unless outer RHS poison)",
+      "when replacing a nested operand, source widths are compatible with the outer operand width",
+      "remapped mask produces a splat, equals the LHS inner mask, equals the RHS inner mask, or equals the original mask",
+      "poison mask entries remain poison; the same source vector may be shared by both inner shuffles"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle lacks vector shuffle-mask semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "vector-deinterleave-extraction-L3411",
+    "file": "InstCombineVectorOps.cpp",
+    "line_start": 3411,
+    "line_end": 3543,
+    "function": "InstCombinerImpl::foldExtractionOfVectorDeinterleave",
+    "description": "For little-endian even-width integer vectors, replace every fully consumed zext of a field from either `llvm.vector.deinterleave2` or an equivalent deinterleave shuffle: low field becomes `and(bitcast(freeze(input)), low-bit mask)`, high field becomes `lshr(bitcast(freeze(input)), input element width)`; replace all field zext users together.",
+    "match_opcodes": [
+      "zext",
+      "shufflevector",
+      "call",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [
+      "freeze",
+      "bitcast",
+      "and",
+      "lshr"
+    ],
+    "extra_conditions": [
+      "little-endian only; fixed even-length vector with integer elements; all field users are extractvalue (intrinsic form) and all extract users are exact-width zext; every field user is replaceable; replacement freezes source before lane-pair bitcast",
+      "matched source is either `llvm.vector.deinterleave2` followed by extractvalue, or the equivalent fixed-vector even/odd deinterleave shuffles; only little-endian fixed integer vectors are supported"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no vector lane, aggregate intrinsic, bitcast-layout, or poison/freezing semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  }
+]

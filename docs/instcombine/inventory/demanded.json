@@ -1,0 +1,4852 @@
+[
+  {
+    "id": "demanded-shrink-constant-L29",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 29,
+    "line_end": 51,
+    "function": "ShrinkDemandedConstant",
+    "description": "Clear constant integer/splat bits outside demanded result mask by mutating operand.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "constant has at least one undemanded set bit"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The constant mask update depends on a caller-supplied DemandedMask derived from use context; Puddle has no sound demanded-bits predicate. With a fixed explicit mask the APInt operation itself is expressible, but this full helper contract is analysis-dependent.",
+    "status": "unsupported",
+    "match_opcode_parameter": "integer instruction and operand index are supplied by the demanded-bits caller",
+    "rewrite_opcode_parameter": "constant of the same operand type with value C & DemandedMask",
+    "rewrite_details": [
+      "constant"
+    ],
+    "analysis_audit_note": "The local formula uses an already supplied DemandedMask; obtaining that mask depends on caller/use-context demanded-bits analysis. The full transformation therefore requires more than matching local opcodes and constants even though this branch does not itself compute the analysis."
+  },
+  {
+    "id": "demanded-packed-shift-L53",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 53,
+    "line_end": 108,
+    "function": "simplifyShiftSelectingPackedElement",
+    "description": "Rewrite lshr((upper<<M)|lower, variable) to select lower vs upper when only demanded low M bits matter and shift is proven 0 or M.",
+    "match_opcodes": [
+      "lshr",
+      "or",
+      "shl",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "icmp",
+      "select"
+    ],
+    "extra_conditions": [
+      "disjoint OR of one-use shl(upper,power-of-two M) and lower; demanded active width <= M; upper has enough source bits; lower known maximum fits M bits; KnownBits proves shift amount is either 0 or M"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires KnownBits/range facts about the shift amount and packed value to prove it is 0 or M and to establish the selected lane; Puddle has no sound SSA analysis predicates.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-bitwidth-helper-L112",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 112,
+    "line_end": 117,
+    "function": "getBitWidth",
+    "description": "Analysis helper returns scalar element bitwidth, falling back to DataLayout pointer size when scalar size is zero.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DataLayout pointer-width query"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "integer",
+      "pointer",
+      "vector"
+    ]
+  },
+  {
+    "id": "demanded-instruction-bits-entry-L119",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 119,
+    "line_end": 130,
+    "function": "InstCombinerImpl::SimplifyDemandedInstructionBits",
+    "description": "Run demanded-bit simplification with all result bits demanded; replace uses if result differs or report in-place mutation.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "the routine may replace the root or mutate matched operand(s); root/output opcode depends on the concrete source instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "This entry performs recursive demanded-bit/use-context analysis and may replace or mutate arbitrary instructions based on a DemandedMask; Puddle has no sound demand/use predicate for this API.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "SimplifyDemandedUseBits",
+    "match_opcode_parameter": "integer instruction opcode supplied by the caller"
+  },
+  {
+    "id": "demanded-bits-wrapper-L134",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 134,
+    "line_end": 137,
+    "function": "InstCombinerImpl::SimplifyDemandedInstructionBits",
+    "description": "Initialize KnownBits from instruction scalar width and delegate to demanded-use-bits simplification; the overload itself does not define a distinct rewrite.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "getBitWidth and demanded-bit analysis"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation",
+    "delegated_to": "SimplifyDemandedInstructionBits(Instruction&, KnownBits&)",
+    "match_details": [
+      "integer"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-entry-L139",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 139,
+    "line_end": 150,
+    "function": "InstCombinerImpl::SimplifyDemandedInstructionFPClass",
+    "description": "Run demanded floating class simplifier with all FP classes demanded and replace if changed.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "the routine may replace the root or mutate matched operand(s); root/output opcode depends on the concrete source instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks floating-point interpreter semantics for these transformations; the capability report also confirms poisoned floats are not represented and fast-math reasoning is absent.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "SimplifyDemandedUseFPClass",
+    "match_opcode_parameter": "floating instruction opcode supplied by the caller"
+  },
+  {
+    "id": "demanded-bits-operand-L152",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 152,
+    "line_end": 199,
+    "function": "InstCombinerImpl::SimplifyDemandedBits",
+    "description": "For constant operands compute KnownBits only; replace zero-demanded operand with undef; recursively simplify single-use producer or cloneable multi-use producer under bounded depth and replace this use, salvaging debug info.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demand mask zero; recursion depth cap; use-count determines in-place vs isolated simplification"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The family recursively computes KnownBits and demanded contexts over an SSA use graph, may rewrite producers/multi-use operands, and salvages debug values. Puddle cannot model these contextual analyses or non-root graph mutations.",
+    "status": "unsupported",
+    "match_opcode_parameter": "or recursive producer opcode supplied by operand graph",
+    "rewrite_opcode_parameter": "or the concrete opcode of a recursively simplified/cloned producer, selected by the caller\u2019s operand graph",
+    "match_details": [
+      "constant",
+      "undef"
+    ],
+    "rewrite_details": [
+      "undef"
+    ]
+  },
+  {
+    "id": "demanded-drop-wrap-unused-high-L240",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 240,
+    "line_end": 252,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Remove nsw and nuw after high output bits are simplified away, because discarded sign/high bits no longer constrain overflow.",
+    "match_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "shl"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "shl"
+    ],
+    "extra_conditions": [
+      "at least one unused high bit (NLZ>0)",
+      "metadata mutation only: remove nsw/nuw from the matched arithmetic instruction; this is a refinement because it removes poison cases"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending"
+  },
+  {
+    "id": "demanded-use-and-demand-operands-L275",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 275,
+    "line_end": 283,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Recursively simplify demanded AND operands and compute KnownBits for the result; no independent root rewrite is performed.",
+    "match_opcodes": [
+      "and"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS simplified first; LHS demand is DemandedMask & ~RHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "SimplifyDemandedBits recursive operand simplification"
+  },
+  {
+    "id": "demanded-use-and-known-constant-L284",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 284,
+    "line_end": 290,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace demanded AND result with integer constant when every demanded bit is known zero or one.",
+    "match_opcodes": [
+      "and"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of Known.Zero | Known.One"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-and-return-operand-L291",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 291,
+    "line_end": 298,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return either AND operand when the other operand is known to supply zero on all demanded bits.",
+    "match_opcodes": [
+      "and"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of LHSKnown.Zero | RHSKnown.One or symmetric condition"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-and-shrink-constant-L299",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 299,
+    "line_end": 301,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Clear constant RHS bits that cannot affect demanded AND result bits.",
+    "match_opcodes": [
+      "and"
+    ],
+    "rewrite_opcodes": [
+      "and"
+    ],
+    "extra_conditions": [
+      "RHS constant; shrink mask uses DemandedMask & ~LHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-or-demand-operands-L303",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 303,
+    "line_end": 312,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Recursively simplify OR operands under demanded bits; if operand changes, drop poison-generating disjoint flags.",
+    "match_opcodes": [
+      "or"
+    ],
+    "rewrite_opcodes": [
+      "or"
+    ],
+    "extra_conditions": [
+      "RHS simplified first; LHS demand excludes RHS-known-one bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-or-known-constant-L313",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 313,
+    "line_end": 319,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace demanded OR result with integer constant when all demanded bits are known.",
+    "match_opcodes": [
+      "or"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of Known.Zero | Known.One"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-or-return-operand-L320",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 320,
+    "line_end": 327,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return either OR operand when the other operand contributes no demanded one bits.",
+    "match_opcodes": [
+      "or"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of LHSKnown.One | RHSKnown.Zero or symmetric condition"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-or-shrink-constant-L328",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 328,
+    "line_end": 331,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Clear constant RHS bits outside the demanded OR result mask.",
+    "match_opcodes": [
+      "or"
+    ],
+    "rewrite_opcodes": [
+      "or"
+    ],
+    "extra_conditions": [
+      "RHS constant"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-or-infer-disjoint-L332",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 332,
+    "line_end": 340,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Set the disjoint flag on OR when KnownBits proves the operands have no common set bits.",
+    "match_opcodes": [
+      "or"
+    ],
+    "rewrite_opcodes": [
+      "or"
+    ],
+    "extra_conditions": [
+      "OR not already disjoint; haveNoCommonBitsSet proves operands disjoint"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-xor-ctpop-parity-L344",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 344,
+    "line_end": 357,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Rewrite (ctpop(X) xor ctpop(Y)) when only bit zero is demanded into ctpop(X xor Y).",
+    "match_opcodes": [
+      "xor",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "xor",
+      "call"
+    ],
+    "extra_conditions": [
+      "DemandedMask exactly bit 0; both operands are ctpop calls"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle models scalar integer ctpop/xor, but the demanded-bit condition is unavailable.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.ctpop"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.ctpop"
+    ],
+    "analysis_audit_note": "The local formula uses an already supplied DemandedMask; obtaining that mask depends on caller/use-context demanded-bits analysis. The full transformation therefore requires more than matching local opcodes and constants even though this branch does not itself compute the analysis."
+  },
+  {
+    "id": "demanded-use-xor-known-constant-L358",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 358,
+    "line_end": 365,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace demanded XOR result with an integer constant when every demanded result bit is known zero or one.",
+    "match_opcodes": [
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of Known.Zero | Known.One"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "replacement is the integer constant formed from Known.One"
+    ]
+  },
+  {
+    "id": "demanded-use-xor-return-operand-L366",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 366,
+    "line_end": 373,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return the opposite XOR operand when one side is known zero across every demanded bit.",
+    "match_opcodes": [
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of RHSKnown.Zero or LHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-xor-to-or-L374",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 374,
+    "line_end": 383,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace XOR with OR when both operands are known zero on all demanded lanes, proving no overlap in the demanded bits; set disjoint flag when all bits demanded.",
+    "match_opcodes": [
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "or"
+    ],
+    "extra_conditions": [
+      "DemandedMask subset of RHSKnown.Zero | LHSKnown.Zero; disjoint set only if full-width demand"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-xor-to-and-L384",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 384,
+    "line_end": 395,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace XOR with AND against complement of known RHS-one bits when RHS is known and its one bits are contained in LHS known-one bits.",
+    "match_opcodes": [
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "and"
+    ],
+    "extra_conditions": [
+      "DemandedMask subset of RHSKnown.Zero | RHSKnown.One; RHSKnown.One subset LHSKnown.One"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-xor-constant-not-L396",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 396,
+    "line_end": 410,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Turn XOR with a non-all-ones constant into canonical complement when undemanded bits can be set to one; otherwise shrink the constant to demanded bits.",
+    "match_opcodes": [
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "xor"
+    ],
+    "extra_conditions": [
+      "RHS is integer constant and not all-ones; complement form if (*C | ~DemandedMask).isAllOnes()"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-xor-and-mask-L411",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 411,
+    "line_end": 433,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "When one-use LHS is AND with constant and XOR flips bits known set in both masks, clear those bits from both constants and rebuild AND then XOR.",
+    "match_opcodes": [
+      "xor",
+      "and"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "xor"
+    ],
+    "extra_conditions": [
+      "LHS instruction is one-use AND; both RHS constants; common known-one bit intersects DemandedMask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-select-operands-L435",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 435,
+    "line_end": 474,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Simplify both select arms under demanded bits, canonicalize arm constants to match the sole constant in its icmp when equal under demand, then intersect KnownBits.",
+    "match_opcodes": [
+      "select",
+      "icmp"
+    ],
+    "rewrite_opcodes": [
+      "select"
+    ],
+    "extra_conditions": [
+      "integer result; exactly one icmp operand constant; widths match; equal values under DemandedMask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-trunc-lshr-pushdown-L484",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 484,
+    "line_end": 500,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Move truncation before a one-use logical right shift: trunc(lshr X,C) becomes lshr(trunc X,C).",
+    "match_opcodes": [
+      "trunc",
+      "lshr"
+    ],
+    "rewrite_opcodes": [
+      "trunc",
+      "lshr"
+    ],
+    "extra_conditions": [
+      "shift operand one-use; constant C less than narrow width and no greater than leading undemanded result bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-zext-propagate-L503",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 503,
+    "line_end": 522,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Propagate demanded result bits through zext to corresponding source width and compute KnownBits; drop poison-generating flags if operand simplification changes it.",
+    "match_opcodes": [
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "zext"
+    ],
+    "extra_conditions": [
+      "source scalar bitwidth used to truncate/extend demanded mask; preserves nneg only when source proven nonnegative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-sext-to-zext-L523",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 523,
+    "line_end": 552,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace sext with zext when input is known nonnegative or demanded bits do not include any sign-extension bits.",
+    "match_opcodes": [
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "zext"
+    ],
+    "extra_conditions": [
+      "demand source sign bit iff any extended result bits demanded; input known nonnegative or highest demanded bit within source width"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-add-bool-zext-sext-L553",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 553,
+    "line_end": 572,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Rewrite add(zext(i1 X),sext(i1 Y)) as sext(and(not X,Y)) when output bit zero is undemanded.",
+    "match_opcodes": [
+      "add",
+      "zext",
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "xor",
+      "and",
+      "sext"
+    ],
+    "extra_conditions": [
+      "low result bit not demanded; both source values i1 and same type; casts one-use"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-add-bool-sext-sext-L573",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 573,
+    "line_end": 590,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Rewrite add(sext(i1 X),sext(i1 Y)) as sext(or(X,Y)) when low result bit is undemanded and at least one extension is one-use.",
+    "match_opcodes": [
+      "add",
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "or",
+      "sext"
+    ],
+    "extra_conditions": [
+      "low bit not demanded; both inputs i1 same type; at least one sign extension one-use"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-add-propagate-operands-L591",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 591,
+    "line_end": 617,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Propagate demanded high-bit prefix through add, reduce opposite operand low-bit demand using known trailing zeros, and clear nsw/nuw if operands changed.",
+    "match_opcodes": [
+      "add"
+    ],
+    "rewrite_opcodes": [
+      "add"
+    ],
+    "extra_conditions": [
+      "high output bits undemanded; constant/operand simplification succeeds; low zeros block carry into demanded bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-add-zero-operand-L618",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 618,
+    "line_end": 623,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return the other add operand when one operand is known zero throughout all bits below the highest demanded bit.",
+    "match_opcodes": [
+      "add"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedFromOps subset of RHSKnown.Zero or LHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-add-to-xor-L624",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 624,
+    "line_end": 638,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace add(X,C) with xor(X,C) when C is exactly the single top bit of the demanded mask.",
+    "match_opcodes": [
+      "add"
+    ],
+    "rewrite_opcodes": [
+      "xor"
+    ],
+    "extra_conditions": [
+      "RHS constant; C is one-bit set at DemandedMask active-bit boundary"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-sub-propagate-operands-L639",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 639,
+    "line_end": 660,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Propagate high-bit prefix through sub; reduce LHS demand below demanded result when RHS is known zero there; clear wrap flags if operand changes.",
+    "match_opcodes": [
+      "sub"
+    ],
+    "rewrite_opcodes": [
+      "sub"
+    ],
+    "extra_conditions": [
+      "high output bits undemanded; constant/operand simplification succeeds"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-sub-zero-rhs-L661",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 661,
+    "line_end": 667,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return the LHS of sub when RHS is known zero throughout the demanded low-bit prefix.",
+    "match_opcodes": [
+      "sub"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedFromOps subset of RHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-sub-zero-lhs-lsb-L668",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 664,
+    "line_end": 665,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return RHS for subtraction only when the demanded operand mask is exactly bit zero and LHS is known zero there.",
+    "match_opcodes": [
+      "sub"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedFromOps.isOne and subset of LHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-sub-mask-to-not-L673",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 673,
+    "line_end": 681,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace low-bit-mask minus X with complement of X when only mask bits are demanded.",
+    "match_opcodes": [
+      "sub"
+    ],
+    "rewrite_opcodes": [
+      "xor"
+    ],
+    "extra_conditions": [
+      "LHS matches low-bit mask; demanded operand prefix is subset of that mask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-mul-shift-bit-L682",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 682,
+    "line_end": 697,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "When exactly result bit N is demanded and constant multiplier has N trailing zeroes, replace multiply with left shift by N.",
+    "match_opcodes": [
+      "mul"
+    ],
+    "rewrite_opcodes": [
+      "shl"
+    ],
+    "extra_conditions": [
+      "DemandedMask is one-bit power of two; RHS constant trailing-zero count equals demanded bit index"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-mul-square-low-bits-L698",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 698,
+    "line_end": 710,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "For X*X when demand is contained in bottom two bits, replace with X&1, which preserves the low result bits.",
+    "match_opcodes": [
+      "mul"
+    ],
+    "rewrite_opcodes": [
+      "and"
+    ],
+    "extra_conditions": [
+      "operands identical; DemandedMask < 4"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks KnownBits/demanded-bits value analysis for this context.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-shl-inverse-shift-delegation-L714",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 714,
+    "line_end": 720,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Try to simplify a constant left shift over a constant right shift through the dedicated demanded-bit shift-pair helper.",
+    "match_opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "rewrite_opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra_conditions": [
+      "both shift amounts constant; simplifyShrShlDemandedBits proves the demanded masks equivalent"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle lacks demand-mask proof for this shift-pair rewrite.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "simplifyShrShlDemandedBits"
+  },
+  {
+    "id": "demanded-use-shl-return-input-L721",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 721,
+    "line_end": 745,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return the pre-shift value when demanded low bits are unchanged and nsw plus known sign bits prove shifted high bits equal sign extension.",
+    "match_opcodes": [
+      "shl"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "constant shift; demanded mask excludes shifted-in low bits; nsw; ComputeNumSignBits proves enough equal sign bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-shl-reorder-constant-lshr-L746",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 746,
+    "line_end": 762,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Rewrite (lshr C,X)<<S to lshr((C<<S),X) when constant folding proves shifting the new constant back recovers C.",
+    "match_opcodes": [
+      "shl",
+      "lshr"
+    ],
+    "rewrite_opcodes": [
+      "lshr"
+    ],
+    "extra_conditions": [
+      "constant outer shift; left operand is lshr of an immediate constant; demanding low bits excludes changed region; exact roundtrip constant check"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-shl-propagate-constant-L763",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 763,
+    "line_end": 791,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Propagate demanded bits shifted back to the left-shift operand, adding high-bit demands implied by nuw/nsw; drop poison flags when variable-shift operand simplifies.",
+    "match_opcodes": [
+      "shl"
+    ],
+    "rewrite_opcodes": [
+      "shl"
+    ],
+    "extra_conditions": [
+      "constant shift; demanded mask right-shifted by amount; nsw or nuw adds corresponding high bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-shl-propagate-variable-L792",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 786,
+    "line_end": 792,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "For variable shl with undemanded high result bits, simplify source high bits and drop wrap flags when source changes.",
+    "match_opcodes": [
+      "shl"
+    ],
+    "rewrite_opcodes": [
+      "shl"
+    ],
+    "extra_conditions": [
+      "shift amount variable; output has undemanded high bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-lshr-return-input-L798",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 798,
+    "line_end": 827,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return original input when demanded high bits are already known equal to sign bits after constant logical shift; also recognize constant left-shift inversion.",
+    "match_opcodes": [
+      "lshr",
+      "shl"
+    ],
+    "rewrite_opcodes": [
+      "lshr"
+    ],
+    "extra_conditions": [
+      "constant shift; demand lies below/equal shift; sufficient ComputeNumSignBits or constant roundtrip proves equality"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-lshr-factor-mul-L828",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 846,
+    "line_end": 853,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Rewrite (X*C) lshr S to X*(C lshr S) when C has at least S trailing zeroes.",
+    "match_opcodes": [
+      "lshr",
+      "mul",
+      "shl"
+    ],
+    "rewrite_opcodes": [
+      "mul"
+    ],
+    "extra_conditions": [
+      "Shift amount is constant and DemandedMask.countl_zero() >= ShiftAmt",
+      "The source multiply matches m_OneUse(m_Mul(m_Value(X), m_APInt(Factor)))",
+      "Factor.countr_zero() >= ShiftAmt"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-lshr-propagate-L854",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 854,
+    "line_end": 874,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Shift demanded result mask left into the source; if source simplification changes it, drop exact flag; invoke packed-element select fold for variable shifts.",
+    "match_opcodes": [
+      "lshr"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "icmp",
+      "select"
+    ],
+    "extra_conditions": [
+      "constant shift for source-mask path; otherwise packed-element helper proves shift amount is 0 or power-of-two split"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-ashr-return-input-L875",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 875,
+    "line_end": 882,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return source when demanded high result bits are known to equal its sign bit.",
+    "match_opcodes": [
+      "ashr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "ComputeNumSignBits(source) covers all demanded high bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "audit_note": "This return-operand outcome ends at line 882; the following low-bit-demand case emits a separate lshr and is recorded at demanded-use-ashr-lowbit-lshr-L892."
+  },
+  {
+    "id": "demanded-use-ashr-lowbit-lshr-L892",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 884,
+    "line_end": 892,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace ashr with lshr when only result bit zero is demanded; variable shift amount is permitted.",
+    "match_opcodes": [
+      "ashr"
+    ],
+    "rewrite_opcodes": [
+      "lshr"
+    ],
+    "extra_conditions": [
+      "DemandedMask exactly bit zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-ashr-propagate-L901",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 901,
+    "line_end": 919,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Propagate shifted demanded bits to source, demanding sign bit when shifted-in bits are observed; drop exact flag if operand changes.",
+    "match_opcodes": [
+      "ashr"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "lshr"
+    ],
+    "extra_conditions": [
+      "constant shift; source demand shifted; exact removed after operand changes"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-ashr-to-lshr-L920",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 912,
+    "line_end": 920,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace arithmetic right shift with logical right shift when source sign is known zero or no shifted-in sign bits are demanded; preserve exact.",
+    "match_opcodes": [
+      "ashr"
+    ],
+    "rewrite_opcodes": [
+      "lshr"
+    ],
+    "extra_conditions": [
+      "constant shift; source known sign-zero or demanded mask excludes shifted-in bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-udiv-mask-dividend-L930",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 930,
+    "line_end": 951,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "For constant unsigned divisor, stop demanding dividend low bits that are known zero in divisor, drop exact if dividend changes, and compute known result bits.",
+    "match_opcodes": [
+      "udiv"
+    ],
+    "rewrite_opcodes": [
+      "udiv"
+    ],
+    "extra_conditions": [
+      "divisor constant; its trailing-zero count determines undemanded dividend bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-srem-power-two-L952",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 952,
+    "line_end": 968,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "For signed remainder by positive power-of-two, return dividend if demanded bits are strictly below divisor value; otherwise propagate low-bit and sign-bit demands.",
+    "match_opcodes": [
+      "srem"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "divisor constant power of two; demanded mask below divisor, or use signed remainder mask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-use-abs-lsb-L969",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 969,
+    "line_end": 976,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return abs intrinsic input when only its least significant bit is demanded.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask exactly bit zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.abs"
+    ]
+  },
+  {
+    "id": "demanded-use-ctpop-not-parity-L977",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 977,
+    "line_end": 989,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace ctpop(not X) when only parity is demanded and source width is even with ctpop(X).",
+    "match_opcodes": [
+      "call",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "xor",
+      "call"
+    ],
+    "extra_conditions": [
+      "DemandedMask bit zero only; even-width source; argument matches bitwise not"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.ctpop"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.ctpop"
+    ]
+  },
+  {
+    "id": "demanded-use-bswap-single-byte-L990",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 990,
+    "line_end": 1017,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Replace bswap with left/right shift when demand selects exactly one byte of result.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "shl"
+    ],
+    "extra_conditions": [
+      "demand mask covers exactly one aligned byte after rounding leading/trailing zeros down to byte boundaries"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.bswap"
+    ]
+  },
+  {
+    "id": "demanded-use-ptrmask-demand-propagate-L1018",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1018,
+    "line_end": 1039,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Propagate demands through ptrmask operands and compute known result bits; use zero pointer mask when every demanded result bit is known zero.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "pointer-width mask; constant or analyzable operands; demanded bits subset of known-zero bits for zero-mask rewrite"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.ptrmask"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.ptrmask"
+    ]
+  },
+  {
+    "id": "demanded-use-ptrmask-return-pointer-L1040",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1040,
+    "line_end": 1049,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return pointer operand when mask preserves all demanded bits, retaining pointer provenance.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of RHSKnown.One | LHSKnown.Zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.ptrmask"
+    ]
+  },
+  {
+    "id": "demanded-use-ptrmask-shrink-mask-L1050",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1050,
+    "line_end": 1055,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Clear ptrmask constant bits that cannot affect demanded result bits.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "mask constant; demand clipped to bits not known zero in pointer"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.ptrmask"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.ptrmask"
+    ]
+  },
+  {
+    "id": "demanded-use-ptrmask-fold-gep-index-L1056",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1056,
+    "line_end": 1089,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Fold masked low GEP offset bits into the constant GEP index when pointer alignment proves those low bits zero before ptrmask.",
+    "match_opcodes": [
+      "call",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr",
+      "call"
+    ],
+    "extra_conditions": [
+      "ptrmask of ptradd(base,constant) and constant mask; computeKnownBits(base) yields nonzero alignment; changed masked index differs"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.ptrmask"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.ptrmask"
+    ]
+  },
+  {
+    "id": "demanded-use-fshl-fshr-propagate-L1096",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1096,
+    "line_end": 1118,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "For constant fshl/fshr amount, normalize to fshl modulo width and propagate corresponding demanded masks to both sources.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "shift amount constant; source operands distinct; drop UB-implying annotations if source simplification changes them"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.fshl",
+      "llvm.fshr"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.fshl",
+      "llvm.fshr"
+    ]
+  },
+  {
+    "id": "demanded-use-rotate-constant-source-L1119",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1119,
+    "line_end": 1138,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "For rotate (same fshl/fshr source), replace either operand with known demanded-bit constant when KnownBits proves every demanded bit.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "same source operand; demand for that rotated side fully covered by KnownBits; replacement differs from current source"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.fshl",
+      "llvm.fshr"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.fshl",
+      "llvm.fshr"
+    ]
+  },
+  {
+    "id": "demanded-use-umax-return-left-L1147",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1147,
+    "line_end": 1157,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return umax(A,C) left operand when all demanded result bits lie above C\u2019s highest set bit.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS constant; demanded trailing-zero index at least constant active bit count"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.umax"
+    ]
+  },
+  {
+    "id": "demanded-use-umin-return-left-L1158",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1158,
+    "line_end": 1169,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Return umin(A,C) left operand when demanded bits lie above C\u2019s highest zero bit.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS constant; demanded trailing-zero index at least bitwidth minus C leading-ones count"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.umin"
+    ]
+  },
+  {
+    "id": "demanded-use-target-intrinsic-delegation-L1170",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1170,
+    "line_end": 1176,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Delegate target-specific intrinsic demanded-bit folding to targetSimplifyDemandedUseBitsIntrinsic.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "target hook returns an engaged optional"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Target-specific semantics are outside this source-level inventory.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "targetSimplifyDemandedUseBitsIntrinsic"
+  },
+  {
+    "id": "demanded-known-constant-final-L1187",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1187,
+    "line_end": 1199,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Infer low known-zero pointer bits from alignment; replace nonpointer result by constant when all demanded bits are known.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demanded bits subset known; pointers excluded for provenance"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Depends on pointer alignment and KnownBits facts plus the caller-supplied demanded mask to replace an integer result with a constant; these facts are unavailable to Pattern.Valid.",
+    "status": "unsupported",
+    "match_opcode_parameter": "instruction and result type supplied by the demanded-bits caller",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-multiuse-and-known-constant-L1217",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1217,
+    "line_end": 1255,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For shared AND producer, compute known bits without mutating it and return demanded constant or an operand when the other operand cannot affect demanded bits.",
+    "match_opcodes": [
+      "and"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "result is shared; demand mask covered by known bits or operand-specific known-zero/known-one relation"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-or-known-constant-L1256",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1256,
+    "line_end": 1278,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For shared OR producer, compute known bits without mutating it and return demanded constant or an operand when the other operand cannot affect demanded bits.",
+    "match_opcodes": [
+      "or"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "result is shared; demand mask covered by known bits or operand-specific known-zero/known-one relation"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-xor-known-constant-L1279",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1279,
+    "line_end": 1296,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For shared XOR producer, compute known bits without mutating it and return demanded constant or an operand when the other operand cannot affect demanded bits.",
+    "match_opcodes": [
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "result is shared; demand mask covered by known bits or operand-specific known-zero/known-one relation"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-add-zero-return-L1297",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1297,
+    "line_end": 1315,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For shared add, return the other operand when one operand is known zero across all bits through the highest demanded bit.",
+    "match_opcodes": [
+      "add"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demanded mask reduced to low-bit prefix; other operand KnownBits.Zero covers the prefix"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-sub-zero-return-L1316",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1316,
+    "line_end": 1333,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For shared sub, return LHS when RHS is known zero through highest demanded result bit; otherwise compute KnownBits without producer mutation.",
+    "match_opcodes": [
+      "sub"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demanded mask reduced to low-bit prefix; RHS known zero on prefix"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-ashr-known-constant-L1334",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1334,
+    "line_end": 1350,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For shared ashr, return demanded constant when KnownBits cover all demanded bits.",
+    "match_opcodes": [
+      "ashr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask subset of computed Known.Zero|Known.One"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-ashr-inverse-shifts-L1351",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1351,
+    "line_end": 1359,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "Return X for shared ashr(shl(X,C),C) when C is valid and demanded bits do not include sign-extension region.",
+    "match_opcodes": [
+      "ashr",
+      "shl"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "matching constant shift amounts < bitwidth; demanded mask contained in low unextended bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-multiuse-default-known-constant-L1361",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1361,
+    "line_end": 1374,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "description": "For other shared integer producers, return a constant when all demanded bits are known.",
+    "match_opcodes": [
+      "and",
+      "or",
+      "xor",
+      "add",
+      "sub",
+      "mul",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "icmp",
+      "select"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownBits computed in user context; DemandedMask subset of Known.Zero|Known.One"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-shrshl-identical-return-L1376",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1376,
+    "line_end": 1432,
+    "function": "InstCombinerImpl::simplifyShrShlDemandedBits",
+    "description": "Simplify (lshr/ashr X,C)<<C directly to X when the demanded bits agree under the two shift expressions.",
+    "match_opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "both amounts nonzero and below bitwidth; demanded bit masks identical; if shift amounts equal return X without one-use restriction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-shrshl-net-left-shift-L1433",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1433,
+    "line_end": 1445,
+    "function": "InstCombinerImpl::simplifyShrShlDemandedBits",
+    "description": "Replace (lshr/ashr X,C1)<<C2 by shl(X,C2-C1) when C2>C1 and the demanded bit masks agree.",
+    "match_opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "rewrite_opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra_conditions": [
+      "demanded masks equal; inner shift one-use; C2>C1; copy outer nsw/nuw flags"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-shrshl-net-right-shift-L1446",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1446,
+    "line_end": 1453,
+    "function": "InstCombinerImpl::simplifyShrShlDemandedBits",
+    "description": "Replace (lshr/ashr X,C1)<<C2 by right shift X by C1-C2 when C1>C2 and demanded masks agree.",
+    "match_opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "ashr"
+    ],
+    "extra_conditions": [
+      "demanded masks equal; inner shift one-use; C1>C2; preserve exact if inner shift exact"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/demanded-bits context analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-insert-chain-skip-helper-L1455",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1455,
+    "line_end": 1505,
+    "function": "canSkipDemandedEltsInInsertChain",
+    "description": "Recognize an intermediate one-use insertelement chain whose bounded distinct in-range insert indices guarantee that demanded-lane simplification cannot remove an insert before its depth limit.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "all scanned indices in range and distinct; each chain link one-use; chain ends at poison or limit reached"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The helper computes KnownFPClass/FP-demand facts unavailable in Puddle; its mathematical FP classification is also outside the interpreter model.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-vector-zero-demand-L1533",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1540,
+    "line_end": 1542,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "When no fixed-vector lane is demanded, return a poison vector and mark every lane poison.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed-width vector",
+      "demand mask is zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "demanded-vector-constant-undemanded-lanes-L1540",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1540,
+    "line_end": 1573,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Replace each undemanded lane of a constant fixed vector with poison; preserve demanded constants and report preexisting poison lanes.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demand mask is not all ones",
+      "every demanded element is available as an aggregate constant"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "match_details": [
+      "constant vector"
+    ],
+    "rewrite_details": [
+      "constant vector",
+      "poison"
+    ]
+  },
+  {
+    "id": "demanded-vector-recursive-operand-helper-L1601",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1601,
+    "line_end": 1609,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Local helper recursively applies demanded lane information to an instruction/intrinsic operand, replaces that operand when recursion returns a value, and records in-place change.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "recursive demanded-vector simplification returns a replacement",
+      "helper returns a replacement SSA value for the caller to install; it does not itself define one fixed output opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "This is an analysis/mutation utility, not an independent semantic rewrite; Puddle patterns cannot express recursive lane-demand analysis or in-place operand mutation.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_opcode_parameter": "owning instruction opcode supplied by the caller"
+  },
+  {
+    "id": "demanded-vector-gep-demand-L1616",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1616,
+    "line_end": 1652,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Propagate output lane demand to each vector GEP operand; return lane-poison information from the base pointer operand only.",
+    "match_opcodes": [
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "GEP has no struct index",
+      "base undef or index poison returns all-lane poison information"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-insert-variable-index-L1654",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1654,
+    "line_end": 1674,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "For variable-index insertelement, propagate demanded lanes unchanged to the base vector because the overwritten lane is unknown.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "index is not a ConstantInt"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-insert-extract-same-lane-L1676",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1676,
+    "line_end": 1689,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Replace insertelement with its source vector when the only demanded output lane is the inserted constant index and inserted scalar is extractelement of that same index from a same-typed vector.",
+    "match_opcodes": [
+      "insertelement",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "constant in-range insert index",
+      "all other lanes undemanded",
+      "extracted index equals inserted index",
+      "source and result vector types equal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-insert-remove-undemanded-L1690",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1690,
+    "line_end": 1701,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Remove insertelement and return its base vector when the inserted lane is out of range or is not demanded.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "constant insert index",
+      "index out of range or corresponding lane is undemanded"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-shuffle-splat-L1716",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1716,
+    "line_end": 1728,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "For an all-zero shuffle mask with every result lane demanded, poison the unused RHS and demand only lane zero of the LHS.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "all shuffle mask entries are zero",
+      "all result lanes demanded"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "demanded-vector-shuffle-identity-L1757",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1757,
+    "line_end": 1776,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Return shuffle operand zero when every demanded lane maps to its same-numbered source lane; undemanded lanes may differ.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "input and output lane counts equal",
+      "canonical mask has operand zero as source",
+      "all demanded mask entries equal output lane index"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-shuffle-poison-mask-L1779",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1779,
+    "line_end": 1807,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Compute the output poison-lane mask from undemanded shuffle lanes and known-poison source lanes, while tracking whether a new poison mask is needed; this is lane-analysis state only.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fixed vector operands",
+      "shuffle mask selects an undemanded output lane or a known-poison demanded source lane"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "rewrite_details": []
+  },
+  {
+    "id": "demanded-vector-shuffle-constant-single-lane-L1814",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1814,
+    "line_end": 1843,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Replace a shuffle selecting one lane from a constant vector and uniform lanes from the other input with insertelement of that constant lane into the other vector.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "input/output lane counts equal",
+      "exactly one selected constant-vector lane",
+      "other vector output lanes are uniform identity mappings"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "match_details": [
+      "constant vector"
+    ],
+    "rewrite_details": [
+      "insertelement(other vector, selected constant-vector lane, selected output lane)"
+    ]
+  },
+  {
+    "id": "demanded-vector-select-constant-condition-L1856",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1856,
+    "line_end": 1888,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Propagate demand through vector select condition and arms; constant zero/one condition lanes suppress demand in the unselected arm, with output poison where both arm lanes are poison.",
+    "match_opcodes": [
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "select"
+    ],
+    "extra_conditions": [
+      "vector result",
+      "constant condition lanes recognized as null/one"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-bitcast-equal-lanes-L1891",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1891,
+    "line_end": 1913,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "For vector bitcast with equal lane counts, pass demand and poison lane masks through unchanged.",
+    "match_opcodes": [
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "vector source and destination",
+      "same lane count"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-bitcast-output-multiple-L1914",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1914,
+    "line_end": 1925,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "When output has an integer multiple of source lanes, demand a source lane if any corresponding output lane is demanded; replicate source poison to corresponding outputs.",
+    "match_opcodes": [
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "vector source and destination",
+      "output lane count is a multiple of input"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-bitcast-input-multiple-L1926",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1926,
+    "line_end": 1949,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "When input lane count is an integer multiple of output lanes, demand all source lanes belonging to demanded output lanes; mark output poison only if every corresponding input lane is poison.",
+    "match_opcodes": [
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "vector source and destination",
+      "input lane count is a multiple of output"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-fp-conversions-L1951",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1951,
+    "line_end": 1954,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Pass demanded lane mask through fptrunc/fpext and report corresponding poison lanes.",
+    "match_opcodes": [
+      "fptrunc",
+      "fpext"
+    ],
+    "rewrite_opcodes": [
+      "fptrunc",
+      "fpext"
+    ],
+    "extra_conditions": [
+      "fixed vector float source/destination"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-masked-memory-L1956",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1956,
+    "line_end": 1985,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "For masked load/gather keep pointer lanes demanded unless a constant mask proves them inactive; suppress pass-through demand where mask is all-ones and intersect poison from pointer and pass-through.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "masked_load or masked_gather intrinsic",
+      "constant mask may refine pointer/pass-through demand",
+      "gather pointer lanes are simplified; load pointer is not"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-target-intrinsic-delegation-L1987",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1987,
+    "line_end": 1994,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Delegate target-specific intrinsic lane-demand simplification and return the target hook result when present.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "intrinsic instruction",
+      "target hook returns an optional result"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "demanded-vector-elementwise-intrinsic-L1995",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1995,
+    "line_end": 2018,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "Pass lane demand unchanged to each vector argument of a trivially vectorizable intrinsic, skipping designated scalar arguments; union operand poison only for intrinsic IDs documented as elementwise poison-propagating.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "isTriviallyVectorizable intrinsic",
+      "scalar operand positions identified by intrinsic helper",
+      "poison propagation is intrinsic-specific"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-reuse-shuffled-binop-L2022",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2022,
+    "line_end": 2083,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "For a one-use binop with only result lane zero demanded, reuse a dominating same-op binop over the same nonshuffled operand and a zero-mask shuffle of the other operand; intersect IR flags before replacement.",
+    "match_opcodes": [
+      "shufflevector",
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "frem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DominatorTree",
+      "use counts",
+      "IR flags"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires lane-demand analysis, use counts, dominance, and IR-flag intersection; these are outside Puddle matching/rewrite semantics.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-vector-binop-lane-propagation-L2086",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2086,
+    "line_end": 2100,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "For ordinary vector binops, propagate demand to both operands, mark output poison only where both operands are poison, and return a poison vector if all lanes are poison.",
+    "match_opcodes": [
+      "add",
+      "fadd",
+      "sub",
+      "fsub",
+      "mul",
+      "fmul",
+      "udiv",
+      "sdiv",
+      "fdiv",
+      "urem",
+      "srem",
+      "frem",
+      "shl",
+      "lshr",
+      "ashr",
+      "and",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "exclude integer div/rem and shifts",
+      "fixed vector operands",
+      "otherwise the caller retains/mutates the concrete matched binary opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-constant-L2104",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2104,
+    "line_end": 2133,
+    "function": "getFPClassConstant",
+    "description": "Produce exact singleton-class FP values: no classes -> poison, +0/-0 and infinities -> exact constants, qNaN only for canonicalizing operations; aggregates and payload-sensitive NaNs are rejected.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "singleton class; qNaN only canonicalizing"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_details": [
+      "FP class mask"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fabs-helper-L2135",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2146,
+    "line_end": 2153,
+    "function": "simplifyDemandedFPClassFabs",
+    "description": "Replace llvm.fabs(Src) with Src when KnownSrc is already nonnegative, when NaN is undemanded and KnownSrc is known never negative, or under NSZ when KnownSrc excludes ordered-negative values and NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownSrc.signBit is false; OR NaN is not demanded and KnownSrc is known never negative; OR NSZ and KnownSrc is known never ordered-negative or NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.fabs"
+    ],
+    "match_details": [
+      "llvm.fabs(Src)"
+    ],
+    "rewrite_details": [
+      "Src operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-infer-nnan-ninf-helper-L2160",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2160,
+    "line_end": 2181,
+    "function": "inferFastMathValueFlags",
+    "description": "Infer nnan/ninf flags only when demanded valid results exclude the class and every source is known to exclude it.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownFPClass operands and result class mask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_details": [
+      "fast-math operator"
+    ],
+    "rewrite_details": [
+      "nnan",
+      "ninf"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-adjust-mask-helper-L2183",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2183,
+    "line_end": 2191,
+    "function": "adjustDemandedMaskFromFlags",
+    "description": "Remove NaN and infinity from demanded class mask when corresponding nnan/ninf flags guarantee those results absent.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "nnan and/or ninf flag"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_opcode_parameter": "analysis helper consumes a FastMathFlags parameter; it does not match an IR operation"
+  },
+  {
+    "id": "demanded-fpclass-result-epilog-L2193",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2200,
+    "line_end": 2204,
+    "function": "simplifyDemandedFPClassResult",
+    "description": "Replace the FP operation with the exact constant returned by getFPClassConstant for ValidResults = DemandedMask & Known.getKnownFPClasses, when that class mask has a single representable bit pattern (or no classes, yielding poison).",
+    "match_opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "fptrunc",
+      "fpext",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "getFPClassConstant(type, ValidResults, canonicalizing=true) returns non-null"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_opcode_parameter": "floating instruction opcode supplied by the caller",
+    "rewrite_opcode_parameter": "or the concrete FP operation/intrinsic returned by the caller-specific class fold",
+    "rewrite_details": [
+      "FP constant or poison returned by getFPClassConstant; no instruction opcode"
+    ],
+    "match_details": [
+      "the caller\u2019s FP operation or intrinsic whose result classes were computed"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fnegfabs-helper-L2217",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2228,
+    "line_end": 2235,
+    "function": "simplifyDemandedFPClassFnegFabs",
+    "description": "Replace fneg(fabs(Src)) with Src when KnownSrc is negative, or under NSZ when KnownSrc excludes ordered-positive values and NaN.",
+    "match_opcodes": [
+      "fneg",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownSrc.signBit is true; OR NSZ and KnownSrc is known never ordered-positive or NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.fabs"
+    ],
+    "match_details": [
+      "fneg(llvm.fabs(Src))"
+    ],
+    "rewrite_details": [
+      "Src operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-copysign-helper-L2242",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2246,
+    "line_end": 2264,
+    "function": "simplifyDemandedFPClassCopysignMag",
+    "description": "Replace llvm.copysign(MagSrc, SignSrc) with MagSrc when all demanded classes require a sign already guaranteed for MagSrc. Under NSZ, permit the two zero-sign-equivalent class families; otherwise require the known sign bit to equal the sole demanded sign.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "NSZ and demanded classes subset of negative-or-zero with KnownSrc always negative-or-positive-zero, OR subset positive-or-zero with KnownSrc always positive-or-negative-zero; without NSZ, demanded sign exclusively negative/positive and KnownSrc.signBit equals it"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.copysign"
+    ],
+    "match_details": [
+      "llvm.copysign(MagSrc, SignSrc)"
+    ],
+    "rewrite_details": [
+      "MagSrc operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-maximum-L2277",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2283,
+    "line_end": 2287,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.maximum, replace the call with LHS when LHS cannot be strictly less than RHS and RHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "LHS when it cannot be strictly less than RHS and RHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.maximum"
+    ],
+    "match_details": [
+      "llvm.maximum(LHS,RHS)"
+    ],
+    "rewrite_details": [
+      "LHS operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-minimum-L2297",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2302,
+    "line_end": 2306,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.minimum, replace the call with LHS when LHS cannot be strictly greater than RHS and RHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "LHS when it cannot be strictly greater than RHS and RHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.minimum"
+    ],
+    "match_details": [
+      "llvm.minimum(LHS,RHS)"
+    ],
+    "rewrite_details": [
+      "LHS operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-maxnum-L2316",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2321,
+    "line_end": 2325,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.maxnum and llvm.maximumnum, replace the call with LHS when LHS cannot be strictly less than RHS and LHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "LHS when it cannot be strictly less than RHS and LHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.maxnum",
+      "llvm.maximumnum"
+    ],
+    "match_details": [
+      "llvm.maxnum / llvm.maximumnum(LHS,RHS)"
+    ],
+    "rewrite_details": [
+      "LHS operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-minnum-L2335",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2340,
+    "line_end": 2344,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.minnum and llvm.minimumnum, replace the call with LHS when LHS cannot be strictly greater than RHS and LHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "LHS when it cannot be strictly greater than RHS and LHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.minnum",
+      "llvm.minimumnum"
+    ],
+    "rewrite_details": [
+      "LHS operand"
+    ],
+    "match_details": [
+      "llvm.minnum / llvm.minimumnum(LHS,RHS)"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fptrunc-helper-L2367",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2367,
+    "line_end": 2404,
+    "function": "simplifyDemandedUseFPClassFPTrunc",
+    "description": "Map demanded fptrunc result classes back to source classes (including zero from subnormal/normal, subnormal from normal, and infinity from normal), recursively simplify its source, compute local fptrunc class facts, then delegate singleton folding and inferred nnan/ninf mutation to the shared result epilog.",
+    "match_opcodes": [
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "rounding class map"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 and demanded-fpclass-result-infer-flags-L2206"
+  },
+  {
+    "id": "demanded-fpclass-fnegfabs-return-source-L2430",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2430,
+    "line_end": 2444,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For one-use fneg(fabs(Src)), recurse for source classes then dispatch to the inventoried source-return or class-transfer helper outcomes and shared result epilog; the independent fneg(fabs)->fneg rewrite remains separately inventoried.",
+    "match_opcodes": [
+      "call",
+      "fneg"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fneg operand is one-use fabs",
+      "KnownFPClass sign query",
+      "nsz on either operation may apply"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-fnegfabs-helper-L2217; demanded-fpclass-fnegfabs-class-transfer-L2237; demanded-fpclass-result-epilog-L2193; demanded-fpclass-result-infer-flags-L2206"
+  },
+  {
+    "id": "demanded-fpclass-fnegfabs-drop-fabs-L2445",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2445,
+    "line_end": 2459,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Rewrite fneg(fabs(x)) to fneg(x) when source is known nonnegative under demanded sign classes, optionally ignoring zero sign under nsz.",
+    "match_opcodes": [
+      "call",
+      "fneg"
+    ],
+    "rewrite_opcodes": [
+      "fneg"
+    ],
+    "extra_conditions": [
+      "inner fabs one-use",
+      "known source sign/nonnegative class",
+      "or nsz proves negative/zero irrelevant"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-fpclass-fneg-class-transfer-L2460",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2460,
+    "line_end": 2467,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Dispatch recursive demanded-class simplification for fneg, then update only the local KnownFPClass facts with fneg and knownNot; no independent IR rewrite is performed by this branch.",
+    "match_opcodes": [
+      "fneg"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "fallback when nested fabs special case does not fire"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-fadd-self-transfer-L2470",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2470,
+    "line_end": 2514,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For guaranteed-defined fadd(x,x), recursively simplify the shared source under the mapped class demand and compute local fadd_self result classes; the adjacent fold/flag outcomes are recorded separately.",
+    "match_opcodes": [
+      "fadd"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "identical operands",
+      "isGuaranteedNotToBeUndef",
+      "denormal mode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-fadd-sub-general-transfer-L2515",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2515,
+    "line_end": 2540,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For general fadd/fsub, recursively simplify operands under the finite/NaN/Inf source mask and compute local result-class facts; stop before the separate singleton-fold/operand-return/flag-mutation outcomes.",
+    "match_opcodes": [
+      "fadd",
+      "fsub"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "general distinct or fsub operands",
+      "KnownFPClass analysis",
+      "denormal mode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-fadd-sub-fold-and-flags-L2543",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2541,
+    "line_end": 2567,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Fold a singleton fadd/fsub result class; return the known infinity operand when result NaN is not demanded and the opposite operand cannot be NaN; otherwise infer nnan/ninf flags.",
+    "match_opcodes": [
+      "fadd",
+      "fsub"
+    ],
+    "rewrite_opcodes": [
+      "fadd",
+      "fsub"
+    ],
+    "extra_conditions": [
+      "Known result class singleton for constant-fold branch",
+      "or result NaN not demanded and fadd RHS is inf|NaN while LHS excludes NaN, or LHS is inf|NaN and RHS excludes NaN",
+      "otherwise inferred fast-math flags differ from current flags"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-square-L2586",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2600,
+    "line_end": 2610,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For guaranteed-defined fmul(x,x), recursively simplify the shared source and compute local square result-class facts; the constant, identity, and fabs rewrites are separate entries.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "operands identical",
+      "isGuaranteedNotToBeUndef(X)",
+      "recursive demanded-class simplification did not mutate operand"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_intrinsics": [
+      "llvm.fabs"
+    ],
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-fmul-mutated-operands-L2631",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2631,
+    "line_end": 2636,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursive SimplifyDemandedFPClass operand dispatch (the returned instruction signals nested mutation).",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "recursively simplified LHS or RHS operand returns changed instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "Recursive SimplifyDemandedFPClass operand dispatch (the returned instruction signals nested mutation)."
+  },
+  {
+    "id": "demanded-fpclass-fmul-transfer-fold-flags-L2725",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2725,
+    "line_end": 2741,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute general fmul result classes, fold a singleton class, or infer nnan/ninf flags from known operands/result.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [
+      "fmul"
+    ],
+    "extra_conditions": [
+      "KnownFPClass operands",
+      "denormal mode",
+      "FMF inference"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-self-select-L2748",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2748,
+    "line_end": 2761,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Rewrite fdiv(x,x) as select of qNaN when x is zero/inf/NaN, otherwise one; condition is unordered equality to zero or abs(x) unordered-equal infinity.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [
+      "fcmp",
+      "or",
+      "select",
+      "fneg",
+      "call"
+    ],
+    "extra_conditions": [
+      "identical operands",
+      "guaranteed-not-undef",
+      "FMF preserved on comparisons/select"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_intrinsics": [
+      "llvm.fabs"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-mutated-operands-L2810",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2810,
+    "line_end": 2819,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursive SimplifyDemandedFPClass operand dispatch (the returned instruction signals nested mutation).",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "recursively simplified numerator or denominator returns changed instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "Recursive SimplifyDemandedFPClass operand dispatch (the returned instruction signals nested mutation)."
+  },
+  {
+    "id": "demanded-fpclass-fdiv-zero-divisor-inf-L2845",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2845,
+    "line_end": 2861,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Rewrite division by known zero to copysign(infinity, numerator) when NaN and infinity result demands permit.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "known +0 divisor or zero with nsz",
+      "NaN result impossible or numerator known neither NaN nor logical zero",
+      "infinity result demanded"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-zero-divisor-poison-L2862",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2862,
+    "line_end": 2866,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Return poison for division by known zero when both NaN and infinity result classes are excluded.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "no-NaN and no-Inf result demand",
+      "divisor known zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-transfer-fold-flags-L2867",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2867,
+    "line_end": 2873,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute demanded fdiv result classes and fold a singleton result class to its FP constant.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [
+      "fdiv"
+    ],
+    "extra_conditions": [
+      "KnownFPClass operands",
+      "denormal mode",
+      "FMF inference"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fptrunc-callsite-L2883",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2883,
+    "line_end": 2885,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Delegate FP truncation class propagation to helper mapping result classes back to source possibilities.",
+    "match_opcodes": [
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [
+      "fptrunc"
+    ],
+    "extra_conditions": [],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "simplifyDemandedUseFPClassFPTrunc",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fpext-L2886",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2886,
+    "line_end": 2910,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Map demanded result FP classes through fpext, add source subnormal classes when needed for normal results, derive extended classes, then delegate result folding/flag inference to the shared result helper.",
+    "match_opcodes": [
+      "fpext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "known source/destination semantics"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 (singleton constant/poison fold) and demanded-fpclass-result-infer-flags-L2206 (inferred nnan/ninf mutation)."
+  },
+  {
+    "id": "demanded-fpclass-intrinsic-fabs-L2915",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2915,
+    "line_end": 2926,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For one-use llvm.fabs, recursively compute source classes, then use the inventoried helper outcomes for source replacement or class transfer and the shared result epilog for constant folding or inferred fast-math flags; this caller is dispatch only.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.fabs intrinsic",
+      "KnownFPClass sign facts",
+      "demand mask"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-fabs-helper-L2135; demanded-fpclass-fabs-class-transfer-L2155; demanded-fpclass-result-epilog-L2193; demanded-fpclass-result-infer-flags-L2206"
+  },
+  {
+    "id": "demanded-fpclass-intrinsic-arithmetic-fence-L2927",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2927,
+    "line_end": 2931,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursive SimplifyDemandedFPClass operand dispatch.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.arithmetic.fence intrinsic"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "Recursive SimplifyDemandedFPClass operand dispatch."
+  },
+  {
+    "id": "demanded-fpclass-intrinsic-fma-L2983",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2983,
+    "line_end": 3019,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For fma/fmuladd, map demanded classes to operands, use the square transfer for identical guaranteed-defined multiplicands or general fma transfer otherwise, then delegate result folding/flag inference to the shared result helper.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.fma or llvm.fmuladd intrinsic",
+      "identical multiplicands and guaranteed-not-undef check for square path",
+      "denormal mode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 (singleton constant/poison fold) and demanded-fpclass-result-infer-flags-L2206 (inferred nnan/ninf mutation)."
+  },
+  {
+    "id": "demanded-fpclass-intrinsic-ldexp-L3289",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3289,
+    "line_end": 3326,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For ldexp, map demanded result classes to source classes, compute exponent KnownBits and derive local ldexp classes, then delegate result folding/flag inference to the shared result helper.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.ldexp intrinsic",
+      "KnownBits of exponent",
+      "denormal mode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 (singleton constant/poison fold) and demanded-fpclass-result-infer-flags-L2206 (inferred nnan/ninf mutation)."
+  },
+  {
+    "id": "demanded-fpclass-intrinsic-fptrunc-round-L3441",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3441,
+    "line_end": 3444,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Delegate fptrunc_round class reasoning to the fptrunc demanded-class helper.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.fptrunc.round intrinsic"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "simplifyDemandedUseFPClassFPTrunc"
+  },
+  {
+    "id": "demanded-fpclass-select-L3522",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3522,
+    "line_end": 3540,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For select, simplify demanded classes on each arm, return the other arm if one arm cannot contain demanded classes, otherwise refine known classes using arm-specific condition facts and intersect them.",
+    "match_opcodes": [
+      "select"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownFPClass of both arms",
+      "condition-context facts via adjustKnownFPClassForSelectArm"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-fpclass-extractelement-L3541",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3541,
+    "line_end": 3550,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursively compute demanded FP classes for the vector operand and retain the local class facts; this branch does not rewrite the extractelement itself.",
+    "match_opcodes": [
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "vector lane demand is explicitly TODO"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-insertelement-L3551",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3551,
+    "line_end": 3563,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursively compute class facts for the vector and inserted scalar, then conservatively union those local facts; no independent IR rewrite occurs here.",
+    "match_opcodes": [
+      "insertelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "does not use demanded element analysis; union is conservative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-shufflevector-L3564",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3564,
+    "line_end": 3575,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursively compute both source class facts and conservatively union them; the shuffle is unchanged in this analysis branch.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demanded element-aware handling is explicitly TODO"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-phi-L3646",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3646,
+    "line_end": 3697,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For PHI, simplify each incoming edge under its predecessor terminator context, update incoming values when rewritten, and union incoming known classes.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "recursion depth below limit",
+      "per-edge contextual known-class analysis"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. This branch also updates PHI incoming values in predecessor control-flow context, which Puddle cannot model.",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-select-L3706",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3706,
+    "line_end": 3726,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "For shared select, compute each arm class without mutating producer; return the opposite arm if one arm cannot contain demanded classes, otherwise intersect arm-adjusted facts.",
+    "match_opcodes": [
+      "select"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownFPClass per arm",
+      "select-condition arm refinement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-fnegfabs-L3727",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3727,
+    "line_end": 3749,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "For shared fneg(fabs(Src)), compute KnownSrc without mutating the producer and dispatch to the source-return or class-transfer helper outcomes with NSZ disabled; this caller is not a separate rewrite.",
+    "match_opcodes": [
+      "call",
+      "fneg"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source pattern fneg(fabs(x))",
+      "known sign analysis"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-fnegfabs-helper-L2217; demanded-fpclass-fnegfabs-class-transfer-L2237"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-fabs-L3750",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3750,
+    "line_end": 3768,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "For shared llvm.fabs, compute KnownSrc without mutating the producer and dispatch to the helper outcomes for source replacement or class transfer with NSZ disabled; this caller is not a separate rewrite.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.fabs intrinsic",
+      "known sign analysis"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-fabs-helper-L2135; demanded-fpclass-fabs-class-transfer-L2155"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-copysign-L3769",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3785,
+    "line_end": 3798,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "For shared copysign not simplified to its magnitude, compute KnownSign, apply nnan/ninf facts from flags, and transfer result classes with KnownFPClass::copysign; local facts only. The same-sign magnitude return at 3793-3795 is covered by demanded-fp-copysign-known-sign-return-L2958.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.copysign intrinsic",
+      "known class/sign analysis",
+      "FMF no-infs/no-nans constraints"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-minmax-L3798",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3798,
+    "line_end": 3824,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "For shared min/max calls, require known RHS classes, compute both operand facts, and delegate operand selection or singleton replacement to the per-intrinsic minmax helper outcomes; no producer mutation occurs in this caller.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "Recognized min/max-family intrinsic",
+      "KnownRHS is not unknown; KnownLHS is computed for selection/class transfer",
+      "NSZ disabled for shared-use handling"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "delegation",
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-minmax-maximum-L2277; demanded-fpclass-minmax-maximum-rhs-L2289; demanded-fpclass-minmax-minimum-L2297; demanded-fpclass-minmax-minimum-rhs-L2308; demanded-fpclass-minmax-maxnum-L2316; demanded-fpclass-minmax-maxnum-rhs-L2327; demanded-fpclass-minmax-minnum-L2335; demanded-fpclass-minmax-minnum-rhs-L2346; demanded-fpclass-minmax-singleton-constant-L2363"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-default-L3825",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3825,
+    "line_end": 3833,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "For other shared producers, compute known classes without changing the producer and return a singleton class constant when possible.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "computeKnownFPClass result"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "match_opcode_parameter": "floating instruction opcode supplied by the caller",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-empty-demand-operand-L3834",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3834,
+    "line_end": 3847,
+    "function": "InstCombinerImpl::SimplifyDemandedFPClass",
+    "description": "Replace an operand with poison when no FP class is demanded, unless it is already poison.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "demand mask is empty"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "match_opcode_parameter": "owning instruction opcode supplied by the caller",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-constant-operand-L3848",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3848,
+    "line_end": 3875,
+    "function": "InstCombinerImpl::SimplifyDemandedFPClass",
+    "description": "Compute operand known classes, replace with poison if no demanded class remains, or replace a nonconstant operand with an exact singleton-class constant.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "operand is constant/argument or other non-instruction",
+      "avoid rewriting existing constants except poison",
+      "exact class maps to a supported constant"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "match_opcode_parameter": "owning instruction opcode supplied by the caller",
+    "rewrite_details": [
+      "poison",
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-recurse-oneuse-multiuse-L3874",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3874,
+    "line_end": 3902,
+    "function": "InstCombinerImpl::SimplifyDemandedFPClass",
+    "description": "Recurse into one-use producers with mutating demanded-class simplification and shared producers with nonmutating analysis; replace operand use with returned value and salvage debug information.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "recursion limit",
+      "producer use count selects mutating vs shared path",
+      "helper returns a replacement SSA value for the caller to install; it does not itself define one fixed output opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented. ",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_opcode_parameter": "owning instruction opcode supplied by the caller"
+  },
+  {
+    "id": "demanded-fp-copysign-demanded-sign-L2932",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2932,
+    "line_end": 2942,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "If only negative sign classes are demanded, set copysign sign operand to -1; if only positive classes, set it to +0.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "demand mask is subset of fcNegative or fcPositive"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.copysign"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fp-copysign-magnitude-shortcut-L2943",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2943,
+    "line_end": 2954,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "After simplifying the magnitude under unknown demanded sign, delegate the magnitude-return shortcut to demanded-fpclass-copysign-helper-L2242, passing NSZ.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper proves source magnitude sign satisfies demanded classes"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "match_intrinsics": [
+      "llvm.copysign"
+    ],
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-copysign-helper-L2242 and the sibling helper outcome IDs listed in the source inventory"
+  },
+  {
+    "id": "demanded-fp-copysign-known-sign-rewrite-L2955",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2967,
+    "line_end": 2976,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "When the copysign sign operand is known nonnegative or negative, replace it with +0 or -1 respectively; drop UB-implying attrs/metadata before mutating operand 1.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "KnownSign.signBit is false or true"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.copysign"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ],
+    "match_details": [
+      "llvm.copysign(Mag,Sign)"
+    ],
+    "rewrite_details": [
+      "same llvm.copysign call with sign operand replaced by +0 or -1"
+    ]
+  },
+  {
+    "id": "demanded-fp-copysign-transfer-L2977",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2977,
+    "line_end": 2982,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute KnownFPClass::copysign from known magnitude and sign, then remove classes outside DemandedMask; the common epilogue consumes this information.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "no earlier operand or sign simplification returned",
+      "KnownSign classes incorporate no-NaN flag before transfer"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fp-minmax-demand-source-L3020",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3020,
+    "line_end": 3048,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For min/max call variants, prune NaN source classes when demanded result and propagating-NaN semantics allow; recursively simplify both operands and return if changed.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "PropagateNaN iff maximum/minimum",
+      "if propagating NaN and NaN not demanded, source demand excludes NaN",
+      "recursive operand simplification changes"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.maximum",
+      "llvm.minimum",
+      "llvm.maxnum",
+      "llvm.minnum",
+      "llvm.maximumnum",
+      "llvm.minimumnum"
+    ]
+  },
+  {
+    "id": "demanded-fp-minmax-select-operand-L3049",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3048,
+    "line_end": 3048,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "After operand demanded-class simplification, delegate operand selection and singleton-class replacement to the per-intrinsic minmax helper outcomes (maximum/minimum/maxnum/maximumnum/minnum/minimumnum).",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "simplifyDemandedFPClassMinMax returns a nonnull operand/constant based on opcode, known class ordering, NaN rules and NSZ"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "match_intrinsics": [
+      "llvm.minimum",
+      "llvm.maximum",
+      "llvm.minnum",
+      "llvm.maxnum"
+    ],
+    "rewrite_details": [],
+    "delegated_to": "demanded-fpclass-minmax-maximum-L2277; demanded-fpclass-minmax-maximum-rhs-L2289; demanded-fpclass-minmax-minimum-L2297; demanded-fpclass-minmax-minimum-rhs-L2308; demanded-fpclass-minmax-maxnum-L2316; demanded-fpclass-minmax-maxnum-rhs-L2327; demanded-fpclass-minmax-minnum-L2335; demanded-fpclass-minmax-minnum-rhs-L2346; demanded-fpclass-minmax-singleton-constant-L2363"
+  },
+  {
+    "id": "demanded-fp-minmax-infer-flags-L3053",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3053,
+    "line_end": 3086,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Infer NSZ when result zero sign is irrelevant or operands cannot produce opposite zero signs; infer NNAN when NaN result impossible.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "ValidResults from demanded mask and known classes",
+      "denormal mode adds subnormal to zero mask",
+      "NaN conditions depend on PropagateNaN",
+      "drop UB attrs before NNAN update",
+      "action is fast-math metadata mutation on the matching intrinsic, not creation of a new opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.minimum",
+      "llvm.maximum",
+      "llvm.minnum",
+      "llvm.maxnum"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.minimum",
+      "llvm.maximum",
+      "llvm.minnum",
+      "llvm.maxnum"
+    ]
+  },
+  {
+    "id": "demanded-fp-exp-sign-only-L3087",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3087,
+    "line_end": 3102,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "If positive results are not demanded, return poison for no demanded NaN, qNaN for NaN-only demand, or source for NaN plus other classes.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "DemandedMask has no fcPositive, then branch by fcNan-only/no-fcNan"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.exp",
+      "llvm.exp2",
+      "llvm.exp10"
+    ]
+  },
+  {
+    "id": "demanded-fp-exp-source-mask-L3103",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3103,
+    "line_end": 3144,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute the source FP-class demand mask for exp/exp2/exp10 and recursively simplify the operand; this span contains demand propagation only, with constant folds and result-class rewrites recorded in later branch entries.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "construct SrcDemandedMask according to demanded class bits",
+      "recursively simplify operand"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.exp",
+      "llvm.exp2",
+      "llvm.exp10"
+    ]
+  },
+  {
+    "id": "demanded-fp-exp-special-inputs-L3145",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3145,
+    "line_end": 3179,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Fold zero input to 1, NaN-only input to source, zero-or-NaN to x+1, and infinity-or-NaN to select between source and zero.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "fadd",
+      "fcmp",
+      "select"
+    ],
+    "extra_conditions": [
+      "known source class exactly zero, NaN, zero|NaN, or infinity|NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.exp",
+      "llvm.exp2",
+      "llvm.exp10"
+    ]
+  },
+  {
+    "id": "demanded-fp-exp-transfer-L3180",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3180,
+    "line_end": 3186,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute local exp/exp2/exp10 result classes after recursive source simplification, then delegate singleton folding and fast-math inference to the shared result helper.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "no earlier special-class result"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "match_intrinsics": [
+      "llvm.exp",
+      "llvm.exp2",
+      "llvm.exp10"
+    ],
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 (singleton constant/poison fold) and demanded-fpclass-result-infer-flags-L2206 (inferred nnan/ninf mutation)."
+  },
+  {
+    "id": "demanded-fp-log-source-mask-L3187",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3187,
+    "line_end": 3231,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute the source FP-class demand mask for log/log2/log10, including denormal and multi-unit cases, and recursively simplify the operand; no direct IR replacement is performed in this span.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "mask depends on demanded NaN/negative infinity/zero/normal/subnormal",
+      "recursively simplify source"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.log",
+      "llvm.log2",
+      "llvm.log10"
+    ]
+  },
+  {
+    "id": "demanded-fp-log-transfer-L3232",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3232,
+    "line_end": 3238,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute local log/log2/log10 result classes from source classes, denormal mode, and multi-unit type, then delegate singleton folding and fast-math inference to the shared result helper.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source recursion did not mutate instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "match_intrinsics": [
+      "llvm.log",
+      "llvm.log2",
+      "llvm.log10"
+    ],
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 (singleton constant/poison fold) and demanded-fpclass-result-infer-flags-L2206 (inferred nnan/ninf mutation)."
+  },
+  {
+    "id": "demanded-fp-sqrt-source-mask-L3239",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3239,
+    "line_end": 3257,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute demanded source classes for sqrt, recursively simplify the operand, and refine local source-class facts; direct constant/call replacements are recorded in subsequent branch entries.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "mask based on demanded result classes",
+      "recursive source simplification"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.sqrt"
+    ]
+  },
+  {
+    "id": "demanded-fp-sqrt-known-negative-L3258",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3258,
+    "line_end": 3272,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Return qNaN when source is known nonpositive and cannot be logical zero under denormal mode.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "result NaN excluded refines source nonnegative",
+      "result +infinity excluded refines source not +inf",
+      "source no positive and no logical zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.sqrt"
+    ]
+  },
+  {
+    "id": "demanded-fp-sqrt-zero-result-L3273",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3273,
+    "line_end": 3285,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "When computed result is exactly zero, return +0 under NSZ or copysign(+0, source) otherwise.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "Known result classes exactly fcZero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.sqrt"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fp-sqrt-transfer-L3286",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3286,
+    "line_end": 3288,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Delegate singleton result folding and fast-math inference for the already-computed sqrt classes to the shared result helper.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "no earlier special case"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "match_intrinsics": [
+      "llvm.sqrt"
+    ],
+    "delegated_to": "demanded-fpclass-result-epilog-L2193 (singleton constant/poison fold) and demanded-fpclass-result-infer-flags-L2206 (inferred nnan/ninf mutation)."
+  },
+  {
+    "id": "demanded-fp-round-source-mask-L3327",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3327,
+    "line_end": 3372,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute source FP-class demands for the rounding intrinsics and recursively simplify the operand; rounding-to-constant, signed-zero, and flag mutations are separate later outcomes.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "rounding intrinsic selected by IID",
+      "denormal and multi-unit FP mode adjust source mask",
+      "recursive source simplification"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ]
+  },
+  {
+    "id": "demanded-fp-round-identity-specials-L3373",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3373,
+    "line_end": 3378,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Return input unchanged when its known classes are only infinities, NaNs, and zeros.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownSrc subset fcInf|fcNan|fcZero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ]
+  },
+  {
+    "id": "demanded-fp-round-transfer-constant-L3399",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3399,
+    "line_end": 3421,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute rounded result classes and fold singleton class constants.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownFPClass transfer for IID yields a singleton class",
+      "singleton is one of the supported classes in getFPClassConstant"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fp-round-zero-copysign-L3422",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3422,
+    "line_end": 3431,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For trunc/nearest modes on zero-or-subnormal sources, return copysign(zero, source).",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "rounded class not singleton-folded",
+      "source known zero|subnormal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fp-round-infer-flags-L3432",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3432,
+    "line_end": 3440,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Infer fast-math result flags and drop UB-implying metadata before mutating flags.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "Inferred fast-math flags differ from current flags",
+      "drop UB-implying attrs/metadata before setting flags",
+      "action is fast-math metadata mutation on the matching rounding intrinsic, not creation of a new opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "metadata-mutation",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ]
+  },
+  {
+    "id": "demanded-fp-canonicalize-source-mask-L3445",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3445,
+    "line_end": 3487,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For IEEE-like types compute source-class demands for canonicalize and recursively simplify the operand; constant/identity replacements and flag mutation occur in later branch entries.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "element type is IEEE-like",
+      "denormal mode adjusts source mask",
+      "recursive source simplification"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.canonicalize"
+    ]
+  },
+  {
+    "id": "demanded-fp-canonicalize-fold-remove-L3488",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3488,
+    "line_end": 3502,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Compute canonicalized source classes; fold singleton constant or return source when known non-NaN and no relevant subnormals remain.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "computed singleton class folds",
+      "otherwise source never NaN and IEEE mode or source never subnormal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.canonicalize"
+    ]
+  },
+  {
+    "id": "demanded-fp-canonicalize-infer-flags-L3503",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3503,
+    "line_end": 3513,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Infer fast-math flags from canonicalized classes and mutate canonicalize flags after dropping UB-implying metadata.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "IEEE-like type",
+      "inferred flags differ",
+      "action is fast-math metadata mutation on the matching intrinsic, not creation of a new opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.canonicalize"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.canonicalize"
+    ]
+  },
+  {
+    "id": "demanded-fp-aggregate-insertvalue-transfer-L3576",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3576,
+    "line_end": 3594,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Recursively compute aggregate and inserted-element FP classes, then union the local class facts; this branch does not rewrite insertvalue.",
+    "match_opcodes": [
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "aggregate operand simplification does not mutate instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "demanded-fp-aggregate-extractvalue-L3595",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3595,
+    "line_end": 3645,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For extractvalue, pass through aggregate class facts; special-case one-use frexp mantissa extraction by mapping demanded mantissa classes to source classes, folding singleton constants or returning source for zero/inf/NaN.",
+    "match_opcodes": [
+      "extractvalue",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "extractvalue aggregate is frexp call with one use for special path",
+      "extract index is mantissa result",
+      "source known classes trigger listed cases"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires aggregate/vector FP class semantics not modeled in Puddle, plus demanded element analysis where relevant.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.frexp"
+    ]
+  },
+  {
+    "id": "demanded-fp-floor-positive-small-to-poszero-L3383",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3383,
+    "line_end": 3385,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For floor, round/roundeven/nearbyint/rint/trunc, fold known +0 or positive subnormal to +0.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "Intrinsic::floor or nearest/trunc family",
+      "KnownSrc is exactly fcPosZero|fcPosSubnormal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fp-ceil-negative-small-to-negzero-L3387",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3387,
+    "line_end": 3389,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For ceil and nearest/trunc family, fold known -0 or negative subnormal to -0.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "Intrinsic::ceil or nearest/trunc family",
+      "KnownSrc is exactly fcNegZero|fcNegSubnormal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fp-floor-negative-subnormal-to-minus-one-L3391",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3391,
+    "line_end": 3392,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For floor, fold a known negative subnormal to -1.0.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "IID == Intrinsic::floor",
+      "KnownSrc is exactly fcNegSubnormal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fp-ceil-positive-subnormal-to-one-L3394",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3394,
+    "line_end": 3395,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For ceil, fold a known positive subnormal to +1.0.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "IID == Intrinsic::ceil",
+      "KnownSrc is exactly fcPosSubnormal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded FP-class behavior requires floating-point value/class semantics, poison representation, and fast-math/denormal reasoning unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.trunc",
+      "llvm.floor",
+      "llvm.ceil",
+      "llvm.rint",
+      "llvm.nearbyint",
+      "llvm.round",
+      "llvm.roundeven"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-poszero-right-L2647",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2647,
+    "line_end": 2659,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For fmul(X,Y) with Y known +0|NaN, replace by copysign(Y,X) when NaN results are not demanded or X is known never infinity/NaN.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "RHS known exactly fcPosZero|fcNan",
+      "result NaN not demanded or LHS known never Inf/NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, NaN, signed-zero, and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-poszero-left-L2661",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2661,
+    "line_end": 2671,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For fmul(X,Y) with X known +0|NaN, replace by copysign(X,Y) when NaN results are not demanded or Y is known never infinity/NaN.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "LHS known exactly fcPosZero|fcNan",
+      "result NaN not demanded or RHS known never Inf/NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, NaN, signed-zero, and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-negzero-right-L2673",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2673,
+    "line_end": 2684,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For fmul(X,Y) with Y known -0|NaN, replace by copysign(Y,fneg(X)) when NaN results are not demanded or X is known never infinity/NaN.",
+    "match_opcodes": [
+      "fmul",
+      "fneg"
+    ],
+    "rewrite_opcodes": [
+      "call",
+      "fneg"
+    ],
+    "extra_conditions": [
+      "RHS known exactly fcNegZero|fcNan",
+      "result NaN not demanded or LHS known never Inf/NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, NaN, signed-zero, and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-negzero-left-L2686",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2686,
+    "line_end": 2697,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For fmul(X,Y) with X known -0|NaN, replace by copysign(X,fneg(Y)) when NaN results are not demanded or Y is known never infinity/NaN.",
+    "match_opcodes": [
+      "fmul",
+      "fneg"
+    ],
+    "rewrite_opcodes": [
+      "call",
+      "fneg"
+    ],
+    "extra_conditions": [
+      "LHS known exactly fcNegZero|fcNan",
+      "result NaN not demanded or RHS known never Inf/NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, NaN, signed-zero, and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-left-inf-negative-L2702",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2702,
+    "line_end": 2712,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "When LHS is inf|NaN and RHS is non-NaN and cannot be ordered >=0, replace fmul by fneg(LHS).",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [
+      "fneg"
+    ],
+    "extra_conditions": [
+      "LHS known exactly fcInf|fcNan",
+      "RHS known never NaN and cannotBeOrderedGreaterEqZero(Mode)"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, ordering, denormal, and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-fpclass-fmul-right-inf-negative-L2714",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2714,
+    "line_end": 2724,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "When RHS is inf|NaN and LHS is non-NaN and cannot be ordered >=0, replace fmul by fneg(RHS).",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [
+      "fneg"
+    ],
+    "extra_conditions": [
+      "RHS known exactly fcInf|fcNan",
+      "LHS known never NaN and cannotBeOrderedGreaterEqZero(Mode)"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, ordering, denormal, and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-fpclass-fmul-square-constant-L2611",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2611,
+    "line_end": 2614,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Fold a singleton demanded result class of fmul(x,x) to its FP constant.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "identical operands and guaranteed not undef",
+      "Known square result class maps to a supported FP class constant"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class and floating constant semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fmul-square-positive-source-L2615",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2615,
+    "line_end": 2620,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Return X for fmul(x,x) when result can only be +0/+Inf/NaN and source is already known positive.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "identical operands and guaranteed not undef",
+      "Known result subset fcPosZero|fcPosInf|fcNan",
+      "Known source always fcPositive"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class and floating semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "demanded-fpclass-fmul-square-fabs-L2621",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2621,
+    "line_end": 2628,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Replace fmul(x,x) by fabs(x) when result is limited to +0/+Inf/NaN but source may be negative; drops canonicalize behavior.",
+    "match_opcodes": [
+      "fmul"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "identical operands and guaranteed not undef",
+      "Known result subset fcPosZero|fcPosInf|fcNan",
+      "source not already known positive"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class and canonicalization semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_intrinsics": [
+      "llvm.fabs"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-nsz-zero-numerator-L2830",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2830,
+    "line_end": 2833,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Under nsz, fold a known zero numerator divided by a non-NaN divisor to +0 when 0/0 NaN is not demanded or divisor cannot be logical zero.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "FMF nsz",
+      "LHS known fcZero",
+      "RHS known never NaN",
+      "ResultNotNan or RHS known never logical zero under Mode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, NaN, nsz, and denormal semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-positive-zero-numerator-L2835",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2835,
+    "line_end": 2844,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "For known +0 numerator, replace division by copysign(+0, divisor) when divisor is non-NaN and 0/0 NaN is excluded.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "LHS known fcPosZero",
+      "RHS known never NaN",
+      "ResultNotNan or RHS known never logical zero under Mode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class, NaN, signed-zero, and denormal semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fdiv-infer-flags-L2874",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2874,
+    "line_end": 2882,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Infer nnan/ninf from fdiv result and operand classes; mutate fast-math flags when inferred flags differ.",
+    "match_opcodes": [
+      "fdiv"
+    ],
+    "rewrite_opcodes": [
+      "fdiv"
+    ],
+    "extra_conditions": [
+      "no singleton constant fold",
+      "inferFastMathValueFlags result differs from current FMF",
+      "action is fast-math metadata mutation on the matched fdiv, not creation of a new opcode"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires FP class and fast-math semantics absent from Puddle.",
+    "status": "unsupported",
+    "kind": "metadata-mutation"
+  },
+  {
+    "id": "demanded-fpclass-fabs-class-transfer-L2155",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2155,
+    "line_end": 2157,
+    "function": "simplifyDemandedFPClassFabs",
+    "description": "If fabs is not replaced by its source, compute KnownFPClass::fabs(KnownSrc) and remove classes outside DemandedMask; local fact transfer only.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "replacement guards at 2146-2153 did not fire"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.fabs"
+    ],
+    "match_details": [
+      "llvm.fabs(Src)"
+    ],
+    "rewrite_details": [
+      "Src operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-fnegfabs-class-transfer-L2237",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2237,
+    "line_end": 2239,
+    "function": "simplifyDemandedFPClassFnegFabs",
+    "description": "When the fneg(fabs) identity guards do not fire, compute KnownFPClass::fneg(KnownFPClass::fabs(KnownSrc)) and restrict facts to DemandedMask; local fact transfer only.",
+    "match_opcodes": [
+      "fneg",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownSrc.signBit is true; OR NSZ and KnownSrc excludes ordered-positive classes and NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.fabs"
+    ],
+    "match_details": [
+      "fneg(llvm.fabs(Src))"
+    ],
+    "rewrite_details": [
+      "Src operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-maximum-rhs-L2289",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2289,
+    "line_end": 2293,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.maximum, replace the call with RHS when RHS cannot be strictly greater than LHS and LHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS when it cannot be strictly greater than LHS and LHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.maximum"
+    ],
+    "match_details": [
+      "llvm.maximum(LHS,RHS)"
+    ],
+    "rewrite_details": [
+      "RHS operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-minimum-rhs-L2308",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2308,
+    "line_end": 2312,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.minimum, replace the call with RHS when RHS cannot be strictly less than LHS and LHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS when it cannot be strictly less than LHS and LHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.minimum"
+    ],
+    "match_details": [
+      "llvm.minimum(LHS,RHS)"
+    ],
+    "rewrite_details": [
+      "RHS operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-maxnum-rhs-L2327",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2327,
+    "line_end": 2331,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.maxnum and llvm.maximumnum, replace the call with RHS when RHS cannot be strictly greater than LHS and RHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS when it cannot be strictly greater than LHS and RHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.maxnum",
+      "llvm.maximumnum"
+    ],
+    "match_details": [
+      "llvm.maxnum / llvm.maximumnum(LHS,RHS)"
+    ],
+    "rewrite_details": [
+      "RHS operand"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-minnum-rhs-L2346",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2346,
+    "line_end": 2350,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "For llvm.minnum and llvm.minimumnum, replace the call with RHS when RHS cannot be strictly less than LHS and RHS is known non-NaN.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "RHS when it cannot be strictly less than LHS and RHS is known non-NaN"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.minnum",
+      "llvm.minimumnum"
+    ],
+    "rewrite_details": [
+      "RHS operand"
+    ],
+    "match_details": [
+      "llvm.minnum / llvm.minimumnum(LHS,RHS)"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-class-transfer-L2358",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2358,
+    "line_end": 2361,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "After all operand-selection branches fail, compute KnownFPClass::minMaxLike using the intrinsic-specific operation kind and function denormal mode, then restrict the result classes to DemandedMask; this only transfers local facts.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "No operand-selection branch at 2283-2350 returned an operand"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.maximum",
+      "llvm.minimum",
+      "llvm.maxnum",
+      "llvm.minnum",
+      "llvm.maximumnum",
+      "llvm.minimumnum"
+    ],
+    "rewrite_details": [
+      "LHS operand"
+    ],
+    "match_details": [
+      "llvm.maximum/minimum/maxnum/minnum/maximumnum/minimumnum"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-minmax-singleton-constant-L2363",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2363,
+    "line_end": 2364,
+    "function": "simplifyDemandedFPClassMinMax",
+    "description": "After operand selection fails, replace the min/max-family call with the exact canonicalized FP constant returned for the computed result classes, when the class set determines one representable constant.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "none of the operand-selection outcomes fired",
+      "getFPClassConstant returns a non-null constant for the demanded KnownFPClass result"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.minnum",
+      "llvm.minimumnum"
+    ],
+    "rewrite_details": [
+      "exact FP constant returned by getFPClassConstant; no instruction opcode"
+    ],
+    "match_details": [
+      "llvm.maximum/minimum/maxnum/minnum/maximumnum/minimumnum"
+    ]
+  },
+  {
+    "id": "demanded-fpclass-result-infer-flags-L2206",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2206,
+    "line_end": 2211,
+    "function": "simplifyDemandedFPClassResult",
+    "description": "When ValidResults excludes NaN/infinity and all KnownSrcs exclude the corresponding class, infer nnan/ninf on the existing FP operation; drop UB-implying attributes/metadata before setting flags.",
+    "match_opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "fptrunc",
+      "fpext",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "fptrunc",
+      "fpext",
+      "call"
+    ],
+    "extra_conditions": [
+      "no singleton constant was returned",
+      "InferredFMF differs from FMF",
+      "all KnownSrcs are known never NaN and/or infinity as required"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "metadata-mutation",
+    "match_opcode_parameter": "floating instruction opcode supplied by the caller",
+    "rewrite_opcode_parameter": "or the concrete FP operation/intrinsic returned by the caller-specific class fold",
+    "rewrite_details": [
+      "same FP operation/intrinsic with inferred nnan and/or ninf flags"
+    ],
+    "match_details": [
+      "the caller\u2019s FP operation or intrinsic whose result classes were computed"
+    ]
+  },
+  {
+    "id": "demanded-fp-copysign-known-sign-return-L2958",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 2958,
+    "line_end": 2960,
+    "function": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "description": "Replace llvm.copysign(Mag,Sign) with Mag when KnownMag and KnownSign both determine the same sign bit.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownMag.signBit and KnownSign.signBit are both known and equal"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.copysign"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.copysign"
+    ],
+    "match_details": [
+      "llvm.copysign(Mag,Sign)"
+    ],
+    "rewrite_details": [
+      "Mag operand"
+    ],
+    "additional_source_spans": [
+      {
+        "file": "InstCombineSimplifyDemanded.cpp",
+        "line_start": 3793,
+        "line_end": 3795,
+        "note": "Same direct return-operand outcome in the shared-use caller; not counted as a second rewrite."
+      }
+    ]
+  },
+  {
+    "id": "demanded-fpclass-multiuse-copysign-mag-delegation-L3781",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3781,
+    "line_end": 3783,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "Delegate the shared-use copysign magnitude shortcut to demanded-fpclass-copysign-helper-L2242 with NSZ disabled.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.copysign intrinsic",
+      "known class/sign analysis",
+      "FMF no-infs/no-nans constraints"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "demanded-fpclass-copysign-helper-L2242"
+  },
+  {
+    "id": "demanded-fpclass-multiuse-copysign-same-sign-outcome-L3793",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 3793,
+    "line_end": 3795,
+    "function": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "description": "Duplicate source occurrence of the magnitude-return transformation canonicalized at demanded-fp-copysign-known-sign-return-L2958; the shared-use guard is again that both known sign bits exist and are equal, so this is not counted as a second optimization.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "llvm.copysign intrinsic",
+      "known class/sign analysis",
+      "FMF no-infs/no-nans constraints"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Demanded floating-point class reasoning requires FP value/class semantics and fast-math/denormal behavior not modeled by Puddle; poisoned floats are not represented.",
+    "status": "unsupported",
+    "kind": "delegation",
+    "delegated_to": "demanded-fp-copysign-known-sign-return-L2958"
+  },
+  {
+    "id": "demanded-use-lshr-factor-shl-L829",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 829,
+    "line_end": 844,
+    "function": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "description": "Rewrite (C shl X) lshr S to (C lshr S) shl X when shifting C right by S and back left reproduces C, so no low bits are lost.",
+    "match_opcodes": [
+      "lshr",
+      "shl"
+    ],
+    "rewrite_opcodes": [
+      "shl"
+    ],
+    "extra_conditions": [
+      "Shift amount is constant and DemandedMask.countl_zero() >= ShiftAmt",
+      "The left-shifted source matches m_Shl(m_ImmConstant(C), m_Value(X))",
+      "ConstantFoldBinaryOpOperands(shl, C lshr S, S) equals C"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle has no KnownBits/range analysis needed to establish this demanded-bit condition.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_details": [
+      "lshr(shl(C, X), S) with constant C and constant S"
+    ],
+    "rewrite_details": [
+      "shl(C lshr S, X)"
+    ]
+  },
+  {
+    "id": "demanded-vector-shuffle-poison-mask-write-L1842",
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line_start": 1842,
+    "line_end": 1853,
+    "function": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "description": "When lane analysis found newly poison or undemanded output lanes, replace those shuffle mask elements with poison elements and mark the shuffle changed.",
+    "match_opcodes": [
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "fixed vector operands",
+      "NewPoisonElts is true because a demanded source lane is known poison or an output lane is undemanded"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Fixed-vector lane-demand and poison-mask propagation are absent from Puddle, which models scalar integers but not vector values/masks.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "same shufflevector with PoisonMaskElem at each PoisonElts lane"
+    ],
+    "match_details": [
+      "shufflevector with computed PoisonElts mask"
+    ]
+  }
+]

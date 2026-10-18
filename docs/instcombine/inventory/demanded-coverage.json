@@ -1,0 +1,16 @@
+{
+  "files": {
+    "InstCombineSimplifyDemanded.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          3902
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "Manual source audit through line 3902 is complete. Source candidate mapping has zero unclassified sites for this file. FP class, demanded vector/bit, aggregate, PHI-context, and control-flow branches are enumerated with source-specific guards; unsupported records cite concrete semantic limits.",
+      "qa_followup": "No incomplete-family records remain. All mapped candidate sites were reconciled; whole-source branch review and function-boundary checks passed."
+    }
+  }
+}

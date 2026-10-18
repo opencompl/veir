@@ -1,0 +1,15 @@
+{
+  "files": {
+    "InstCombineCasts.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          3630
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "All 229 candidate return/mutation sites map to source-reviewed branch records or line-specific helper/query exclusions. Function names and source spans were validated against the pinned source index and parser audit. The complete file is in scope."
+    }
+  }
+}

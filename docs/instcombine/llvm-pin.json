@@ -1,0 +1,131 @@
+{
+  "repository": "https://github.com/llvm/llvm-project",
+  "commit": "29eff20316c550d8e689a318c614e40186107820",
+  "ref": "refs/heads/main",
+  "resolved_at_utc": "2026-10-18T07:31:28.920038+00:00",
+  "source_directory": "llvm/lib/Transforms/InstCombine",
+  "files": [
+    {
+      "name": "CMakeLists.txt",
+      "sha256": "014984bbdf381cb9a0a555b3c46c4461ca2bc94440f25f198c856ca73e48f8f1",
+      "lines": 38,
+      "git_blob": "23d4552919c16253c42f935b520b5fb9d305cbcb"
+    },
+    {
+      "name": "InstCombineAddSub.cpp",
+      "sha256": "47face54f8d33c7d7ee509ee349a36bfbf1324c436fb4156308c7efc7dfd4592",
+      "lines": 3488,
+      "git_blob": "deaf4235b04681ad04ec57a4d3b05bf235942ca9"
+    },
+    {
+      "name": "InstCombineAndOrXor.cpp",
+      "sha256": "38896133cbe2da91de1788752b83b72b2a3685f36cc467bdb6110318175a97ef",
+      "lines": 5829,
+      "git_blob": "ef3ccf8c647bf7d5b97c08f81f2ed6243dbce0b4"
+    },
+    {
+      "name": "InstCombineAtomicRMW.cpp",
+      "sha256": "172dec8929cdbd6929c820a1528dc7a167705d2dcad25e60a4209734f7864b33",
+      "lines": 157,
+      "git_blob": "4d6b0684abe4da10d1f0f6b916b1f78d4090e4b7"
+    },
+    {
+      "name": "InstCombineCLOptions.cpp",
+      "sha256": "2c29b048f95760ba7a003184fb9324a5e427a8a8b952ce26059328a677e0d59c",
+      "lines": 16,
+      "git_blob": "406394ccc2d615e8d6e56591ba7c72c9309c62bb"
+    },
+    {
+      "name": "InstCombineCLOptions.h",
+      "sha256": "fa4e41d963bafa6c4b831544a47f1706ef4de37173157c50bd9dd293fe73ca18",
+      "lines": 15,
+      "git_blob": "bd037f4eb522af473e36fa1c4d2eb28aa86f511b"
+    },
+    {
+      "name": "InstCombineCLOptions.td",
+      "sha256": "3deef11b9053c0c48a1e28b7ade6a86409efe62b67456a0006fcfa55ddb09982",
+      "lines": 46,
+      "git_blob": "290977ac2f262874df65ee3083c5a4b258196039"
+    },
+    {
+      "name": "InstCombineCalls.cpp",
+      "sha256": "8bb651f8627cb3018c448a43874d6c6e06c7ec656f55b09db6b0b43a5b54d2ea",
+      "lines": 5740,
+      "git_blob": "fb4d5b711315f5493728d090b98bb9bacf1819c5"
+    },
+    {
+      "name": "InstCombineCasts.cpp",
+      "sha256": "f6591962b1aabd57e37fe3e2ad87fbd000604670e83c335fc4584ba5b217305b",
+      "lines": 3630,
+      "git_blob": "76113f4a6bdad4a50525755e7b12be8f78ddc9ef"
+    },
+    {
+      "name": "InstCombineCompares.cpp",
+      "sha256": "a746d9219ef8011874edbb85bd803629081276b61921fe18b2d78e81314e1b35",
+      "lines": 9622,
+      "git_blob": "003f8e2ba1430f91ce4f231dba1a853774598f1a"
+    },
+    {
+      "name": "InstCombineInternal.h",
+      "sha256": "273d64a1e099d2db6c1daeffb6fd09190e800c2d059cca86824e45f64c83381e",
+      "lines": 959,
+      "git_blob": "ae0a77bd5be86c0433c7bbd6fddd1212ad94f2d2"
+    },
+    {
+      "name": "InstCombineLoadStoreAlloca.cpp",
+      "sha256": "fe30cf3225da6d81b0580e70d6f881c7e8d7cbe5c1e8ee50b75107bd974614e0",
+      "lines": 1778,
+      "git_blob": "420c507353293f8c6542f9d6a9aeeafcc4fe7ab6"
+    },
+    {
+      "name": "InstCombineMulDivRem.cpp",
+      "sha256": "43e5f2ec9e24bd3244d7525589956d1181c530eebf93f16d1c3f620f947dc8db",
+      "lines": 2744,
+      "git_blob": "102c451cc135a5670f621cb8b81785679f2dee2c"
+    },
+    {
+      "name": "InstCombineNegator.cpp",
+      "sha256": "379ec4a911d3bbd0230e6181809a29ba6da2c01c72e47ace28a93f3c8a231f9a",
+      "lines": 576,
+      "git_blob": "5e3eb41862f032b53e6296e13bcb64c6926dfb64"
+    },
+    {
+      "name": "InstCombinePHI.cpp",
+      "sha256": "0512a2daa703224c45e18bdffdc294d09ac775d4206595f8da92fffdb8a92238",
+      "lines": 1609,
+      "git_blob": "1ad1c1b510d0b301a1aef3adeac4886260556927"
+    },
+    {
+      "name": "InstCombineSelect.cpp",
+      "sha256": "1cfe3bb85d6fbfc2fb3b71edb0b5fcf5cc6a082e012025f4e823ed8ce8e35754",
+      "lines": 5529,
+      "git_blob": "6428a970557e222923e1fd43c926b4a395df4614"
+    },
+    {
+      "name": "InstCombineShifts.cpp",
+      "sha256": "e4727f52156f544d54bafd5eb1fc4304b456f5a27cfce9d04829dab135c2f3a7",
+      "lines": 2000,
+      "git_blob": "6375f2ee267ce38825bc2d069b82b7c1c5f759c9"
+    },
+    {
+      "name": "InstCombineSimplifyDemanded.cpp",
+      "sha256": "0b5959275d793d6a346ad01bb79fba7df0ed6656d8e1361f72a50e8eb93a297b",
+      "lines": 3902,
+      "git_blob": "5ba84554895f7bec87577d294376aa2ad2a4a108"
+    },
+    {
+      "name": "InstCombineVectorOps.cpp",
+      "sha256": "4721f5c375496eca208af1dc5c926254e7a09191d4e2bc540d993ba670c4bb25",
+      "lines": 3543,
+      "git_blob": "3f3a27397250a7a652b11b5c654e19207f8d8fdf"
+    },
+    {
+      "name": "InstructionCombining.cpp",
+      "sha256": "e7291fbd02415c4d37f24ab67c3391afeb720b149113057da105870cd58269f7",
+      "lines": 6439,
+      "git_blob": "c9c7fc766004a34fbb869a039b5a3a2b52ec2efe"
+    }
+  ],
+  "commit_subject": "[TableGen][NFC] Fix stale header path in Target.td comment (#233015)",
+  "commit_date": "2026-10-18T07:25:01Z"
+}

@@ -1,0 +1,602 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "title": "Proof queue: scalar casts and selects",
+  "selection_note": "Pending source-local scalar cast and select rules, ranked from type/bit identities through i1 cases and min/max clamps. External cast-pair tables and arbitrary SSA analysis are excluded. Poison notes call out non-strict select behavior, source flag dropping, and absent undef guards where relevant.",
+  "items": [
+    {
+      "rank": 1,
+      "inventory_id": "cast-L3493",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 3483,
+        "line_end": 3493,
+        "function": "InstCombinerImpl::visitBitCast"
+      },
+      "input_tree": "bitcast_T(X), where source type == destination type",
+      "output_tree": "X",
+      "operand_permutations_and_source_guards": [
+        "source and destination types are exactly identical",
+        "source type scalar integer in this queue specialization"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No output instruction or flags; replace uses with X.",
+      "poison_and_freeze": "Pure identity; poison and undef are passed through unchanged.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Remove a bitcast whose source and destination types are identical."
+    },
+    {
+      "rank": 2,
+      "inventory_id": "cast-L1644",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1639,
+        "line_end": 1644,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext nneg i1(X)",
+      "output_tree": "0 of the zext destination type",
+      "operand_permutations_and_source_guards": [
+        "source scalar type is i1",
+        "zext has nneg; no use-count guard"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No output flags.",
+      "poison_and_freeze": "For defined i1=0, result is zero. i1=1 violates nneg and makes source poison; replacement constant zero refines poison to a defined value. If X is poison, source is poison and replacement remains a valid refinement.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace zext of a one-bit nonnegative value with zero."
+    },
+    {
+      "rank": 3,
+      "inventory_id": "cast-L1717",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1697,
+        "line_end": 1717,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext_N(trunc_M(X)), with M<N and source width S<N",
+      "output_tree": "zext_N(X & lowmask_S(M))",
+      "operand_permutations_and_source_guards": [
+        "M<S<N (source width S is less than outer destination width N)",
+        "inner trunc result width M",
+        "mask is low M ones at width S"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "New AND has no flags. The source trunc\u2019s nsw/nuw poison conditions are dropped.",
+      "poison_and_freeze": "Both expressions return low M bits zero-extended. Source poison from trunc flags may be refined to a value; poison input X still propagates.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace zext(trunc(a)) with zext(a & low_mask) when the original source is narrower than the zero-extension destination."
+    },
+    {
+      "rank": 4,
+      "inventory_id": "cast-L1722",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1719,
+        "line_end": 1722,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext_N(trunc_M(X)), with M<N and source width S=N",
+      "output_tree": "X & lowmask_N(M)",
+      "operand_permutations_and_source_guards": [
+        "source width S equals outer zext destination N",
+        "inner trunc width M<N"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "New AND has no flags; truncation flags are dropped.",
+      "poison_and_freeze": "Low M bits are preserved and all higher bits cleared; source trunc overflow poison may become defined.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace zext(trunc(a)) with a & low_mask when the original source and destination widths match."
+    },
+    {
+      "rank": 5,
+      "inventory_id": "cast-L1728",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1723,
+        "line_end": 1728,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext_N(trunc_M(X)), with source width S>N and trunc result width M<N",
+      "output_tree": "trunc_N(X) & lowmask_N(M)",
+      "operand_permutations_and_source_guards": [
+        "source width S>N",
+        "outer zext destination N is wider than trunc result M",
+        "mask is low M ones at width N"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "New trunc and AND have no copied no-wrap flags.",
+      "poison_and_freeze": "Returns the low M bits of X in width N. Source trunc overflow poison may be refined.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace zext(trunc(a)) with trunc(a) & low_mask when the original source is wider than the zero-extension destination."
+    },
+    {
+      "rank": 6,
+      "inventory_id": "cast-L1745",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1738,
+        "line_end": 1745,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext_N(xor(and(trunc_M(X),C_M),C_M))",
+      "output_tree": "xor(and(X,zext_N(C_M)),zext_N(C_M))",
+      "operand_permutations_and_source_guards": [
+        "outer xor and its source expression are one-use as matched by m_OneUse",
+        "inner AND truncates the same X from width N to M",
+        "the exact same constant C_M appears in AND and XOR"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "New zexts, AND, and XOR have no nsw/nuw flags; matched trunc-related flags are not propagated.",
+      "poison_and_freeze": "Low M-bit mask/complement form commutes with zero extension. Input trunc poison may be refined; no select/freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Rewrite zext((trunc(x) & C) xor C) as (x & zext(C)) xor zext(C)."
+    },
+    {
+      "rank": 7,
+      "inventory_id": "cast-L1753",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1747,
+        "line_end": 1753,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext_N(sub_M(0,trunc_M(X)))",
+      "output_tree": "and_N(sub_N(0,X),lowmask_N(M))",
+      "operand_permutations_and_source_guards": [
+        "inner subtraction minuend is zero",
+        "subtraction RHS is trunc of X whose type equals outer destination N",
+        "mask is low M bits set, where M is source subtraction width"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "Wide subtraction and AND are emitted without copied no-wrap flags.",
+      "poison_and_freeze": "Result equals the low M-bit modular negation, zero-extended. Any poison from source subtraction flags may be refined.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Rewrite zext(0 - trunc(x)) as (0 - x) & low_mask."
+    },
+    {
+      "rank": 8,
+      "inventory_id": "cast-L1763",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1755,
+        "line_end": 1763,
+        "function": "InstCombinerImpl::visitZExt"
+      },
+      "input_tree": "zext_N(and_M(trunc_M(X),C_M))",
+      "output_tree": "and_N(X,zext_N(C_M))",
+      "operand_permutations_and_source_guards": [
+        "inner AND operand is trunc of X at outer destination type N",
+        "C_M is a constant of the narrow AND type"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "New zext and AND carry no nowrap flags.",
+      "poison_and_freeze": "Mask clears all bits above the narrow source mask; trunc flags, if present, are not matched and are not copied.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Rewrite zext(and(trunc(x),C)) as and(x,zext(C))."
+    },
+    {
+      "rank": 9,
+      "inventory_id": "cast-L1136",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1132,
+        "line_end": 1136,
+        "function": "InstCombinerImpl::visitTrunc"
+      },
+      "input_tree": "trunc_1(shr(X,W-1))",
+      "output_tree": "icmp slt(X,0)",
+      "operand_permutations_and_source_guards": [
+        "destination trunc width is one",
+        "shift is lshr or ashr by source bitwidth W-1"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No arithmetic flags; shift becomes compare.",
+      "poison_and_freeze": "Both valid shifts expose the source sign bit as the low bit. Poison input propagates; no select/freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace trunc(shift(x, bitwidth-1)) to i1 with signed x < 0, for either arithmetic or logical right shift."
+    },
+    {
+      "rank": 10,
+      "inventory_id": "cast-L1145",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1138,
+        "line_end": 1145,
+        "function": "InstCombinerImpl::visitTrunc"
+      },
+      "input_tree": "trunc_1(lshr(X,C))",
+      "output_tree": "icmp ne(and(X,1<<C),0)",
+      "operand_permutations_and_source_guards": [
+        "destination trunc width is one",
+        "lshr has one use",
+        "C is an immediate in-range shift amount 0<=C<W"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags are copied.",
+      "poison_and_freeze": "The selected bit is the low bit after logical shift. Out-of-range C is excluded; poison X propagates.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace trunc(lshr(x, C)) to i1 with (x & (1 << C)) != 0."
+    },
+    {
+      "rank": 11,
+      "inventory_id": "cast-L1153",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1147,
+        "line_end": 1153,
+        "function": "InstCombinerImpl::visitTrunc"
+      },
+      "input_tree": "trunc_1(or(lshr(X,C),X))",
+      "output_tree": "icmp ne(and(X,(1<<C)|1),0)",
+      "operand_permutations_and_source_guards": [
+        "destination trunc width is one",
+        "OR has one use and its other arm is the identical X",
+        "C is an immediate in-range shift amount"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags are copied.",
+      "poison_and_freeze": "Low bit of the OR is set iff X bit 0 or bit C is set. Strict integer operations; no select/freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace trunc((lshr(x,C) | x)) to i1 with (x & ((1 << C) | 1)) != 0."
+    },
+    {
+      "rank": 12,
+      "inventory_id": "cast-L1160",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1157,
+        "line_end": 1160,
+        "function": "InstCombinerImpl::visitTrunc"
+      },
+      "input_tree": "trunc_1(shl(C,X)), with C odd",
+      "output_tree": "icmp eq(X,0)",
+      "operand_permutations_and_source_guards": [
+        "destination trunc width is one",
+        "C is a scalar constant with low bit 1",
+        "X is the variable shift amount"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags are copied.",
+      "poison_and_freeze": "For X=0 the low bit is C bit 0=1; any positive in-range shift makes low bit zero. Out-of-range source shifts are poison while the compare is defined, a valid refinement.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace trunc(C << x) to i1 with x == 0 when C is odd."
+    },
+    {
+      "rank": 13,
+      "inventory_id": "cast-L1167",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "line_start": 1163,
+        "line_end": 1167,
+        "function": "InstCombinerImpl::visitTrunc"
+      },
+      "input_tree": "trunc_1(xor(X,Y)), with nsw or nuw on the trunc",
+      "output_tree": "icmp ne(X,Y)",
+      "operand_permutations_and_source_guards": [
+        "destination trunc width is one",
+        "trunc has either nsw or nuw",
+        "X,Y have the same source integer type"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No output flags.",
+      "poison_and_freeze": "The trunc nowrap promise restricts the xor to zero/one (nuw) or zero/all-ones (nsw); in either case low bit is one exactly when X!=Y. Poison from a violated trunc flag may be refined.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace trunc(x xor y) to i1 with x != y when the trunc carries nsw or nuw."
+    },
+    {
+      "rank": 14,
+      "inventory_id": "select-L4758",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 4755,
+        "line_end": 4760,
+        "function": "visitSelectInst"
+      },
+      "input_tree": "select(C,1,0)",
+      "output_tree": "zext(C)",
+      "operand_permutations_and_source_guards": [
+        "scalar integer result type is wider than i1",
+        "condition is scalar i1",
+        "true arm exactly one and false arm exactly zero"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags or profile metadata are added.",
+      "poison_and_freeze": "Defined condition: both return 1 iff C is true, else zero. Poison condition makes both results poison; no freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Fold select C, 1, 0 to zero-extend C to the selected integer type."
+    },
+    {
+      "rank": 15,
+      "inventory_id": "select-L4762",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 4761,
+        "line_end": 4764,
+        "function": "visitSelectInst"
+      },
+      "input_tree": "select(C,-1,0)",
+      "output_tree": "sext(C)",
+      "operand_permutations_and_source_guards": [
+        "scalar integer result type is wider than i1",
+        "condition is scalar i1",
+        "true arm exactly all-ones and false arm exactly zero"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags or profile metadata are added.",
+      "poison_and_freeze": "Defined condition yields all-ones iff true, else zero; poison condition propagates through select and extension.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Fold select C, -1, 0 to sign-extend C to the selected integer type."
+    },
+    {
+      "rank": 16,
+      "inventory_id": "select-L4766",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 4765,
+        "line_end": 4770,
+        "function": "visitSelectInst"
+      },
+      "input_tree": "select(C,0,1)",
+      "output_tree": "zext(xor(C,1))",
+      "operand_permutations_and_source_guards": [
+        "scalar integer result type is wider than i1",
+        "condition is scalar i1",
+        "true arm exactly zero and false arm exactly one"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "CreateNot(C) is xor with i1 one; zext has no flags.",
+      "poison_and_freeze": "For defined C, xor flips the boolean and yields the selected 0/1. Poison condition propagates; no freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Fold select C, 0, 1 to zero-extend !C to the selected integer type."
+    },
+    {
+      "rank": 17,
+      "inventory_id": "select-L4772",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 4771,
+        "line_end": 4776,
+        "function": "visitSelectInst"
+      },
+      "input_tree": "select(C,0,-1)",
+      "output_tree": "sext(xor(C,1))",
+      "operand_permutations_and_source_guards": [
+        "scalar integer result type is wider than i1",
+        "condition is scalar i1",
+        "true arm exactly zero and false arm exactly all-ones"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "CreateNot(C) is xor with i1 one; sext has no flags.",
+      "poison_and_freeze": "For defined C, output is all-ones iff C is false. Poison condition propagates; no freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Fold select C, 0, -1 to sign-extend !C to the selected integer type."
+    },
+    {
+      "rank": 18,
+      "inventory_id": "select-L3966",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 3961,
+        "line_end": 3966,
+        "function": "InstCombinerImpl::foldSelectOfBools"
+      },
+      "input_tree": "select(A,0,B)",
+      "output_tree": "select(xor(A,1),B,0)",
+      "operand_permutations_and_source_guards": [
+        "scalar boolean select; true arm is the full zero constant (source deliberately requires full zero)",
+        "source swaps profile metadata on the rebuilt select"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No value flags; branch weights are swapped to preserve the condition inversion.",
+      "poison_and_freeze": "Both selects are non-strict: when the selected arm is the zero constant, B is not observed; when B is selected, both forms select it. Poison condition remains poison. No freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Canonicalize select(A,false,B) to select(!A,B,false) and swap profile metadata."
+    },
+    {
+      "rank": 19,
+      "inventory_id": "select-L3974",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 3969,
+        "line_end": 3974,
+        "function": "InstCombinerImpl::foldSelectOfBools"
+      },
+      "input_tree": "select(A,B,1)",
+      "output_tree": "select(xor(A,1),1,B)",
+      "operand_permutations_and_source_guards": [
+        "scalar boolean select; false arm is the full one constant (source deliberately requires full one)",
+        "source swaps profile metadata"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No value flags; profile metadata is swapped.",
+      "poison_and_freeze": "Both selects are non-strict and choose the same selected value for defined A; poison A remains poison. No freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Canonicalize select(A,B,true) to select(!A,true,B) and swap profile metadata."
+    },
+    {
+      "rank": 20,
+      "inventory_id": "select-L4002",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 4000,
+        "line_end": 4002,
+        "function": "InstCombinerImpl::foldSelectOfBools"
+      },
+      "input_tree": "select(select(A,1,B),1,B)",
+      "output_tree": "select(A,1,B)",
+      "operand_permutations_and_source_guards": [
+        "condition is an inner select with arms exactly 1 and B",
+        "outer arms are exactly 1 and the same SSA value B"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags or profile metadata changed; source replaces only the outer condition operand with A.",
+      "poison_and_freeze": "Non-strictness check: if A=true both sides are one; if A=false both sides are B (and poison B propagates). Poison A makes inner/outer condition poison on the left and condition poison on the right. No freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Simplify select(select(A,true,B),true,B) by replacing condition with A."
+    },
+    {
+      "rank": 21,
+      "inventory_id": "select-L4006",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 4004,
+        "line_end": 4006,
+        "function": "InstCombinerImpl::foldSelectOfBools"
+      },
+      "input_tree": "select(select(A,B,0),B,0)",
+      "output_tree": "select(A,B,0)",
+      "operand_permutations_and_source_guards": [
+        "condition is an inner select with arms exactly B and zero",
+        "outer arms are exactly the same B and zero"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "No flags or profile metadata changed; source replaces only the outer condition with A.",
+      "poison_and_freeze": "Non-strictness check mirrors the true-arm case: for defined A both sides choose B or zero; poison A propagates as poison condition. No freeze.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Simplify select(select(A,B,false),B,false) by replacing condition with A."
+    },
+    {
+      "rank": 22,
+      "inventory_id": "select-L2205",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 2202,
+        "line_end": 2205,
+        "function": "foldSelectInstWithICmpConst"
+      },
+      "input_tree": "select(icmp eq(V,UMIN),UMIN+1,V)",
+      "output_tree": "llvm.umax(V,UMIN+1)",
+      "operand_permutations_and_source_guards": [
+        "comparison predicate exactly eq",
+        "comparison RHS and select false arm are identical V",
+        "comparison constant is unsigned minimum zero",
+        "true arm exactly UMIN+1"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "Creates llvm.umax intrinsic with no flags.",
+      "poison_and_freeze": "For defined V, select returns 1 at V=0 and V otherwise. Poison V/condition behavior must be checked against Puddle minmax semantics; source has no explicit non-undef guard, so preserve LLVM undef-per-use behavior in the proof or narrow the theorem only if the implementation has a justified source specialization.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace `(V == unsigned-min) ? unsigned-min+1 : V` with llvm.umax(V, adjacent_constant)."
+    },
+    {
+      "rank": 23,
+      "inventory_id": "select-L2208",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 2202,
+        "line_end": 2208,
+        "function": "foldSelectInstWithICmpConst"
+      },
+      "input_tree": "select(icmp eq(V,UMAX),UMAX-1,V)",
+      "output_tree": "llvm.umin(V,UMAX-1)",
+      "operand_permutations_and_source_guards": [
+        "comparison predicate exactly eq",
+        "comparison RHS and false arm are identical V",
+        "comparison constant is unsigned maximum all-ones",
+        "true arm exactly UMAX-1"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "Creates llvm.umin intrinsic with no flags.",
+      "poison_and_freeze": "For defined V, select returns UMAX-1 at UMAX and V otherwise. Poison and undef-per-use behavior require explicit comparison with intrinsic semantics; source has no separate non-undef guard.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace `(V == unsigned-max) ? unsigned-max-1 : V` with llvm.umin(V, adjacent_constant)."
+    },
+    {
+      "rank": 24,
+      "inventory_id": "select-L2211",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 2202,
+        "line_end": 2211,
+        "function": "foldSelectInstWithICmpConst"
+      },
+      "input_tree": "select(icmp eq(V,SMIN),SMIN+1,V)",
+      "output_tree": "llvm.smax(V,SMIN+1)",
+      "operand_permutations_and_source_guards": [
+        "comparison predicate exactly eq",
+        "comparison RHS and false arm are identical V",
+        "comparison constant is signed minimum",
+        "true arm exactly SMIN+1"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "Creates llvm.smax intrinsic with no flags.",
+      "poison_and_freeze": "Defined-value result is signed maximum with SMIN+1. Preserve source poison and undef-per-use semantics; no explicit non-undef guard.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace `(V == signed-min) ? signed-min+1 : V` with llvm.smax(V, adjacent_constant)."
+    },
+    {
+      "rank": 25,
+      "inventory_id": "select-L2214",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "line_start": 2202,
+        "line_end": 2214,
+        "function": "foldSelectInstWithICmpConst"
+      },
+      "input_tree": "select(icmp eq(V,SMAX),SMAX-1,V)",
+      "output_tree": "llvm.smin(V,SMAX-1)",
+      "operand_permutations_and_source_guards": [
+        "comparison predicate exactly eq",
+        "comparison RHS and false arm are identical V",
+        "comparison constant is signed maximum",
+        "true arm exactly SMAX-1"
+      ],
+      "required_constants_and_type": [
+        "Scalar integer types; arbitrary widths except explicit i1 boolean conditions/truncs and the typed width constants."
+      ],
+      "source_flags_and_output_flags": "Creates llvm.smin intrinsic with no flags.",
+      "poison_and_freeze": "Defined-value result is signed minimum with SMAX-1. Preserve source poison and undef-per-use semantics; no explicit non-undef guard.",
+      "proof_scope": "scalar integer specialization only; no vector, floating-point, or pointer cases. Match exact source guards; treat selects as non-strict.",
+      "source_description": "Replace `(V == signed-max) ? signed-max-1 : V` with llvm.smin(V, adjacent_constant)."
+    }
+  ]
+}

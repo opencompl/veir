@@ -1,0 +1,145 @@
+{
+  "commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombineAtomicRMW.cpp": {
+      "line_count": 157,
+      "covered_ranges": [
+        [
+          102,
+          156
+        ]
+      ],
+      "complete": true,
+      "notes": "All successful transformation branches in visitAtomicRMWInst are inventoried (saturating-to-xchg, negated add/sub, idempotent canonicalization). Helper predicates and early no-op guards excluded."
+    },
+    "InstCombineLoadStoreAlloca.cpp": {
+      "line_count": 1778,
+      "covered_ranges": [
+        [
+          34,
+          217
+        ],
+        [
+          219,
+          503
+        ],
+        [
+          505,
+          734
+        ],
+        [
+          736,
+          902
+        ],
+        [
+          904,
+          1099
+        ],
+        [
+          1101,
+          1479
+        ],
+        [
+          1480,
+          1634
+        ],
+        [
+          1647,
+          1778
+        ]
+      ],
+      "complete": false,
+      "notes": "Forward scan and helper review now include PointerReplacer user collection/rewrite, load/store type conversion, aggregate unpacking for both loads and stores, and the store visitor. Candidate sites are mapped or covered by helper entries. Several helper branch boundaries and full second-pass review still pending; complete:false."
+    },
+    "InstCombineCalls.cpp": {
+      "line_count": 5740,
+      "covered_ranges": [
+        [
+          1,
+          932
+        ],
+        [
+          944,
+          982
+        ],
+        [
+          1062,
+          1200
+        ],
+        [
+          1263,
+          2030
+        ],
+        [
+          2038,
+          4627
+        ],
+        [
+          4629,
+          4654
+        ],
+        [
+          4671,
+          5057
+        ],
+        [
+          5059,
+          5740
+        ]
+      ],
+      "complete": false,
+      "notes": "Forward scan and backward helper audit now cover transformation-bearing regions through end of file. Candidate-site reconciliation, utility-only exclusions, and a second verification pass are pending; complete remains false."
+    },
+    "InstCombineSimplifyDemanded.cpp": {
+      "line_count": 3902,
+      "covered_ranges": [
+        [
+          29,
+          1211
+        ],
+        [
+          1214,
+          1453
+        ],
+        [
+          1455,
+          2100
+        ],
+        [
+          2102,
+          3902
+        ]
+      ],
+      "complete": false,
+      "notes": "Demanded integer bits, vector element/poison analysis, FP class helpers and opcode regions inventoried. FP main intrinsic family and several vector/aggregate cases still need source-level branch split and candidate reconciliation; complete:false."
+    },
+    "InstCombineVectorOps.cpp": {
+      "line_count": 3543,
+      "covered_ranges": [
+        [
+          53,
+          3543
+        ]
+      ],
+      "complete": false,
+      "notes": "Forward scan inventoried vector extract/insert/shuffle, aggregate reuse, lane-mask helpers and deinterleave tail at source-function level. Branch-level review and candidate-site reconciliation remain incomplete; complete:false."
+    },
+    "InstructionCombining.cpp": {
+      "line_count": 6439,
+      "covered_ranges": [
+        [
+          136,
+          6439
+        ]
+      ],
+      "complete": false,
+      "notes": "Forward scan has reached end of file; branch and helper records are substantially expanded, including switch/branch/PHI/GEP/vector/memory/freeze cases. Remaining candidate sites are chiefly wrapper returns, query helpers and pipeline plumbing requiring explicit exclusions, and lower-file source branch review remains incomplete. complete:false."
+    },
+    "InstCombineInternal.h": {
+      "line_count": 959,
+      "covered_ranges": [],
+      "complete": true,
+      "notes": "All 15 candidate sites reconciled in site-exclusions-remaining.json: shared query helpers, select construction utility, erasure plumbing, and takeLog2 helper; no independent transformation branch implementation in this header."
+    }
+  }
+}

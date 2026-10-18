@@ -240,7 +240,7 @@ def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM
   let ba ← mem.load p 8
   let baPoison ← mem.loadPoison p 8
   let poison := baPoison.toUInt64LE!.toBitVec
-  return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
+  return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by simp [BitVec.and_assoc]⟩
 
 /--
   Load an LLVM value from the given memory address.
@@ -280,7 +280,8 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | Attribute.byteType { bitwidth := 8 } =>
       let ba ← mem.load p 1
       let poison := BitVec.ofNat 8 (← mem.loadPoison p 1)[0]!.toNat
-      return .byte 8 ⟨BitVec.ofNat 8 ba[0]!.toNat &&& ~~~poison, poison, by bv_decide⟩
+      return .byte 8
+        ⟨BitVec.ofNat 8 ba[0]!.toNat &&& ~~~poison, poison, by simp [BitVec.and_assoc]⟩
   | Attribute.byteType { bitwidth := 64 } =>
       return .byte 64 (← mem.loadByte64 p)
   | Attribute.llvmPointerType _ =>

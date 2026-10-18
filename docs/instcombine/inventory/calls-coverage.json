@@ -1,0 +1,17 @@
+{
+  "commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombineCalls.cpp": {
+      "line_count": 5740,
+      "covered_ranges": [
+        [
+          1,
+          5740
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "Complete branch-level source audit through EOF. All 419 mechanical return/mutation sites map to one source-accurate rewrite/delegation/helper entry or a reviewed query/utility exclusion; no candidate overlap remains. Long algorithmic spans were re-read and represent one parameterized transformation per record, with distinct ptrauth/GC/trampoline branches split. Function names and direct-analysis guard labels were parser-audited."
+    }
+  }
+}

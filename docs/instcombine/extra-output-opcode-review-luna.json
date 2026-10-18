@@ -1,0 +1,3726 @@
+{
+  "description": "Luna review of every extra-output-opcode audit candidate. Confirmed corrections remove only opcodes folded into constants or matched input nodes; helper-dependent cases remain marked for follow-up.",
+  "reviewer": "Luna",
+  "candidate_count": 208,
+  "disposition_counts": {
+    "confirmed_correction": 26,
+    "explained": 15,
+    "needs_followup": 167
+  },
+  "candidates": [
+    {
+      "inventory_id": "faddcombine-L597",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        597,
+        653
+      ],
+      "opcodes_reviewed": [
+        "fmul"
+      ],
+      "disposition": "explained",
+      "reason": "`createNaryFAdd` calls `createAddendVal` for each weighted addend. `createAddendVal` at InstCombineAddSub.cpp:728-755 explicitly calls `createFMul` for coefficients other than \u00b11 or \u00b12, so `fmul` is a real emitted helper output. The loop also emits fadd/fsub/fneg via the named helpers.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:597-653",
+        "docs/instcombine/source/InstCombineAddSub.cpp:728-755"
+      ]
+    },
+    {
+      "inventory_id": "addconst-L876",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        876,
+        880
+      ],
+      "opcodes_reviewed": [
+        "add"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "sub"
+      ],
+      "reason": "ConstantExpr::getAdd at879 computes the constant operand; only CreateSub emits an instruction.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:876-880",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "addhelper-L1394",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        1394,
+        1490
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "explained",
+      "reason": "The rewrite constructs `NewAShr` with `BinaryOperator::CreateAShr`; when `HadTrunc`, it returns `TruncInst::CreateTruncOrBitCast(NewAShr, I.getType())`. Since the matched input was truncated and the destination is narrower than XTy, that conversion is a runtime trunc.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:1394-1479"
+      ]
+    },
+    {
+      "inventory_id": "add-L1887",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        1895,
+        1911
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "sub"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "`InstCombiner::AddOne(C)` / `SubOne(C)` produce adjusted constants; the only runtime instruction created here is `Builder.CreateSelect(Cond, Add, A)`. The matched add and extension are replaced.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:1887-1901"
+      ],
+      "proposed_rewrite_opcodes": [
+        "select"
+      ]
+    },
+    {
+      "inventory_id": "sub-pointer-helper-L2343",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        2343,
+        2381
+      ],
+      "opcodes_reviewed": [
+        "bitcast",
+        "mul",
+        "sext",
+        "shl",
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "`OptimizePointerDifference` calls `EmitGEPOffsets` and `EmitGEPOffset`, then explicitly emits `Builder.CreateSub` and `Builder.CreateIntCast`. `EmitGEPOffsets` itself emits additions; fully resolving the listed bitcast/mul/sext/shl/trunc/zext set requires tracing `llvm::emitGEPOffset`/the GEP offset expansion path, which is outside this inventory snippet.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:2343-2375",
+        "docs/instcombine/source/InstructionCombining.cpp:187-230"
+      ]
+    },
+    {
+      "inventory_id": "sub-L2540",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        2540,
+        2548
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and"
+      ],
+      "reason": "ConstantFoldBinaryInstruction XOR at2547 computes the constant mask; only CreateAnd emits an instruction.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:2540-2548",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "sub-invertminmax-L2887",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        2887,
+        2891
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "explained",
+      "reason": "The branch calls `Builder.CreateNot` on the matched max/min value and returns `BinaryOperator::CreateSub`. For a max/min intrinsic, `CreateNot` delegates to `getFreelyInverted`; InstructionCombining.cpp:3076-3089 rebuilds an inverse min/max with `CreateBinaryIntrinsic`, so the replacement call is emitted. The `call` opcode is therefore valid.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:2887-2891",
+        "docs/instcombine/source/InstructionCombining.cpp:3076-3089"
+      ]
+    },
+    {
+      "inventory_id": "sub-invertminmax-L2893",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        2893,
+        2897
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "explained",
+      "reason": "The branch calls `Builder.CreateNot` on the matched max/min value and returns `BinaryOperator::CreateSub`. For a max/min intrinsic, `CreateNot` delegates to `getFreelyInverted`; InstructionCombining.cpp:3076-3089 rebuilds an inverse min/max with `CreateBinaryIntrinsic`, so the replacement call is emitted. The `call` opcode is therefore valid.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:2893-2897",
+        "docs/instcombine/source/InstructionCombining.cpp:3076-3089"
+      ]
+    },
+    {
+      "inventory_id": "sub-L2933",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        2933,
+        2960
+      ],
+      "opcodes_reviewed": [
+        "getelementptr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The source emits `EmitGEPOffset(GEP)`, followed by `Builder.CreateZExt` or `Builder.CreateSExt`, then replaces the original sub. `EmitGEPOffset` delegates to `llvm::emitGEPOffset`; the candidate also lists bitcast/mul/shl/trunc/zext, so confirm the concrete offset expression opcodes in the LLVM utility implementation before finalizing.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:2933-2953",
+        "docs/instcombine/source/InstructionCombining.cpp:187-205"
+      ]
+    },
+    {
+      "inventory_id": "fneg-L3202",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        3202,
+        3208
+      ],
+      "opcodes_reviewed": [
+        "fdiv"
+      ],
+      "disposition": "explained",
+      "reason": "`hoistFNegAboveFMulFDiv` handles an fdiv operand by building `Builder.CreateFDivFMF(Builder.CreateFNegFMF(X), Y, ...)`. Thus `fdiv` is an emitted replacement root; the negation is represented on its numerator.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:3202-3230"
+      ]
+    },
+    {
+      "inventory_id": "fsub-reassoc-L3355",
+      "file": "InstCombineAddSub.cpp",
+      "lines": [
+        3355,
+        3367
+      ],
+      "opcodes_reviewed": [
+        "fneg"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The branch calls `Builder.CreateFSubFMF(Y, X, &I)` and returns `BinaryOperator::CreateFAddFMF(Op0, NewSub, &I)`. It does not create an `fneg`; `fneg` appears only in the explanatory comment about a later fold.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAddSub.cpp:3355-3370"
+      ],
+      "proposed_rewrite_opcodes": [
+        "fadd",
+        "fsub"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L1281",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        1257,
+        1281
+      ],
+      "opcodes_reviewed": [
+        "lshr",
+        "trunc"
+      ],
+      "disposition": "explained",
+      "reason": "`foldEqOfParts` calls `extractIntPart` twice then `Builder.CreateICmp`. The helper at InstCombineAndOrXor.cpp:1188-1196 emits `CreateLShr` when StartBit is nonzero and `CreateTrunc` when the merged part is narrower, so both flagged opcodes can be replacement instructions.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:1257-1282",
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:1188-1196"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L1330",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        1315,
+        1331
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "or"
+      ],
+      "disposition": "explained",
+      "reason": "If simplification cannot return a constant, the code creates `Builder.CreateICmp(PredR, Y, LHS1)`, then `Builder.CreateLogicalAnd` or `Builder.CreateLogicalOr` according to `IsAnd`; these are precisely the reviewed compare and boolean opcodes.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:1315-1335"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2136",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2124,
+        2136
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The two input OR/XOR nodes are matched as `X`/`Y`; output is `BinaryOperator::CreateNot(Builder.CreateAnd(Or, Y))`. LLVM `CreateNot` materializes integer NOT as XOR with all-ones, so output opcodes are and+xor; no output OR is built.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2124-2140"
+      ],
+      "proposed_rewrite_opcodes": [
+        "and",
+        "xor"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2794",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2790,
+        2794
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "xor"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and"
+      ],
+      "reason": "CreateAnd at2794 retains Op0 and B as values; the matched complement/XOR chain is removed.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2790-2794",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "bitwise-L2797",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2797,
+        2797
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "xor"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and"
+      ],
+      "reason": "CreateAnd at2797 retains Op1 and B; the matched complement/XOR chain is removed.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2797-2797",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "bitwise-L2806",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2802,
+        2806
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The branch creates `not` directly with `Builder.CreateNot(C)` when C has one use, otherwise calls `getFreelyInverted(C, ...)`, then returns `CreateAnd`. `getFreelyInvertedImpl` can recursively rebuild several opcode families (cmp, add/sub, xor, shifts, select/minmax, PHI, casts, and De Morgan ops); determine which can occur for this operand shape before fixing the full output set.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2802-2806",
+        "docs/instcombine/source/InstructionCombining.cpp:3016-3190"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2816",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2812,
+        2816
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The branch creates `not` directly with `Builder.CreateNot(C)` when C has one use, otherwise calls `getFreelyInverted(C, ...)`, then returns `CreateAnd`. `getFreelyInvertedImpl` can recursively rebuild several opcode families (cmp, add/sub, xor, shifts, select/minmax, PHI, casts, and De Morgan ops); determine which can occur for this operand shape before fixing the full output set.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2812-2816",
+        "docs/instcombine/source/InstructionCombining.cpp:3016-3190"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2825",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2821,
+        2825
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "xor"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and"
+      ],
+      "reason": "CreateAnd at2825 builds A&B; matched OR and XOR nodes are consumed.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2821-2825",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "bitwise-L2833",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2829,
+        2833
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "xor"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and"
+      ],
+      "reason": "CreateAnd at2833 builds A&B; matched OR and XOR nodes are consumed.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2829-2833",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "bitwise-L2841",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2837,
+        2841
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and",
+        "xor"
+      ],
+      "reason": "CreateAnd plus Builder.CreateNot at2841 emit and and xor; the matched OR node is consumed.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2837-2841",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "bitwise-L2849",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2845,
+        2849
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "and",
+        "xor"
+      ],
+      "reason": "CreateAnd plus Builder.CreateNot at2849 emit and and xor; the matched OR node is consumed.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2845-2849",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "bitwise-L2886",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2885,
+        2886
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "icmp"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "createSelectInstWithUnknownProfile emits only select. The matched AND/SExt (and optional NOT) nodes are not recreated; the Boolean condition A is an existing value.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2885-2886"
+      ],
+      "proposed_rewrite_opcodes": [
+        "select"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2892",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2891,
+        2892
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "icmp"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "createSelectInstWithUnknownProfile emits only select. The matched AND/SExt (and optional NOT) nodes are not recreated; the Boolean condition A is an existing value.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2891-2892"
+      ],
+      "proposed_rewrite_opcodes": [
+        "select"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2897",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2896,
+        2897
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "icmp"
+      ],
+      "disposition": "explained",
+      "reason": "The branch returns a select, and additionally creates `Builder.CreateAnd(B, 1)` (L2897) or `Builder.CreateICmpEQ(A, 0)` on the non-i1 known-bits path (L2905). `and`/`icmp` are therefore real outputs on those subpaths.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2896-2897"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2905",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2904,
+        2905
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "icmp"
+      ],
+      "disposition": "explained",
+      "reason": "The branch returns a select, and additionally creates `Builder.CreateAnd(B, 1)` (L2897) or `Builder.CreateICmpEQ(A, 0)` on the non-i1 known-bits path (L2905). `and`/`icmp` are therefore real outputs on those subpaths.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2904-2905"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2920",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2919,
+        2920
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "`Builder.CreateIsNeg(X, \"isneg\")` creates the sign test (icmp), and `createSelectInstWithUnknownProfile` creates select. The matched AND/AShr nodes are consumed and are not recreated.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2919-2920"
+      ],
+      "proposed_rewrite_opcodes": [
+        "select",
+        "icmp"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L2930",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        2929,
+        2930
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "`Builder.CreateIsNeg(X, \"isneg\")` creates the sign test (icmp), and `createSelectInstWithUnknownProfile` creates select. The matched AND/AShr nodes are consumed and are not recreated.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:2929-2930"
+      ],
+      "proposed_rewrite_opcodes": [
+        "select",
+        "icmp"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L3399",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        3375,
+        3399
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "Retain trunc: getSelectCondition creates it at3308 for an arbitrary SSA value with all sign bits. Its CreateZExtOrTrunc at3322 is applied to a constant and targets i1; no runtime zext is needed. The caller builds bitcasts, select, and optional NOT/XOR at3390\u20133399.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:3375-3410"
+      ],
+      "proposed_rewrite_opcodes": [
+        "bitcast",
+        "select",
+        "xor",
+        "trunc"
+      ],
+      "coordinator_correction": "Retain trunc: getSelectCondition creates it at3308 for an arbitrary SSA value with all sign bits. Its CreateZExtOrTrunc at3322 is applied to a constant and targets i1; no runtime zext is needed."
+    },
+    {
+      "inventory_id": "bitwise-L3440",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        3440,
+        3443
+      ],
+      "opcodes_reviewed": [
+        "freeze"
+      ],
+      "disposition": "explained",
+      "reason": "The logical form executes `Other = Builder.CreateFreeze(Other)` before returning a new ICmp. The result also uses `Builder.CreateSub` for the adjusted value. Thus freeze is genuinely emitted when `IsLogical` is true.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:3440-3460"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L4362",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        4356,
+        4362
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The OR expressions are matched/reused as operand `A` or `B`; the replacement is `BinaryOperator::CreateAnd(..., C01)`. No replacement OR is emitted.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:4356-4362"
+      ],
+      "proposed_rewrite_opcodes": [
+        "and"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L4369",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        4364,
+        4369
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The OR expressions are matched/reused as operand `A` or `B`; the replacement is `BinaryOperator::CreateAnd(..., C01)`. No replacement OR is emitted.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:4364-4369"
+      ],
+      "proposed_rewrite_opcodes": [
+        "and"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L4392",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        4387,
+        4393
+      ],
+      "opcodes_reviewed": [
+        "lshr",
+        "trunc"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The lshr/trunc operations occur in the matched values A/B and are passed directly as the first operand of `BinaryOperator::CreateAnd`; the replacement constructor creates only the AND and constant mask.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:4387-4393"
+      ],
+      "proposed_rewrite_opcodes": [
+        "and"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L4402",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        4397,
+        4403
+      ],
+      "opcodes_reviewed": [
+        "lshr",
+        "trunc"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The lshr/trunc operations occur in the matched values A/B and are passed directly as the first operand of `BinaryOperator::CreateAnd`; the replacement constructor creates only the AND and constant mask.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:4397-4403"
+      ],
+      "proposed_rewrite_opcodes": [
+        "and"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L4995",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        4960,
+        4995
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "explained",
+      "reason": "The routine mutates an existing matched comparison `Y` in place with `Y->setPredicate(Y->getInversePredicate())`, then returns `Builder.CreateAnd(LHS, RHS)`. When Y has shared users it also emits `Builder.CreateNot(Y)`, which is XOR. The retained/mutated comparison is part of the replacement result, so icmp is valid output accounting.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:4960-5000"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L4995-shared-users",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        4960,
+        4995
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "explained",
+      "reason": "The routine mutates an existing matched comparison `Y` in place with `Y->setPredicate(Y->getInversePredicate())`, then returns `Builder.CreateAnd(LHS, RHS)`. When Y has shared users it also emits `Builder.CreateNot(Y)`, which is XOR. The retained/mutated comparison is part of the replacement result, so icmp is valid output accounting.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:4960-5000"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L5067",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        5064,
+        5067
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The matched AND is input `X`/`Y`; source creates `Builder.CreateNot` of the matched OR, then returns `BinaryOperator::CreateOr`. Integer NOT emits XOR; output is or+xor.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:5064-5067"
+      ],
+      "proposed_rewrite_opcodes": [
+        "or",
+        "xor"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L5075",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        5072,
+        5075
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "confirmed_correction",
+      "reason": "The matched AND is input `X`/`Y`; source creates `Builder.CreateNot` of the matched OR, then returns `BinaryOperator::CreateOr`. Integer NOT emits XOR; output is or+xor.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:5072-5075"
+      ],
+      "proposed_rewrite_opcodes": [
+        "or",
+        "xor"
+      ]
+    },
+    {
+      "inventory_id": "bitwise-L5370",
+      "file": "InstCombineAndOrXor.cpp",
+      "lines": [
+        5367,
+        5370
+      ],
+      "opcodes_reviewed": [
+        "fcmp",
+        "icmp"
+      ],
+      "disposition": "explained",
+      "reason": "The source comparison `X` is mutated in place with `setPredicate(getInversePredicate(Pred))`; the rewrite returns `new BitCastInst(X, Ty)`. The comparison remains the source value under the inverted predicate and is used as the bitcast operand, so `icmp`/`fcmp` is retained output alongside bitcast.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineAndOrXor.cpp:5367-5372"
+      ]
+    },
+    {
+      "inventory_id": "calls-memtransfer-load-store-L146",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        146,
+        213
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on IRBuilder load/store creation; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: memory intrinsic lowering needs full emitted instruction set.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:146-213"
+      ]
+    },
+    {
+      "inventory_id": "calls-memset-small-store-L243",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        243,
+        287
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on IRBuilder store creation; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: memory intrinsic lowering needs full emitted instruction set.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:243-287"
+      ]
+    },
+    {
+      "inventory_id": "calls-masked-gather-splat-L369",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        369,
+        380
+      ],
+      "opcodes_reviewed": [
+        "insertelement",
+        "shufflevector"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateVectorSplat; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: vector splat helper implementation needs inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:369-380"
+      ]
+    },
+    {
+      "inventory_id": "calls-cttz-ctlz-log2-pow2-L613",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        598,
+        609
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:598-609"
+      ]
+    },
+    {
+      "inventory_id": "calls-neon-shift-L1870",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        1902,
+        1912
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:1902-1912"
+      ]
+    },
+    {
+      "inventory_id": "calls-umax-mulshift-L2278",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        2278,
+        2305
+      ],
+      "opcodes_reviewed": [
+        "mul",
+        "shl"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:2278-2305"
+      ]
+    },
+    {
+      "inventory_id": "calls-powi-two-ldexp-L2672",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        2672,
+        2682
+      ],
+      "opcodes_reviewed": [
+        "insertelement",
+        "shufflevector"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateVectorSplat; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: vector splat helper implementation needs inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:2672-2682"
+      ]
+    },
+    {
+      "inventory_id": "calls-ptrmask-nest-L2854",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        2854,
+        2869
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:2854-2869"
+      ]
+    },
+    {
+      "inventory_id": "calls-matrix-move-neg-L3225",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        3225,
+        3230
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:3225-3230"
+      ]
+    },
+    {
+      "inventory_id": "calls-assume-nonnull-bundle-L3955",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        3955,
+        3978
+      ],
+      "opcodes_reviewed": [
+        "load"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:3955-3978"
+      ]
+    },
+    {
+      "inventory_id": "calls-guard-merge-L4099",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        4099,
+        4128
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateAnd/guard builder; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: guard intrinsic construction needs helper/overload inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:4099-4128"
+      ]
+    },
+    {
+      "inventory_id": "calls-mismatch-callconv-L5119",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        5119,
+        5145
+      ],
+      "opcodes_reviewed": [
+        "callbr",
+        "invoke"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:5119-5145"
+      ]
+    },
+    {
+      "inventory_id": "calls-null-callee-L5149",
+      "file": "InstCombineCalls.cpp",
+      "lines": [
+        5149,
+        5167
+      ],
+      "opcodes_reviewed": [
+        "callbr",
+        "invoke"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCalls.cpp:5149-5167"
+      ]
+    },
+    {
+      "inventory_id": "cast-L927",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        828,
+        927
+      ],
+      "opcodes_reviewed": [
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on Intrinsic::fshl/fshr; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: funnel-shift intrinsic creation is the intended emitted operation.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:828-927"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1000",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        978,
+        1000
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "explained",
+      "reason": "`OldShift` is the matched shift instruction; the rewrite emits a widened replacement shift via `Builder.CreateAShr`/`CreateLShr` and returns `CastInst::CreateTruncOrBitCast(Shift, DestTy)`. Here SrcWidth > DestWidth and A is wider than SrcWidth, so this cast is a runtime trunc. Keep trunc in outputs.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1000-1021",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1105",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1092,
+        1105
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "call",
+        "fptosi",
+        "fptoui",
+        "lshr",
+        "mul",
+        "or",
+        "phi",
+        "select",
+        "sext",
+        "shl",
+        "sub",
+        "udiv",
+        "urem",
+        "xor",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1092-1105"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1130",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1122,
+        1130
+      ],
+      "opcodes_reviewed": [
+        "sub"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "icmp"
+      ],
+      "reason": "ConstantExpr::getSub at1129 computes a comparison constant; line1130 emits only ICmpInst.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1122-1130",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "cast-L1231",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1224,
+        1231
+      ],
+      "opcodes_reviewed": [
+        "sext",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1224-1231"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1411",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1387,
+        1411
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1387-1411"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1443-eq-ne",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1414,
+        1446
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1414-1446"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1468-maskbit",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1451,
+        1469
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1451-1469"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1694",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1691,
+        1694
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "call",
+        "lshr",
+        "mul",
+        "or",
+        "phi",
+        "select",
+        "sext",
+        "shl",
+        "sub",
+        "trunc",
+        "xor",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1691-1694"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1824",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1807,
+        1824
+      ],
+      "opcodes_reviewed": [
+        "sext",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1807-1824"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1877-onebit",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1846,
+        1877
+      ],
+      "opcodes_reviewed": [
+        "sext",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1846-1877"
+      ]
+    },
+    {
+      "inventory_id": "cast-L1997",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        1984,
+        1997
+      ],
+      "opcodes_reviewed": [
+        "sext",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:1984-1997"
+      ]
+    },
+    {
+      "inventory_id": "cast-L2034",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        2031,
+        2034
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "mul",
+        "or",
+        "phi",
+        "select",
+        "sext",
+        "sub",
+        "trunc",
+        "xor",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:2031-2034"
+      ]
+    },
+    {
+      "inventory_id": "cast-L2089",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        2074,
+        2089
+      ],
+      "opcodes_reviewed": [
+        "sext",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:2074-2089"
+      ]
+    },
+    {
+      "inventory_id": "cast-L2659",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        2603,
+        2659
+      ],
+      "opcodes_reviewed": [
+        "udiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateUDiv/CreateSDiv; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: division construction helper/constant folding path needs inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:2603-2659"
+      ]
+    },
+    {
+      "inventory_id": "cast-L2740",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        2730,
+        2740
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:2730-2740"
+      ]
+    },
+    {
+      "inventory_id": "cast-L2820",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        2806,
+        2820
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:2806-2820"
+      ]
+    },
+    {
+      "inventory_id": "cast-L3459-phiweb",
+      "file": "InstCombineCasts.cpp",
+      "lines": [
+        3294,
+        3459
+      ],
+      "opcodes_reviewed": [
+        "load",
+        "store"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on PHI web rewrite; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: memory operations may be recreated by helper; inspect full routine.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCasts.cpp:3294-3459"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L314",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        314,
+        314
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:314-314"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L336",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        336,
+        336
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:336-336"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L353",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        353,
+        353
+      ],
+      "opcodes_reviewed": [
+        "add"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:353-353"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L368",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        368,
+        368
+      ],
+      "opcodes_reviewed": [
+        "add"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:368-368"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L390",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        390,
+        390
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "lshr",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:390-390"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L693",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        676,
+        695
+      ],
+      "opcodes_reviewed": [
+        "ptrtoint"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:676-695"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L723",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        723,
+        725
+      ],
+      "opcodes_reviewed": [
+        "bitcast"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "icmp"
+      ],
+      "reason": "ConstantExpr::getPointerBitCastOrAddrSpaceCast at724 converts a constant operand; only ICmpInst is emitted.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:723-725",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "cmpa-L1168",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1164,
+        1168
+      ],
+      "opcodes_reviewed": [
+        "call",
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on Intrinsic::sadd_with_overflow; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: intrinsic construction and extraction helper need inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1164-1168"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1336",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1336,
+        1336
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1336-1336"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1524",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1524,
+        1524
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1524-1524"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1616",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1616,
+        1616
+      ],
+      "opcodes_reviewed": [
+        "sext",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1616-1616"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1717",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1717,
+        1717
+      ],
+      "opcodes_reviewed": [
+        "add"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1717-1717"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1783",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1783,
+        1784
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1783-1784"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1801",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1801,
+        1801
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "lshr",
+        "shl"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1801-1801"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1881",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1881,
+        1881
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1881-1881"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L1915",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        1915,
+        1915
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "or",
+        "shl"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:1915-1915"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2015",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2015,
+        2015
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2015-2015"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2037",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2037,
+        2037
+      ],
+      "opcodes_reviewed": [
+        "and",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2037-2037"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2039",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2039,
+        2039
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2039-2039"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2050",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2050,
+        2050
+      ],
+      "opcodes_reviewed": [
+        "lshr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2050-2050"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2063",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2063,
+        2064
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2063-2064"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2151",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2151,
+        2151
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2151-2151"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2171",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2171,
+        2171
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2171-2171"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2512",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2512,
+        2512
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2512-2512"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2523",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2523,
+        2524
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2523-2524"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2533",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2533,
+        2535
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2533-2535"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2542",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2542,
+        2544
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2542-2544"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2737",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2737,
+        2737
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2737-2737"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2810",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2810,
+        2810
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2810-2810"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2816",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2816,
+        2816
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2816-2816"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L2821",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        2821,
+        2821
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:2821-2821"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3140",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3140,
+        3140
+      ],
+      "opcodes_reviewed": [
+        "add"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3140-3140"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3557",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3557,
+        3558
+      ],
+      "opcodes_reviewed": [
+        "bitcast"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3557-3558"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3560",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3560,
+        3561
+      ],
+      "opcodes_reviewed": [
+        "bitcast"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3560-3561"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3613",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3613,
+        3613
+      ],
+      "opcodes_reviewed": [
+        "bitcast"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3613-3613"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3626",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3626,
+        3626
+      ],
+      "opcodes_reviewed": [
+        "bitcast"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3626-3626"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3652",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3652,
+        3652
+      ],
+      "opcodes_reviewed": [
+        "extractelement"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3652-3652"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3723",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3723,
+        3724
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3723-3724"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3772",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3772,
+        3774
+      ],
+      "opcodes_reviewed": [
+        "urem"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3772-3774"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3822",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3822,
+        3822
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3822-3822"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3892",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3892,
+        3892
+      ],
+      "opcodes_reviewed": [
+        "mul"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3892-3892"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L3934",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        3934,
+        3938
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:3934-3938"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L4026",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        4026,
+        4026
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:4026-4026"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L4570",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        4570,
+        4570
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:4570-4570"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L4593",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        4593,
+        4593
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:4593-4593"
+      ]
+    },
+    {
+      "inventory_id": "cmpa-L4594",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        4594,
+        4594
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:4594-4594"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L5215",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        5208,
+        5216
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:5208-5216"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L5219",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        5216,
+        5220
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:5216-5220"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L5274",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        5270,
+        5275
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:5270-5275"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L5278",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        5275,
+        5279
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:5275-5279"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6055",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6028,
+        6055
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6028-6055"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6259",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6247,
+        6259
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "ashr",
+        "lshr",
+        "select",
+        "sub",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6247-6259"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6475",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6468,
+        6475
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on rotate helper; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: rotate construction helper needs inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6468-6475"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6584",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6578,
+        6584
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6578-6584"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6627",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6623,
+        6627
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6623-6627"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6630",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6628,
+        6630
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6628-6630"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6643",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6633,
+        6643
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6633-6643"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6648",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6644,
+        6648
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6644-6648"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6651",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6649,
+        6651
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6649-6651"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6665",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6653,
+        6665
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6653-6665"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L6670",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6667,
+        6670
+      ],
+      "opcodes_reviewed": [
+        "or",
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6667-6670"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L7001-add",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        6953,
+        6962
+      ],
+      "opcodes_reviewed": [
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:6953-6962"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L7676",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        7669,
+        7676
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on comparison builder; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: vector comparison/result shuffle helpers need inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:7669-7676"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L7697",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        7686,
+        7697
+      ],
+      "opcodes_reviewed": [
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on comparison builder; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: vector comparison/result shuffle helpers need inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:7686-7697"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L7980",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        7968,
+        7980
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "lshr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:7968-7980"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L7992",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        7982,
+        7992
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "ashr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:7982-7992"
+      ]
+    },
+    {
+      "inventory_id": "cmpb-L8287",
+      "file": "InstCombineCompares.cpp",
+      "lines": [
+        8277,
+        8287
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineCompares.cpp:8277-8287"
+      ]
+    },
+    {
+      "inventory_id": "loadstore-unpack-load-struct-single-L748",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "lines": [
+        748,
+        759
+      ],
+      "opcodes_reviewed": [
+        "load"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineLoadStoreAlloca.cpp:748-759"
+      ]
+    },
+    {
+      "inventory_id": "loadstore-unpack-load-array-single-L793",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "lines": [
+        793,
+        801
+      ],
+      "opcodes_reviewed": [
+        "load"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineLoadStoreAlloca.cpp:793-801"
+      ]
+    },
+    {
+      "inventory_id": "loadstore-load-L1200",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "lines": [
+        1200,
+        1225
+      ],
+      "opcodes_reviewed": [
+        "load"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on clone load; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: cloned load is emitted by the rewrite.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineLoadStoreAlloca.cpp:1200-1225"
+      ]
+    },
+    {
+      "inventory_id": "loadstore-unpack-store-struct-single-L1361",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "lines": [
+        1361,
+        1368
+      ],
+      "opcodes_reviewed": [
+        "store"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineLoadStoreAlloca.cpp:1361-1368"
+      ]
+    },
+    {
+      "inventory_id": "loadstore-unpack-store-array-single-L1401",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "lines": [
+        1401,
+        1408
+      ],
+      "opcodes_reviewed": [
+        "store"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineLoadStoreAlloca.cpp:1401-1408"
+      ]
+    },
+    {
+      "inventory_id": "loadstore-store-L1634",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "lines": [
+        1611,
+        1634
+      ],
+      "opcodes_reviewed": [
+        "store"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateStore; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: store rewrite helper needs complete emitted-op accounting.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineLoadStoreAlloca.cpp:1611-1634"
+      ]
+    },
+    {
+      "inventory_id": "mul-L642",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        579,
+        588
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:579-588"
+      ]
+    },
+    {
+      "inventory_id": "powi-reassoc-L731b",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        731,
+        742
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:731-742"
+      ]
+    },
+    {
+      "inventory_id": "fmul-reassoc-L857",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        857,
+        871
+      ],
+      "opcodes_reviewed": [
+        "fadd",
+        "fsub"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on ConstantFold; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: floating constant folding can choose a different expression branch.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:857-871"
+      ]
+    },
+    {
+      "inventory_id": "fmul-reassoc-L876",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        876,
+        882
+      ],
+      "opcodes_reviewed": [
+        "fdiv",
+        "fsub"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on ConstantFold; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: constant product fold path needs inspect for runtime operation accounting.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:876-882"
+      ]
+    },
+    {
+      "inventory_id": "fmul-reassoc-L884",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        884,
+        890
+      ],
+      "opcodes_reviewed": [
+        "fadd",
+        "fdiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on ConstantFold; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: constant product fold path needs inspect for runtime operation accounting.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:884-890"
+      ]
+    },
+    {
+      "inventory_id": "div-select-one-first-L1608-signed-constant",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1604,
+        1609
+      ],
+      "opcodes_reviewed": [
+        "sdiv",
+        "udiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1604-1609"
+      ]
+    },
+    {
+      "inventory_id": "div-select-one-first-L1608-unsigned-analysis",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1604,
+        1609
+      ],
+      "opcodes_reviewed": [
+        "udiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1604-1609"
+      ]
+    },
+    {
+      "inventory_id": "div-select-one-second-L1615-signed-constant",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1611,
+        1616
+      ],
+      "opcodes_reviewed": [
+        "sdiv",
+        "udiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1611-1616"
+      ]
+    },
+    {
+      "inventory_id": "div-select-one-second-L1615-unsigned-analysis",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1611,
+        1616
+      ],
+      "opcodes_reviewed": [
+        "udiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1611-1616"
+      ]
+    },
+    {
+      "inventory_id": "log2-zext-L1678",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1678,
+        1684
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "sub"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1678-1684"
+      ]
+    },
+    {
+      "inventory_id": "log2-trunc-L1685",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1685,
+        1696
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "sub"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1685-1696"
+      ]
+    },
+    {
+      "inventory_id": "log2-select-L1725",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1725,
+        1734
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "sub"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1725-1734"
+      ]
+    },
+    {
+      "inventory_id": "udiv-L1851",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1848,
+        1855
+      ],
+      "opcodes_reviewed": [
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1848-1855"
+      ]
+    },
+    {
+      "inventory_id": "udiv-L1859",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        1856,
+        1860
+      ],
+      "opcodes_reviewed": [
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:1856-1860"
+      ]
+    },
+    {
+      "inventory_id": "fdiv-sqrt-convert-L2236",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        2236,
+        2288
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on sqrt/div helper; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: cross-instruction libcall/intrinsic rewrite needs full helper inspection.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:2236-2288"
+      ]
+    },
+    {
+      "inventory_id": "fdiv-trig-L2367",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        2367,
+        2390
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on LibFunc; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: library call replacement is deliberately emitted.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:2367-2390"
+      ]
+    },
+    {
+      "inventory_id": "urem-one-L2611",
+      "file": "InstCombineMulDivRem.cpp",
+      "lines": [
+        2611,
+        2615
+      ],
+      "opcodes_reviewed": [
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineMulDivRem.cpp:2611-2615"
+      ]
+    },
+    {
+      "inventory_id": "negator-L248",
+      "file": "InstCombineNegator.cpp",
+      "lines": [
+        248,
+        267
+      ],
+      "opcodes_reviewed": [
+        "trunc"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineNegator.cpp:248-267"
+      ]
+    },
+    {
+      "inventory_id": "negator-L268",
+      "file": "InstCombineNegator.cpp",
+      "lines": [
+        269,
+        285
+      ],
+      "opcodes_reviewed": [
+        "sub"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "sdiv"
+      ],
+      "reason": "ConstantExpr::getNeg at277 computes the constant divisor; CreateSDiv emits the replacement and setIsExact changes its property.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineNegator.cpp:269-285",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "phi-L329",
+      "file": "InstCombinePHI.cpp",
+      "lines": [
+        278,
+        332
+      ],
+      "opcodes_reviewed": [
+        "addrspacecast",
+        "bitcast",
+        "inttoptr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on PHI incoming cast builder; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: per-edge casts are emitted by PHI construction path.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombinePHI.cpp:278-332"
+      ]
+    },
+    {
+      "inventory_id": "phi-L853",
+      "file": "InstCombinePHI.cpp",
+      "lines": [
+        837,
+        853
+      ],
+      "opcodes_reviewed": [
+        "bitcast",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on PHI construction helper; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: wide/narrow PHI incoming conversions need inspect.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombinePHI.cpp:837-853"
+      ]
+    },
+    {
+      "inventory_id": "select-L238",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        196,
+        238
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:196-238"
+      ]
+    },
+    {
+      "inventory_id": "select-L503-gep",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        500,
+        504
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateGEP; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: factorization builds a select for differing operand.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:500-504"
+      ]
+    },
+    {
+      "inventory_id": "select-L1911",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        1911,
+        2084
+      ],
+      "opcodes_reviewed": [
+        "sext"
+      ],
+      "disposition": "confirmed_correction",
+      "proposed_rewrite_opcodes": [
+        "icmp",
+        "select",
+        "trunc"
+      ],
+      "reason": "ConstantFoldCastOperand(SExt) at2061/2063 extends constants; emitted ops at2075\u20132084 are ICmp, Select, Trunc.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:1911-2084",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ],
+      "coordinator_applied": true
+    },
+    {
+      "inventory_id": "select-L2095",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        2095,
+        2164
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:2095-2164"
+      ]
+    },
+    {
+      "inventory_id": "select-L2507",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        2498,
+        2507
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:2498-2507"
+      ]
+    },
+    {
+      "inventory_id": "select-L3179",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        3179,
+        3179
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:3179-3179"
+      ]
+    },
+    {
+      "inventory_id": "select-L3184",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        3184,
+        3184
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:3184-3184"
+      ]
+    },
+    {
+      "inventory_id": "select-L3193",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        3193,
+        3193
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:3193-3193"
+      ]
+    },
+    {
+      "inventory_id": "select-L3198",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        3198,
+        3198
+      ],
+      "opcodes_reviewed": [
+        "select"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:3198-3198"
+      ]
+    },
+    {
+      "inventory_id": "select-L4027",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        4025,
+        4027
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:4025-4027"
+      ]
+    },
+    {
+      "inventory_id": "select-L4037",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        4035,
+        4037
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:4035-4037"
+      ]
+    },
+    {
+      "inventory_id": "select-L5166-and",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        5148,
+        5166
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:5148-5166"
+      ]
+    },
+    {
+      "inventory_id": "select-L5166-and-not",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        5148,
+        5166
+      ],
+      "opcodes_reviewed": [
+        "and"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:5148-5166"
+      ]
+    },
+    {
+      "inventory_id": "select-L5197-or",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        5179,
+        5197
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:5179-5197"
+      ]
+    },
+    {
+      "inventory_id": "select-L5197-or-not",
+      "file": "InstCombineSelect.cpp",
+      "lines": [
+        5179,
+        5197
+      ],
+      "opcodes_reviewed": [
+        "or"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSelect.cpp:5179-5197"
+      ]
+    },
+    {
+      "inventory_id": "shift-common-srem-L545",
+      "file": "InstCombineShifts.cpp",
+      "lines": [
+        545,
+        551
+      ],
+      "opcodes_reviewed": [
+        "ashr",
+        "lshr",
+        "shl"
+      ],
+      "disposition": "explained",
+      "reason": "`Builder.CreateAnd(A, Mask, ...)` emits a mask for the new shift amount, then `replaceOperand(I, 1, Rem)` mutates the existing shift I by replacing its amount operand. The replacement therefore retains the original I opcode (shl, lshr, or ashr) and adds and.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineShifts.cpp:545-552",
+        "docs/instcombine/extra-output-opcode-coordinator-review.json"
+      ]
+    },
+    {
+      "inventory_id": "shift-L1722-bswap-right",
+      "file": "InstCombineShifts.cpp",
+      "lines": [
+        1731,
+        1735
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineShifts.cpp:1731-1735"
+      ]
+    },
+    {
+      "inventory_id": "shift-L1722-bswap-left",
+      "file": "InstCombineShifts.cpp",
+      "lines": [
+        1736,
+        1740
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineShifts.cpp:1736-1740"
+      ]
+    },
+    {
+      "inventory_id": "demanded-use-ashr-propagate-L901",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "lines": [
+        901,
+        919
+      ],
+      "opcodes_reviewed": [
+        "ashr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSimplifyDemanded.cpp:901-919"
+      ]
+    },
+    {
+      "inventory_id": "demanded-use-ctpop-not-parity-L977",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "lines": [
+        977,
+        989
+      ],
+      "opcodes_reviewed": [
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSimplifyDemanded.cpp:977-989"
+      ]
+    },
+    {
+      "inventory_id": "demanded-use-ptrmask-fold-gep-index-L1056",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "lines": [
+        1056,
+        1089
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSimplifyDemanded.cpp:1056-1089"
+      ]
+    },
+    {
+      "inventory_id": "demanded-fpclass-fdiv-self-select-L2748",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "lines": [
+        2748,
+        2761
+      ],
+      "opcodes_reviewed": [
+        "fneg"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineSimplifyDemanded.cpp:2748-2761"
+      ]
+    },
+    {
+      "inventory_id": "vector-scalarize-phi-L97",
+      "file": "InstCombineVectorOps.cpp",
+      "lines": [
+        97,
+        195
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "fadd",
+        "fdiv",
+        "fmul",
+        "frem",
+        "fsub",
+        "lshr",
+        "mul",
+        "or",
+        "sdiv",
+        "shl",
+        "srem",
+        "sub",
+        "udiv",
+        "urem",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on scalarization helper; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: recurrence opcode family depends on matched instruction and helper cloning.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineVectorOps.cpp:97-195"
+      ]
+    },
+    {
+      "inventory_id": "vector-strided-pointer-helper-L413",
+      "file": "InstCombineVectorOps.cpp",
+      "lines": [
+        413,
+        467
+      ],
+      "opcodes_reviewed": [
+        "trunc",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on getPointerDifference; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: pointer arithmetic helper may synthesize integer casts.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineVectorOps.cpp:413-467"
+      ]
+    },
+    {
+      "inventory_id": "vector-extract-unary-scalarize-L553",
+      "file": "InstCombineVectorOps.cpp",
+      "lines": [
+        553,
+        558
+      ],
+      "opcodes_reviewed": [
+        "bitcast",
+        "fneg",
+        "fpext",
+        "fptosi",
+        "fptoui",
+        "fptrunc",
+        "sext",
+        "sitofp",
+        "trunc",
+        "uitofp",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineVectorOps.cpp:553-558"
+      ]
+    },
+    {
+      "inventory_id": "vector-extract-binop-scalarize-L560",
+      "file": "InstCombineVectorOps.cpp",
+      "lines": [
+        560,
+        571
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "fadd",
+        "fdiv",
+        "fmul",
+        "frem",
+        "fsub",
+        "lshr",
+        "mul",
+        "or",
+        "sdiv",
+        "shl",
+        "srem",
+        "sub",
+        "udiv",
+        "urem",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineVectorOps.cpp:560-571"
+      ]
+    },
+    {
+      "inventory_id": "vector-extract-compare-scalarize-L573",
+      "file": "InstCombineVectorOps.cpp",
+      "lines": [
+        573,
+        583
+      ],
+      "opcodes_reviewed": [
+        "fcmp",
+        "icmp"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineVectorOps.cpp:573-583"
+      ]
+    },
+    {
+      "inventory_id": "vector-evaluate-different-element-order-L2116",
+      "file": "InstCombineVectorOps.cpp",
+      "lines": [
+        2116,
+        2216
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "fadd",
+        "fcmp",
+        "fdiv",
+        "fmul",
+        "fpext",
+        "fptosi",
+        "fptoui",
+        "fptrunc",
+        "frem",
+        "fsub",
+        "getelementptr",
+        "icmp",
+        "lshr",
+        "mul",
+        "or",
+        "sdiv",
+        "sext",
+        "shl",
+        "shufflevector",
+        "sitofp",
+        "srem",
+        "sub",
+        "trunc",
+        "udiv",
+        "uitofp",
+        "urem",
+        "xor",
+        "zext"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on vector operation rebuild helper; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: opcode family is intentionally cloned/recreated from the matched operation.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstCombineVectorOps.cpp:2116-2216"
+      ]
+    },
+    {
+      "inventory_id": "ic-ctpop-not-sub-L851",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        914,
+        916
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The rewritten expression retains/recreates ctpop(X), which is an intrinsic call; the audit flags call because it is not a directly recognized generic constructor. Confirm the emitted ctpop call and any replacement arithmetic/comparison builders in the full source helper before updating the opcode list.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:914-916",
+        "docs/instcombine/source/InstructionCombining.cpp:914-916"
+      ]
+    },
+    {
+      "inventory_id": "ic-ctpop-not-add-L861",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        918,
+        920
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The rewritten expression retains/recreates ctpop(X), which is an intrinsic call; the audit flags call because it is not a directly recognized generic constructor. Confirm the emitted ctpop call and any replacement arithmetic/comparison builders in the full source helper before updating the opcode list.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:918-920",
+        "docs/instcombine/source/InstructionCombining.cpp:918-920"
+      ]
+    },
+    {
+      "inventory_id": "ic-ctpop-not-disjoint-or-L865",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        918,
+        920
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The rewritten expression retains/recreates ctpop(X), which is an intrinsic call; the audit flags call because it is not a directly recognized generic constructor. Confirm the emitted ctpop call and any replacement arithmetic/comparison builders in the full source helper before updating the opcode list.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:918-920",
+        "docs/instcombine/source/InstructionCombining.cpp:918-920"
+      ]
+    },
+    {
+      "inventory_id": "ic-ctpop-not-icmp-L873",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        921,
+        929
+      ],
+      "opcodes_reviewed": [
+        "call"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The rewritten expression retains/recreates ctpop(X), which is an intrinsic call; the audit flags call because it is not a directly recognized generic constructor. Confirm the emitted ctpop call and any replacement arithmetic/comparison builders in the full source helper before updating the opcode list.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:921-929",
+        "docs/instcombine/source/InstructionCombining.cpp:921-929"
+      ]
+    },
+    {
+      "inventory_id": "ic-select-cast-condition-aligned-L1137",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        1137,
+        1143
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "fadd",
+        "fdiv",
+        "fmul",
+        "frem",
+        "fsub",
+        "lshr",
+        "mul",
+        "or",
+        "sdiv",
+        "shl",
+        "srem",
+        "sub",
+        "udiv",
+        "urem",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateBinOp; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: emitted opcode follows matched binary operator family.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:1137-1143"
+      ]
+    },
+    {
+      "inventory_id": "ic-select-cast-condition-inverted-L1144",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        1144,
+        1148
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "fadd",
+        "fdiv",
+        "fmul",
+        "frem",
+        "fsub",
+        "lshr",
+        "mul",
+        "or",
+        "sdiv",
+        "shl",
+        "srem",
+        "sub",
+        "udiv",
+        "urem",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateBinOp; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: emitted opcode follows matched binary operator family.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:1144-1148"
+      ]
+    },
+    {
+      "inventory_id": "ic-fold-phi-create-replacement-L2097",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        2097,
+        2135
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "ashr",
+        "fadd",
+        "fdiv",
+        "fmul",
+        "frem",
+        "fsub",
+        "lshr",
+        "mul",
+        "or",
+        "sdiv",
+        "shl",
+        "srem",
+        "sub",
+        "udiv",
+        "urem",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on clone/PHI creation; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: replacement opcode is inherited from cloned edge expressions.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:2097-2135"
+      ]
+    },
+    {
+      "inventory_id": "ic-fold-gep-of-phi-L3236",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        3236,
+        3344
+      ],
+      "opcodes_reviewed": [
+        "getelementptr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:3236-3344"
+      ]
+    },
+    {
+      "inventory_id": "ic-visit-gep-normalize-indices-L3346",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        3375,
+        3421
+      ],
+      "opcodes_reviewed": [
+        "getelementptr"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:3375-3421"
+      ]
+    },
+    {
+      "inventory_id": "ic-gep-splat-vector-operands-L3461",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        3461,
+        3485
+      ],
+      "opcodes_reviewed": [
+        "shufflevector"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on CreateVectorSplat; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: resplat helper emits a shuffle.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:3461-3485"
+      ]
+    },
+    {
+      "inventory_id": "ic-gep-fold-exact-divisor-L3581",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        3581,
+        3615
+      ],
+      "opcodes_reviewed": [
+        "ashr",
+        "lshr",
+        "sdiv",
+        "udiv"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:3581-3615"
+      ]
+    },
+    {
+      "inventory_id": "ic-condbr-logical-and-not-L4383",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        4385,
+        4409
+      ],
+      "opcodes_reviewed": [
+        "br"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:4385-4409"
+      ]
+    },
+    {
+      "inventory_id": "ic-switch-leftshift-cases-L4522",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        4522,
+        4553
+      ],
+      "opcodes_reviewed": [
+        "switch"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:4522-4553"
+      ]
+    },
+    {
+      "inventory_id": "ic-switch-knownbits-truncate-L4582",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        4586,
+        4616
+      ],
+      "opcodes_reviewed": [
+        "switch"
+      ],
+      "disposition": "needs_followup",
+      "reason": "Needs source-context review: the audit range does not directly account for this opcode, and I have not yet established whether it is emitted by a helper, retained through mutation, or only part of the matched input.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:4586-4616"
+      ]
+    },
+    {
+      "inventory_id": "ic-freeze-push-through-op-L5236",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        5236,
+        5296
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "mul",
+        "or",
+        "select",
+        "sub",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on clone instruction; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: operation is cloned after moving freeze.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:5236-5296"
+      ]
+    },
+    {
+      "inventory_id": "ic-freeze-recurrence-fold-L5298",
+      "file": "InstructionCombining.cpp",
+      "lines": [
+        5298,
+        5364
+      ],
+      "opcodes_reviewed": [
+        "add",
+        "and",
+        "mul",
+        "or",
+        "phi",
+        "sub",
+        "xor"
+      ],
+      "disposition": "needs_followup",
+      "reason": "The candidate depends on recurrence traversal; the snippet documents this construction path, but its helper behavior must be checked before deciding whether the reviewed opcode belongs in the inventory. Specifically: backedge operation family is retained during rewrite.",
+      "supporting_source_refs": [
+        "docs/instcombine/source/InstructionCombining.cpp:5298-5364"
+      ]
+    }
+  ],
+  "coordinator_note": "The first39 contextual review remains advisory; coordinator applied only source-checked corrections and corrected bitwise-L3399 helper accounting. Remaining rows are not a finished output-opcode audit."
+}

@@ -1,0 +1,133 @@
+{
+  "description": "Advisory review of LLVM compound/alias matchers against inventory opcodes.\n\nMappings were checked against llvm/IR/PatternMatch.h at the audit's pinned\ncommit. An alias can include alternatives excluded by surrounding guards,\nso findings are candidates only and never change inventory automatically.",
+  "matcher_definitions": "https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/include/llvm/IR/PatternMatch.h",
+  "recognized_alias_sites": 479,
+  "candidate_count": 11,
+  "unreviewed_candidates": 0,
+  "findings": [
+    {
+      "inventory_id": "bitwise-L4103",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 4098,
+      "matcher": "m_SpecificCmp(",
+      "missing_possible_opcodes": [
+        "fcmp"
+      ],
+      "source": "m_OneUse(m_SpecificCmp(ICmpInst::ICMP_UGT,",
+      "reviewed_exclusion": "The SpecificCmp predicate is ICMP_UGT, so the fcmp alternative of the generic Cmp matcher cannot occur."
+    },
+    {
+      "inventory_id": "bitwise-L5277",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5272,
+      "matcher": "m_LogicalAnd(",
+      "missing_possible_opcodes": [
+        "and"
+      ],
+      "source": "if (match(NotOp, m_OneUse(m_LogicalAnd(m_Not(m_Value(X)), m_Value(Y))))) {",
+      "reviewed_exclusion": "The immediately preceding m_c_And branch returns for the strict bitwise AND form. This subsequent logical arm only reaches select-shaped AND."
+    },
+    {
+      "inventory_id": "bitwise-L5291",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5286,
+      "matcher": "m_LogicalOr(",
+      "missing_possible_opcodes": [
+        "or"
+      ],
+      "source": "if (match(NotOp, m_OneUse(m_LogicalOr(m_Not(m_Value(X)), m_Value(Y))))) {",
+      "reviewed_exclusion": "The immediately preceding m_c_Or branch returns for the strict bitwise OR form. This subsequent logical arm only reaches select-shaped OR."
+    },
+    {
+      "inventory_id": "cast-L1267",
+      "file": "InstCombineCasts.cpp",
+      "line": 1251,
+      "matcher": "m_Shr(",
+      "missing_possible_opcodes": [
+        "ashr",
+        "lshr"
+      ],
+      "source": "!match(A, m_Shr(m_Value(), m_Constant()))) {",
+      "reviewed_exclusion": "The m_Shr matcher occurs under !match and excludes constant right-shift inputs; it is not a positive matched operation."
+    },
+    {
+      "inventory_id": "cmpb-L8304",
+      "file": "InstCombineCompares.cpp",
+      "line": 8292,
+      "matcher": "m_UAddWithOverflow(",
+      "missing_possible_opcodes": [
+        "xor"
+      ],
+      "source": "if (match(&I, m_UAddWithOverflow(m_Value(X), m_Value(Y),",
+      "reviewed_exclusion": "UAddWithOverflow can recognize NOT-based checks, but this source branch additionally requires AddI->getOpcode()==Instruction::Add before rewriting; XOR alternatives are rejected."
+    },
+    {
+      "inventory_id": "select-L141-identity",
+      "file": "InstCombineSelect.cpp",
+      "line": 98,
+      "matcher": "m_FAbs(",
+      "missing_possible_opcodes": [
+        "call"
+      ],
+      "source": "if (match(BO, m_c_FMul(m_FAbs(m_Specific(X)), m_Value(Y))) &&",
+      "reviewed_exclusion": "The fabs/multiply/zero absorbing case is the separate select-L141-fmul-zero outcome. This identity outcome is the non-absorbing branch."
+    },
+    {
+      "inventory_id": "select-L358",
+      "file": "InstCombineSelect.cpp",
+      "line": 383,
+      "matcher": "m_MaxOrMin(",
+      "missing_possible_opcodes": [
+        "call"
+      ],
+      "source": "if (match(TII, m_MaxOrMin(m_Value(), m_Value()))) {",
+      "reviewed_exclusion": "This is the fneg factorization outcome; the min/max intrinsic branch is a later sibling outcome included only by the broad source span."
+    },
+    {
+      "inventory_id": "select-L1120-freeze",
+      "file": "InstCombineSelect.cpp",
+      "line": 1095,
+      "matcher": "m_IDiv(",
+      "missing_possible_opcodes": [
+        "sdiv",
+        "udiv"
+      ],
+      "source": "} else if (match(FalseVal, m_IDiv(m_Specific(X), m_Value(Y))) ||",
+      "reviewed_exclusion": "IDiv/IRem are the adjacent no-additional-freeze branch, inventoried separately as select-L1120-divrem."
+    },
+    {
+      "inventory_id": "select-L1120-freeze",
+      "file": "InstCombineSelect.cpp",
+      "line": 1096,
+      "matcher": "m_IRem(",
+      "missing_possible_opcodes": [
+        "srem",
+        "urem"
+      ],
+      "source": "match(FalseVal, m_IRem(m_Specific(X), m_Value(Y)))) {",
+      "reviewed_exclusion": "IDiv/IRem are the adjacent no-additional-freeze branch, inventoried separately as select-L1120-divrem."
+    },
+    {
+      "inventory_id": "ic-free-invert-select-minmax-L3094",
+      "file": "InstructionCombining.cpp",
+      "line": 3097,
+      "matcher": "m_MaxOrMin(",
+      "missing_possible_opcodes": [
+        "call"
+      ],
+      "source": "if (IsSelect || match(V, m_MaxOrMin(m_Value(A), m_Value(B)))) {",
+      "reviewed_exclusion": "The min/max intrinsic alternative is inventoried separately as ic-free-invert-minmax-L3097; this entry is the select arm."
+    },
+    {
+      "inventory_id": "ic-condbr-logical-and-not-L4383",
+      "file": "InstructionCombining.cpp",
+      "line": 4391,
+      "matcher": "m_LogicalAnd(",
+      "missing_possible_opcodes": [
+        "and"
+      ],
+      "source": "m_OneUse(m_LogicalAnd(m_Value(X), m_OneUse(m_Not(m_Value(Y))))))) {",
+      "reviewed_exclusion": "The enclosing isa<SelectInst>(Cond) guard excludes the strict bitwise AND alternative of LogicalAnd."
+    }
+  ]
+}

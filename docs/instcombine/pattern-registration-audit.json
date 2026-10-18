@@ -1,0 +1,6 @@
+{
+  "description": "Find concrete Pattern.Valid declarations omitted from proof manifests.\n\nThis is a syntax advisory for the simple, single-namespace entry modules. It\ndoes not establish theorem validity or enumerate parameterized proof templates.\nThe global Lean checker remains responsible for types and transitive axioms.\n",
+  "detected_concrete_theorems": 533,
+  "unregistered": [],
+  "ambiguous_namespace_files": []
+}

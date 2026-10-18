@@ -1,0 +1,10 @@
+{
+  "files": {
+    "InstCombineAtomicRMW.cpp": {
+      "covered_ranges": [[1, 157]],
+      "complete": true,
+      "range_complete": true,
+      "notes": "All four successful visitAtomicRMWInst outcomes are inventoried separately by saturating-value replacement, negated add/sub canonicalization, integer idempotent canonicalization, and floating idempotent canonicalization. The shared isSaturating/isIdempotentRMW predicates are represented through exact per-record case guards; the atomicrmw instruction itself remains unsupported by Puddle."
+    }
+  }
+}

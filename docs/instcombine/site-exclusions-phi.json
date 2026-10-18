@@ -1,0 +1,56 @@
+[
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 235,
+    "reason": "MatchingPtrPHI scan lambda returns whether a candidate pointer PHI has the exact collected incoming value on each predecessor; matching predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 255,
+    "reason": "all_of callback checks whether available pointer inputs are type-compatible or already inttoptr; guard predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1007,
+    "reason": "getAnyNonZeroConstInt returns an existing nonzero constant for the later incoming-value substitution at visitor branch phi-L1498; helper lookup only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1008,
+    "reason": "getAnyNonZeroConstInt returns fallback integer constant 1 for the later incoming-value substitution at phi-L1498; helper constant selection only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1025,
+    "reason": "PHIUsageRecord ordering compares widths to sort extracted-use records; data-structure ordering helper, not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1045,
+    "reason": "DenseMapInfo hash specialization computes a hash for lowered-PHI records; bookkeeping only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1050,
+    "reason": "DenseMapInfo equality specialization compares PHI/shift/width keys; bookkeeping only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1307,
+    "reason": "IsCorrectInput lambda checks a unique condition-to-successor mapping before DominatorTree edge-dominance validation; analysis predicate only, not a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "line": 1427,
+    "reason": "all_of callback returns whether every incoming cast strips to the first pointer base or was already visited; guard predicate only, used by pointer-PHI cast fold phi-L1416.",
+    "reviewed": true
+  }
+]

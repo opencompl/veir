@@ -1,0 +1,16 @@
+{
+  "source_commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombineAndOrXor.cpp": {
+      "line_count": 5829,
+      "covered_ranges": [
+        [
+          40,
+          5828
+        ]
+      ],
+      "complete": true,
+      "notes": "Reviewed all source branches; the getSelectCondition helper alternatives now have distinct source guards and accurate analyses/opcodes. visitOr select construction is represented by one helper transform plus a single caller-dispatch record covering the concrete operand permutations, avoiding duplicate rewrite counts."
+    }
+  }
+}

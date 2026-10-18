@@ -1,0 +1,711 @@
+{
+  "review_kind": "read-only source correspondence audit",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "review_note": "Compared pattern match trees, replacements, scalar scope, source guards/commutations, and UnitTest call sites to the pinned LLVM snapshot. Results make no independent claim about proof soundness or kernel validation.",
+  "items": [
+    {
+      "inventory_id": "add-L1787",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 1802,
+        "line_end": 1806,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/AddXorAnd.lean",
+      "module_sha256": "741ccd3657c9b49b829fb37f9aae9efe9a4a4120ebc3248bc986a08205b33c9a",
+      "definitions_reviewed": [
+        "addXorAnd",
+        "addXorAndCommutedAnd",
+        "addAndXor",
+        "addCommutedAndXor"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          476,
+          494
+        ],
+        "exercised_variants": [
+          "addXorAnd",
+          "addXorAndCommutedAnd",
+          "addAndXor",
+          "addCommutedAndXor"
+        ]
+      },
+      "source_guards": "C++ m_c_BinOp commutes root add operands and m_c_And commutes inner AND operands; XOR matches same A,B. No one-use restriction.",
+      "scope_notes": "Arbitrary scalar integer width; proof covers root add nsw/nuw poison/refinement cases. The scalar proof does not claim vector support.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "sub-L2727",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2727,
+        "line_end": 2733,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/SubOrAnd.lean",
+      "module_sha256": "3a4d253d9be630e0e8859569d5415e73f7d424a379e705973220901228a563e9",
+      "definitions_reviewed": [
+        "subOrAnd",
+        "subCommutedOrAnd"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          476,
+          496
+        ],
+        "exercised_variants": [
+          "subOrAnd",
+          "subCommutedOrAnd"
+        ]
+      },
+      "source_guards": "C++ AND order establishes A,B; m_c_Or accepts either OR order. Root subtraction orientation is fixed.",
+      "scope_notes": "Arbitrary scalar integer width; root sub nsw/nuw and OR disjoint properties are represented in theorem scope.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "sub-L2735",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2735,
+        "line_end": 2741,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/SubAddOr.lean",
+      "module_sha256": "9f8ebb25a34cd03804d80f4b3402a0a59c93cb6bd6eb62fc0b2bfb58f4f1850f",
+      "definitions_reviewed": [
+        "subAddOr",
+        "subAddCommutedOr"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          476,
+          498
+        ],
+        "exercised_variants": [
+          "subAddOr",
+          "subAddCommutedOr"
+        ]
+      },
+      "source_guards": "C++ add fixes A,B order; m_c_Or accepts either OR operand order. Root is sub(add(A,B),or(A,B)).",
+      "scope_notes": "Arbitrary scalar integer width; add/sub nsw/nuw and OR disjoint properties are covered by the semantic theorem.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "sub-L2743",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2743,
+        "line_end": 2749,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/SubAddAnd.lean",
+      "module_sha256": "bc186bf45c909a4058142c2cc01719f1ece898f019936637bb67ae3d7c2866c0",
+      "definitions_reviewed": [
+        "subAddAnd",
+        "subAddCommutedAnd"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          476,
+          500
+        ],
+        "exercised_variants": [
+          "subAddAnd",
+          "subAddCommutedAnd"
+        ]
+      },
+      "source_guards": "C++ add fixes A,B order; m_c_And accepts either AND operand order. Root is sub(add(A,B),and(A,B)).",
+      "scope_notes": "Arbitrary scalar integer width; add/sub nsw/nuw flags are covered; replacement OR has no flags.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "sub-L2760",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2760,
+        "line_end": 2766,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/SubOrXor.lean",
+      "module_sha256": "bca3a6cf0455e920bde2e898ec8a4350b233151246322f72a3654c4e074ae453",
+      "definitions_reviewed": [
+        "subOrXor",
+        "subCommutedOrXor"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          476,
+          502
+        ],
+        "exercised_variants": [
+          "subOrXor",
+          "subCommutedOrXor"
+        ]
+      },
+      "source_guards": "C++ XOR fixes A,B order; m_c_Or accepts either OR operand order. Root is sub(or(A,B),xor(A,B)).",
+      "scope_notes": "Arbitrary scalar integer width; root sub nsw/nuw and OR disjoint property are represented in the theorem.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "sub-L2874",
+      "source": {
+        "file": "InstCombineAddSub.cpp",
+        "line_start": 2874,
+        "line_end": 2878,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/SubAndNot.lean",
+      "module_sha256": "dbf12c64573d45417dc5f3d8f970df7a210a81cb556dfd9b8615c696fe53b9a8",
+      "definitions_reviewed": [
+        "subAndNot",
+        "subCommutedAndNot"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          476,
+          505
+        ],
+        "exercised_variants": [
+          "subAndNot",
+          "subCommutedAndNot"
+        ]
+      },
+      "source_guards": "C++ m_c_And accepts both inner operand orders; source additionally requires the AND one-use or Y constant. Lean proof deliberately generalizes the identity to all scalar Y values.",
+      "scope_notes": "Arbitrary scalar integer width; root subtraction nsw/nuw semantics are covered; output creates typed all-ones constant and XOR NOT. Generalized Puddle scope may match beyond LLVM profitability guard.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L1956",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1954,
+        "line_end": 1956,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/AndOrNotAnd.lean",
+      "module_sha256": "be3874c987e7994606a86f7b2dd7d80c029dc1bdbc08241b8a8264d6bee8b702",
+      "definitions_reviewed": [
+        "andOrNotAnd",
+        "andOrNotCommutedAnd"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "d1a7a7700cbb69391f271e18a188afe0128fd70047d5c238f14c424739382d22",
+        "lines": [
+          597,
+          603
+        ],
+        "exercised_variants": [
+          "andOrNotAnd at widths 8 and 32",
+          "andOrNotCommutedAnd at width 8"
+        ]
+      },
+      "source_guards": "Source complexity canonicalization fixes the outer OR as Op0. The matcher fixes the OR operands as A,B and accepts either order only for the inner AND through m_c_And. It has no one-use guard for this first branch. The root AND may carry poison-generating flags; the Lean semantic theorem models its properties, including disjointness of the OR.",
+      "scope_notes": "Scalar integer widths. The replacement is xor(A,B). The Lean pattern includes the typed all-ones constant implementing NOT and its test exercises both the base graph and the inner-AND commutation.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, output, guards, or claimed commutation. This is source correspondence only, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L1965",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1962,
+        "line_end": 1965,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/AndComplementaryOrs.lean",
+      "module_sha256": "471bf7e2c3afa4a51e06c49241b5b6a50669735f5b4c1b19be460a37514a383a",
+      "definitions_reviewed": [
+        "andComplementaryOrs",
+        "andLeftCommutedComplementaryOrs",
+        "andRightCommutedComplementaryOrs",
+        "andCommutedComplementaryOrs"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          752,
+          764
+        ],
+        "exercised_variants": [
+          "andComplementaryOrs",
+          "andLeftCommutedComplementaryOrs",
+          "andRightCommutedComplementaryOrs",
+          "andCommutedComplementaryOrs"
+        ]
+      },
+      "source_guards": "The source one-use test is `(Op0 has one use || Op1 has one use)`. The two `m_c_Or` matchers commute operands inside each OR and deferred captures enforce complementary A/B. The Lean patterns omit only this profitability restriction.",
+      "scope_notes": "Scalar arbitrary-width integers. The inner source OR nodes can have disjoint flags; if a source flag is violated, the source is poison and the flag-free `not xor` result is a safe refinement. Tests invoke all four operand-order variants; they use valid IR but do not separately vary disjoint flags.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L1983",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1980,
+        "line_end": 1983,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/OrAndNotOr.lean",
+      "module_sha256": "7152beaf12b3b58a27de4d77b0beee9d5937212b73b29ee074ce6c3711710cee",
+      "definitions_reviewed": [
+        "orAndNotOr",
+        "orAndNotCommutedOr"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          739,
+          748
+        ],
+        "exercised_variants": [
+          "orAndNotOr",
+          "orAndNotCommutedOr"
+        ]
+      },
+      "source_guards": "Source requires one-use on either root operand and canonical `Op0=and`, `Op1=not(or)`. The inner OR uses `m_c_Or`; the Lean variants cover normal and commuted inner OR. The source one-use condition is omitted as profitability-only.",
+      "scope_notes": "Scalar arbitrary-width integers. Inner and outer source OR nodes may carry disjoint flags; violations only make source poison. Lean encodes complement as xor with same-width all-ones and outputs flag-free not-xor. Tests call both inner-OR orientations at widths 8 and 32 for the base and width 8 for the commuted variant.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L1991",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1988,
+        "line_end": 1991,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/OrXorNotOr.lean",
+      "module_sha256": "f489da1e3d51333e456b614742031fa3575050124edd0fff37a7d37b67b2f2a0",
+      "definitions_reviewed": [
+        "orXorNotOr",
+        "orXorNotCommutedOr"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          739,
+          751
+        ],
+        "exercised_variants": [
+          "orXorNotOr",
+          "orXorNotCommutedOr"
+        ]
+      },
+      "source_guards": "Source requires one-use on either root operand and canonical `Op0=xor`, `Op1=not(or)`. The inner OR uses `m_c_Or`; Lean includes both inner OR operand orders and omits the one-use profitability guard.",
+      "scope_notes": "Scalar arbitrary-width integers. Inner and outer source OR nodes may carry disjoint flags; violations only make source poison. The replacement is flag-free not-and (and with xor-all-ones complement). Tests call both OR orientations at widths 8 and 32 for the base and width 8 for the commuted variant.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L1999",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 1993,
+        "line_end": 1999,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/OrComplementaryMasks.lean",
+      "module_sha256": "7546b6b75a7a45751d841b70f06b7aad02dfd55615c20abdc73c55889f091611",
+      "definitions_reviewed": [
+        "orComplementaryMasks",
+        "orLeftCommutedComplementaryMasks",
+        "orRightCommutedComplementaryMasks",
+        "orCommutedComplementaryMasks"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          702,
+          713
+        ],
+        "exercised_variants": [
+          "orComplementaryMasks",
+          "orLeftCommutedComplementaryMasks",
+          "orRightCommutedComplementaryMasks",
+          "orCommutedComplementaryMasks"
+        ]
+      },
+      "source_guards": "No one-use guard. Each inner `m_c_And` accepts either operand order; `m_Specific` deferred captures require the same A and B in complementary positions. The pattern root is OR and the four definitions exercise all combinations of inner AND commutations.",
+      "scope_notes": "Scalar arbitrary-width integers; complement is xor with same-width all-ones. The root source OR may be disjoint-flagged; complementary masks are disjoint by construction, so any source disjoint violation is impossible for matched defined operands. Tests call all four AND-order variants; base is tested at widths 8 and 32.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L4832",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4830,
+        "line_end": 4832,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorAndOr.lean",
+      "module_sha256": "a94debd898becbdbc685fb0dbef0ecf60b08f17f8e7c0a077ced793d4afb4392",
+      "definitions_reviewed": [
+        "xorAndOr",
+        "xorAndCommutedOr",
+        "xorOrAnd",
+        "xorOrCommutedAnd"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          506,
+          516
+        ],
+        "exercised_variants": [
+          "xorAndOr",
+          "xorAndCommutedOr",
+          "xorOrAnd",
+          "xorOrCommutedAnd"
+        ]
+      },
+      "source_guards": "C++ m_c_Xor commutes root terms and m_c_Or commutes OR operands; matching A,B are captured from AND, so either AND operand order is represented by variable assignment. No one-use guard in this branch.",
+      "scope_notes": "Scalar integer A,B of same width; source OR may carry disjoint property and the Lean semantics includes its poison/refinement case. No source arithmetic flags.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L4840",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4838,
+        "line_end": 4840,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorComplementaryOrs.lean",
+      "module_sha256": "f4520159741328f72a3eb010c707d4b9ebb42014945ce297fcdf46e2d9b0f90e",
+      "definitions_reviewed": [
+        "xorComplementaryOrs",
+        "xorLeftCommutedComplementaryOrs",
+        "xorSwappedComplementaryOrs",
+        "xorSwappedCommutedComplementaryOrs"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          714,
+          737
+        ],
+        "exercised_variants": [
+          "xorComplementaryOrs",
+          "xorLeftCommutedComplementaryOrs",
+          "xorSwappedComplementaryOrs",
+          "xorSwappedCommutedComplementaryOrs"
+        ]
+      },
+      "source_guards": "The source XOR matcher is ordered at the root but each `m_c_Or` commutes the inner ORs. Binding A/B from the first OR determines the complementary placement in the second; variable reassignment covers source root-swapped forms. Lean exposes the four equivalent root/inner orientations.",
+      "scope_notes": "Scalar arbitrary-width integers; complement is xor with same-width all-ones. Source inner ORs may have disjoint flags; any violation poisons source, while the replacement XOR is flag-free. Unit tests invoke all four pattern definitions; base forms are tested at widths 8 and 32.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L4848",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 4846,
+        "line_end": 4848,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorComplementaryMasks.lean",
+      "module_sha256": "730a3c2dcf439da4cd1b55d15e293d2ca8b4cf616fd05d216a321e548d5faddb",
+      "definitions_reviewed": [
+        "xorComplementaryMasks",
+        "xorLeftCommutedComplementaryMasks",
+        "xorSwappedComplementaryMasks",
+        "xorSwappedCommutedComplementaryMasks"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          714,
+          729
+        ],
+        "exercised_variants": [
+          "xorComplementaryMasks",
+          "xorLeftCommutedComplementaryMasks",
+          "xorSwappedComplementaryMasks",
+          "xorSwappedCommutedComplementaryMasks"
+        ]
+      },
+      "source_guards": "The source XOR matcher is ordered at the root but each `m_c_And` commutes the inner ANDs. Deferred captures enforce complementary A/B; variable reassignment covers source root-swapped forms. Lean exposes all four root/inner orientations.",
+      "scope_notes": "Scalar arbitrary-width integers; complement is xor with same-width all-ones. There are no arithmetic flags on the AND/XOR forms. Unit tests invoke all four pattern definitions; base forms are tested at widths 8 and 32.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5270",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5268,
+        "line_end": 5270,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/NotAndNot.lean",
+      "module_sha256": "1c5fee55675431fbb29c24db4ac14d951f715d0ca41073f8132bd2ffd908f5c4",
+      "definitions_reviewed": [
+        "notAndNot",
+        "notCommutedAndNot"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          765,
+          774
+        ],
+        "exercised_variants": [
+          "notAndNot",
+          "notCommutedAndNot"
+        ]
+      },
+      "source_guards": "The source matches an outer bitwise NOT encoded as xor-all-ones over a one-use bitwise AND; `m_c_And` permits `~X` on either side. Lean variants cover both AND orders and omit the one-use profitability guard. Logical-and/select branches immediately following are different rewrites and are outside this scalar bitwise proof.",
+      "scope_notes": "Scalar arbitrary-width integers; no arithmetic flags. The source AND is one-use to avoid instruction growth; the theorem omits that profitability restriction. Complement is xor with same-width all-ones. Tests exercise both operand orders at widths 8 and 32 for the base and width 8 for commuted.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5284",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5282,
+        "line_end": 5284,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/NotOrNot.lean",
+      "module_sha256": "96919c1fec85fc08f66860c4c31a02be6cd69a0a5161769dc5ebb334bc7299e1",
+      "definitions_reviewed": [
+        "notOrNot",
+        "notCommutedOrNot"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "25318caf93f2b33423ba67fd545d7e07cd619bd56c5cea56f4dfab6b08340855",
+        "lines": [
+          765,
+          777
+        ],
+        "exercised_variants": [
+          "notOrNot",
+          "notCommutedOrNot"
+        ]
+      },
+      "source_guards": "The source matches bitwise NOT encoded as xor-all-ones over a one-use bitwise OR; `m_c_Or` permits `~X` on either side. Lean variants cover both OR orders and omit the one-use profitability guard. The neighboring logical-or/select branches are not included.",
+      "scope_notes": "Scalar arbitrary-width integers. The source OR may carry disjoint; when violated the source is poison and the output flag-free `X and ~Y` safely refines it. Complement is xor with same-width all-ones. Tests exercise both operand orders at widths 8 and 32 for the base and width 8 for commuted.",
+      "source_correspondence_result": "No mismatch found in the reviewed input trees, output trees, or declared scalar variants. This records source correspondence only, not a separate soundness or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5681",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5678,
+        "line_end": 5685,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorOrSelf.lean",
+      "module_sha256": "0e05dac2031902ea3231fa81e08c86172fc7fd28dc08a7a48ecc1f4bb4b43384",
+      "definitions_reviewed": [
+        "xorOrSelf",
+        "xorCommutedOrSelf",
+        "orSelfXor",
+        "commutedOrSelfXor"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          523,
+          538
+        ],
+        "exercised_variants": [
+          "xorOrSelf",
+          "xorCommutedOrSelf",
+          "orSelfXor",
+          "commutedOrSelfXor"
+        ]
+      },
+      "source_guards": "Two source branches accept the XOR root operands and inner OR operands in either order; each requires the OR to have one use. Lean pattern omits the one-use restriction as a profitability-only generalization.",
+      "scope_notes": "Scalar same-width integers. OR disjoint semantics is included by theorem; output is X & ~Y, implemented by xor with typed all-ones then and.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5690",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5687,
+        "line_end": 5698,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorAndSelf.lean",
+      "module_sha256": "86a30b656df4b32060af6db3455b407ab6d0fa2c280feaa0b7784d0111412700",
+      "definitions_reviewed": [
+        "xorAndSelf",
+        "xorCommutedAndSelf",
+        "andSelfXor",
+        "commutedAndSelfXor"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          523,
+          547
+        ],
+        "exercised_variants": [
+          "xorAndSelf",
+          "xorCommutedAndSelf",
+          "andSelfXor",
+          "commutedAndSelfXor"
+        ]
+      },
+      "source_guards": "First C++ branch accepts `Y xor (X&Y)` with inner AND one-use and either inner AND order. Reverse-root branch also requires Y nonconstant to avoid canonical-form looping. Lean patterns cover all root/inner commutations without those source profitability/canonicality guards.",
+      "scope_notes": "Scalar same-width integers; Puddle rule is a semantic generalization, not an exact encoding of the C++ gate. Replacement is ~X & Y, with typed all-ones constant.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5704",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5700,
+        "line_end": 5705,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorXorOrShared.lean",
+      "module_sha256": "93fe9dbee71f255199b968e6c0139ae47c1a251d2a4b42fca07cbc052abff542",
+      "definitions_reviewed": [
+        "xorXorOrShared",
+        "xorXorCommutedOrShared",
+        "xorOrSharedXor",
+        "xorCommutedOrSharedXor"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          567,
+          579
+        ],
+        "exercised_variants": [
+          "xorXorOrShared",
+          "xorXorCommutedOrShared",
+          "xorOrSharedXor",
+          "xorCommutedOrSharedXor"
+        ]
+      },
+      "source_guards": "This entry is the A-shared source branch only; root XOR and inner OR commute, and both inner XOR and OR must be one-use. Lean pattern omits one-use constraints as profitability-only. The separate B-shared branch at 5707\u20135711 is not claimed by this inventory ID/module.",
+      "scope_notes": "Scalar same-width integers. OR disjoint property is included in semantics; output is (~A & C) xor B, with typed all-ones constant.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5716",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5713,
+        "line_end": 5720,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorAndXor.lean",
+      "module_sha256": "7615dc69a70146c68d440ce4a96c32665a913492239ac4ecde27408fcfb75d49",
+      "definitions_reviewed": [
+        "xorAndXor",
+        "xorAndCommutedXor",
+        "xorXorAnd",
+        "xorXorCommutedAnd"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          506,
+          522
+        ],
+        "exercised_variants": [
+          "xorAndXor",
+          "xorAndCommutedXor",
+          "xorXorAnd",
+          "xorXorCommutedAnd"
+        ]
+      },
+      "source_guards": "Two source branches accept either root order; m_c_Xor or m_c_And accepts commutation of the inner matching op. No one-use guard.",
+      "scope_notes": "Scalar same-width integers; plain AND/XOR inputs and plain OR output; no flags or poison-producing metadata.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5726",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5722,
+        "line_end": 5726,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorAndNotNot.lean",
+      "module_sha256": "504b1d18cc3c5ed2f80a4c1ff1e97088ce353ca7d326e819a4e505dd24110ad1",
+      "definitions_reviewed": [
+        "xorAndNotNot",
+        "xorNotAndNot"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          548,
+          557
+        ],
+        "exercised_variants": [
+          "xorAndNotNot",
+          "xorNotAndNot"
+        ]
+      },
+      "source_guards": "The source keeps the root orientation `(A & ~B) xor ~A`; the inner `m_c_And` accepts the two AND operand orders. No one-use guard.",
+      "scope_notes": "Scalar same-width integers; NOT is XOR with all-ones. Replacement is NOT(A&B), represented as AND then XOR with typed -1.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    },
+    {
+      "inventory_id": "bitwise-L5730",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "line_start": 5728,
+        "line_end": 5730,
+        "llvm_pin": "29eff20316c550d8e689a318c614e40186107820"
+      },
+      "lean_module": "Veir/Passes/InstCombineLLVM/XorNotAndSelf.lean",
+      "module_sha256": "e64dcd2a4415ade488333b11ce244784ca30abdcdef3d55e26b5ef483d822f84",
+      "definitions_reviewed": [
+        "xorNotAndSelf",
+        "xorCommutedNotAndSelf",
+        "xorSelfNotAnd",
+        "xorSelfCommutedNotAnd"
+      ],
+      "unit_test": {
+        "file": "UnitTest/InstCombineLLVMConstants.lean",
+        "sha256": "a1635c8ed769a9837706fedd562275e45804aff6a0b6a958c2f9abf88ba1f1f5",
+        "lines": [
+          552,
+          566
+        ],
+        "exercised_variants": [
+          "xorNotAndSelf",
+          "xorCommutedNotAndSelf",
+          "xorSelfNotAnd",
+          "xorSelfCommutedNotAnd"
+        ]
+      },
+      "source_guards": "Source m_c_Xor and m_c_And accept root and inner AND commutations (four forms); no one-use guard.",
+      "scope_notes": "Scalar same-width integers; replacement is A|B. NOT is typed XOR with -1 in source pattern.",
+      "source_correspondence_result": "No mismatch found in the reviewed input shape, replacement, or claimed commutations. This is a source-correspondence review, not an independent proof or kernel-validation claim."
+    }
+  ]
+}

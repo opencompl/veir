@@ -1,0 +1,54 @@
+{
+  "commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombineNegator.cpp": {
+      "line_count": 576,
+      "covered_ranges": [
+        [
+          111,
+          485
+        ]
+      ],
+      "complete": true,
+      "notes": "Complete source audit of Negator::visitImpl branches [111,489]; non-rewrite canonicalization/driver/cache returns are explicitly excluded in site-exclusions-arithmetic.json. Proof-referenced IDs negator-L125b, negator-L137a, negator-L154, negator-L159, and negator-L215 are preserved."
+    },
+    "InstCombineShifts.cpp": {
+      "line_count": 2000,
+      "covered_ranges": [
+        [
+          28,
+          2000
+        ]
+      ],
+      "complete": true,
+      "notes": "Complete source audit through EOF. All successful return/mutation candidates map to one source-accurate branch record; query-only predicate returns are explicitly listed in site-exclusions-arithmetic.json. Reviewed visitor rewrites, helper rewrites/delegations, flag inference, and analysis guards against numbered source."
+    },
+    "InstCombineAddSub.cpp": {
+      "line_count": 3488,
+      "covered_ranges": [
+        [
+          1,
+          3488
+        ]
+      ],
+      "complete": true,
+      "notes": "Complete AddSub.cpp audit through EOF. All rewrite branches were reviewed against numbered source; helper rewrites are scoped to their actual function, and utility/predicate returns (FAddendCoef, overflow/divisibility checks, common-pointer analysis and profitability) are itemized in site-exclusions-arithmetic.json. FAddCombine is split into expansion, coefficient combination, and emission stages; pointer-difference optimization is distinct from its analysis helpers. Final coordinator QA reconciled stale aliases and source offsets against numbered LLVM source; all successful return/mutation candidates map to source-accurate branches or explicit exclusions."
+    },
+    "InstCombineMulDivRem.cpp": {
+      "line_count": 2744,
+      "covered_ranges": [
+        [
+          1,
+          2744
+        ]
+      ],
+      "complete": true,
+      "notes": "Complete branch-level audit through EOF. Every return/mutation candidate is assigned one exact source branch or explicit exclusion; div/rem select-with-zero is split between its root divisor rewrite and separate contextual CFG propagation helper. Audited fixed-width integer div/rem cases, signedness-specific flags/exactness, FP helper/delegation families, vector cases, and analysis guards. Final coordinator QA reconciled stale aliases and source offsets against numbered LLVM source; all successful return/mutation candidates map to source-accurate branches or explicit exclusions. The only multi-record successful return in this file is the shared `foldFDivPowDivisor` return for its pow, powi, exp, and exp2 alternatives."
+    },
+    "InstCombineAndOrXor.cpp": {
+      "line_count": 5829,
+      "covered_ranges": [],
+      "complete": false
+    }
+  }
+}

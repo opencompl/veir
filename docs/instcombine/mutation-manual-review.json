@@ -1,0 +1,396 @@
+{
+  "review_kind": "manual review of non-Boolean broad-mutator advisories",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "count": 35,
+  "items": [
+    {
+      "key": "InstCombineAddSub.cpp:3261",
+      "file": "InstCombineAddSub.cpp",
+      "line": 3261,
+      "source_text": "S->setHasNoSignedZeros(false);",
+      "disposition": "shared-output-property",
+      "reason": "Shared propagateSelectFMF builder clears NSZ when the original select lacks NSZ, its arms differ, and its condition may be undef/poison. This is flag handling for the two fneg/select outcomes, not a standalone match.",
+      "related_inventory_ids": [
+        "fneg-L3251a",
+        "fneg-L3271"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:48",
+      "file": "InstCombineCompares.cpp",
+      "line": 48,
+      "source_text": "static bool addWithOverflow(APInt &Result, const APInt &In1, const APInt &In2,",
+      "disposition": "function-declaration",
+      "reason": "Function definition of APInt addWithOverflow. It computes a local APInt result and an overflow Boolean, not LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:488",
+      "file": "InstCombineCompares.cpp",
+      "line": 488,
+      "source_text": "static void setInsertionPoint(IRBuilder<> &Builder, Value *V,",
+      "disposition": "function-declaration",
+      "reason": "Function definition of the insertion-point helper; configuring an IRBuilder insertion point does not itself modify program IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:550",
+      "file": "InstCombineCompares.cpp",
+      "line": 550,
+      "source_text": "setInsertionPoint(Builder, GEP);",
+      "disposition": "builder-position",
+      "reason": "Sets insertion points while rewriteGEPAsOffset constructs its replacements; the actual GEP comparison transformation is cataloged at its caller.",
+      "related_inventory_ids": [
+        "cmpa-L646"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:592",
+      "file": "InstCombineCompares.cpp",
+      "line": 592,
+      "source_text": "setInsertionPoint(Builder, Val, false);",
+      "disposition": "builder-position",
+      "reason": "Sets insertion points while rewriteGEPAsOffset constructs its replacements; the actual GEP comparison transformation is cataloged at its caller.",
+      "related_inventory_ids": [
+        "cmpa-L646"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:599",
+      "file": "InstCombineCompares.cpp",
+      "line": 599,
+      "source_text": "IC.addToWorklist(cast<Instruction>(Val));",
+      "disposition": "worklist",
+      "reason": "Enqueues old GEP-derived instructions for DCE after replacement; shared scheduling for the GEP-offset comparison outcome.",
+      "related_inventory_ids": [
+        "cmpa-L646"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:2950",
+      "file": "InstCombineCompares.cpp",
+      "line": 2950,
+      "source_text": "HiOverflow = addWithOverflow(HiBound, LoBound, RangeSize, false);",
+      "disposition": "constant-analysis",
+      "reason": "Computes APInt range bounds and overflow indicators in foldICmpDivConstant. It changes only local constant-analysis state; subsequent predicate-specific return branches construct the IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:2961",
+      "file": "InstCombineCompares.cpp",
+      "line": 2961,
+      "source_text": "HiOverflow = addWithOverflow(HiBound, Prod, RangeSize, true);",
+      "disposition": "constant-analysis",
+      "reason": "Computes APInt range bounds and overflow indicators in foldICmpDivConstant. It changes only local constant-analysis state; subsequent predicate-specific return branches construct the IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:2968",
+      "file": "InstCombineCompares.cpp",
+      "line": 2968,
+      "source_text": "LoOverflow = addWithOverflow(LoBound, HiBound, DivNeg, true) ? -1 : 0;",
+      "disposition": "constant-analysis",
+      "reason": "Computes APInt range bounds and overflow indicators in foldICmpDivConstant. It changes only local constant-analysis state; subsequent predicate-specific return branches construct the IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:2988",
+      "file": "InstCombineCompares.cpp",
+      "line": 2988,
+      "source_text": "addWithOverflow(LoBound, HiBound, RangeSize, true) ? -1 : 0;",
+      "disposition": "constant-analysis",
+      "reason": "Computes APInt range bounds and overflow indicators in foldICmpDivConstant. It changes only local constant-analysis state; subsequent predicate-specific return branches construct the IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineCompares.cpp:6974",
+      "file": "InstCombineCompares.cpp",
+      "line": 6974,
+      "source_text": "IC.addToWorklist(Instr);",
+      "disposition": "worklist",
+      "reason": "Schedules instructions after the add/multiply overflow idiom rewrite; not an independent transformation.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:6997",
+      "file": "InstCombineCompares.cpp",
+      "line": 6997,
+      "source_text": "IC.addToWorklist(cast<Instruction>(U));",
+      "disposition": "worklist",
+      "reason": "Schedules instructions after the add/multiply overflow idiom rewrite; not an independent transformation.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:6983",
+      "file": "InstCombineCompares.cpp",
+      "line": 6983,
+      "source_text": "IC.replaceInstUsesWith(*TI, ArithResult);",
+      "disposition": "shared-output-mutation",
+      "reason": "Common completion of processUZExtIdiom: rewrites trunc/masked extra users to the narrowed result and replaces the compare with the computed overflow bit. These effects belong to both add and multiply outcomes and are documented in the shared postlude.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul",
+        "cmpb-L7001-shared-overflow-postlude"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:6985",
+      "file": "InstCombineCompares.cpp",
+      "line": 6985,
+      "source_text": "TI->setOperand(0, ArithResult);",
+      "disposition": "shared-output-mutation",
+      "reason": "Common completion of processUZExtIdiom: rewrites trunc/masked extra users to the narrowed result and replaces the compare with the computed overflow bit. These effects belong to both add and multiply outcomes and are documented in the shared postlude.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul",
+        "cmpb-L7001-shared-overflow-postlude"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:6993",
+      "file": "InstCombineCompares.cpp",
+      "line": 6993,
+      "source_text": "IC.replaceInstUsesWith(*BO, Zext);",
+      "disposition": "shared-output-mutation",
+      "reason": "Common completion of processUZExtIdiom: rewrites trunc/masked extra users to the narrowed result and replaces the compare with the computed overflow bit. These effects belong to both add and multiply outcomes and are documented in the shared postlude.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul",
+        "cmpb-L7001-shared-overflow-postlude"
+      ]
+    },
+    {
+      "key": "InstCombineCompares.cpp:7001",
+      "file": "InstCombineCompares.cpp",
+      "line": 7001,
+      "source_text": "return IC.replaceInstUsesWith(I, OverflowCheck);",
+      "disposition": "shared-output-mutation",
+      "reason": "Common completion of processUZExtIdiom: rewrites trunc/masked extra users to the narrowed result and replaces the compare with the computed overflow bit. These effects belong to both add and multiply outcomes and are documented in the shared postlude.",
+      "related_inventory_ids": [
+        "cmpb-L7001-add",
+        "cmpb-L7001-mul",
+        "cmpb-L7001-shared-overflow-postlude"
+      ]
+    },
+    {
+      "key": "InstCombineLoadStoreAlloca.cpp:236",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 236,
+      "source_text": "void replacePointer(Value *V);",
+      "disposition": "function-declaration",
+      "reason": "Declaration/definition of PointerReplacer::replacePointer. Its traversal rebuilds previously collected user instructions through replace(); the concrete load/PHI/GEP/select/transfer/cast outcomes are separately inventoried.",
+      "related_inventory_ids": [
+        "loadstore-pointer-replacer-load-L400",
+        "loadstore-pointer-replacer-phi-same-L417",
+        "loadstore-pointer-replacer-phi-newtype-L430",
+        "loadstore-pointer-replacer-gep-L442",
+        "loadstore-pointer-replacer-select-L452",
+        "loadstore-pointer-replacer-memtransfer-L464",
+        "loadstore-pointer-replacer-addrspacecast-L483"
+      ]
+    },
+    {
+      "key": "InstCombineLoadStoreAlloca.cpp:366",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 366,
+      "source_text": "void PointerReplacer::replacePointer(Value *V) {",
+      "disposition": "function-declaration",
+      "reason": "Declaration/definition of PointerReplacer::replacePointer. Its traversal rebuilds previously collected user instructions through replace(); the concrete load/PHI/GEP/select/transfer/cast outcomes are separately inventoried.",
+      "related_inventory_ids": [
+        "loadstore-pointer-replacer-load-L400",
+        "loadstore-pointer-replacer-phi-same-L417",
+        "loadstore-pointer-replacer-phi-newtype-L430",
+        "loadstore-pointer-replacer-gep-L442",
+        "loadstore-pointer-replacer-select-L452",
+        "loadstore-pointer-replacer-memtransfer-L464",
+        "loadstore-pointer-replacer-addrspacecast-L483"
+      ]
+    },
+    {
+      "key": "InstCombineLoadStoreAlloca.cpp:1493",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1493,
+      "source_text": "if (Instruction *NewGEPI = replaceGEPIdxWithZero(*this, Ptr, SI))",
+      "disposition": "delegation",
+      "reason": "Calls replaceGEPIdxWithZero before replacing the store pointer at the next line; the caller delegation entry already records this step.",
+      "related_inventory_ids": [
+        "loadstore-store-L1494"
+      ]
+    },
+    {
+      "key": "InstCombineLoadStoreAlloca.cpp:1579",
+      "file": "InstCombineLoadStoreAlloca.cpp",
+      "line": 1579,
+      "source_text": "removeInstructionsBeforeUnreachable(SI);",
+      "disposition": "delegation",
+      "reason": "For a store-through-undef unreachable marker, invokes the independently inventoried backward dead-instruction removal. Subsequent calls perform unreachable-region/edge cleanup rather than a new local scalar rewrite.",
+      "related_inventory_ids": [
+        "ic-remove-before-unreachable-L4243",
+        "ic-unreachable-walk-L4316",
+        "ic-dead-blocks-worklist-L4346"
+      ]
+    },
+    {
+      "key": "InstCombineNegator.cpp:572",
+      "file": "InstCombineNegator.cpp",
+      "line": 572,
+      "source_text": "IC.addToWorklist(I);",
+      "disposition": "worklist",
+      "reason": "Enqueues the newly constructed Negator expression graph in order; all semantic outcomes are in negateImpl branches, and this is scheduling only.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:1697",
+      "file": "InstCombineSelect.cpp",
+      "line": 1697,
+      "source_text": "bool InstCombinerImpl::replaceInInstruction(Value *V, Value *Old, Value *New,",
+      "disposition": "function-declaration",
+      "reason": "Definition of the recursive operand replacement utility used by foldSelectValueEquivalence; not another call or outcome.",
+      "related_inventory_ids": [
+        "select-L1800"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:1717",
+      "file": "InstCombineSelect.cpp",
+      "line": 1717,
+      "source_text": "replaceUse(U, New);",
+      "disposition": "shared-output-mutation",
+      "reason": "Direct and recursive operand substitution implement the already-cataloged compare-controlled selected-arm rewrite. The utility requires one-use, safe speculation, bounded depth and no cross-lane vector operation; no additional independent match exists here.",
+      "related_inventory_ids": [
+        "select-L1800"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:1721",
+      "file": "InstCombineSelect.cpp",
+      "line": 1721,
+      "source_text": "Changed |= replaceInInstruction(U, Old, New, Depth + 1);",
+      "disposition": "shared-output-mutation",
+      "reason": "Direct and recursive operand substitution implement the already-cataloged compare-controlled selected-arm rewrite. The utility requires one-use, safe speculation, bounded depth and no cross-lane vector operation; no additional independent match exists here.",
+      "related_inventory_ids": [
+        "select-L1800"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:3560",
+      "file": "InstCombineSelect.cpp",
+      "line": 3560,
+      "source_text": "NewFAbsFMF.setNoNaNs(false);",
+      "disposition": "shared-output-property",
+      "reason": "Clears NNAN on local fast-math property records for the new fabs and comparison because the rewrite evaluates fabs(X) on a path formerly evaluating fabs(Y). The enclosing NaN-scrubbed-select transformation already describes this behavior.",
+      "related_inventory_ids": [
+        "select-L3568"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:3561",
+      "file": "InstCombineSelect.cpp",
+      "line": 3561,
+      "source_text": "NewCmpFMF.setNoNaNs(false);",
+      "disposition": "shared-output-property",
+      "reason": "Clears NNAN on local fast-math property records for the new fabs and comparison because the rewrite evaluates fabs(X) on a path formerly evaluating fabs(Y). The enclosing NaN-scrubbed-select transformation already describes this behavior.",
+      "related_inventory_ids": [
+        "select-L3568"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:4418",
+      "file": "InstCombineSelect.cpp",
+      "line": 4418,
+      "source_text": "FMF.setNoSignedZeros(SelectIsNSZ);",
+      "disposition": "analysis-property",
+      "reason": "Updates a local FastMathFlags copy passed to fmulByZeroIsZero, choosing the select NSZ flag rather than the multiply NSZ flag. No existing LLVM instruction is modified.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSelect.cpp:5376",
+      "file": "InstCombineSelect.cpp",
+      "line": 5376,
+      "source_text": "setExplicitlyUnknownBranchWeightsIfProfiled(*NewSI, DEBUG_TYPE, &F);",
+      "disposition": "shared-output-metadata",
+      "reason": "Marks new outer-select branch weights explicitly unknown when no source profile can be copied. This is metadata handling for the respective newly constructed select outcome.",
+      "related_inventory_ids": [
+        "select-L5377",
+        "select-L5389"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:5388",
+      "file": "InstCombineSelect.cpp",
+      "line": 5388,
+      "source_text": "setExplicitlyUnknownBranchWeightsIfProfiled(*NewSI, DEBUG_TYPE, &F);",
+      "disposition": "shared-output-metadata",
+      "reason": "Marks new outer-select branch weights explicitly unknown when no source profile can be copied. This is metadata handling for the respective newly constructed select outcome.",
+      "related_inventory_ids": [
+        "select-L5377",
+        "select-L5389"
+      ]
+    },
+    {
+      "key": "InstCombineSelect.cpp:5497",
+      "file": "InstCombineSelect.cpp",
+      "line": 5497,
+      "source_text": "In->setAAMetadata(LoadInst->getAAMetadata());",
+      "disposition": "shared-output-metadata",
+      "reason": "Copies alias-analysis metadata from the old masked load onto its replacement while changing the passthrough value; included in the select/masked-load result construction.",
+      "related_inventory_ids": [
+        "select-L5498"
+      ]
+    },
+    {
+      "key": "InstCombineShifts.cpp:816",
+      "file": "InstCombineShifts.cpp",
+      "line": 816,
+      "source_text": "addToWorklist(I);",
+      "disposition": "worklist",
+      "reason": "Schedules the original instruction before recursive getShiftedValue reconstruction/mutation. The opcode-specific shifts and transformed operands are inventoried separately.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineShifts.cpp:1120",
+      "file": "InstCombineShifts.cpp",
+      "line": 1120,
+      "source_text": "static bool setShiftFlags(BinaryOperator &I, const SimplifyQuery &Q) {",
+      "disposition": "function-declaration",
+      "reason": "Function definition of setShiftFlags; its structural-exact and KnownBits-derived flag-setting outcomes are separately inventoried.",
+      "related_inventory_ids": [
+        "shift-flags-exact-patterns-L1130",
+        "shift-flags-knownbits-L1143"
+      ]
+    },
+    {
+      "key": "InstCombineSimplifyDemanded.cpp:1738",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "line": 1738,
+      "source_text": "LeftDemanded.setBit(MaskVal);",
+      "disposition": "analysis-state",
+      "reason": "Sets bits in local APInt lane-demand masks for the shuffle inputs. Actual recursive operand simplifications occur later; these calls do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstCombineSimplifyDemanded.cpp:1740",
+      "file": "InstCombineSimplifyDemanded.cpp",
+      "line": 1740,
+      "source_text": "RightDemanded.setBit(MaskVal - OpWidth);",
+      "disposition": "analysis-state",
+      "reason": "Sets bits in local APInt lane-demand masks for the shuffle inputs. Actual recursive operand simplifications occur later; these calls do not mutate LLVM IR.",
+      "related_inventory_ids": []
+    },
+    {
+      "key": "InstructionCombining.cpp:6373",
+      "file": "InstructionCombining.cpp",
+      "line": 6373,
+      "source_text": "AU.setPreservesCFG();",
+      "disposition": "pass-registration",
+      "reason": "Declares the pass CFG-preservation contract to AnalysisUsage. This is pass registration, not an optimization of input IR.",
+      "related_inventory_ids": []
+    }
+  ]
+}

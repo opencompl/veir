@@ -1,0 +1,392 @@
+[
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 28,
+    "reason": "Predicate return in isIdempotentRMW; it only tests a floating constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 30,
+    "reason": "Predicate return in isIdempotentRMW; it only tests a floating constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 44,
+    "reason": "Predicate return in isIdempotentRMW; it only tests an integer constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 46,
+    "reason": "Predicate return in isIdempotentRMW; it only tests an integer constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 48,
+    "reason": "Predicate return in isIdempotentRMW; it only tests an integer constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 50,
+    "reason": "Predicate return in isIdempotentRMW; it only tests an integer constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 52,
+    "reason": "Predicate return in isIdempotentRMW; it only tests an integer constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 54,
+    "reason": "Predicate return in isIdempotentRMW; it only tests an integer constant and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 67,
+    "reason": "Predicate return in isSaturating; it only classifies a floating atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 70,
+    "reason": "Predicate return in isSaturating; it only classifies a floating atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 73,
+    "reason": "Predicate return in isSaturating; it only classifies a floating atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 88,
+    "reason": "Predicate return in isSaturating; it only classifies an integer atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 90,
+    "reason": "Predicate return in isSaturating; it only classifies an integer atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 92,
+    "reason": "Predicate return in isSaturating; it only classifies an integer atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 94,
+    "reason": "Predicate return in isSaturating; it only classifies an integer atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 96,
+    "reason": "Predicate return in isSaturating; it only classifies an integer atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "line": 98,
+    "reason": "Predicate return in isSaturating; it only classifies an integer atomic operand and does not perform a rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 310,
+    "reason": "Shared helper returns result of signed-add overflow analysis; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 317,
+    "reason": "Shared helper returns result of unsigned-add overflow analysis; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 323,
+    "reason": "Shared helper selects signed/unsigned add overflow result; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 329,
+    "reason": "Shared helper returns result of signed-sub overflow analysis; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 335,
+    "reason": "Shared helper returns result of unsigned-sub overflow analysis; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 341,
+    "reason": "Shared helper selects signed/unsigned sub overflow result; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 347,
+    "reason": "Shared helper returns result of signed-mul overflow analysis; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 354,
+    "reason": "Shared helper returns result of unsigned-mul overflow analysis; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 360,
+    "reason": "Shared helper selects signed/unsigned mul overflow result; query only, no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 368,
+    "reason": "Shared helper dispatches add overflow query; no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 369,
+    "reason": "Shared helper dispatches sub overflow query; no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 370,
+    "reason": "Shared helper dispatches mul overflow query; no IR rewrite."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 487,
+    "reason": "Shared select builder returns a newly created select with profile metadata; it is a construction utility, not an independent source rewrite branch."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 506,
+    "reason": "Combiner-aware instruction-erasure plumbing; this is mutation infrastructure, not an InstCombine rewrite branch."
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "line": 884,
+    "reason": "Shared helper returns takeLog2 utility result; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 96,
+    "reason": "Utility returning promoted vararg type; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 98,
+    "reason": "Utility identity return for unpromoted type; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 111,
+    "reason": "Recognizer predicate for unused alloca source; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 986,
+    "reason": "Floating denormal-mode query predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 991,
+    "reason": "Floating denormal-mode query predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 998,
+    "reason": "Floating denormal-mode query predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1211,
+    "reason": "Known-sign query delegating to dominance condition; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1219,
+    "reason": "Return cached optional sign fact; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1223,
+    "reason": "Known-sign-or-zero query; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1237,
+    "reason": "Compare known sign facts; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 1258,
+    "reason": "Floating exponent-safety predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 2090,
+    "reason": "Null-pointer classification lambda; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3769,
+    "reason": "Local stackrestore instruction classifier enum result; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3774,
+    "reason": "Local stackrestore instruction classifier enum result; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3777,
+    "reason": "Local side-effect classifier enum result; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3780,
+    "reason": "Local non-intrinsic-call classifier enum result; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 3784,
+    "reason": "Local instruction classifier default enum result; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4692,
+    "reason": "Format-string parser returns a bitset for caller; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4702,
+    "reason": "Aspect-specification query predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4707,
+    "reason": "Aspect-specification query predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4710,
+    "reason": "Type-based aspect query lambda; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4715,
+    "reason": "Aspect-specification query predicate; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4867,
+    "reason": "Trampoline recognizer returns matching init intrinsic; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4881,
+    "reason": "Trampoline recognizer returns matching init intrinsic; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4901,
+    "reason": "Trampoline recognizer forwards a match; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 4903,
+    "reason": "Trampoline recognizer forwards a match; no IR rewrite."
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "line": 5342,
+    "reason": "visitCallBase final changed/not-changed return; associated mutations are inventoried separately."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 240,
+    "reason": "PointerReplacer map lookup accessor; query only."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 242,
+    "reason": "PointerReplacer availability predicate; query only."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 251,
+    "reason": "Address-space cast validity predicate; query only."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 294,
+    "reason": "PHI incoming instruction classification lambda; query only."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 296,
+    "reason": "Pointer replacement availability predicate; query only."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 402,
+    "reason": "PointerReplacer already-replaced map guard; no independent rewrite branch."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 412,
+    "reason": "PointerReplacer creates replacement load and replaces old load uses; mapped to alloca copy rewrite branch."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 424,
+    "reason": "PointerReplacer mutates PHI incoming edge values; mapped to alloca copy rewrite branch."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 427,
+    "reason": "PointerReplacer records unchanged-type PHI and returns; actual incoming mutation is inside the branch."
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line": 594,
+    "reason": "Atomic load supported-type predicate; query only."
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line": 114,
+    "reason": "Scalar/pointer bitwidth query helper; returns type size only and performs no rewrite."
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "line": 116,
+    "reason": "Scalar/pointer bitwidth query helper; returns type size only and performs no rewrite."
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "line": 2248,
+    "reason": "BinopElts boolean conversion used only for match success; no IR rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6319,
+    "reason": "Pass driver returns whether any InstCombine iteration changed the function; orchestration result, not an independent rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6341,
+    "reason": "New-PM pass no-change path returns PreservedAnalyses::all; pass plumbing only."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6361,
+    "reason": "Legacy pass no-change path returns PreservedAnalyses::all; pass plumbing only."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6369,
+    "reason": "New-PM analysis preservation return; pass plumbing only."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6410,
+    "reason": "Legacy pass delegates whole-function processing and returns its changed bit; wrapper only."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6438,
+    "reason": "Pass factory returns a new pass object; setup plumbing, no IR transform."
+  }
+]

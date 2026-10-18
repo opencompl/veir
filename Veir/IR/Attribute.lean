@@ -135,14 +135,14 @@ namespace IntegerAttr
   unsigned types and for signless `i1` (so `true` is 1 and `200 : ui8` is 200),
   and as signed otherwise (so `200 : i8` is -56).
 -/
-def normalizeValue (type : IntegerType) (value : Int) : Int :=
+@[expose] def normalizeValue (type : IntegerType) (value : Int) : Int :=
   if type.signedness = .unsigned ∨ type = IntegerType.signless 1 then
     (BitVec.ofInt type.bitwidth value).toNat
   else
     (BitVec.ofInt type.bitwidth value).toInt
 
 /-- An integer attribute holding the bits of `value`, normalized as MLIR does. -/
-def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
+@[expose] def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
   ⟨normalizeValue type value, type⟩
 
 /--

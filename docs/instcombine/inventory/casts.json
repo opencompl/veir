@@ -1,0 +1,3786 @@
+[
+  {
+    "id": "cast-L232",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 226,
+    "line_end": 232,
+    "function": "InstCombinerImpl::commonCastTransforms",
+    "description": "Delegate to simplifyCastInst and replace the cast with the simplified value when the shared cast simplifier succeeds.",
+    "match_opcodes": [
+      "addrspacecast",
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "inttoptr",
+      "ptrtoint",
+      "sext",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "shared cast simplifier returns a valid replacement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The caller is an exact delegation; the callee may use SimplifyQuery and is inventoried separately.",
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L243",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 235,
+    "line_end": 243,
+    "function": "InstCombinerImpl::commonCastTransforms",
+    "description": "Compose a two-cast chain into one cast from the original source to the final destination when LLVM\u2019s eliminable-cast-pair opcode/type table and pointer-size DataLayout checks allow it.",
+    "match_opcodes": [
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "inttoptr",
+      "ptrtoint",
+      "sext",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "inttoptr",
+      "ptrtoint",
+      "sext",
+      "trunc",
+      "zext"
+    ],
+    "extra_conditions": [
+      "LLVM eliminable-cast-pair table returns a replacement cast opcode",
+      "pointer/integer source and destination widths satisfy intptr restrictions"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The generic cast-pair table also admits FP pairs and pointer pairs outside the documented RV64 pointer-cast subset; scalar integer cast-pair specializations remain pending.",
+    "status": "pending",
+    "kind": "rewrite",
+    "analysis_audit_note": "Retain scalar integer pairs as pending. Restrict unsupported scope to FP casts/poison semantics and pointer widths/address spaces/DataLayout behavior outside the supported subset."
+  },
+  {
+    "id": "cast-L265",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 247,
+    "line_end": 265,
+    "function": "InstCombinerImpl::commonCastTransforms",
+    "description": "Delegate cast of a select to FoldOpIntoSelect when the cast/select type constraints permit the helper rewrite.",
+    "match_opcodes": [
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "select",
+      "sext",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "cast source is a select",
+      "type and vector element-count constraints pass"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L278",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 268,
+    "line_end": 278,
+    "function": "InstCombinerImpl::commonCastTransforms",
+    "description": "Delegate cast of a PHI to foldOpIntoPhi when the resulting PHI type is legal and profitable.",
+    "match_opcodes": [
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "phi",
+      "sext",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "cast source is a PHI",
+      "rewritten PHI type is legal or type change is profitable"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L295",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 282,
+    "line_end": 295,
+    "function": "InstCombinerImpl::commonCastTransforms",
+    "description": "Move a cast before a one-use unary shuffle when fixed-vector element counts and total primitive bit sizes are unchanged.",
+    "match_opcodes": [
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "sext",
+      "shufflevector",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "fpext",
+      "fptrunc",
+      "sext",
+      "shufflevector",
+      "trunc",
+      "zext"
+    ],
+    "extra_conditions": [
+      "shuffle uses poison as second input",
+      "source and destination are fixed vectors with equal element counts and total size"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector shuffle-mask and elementwise cast semantics outside Puddle scalar runtime model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L748",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 713,
+    "line_end": 748,
+    "function": "foldVecTruncToExtElt",
+    "description": "Replace truncation of a bitcasted vector, optionally after logical shift, with extraction of the corresponding element, adjusting the index for endianness.",
+    "match_opcodes": [
+      "bitcast",
+      "extractelement",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "source expression has one use",
+      "source vector width and shift offset are multiples of destination element width",
+      "index is adjusted for target endianness"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires fixed/scalable vector element and data-layout semantics not covered by Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L823",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 763,
+    "line_end": 823,
+    "function": "foldVecExtTruncToExtElt",
+    "description": "Canonicalize truncation of a vector extract, optionally shifted by a whole number of destination elements, into extract from a bitcasted vector of narrower elements.",
+    "match_opcodes": [
+      "bitcast",
+      "extractelement",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "source scalar width is divisible by destination width",
+      "extract index and optional shift produce an in-range element index",
+      "new vector element count is legal"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector bitcast/extract element and endianness semantics outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L927",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 828,
+    "line_end": 927,
+    "function": "InstCombinerImpl::narrowFunnelShift",
+    "description": "Replace truncation of an OR of opposite shifts with a narrower llvm.fshl or llvm.fshr call, narrowing operands and shift amount.",
+    "match_opcodes": [
+      "lshr",
+      "or",
+      "shl",
+      "trunc",
+      "sub",
+      "and",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "call",
+      "trunc",
+      "zext"
+    ],
+    "extra_conditions": [
+      "narrow width is a power of two",
+      "opposite one-use shifts have complementary amounts, or a recognized masked rotate amount",
+      "high bits shifted in from the right operand are known zero",
+      "operand identity and poison shift semantics are preserved"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires analysis to prove shift-amount high bits and shifted-in high bits are zero; vector types also exceed Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L976-binop",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 932,
+    "line_end": 976,
+    "function": "InstCombinerImpl::narrowBinOp",
+    "description": "Move truncation ahead of one-use add/sub/mul/and/or/xor when either operand is constant or the other operand is an extension from the destination type; handle either operand order.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "mul",
+      "or",
+      "sext",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "mul",
+      "or",
+      "sub",
+      "trunc",
+      "xor"
+    ],
+    "extra_conditions": [
+      "outer trunc and inner binary operation are one-use",
+      "scalar type change is profitable unless vector",
+      "one operand is constant or an extension from the destination type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1000",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 978,
+    "line_end": 1000,
+    "function": "InstCombinerImpl::narrowBinOp",
+    "description": "Move a truncation through a logical or arithmetic right shift of a truncated operand when the shift amount is small enough that discarded shifted-in bits cannot affect the result.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "lshr",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "outer trunc and shift are one-use",
+      "shift amount is at most source-width minus destination-width",
+      "cast of shift amount to original narrow type succeeds",
+      "preserve exact flag"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1010",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1007,
+    "line_end": 1010,
+    "function": "InstCombinerImpl::narrowBinOp",
+    "description": "Delegate to narrowFunnelShift and return its narrower funnel/rotate replacement when recognized.",
+    "match_opcodes": [
+      "lshr",
+      "or",
+      "shl",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "call",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "narrowFunnelShift recognizes the expression"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Helper has analysis-dependent guards; its branch is inventoried at cast-L927.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1032",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1018,
+    "line_end": 1032,
+    "function": "shrinkSplatShuffle",
+    "description": "Move truncation into the input of a one-use splat shuffle, preserving its poison second operand and splat mask.",
+    "match_opcodes": [
+      "shufflevector",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "shufflevector",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "shuffle has one use",
+      "second input is poison",
+      "mask is splat",
+      "destination vector element count is at least source count"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Vector shuffle and poison-mask semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1057",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1043,
+    "line_end": 1057,
+    "function": "shrinkInsertElt",
+    "description": "Move truncation into the inserted scalar of a one-use insert into a poison vector.",
+    "match_opcodes": [
+      "insertelement",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "insert has one use",
+      "base vector is poison"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector insert-element and poison semantics outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1065",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1063,
+    "line_end": 1065,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Delegate to commonCastTransforms for standard cast simplifications.",
+    "match_opcodes": [
+      "trunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common cast helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1087",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1070,
+    "line_end": 1087,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Evaluate the full source expression tree in the truncation destination type and replace the truncation with that value.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "ashr",
+      "call",
+      "fptosi",
+      "fptoui",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "shufflevector",
+      "sub",
+      "trunc",
+      "udiv",
+      "urem",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "ashr",
+      "call",
+      "fptosi",
+      "fptoui",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "shufflevector",
+      "sub",
+      "trunc",
+      "udiv",
+      "urem",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "destination is vector or scalar type change is profitable",
+      "canEvaluateTruncated proves each expression node preserves low bits",
+      "all users of multi-use values are visited"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires recursive type-evaluation/use-graph analysis, and the accepted expression set includes vectors and PHIs.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.abs",
+      "llvm.smin",
+      "llvm.smax",
+      "llvm.umin",
+      "llvm.umax"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.abs",
+      "llvm.smin",
+      "llvm.smax",
+      "llvm.umin",
+      "llvm.umax"
+    ],
+    "audit_note": "Recursive opcode scope follows canEvaluateTruncatedPred (540\u2013705), including integer casts and FP-to-integer conversions whose target width holds the maximum FP value; EvaluateInDifferentTypeImpl (40\u2013180) reconstructs these operations. Narrow min/max and abs calls require the documented significant-bit or high-zero-bit analyses. The two-width intermediate path has a scalar integer result and excludes vector shuffle nodes."
+  },
+  {
+    "id": "cast-L1105",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1092,
+    "line_end": 1105,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Evaluate the source expression in an intermediate integer type twice the destination width, then truncate once to the requested destination width.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "ashr",
+      "call",
+      "fptosi",
+      "fptoui",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "udiv",
+      "urem",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "ashr",
+      "call",
+      "fptosi",
+      "fptoui",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "udiv",
+      "urem",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "destination is integer and twice its width is below source width",
+      "intermediate type is profitable",
+      "canEvaluateTruncated accepts the source expression"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires recursive type-evaluation and use-graph analysis to establish safe intermediate evaluation.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.abs",
+      "llvm.smin",
+      "llvm.smax",
+      "llvm.umin",
+      "llvm.umax"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.abs",
+      "llvm.smin",
+      "llvm.smax",
+      "llvm.umin",
+      "llvm.umax"
+    ],
+    "audit_note": "Recursive opcode scope follows canEvaluateTruncatedPred (540\u2013705), including integer casts and FP-to-integer conversions whose target width holds the maximum FP value; EvaluateInDifferentTypeImpl (40\u2013180) reconstructs these operations. Narrow min/max and abs calls require the documented significant-bit or high-zero-bit analyses. The two-width intermediate path has a scalar integer result and excludes vector shuffle nodes."
+  },
+  {
+    "id": "cast-L1113",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1107,
+    "line_end": 1113,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(exact shift(x, amount)) to i1 with x != 0.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "shl",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "trunc has nsw or nuw",
+      "source is an exact shift"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1118",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1116,
+    "line_end": 1118,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Return the trunc after SimplifyDemandedInstructionBits simplifies instructions used only to compute discarded bits.",
+    "match_opcodes": [
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "trunc"
+    ],
+    "extra_conditions": [
+      "demanded-bit simplifier reports a mutation"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires demanded-bits analysis and mutation of matched non-root instructions.",
+    "status": "unsupported",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "cast-L1130",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1122,
+    "line_end": 1130,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc((C1 << x) >> C2) to i1 with x == C2 - log2(C1), for a power-of-two C1.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "shl",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "shift expression has one use",
+      "C1 is a power of two"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "ConstantExpr::getSub at1129 computes a comparison constant; line1130 emits only ICmpInst."
+    ]
+  },
+  {
+    "id": "cast-L1136",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1132,
+    "line_end": 1136,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(shift(x, bitwidth-1)) to i1 with signed x < 0, for either arithmetic or logical right shift.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "shift amount is source width minus one"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1145",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1138,
+    "line_end": 1145,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(lshr(x, C)) to i1 with (x & (1 << C)) != 0.",
+    "match_opcodes": [
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "icmp",
+      "shl"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "logical shift has one use",
+      "shift amount is an immediate constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1153",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1147,
+    "line_end": 1153,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc((lshr(x,C) | x)) to i1 with (x & ((1 << C) | 1)) != 0.",
+    "match_opcodes": [
+      "lshr",
+      "or",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "icmp",
+      "or",
+      "shl"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "matched OR has one use",
+      "the other OR arm is the same x"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1160",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1157,
+    "line_end": 1160,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(C << x) to i1 with x == 0 when C is odd.",
+    "match_opcodes": [
+      "shl",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "C is constant and odd"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1167",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1163,
+    "line_end": 1167,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(x xor y) to i1 with x != y when the trunc carries nsw or nuw.",
+    "match_opcodes": [
+      "trunc",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one bit",
+      "trunc has nsw or nuw"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1172",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1170,
+    "line_end": 1172,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(usub.sat(1,x)) to i1 with x == 0.",
+    "match_opcodes": [
+      "call",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "source is one-use usub_sat(1,x)"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1187",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1174,
+    "line_end": 1187,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(umin or smin(add(zext(a),zext(b)), signed/unsigned max)) with uadd_sat(a,b).",
+    "match_opcodes": [
+      "add",
+      "call",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "matched min/add expression has one use",
+      "add operands are zero-extensions from destination type",
+      "min constant is destination signed/unsigned maximum"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1196",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1189,
+    "line_end": 1196,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(smax(sub(zext(a),zext(b)),0)) with usub_sat(a,b).",
+    "match_opcodes": [
+      "call",
+      "sub",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "matched max/sub expression has one use",
+      "sub operands are zero-extensions from destination type",
+      "clamp constant is zero"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1223",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1217,
+    "line_end": 1223,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(lshr(sext(a), C)) with exact or non-exact ashr(a, narrowed C) when source and destination types match.",
+    "match_opcodes": [
+      "lshr",
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr"
+    ],
+    "extra_conditions": [
+      "shift is in range for the narrower type",
+      "source element type equals trunc destination",
+      "preserve exact flag"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1231",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1224,
+    "line_end": 1231,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(lshr(sext(a), C)) with sext/trunc(ashr(a, narrowed C)) when the source type differs from the trunc destination.",
+    "match_opcodes": [
+      "lshr",
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "sext",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "shift is in range",
+      "wide shift has one use",
+      "narrowed shift amount constant-folds",
+      "preserve exact flag"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1238",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1237,
+    "line_end": 1238,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Delegate to narrowBinOp to move truncation through eligible binary operations or shifts.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "ashr",
+      "lshr",
+      "mul",
+      "or",
+      "sub",
+      "trunc",
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "narrowBinOp returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1241",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1240,
+    "line_end": 1241,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Delegate to shrinkSplatShuffle to narrow the input element type of an eligible splat shuffle.",
+    "match_opcodes": [
+      "shufflevector",
+      "trunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes a one-use splat shuffle"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector shuffle semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1244",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1243,
+    "line_end": 1244,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Delegate to shrinkInsertElt to narrow the scalar inserted into a poison vector.",
+    "match_opcodes": [
+      "insertelement",
+      "trunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes a one-use insert into poison"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector insert and poison semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1267",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1246,
+    "line_end": 1267,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Rewrite trunc(shl(x,C)) as shl(trunc(x), trunc(C)), propagating nsw/nuw only when both the original trunc and wide shift carry each flag.",
+    "match_opcodes": [
+      "shl",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "shl",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "source has one use",
+      "destination is vector or scalar type change is profitable",
+      "constant shift is less than destination width",
+      "not a constant shift of another shift",
+      "new trunc/shift flags are conjunction of original flags"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1299",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1270,
+    "line_end": 1299,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace the select-and-sign-test clamp followed by truncation with trunc(smin(smax(0,A), destination unsigned maximum)).",
+    "match_opcodes": [
+      "icmp",
+      "select",
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "call",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "source/destination integer widths are powers of two",
+      "select and condition compare have one use",
+      "select implements one of the two documented unsigned-bound forms",
+      "sign test is icmp sgt A,0"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1304",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1303,
+    "line_end": 1304,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Delegate to foldVecTruncToExtElt.",
+    "match_opcodes": [
+      "bitcast",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes a vector bitcast/shift/trunc extraction"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1307",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1306,
+    "line_end": 1307,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Delegate to foldVecExtTruncToExtElt.",
+    "match_opcodes": [
+      "extractelement",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes an element extraction and optional right shift"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1316",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1309,
+    "line_end": 1316,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(ctlz(zext(a),is_zero_undef)) with ctlz(a,is_zero_undef) plus the difference in source widths.",
+    "match_opcodes": [
+      "call",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "call"
+    ],
+    "extra_conditions": [
+      "source ctlz has one use",
+      "narrow source width equals trunc destination width",
+      "source width exceeds log2 of original width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1327",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1320,
+    "line_end": 1327,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(vscale) with vscale at the destination type when the function has a maximum vscale below the destination bit-width bound.",
+    "match_opcodes": [
+      "call",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "function has vscale_range attribute with a maximum",
+      "log2(maximum vscale) is less than destination width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The replacement depends on llvm.vscale, which has no Puddle opcode/interpreter case.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1337",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1331,
+    "line_end": 1339,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Sink truncation into scmp/ucmp intrinsic by recreating the comparison intrinsic with the narrower result type.",
+    "match_opcodes": [
+      "call",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "destination width at least two",
+      "cmp intrinsic has one use"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The replacement depends on scmp/ucmp comparison intrinsics, which have no Puddle opcode/interpreter cases.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1344",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1341,
+    "line_end": 1344,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace a one-bit trunc with true when its source is known nonzero and the trunc has nsw or nuw.",
+    "match_opcodes": [
+      "trunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "destination width is one",
+      "trunc has nsw or nuw",
+      "source is known nonzero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonzero value analysis.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1349-nsw",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1346,
+    "line_end": 1350,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Add nsw to a trunc when the source maximum significant-bit count fits within the destination width.",
+    "match_opcodes": [
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "trunc"
+    ],
+    "extra_conditions": [
+      "trunc lacks nsw",
+      "ComputeMaxSignificantBits(source) <= destination width"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires maximum-significant-bits analysis on the arbitrary SSA source to prove the trunc nsw precondition. Trunc overflow flags are modeled; root flag reconstruction is expressible, but no matcher can supply this analysis fact.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1355-nuw",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1352,
+    "line_end": 1356,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Add nuw to a trunc when all source bits above the destination width are known zero.",
+    "match_opcodes": [
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "trunc"
+    ],
+    "extra_conditions": [
+      "trunc lacks nuw",
+      "MaskedValueIsZero above destination width"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires KnownBits over the arbitrary SSA source to prove all discarded bits are zero. Trunc overflow flags are modeled; root flag reconstruction is expressible, but no matcher can supply this analysis fact.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1365",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1359,
+    "line_end": 1365,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(shift(power_of_two_C, x)) to i1 with x == log2(C), for either logical or arithmetic right shift.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one",
+      "shift constant is a power of two"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1373",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1367,
+    "line_end": 1373,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(shift(C,x)) to i1 with x < countTrailingZeros(C+1), where C is a constant low-bit mask and x is the variable shift amount.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one",
+      "shift constant is a low-bit mask"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1381",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1375,
+    "line_end": 1381,
+    "function": "InstCombinerImpl::visitTrunc",
+    "description": "Replace trunc(shift(negative_power_of_two_C, x)) to i1 with x >= countTrailingZeros(C).",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "icmp"
+    ],
+    "extra_conditions": [
+      "destination width is one",
+      "shift constant is a negative power of two"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1411",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1387,
+    "line_end": 1411,
+    "function": "InstCombinerImpl::transformZExtICmp",
+    "description": "Replace zext(x slt 0) with logical shift right by the source sign-bit position, then zero-extend/truncate that 0/1 result to the zext type.",
+    "match_opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "trunc",
+      "zext"
+    ],
+    "extra_conditions": [
+      "predicate is signed less-than",
+      "compare constant is zero"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1443-eq-ne",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1414,
+    "line_end": 1446,
+    "function": "InstCombinerImpl::transformZExtICmp",
+    "description": "When KnownBits proves the compared value has exactly one possible set bit, replace zext(eq/ne x,0) with the corresponding shifted low bit, toggling it for equality and casting to the zext type if needed.",
+    "match_opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "lshr",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "predicate is eq/ne against zero",
+      "KnownBits says the source has one possible one bit",
+      "source/result type and shift amount satisfy the branch type guards"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires KnownBits/value-range analysis to establish a source value has only the permitted bit set; Puddle has no such analysis predicate.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1468-maskbit",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1451,
+    "line_end": 1469,
+    "function": "InstCombinerImpl::transformZExtICmp",
+    "description": "Replace zext(eq/ne (and x, 1<<shift), 0) with the selected shifted bit, complemented for equality, masked to one bit and cast to the extension result type.",
+    "match_opcodes": [
+      "and",
+      "icmp",
+      "shl",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "lshr",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "comparison and compared AND have one use",
+      "AND mask is a shifted one",
+      "equality requires the shifted value to have one use unless result type equals AND type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "LLVM not is represented as xor with all ones; Puddle supports scalar integer xor, but cast/shift graph needs proof.",
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1634",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1625,
+    "line_end": 1634,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Delegate zero extension to commonCastTransforms for standard cast simplifications.",
+    "match_opcodes": [
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1637",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1636,
+    "line_end": 1637,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Delegate zero extension of a vector extraction to foldExtractionOfVectorDeinterleave.",
+    "match_opcodes": [
+      "extractelement",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes deinterleave extraction"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector deinterleave/extract semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1644",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1639,
+    "line_end": 1644,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Replace zext of a one-bit nonnegative value with zero.",
+    "match_opcodes": [
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source is i1 or vector-of-i1",
+      "zext has nneg"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1689",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1646,
+    "line_end": 1689,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Evaluate a zext source expression directly in the wider destination type and replace the zext when the computed high bits are already zero (or signed evaluation proves the sign bits zero).",
+    "match_opcodes": [
+      "add",
+      "and",
+      "call",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "call",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "destination type change is profitable",
+      "source tree is evaluable as zext or nneg signed expression",
+      "known high bits satisfy the zero-extension result"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires recursive expression/use-graph analysis and known-bits/sign-bits proofs; PHI/vector nodes are also accepted.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.vscale"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.vscale"
+    ],
+    "audit_note": "Recursive accepted nodes are the union of canEvaluateSExtdPred for the nneg signed-evaluation path and canEvaluateZExtdImpl (1493\u20131623) otherwise. Both admit integer casts; the unsigned path also admits llvm.vscale (1614\u20131619), rebuilt at the wider result type. Shift and PHI guards are retained by the recursive predicates."
+  },
+  {
+    "id": "cast-L1694",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1691,
+    "line_end": 1694,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "After evaluating the zext source expression in the destination type, clear any high bits that may differ with an AND mask.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "call",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "call",
+      "lshr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "source tree is evaluable in destination type",
+      "BitsToClear determines retained low-bit mask",
+      "computed high bits were not proven zero"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires recursive type-evaluation and use-graph analysis to compute a safe mask; PHI/vector nodes are accepted.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.vscale"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.vscale"
+    ],
+    "audit_note": "Recursive accepted nodes are the union of canEvaluateSExtdPred for the nneg signed-evaluation path and canEvaluateZExtdImpl (1493\u20131623) otherwise. Both admit integer casts; the unsigned path also admits llvm.vscale (1614\u20131619), rebuilt at the wider result type. Shift and PHI guards are retained by the recursive predicates."
+  },
+  {
+    "id": "cast-L1717",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1697,
+    "line_end": 1717,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Replace zext(trunc(a)) with zext(a & low_mask) when the original source is narrower than the zero-extension destination.",
+    "match_opcodes": [
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "zext"
+    ],
+    "extra_conditions": [
+      "source width is less than destination width",
+      "mask preserves the low bits retained by the intermediate trunc"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1722",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1719,
+    "line_end": 1722,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Replace zext(trunc(a)) with a & low_mask when the original source and destination widths match.",
+    "match_opcodes": [
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and"
+    ],
+    "extra_conditions": [
+      "source width equals destination width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1728",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1723,
+    "line_end": 1728,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Replace zext(trunc(a)) with trunc(a) & low_mask when the original source is wider than the zero-extension destination.",
+    "match_opcodes": [
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "source width exceeds destination width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1735",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1733,
+    "line_end": 1735,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Delegate zext of an integer comparison to transformZExtICmp.",
+    "match_opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source is an ICmpInst"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1745",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1738,
+    "line_end": 1745,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Rewrite zext((trunc(x) & C) xor C) as (x & zext(C)) xor zext(C).",
+    "match_opcodes": [
+      "and",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "outer xor and inner AND have one use",
+      "same constant C is used in AND and XOR",
+      "truncated value is x at destination width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1753",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1747,
+    "line_end": 1753,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Rewrite zext(0 - trunc(x)) as (0 - x) & low_mask.",
+    "match_opcodes": [
+      "sub",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "sub"
+    ],
+    "extra_conditions": [
+      "truncated operand is x at destination type",
+      "mask has the source width low bits set"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1763",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1755,
+    "line_end": 1763,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Rewrite zext(and(trunc(x),C)) as and(x,zext(C)).",
+    "match_opcodes": [
+      "and",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "zext"
+    ],
+    "extra_conditions": [
+      "truncated value is destination-typed x",
+      "mask C is constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1770",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1765,
+    "line_end": 1770,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Move zext through a bitwise operation with a nuw trunc operand, extending the other operand and keeping the original logic opcode.",
+    "match_opcodes": [
+      "and",
+      "or",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "or",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "source bitwise operation has one use",
+      "one operand is nuw trunc of destination-typed x"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1782",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1772,
+    "line_end": 1782,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Replace zext(vscale) with vscale directly at the destination type when the function vscale_range maximum fits the source type.",
+    "match_opcodes": [
+      "call",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "function has a maximum vscale attribute",
+      "log2(maximum vscale) is less than source width"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The replacement depends on llvm.vscale, which has no Puddle opcode/interpreter case.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1794",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1784,
+    "line_end": 1794,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Set nneg on a zext used only as a shift amount when the source width exceeds the shift-amount width needed by the destination.",
+    "match_opcodes": [
+      "ashr",
+      "lshr",
+      "shl",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "zext"
+    ],
+    "extra_conditions": [
+      "zext currently lacks nneg",
+      "one use is the shift amount",
+      "source width > ceil(log2(destination width))"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite",
+    "audit_note": "A Puddle encoding can root the pattern at the consuming shift, match its zext operand, and create a replacement zext nneg plus shift. Lack of in-place mutation alone is not an impossibility; the context must be included in the refinement proof."
+  },
+  {
+    "id": "cast-L1799",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1796,
+    "line_end": 1799,
+    "function": "InstCombinerImpl::visitZExt",
+    "description": "Set nneg on a zext when the source is known nonnegative.",
+    "match_opcodes": [
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "zext"
+    ],
+    "extra_conditions": [
+      "zext currently lacks nneg",
+      "source is proven nonnegative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonnegative-value analysis on the arbitrary SSA source. The zext nneg property is modeled and can be recreated on the root; Puddle lacks the required value-analysis predicate.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1824",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1807,
+    "line_end": 1824,
+    "function": "InstCombinerImpl::transformSExtICmp",
+    "description": "Replace sext(x slt 0) with arithmetic shift right by the source sign-bit position, then sign-extend/truncate to the sext type.",
+    "match_opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "sext",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "predicate is signed less-than",
+      "comparison RHS is zero"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1844",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1826,
+    "line_end": 1844,
+    "function": "InstCombinerImpl::transformSExtICmp",
+    "description": "Fold sext(eq/ne x,C) to all ones or zero when KnownBits proves x has one possible set bit that differs from nonzero comparison constant C.",
+    "match_opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "comparison has one use",
+      "predicate is eq/ne",
+      "constant is zero or power of two",
+      "KnownBits proves exactly one possible set bit and it differs from C"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires KnownBits/value-range analysis to establish a source value has only the permitted bit set; Puddle has no such analysis predicate.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1877-onebit",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1846,
+    "line_end": 1877,
+    "function": "InstCombinerImpl::transformSExtICmp",
+    "description": "For a one-bit KnownBits source and equality test against zero or its sole possible set bit, replace sext of the comparison with either (x >> n)-1 or ((x << n) ashr signbit), preserving the comparison polarity.",
+    "match_opcodes": [
+      "and",
+      "icmp",
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "ashr",
+      "lshr",
+      "sext",
+      "shl",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "comparison has one use",
+      "predicate eq/ne",
+      "constant is zero or power of two",
+      "KnownBits proves exactly one possible set bit"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires KnownBits/value-range analysis to establish a source value has only the permitted bit set; Puddle has no such analysis predicate.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1956",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1949,
+    "line_end": 1956,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Delegate sign extension to commonCastTransforms for standard cast simplifications.",
+    "match_opcodes": [
+      "sext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L1967",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1963,
+    "line_end": 1967,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Replace sext(x) with zext(x) and set nneg when analysis proves x nonnegative.",
+    "match_opcodes": [
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "zext"
+    ],
+    "extra_conditions": [
+      "source is proven nonnegative",
+      "set nneg on replacement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonnegative-value analysis on the arbitrary SSA source. The zext nneg property is modeled and can be recreated on the root; Puddle lacks the required value-analysis predicate.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L1981",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1971,
+    "line_end": 1981,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Replace sext(trunc(x)) with a direct signed cast from x to the final destination when trunc nsw holds or source sign bits prove truncation preserved the sign; retain nsw if result remains a trunc.",
+    "match_opcodes": [
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "sext",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "trunc has nsw or source sign-bit count exceeds discarded bit count"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite",
+    "audit_note": "The trunc nsw alternative is expressible: Puddle interprets trunc nsw/nuw and a creator can reconstruct the final cast and flags. A scalar proof can cover this explicit alternative. The independent ComputeNumSignBits alternative needs an unavailable sound analysis predicate; full branch coverage must state that limitation. In-place mutation is not a blocker here because LLVM constructs a new cast."
+  },
+  {
+    "id": "cast-L1997",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1984,
+    "line_end": 1997,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Replace sext(trunc(lshr(y,C))) with sext/trunc(ashr(y,C)) when C is within the discarded-bit range and the sign-bit analysis proves the logical shift filled bits agree with the destination sign.",
+    "match_opcodes": [
+      "lshr",
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "sext",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "intermediate trunc has one use",
+      "C <= discarded bits",
+      "C equals discarded width or sign-bit count plus C exceeds discarded width"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires ComputeNumSignBits analysis to prove shift replacement preserves value.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2004",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1999,
+    "line_end": 2004,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Rewrite sext(trunc(x)) where x already has the destination type as ashr(shl(x, N-M), N-M).",
+    "match_opcodes": [
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "shl"
+    ],
+    "extra_conditions": [
+      "source trunc has one use",
+      "pre-trunc value type equals sext destination"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2030",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2007,
+    "line_end": 2030,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Evaluate a sign-extendable source expression in the destination type and replace sext directly when the new expression already has enough sign bits.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "destination type change is profitable",
+      "source expression passes canEvaluateSExtd",
+      "computed result sign bits cover extension width",
+      "A root trunc whose pre-trunc width exceeds the destination prevents promotion; other root/nested trunc, zext and sext nodes can pass canEvaluateSExtdPred (1904\u20131913)."
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires recursive expression/use-graph and sign-bit analysis; PHI/vector nodes are accepted.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "audit_note": "The root-trunc test is a conditional width exclusion, not a blanket rejection of trunc nodes. The recursive admissibility predicate accepts trunc/zext/sext, and EvaluateInDifferentTypeImpl (77\u2013101) may emit a replacement integer cast or reuse its input. Both match and output opcode sets include these casts."
+  },
+  {
+    "id": "cast-L2034",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2031,
+    "line_end": 2034,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "When the widened source expression lacks enough sign bits, implement sign extension as shl then arithmetic shift right by the width difference.",
+    "match_opcodes": [
+      "add",
+      "and",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "add",
+      "and",
+      "ashr",
+      "mul",
+      "or",
+      "phi",
+      "select",
+      "sext",
+      "shl",
+      "sub",
+      "trunc",
+      "xor",
+      "zext"
+    ],
+    "extra_conditions": [
+      "source expression passes canEvaluateSExtd",
+      "destination type change is profitable",
+      "A root trunc whose pre-trunc width exceeds the destination prevents promotion; other root/nested trunc, zext and sext nodes can pass canEvaluateSExtdPred (1904\u20131913)."
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires recursive expression/use-graph analysis; PHI/vector nodes are accepted.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "audit_note": "The root-trunc test is a conditional width exclusion, not a blanket rejection of trunc nodes. The recursive admissibility predicate accepts trunc/zext/sext, and EvaluateInDifferentTypeImpl (77\u2013101) may emit a replacement integer cast or reuse its input. Both match and output opcode sets include these casts."
+  },
+  {
+    "id": "cast-L2039",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2037,
+    "line_end": 2039,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Delegate sext of an integer comparison to transformSExtICmp.",
+    "match_opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source is an ICmpInst"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2072",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2041,
+    "line_end": 2072,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Replace sext(ashr(shl(trunc(x),C),C)) with corresponding shifts directly on destination-typed x, using the equivalent wide shift amount.",
+    "match_opcodes": [
+      "ashr",
+      "sext",
+      "shl",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "shl"
+    ],
+    "extra_conditions": [
+      "source/destination types match the trunc/shifts pattern",
+      "left and right shift constants match elementwise"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2089",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2074,
+    "line_end": 2089,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Replace sext(ashr(trunc(x), source_width-1)) with shl/ashr sign-bit propagation on x, then sign-cast to destination when needed.",
+    "match_opcodes": [
+      "ashr",
+      "sext",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "ashr",
+      "sext",
+      "shl",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "ashr shift equals source sign-bit position",
+      "outer ashr has one use",
+      "inner trunc/ashr has one use when a final cast is required"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2100",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2091,
+    "line_end": 2100,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Replace sext(vscale) with vscale directly at the destination type when vscale_range maximum fits the source width.",
+    "match_opcodes": [
+      "call",
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "function has maximum vscale attribute",
+      "log2(maximum vscale) < source width minus one"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The replacement depends on llvm.vscale, which has no Puddle opcode/interpreter case.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2109",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2102,
+    "line_end": 2109,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Sink sext into scmp/ucmp intrinsic by recreating the comparison intrinsic with the wider result type.",
+    "match_opcodes": [
+      "call",
+      "sext"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "source is CmpIntrinsic",
+      "comparison intrinsic has one use"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The matched and reconstructed llvm.scmp/llvm.ucmp intrinsics have no opcode or interpreter case in the current Puddle LLVM dialect.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2117",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2112,
+    "line_end": 2117,
+    "function": "InstCombinerImpl::visitSExt",
+    "description": "Move sext through a bitwise operation with an nsw-truncated destination-typed operand, sign-extending the other operand.",
+    "match_opcodes": [
+      "and",
+      "or",
+      "sext",
+      "trunc",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "or",
+      "sext",
+      "xor"
+    ],
+    "extra_conditions": [
+      "source bitwise operation has one use",
+      "one operand is nsw trunc of destination-typed x"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2298",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2296,
+    "line_end": 2298,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Delegate FP truncation to commonCastTransforms.",
+    "match_opcodes": [
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2363-addsub",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2330,
+    "line_end": 2363,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Narrow fadd/fsub before fptrunc when the wide operation has enough significand bits to make double rounding innocuous and each operand converts losslessly to the destination format.",
+    "match_opcodes": [
+      "fadd",
+      "fptrunc",
+      "fsub"
+    ],
+    "rewrite_opcodes": [
+      "fadd",
+      "fptrunc",
+      "fsub"
+    ],
+    "extra_conditions": [
+      "inner binary op has one use",
+      "opcode is fadd or fsub",
+      "wide mantissa width >= 2*destination mantissa width + 1",
+      "both operand formats convert losslessly",
+      "propagate no-infs only when both source op and fptrunc have it"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point rounding, NaN/Inf, denormal, and fast-math semantics exceed Puddle\u2019s model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2375-fmul",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2365,
+    "line_end": 2375,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Narrow fmul before fptrunc when the wide operation can exactly represent the product significand and both operands convert losslessly to the destination format.",
+    "match_opcodes": [
+      "fmul",
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [
+      "fmul",
+      "fptrunc"
+    ],
+    "extra_conditions": [
+      "inner fmul has one use",
+      "wide mantissa width >= sum of operand minimum mantissa widths",
+      "both operand formats convert losslessly",
+      "preserve narrowed fast-math flags"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point rounding and fast-math semantics exceed Puddle\u2019s model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2388-fdiv",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2377,
+    "line_end": 2388,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Narrow fdiv before fptrunc under the conservative double-rounding bound when both operands convert losslessly to the destination format.",
+    "match_opcodes": [
+      "fdiv",
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [
+      "fdiv",
+      "fptrunc"
+    ],
+    "extra_conditions": [
+      "inner fdiv has one use",
+      "wide mantissa width >= 2*destination mantissa width",
+      "both operands convert losslessly"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point rounding and fast-math semantics exceed Puddle\u2019s model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2408-frem",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2390,
+    "line_end": 2408,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Evaluate frem in the narrower operand format selected by minimum operand precision, then cast the exact remainder to the fptrunc destination.",
+    "match_opcodes": [
+      "fptrunc",
+      "frem"
+    ],
+    "rewrite_opcodes": [
+      "fptrunc",
+      "frem"
+    ],
+    "extra_conditions": [
+      "inner frem has one use",
+      "minimum source precision differs from operation precision",
+      "truncate both operands to the selected wider-minimum operand type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point remainder and rounding semantics exceed Puddle\u2019s model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2424-fneg",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2412,
+    "line_end": 2424,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Move fptrunc through a one-use fneg, narrowing the input and applying fneg in the destination type with intersected fast-math flags.",
+    "match_opcodes": [
+      "fneg",
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [
+      "fneg",
+      "fptrunc"
+    ],
+    "extra_conditions": [
+      "fneg has one use",
+      "flags are intersection of outer trunc and inner operator"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point signed-zero and fast-math semantics exceed Puddle\u2019s model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2436-select-true",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2426,
+    "line_end": 2436,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Sink fptrunc through the true fpext arm of a select and truncate the other arm, preserving the select condition and intersected fast-math flags.",
+    "match_opcodes": [
+      "fpext",
+      "fptrunc",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "fptrunc",
+      "select"
+    ],
+    "extra_conditions": [
+      "select has one use",
+      "true arm is fpext from destination type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The matched floating-point comparison/conversion or arithmetic has no meaningful Llvm.interpretOp' case in the current model. NaN/rounding and FP poison behavior cannot be proved by substituting scalar integer semantics; an absent interpreter branch is not a valid proof of this LLVM rule.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2444-select-false",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2438,
+    "line_end": 2444,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Sink fptrunc through the false fpext arm of a select and truncate the other arm, preserving the select condition and intersected fast-math flags.",
+    "match_opcodes": [
+      "fpext",
+      "fptrunc",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "fptrunc",
+      "select"
+    ],
+    "extra_conditions": [
+      "select has one use",
+      "false arm is fpext from destination type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The matched floating-point comparison/conversion or arithmetic has no meaningful Llvm.interpretOp' case in the current model. NaN/rounding and FP poison behavior cannot be proved by substituting scalar integer semantics; an absent interpreter branch is not a valid proof of this LLVM rule.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2484-unary",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2446,
+    "line_end": 2484,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Move supported unary FP intrinsics (ceil/fabs/floor/nearbyint/rint/round/roundeven/trunc) before fptrunc and recreate the intrinsic at the narrower type.",
+    "match_opcodes": [
+      "call",
+      "fpext",
+      "fptrunc"
+    ],
+    "rewrite_opcodes": [
+      "call",
+      "fptrunc"
+    ],
+    "extra_conditions": [
+      "intrinsic operand has one use",
+      "except fabs, operand is fpext from destination type",
+      "copy operand bundles and fast-math flags from fptrunc"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point intrinsic and fast-math semantics are not represented by Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2490",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2486,
+    "line_end": 2490,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Delegate fptrunc of an insert into poison to shrinkInsertElt.",
+    "match_opcodes": [
+      "fptrunc",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes one-use insert into poison"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector insert and poison semantics are outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2496-exact-itofp",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2492,
+    "line_end": 2496,
+    "function": "InstCombinerImpl::visitFPTrunc",
+    "description": "Bypass an exactly representable signed/unsigned integer-to-FP cast under fptrunc by recreating the integer-to-FP cast directly at the destination FP type.",
+    "match_opcodes": [
+      "fptrunc",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "sitofp",
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "source is sitofp/uitofp",
+      "integer-to-FP conversion is proven exact"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires exact integer-to-floating representability analysis and floating-point semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2510-exact-itofp",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2502,
+    "line_end": 2510,
+    "function": "InstCombinerImpl::visitFPExt",
+    "description": "Bypass an exactly representable integer-to-FP cast under fpext by recreating it directly at the fpext destination type.",
+    "match_opcodes": [
+      "fpext",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "sitofp",
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "source is sitofp/uitofp",
+      "integer-to-FP conversion is proven exact"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires exact integer-to-floating representability analysis and floating-point semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2513",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2511,
+    "line_end": 2513,
+    "function": "InstCombinerImpl::visitFPExt",
+    "description": "Delegate fpext to commonCastTransforms.",
+    "match_opcodes": [
+      "fpext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2575",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2573,
+    "line_end": 2575,
+    "function": "InstCombinerImpl::foldItoFPtoI",
+    "description": "Replace fptosi(sitofp(x)) with sext(x) when widths require signed extension.",
+    "match_opcodes": [
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "sext"
+    ],
+    "extra_conditions": [
+      "integer-to-FP cast is exact or nonsaturating conversion overflow rules make rounding case undefined",
+      "saturating case requires exact conversion and same signedness without narrowing"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires floating-point exactness/overflow and conversion semantics; width-only fallback additionally relies on poison/UB distinctions.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2576",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2576,
+    "line_end": 2576,
+    "function": "InstCombinerImpl::foldItoFPtoI",
+    "description": "Replace integer-to-FP-to-integer round trip with zext(x) when signedness and widths require zero extension.",
+    "match_opcodes": [
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "zext"
+    ],
+    "extra_conditions": [
+      "integer-to-FP cast is exact or nonsaturating conversion overflow rules make rounding case undefined",
+      "saturating case requires exact conversion and same signedness without narrowing"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires floating-point exactness/overflow and conversion semantics; width-only fallback additionally relies on poison/UB distinctions.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2579",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2578,
+    "line_end": 2579,
+    "function": "InstCombinerImpl::foldItoFPtoI",
+    "description": "Replace integer-to-FP-to-integer round trip with trunc(x) when destination integer width is narrower.",
+    "match_opcodes": [
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "trunc"
+    ],
+    "extra_conditions": [
+      "integer-to-FP cast is exact or nonsaturating conversion overflow rules make rounding case undefined",
+      "saturating case requires exact conversion and same signedness without narrowing"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires floating-point exactness/overflow and conversion semantics; width-only fallback additionally relies on poison/UB distinctions.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2582",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2581,
+    "line_end": 2582,
+    "function": "InstCombinerImpl::foldItoFPtoI",
+    "description": "Replace integer-to-FP-to-integer round trip with the original integer value when source and destination types match.",
+    "match_opcodes": [
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "integer-to-FP cast is exact or nonsaturating conversion overflow rules make rounding case undefined",
+      "saturating case requires exact conversion and same signedness without narrowing"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires floating-point exactness/overflow and conversion semantics; width-only fallback additionally relies on poison/UB distinctions.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2596",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2589,
+    "line_end": 2596,
+    "function": "foldFPtoI",
+    "description": "Replace fptoui of a value known never positive-normal, or fptosi of a value known never normal, with integer zero.",
+    "match_opcodes": [
+      "fptosi",
+      "fptoui"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "KnownFPClass proves no values in the required normal class"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires KnownFPClass floating analysis and FP conversion semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2601",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2598,
+    "line_end": 2601,
+    "function": "foldFPtoI",
+    "description": "Remove an FP trunc intrinsic immediately before fptoui/fptosi by redirecting the cast operand to the intrinsic input.",
+    "match_opcodes": [
+      "call",
+      "fptosi",
+      "fptoui"
+    ],
+    "rewrite_opcodes": [
+      "fptosi",
+      "fptoui"
+    ],
+    "extra_conditions": [
+      "cast operand is llvm.trunc"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle has no interpreter semantics for llvm.trunc on floating values or fptoui/fptosi conversions; therefore it cannot prove removing the FP trunc preserves integer-conversion behavior.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2659",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2603,
+    "line_end": 2659,
+    "function": "foldFPtoI",
+    "description": "Replace fptoui/fptosi(fdiv(uitofp/sitofp(x), exact integer-valued C)) with udiv/sdiv(x,C).",
+    "match_opcodes": [
+      "fdiv",
+      "fptosi",
+      "fptoui",
+      "sitofp",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "sdiv",
+      "udiv"
+    ],
+    "extra_conditions": [
+      "division result type equals integer source type",
+      "integer-to-FP precision covers source width",
+      "FP divisor is exact nonzero integer",
+      "signed divisor is not -1",
+      "signedness of casts match"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires IEEE rounding proofs, FP semantics, and signed division UB conditions.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2665",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2663,
+    "line_end": 2665,
+    "function": "InstCombinerImpl::visitFPToUI",
+    "description": "Delegate FPToUI to foldItoFPtoI.",
+    "match_opcodes": [
+      "fptoui"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "callee returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2668",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2666,
+    "line_end": 2668,
+    "function": "InstCombinerImpl::visitFPToUI",
+    "description": "Delegate FPToUI to foldFPtoI.",
+    "match_opcodes": [
+      "fptoui"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "callee returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2670",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2670,
+    "line_end": 2670,
+    "function": "InstCombinerImpl::visitFPToUI",
+    "description": "Delegate FPToUI to commonCastTransforms.",
+    "match_opcodes": [
+      "fptoui"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "callee returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2675",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2673,
+    "line_end": 2675,
+    "function": "InstCombinerImpl::visitFPToSI",
+    "description": "Delegate FPToSI to foldItoFPtoI.",
+    "match_opcodes": [
+      "fptosi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "callee returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2678",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2676,
+    "line_end": 2678,
+    "function": "InstCombinerImpl::visitFPToSI",
+    "description": "Delegate FPToSI to foldFPtoI.",
+    "match_opcodes": [
+      "fptosi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "callee returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2680",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2680,
+    "line_end": 2680,
+    "function": "InstCombinerImpl::visitFPToSI",
+    "description": "Delegate FPToSI to commonCastTransforms.",
+    "match_opcodes": [
+      "fptosi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "callee returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2688",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2686,
+    "line_end": 2688,
+    "function": "InstCombinerImpl::visitUIToFP",
+    "description": "Set nneg on uitofp when its integer source is known nonnegative.",
+    "match_opcodes": [
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "cast lacks nneg",
+      "source is known nonnegative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonnegative-value analysis and in-place flag mutation.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2706",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2691,
+    "line_end": 2706,
+    "function": "InstCombinerImpl::visitUIToFP",
+    "description": "Narrow an illegal-width uitofp operand by moving a mask across truncation: replace uitofp(and(trunc(x),mask)) with uitofp(and(x,zext(mask))).",
+    "match_opcodes": [
+      "and",
+      "trunc",
+      "uitofp"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "uitofp",
+      "zext"
+    ],
+    "extra_conditions": [
+      "source AND and trunc each have one use",
+      "source width is illegal but changing to input width is profitable",
+      "preserve nneg flag"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Floating-point conversion result semantics and target integer-width legality are contextual.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2725",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2713,
+    "line_end": 2725,
+    "function": "InstCombinerImpl::visitSIToFP",
+    "description": "Replace sitofp with uitofp when the source is known nonnegative, setting nneg and preserving ninf/nsz flags.",
+    "match_opcodes": [
+      "sitofp"
+    ],
+    "rewrite_opcodes": [
+      "uitofp"
+    ],
+    "extra_conditions": [
+      "source is proven nonnegative",
+      "propagate ninf and nsz; set nneg"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonnegative-value analysis and floating fast-math flag refinement.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2740",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2730,
+    "line_end": 2740,
+    "function": "InstCombinerImpl::visitIntToPtr",
+    "description": "Normalize inttoptr input width to the target intptr width with zext or trunc before inttoptr.",
+    "match_opcodes": [
+      "inttoptr"
+    ],
+    "rewrite_opcodes": [
+      "inttoptr",
+      "trunc",
+      "zext"
+    ],
+    "extra_conditions": [
+      "source bit width differs from pointer size in address space"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "This branch requires an inttoptr source width different from the target pointer width. The current default layout has 64-bit pointers and Llvm.interpretOp' accepts inttoptr only for a 64-bit integer source, so every nontrivial width-normalization source is uninterpreted. A proof from that absent case would be vacuous; the 64-bit source case does not trigger the LLVM branch. General state-dependent pointer reconstruction is an additional limitation.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2761",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2753,
+    "line_end": 2761,
+    "function": "InstCombinerImpl::visitIntToPtr",
+    "description": "Replace inttoptr(add(ptrtoint(base), offset)) with getelementptr i8(base, offset) when resulting pointer is used only as integer comparison/ptrtoint.",
+    "match_opcodes": [
+      "add",
+      "icmp",
+      "inttoptr",
+      "phi",
+      "ptrtoint"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "matched add and ptrtoint chain has one use",
+      "address spaces match",
+      "all users consume pointer as integer directly or through one-use PHI"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Restricted one-index GEP and pointer/int casts are modeled; this rule also requires tracing all users through PHIs and proving the pointer is consumed only as integer comparison/ptrtoint. No blanket pointer-semantic absence applies.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2765",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2764,
+    "line_end": 2765,
+    "function": "InstCombinerImpl::visitIntToPtr",
+    "description": "Delegate inttoptr to commonCastTransforms.",
+    "match_opcodes": [
+      "inttoptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2820",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2806,
+    "line_end": 2820,
+    "function": "InstCombinerImpl::visitPtrToInt",
+    "description": "Normalize ptrtoint to target intptr width followed by zext/trunc to the requested integer width.",
+    "match_opcodes": [
+      "ptrtoint"
+    ],
+    "rewrite_opcodes": [
+      "ptrtoint",
+      "trunc",
+      "zext"
+    ],
+    "extra_conditions": [
+      "requested integer width differs from target pointer size"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "This branch requires a ptrtoint result width different from the target pointer width. The default layout has 64-bit pointers and Llvm.interpretOp' accepts ptrtoint only for a 64-bit result, so the matched nontrivial width-normalization source has no interpretation. The supported 64-bit result case does not trigger this rewrite; claiming that case as an implementation would be misleading.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2829",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2822,
+    "line_end": 2829,
+    "function": "InstCombinerImpl::visitPtrToInt",
+    "description": "Replace ptrtoint(ptrmask(P,M)) with and(ptrtoint(P),M).",
+    "match_opcodes": [
+      "call",
+      "ptrtoint"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "ptrtoint"
+    ],
+    "extra_conditions": [
+      "ptrmask has one use",
+      "mask type equals result integer type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The matched ptrmask intrinsic semantics are not modeled; ptrtoint and integer and semantics alone do not model this call.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2832",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2831,
+    "line_end": 2832,
+    "function": "InstCombinerImpl::visitPtrToInt",
+    "description": "Delegate ptrtoint of a GEP chain or integer-derived pointer to foldPtrToIntOrAddrOfGEP and replace the cast if it returns a value.",
+    "match_opcodes": [
+      "getelementptr",
+      "inttoptr",
+      "ptrtoint"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes a one-use GEP chain from inttoptr or null pointer"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Restricted one-index GEP and pointer/int casts are modeled; this call delegates to a helper that recognizes GEP chains and needs chain/use analysis.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2841",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2834,
+    "line_end": 2841,
+    "function": "InstCombinerImpl::visitPtrToInt",
+    "description": "Sink ptrtoint through an insert into an inttoptr-converted vector, replacing the scalar with ptrtoint(scalar).",
+    "match_opcodes": [
+      "insertelement",
+      "inttoptr",
+      "ptrtoint"
+    ],
+    "rewrite_opcodes": [
+      "insertelement",
+      "ptrtoint"
+    ],
+    "extra_conditions": [
+      "insert has one use",
+      "vector element width equals pointer size"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector insertelement semantics, which are unavailable; restricted pointer/int cast semantics are modeled.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2844",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2843,
+    "line_end": 2844,
+    "function": "InstCombinerImpl::visitPtrToInt",
+    "description": "Delegate remaining ptrtoint simplifications to commonCastTransforms.",
+    "match_opcodes": [
+      "ptrtoint"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2857",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2847,
+    "line_end": 2857,
+    "function": "InstCombinerImpl::visitPtrToAddr",
+    "description": "Replace ptrtoaddr(ptrmask(P,M)) with and(ptrtoaddr(P),M).",
+    "match_opcodes": [
+      "call",
+      "ptrtoaddr"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "ptrtoaddr"
+    ],
+    "extra_conditions": [
+      "ptrmask has one use",
+      "mask type equals result type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The matched ptrmask and ptrtoaddr intrinsic semantics are not modeled; this is not a general pointer-representation blocker.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2860",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2859,
+    "line_end": 2860,
+    "function": "InstCombinerImpl::visitPtrToAddr",
+    "description": "Delegate ptrtoaddr of a GEP chain or integer-derived pointer to foldPtrToIntOrAddrOfGEP.",
+    "match_opcodes": [
+      "getelementptr",
+      "inttoptr",
+      "ptrtoaddr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes a one-use GEP chain from inttoptr or null pointer"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Restricted one-index GEP and pointer/int casts are modeled; this call delegates to a helper that recognizes GEP chains and needs chain/use analysis.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2863",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2862,
+    "line_end": 2863,
+    "function": "InstCombinerImpl::visitPtrToAddr",
+    "description": "Delegate remaining ptrtoaddr simplifications to commonCastTransforms.",
+    "match_opcodes": [
+      "ptrtoaddr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3112",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3086,
+    "line_end": 3112,
+    "function": "optimizeIntegerToVectorInsertions",
+    "description": "Replace an integer assembled from one-use bitcasts, zero-extensions, shifts and ORs with a vector initialized to zero and populated by insertelement operations.",
+    "match_opcodes": [
+      "bitcast",
+      "or",
+      "shl",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "insertelement"
+    ],
+    "extra_conditions": [
+      "destination is fixed vector",
+      "input is not undef",
+      "all bits decompose into unique element-sized slots",
+      "shift offsets and element sizes align",
+      "constant pieces fold successfully"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector insertion and endianness/data-layout reasoning.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3133",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3130,
+    "line_end": 3133,
+    "function": "canonicalizeBitCastExtElt",
+    "description": "Replace bitcast(extractelement(vector,index)) with extractelement(bitcast(vector to vector-of-destination-elements), index).",
+    "match_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "extract has one use",
+      "destination type is a legal vector element type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector bitcast and extractelement semantics; Puddle scalar runtime does not model vector elements.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3140",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3136,
+    "line_end": 3140,
+    "function": "canonicalizeBitCastExtElt",
+    "description": "Replace bitcast(extractelement(<1 x T>, index)) to a vector destination with bitcast of the one-element source vector.",
+    "match_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "extract has one use",
+      "destination is vector",
+      "source is fixed one-element vector"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector element-count and bitcast semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3178-fpint",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3146,
+    "line_end": 3178,
+    "function": "foldBitCastBitwiseLogic",
+    "description": "For vector FP bitcasts around a bitwise operation, convert both operands to one common integer/FP vector type, perform the same and/or/xor, then bitcast to the destination FP vector; handles either operand orientation.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "extra_conditions": [
+      "outer bitcast and logic op each have one use",
+      "both logic operands are bitcasts",
+      "one unwrapped side is FP vector and the other integer vector",
+      "source/result elementwise types align"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector bit reinterpretation and FP bit pattern semantics are outside Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3201-logicint",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3184,
+    "line_end": 3201,
+    "function": "foldBitCastBitwiseLogic",
+    "description": "Move a vector bitcast through and/or/xor when one operation operand is a one-use bitcast from a nonconstant value of the destination type; handles either operand order.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "extra_conditions": [
+      "outer bitcast and binary op have one use",
+      "destination and operation types are integer or integer-vector",
+      "rewritten source value is nonconstant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "This helper explicitly requires vector result and operation types; Puddle has no vector bitcast/elementwise logic semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3213-logicconst",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3203,
+    "line_end": 3213,
+    "function": "foldBitCastBitwiseLogic",
+    "description": "Canonicalize bitcast(logic(x, constant)) to logic(bitcast(x), bitcast(constant)) for vector bitwise operations.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "extra_conditions": [
+      "outer operation is one-use bitwise logic",
+      "destination and operation types are vectors",
+      "right operand is constant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector bitcast and elementwise logic semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3249-selectconst",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3220,
+    "line_end": 3249,
+    "function": "foldBitCastSelect",
+    "description": "Move bitcast through a select with a constant arm by bitcasting both arms and selecting in the destination type.",
+    "match_opcodes": [
+      "bitcast",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "select"
+    ],
+    "extra_conditions": [
+      "select has one use",
+      "at least one arm is constant",
+      "vector condition/result element counts match",
+      "vector result element count is no larger than source vector count"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite",
+    "analysis_audit_note": "ElementCount::isKnownLE compares source/destination vector type lane counts, not runtime SSA values."
+  },
+  {
+    "id": "cast-L3271-selectcast",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3252,
+    "line_end": 3271,
+    "function": "foldBitCastSelect",
+    "description": "Move bitcast through a select arm that is a one-use bitcast from the destination type, bitcasting the opposite arm; handles true and false arm symmetrically.",
+    "match_opcodes": [
+      "bitcast",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "select"
+    ],
+    "extra_conditions": [
+      "select has one use",
+      "source and destination have the same scalar/vector category",
+      "selected arm cast has one use and its input is nonconstant"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3459-phiweb",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3294,
+    "line_end": 3459,
+    "function": "InstCombinerImpl::optimizeBitCastFromPhi",
+    "description": "Replace a closed web of opposite bitcasts and PHIs with PHIs in the source type, combining eligible simple loads and redirecting stores and cast users to the new PHIs.",
+    "match_opcodes": [
+      "bitcast",
+      "load",
+      "phi",
+      "store"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "load",
+      "phi",
+      "store"
+    ],
+    "extra_conditions": [
+      "all incoming values are constants, eligible simple single-use loads, matching reverse bitcasts or PHIs in the web",
+      "all old-PHI users are eligible simple stores, matching reverse bitcasts or PHIs in the web"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires cyclic PHI/control-flow graph rewriting and load/store mutation; the relevant operations are effects rejected by SupportedOpCode, and Puddle does not model CFG rewrites.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3480",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3464,
+    "line_end": 3480,
+    "function": "foldCopySignIdioms",
+    "description": "Replace bitcast((bitcast(x) & signmask) | y) to FP with copysign(bitcast(y),x) when y is known nonnegative.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "or"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "call"
+    ],
+    "extra_conditions": [
+      "destination is FP or FP vector",
+      "x type equals destination type",
+      "y is known nonnegative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonnegative value analysis and FP sign-bit/copysign semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3493",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3483,
+    "line_end": 3493,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Remove a bitcast whose source and destination types are identical.",
+    "match_opcodes": [
+      "bitcast"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source type equals destination type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3506",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3495,
+    "line_end": 3506,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate fixed-vector bitcast(zext/trunc(bitcast(vector))) resize patterns to optimizeVectorResizeWithIntegerBitCasts.",
+    "match_opcodes": [
+      "bitcast",
+      "trunc",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "source is integer from zext/trunc of vector bitcast",
+      "helper finds an element-count resize"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector shuffle and endianness semantics are outside Puddle.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3513",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3508,
+    "line_end": 3513,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate integer OR assemblies bitcast to vectors to optimizeIntegerToVectorInsertions.",
+    "match_opcodes": [
+      "bitcast",
+      "or",
+      "shl",
+      "zext"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "integer input decomposes into vector elements"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector insertion and endianness semantics are outside Puddle.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3523",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3515,
+    "line_end": 3523,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Replace bitcast of an extract from a one-element vector to a scalar with a scalar bitcast of the extracted element.",
+    "match_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "extra_conditions": [
+      "source is fixed one-element vector",
+      "destination is scalar"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires extracting from a one-element vector, which is outside Puddle scalar runtime semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3530",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3525,
+    "line_end": 3530,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Replace bitcast(insert(<1 x T>, x, 0)) to a vector destination with bitcast(x).",
+    "match_opcodes": [
+      "bitcast",
+      "insertelement"
+    ],
+    "rewrite_opcodes": [
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "source is insert into one-element vector",
+      "destination is vector"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector insertelement and bitcast semantics outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3554",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3533,
+    "line_end": 3554,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Rewrite bitcast(insert(bitcast(x),y,0)) to (x & high_mask) | zext(y), normalizing inserted index for endianness.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "insertelement",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "and",
+      "or",
+      "zext"
+    ],
+    "extra_conditions": [
+      "destination is integer and insertion scalar integer",
+      "destination integer width is desirable",
+      "endian-normalized insert index is zero"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires bit-level vector layout and target endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3581",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3557,
+    "line_end": 3581,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Move a bitcast before a one-use shuffle when destination, shuffle result, and input vectors have equal element counts and a shuffle operand is a bitcast from the destination type.",
+    "match_opcodes": [
+      "bitcast",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "shuffle has one use",
+      "destination and both shuffle input vector element counts match"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector shuffle-mask and bitcast elementwise semantics outside Puddle scalar runtime.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3603",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3584,
+    "line_end": 3603,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Replace a one-use reverse shuffle of byte or bit elements followed by scalar bitcast with bswap or bitreverse intrinsic.",
+    "match_opcodes": [
+      "bitcast",
+      "shufflevector"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "call"
+    ],
+    "extra_conditions": [
+      "destination is integer",
+      "shuffle has even element count, one use, reverse mask and poison second input",
+      "source elements are i8 with legal destination width for bswap, or i1 for bitreverse"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Vector shuffle masks and bit/byte layout semantics are not modeled by Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L3611",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3605,
+    "line_end": 3611,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate bitcast of PHI to optimizeBitCastFromPhi.",
+    "match_opcodes": [
+      "bitcast",
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper validates a closed opposite-cast PHI web"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires PHI/control-flow graph and memory rewriting.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3614",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3612,
+    "line_end": 3614,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate bitcast of vector extraction to canonicalizeBitCastExtElt.",
+    "match_opcodes": [
+      "bitcast",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes extract-element bitcast pattern"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector extract and bitcast semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3617",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3615,
+    "line_end": 3617,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate to foldBitCastBitwiseLogic.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "or",
+      "xor"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes vector bitwise logic pattern"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector bitcast/elementwise logic semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3620",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3618,
+    "line_end": 3620,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate to foldBitCastSelect.",
+    "match_opcodes": [
+      "bitcast",
+      "select"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper recognizes bitcasted select"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector select/bitcast semantics in vector cases.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3623",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3621,
+    "line_end": 3623,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Replace the bitcast with copysign result from foldCopySignIdioms when its sign-mask pattern and nonnegative operand guard pass.",
+    "match_opcodes": [
+      "and",
+      "bitcast",
+      "or"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "foldCopySignIdioms succeeds",
+      "y known nonnegative"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires nonnegative-value analysis and FP copysign semantics.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3625",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3624,
+    "line_end": 3625,
+    "function": "InstCombinerImpl::visitBitCast",
+    "description": "Delegate remaining bitcast simplification to commonCastTransforms.",
+    "match_opcodes": [
+      "bitcast"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L3629",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 3628,
+    "line_end": 3629,
+    "function": "InstCombinerImpl::visitAddrSpaceCast",
+    "description": "Delegate addrspacecast simplification to commonCastTransforms.",
+    "match_opcodes": [
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle does not model addrspacecast/address-space conversion semantics; its restricted pointer/int casts and one-index GEP support do not cover this operation.",
+    "status": "unsupported",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2685",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2683,
+    "line_end": 2685,
+    "function": "InstCombinerImpl::visitUIToFP",
+    "description": "Delegate uitofp simplification to commonCastTransforms.",
+    "match_opcodes": [
+      "uitofp"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "common helper returns a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "cast-L2950-trunc",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2882,
+    "line_end": 2950,
+    "function": "optimizeVectorResizeWithIntegerBitCasts",
+    "description": "When truncating element count, replace bitcast(cast(bitcast(vector))) with a shuffle selecting the least-significant source elements (front for little endian, back for big endian) and poison for the unused second operand.",
+    "match_opcodes": [
+      "bitcast",
+      "trunc"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "source fixed vector has more elements than destination",
+      "element types match or have equal bit width",
+      "shuffle mask selects low-significance elements according to DataLayout endianness"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector shuffle masks, poison/zero vectors, and data-layout endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "cast-L2950-zext",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 2882,
+    "line_end": 2950,
+    "function": "optimizeVectorResizeWithIntegerBitCasts",
+    "description": "When extending element count, replace bitcast(cast(bitcast(vector))) with a shuffle of all source elements plus zero elements at the most-significant end (front for big endian, back for little endian).",
+    "match_opcodes": [
+      "bitcast",
+      "zext"
+    ],
+    "rewrite_opcodes": [
+      "bitcast",
+      "shufflevector"
+    ],
+    "extra_conditions": [
+      "source fixed vector has fewer elements than destination",
+      "element types match or have equal bit width",
+      "zero padding is placed according to DataLayout endianness"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Requires vector shuffle masks, poison/zero vectors, and data-layout endianness semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  }
+]

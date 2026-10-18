@@ -1,0 +1,118 @@
+{
+  "review_kind": "Manual source review of compound-matcher alternatives excluded by guards or sibling outcomes",
+  "reviews": [
+    {
+      "inventory_id": "bitwise-L4103",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 4098,
+      "matcher": "m_SpecificCmp(",
+      "excluded_opcodes": [
+        "fcmp"
+      ],
+      "reason": "The SpecificCmp predicate is ICMP_UGT, so the fcmp alternative of the generic Cmp matcher cannot occur."
+    },
+    {
+      "inventory_id": "bitwise-L5277",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5272,
+      "matcher": "m_LogicalAnd(",
+      "excluded_opcodes": [
+        "and"
+      ],
+      "reason": "The immediately preceding m_c_And branch returns for the strict bitwise AND form. This subsequent logical arm only reaches select-shaped AND."
+    },
+    {
+      "inventory_id": "bitwise-L5291",
+      "file": "InstCombineAndOrXor.cpp",
+      "line": 5286,
+      "matcher": "m_LogicalOr(",
+      "excluded_opcodes": [
+        "or"
+      ],
+      "reason": "The immediately preceding m_c_Or branch returns for the strict bitwise OR form. This subsequent logical arm only reaches select-shaped OR."
+    },
+    {
+      "inventory_id": "cast-L1267",
+      "file": "InstCombineCasts.cpp",
+      "line": 1251,
+      "matcher": "m_Shr(",
+      "excluded_opcodes": [
+        "ashr",
+        "lshr"
+      ],
+      "reason": "The m_Shr matcher occurs under !match and excludes constant right-shift inputs; it is not a positive matched operation."
+    },
+    {
+      "inventory_id": "cmpb-L8304",
+      "file": "InstCombineCompares.cpp",
+      "line": 8292,
+      "matcher": "m_UAddWithOverflow(",
+      "excluded_opcodes": [
+        "xor"
+      ],
+      "reason": "UAddWithOverflow can recognize NOT-based checks, but this source branch additionally requires AddI->getOpcode()==Instruction::Add before rewriting; XOR alternatives are rejected."
+    },
+    {
+      "inventory_id": "select-L141-identity",
+      "file": "InstCombineSelect.cpp",
+      "line": 98,
+      "matcher": "m_FAbs(",
+      "excluded_opcodes": [
+        "call"
+      ],
+      "reason": "The fabs/multiply/zero absorbing case is the separate select-L141-fmul-zero outcome. This identity outcome is the non-absorbing branch."
+    },
+    {
+      "inventory_id": "select-L358",
+      "file": "InstCombineSelect.cpp",
+      "line": 383,
+      "matcher": "m_MaxOrMin(",
+      "excluded_opcodes": [
+        "call"
+      ],
+      "reason": "This is the fneg factorization outcome; the min/max intrinsic branch is a later sibling outcome included only by the broad source span."
+    },
+    {
+      "inventory_id": "select-L1120-freeze",
+      "file": "InstCombineSelect.cpp",
+      "line": 1095,
+      "matcher": "m_IDiv(",
+      "excluded_opcodes": [
+        "sdiv",
+        "udiv"
+      ],
+      "reason": "IDiv/IRem are the adjacent no-additional-freeze branch, inventoried separately as select-L1120-divrem."
+    },
+    {
+      "inventory_id": "select-L1120-freeze",
+      "file": "InstCombineSelect.cpp",
+      "line": 1096,
+      "matcher": "m_IRem(",
+      "excluded_opcodes": [
+        "srem",
+        "urem"
+      ],
+      "reason": "IDiv/IRem are the adjacent no-additional-freeze branch, inventoried separately as select-L1120-divrem."
+    },
+    {
+      "inventory_id": "ic-free-invert-select-minmax-L3094",
+      "file": "InstructionCombining.cpp",
+      "line": 3097,
+      "matcher": "m_MaxOrMin(",
+      "excluded_opcodes": [
+        "call"
+      ],
+      "reason": "The min/max intrinsic alternative is inventoried separately as ic-free-invert-minmax-L3097; this entry is the select arm."
+    },
+    {
+      "inventory_id": "ic-condbr-logical-and-not-L4383",
+      "file": "InstructionCombining.cpp",
+      "line": 4391,
+      "matcher": "m_LogicalAnd(",
+      "excluded_opcodes": [
+        "and"
+      ],
+      "reason": "The enclosing isa<SelectInst>(Cond) guard excludes the strict bitwise AND alternative of LogicalAnd."
+    }
+  ]
+}

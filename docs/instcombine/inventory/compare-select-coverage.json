@@ -1,0 +1,47 @@
+{
+  "source_commit": "29eff20316c550d8e689a318c614e40186107820",
+  "scope": [
+    {
+      "file": "InstCombineSelect.cpp",
+      "total_lines": 5529,
+      "audited_ranges": [
+        {
+          "line_start": 63,
+          "line_end": 1695,
+          "note": "Read through select helpers including integer saturation and abs/count folds; candidate-site reconciliation and detailed branch expansion remain incomplete."
+        },
+        {
+          "line_start": 1697,
+          "line_end": 1725,
+          "note": "Read bounded recursive replacement helper; not an independent rewrite branch."
+        },
+        {
+          "line_start": 1743,
+          "line_end": 2845,
+          "note": "Read select equivalence/clamp/compare and vector canonicalization helpers; detailed branch expansion and checklist reconciliation remain incomplete."
+        },
+        {
+          "line_start": 4690,
+          "line_end": 5528,
+          "note": "Read visitSelectInst top-level rewrite/mutation paths; several helper internals and checklist reconciliation remain incomplete."
+        }
+      ],
+      "coverage": "partial",
+      "complete": false
+    },
+    {
+      "file": "InstCombinePHI.cpp",
+      "total_lines": 1609,
+      "audited_ranges": [
+        {
+          "line_start": 1397,
+          "line_end": 1557,
+          "note": "visitPHINode top-level successful-return and mutation paths reviewed; helper internals and file-local functions remain pending."
+        }
+      ],
+      "coverage": "partial",
+      "complete": false
+    }
+  ],
+  "exhaustive": false
+}

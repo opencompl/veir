@@ -1,0 +1,23 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "purpose": "Manual dispositions for advisory matcher sites; no rewrite or proof statuses are inferred.",
+  "findings": [
+    {
+      "file": "InstCombineSelect.cpp",
+      "line": 2123,
+      "inventory_id": "select-L2095",
+      "matcher": "m_Add",
+      "disposition": "exclusion_guard",
+      "reason": "An ULT comparison of add(X,constant) returns nullptr here, so add is an explicitly excluded operand shape rather than a matched opcode for this rewrite. The inventory audit_note already records this."
+    },
+    {
+      "file": "InstCombineShifts.cpp",
+      "line": 517,
+      "inventory_id": "shift-common-nuwsub-static-L510",
+      "matcher": "m_Xor",
+      "disposition": "separate_sibling_entry",
+      "related_inventory_id": "shift-common-nuwsub-xor-knownbits-L513",
+      "reason": "The static NUW-sub disjunct and the XOR+KnownBits disjunct share the source body but have separate inventory entries. XOR belongs to the latter; the static entry audit_note already records this."
+    }
+  ]
+}

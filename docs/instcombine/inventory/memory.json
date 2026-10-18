@@ -1,0 +1,1762 @@
+[
+  {
+    "id": "loadstore-alloca-L506",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 506,
+    "line_end": 507,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "Delegate the alloca array-size operand to simplifyAllocaArraySize; it returns the rewritten alloca only when that helper changes the count/type.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "simplifyAllocaArraySize returns an instruction"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "loadstore-alloca-L512",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 512,
+    "line_end": 519,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "For a zero-sized array alloca, replace its array count with constant one.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [
+      "alloca"
+    ],
+    "extra_conditions": [
+      "allocation size is known zero",
+      "array allocation"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_details": [
+      "constant"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-L520a",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 521,
+    "line_end": 534,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "Move a zero-sized scalar alloca to the entry block when it is not already at the first non-PHI/pseudoprobe instruction and that position is not occupied by a zero-sized alloca.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [
+      "alloca"
+    ],
+    "extra_conditions": [
+      "known zero allocation size",
+      "not array allocation",
+      "entry first eligible instruction is not a zero-sized alloca"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-load-L1101a",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1101,
+    "line_end": 1104,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Replace a load with simplifyLoadInst's simplified value.",
+    "match_opcodes": [
+      "load"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "simplifyLoadInst returns a value"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "loadstore-load-L1107",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1107,
+    "line_end": 1108,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Canonicalize a load's type to the type of its sole no-op cast user by creating a same-width load and removing the cast.",
+    "match_opcodes": [
+      "load",
+      "bitcast",
+      "ptrtoint",
+      "inttoptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "combineLoadToOperationType returns changed load"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "loadstore-load-L1111",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1111,
+    "line_end": 1112,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Replace a load's pointer operand with a GEP whose first provably out-of-bounds dynamic index is zeroed.",
+    "match_opcodes": [
+      "load",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "replaceGEPIdxWithZero proves and constructs a changed GEP"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "loadstore-load-L1114",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1114,
+    "line_end": 1115,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Unpack a simple aggregate load into element loads and insertvalue operations.",
+    "match_opcodes": [
+      "load"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "load is simple",
+      "loaded type is struct/array",
+      "struct has no padding or singleton, or array size within maxarray_size"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation"
+  },
+  {
+    "id": "loadstore-load-L1123",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1123,
+    "line_end": 1130,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Forward an available prior loaded value or eliminate a redundant load, bit/pointer-casting the forwarded value to the requested type and merging metadata for CSE.",
+    "match_opcodes": [
+      "load"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "FindAvailableLoadedValue returns a value",
+      "BatchAA-based memory availability/CSE conditions"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-load-L1136",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1136,
+    "line_end": 1140,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "For an unordered load from an invalid null/undef pointer or null-based GEP, insert a poison-pointer store marker and replace the load result with poison.",
+    "match_opcodes": [
+      "load",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "store"
+    ],
+    "extra_conditions": [
+      "unordered load",
+      "canSimplifyNullLoadOrGEP"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "audit_note": "The nonterminating unreachable marker is store i1 true through a poison pointer, implemented by [CreateNonTerminatorUnreachable](https://github.com/llvm/llvm-project/blob/29eff20316c550d8e689a318c614e40186107820/llvm/lib/Transforms/InstCombine/InstCombineInternal.h#L493-L499); it does not insert an unreachable terminator.",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "loadstore-load-L1143",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1143,
+    "line_end": 1190,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Move an unordered load across a one-use select of pointers, creating one load per arm and selecting the loaded values.",
+    "match_opcodes": [
+      "load",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "select",
+      "addrspacecast"
+    ],
+    "extra_conditions": [
+      "pointer has one use",
+      "both selected pointers safe to load unconditionally at required alignment",
+      "unordered load",
+      "address-space cast handled on each arm"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-load-L1192",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1192,
+    "line_end": 1197,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "When null is not a defined pointer value for this address space, delegate pointer simplification to simplifyNonNullOperand and replace the load pointer operand with its returned value.",
+    "match_opcodes": [
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "load"
+    ],
+    "extra_conditions": [
+      "null is not defined in load pointer address space",
+      "helper returns a replacement from select/GEP/PHI structural cases"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "related_inventory_ids": [
+      "loadstore-nonnull-select-null-true-L1046",
+      "loadstore-nonnull-select-null-false-L1049",
+      "loadstore-nonnull-gep-L1061",
+      "loadstore-nonnull-phi-L1083"
+    ]
+  },
+  {
+    "id": "loadstore-load-L1200",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1200,
+    "line_end": 1225,
+    "function": "InstCombinerImpl::visitLoadInst",
+    "description": "Rewrite load(protected_field_ptr(...)) as ptrauth.auth of a cloned load from the underlying pointer, with pointer/integer casts and preserved deactivation bundle.",
+    "match_opcodes": [
+      "load",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "ptrtoint",
+      "call",
+      "inttoptr"
+    ],
+    "extra_conditions": [
+      "loaded type is pointer",
+      "pointer operand is protected_field_ptr intrinsic",
+      "copy optional deactivation-symbol operand bundle"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "id": "loadstore-store-L1486",
+    "line_start": 1486,
+    "line_end": 1486,
+    "description": "Remove a store after combineStoreToValueType rewrites it to its canonical value type.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "combineStoreToValueType reports a change"
+    ],
+    "kind": "delegation"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "id": "loadstore-store-L1490",
+    "line_start": 1490,
+    "line_end": 1490,
+    "description": "Remove a store after unpackStoreToAggregate replaces it with element stores.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "unpackStoreToAggregate reports a change"
+    ],
+    "kind": "delegation"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "id": "loadstore-store-L1494",
+    "line_start": 1494,
+    "line_end": 1494,
+    "description": "Replace store pointer with a GEP whose first dynamic index is proven zero by replaceGEPIdxWithZero.",
+    "match_opcodes": [
+      "store",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "helper proves nonzero index would be UB"
+    ],
+    "kind": "delegation"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1504",
+    "line_start": 1504,
+    "line_end": 1508,
+    "description": "Erase a store through a single-use alloca or a GEP rooted at a single-use alloca; the allocated storage cannot escape and the stored value is unobservable.",
+    "match_opcodes": [
+      "store",
+      "alloca",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "unordered store",
+      "store pointer has one use",
+      "pointer is alloca or GEP rooted in alloca with one use"
+    ],
+    "kind": "rewrite"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1517",
+    "line_start": 1517,
+    "line_end": 1517,
+    "description": "Erase a store when AA reports the target pointer cannot be modified (constant location, so the write is a no-op).",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "unordered store",
+      "AA ModRef mask lacks Mod"
+    ],
+    "kind": "rewrite"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1543",
+    "line_start": 1532,
+    "line_end": 1544,
+    "description": "Erase the earlier unordered store when a bounded backward scan finds a store to an equivalent address with the same value type; requeue the current store for another DSE pass.",
+    "match_opcodes": [
+      "store",
+      "load"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "scan visits at most six counted instructions, skipping pseudo probes",
+      "prior store unordered; address values equivalent; stored value types equal",
+      "scan stops at first store or intervening memory/throw operation"
+    ],
+    "kind": "rewrite"
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1572",
+    "line_start": 1572,
+    "line_end": 1572,
+    "description": "For a store through null or a GEP from null, replace the stored value with poison so later CFG simplification can form unreachable.",
+    "match_opcodes": [
+      "store",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "store"
+    ],
+    "extra_conditions": [
+      "canSimplifyNullStoreOrGEP true",
+      "stored value is not already poison"
+    ],
+    "kind": "rewrite",
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1595",
+    "line_start": 1595,
+    "line_end": 1595,
+    "description": "Erase a store of poison, or of undef whose type has no padding bytes, because the write has no defined observable value.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "unordered store",
+      "poison value or undef with type size equal to store size"
+    ],
+    "kind": "rewrite",
+    "match_details": [
+      "poison",
+      "undef"
+    ]
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1600",
+    "line_start": 1600,
+    "line_end": 1600,
+    "description": "Replace a byte or byte-vector constant stored value with an integer-typed bitcast constant.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "bitcast"
+    ],
+    "extra_conditions": [
+      "value type is byte or byte-vector",
+      "value matches immediate constant"
+    ],
+    "kind": "rewrite",
+    "match_details": [
+      "constant"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": true,
+    "puddle_blocker": "Requires provenance/non-null analysis and store pointer rewriting; Puddle lacks this pointer analysis and store effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1606",
+    "line_start": 1606,
+    "line_end": 1606,
+    "description": "When null is not a defined pointer value for this address space, delegate pointer simplification to simplifyNonNullOperand and replace the store pointer operand with its returned value.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [
+      "store"
+    ],
+    "extra_conditions": [
+      "null is not defined in store pointer address space",
+      "helper returns a replacement from select/GEP/PHI structural cases"
+    ],
+    "kind": "rewrite",
+    "related_inventory_ids": [
+      "loadstore-nonnull-select-null-true-L1046",
+      "loadstore-nonnull-select-null-false-L1049",
+      "loadstore-nonnull-gep-L1061",
+      "loadstore-nonnull-phi-L1083"
+    ]
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "function": "InstCombinerImpl::visitStoreInst",
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "id": "loadstore-store-L1634",
+    "line_start": 1611,
+    "line_end": 1634,
+    "description": "Rewrite store(value, protected_field_ptr(ptr)) to store(ptrauth.sign(value), ptr), preserving optional deactivation-symbol bundle.",
+    "match_opcodes": [
+      "store",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "ptrtoint",
+      "call",
+      "inttoptr"
+    ],
+    "extra_conditions": [
+      "stored value type is pointer",
+      "pointer operand is protected_field_ptr intrinsic"
+    ],
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-storemerge-L1695",
+    "description": "Merge two compatible unordered stores into one store in their common successor, using a PHI only when stored values differ. Recognized inputs: (1) if/else, with the other predecessor storing immediately before an unconditional branch; (2) if/then triangle, where the other predecessor conditionally branches to the current store block or destination and has a matching store before the branch. Combine debug, AA, access-group, and assignment metadata, then erase both old stores.",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1647,
+    "line_end": 1778,
+    "function": "InstCombinerImpl::mergeStoreIntoSuccessor",
+    "match_opcodes": [
+      "store",
+      "br"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "phi"
+    ],
+    "extra_conditions": [
+      "successor has exactly two predecessors and relevant blocks are distinct",
+      "other store has identical pointer, castable value type and same special state",
+      "elementwise stores have equal scalar element store sizes",
+      "if/then case has no intervening read/write/throw that can observe stores",
+      "if/else candidate skips pseudo probes when locating preceding store"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-only-copy-helper-L34",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 34,
+    "line_end": 151,
+    "function": "isOnlyCopiedFromConstantMemory",
+    "description": "Prove alloca uses are reads plus at most one nonvolatile copy into unoffset alloca from constant memory; track derived pointers through casts/GEP/phi/select; collect lifetime markers for deletion.",
+    "match_opcodes": [
+      "alloca",
+      "load",
+      "phi",
+      "select",
+      "bitcast",
+      "addrspacecast",
+      "getelementptr",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "bounded user walk; reject volatile reads/copy, unknown writes, inalloca clobber, offsets, second copy; source immutable by AA"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove",
+      "llvm.lifetime.start",
+      "llvm.lifetime.end"
+    ]
+  },
+  {
+    "id": "loadstore-copy-helper-overload-L153",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 153,
+    "line_end": 165,
+    "function": "isOnlyCopiedFromConstantMemory",
+    "description": "Return the unique eligible copy or null by wrapping bounded alloca-use proof.",
+    "match_opcodes": [
+      "alloca",
+      "call"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "delegates to use walker"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "delegated_to": "isOnlyCopiedFromConstantMemory(AA, AI, TheCopy, ToDelete, MaxUsers)",
+    "match_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-deref-size-L167",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 167,
+    "line_end": 175,
+    "function": "isDereferenceableForAllocaSize",
+    "description": "Require fixed non-scalable alloca size and prove source pointer dereferenceable/aligned for that byte count.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "alloca allocation size known/fixed"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "pointer"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-L537",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 552,
+    "line_end": 574,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "When a local alloca is only written by a single copy from constant memory, replace its uses with the source pointer and erase collected lifetime markers and the copy, when source alignment/dereferenceability suffice and address spaces match.",
+    "match_opcodes": [
+      "alloca",
+      "call",
+      "load",
+      "getelementptr",
+      "phi",
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "getelementptr",
+      "phi",
+      "select",
+      "call"
+    ],
+    "extra_conditions": [
+      "isOnlyCopiedFromConstantMemory finds one eligible transfer",
+      "source alignment >= alloca alignment",
+      "source is dereferenceable for alloca size and is not an instruction",
+      "source and alloca address spaces match"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ]
+  },
+  {
+    "id": "loadstore-allocsite-delegation-L587",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 587,
+    "line_end": 589,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "Delegate final removal/simplification of unused alloca to allocation-site handler.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "delegation",
+    "delegated_to": "visitAllocSite"
+  },
+  {
+    "id": "loadstore-combine-load-newtype-L597",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 597,
+    "line_end": 615,
+    "function": "InstCombinerImpl::combineLoadToNewType",
+    "description": "Construction utility used by load-transforming callers: create a load of the requested value type from the same pointer while preserving load properties and metadata; caller entries inventory the actual transformations.",
+    "match_opcodes": [
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "load"
+    ],
+    "extra_conditions": [
+      "Atomic loads require a supported atomic value type."
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "loadstore-combine-store-newvalue-L617",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 617,
+    "line_end": 669,
+    "function": "combineStoreToNewValue",
+    "description": "Build store of new typed value to same pointer with properties, preserving applicable metadata and dropping load-only metadata.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [
+      "store"
+    ],
+    "extra_conditions": [
+      "atomic type supported when atomic; metadata whitelist governs retention"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-load-optype-helper-L671",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 671,
+    "line_end": 734,
+    "function": "combineLoadToOperationType",
+    "description": "For unordered non-elementwise live load with one-use noop cast to compatible type, replace cast by load of destination type and erase cast; skip swifterror and x86_amx cases.",
+    "match_opcodes": [
+      "load",
+      "bitcast",
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [
+      "load"
+    ],
+    "extra_conditions": [
+      "unordered, non-elementwise, live, one use, noop cast preserves ptr-vs-nonptr, atomic destination supported"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-object-size-helper-L842",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 842,
+    "line_end": 902,
+    "function": "isObjectSizeLessThanOrEq",
+    "description": "Prove every object behind select/phi/noninterposable alias is constant global or fixed alloca no larger than bound.",
+    "match_opcodes": [
+      "select",
+      "phi",
+      "alloca"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "reject interposable alias; require definitive constant global initializer or fixed-size alloca"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "global alias",
+      "global variable"
+    ]
+  },
+  {
+    "id": "loadstore-gep-zero-predicate-L904",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 904,
+    "line_end": 989,
+    "function": "canReplaceGEPIdxWithZero",
+    "description": "Prove first variable GEP index must be zero because object size equals at most one indexed element and trailing indices are nonnegative; reject scalable types and unsafe non-inbounds trailing-index case.",
+    "match_opcodes": [
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "object must be dereferenceable and <= indexed element allocation size; trailing indices known nonnegative; additional trailing indices require inbounds"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "variable index",
+      "object size"
+    ]
+  },
+  {
+    "id": "loadstore-gep-zero-rewrite-L991",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 991,
+    "line_end": 1017,
+    "function": "replaceGEPIdxWithZero",
+    "description": "Clone GEP replacing proven-UB-if-nonzero index with zero; replace all GEP uses only if memory access guarantees execution after GEP in same block.",
+    "match_opcodes": [
+      "getelementptr",
+      "load",
+      "store"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "canReplaceGEPIdxWithZero true; execution transfer condition for global replacement"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "GEP construction and scalar pointer/address semantics are modeled in Puddle, but this rewrite requires KnownBits/nonnegative-index and object-size/dereferenceability analysis to prove all nonzero indices undefined; its common-use replacement also depends on load/store execution and CFG ordering, which are not modeled.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-null-store-predicate-L1019",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1019,
+    "line_end": 1028,
+    "function": "canSimplifyNullStoreOrGEP",
+    "description": "Recognize store through null pointer or one GEP from null only where null is not defined in address space.",
+    "match_opcodes": [
+      "store",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "null pointer undefined"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "null"
+    ]
+  },
+  {
+    "id": "loadstore-null-load-predicate-L1030",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1030,
+    "line_end": 1042,
+    "function": "canSimplifyNullLoadOrGEP",
+    "description": "Recognize load through undef or null/one GEP from null when null is not defined.",
+    "match_opcodes": [
+      "load",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "null pointer undefined"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "null",
+      "undef"
+    ]
+  },
+  {
+    "id": "loadstore-like-bitcast-vector-helper-L1233",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1233,
+    "line_end": 1286,
+    "function": "likeBitCastFromVector",
+    "description": "Recognize nested insertvalue(extractelement(vector,i),i) chains over undef aggregate as a conceptual bitcast when vector and aggregate layouts are bitwise isomorphic.",
+    "match_opcodes": [
+      "insertvalue",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "same source vector throughout; indices constant and match insert indices; struct/array element count and bit widths/layout match"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "undef"
+    ]
+  },
+  {
+    "id": "loadstore-pointer-replacer-load-L400",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 404,
+    "line_end": 416,
+    "function": "PointerReplacer::replace",
+    "description": "Rebuild a collected load with the replacement pointer, preserving type, load properties, name, and metadata, then replace the old load uses.",
+    "match_opcodes": [
+      "load"
+    ],
+    "rewrite_opcodes": [
+      "load"
+    ],
+    "extra_conditions": [
+      "load was collected as nonvolatile/reconstructible"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-atomic-type-predicate-L592",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 592,
+    "line_end": 595,
+    "function": "isSupportedAtomicType",
+    "description": "Predicate allowing atomic accesses only for integer, pointer, and floating-point value types.",
+    "match_opcodes": [
+      "load",
+      "store"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "integer/pointer/floating type"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_details": [
+      "atomic"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-size-scalar-L180",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 180,
+    "line_end": 186,
+    "function": "simplifyAllocaArraySize",
+    "description": "Canonicalize a scalar alloca array-size operand to i32 1.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [
+      "alloca"
+    ],
+    "extra_conditions": [
+      "not an array allocation; count is not already i32 1"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_details": [
+      "integer"
+    ],
+    "rewrite_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-size-constant-L189",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 189,
+    "line_end": 200,
+    "function": "simplifyAllocaArraySize",
+    "description": "Replace an alloca with constant count C (C != 1) by one alloca of [C x T], count 1.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [
+      "alloca"
+    ],
+    "extra_conditions": [
+      "constant count fits at most 64 active bits"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_details": [
+      "constant"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-size-undef-L204",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 204,
+    "line_end": 205,
+    "function": "simplifyAllocaArraySize",
+    "description": "Replace an alloca with undef array count by poison of the alloca pointer type.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "array allocation count is undef"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_details": [
+      "undef"
+    ],
+    "rewrite_details": [
+      "poison"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-size-indexcast-L207",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 207,
+    "line_end": 213,
+    "function": "simplifyAllocaArraySize",
+    "description": "Cast a dynamic alloca count to the pointer index type and replace the count operand.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [
+      "alloca",
+      "zext",
+      "trunc"
+    ],
+    "extra_conditions": [
+      "array count type differs from DataLayout pointer index type"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_details": [
+      "integer"
+    ]
+  },
+  {
+    "id": "loadstore-alloca-zero-merge-L536",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 536,
+    "line_end": 541,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "Replace a zero-sized scalar alloca with the first zero-sized entry alloca after raising the entry alloca alignment to the maximum of both.",
+    "match_opcodes": [
+      "alloca"
+    ],
+    "rewrite_opcodes": [
+      "alloca"
+    ],
+    "extra_conditions": [
+      "known zero allocation size",
+      "not array allocation",
+      "entry block starts with zero-sized alloca"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful alloca operations; this branch also mutates alignment and replaces pointer uses.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-alloca-copy-global-L545",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 576,
+    "line_end": 584,
+    "function": "InstCombinerImpl::visitAllocaInst",
+    "description": "For an otherwise eligible constant-memory copy with a differing address space, replace collected pointer users only if PointerReplacer can legally reconstruct every user; erase collected lifetime markers and count the successful global-copy combine.",
+    "match_opcodes": [
+      "alloca",
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "getelementptr",
+      "phi",
+      "select",
+      "call",
+      "addrspacecast"
+    ],
+    "extra_conditions": [
+      "copy helper and alignment/dereferenceability guards succeeded",
+      "source address space differs",
+      "PointerReplacer.collectUsers succeeds"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires alias/use and address-space legality analyses, pointer graph reconstruction, and memory effects; Puddle SupportedOpCode rejects effectful alloca/load/store/memtransfer operations.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ]
+  },
+  {
+    "id": "loadstore-pointer-replacer-collectusers-L262",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 262,
+    "line_end": 364,
+    "function": "PointerReplacer::collectUsers",
+    "description": "Traverse users and collect only reconstructible loads, compatible PHIs/selects/GEPs, nonvolatile transfers, legal address-space casts, and lifetime markers; reject cycles or unsupported/noninstruction pointer paths before any rewrite.",
+    "match_opcodes": [
+      "load",
+      "phi",
+      "select",
+      "getelementptr",
+      "call",
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "all users in supported set",
+      "PHIs are fully available or can be revisited once",
+      "volatile load/memtransfer rejected"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "This is contextual use-graph, PHI-cycle, and address-space legality analysis; Puddle has no SSA-use traversal, CFG/PHI semantics, or target cast legality model.",
+    "status": "pending",
+    "kind": "analysis-helper",
+    "match_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ]
+  },
+  {
+    "id": "loadstore-pointer-replacer-phi-same-L417",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 417,
+    "line_end": 428,
+    "function": "PointerReplacer::replace",
+    "description": "For a collected PHI whose type remains unchanged, replace each incoming value when a replacement exists and retain the PHI.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "replacement incoming type equals old PHI type"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires CFG/PHI and replacement-map semantics, which Puddle does not model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-pointer-replacer-phi-newtype-L430",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 430,
+    "line_end": 441,
+    "function": "PointerReplacer::replace",
+    "description": "Rebuild a collected PHI with the replacement pointer type and mapped incoming values when address-space replacement changes the PHI type.",
+    "match_opcodes": [
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "all incoming values have mapped replacements of one common new type"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires CFG/PHI and replacement-map semantics, which Puddle does not model.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-pointer-replacer-gep-L442",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 442,
+    "line_end": 451,
+    "function": "PointerReplacer::replace",
+    "description": "Rebuild a collected GEP using the replacement base pointer and original indices, source element type, and no-wrap flags.",
+    "match_opcodes": [
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "GEP was collected and its base has a replacement"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "GEP itself is modeled, but this branch consumes a dynamically collected replacement map built by traversing SSA pointer users and participates in an enclosing alloca-to-memory-pointer rewrite involving loads/memtransfers; Puddle has no user-graph/replacement-map or memory-effect semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-pointer-replacer-select-L452",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 452,
+    "line_end": 463,
+    "function": "PointerReplacer::replace",
+    "description": "Rebuild a collected select with its original condition and replacement values for either arm when available.",
+    "match_opcodes": [
+      "select"
+    ],
+    "rewrite_opcodes": [
+      "select"
+    ],
+    "extra_conditions": [
+      "select accepted by collectUsers; preserve condition and name"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "This is an address-space-changing pointer graph rewrite relying on collected availability; Puddle has no pointer/address-space or replacement-map semantics.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-pointer-replacer-memtransfer-L464",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 464,
+    "line_end": 482,
+    "function": "PointerReplacer::replace",
+    "description": "Rebuild a collected memcpy/memmove using replaced source and destination pointers, preserve length, volatility and alignments plus AA metadata, then erase the old transfer.",
+    "match_opcodes": [
+      "call"
+    ],
+    "rewrite_opcodes": [
+      "call"
+    ],
+    "extra_conditions": [
+      "transfer collected as nonvolatile; pointer replacements available"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Puddle SupportedOpCode rejects memory transfers; it also has no sound pointer-alias analysis predicate.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "match_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ],
+    "rewrite_intrinsics": [
+      "llvm.memcpy",
+      "llvm.memmove"
+    ]
+  },
+  {
+    "id": "loadstore-pointer-replacer-addrspacecast-L483",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 483,
+    "line_end": 501,
+    "function": "PointerReplacer::replace",
+    "description": "Recreate a collected address-space cast when replacement source and destination spaces differ and the cast is target-valid; otherwise reuse the replacement pointer directly.",
+    "match_opcodes": [
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [
+      "addrspacecast"
+    ],
+    "extra_conditions": [
+      "cast collected; equal or target-valid address-space conversion"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Address-space cast semantics and target-specific cast legality are not modeled by Puddle; this branch is part of a pointer-user graph rewrite that also reconstructs memory accesses.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-store-self-dse-L1552",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1552,
+    "line_end": 1555,
+    "function": "InstCombinerImpl::visitStoreInst",
+    "description": "Erase the current unordered store when it stores the exact value just loaded from an equivalent address, making the write redundant.",
+    "match_opcodes": [
+      "store",
+      "load"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "bounded scan reaches load before another store or memory/throw barrier",
+      "load result is exactly the stored value; addresses are equivalent"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires load/store memory-effect equivalence and alias/address reasoning; Puddle SupportedOpCode rejects effectful load/store operations even though the underlying interpreter executes scalar memory operations.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-load-struct-single-L748",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 748,
+    "line_end": 759,
+    "function": "unpackLoadToAggregate",
+    "description": "For a simple one-field struct load, issue one load of its field type and rebuild the struct with insertvalue from poison.",
+    "match_opcodes": [
+      "load",
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "insertvalue"
+    ],
+    "extra_conditions": [
+      "struct has exactly one field",
+      "load is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful load operations; this rewrite changes one aggregate memory read into multiple scalar reads.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-load-struct-many-L761",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 761,
+    "line_end": 791,
+    "function": "unpackLoadToAggregate",
+    "description": "For a simple multi-field struct load without padding, load each field at its DataLayout offset using common alignment and rebuild the struct with insertvalue.",
+    "match_opcodes": [
+      "load",
+      "getelementptr",
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "insertvalue",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "struct has multiple fields and no padding",
+      "load is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful load operations; this rewrite changes one aggregate memory read into multiple scalar reads.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-load-array-single-L793",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 793,
+    "line_end": 801,
+    "function": "unpackLoadToAggregate",
+    "description": "For a simple one-element array load, load its element type and rebuild the array with insertvalue from poison.",
+    "match_opcodes": [
+      "load",
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "insertvalue"
+    ],
+    "extra_conditions": [
+      "array has one element",
+      "load is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful load operations; this rewrite changes one aggregate memory read into multiple scalar reads.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-load-array-many-L803",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 803,
+    "line_end": 836,
+    "function": "unpackLoadToAggregate",
+    "description": "For a simple array load within maxarray_size, load each element at its DataLayout offset using common alignment and rebuild the array with insertvalue.",
+    "match_opcodes": [
+      "load",
+      "getelementptr",
+      "insertvalue"
+    ],
+    "rewrite_opcodes": [
+      "load",
+      "insertvalue",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "array has more than one and no more than maxarray_size elements",
+      "load is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful load operations; this rewrite changes one aggregate memory read into multiple scalar reads.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-store-struct-single-L1361",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1361,
+    "line_end": 1368,
+    "function": "unpackStoreToAggregate",
+    "description": "For a simple one-field struct store, extract its field, build a store of the field type at the same pointer, and erase the aggregate store.",
+    "match_opcodes": [
+      "store",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "extractvalue"
+    ],
+    "extra_conditions": [
+      "struct has exactly one field",
+      "store is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful store operations; this rewrite changes one aggregate write into multiple scalar writes.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-store-struct-many-L1370",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1370,
+    "line_end": 1398,
+    "function": "unpackStoreToAggregate",
+    "description": "For a simple multi-field struct store without padding, extract every field and emit aligned stores at DataLayout offsets, preserving AA metadata, then erase the aggregate store.",
+    "match_opcodes": [
+      "store",
+      "extractvalue",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "extractvalue",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "struct has multiple fields and no padding",
+      "store is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful store operations; this rewrite changes one aggregate write into multiple scalar writes.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-store-array-single-L1401",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1401,
+    "line_end": 1408,
+    "function": "unpackStoreToAggregate",
+    "description": "For a simple one-element array store, extract the element and build a store of the element type at the same pointer.",
+    "match_opcodes": [
+      "store",
+      "extractvalue"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "extractvalue"
+    ],
+    "extra_conditions": [
+      "array has one element",
+      "store is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful store operations; this rewrite changes one aggregate write into multiple scalar writes.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-unpack-store-array-many-L1410",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1410,
+    "line_end": 1447,
+    "function": "unpackStoreToAggregate",
+    "description": "For a simple array store within maxarray_size, extract each element and emit aligned stores at element offsets, preserving AA metadata, then erase the aggregate store.",
+    "match_opcodes": [
+      "store",
+      "extractvalue",
+      "getelementptr"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "extractvalue",
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "array has more than one and no more than maxarray_size elements",
+      "store is simple"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful store operations; this rewrite changes one aggregate write into multiple scalar writes.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-storemerge-L1710",
+    "description": "If/then triangle alternative: the other predecessor conditionally branches to the current store block or destination and contains a compatible store before the branch; apply the common store-merge transformation only when intervening instructions cannot read, write, or throw.",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1647,
+    "line_end": 1778,
+    "function": "InstCombinerImpl::mergeStoreIntoSuccessor",
+    "match_opcodes": [
+      "store",
+      "br"
+    ],
+    "rewrite_opcodes": [
+      "store",
+      "phi"
+    ],
+    "extra_conditions": [
+      "successor has exactly two predecessors and relevant blocks are distinct",
+      "other store has identical pointer, castable value type and same special state",
+      "elementwise stores have equal scalar element store sizes",
+      "if/then case has no intervening read/write/throw that can observe stores",
+      "if/else candidate skips pseudo probes when locating preceding store",
+      "other predecessor ends with conditional branch to current store block and destination",
+      "find mergeable store before branch; no memory read/write/throw in scanned block/current block before current store"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-pointer-replacer-queries-L240",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 240,
+    "line_end": 240,
+    "function": "PointerReplacer::getReplacement",
+    "description": "Look up the replacement value for a previously collected pointer user.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "loadstore-pointer-replacer-available-L241",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 241,
+    "line_end": 243,
+    "function": "PointerReplacer::isAvailable",
+    "description": "Test whether a pointer user is the root replacement or already in the collected replacement set.",
+    "match_opcodes": [],
+    "rewrite_opcodes": [],
+    "extra_conditions": [],
+    "uses_analysis": false,
+    "puddle_blocker": null,
+    "status": "pending",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "loadstore-pointer-replacer-castvalid-L245",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 245,
+    "line_end": 252,
+    "function": "PointerReplacer::isEqualOrValidAddrSpaceCast",
+    "description": "Accept a cast when its source and destination address spaces match or InstCombine target legality says the cast is valid.",
+    "match_opcodes": [
+      "addrspacecast"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "cast is an AddrSpaceCastInst"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Address-space cast legality is target-specific and not modeled by Puddle.",
+    "status": "pending",
+    "kind": "analysis-helper"
+  },
+  {
+    "id": "loadstore-store-retype-bitcast-L1323",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1321,
+    "line_end": 1336,
+    "function": "combineStoreToValueType",
+    "description": "For an unordered non-elementwise store of a bitcast value, store the source value directly when it is not x86_amx and the resulting type is supported for atomic access; preserve store metadata through combineStoreToNewValue.",
+    "match_opcodes": [
+      "store",
+      "bitcast"
+    ],
+    "rewrite_opcodes": [
+      "store"
+    ],
+    "extra_conditions": [
+      "store is unordered and not elementwise",
+      "value operand is BitCastInst",
+      "source value not x86_amx",
+      "atomic source type supported when store is atomic"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful store operations.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-store-retype-vector-L1338",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1338,
+    "line_end": 1342,
+    "function": "combineStoreToValueType",
+    "description": "When likeBitCastFromVector recognizes an isomorphic vector-to-aggregate insertvalue/extractelement chain, store the underlying vector value with its original width; require supported atomic type if atomic.",
+    "match_opcodes": [
+      "store",
+      "insertvalue",
+      "extractelement"
+    ],
+    "rewrite_opcodes": [
+      "store"
+    ],
+    "extra_conditions": [
+      "unordered non-elementwise store",
+      "helper recognizes a fixed-vector/aggregate bitwise-isomorphic mapping",
+      "atomic value type supported if atomic"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "Puddle SupportedOpCode rejects effectful stores; this branch is vector-only and Puddle lacks an elementwise vector proof interface.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "loadstore-nonnull-select-null-true-L1046",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1046,
+    "line_end": 1049,
+    "function": "InstCombinerImpl::simplifyNonNullOperand",
+    "description": "For select(null, V) with null on the true arm (the opposite ordering for false), return V as the nonnull operand; the load/store caller substitutes it into the pointer operand.",
+    "match_opcodes": [
+      "select",
+      "getelementptr",
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "select true arm is ConstantPointerNull",
+      "caller establishes a valid nonnull/provenance context by requiring null dereference to be undefined"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Pointer select semantics and nonnull/provenance reasoning are unavailable in Puddle; this is the helper outcome consumed by the load/store caller.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "return the other select arm as replacement pointer"
+    ]
+  },
+  {
+    "id": "loadstore-nonnull-select-null-false-L1049",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1049,
+    "line_end": 1052,
+    "function": "InstCombinerImpl::simplifyNonNullOperand",
+    "description": "For select(null, V) with null on the false arm (the opposite ordering for false), return V as the nonnull operand; the load/store caller substitutes it into the pointer operand.",
+    "match_opcodes": [
+      "select",
+      "getelementptr",
+      "phi"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "select false arm is ConstantPointerNull",
+      "caller establishes a valid nonnull/provenance context by requiring null dereference to be undefined"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Pointer select semantics and nonnull/provenance reasoning are unavailable in Puddle; this is the helper outcome consumed by the load/store caller.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "return the other select arm as replacement pointer"
+    ]
+  },
+  {
+    "id": "loadstore-nonnull-gep-L1061",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1061,
+    "line_end": 1081,
+    "function": "InstCombinerImpl::simplifyNonNullOperand",
+    "description": "For a one-use GEP under provenance or inbounds/non-null-address-space reasoning, recursively obtain a nonnull base, replace the GEP base operand, and requeue the GEP.",
+    "match_opcodes": [
+      "select",
+      "getelementptr",
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "getelementptr"
+    ],
+    "extra_conditions": [
+      "GEP has one use and recursion depth below three",
+      "UseProvenance precondition or GEP is inbounds and null is not defined in its address space",
+      "recursive base replacement succeeds"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires the source nonnull/provenance fact to justify replacing the GEP base; arbitrary pointer provenance/null-definedness facts are unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "mutate operand 0 of existing GEP and requeue"
+    ]
+  },
+  {
+    "id": "loadstore-nonnull-phi-L1083",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1083,
+    "line_end": 1096,
+    "function": "InstCombinerImpl::simplifyNonNullOperand",
+    "description": "For a PHI incoming value, recursively simplify incoming pointers, replace each successful incoming use, and requeue the PHI if any incoming changed.",
+    "match_opcodes": [
+      "select",
+      "getelementptr",
+      "phi"
+    ],
+    "rewrite_opcodes": [
+      "phi"
+    ],
+    "extra_conditions": [
+      "input is PHI",
+      "at least one incoming operand has a replacement under the helper context"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Requires pointer nonnull/provenance reasoning and arbitrary PHI incoming-use mutation, unavailable in Puddle.",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "rewrite_details": [
+      "replace changed incoming pointer operands"
+    ]
+  },
+  {
+    "id": "loadstore-store-undef-pointer-unreachable-L1577",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1576,
+    "line_end": 1586,
+    "function": "InstCombinerImpl::visitStoreInst",
+    "description": "Keep an undef-pointer store as an unreachable marker; remove guaranteed-to-transfer instructions before it, then delegate cleanup after the marker and dead-successor processing to the core unreachable helpers.",
+    "match_opcodes": [
+      "store"
+    ],
+    "rewrite_opcodes": [],
+    "extra_conditions": [
+      "stored pointer is UndefValue",
+      "removeInstructionsBeforeUnreachable handles the prefix",
+      "handleUnreachableFrom and handlePotentiallyDeadBlocks process the suffix and successors"
+    ],
+    "uses_analysis": true,
+    "puddle_blocker": "Delegates CFG/unreachable-region rewrites to the core helpers; see ic-remove-before-unreachable-L4243, ic-unreachable-walk-L4316, ic-unreachable-use-poison-L4323, ic-unreachable-erase-L4330, and ic-dead-blocks-worklist-L4346.",
+    "status": "pending",
+    "kind": "delegation",
+    "related_inventory_ids": [
+      "ic-remove-before-unreachable-L4243",
+      "ic-unreachable-walk-L4316",
+      "ic-unreachable-use-poison-L4323",
+      "ic-unreachable-erase-L4330",
+      "ic-dead-blocks-worklist-L4346"
+    ]
+  }
+]

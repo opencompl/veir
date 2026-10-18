@@ -1,0 +1,299 @@
+{
+  "review_kind": "Luna scalar capability and byte type source review",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "source_basis": "Vendored docs/instcombine/source plus pinned external /tmp/instcombine-Instructions.cpp and /tmp/instcombine-PatternMatch.h; Puddle verifier/interpreter and Byte.Basic sources.",
+  "scope": "Read-only inventory capability review. No Lean, inventory, manifest, or status changes.",
+  "findings": [
+    {
+      "id": "ic-gep-constant-offset-to-ptradd-L3423",
+      "assessment": "restoration_confirmed",
+      "source_evidence": [
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3423,
+          "text": "if (!GEPEltType->isIntegerTy(8) && GEP.hasAllConstantIndices())"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3425,
+          "text": "if (GEP.accumulateConstantOffset(DL, Offset))"
+        },
+        {
+          "file": "InstructionCombining.cpp",
+          "line": 3423,
+          "text": "Comment: Canonicalize constant GEPs to i8 type; branch replaces the GEP with Builder.CreatePtrAdd(...)"
+        },
+        {
+          "file": "docs/instcombine/puddle-capabilities.md",
+          "line": 127,
+          "text": "restricted one-dynamic-index GEP is scaled by DataLayout.getTypeAllocSize; default layout is RV64"
+        }
+      ],
+      "finding": "The source action applies to non-i8 source element type with all-constant indices and an accumulable offset. IRBuilder::CreatePtrAdd constructs a GEP with i8 element type; it does not introduce a separate LLVM opcode. A source refinement limited to an unflagged, one-index i64 constant GEP under default RV64 is within the documented GEP interpreter scope, subject to proof. The inventory rewrite opcode getelementptr is correct.",
+      "recommendation": "Keep the restored modeled specialization pending proof and retain blockers for flags, arbitrary layouts/index widths, and wider GEP shapes."
+    },
+    {
+      "id": "cmpb-L8701",
+      "assessment": "restoration_confirmed",
+      "source_evidence": [
+        {
+          "file": "InstCombineCompares.cpp",
+          "line": 8658,
+          "text": "foldCmpSelectOfConstants is the caller that computes a four-entry truth table and synthesizes a Boolean expression with createLogicFromTable."
+        },
+        {
+          "file": "InstCombineCompares.cpp",
+          "line": 8167,
+          "text": "ICmp visitor calls foldCmpSelectOfConstants."
+        },
+        {
+          "file": "InstCombineCompares.cpp",
+          "line": 9505,
+          "text": "FCmp visitor calls foldCmpSelectOfConstants."
+        },
+        {
+          "file": "InstCombineCompares.cpp",
+          "line": 3143,
+          "text": "createLogicFromTable is the shared formula constructor used by that helper."
+        }
+      ],
+      "finding": "L8701 is the shared foldCmpSelectOfConstants action, reached from both integer and floating comparison visitors; createLogicFromTable at L3143 builds its result. It is not an FCmp-only rule. Its constant arms are compared by CmpInst truth table and the result is composed from constants, existing select conditions, NOT, AND, OR or XOR.",
+      "recommendation": "Keep scalar flag-free integer comparison/select specialization pending. Keep FCmp, vector, and samesign behavior explicitly outside the modeled subset."
+    },
+    {
+      "id": "bitwise-L5370",
+      "assessment": "restoration_confirmed_for_degenerate_scalar_shape",
+      "source_evidence": [
+        {
+          "file": "InstCombineAndOrXor.cpp",
+          "line": 5370,
+          "text": "match(NotOp, m_OneUse(m_BitCast(m_Value(X)))) and match X as one-use Cmp"
+        },
+        {
+          "file": "/tmp/instcombine-PatternMatch.h",
+          "line": 2689,
+          "text": "m_Not is m_c_Xor(m_AllOnes(), V)"
+        },
+        {
+          "file": "/tmp/instcombine-PatternMatch.h",
+          "line": 389,
+          "text": "cst_pred_ty specializes matching constants to ConstantInt"
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3558,
+          "text": "Non-pointer BitCast is valid when source and destination primitive bit widths are identical."
+        }
+      ],
+      "finding": "The pinned source branch has no distinct-type guard. A scalar `icmp` result bitcast i1-to-i1 is a legal no-op bitcast and Puddle models that integer bitcast, so the degenerate scalar shape is genuinely admitted by source matching. However, m_Not requires an all-ones ConstantInt, so this is an integer NOT shape; it does not introduce ByteType NOT semantics.",
+      "recommendation": "Retain the scalar-i1 specialization as pending proof. Keep vector/FCmp exclusions. Do not generalize this row to ByteType merely from bitcast support."
+    },
+    {
+      "id": "cast-L2740-and-cast-L2820",
+      "assessment": "unsupported_width_guards_confirmed",
+      "source_evidence": [
+        {
+          "file": "InstCombineCasts.cpp",
+          "line": 2730,
+          "text": "inttoptr normalizes source width only when it differs from pointer size"
+        },
+        {
+          "file": "InstCombineCasts.cpp",
+          "line": 2806,
+          "text": "ptrtoint normalizes result width only when it differs from pointer size"
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1656,
+          "text": "inttoptr interpreter accepts only 64-bit integer source."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1661,
+          "text": "ptrtoint interpreter accepts only 64-bit integer result."
+        }
+      ],
+      "finding": "Under default RV64, the 64-bit source/result forms accepted by Puddle do not satisfy the LLVM rewrite guard. The nontrivial widths that trigger the rewrite are not interpreted, so unsupported classification is correct for these entries.",
+      "recommendation": "Keep the guard-scoped unsupported status; do not claim the identity-width case as implementing this normalization."
+    },
+    {
+      "id": "llvm-byte-type-legality",
+      "assessment": "type_scope_verified",
+      "source_evidence": [
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3507,
+          "text": "Trunc castIsValid requires source and destination isIntOrIntVectorTy."
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3558,
+          "text": "Non-pointer BitCast is valid when primitive bit widths are identical."
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3551,
+          "text": "Pointer bitcasts are limited to pointer/byte combinations; pointer-pointer casts require matching address spaces."
+        },
+        {
+          "file": "InstCombineLoadStoreAlloca.cpp",
+          "line": 1597,
+          "text": "InstCombine replaces byte constants with integer constants in stores using a bitcast."
+        }
+      ],
+      "finding": "LLVM ByteType is distinct from IntegerType. It admits same-width bitcasts to/from integer and pointer/byte bitcasts; LLVM CastInst::castIsValid rejects ByteType for trunc/zext/sext because those casts require isIntOrIntVectorTy. Pointer-pointer bitcast chains are valid only for matching address spaces.",
+      "recommendation": "Treat same-width integer<->byte bitcast composition as a source candidate for cast-L243. Treat ptr->ptr->ptr same-address-space bitcast composition as a distinct modeled candidate; it preserves the pointer value through no-op casts and needs no memory reconstruction. Consider source compositions P->P->B, P->B->B, and P->B->I as additional candidates only where each exact cast-pair and intermediate type is valid. Any Byte->pointer intermediate must be reviewed for whether ptrFromInt can return none for some memory state, which could make an interpretation proof vacuous."
+    },
+    {
+      "id": "puddle-byte-capabilities",
+      "assessment": "interpreter_and_verifier_scope_clarified",
+      "source_evidence": [
+        {
+          "file": "Veir/Data/LLVM/Byte/Basic.lean",
+          "line": 37,
+          "text": "LLVM.Byte defines per-bit poison and/or/xor operations."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1006,
+          "text": "and/or/xor verifier dispatches to verifyIntegerBinop (checkIsNonNullIntegerType only checks integer width/signedness)."
+        },
+        {
+          "file": "Veir/Verifier/Basic.lean",
+          "line": 256,
+          "text": "verifyIntegerBinop requires both operands to pass verifyIntegerType."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1437,
+          "text": "Interpreter and/or/xor cases destructure .int operands; there is no .byte branch."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 696,
+          "text": "Shift verifier accepts integer-or-byte data operand and integer shift amount."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1385,
+          "text": "shl has an explicit .byte interpreter branch."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1398,
+          "text": "lshr has an explicit .byte interpreter branch."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1043,
+          "text": "trunc verifier calls verifyTruncTypes with allowByte=true."
+        },
+        {
+          "file": "Veir/Verifier/Basic.lean",
+          "line": 386,
+          "text": "verifyTruncTypes accepts byteType-to-byteType when allowByte=true and widths shrink."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1513,
+          "text": "trunc interpreter has a .byte branch."
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3507,
+          "text": "LLVM source castIsValid nevertheless excludes ByteType trunc."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1627,
+          "text": "freeze interpreter accepts .byte."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1637,
+          "text": "bitcast interpreter includes byte conversions."
+        }
+      ],
+      "finding": "Byte.Basic defines pure Byte.and/or/xor functions, but current LLVM OpInfo does not expose those as well-formed interpreted operations: and/or/xor dispatches to verifyIntegerBinop, which requires integer operands, and their interpreter cases accept only `.int`. Byte shifts are verifier-valid and interpreted. Byte trunc is also verifier-valid in Puddle (`allowByte=true`) and its interpreter has a `.byte` branch; LLVM CastInst::castIsValid still rejects it, so it creates no LLVM source ByteType variant. Freeze and bitcast have actual Byte runtime branches. checkIsNonNullIntegerType itself only constrains integer width/signedness and does not reject ByteType.",
+      "recommendation": "For LLVM inventory classification, count ByteType only where source type legality and Puddle verifier/interpreter both support the required operations: principally freeze, bitcast, shl/lshr. Do not infer source Byte trunc variants from Puddle support, or infer operational byte and/or/xor from helper definitions."
+    },
+    {
+      "id": "cast-L243-byte-and-pointer-subsets",
+      "assessment": "pending_variant_candidates",
+      "source_evidence": [
+        {
+          "file": "InstCombineCasts.cpp",
+          "line": 235,
+          "text": "commonCastTransforms delegates cast-pair composition to Instruction::isEliminableCastPair."
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3168,
+          "text": "Cast-pair case 18 allows bitcast-bitcast to bitcast for non-pointer endpoints or same-AS pointer endpoints."
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3171,
+          "text": "Case 18 separately describes pointer->byte->integer and integer->byte->pointer compositions."
+        },
+        {
+          "file": "/tmp/instcombine-Instructions.cpp",
+          "line": 3558,
+          "text": "Same-width non-pointer bitcasts are valid."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1641,
+          "text": "Integer-to-integer equal-width bitcast preserves value."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1643,
+          "text": "Integer-to-byte equal-width bitcast maps the integer bits into Byte."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1647,
+          "text": "Byte-to-integer equal-width bitcast is interpreted."
+        },
+        {
+          "file": "Veir/Dialects/LLVM/OpInfo.lean",
+          "line": 1651,
+          "text": "Pointer-to-pointer bitcast preserves the pointer RuntimeValue."
+        }
+      ],
+      "finding": "The source bitcast/bitcast pair table admits candidate semantic subsets beyond integer cast chains: same-width scalar integer\u2194ByteType compositions; same-address-space pointer\u2192pointer\u2192pointer compositions; and table-specific pointer/byte/integer endpoint forms (including P\u2192P\u2192B, P\u2192B\u2192B, and P\u2192B\u2192I where legal widths/types line up). Puddle interprets integer/byte bitcasts and same-AS ptr\u2192ptr without memory reconstruction. Pointer/byte conversion uses address conversion; Byte\u2192pointer reconstruction calls ptrFromInt and must be checked for state-dependent failure before claiming a non-vacuous semantic proof.",
+      "recommendation": "Add/retain precise pending variants for same-width integer/byte composition and same-AS pointer-only composition under cast-L243. Record P\u2192P\u2192B, P\u2192B\u2192B, and P\u2192B\u2192I as candidates requiring exact cast-pair/path checks; scrutinize every Byte\u2192pointer intermediate for ptrFromInt totality over modeled memory states. Do not claim byte truncation or broad pointer-byte composition."
+    },
+    {
+      "id": "bitwise-not-byte-scope",
+      "assessment": "not_entries_excluded",
+      "source_evidence": [
+        {
+          "file": "/tmp/instcombine-PatternMatch.h",
+          "line": 2687,
+          "text": "m_Not is typed as XOR with cst_pred_ty<is_all_ones>."
+        },
+        {
+          "file": "/tmp/instcombine-PatternMatch.h",
+          "line": 387,
+          "text": "cst_pred_ty specializes the constant matcher to ConstantInt."
+        },
+        {
+          "file": "/tmp/instcombine-PatternMatch.h",
+          "line": 2689,
+          "text": "m_Not returns m_c_Xor(m_AllOnes(), V)."
+        }
+      ],
+      "finding": "The NOT-related bitwise inventory families (including bitwise-L1758, L2114/L2121/L2136/L2175/L2183, L5187/L5244, L5277/L5291, and L5363/L5370/L5380) cannot be broadened to ByteType based on generic formulas: m_Not requires a ConstantInt all-ones value, while ByteType is a distinct constant/type family. The outer and/or/xor operations also lack Byte verifier/interpreter support in Puddle.",
+      "recommendation": "Keep these entries integer scoped unless a particular source pattern proves a separate legal ByteType form."
+    },
+    {
+      "id": "select-and-other-byte-operation-families",
+      "assessment": "not_byte_capability_without_interpreter",
+      "finding": "Many scalar bitcast inventory rows include select, compare, arithmetic, or trunc operations; Puddle's select interpreter accepts integer arms only, comparisons are integer-only, and trunc is not Byte-valid. A Byte bitcast at one point in a source pattern is insufficient to make the whole rewrite a modeled Byte specialization.",
+      "recommendation": "For future broad byte audit, trace every required matched and emitted opcode through LLVM cast/type legality, Puddle verifier, and interpreter; source BitCast eligibility alone does not confer end-to-end support."
+    }
+  ],
+  "summary": "The three restorations are source-supported: GEP CreatePtrAdd emits the canonical i8-element GEP, cmpb-L8701 is shared by ICmp/FCmp, and bitwise-L5370 includes the scalar i1 no-op bitcast shape. cast-L2740/L2820 remain unsupported because only width-mismatched forms trigger their source guards. Byte source/interpreter scope is operation-specific: byte bitcast/freeze/shl/lshr are modeled; and/or/xor are not verifier-valid in Puddle; byte trunc is verifier-valid/interpreted by Puddle but LLVM CastInst::castIsValid excludes it. cast-L243 additionally has same-width int/byte and same-address-space pointer-only composition candidates; pointer/byte round trips require care around ptrFromInt partiality."
+}

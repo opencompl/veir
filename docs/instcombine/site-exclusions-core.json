@@ -1,0 +1,32 @@
+[
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6319,
+    "reason": "Pass-manager/worklist plumbing return; it reports whether the pass changed IR or which analyses remain preserved, not an independent InstCombine rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6341,
+    "reason": "Pass-manager/worklist plumbing return; it reports whether the pass changed IR or which analyses remain preserved, not an independent InstCombine rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6361,
+    "reason": "Pass-manager/worklist plumbing return; it reports whether the pass changed IR or which analyses remain preserved, not an independent InstCombine rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6369,
+    "reason": "Pass-manager/worklist plumbing return; it reports whether the pass changed IR or which analyses remain preserved, not an independent InstCombine rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6410,
+    "reason": "Pass-manager/worklist plumbing return; it reports whether the pass changed IR or which analyses remain preserved, not an independent InstCombine rewrite."
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "line": 6438,
+    "reason": "Pass-manager/worklist plumbing return; it reports whether the pass changed IR or which analyses remain preserved, not an independent InstCombine rewrite."
+  }
+]

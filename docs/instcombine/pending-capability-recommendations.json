@@ -1,0 +1,163 @@
+{
+  "review_kind": "read-only pending-inventory capability gap review",
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "capability_source": "docs/instcombine/puddle-capabilities.md",
+  "method": "Enumerated pending entries in all inventory partitions; screened source spans/opcode families for FP, vector, CFG, and absent property semantics; checked candidate spans against the pinned source. These are recommendations only; inventory files were not changed.",
+  "items": [
+    {
+      "inventory_id": "select-L279",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "lines": [
+          274,
+          316
+        ]
+      },
+      "source_evidence": "foldSelectOpOp accepts any unary CastInst (`TI->isCast()`), requires matching input types, then creates a select over cast inputs and recreates the cast. That includes FP casts and pointer/integer cast cases in addition to scalar integer casts.",
+      "capability_gap": "Puddle select interprets integer operands only; FP cast opcodes/poisoned-float semantics are unavailable; pointer-result selects are unsupported and pointer cast interpretation is only restricted (capability guide lines 100-116). Vector cast/select cases lack an elementwise proof interface (lines 166-173).",
+      "recommended_scope": "Keep the scalar integer cast specialization pending. Record blockers only for FP-cast, pointer-valued select/cast, and vector variants; do not classify the entire source branch unsupported. Also note the current inventory match-opcode list should account for the source\u2019s generic cast set if it is intended to enumerate all matched cast opcodes.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "cast-L243",
+      "source": {
+        "file": "InstCombineCasts.cpp",
+        "lines": [
+          235,
+          243
+        ]
+      },
+      "source_evidence": "commonCastTransforms composes an eliminable two-cast chain according to LLVM cast-pair/type and pointer-size checks. Inventory match/rewrite opcodes include FP casts, ptrtoint/inttoptr, and integer casts.",
+      "capability_gap": "Puddle has no semantics for FP cast operations or poisoned FP; pointer cast support is limited to 64-bit ptrtoint/inttoptr and does not supply arbitrary LLVM DataLayout/address-space semantics (capability guide lines 100-124).",
+      "recommended_scope": "Retain scalar integer cast-pair cases pending. Restrict the blocker to pairs requiring FP semantics or pointer width/address-space/layout behaviors outside the documented RV64 subset.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "select-L5127",
+      "source": {
+        "file": "InstCombineSelect.cpp",
+        "lines": [
+          5126,
+          5127
+        ]
+      },
+      "source_evidence": "visitSelectInst rebuilds a select recognized by matchSelectPattern, then casts back to the original select type. The pattern recognizer admits floating min/max forms as well as integer forms; the inventory lists fcmp and FP casts.",
+      "capability_gap": "Floating compare/minmax transformations require NaN, signed-zero, poisoned-float, and potentially fast-math semantics that Puddle does not provide (capability guide lines 31-33 and 166-173).",
+      "recommended_scope": "Keep integer min/max/abs select-pattern cases pending where their exact compare and casts are scalar integer operations. Apply the blocker to FP patterns only.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "bitwise-L5363",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "lines": [
+          5357,
+          5363
+        ]
+      },
+      "source_evidence": "The branch recognizes NOT of either ICmp or FCmp and changes the comparison predicate to its inverse; it uses one-use or freely-invert-all-users as a graph/profitability condition.",
+      "capability_gap": "FCmp predicate inversion needs floating NaN/poison semantics absent from Puddle. LLVM ICmp `samesign` is also not represented in `IcmpProperties` (guide lines 95-98).",
+      "recommended_scope": "Keep scalar integer ICmp inversion pending for flag-free comparisons; do not treat one-use/profitability or the all-user helper as a semantic blocker. Explicitly scope out FCmp and comparisons with samesign.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "bitwise-L5370",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "lines": [
+          5367,
+          5370
+        ]
+      },
+      "source_evidence": "The matched chain is NOT(BitCast(one-use comparison)); it mutates the comparison predicate and returns a bitcast of the comparison.",
+      "capability_gap": "The meaningful bitcast case requires a vector comparison result viewed through a different bit shape; vector integer operations have no elementwise proof interface and FCmp additionally needs unavailable FP semantics. A scalar i1 comparison bitcast to i1 is a no-op case, not the nontrivial source transform.",
+      "recommended_scope": "Treat the substantive source family as vector/FP-blocked. Do not claim a nontrivial scalar integer specialization unless a distinct legal scalar bitcast shape is established.",
+      "confidence": "medium-high",
+      "coordinator_resolution": "The useful nontrivial forms are vector/FP, but that does not exclude the scalar i1-to-i1 bitcast form: the pinned LLVM CastInst::castIsValid accepts equal-width non-pointer casts and the InstCombine branch has no distinct-type guard. Restored the modeled scalar ICmp specialization to pending, retaining vector/FP limitations."
+    },
+    {
+      "inventory_id": "bitwise-L5433",
+      "source": {
+        "file": "InstCombineAndOrXor.cpp",
+        "lines": [
+          5417,
+          5433
+        ]
+      },
+      "source_evidence": "For NOT of a one-use select, the branch inverts ICmp/FCmp predicates or flips constant arms, then returns the select.",
+      "capability_gap": "FCmp-arm inversion requires unsupported floating compare semantics; integer ICmp `samesign` is absent from the dialect property model (guide lines 95-98).",
+      "recommended_scope": "Keep scalar integer compare/constant-arm variants pending for flag-free ICmp. Block only FP arms and samesign-bearing ICmps; do not block on the one-use profitability guard.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "ic-vector-binop-constant-insert-splat-dispatch-L2517",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2488,
+          2517
+        ]
+      },
+      "source_evidence": "foldVectorBinop explicitly requires vector type, folds constant vector.insert and splat operands, and rebuilds vector.insert.",
+      "capability_gap": "Vector integer/floating constant semantics lack an elementwise proof interface; the source additionally permits floating binops, whose FP semantics are unavailable (capability guide lines 31-33, 166-173).",
+      "recommended_scope": "This helper branch is vector-only; blocker applies to its entire substantive transformation. Keep separate scalar binop inventory entries unaffected.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "ic-binop-vector-reverse-constructor-L2524",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2524,
+          2532
+        ]
+      },
+      "source_evidence": "The constructor creates a vector binop with copied IR flags and wraps it in llvm.vector.reverse; callers match vector-reverse/splat shapes.",
+      "capability_gap": "No vector elementwise proof interface and no llvm.vector.reverse Puddle opcode/interpreter case; floating binops further require FP semantics.",
+      "recommended_scope": "The constructed result is necessarily vector-valued, so this source outcome is blocked as a whole. Do not propagate that blocker to scalar binop folds.",
+      "confidence": "high"
+    },
+    {
+      "inventory_id": "ic-binop-vp-reverse-constructor-L2553",
+      "source": {
+        "file": "InstructionCombining.cpp",
+        "lines": [
+          2553,
+          2565
+        ]
+      },
+      "source_evidence": "The constructor creates a vector binop, all-true vector mask, and llvm.experimental.vp.reverse call with EVL.",
+      "capability_gap": "Puddle has no vector elementwise semantics or VP reverse/mask/EVL semantics; FP variants also exceed the FP model.",
+      "recommended_scope": "This is a vector-only constructed outcome and is blocked as a whole. Keep scalar callers/folds separately scoped.",
+      "confidence": "high"
+    }
+  ],
+  "screened_not_recommendations": [
+    {
+      "inventory_id": "select-L1851",
+      "note": "The opcode list contains fcmp as a broad candidate artifact, but pinned source uses an integer ICmp NE after the NUW trunc test; no FP blocker is warranted."
+    },
+    {
+      "inventory_ids": [
+        "select-L1550",
+        "select-L2418",
+        "select-L2546",
+        "select-L755",
+        "select-L761",
+        "select-L767"
+      ],
+      "note": "These call or synthesize scalar integer intrinsics that the guide explicitly lists as modeled. Intrinsic CallInst spelling alone is not a capability gap."
+    },
+    {
+      "inventory_id": "select-L3074",
+      "note": "Funnel shifts and freeze are represented scalar integer operations; no unsupported semantic gap was identified for the scalar branch."
+    },
+    {
+      "inventory_ids": [
+        "phi-L897",
+        "phi-L1407"
+      ],
+      "note": "These are PHI helper-delegation sites with mixed opcode families, not independent rewrite counts. Any FP/vector blocker belongs on the concrete delegated outcome after helper classification, not on generic delegation merely because its opcode list is broad."
+    }
+  ]
+}

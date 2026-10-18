@@ -1,0 +1,5462 @@
+[
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::visitFSub",
+    "line_start": 3322,
+    "line_end": 3488,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::visitFNeg",
+    "line_start": 3224,
+    "line_end": 3320,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::hoistFNegAboveFMulFDiv",
+    "line_start": 3190,
+    "line_end": 3222,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "foldFNegIntoConstant",
+    "line_start": 3129,
+    "line_end": 3188,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::visitSub",
+    "line_start": 2429,
+    "line_end": 3125,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "foldSubOfMinMax",
+    "line_start": 2383,
+    "line_end": 2427,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::OptimizePointerDifference",
+    "line_start": 2343,
+    "line_end": 2381,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "CommonPointerBase::isExpensive",
+    "line_start": 2320,
+    "line_end": 2338,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "CommonPointerBase::compute",
+    "line_start": 2260,
+    "line_end": 2318,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::visitFAdd",
+    "line_start": 2137,
+    "line_end": 2258,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "factorizeFAddFSub",
+    "line_start": 2092,
+    "line_end": 2135,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "factorizeLerp",
+    "line_start": 2076,
+    "line_end": 2089,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::visitAdd",
+    "line_start": 1610,
+    "line_end": 2073,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::foldDivCeil",
+    "line_start": 1587,
+    "line_end": 1608,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "checkDivCeilNUW",
+    "line_start": 1570,
+    "line_end": 1578,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "foldBoxMultiply",
+    "line_start": 1530,
+    "line_end": 1567,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "factorizeMathWithShlOps",
+    "line_start": 1494,
+    "line_end": 1526,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::\n    canonicalizeCondSignextOfHighBitExtractToSignextHighBitExtract",
+    "line_start": 1394,
+    "line_end": 1489,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::foldAddLikeCommutative",
+    "line_start": 1347,
+    "line_end": 1392,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "foldAddToAshr",
+    "line_start": 1309,
+    "line_end": 1345,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "combineAddSubWithShlAddSub",
+    "line_start": 1296,
+    "line_end": 1306,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "foldToUnsignedSaturatedAdd",
+    "line_start": 1270,
+    "line_end": 1291,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "canonicalizeLowbitMask",
+    "line_start": 1252,
+    "line_end": 1268,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::SimplifyAddWithRemainder",
+    "line_start": 1183,
+    "line_end": 1244,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "MulWillOverflow",
+    "line_start": 1170,
+    "line_end": 1177,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "MatchDiv",
+    "line_start": 1149,
+    "line_end": 1167,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "MatchRem",
+    "line_start": 1127,
+    "line_end": 1144,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "MatchMul",
+    "line_start": 1109,
+    "line_end": 1121,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::foldSquareSumFP",
+    "line_start": 1096,
+    "line_end": 1104,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::foldSquareSumInt",
+    "line_start": 1085,
+    "line_end": 1092,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "matchesSquareSum",
+    "line_start": 1052,
+    "line_end": 1082,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "InstCombinerImpl::foldAddWithConstant",
+    "line_start": 861,
+    "line_end": 1041,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "foldNoWrapAdd",
+    "line_start": 814,
+    "line_end": 859,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "checkForNegativeOperand",
+    "line_start": 757,
+    "line_end": 811,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createAddendVal",
+    "line_start": 728,
+    "line_end": 750,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::calcInstrNumber",
+    "line_start": 696,
+    "line_end": 718,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createInstPostProc",
+    "line_start": 683,
+    "line_end": 692,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createFMul",
+    "line_start": 676,
+    "line_end": 681,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createFAdd",
+    "line_start": 669,
+    "line_end": 674,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createFNeg",
+    "line_start": 662,
+    "line_end": 667,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createFSub",
+    "line_start": 655,
+    "line_end": 660,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::createNaryFAdd",
+    "line_start": 597,
+    "line_end": 653,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::simplifyFAdd",
+    "line_start": 519,
+    "line_end": 595,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine::simplify",
+    "line_start": 432,
+    "line_end": 517,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddend::drillAddendDownOneStep",
+    "line_start": 415,
+    "line_end": 430,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddend::drillValueDownOneStep",
+    "line_start": 352,
+    "line_end": 410,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::getValue",
+    "line_start": 336,
+    "line_end": 340,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::negate",
+    "line_start": 329,
+    "line_end": 334,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::operator*=",
+    "line_start": 299,
+    "line_end": 327,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::operator+=",
+    "line_start": 278,
+    "line_end": 297,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::operator=",
+    "line_start": 271,
+    "line_end": 276,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::createAPFloatFromInt",
+    "line_start": 261,
+    "line_end": 269,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::convertToFpType",
+    "line_start": 247,
+    "line_end": 259,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::set",
+    "line_start": 234,
+    "line_end": 245,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef::~FAddendCoef",
+    "line_start": 229,
+    "line_end": 232,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "incCreateInstNum",
+    "line_start": 214,
+    "line_end": 214,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "initCreateInstNum",
+    "line_start": 213,
+    "line_end": 213,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "incCreateInstNum",
+    "line_start": 211,
+    "line_end": 211,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "initCreateInstNum",
+    "line_start": 210,
+    "line_end": 210,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddCombine",
+    "line_start": 185,
+    "line_end": 185,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "Scale",
+    "line_start": 173,
+    "line_end": 173,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "negate",
+    "line_start": 162,
+    "line_end": 162,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "set",
+    "line_start": 157,
+    "line_end": 160,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "set",
+    "line_start": 153,
+    "line_end": 156,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "set",
+    "line_start": 149,
+    "line_end": 152,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isZero",
+    "line_start": 147,
+    "line_end": 147,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isConstant",
+    "line_start": 146,
+    "line_end": 146,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "getSymVal",
+    "line_start": 143,
+    "line_end": 143,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "operator+=",
+    "line_start": 138,
+    "line_end": 141,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddend",
+    "line_start": 136,
+    "line_end": 136,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isInt",
+    "line_start": 106,
+    "line_end": 106,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "getFpValPtr",
+    "line_start": 92,
+    "line_end": 94,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "getFpValPtr",
+    "line_start": 90,
+    "line_end": 90,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "insaneIntVal",
+    "line_start": 88,
+    "line_end": 88,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isMinusTwo",
+    "line_start": 85,
+    "line_end": 85,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isMinusOne",
+    "line_start": 84,
+    "line_end": 84,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isTwo",
+    "line_start": 83,
+    "line_end": 83,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isOne",
+    "line_start": 82,
+    "line_end": 82,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "isZero",
+    "line_start": 79,
+    "line_end": 79,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "set",
+    "line_start": 70,
+    "line_end": 73,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "name": "FAddendCoef",
+    "line_start": 61,
+    "line_end": 61,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::visitXor",
+    "line_start": 5473,
+    "line_end": 5829,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldMaskedAddXorPattern",
+    "line_start": 5450,
+    "line_end": 5468,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldNot",
+    "line_start": 5252,
+    "line_end": 5447,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::sinkNotIntoOtherHandOfLogicalOp",
+    "line_start": 5200,
+    "line_end": 5250,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::sinkNotIntoLogicalOp",
+    "line_start": 5142,
+    "line_end": 5193,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "freelyInvert",
+    "line_start": 5123,
+    "line_end": 5135,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "canFreelyInvert",
+    "line_start": 5115,
+    "line_end": 5121,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "canonicalizeAbs",
+    "line_start": 5083,
+    "line_end": 5113,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldNotXor",
+    "line_start": 5049,
+    "line_end": 5079,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "visitMaskedMerge",
+    "line_start": 5017,
+    "line_end": 5047,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldXorOfICmps",
+    "line_start": 4868,
+    "line_end": 5001,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldXorToXor",
+    "line_start": 4817,
+    "line_end": 4866,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::visitOr",
+    "line_start": 4200,
+    "line_end": 4813,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::FoldOrOfLogicalAnds",
+    "line_start": 4129,
+    "line_end": 4195,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "FoldOrOfSelectSmaxToAbs",
+    "line_start": 4110,
+    "line_end": 4127,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldOrUnsignedUMulOverflowICmp",
+    "line_start": 4089,
+    "line_end": 4106,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::reassociateDisjointOr",
+    "line_start": 4065,
+    "line_end": 4083,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldDisjointOr",
+    "line_start": 4056,
+    "line_end": 4063,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldBitmaskMul",
+    "line_start": 4033,
+    "line_end": 4054,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchBitmaskMul",
+    "line_start": 3971,
+    "line_end": 4028,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "isCombineableWith",
+    "line_start": 3965,
+    "line_end": 3968,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldIntegerRepackThroughZExt",
+    "line_start": 3925,
+    "line_end": 3952,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchZExtedSubInteger",
+    "line_start": 3884,
+    "line_end": 3921,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldIntegerPackFromVector",
+    "line_start": 3847,
+    "line_end": 3876,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchSubIntegerPackFromVector",
+    "line_start": 3744,
+    "line_end": 3843,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldOrOfInversions",
+    "line_start": 3716,
+    "line_end": 3733,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldBooleanAndOr",
+    "line_start": 3689,
+    "line_end": 3714,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldAndOrOfICmps",
+    "line_start": 3449,
+    "line_end": 3685,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldAndOrOfICmpEqConstantAndICmp",
+    "line_start": 3407,
+    "line_end": 3444,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::matchSelectFromAndOr",
+    "line_start": 3368,
+    "line_end": 3403,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::getSelectCondition",
+    "line_start": 3284,
+    "line_end": 3361,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "areInverseVectorBitmasks",
+    "line_start": 3264,
+    "line_end": 3278,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchOrConcat",
+    "line_start": 3201,
+    "line_end": 3261,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchFunnelShift",
+    "line_start": 3189,
+    "line_end": 3198,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::convertOrOfShiftsToFunnelShift",
+    "line_start": 2991,
+    "line_end": 3186,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::matchBSwapOrBitReverse",
+    "line_start": 2974,
+    "line_end": 2989,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::visitAnd",
+    "line_start": 2475,
+    "line_end": 2972,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::reassociateBooleanAndOr",
+    "line_start": 2445,
+    "line_end": 2470,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldRoundUpToPow2Alignment",
+    "line_start": 2412,
+    "line_end": 2440,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "simplifyAndOrWithOpReplaced",
+    "line_start": 2371,
+    "line_end": 2407,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldBitwiseLogicWithIntrinsics",
+    "line_start": 2315,
+    "line_end": 2364,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldBinOpOfDisplacedShifts",
+    "line_start": 2266,
+    "line_end": 2304,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "canonicalizeLogicFirst",
+    "line_start": 2228,
+    "line_end": 2261,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "reassociateForUses",
+    "line_start": 2195,
+    "line_end": 2217,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldComplexAndOrPatterns",
+    "line_start": 2054,
+    "line_end": 2189,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::narrowMaskedBinOp",
+    "line_start": 2013,
+    "line_end": 2050,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "canNarrowShiftAmt",
+    "line_start": 2006,
+    "line_end": 2009,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldOrToXor",
+    "line_start": 1970,
+    "line_end": 2002,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldAndToXor",
+    "line_start": 1944,
+    "line_end": 1968,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldCastedBitwiseLogic",
+    "line_start": 1821,
+    "line_end": 1942,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldLogicCastConstant",
+    "line_start": 1781,
+    "line_end": 1818,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::shouldOptimizeCast",
+    "line_start": 1764,
+    "line_end": 1778,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchDeMorgansLaws",
+    "line_start": 1728,
+    "line_end": 1762,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "reassociateFCmps",
+    "line_start": 1687,
+    "line_end": 1723,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::canonicalizeConditionalNegationViaMathToSelect",
+    "line_start": 1669,
+    "line_end": 1681,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldLogicOfIsFPClass",
+    "line_start": 1603,
+    "line_end": 1660,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchIsFPClassLikeFCmp",
+    "line_start": 1585,
+    "line_end": 1595,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldLogicOfFCmps",
+    "line_start": 1451,
+    "line_end": 1581,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchIsFiniteTest",
+    "line_start": 1437,
+    "line_end": 1449,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchUnorderedInfCompare",
+    "line_start": 1429,
+    "line_end": 1432,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchIsNotNaN",
+    "line_start": 1424,
+    "line_end": 1426,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldAndOrOfICmpsUsingRanges",
+    "line_start": 1341,
+    "line_end": 1421,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldAndOrOfICmpsWithConstEq",
+    "line_start": 1287,
+    "line_end": 1335,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::foldEqOfParts",
+    "line_start": 1201,
+    "line_end": 1282,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "extractIntPart",
+    "line_start": 1188,
+    "line_end": 1196,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "matchIntPart",
+    "line_start": 1170,
+    "line_end": 1185,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldUnsignedUnderflowCheck",
+    "line_start": 1120,
+    "line_end": 1161,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldPowerOf2AndShiftedMask",
+    "line_start": 1088,
+    "line_end": 1116,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldNegativePower2AndShiftedMask",
+    "line_start": 1022,
+    "line_end": 1079,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldIsPowerOf2",
+    "line_start": 983,
+    "line_end": 1015,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldIsPowerOf2OrZero",
+    "line_start": 953,
+    "line_end": 978,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldSignedTruncationCheck",
+    "line_start": 856,
+    "line_end": 947,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldAndOrOfICmpsWithPow2AndWithZero",
+    "line_start": 789,
+    "line_end": 824,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::simplifyRangeCheck",
+    "line_start": 726,
+    "line_end": 783,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldLogOpOfMaskedICmps",
+    "line_start": 536,
+    "line_end": 720,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldLogOpOfMaskedICmpsAsymmetric",
+    "line_start": 505,
+    "line_end": 532,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "foldLogOpOfMaskedICmps_NotAllZeros_BMask_Mixed",
+    "line_start": 355,
+    "line_end": 499,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "getMaskedTypeForICmpPair",
+    "line_start": 211,
+    "line_end": 348,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "decomposeBitTest",
+    "line_start": 191,
+    "line_end": 204,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "conjugateICmpMask",
+    "line_start": 177,
+    "line_end": 188,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "getMaskedICmpType",
+    "line_start": 127,
+    "line_end": 171,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "InstCombinerImpl::insertRangeTest",
+    "line_start": 61,
+    "line_end": 83,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "getFCmpValue",
+    "line_start": 50,
+    "line_end": 56,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAndOrXor.cpp",
+    "name": "getNewICmpValue",
+    "line_start": 40,
+    "line_end": 46,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "name": "InstCombinerImpl::visitAtomicRMWInst",
+    "line_start": 102,
+    "line_end": 157,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "name": "isSaturating",
+    "line_start": 62,
+    "line_end": 100,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineAtomicRMW.cpp",
+    "name": "isIdempotentRMW",
+    "line_start": 24,
+    "line_end": 58,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::transformCallThroughTrampoline",
+    "line_start": 5601,
+    "line_end": 5740,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::transformConstExprCastCall",
+    "line_start": 5348,
+    "line_end": 5597,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::visitCallBase",
+    "line_start": 5060,
+    "line_end": 5343,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::annotateAnyAllocSite",
+    "line_start": 5012,
+    "line_end": 5057,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::foldPtrAuthConstantCallee",
+    "line_start": 4984,
+    "line_end": 5010,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::foldPtrAuthIntrinsicCallee",
+    "line_start": 4907,
+    "line_end": 4982,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "findInitTrampoline",
+    "line_start": 4891,
+    "line_end": 4905,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "findInitTrampolineFromBB",
+    "line_start": 4870,
+    "line_end": 4886,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "findInitTrampolineFromAlloca",
+    "line_start": 4831,
+    "line_end": 4868,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::tryOptimizeCall",
+    "line_start": 4802,
+    "line_end": 4829,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "optimizeModularFormat",
+    "line_start": 4736,
+    "line_end": 4800,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "referenceAspect",
+    "line_start": 4724,
+    "line_end": 4734,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "isAspectNeeded",
+    "line_start": 4695,
+    "line_end": 4722,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "parseFormatStringSpecifiers",
+    "line_start": 4671,
+    "line_end": 4693,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::visitCallBrInst",
+    "line_start": 4663,
+    "line_end": 4665,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::visitInvokeInst",
+    "line_start": 4658,
+    "line_end": 4660,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::visitFenceInst",
+    "line_start": 4630,
+    "line_end": 4655,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::visitCallInst",
+    "line_start": 2035,
+    "line_end": 4627,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldCmpIntrinsicOfExtended",
+    "line_start": 1986,
+    "line_end": 2030,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldSinAndCosToSinCos",
+    "line_start": 1919,
+    "line_end": 1976,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldNeonShift",
+    "line_start": 1870,
+    "line_end": 1913,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldIntrinsicUsingDistributiveLaws",
+    "line_start": 1818,
+    "line_end": 1868,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "rightDistributesOverLeft",
+    "line_start": 1799,
+    "line_end": 1813,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "leftDistributesOverRight",
+    "line_start": 1779,
+    "line_end": 1795,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldMinimumOverTrailingOrLeadingZeroCount",
+    "line_start": 1739,
+    "line_end": 1775,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "simplifyReductionOperand",
+    "line_start": 1705,
+    "line_end": 1730,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldIdempotentBinaryIntrinsicRecurrence",
+    "line_start": 1685,
+    "line_end": 1703,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "isIdempotentBinaryIntrinsic",
+    "line_start": 1662,
+    "line_end": 1678,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldBitOrderCrossLogicOp",
+    "line_start": 1625,
+    "line_end": 1658,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::foldReversedIntrinsicOperands",
+    "line_start": 1585,
+    "line_end": 1619,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::foldShuffledIntrinsicOperands",
+    "line_start": 1526,
+    "line_end": 1581,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "factorizeMinMaxTree",
+    "line_start": 1467,
+    "line_end": 1522,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "reassociateMinMaxWithConstantInOperand",
+    "line_start": 1438,
+    "line_end": 1464,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "reassociateMinMaxWithConstants",
+    "line_start": 1405,
+    "line_end": 1434,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldClampRangeOfTwo",
+    "line_start": 1362,
+    "line_end": 1401,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::matchSAddSubSat",
+    "line_start": 1300,
+    "line_end": 1356,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "moveAddAfterMinMax",
+    "line_start": 1263,
+    "line_end": 1298,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "ldexpSaturatingAddIsSafe",
+    "line_start": 1244,
+    "line_end": 1259,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "signBitMustBeTheSame",
+    "line_start": 1229,
+    "line_end": 1238,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "getKnownSignOrZero",
+    "line_start": 1216,
+    "line_end": 1226,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "getKnownSign",
+    "line_start": 1202,
+    "line_end": 1214,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::foldIntrinsicIsFPClass",
+    "line_start": 1062,
+    "line_end": 1200,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "fpclassTestIsFCmp0",
+    "line_start": 1004,
+    "line_end": 1060,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "mayFlushDenormalsToPositiveZero",
+    "line_start": 995,
+    "line_end": 999,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "inputDenormalIsDAZ",
+    "line_start": 989,
+    "line_end": 992,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "inputDenormalIsIEEE",
+    "line_start": 984,
+    "line_end": 987,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::foldIntrinsicWithOverflowCommon",
+    "line_start": 944,
+    "line_end": 982,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "createOverflowTuple",
+    "line_start": 936,
+    "line_end": 942,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "canonicalizeConstantArg0ToArg1",
+    "line_start": 914,
+    "line_end": 932,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::visitVAEndInst",
+    "line_start": 903,
+    "line_end": 912,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "removeTriviallyEmptyRange",
+    "line_start": 875,
+    "line_end": 901,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "haveSameOperands",
+    "line_start": 856,
+    "line_end": 864,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "simplifyNeonTbl",
+    "line_start": 741,
+    "line_end": 852,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldCtpop",
+    "line_start": 651,
+    "line_end": 737,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "foldCttzCtlz",
+    "line_start": 470,
+    "line_end": 649,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "simplifyInvariantGroupIntrinsic",
+    "line_start": 448,
+    "line_end": 468,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::simplifyMaskedScatter",
+    "line_start": 391,
+    "line_end": 442,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::simplifyMaskedGather",
+    "line_start": 364,
+    "line_end": 384,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::simplifyMaskedStore",
+    "line_start": 325,
+    "line_end": 356,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::simplifyMaskedLoad",
+    "line_start": 295,
+    "line_end": 320,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::SimplifyAnyMemSet",
+    "line_start": 216,
+    "line_end": 291,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "InstCombinerImpl::SimplifyAnyMemTransfer",
+    "line_start": 114,
+    "line_end": 214,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "hasUndefSource",
+    "line_start": 104,
+    "line_end": 112,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCalls.cpp",
+    "name": "getPromotedType",
+    "line_start": 93,
+    "line_end": 99,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitAddrSpaceCast",
+    "line_start": 3628,
+    "line_end": 3630,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitBitCast",
+    "line_start": 3483,
+    "line_end": 3626,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "foldCopySignIdioms",
+    "line_start": 3464,
+    "line_end": 3481,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::optimizeBitCastFromPhi",
+    "line_start": 3294,
+    "line_end": 3460,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "hasStoreUsersOnly",
+    "line_start": 3278,
+    "line_end": 3284,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "foldBitCastSelect",
+    "line_start": 3220,
+    "line_end": 3275,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "foldBitCastBitwiseLogic",
+    "line_start": 3146,
+    "line_end": 3217,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "canonicalizeBitCastExtElt",
+    "line_start": 3119,
+    "line_end": 3143,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "optimizeIntegerToVectorInsertions",
+    "line_start": 3086,
+    "line_end": 3113,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "collectInsertionElements",
+    "line_start": 2971,
+    "line_end": 3069,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "getTypeSizeIndex",
+    "line_start": 2957,
+    "line_end": 2959,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "isMultipleOfTypeSize",
+    "line_start": 2953,
+    "line_end": 2955,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "optimizeVectorResizeWithIntegerBitCasts",
+    "line_start": 2882,
+    "line_end": 2951,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitPtrToAddr",
+    "line_start": 2847,
+    "line_end": 2864,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitPtrToInt",
+    "line_start": 2806,
+    "line_end": 2845,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::foldPtrToIntOrAddrOfGEP",
+    "line_start": 2770,
+    "line_end": 2804,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitIntToPtr",
+    "line_start": 2730,
+    "line_end": 2768,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitSIToFP",
+    "line_start": 2713,
+    "line_end": 2728,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitUIToFP",
+    "line_start": 2683,
+    "line_end": 2711,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitFPToSI",
+    "line_start": 2673,
+    "line_end": 2681,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitFPToUI",
+    "line_start": 2663,
+    "line_end": 2671,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "foldFPtoI",
+    "line_start": 2589,
+    "line_end": 2661,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::foldItoFPtoI",
+    "line_start": 2521,
+    "line_end": 2583,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitFPExt",
+    "line_start": 2502,
+    "line_end": 2514,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitFPTrunc",
+    "line_start": 2296,
+    "line_end": 2500,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombiner::isKnownExactCastIntToFP",
+    "line_start": 2287,
+    "line_end": 2294,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombiner::canBeCastedExactlyIntToFP",
+    "line_start": 2236,
+    "line_end": 2285,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "getMinimumFPType",
+    "line_start": 2203,
+    "line_end": 2234,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "shrinkFPConstantVector",
+    "line_start": 2168,
+    "line_end": 2200,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "shrinkFPConstant",
+    "line_start": 2152,
+    "line_end": 2164,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "shrinkFPConstant",
+    "line_start": 2132,
+    "line_end": 2150,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "fitsInFPType",
+    "line_start": 2126,
+    "line_end": 2130,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitSExt",
+    "line_start": 1949,
+    "line_end": 2122,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateSExtdPred",
+    "line_start": 1904,
+    "line_end": 1947,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateSExtdImpl",
+    "line_start": 1898,
+    "line_end": 1902,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateSExtd",
+    "line_start": 1892,
+    "line_end": 1896,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::transformSExtICmp",
+    "line_start": 1807,
+    "line_end": 1883,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitZExt",
+    "line_start": 1625,
+    "line_end": 1804,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateZExtdImpl",
+    "line_start": 1502,
+    "line_end": 1623,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateZExtd",
+    "line_start": 1495,
+    "line_end": 1501,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::transformZExtICmp",
+    "line_start": 1387,
+    "line_end": 1475,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::visitTrunc",
+    "line_start": 1063,
+    "line_end": 1385,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "shrinkInsertElt",
+    "line_start": 1043,
+    "line_end": 1061,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "shrinkSplatShuffle",
+    "line_start": 1018,
+    "line_end": 1036,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::narrowBinOp",
+    "line_start": 932,
+    "line_end": 1013,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::narrowFunnelShift",
+    "line_start": 828,
+    "line_end": 928,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "foldVecExtTruncToExtElt",
+    "line_start": 763,
+    "line_end": 824,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "foldVecTruncToExtElt",
+    "line_start": 713,
+    "line_end": 749,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateTruncatedPred",
+    "line_start": 546,
+    "line_end": 705,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateTruncatedImpl",
+    "line_start": 538,
+    "line_end": 544,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canEvaluateTruncated",
+    "line_start": 528,
+    "line_end": 536,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canNotEvaluateInType",
+    "line_start": 506,
+    "line_end": 515,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper::canAlwaysEvaluateInType",
+    "line_start": 492,
+    "line_end": 502,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "canEvaluate",
+    "line_start": 344,
+    "line_end": 456,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "allPendingVisited",
+    "line_start": 337,
+    "line_end": 340,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "TypeEvaluationHelper",
+    "line_start": 329,
+    "line_end": 330,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::commonCastTransforms",
+    "line_start": 226,
+    "line_end": 300,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::isEliminableCastPair",
+    "line_start": 200,
+    "line_end": 223,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "InstCombinerImpl::EvaluateInDifferentType",
+    "line_start": 194,
+    "line_end": 198,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCasts.cpp",
+    "name": "EvaluateInDifferentTypeImpl",
+    "line_start": 40,
+    "line_end": 190,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::visitFCmpInst",
+    "line_start": 9287,
+    "line_end": 9622,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isMinMaxCmpSelectEliminable",
+    "line_start": 9264,
+    "line_end": 9285,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFCmpWithFloorAndCeil",
+    "line_start": 9182,
+    "line_end": 9257,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFCmpFAbsFSubIntToFP",
+    "line_start": 9126,
+    "line_end": 9180,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFCmpFSubIntoFCmp",
+    "line_start": 9036,
+    "line_end": 9113,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFCmpFNegCommonOp",
+    "line_start": 9017,
+    "line_end": 9034,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldSqrtWithFcmpZero",
+    "line_start": 8957,
+    "line_end": 9015,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFabsWithFcmpZero",
+    "line_start": 8856,
+    "line_end": 8954,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFCmpFpTrunc",
+    "line_start": 8760,
+    "line_end": 8853,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldFCmpReciprocalAndZero",
+    "line_start": 8705,
+    "line_end": 8749,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldCmpSelectOfConstants",
+    "line_start": 8658,
+    "line_end": 8702,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldFCmpIntToFPConst",
+    "line_start": 8415,
+    "line_end": 8651,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::visitICmpInst",
+    "line_start": 7998,
+    "line_end": 8412,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpCommutative",
+    "line_start": 7840,
+    "line_end": 7996,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldReductionIdiom",
+    "line_start": 7794,
+    "line_end": 7837,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpOfVectorReduce",
+    "line_start": 7750,
+    "line_end": 7788,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpInvariantGroup",
+    "line_start": 7733,
+    "line_end": 7748,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpOfUAddOv",
+    "line_start": 7705,
+    "line_end": 7731,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldVectorCmp",
+    "line_start": 7635,
+    "line_end": 7701,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpWithHighBitMask",
+    "line_start": 7592,
+    "line_end": 7633,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "canonicalizeICmpBool",
+    "line_start": 7513,
+    "line_end": 7584,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::canonicalizeICmpPredicate",
+    "line_start": 7491,
+    "line_end": 7510,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "canonicalizeCmpWithConstant",
+    "line_start": 7467,
+    "line_end": 7487,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpUsingBoolRange",
+    "line_start": 7378,
+    "line_end": 7462,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpUsingKnownBits",
+    "line_start": 7149,
+    "line_end": 7374,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::replacedSelectWithOperand",
+    "line_start": 7121,
+    "line_end": 7145,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isChainSelectCmpBranch",
+    "line_start": 7068,
+    "line_end": 7079,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::dominatesAllUses",
+    "line_start": 7046,
+    "line_end": 7065,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "getDemandedBitsLHSMask",
+    "line_start": 7007,
+    "line_end": 7034,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "processUZExtIdiom",
+    "line_start": 6851,
+    "line_end": 7002,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::OptimizeOverflowCheck",
+    "line_start": 6786,
+    "line_end": 6833,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::computeOverflow",
+    "line_start": 6761,
+    "line_end": 6784,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isNeutralValue",
+    "line_start": 6747,
+    "line_end": 6759,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithCastOp",
+    "line_start": 6674,
+    "line_end": 6745,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithZextOrSext",
+    "line_start": 6561,
+    "line_end": 6671,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithTrunc",
+    "line_start": 6518,
+    "line_end": 6559,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpEquality",
+    "line_start": 6265,
+    "line_end": 6516,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpEqualityWithOffset",
+    "line_start": 6183,
+    "line_end": 6263,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "materialize",
+    "line_start": 6167,
+    "line_end": 6177,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isValid",
+    "line_start": 6166,
+    "line_end": 6166,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "select",
+    "line_start": 6162,
+    "line_end": 6165,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "value",
+    "line_start": 6159,
+    "line_end": 6161,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "invalid",
+    "line_start": 6156,
+    "line_end": 6158,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "collectOffsetOp",
+    "line_start": 6114,
+    "line_end": 6147,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpPow2Test",
+    "line_start": 6060,
+    "line_end": 6110,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithClamp",
+    "line_start": 6028,
+    "line_end": 6057,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithMinMax",
+    "line_start": 5875,
+    "line_end": 6018,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpBinOp",
+    "line_start": 5344,
+    "line_end": 5872,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isMultipleOf",
+    "line_start": 5330,
+    "line_end": 5338,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpXorXX",
+    "line_start": 5284,
+    "line_end": 5326,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpOrXX",
+    "line_start": 5249,
+    "line_end": 5282,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpAndXX",
+    "line_start": 5187,
+    "line_end": 5247,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpXNegX",
+    "line_start": 5155,
+    "line_end": 5185,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldMultiplicationOverflowCheck",
+    "line_start": 5087,
+    "line_end": 5153,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldShiftIntoShiftInAnotherHandOfAndInICmp",
+    "line_start": 4913,
+    "line_end": 5078,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpWithTruncSignExtendedVal",
+    "line_start": 4839,
+    "line_end": 4904,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpWithLowBitMaskedVal",
+    "line_start": 4710,
+    "line_end": 4829,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isMaskOrZero",
+    "line_start": 4603,
+    "line_end": 4692,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldSelectICmp",
+    "line_start": 4514,
+    "line_end": 4600,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpInstWithConstantNotInt",
+    "line_start": 4480,
+    "line_end": 4512,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpIntrinsicWithConstant",
+    "line_start": 4346,
+    "line_end": 4477,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpOfCmpIntrinsicWithConstant",
+    "line_start": 4289,
+    "line_end": 4343,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpUSubSatOrUAddSatWithConstant",
+    "line_start": 4204,
+    "line_end": 4287,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpBinOpWithConstant",
+    "line_start": 4141,
+    "line_end": 4202,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpInstWithConstantAllowPoison",
+    "line_start": 4118,
+    "line_end": 4138,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpIntrinsicWithIntrinsic",
+    "line_start": 4056,
+    "line_end": 4113,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpEqIntrinsicWithConstant",
+    "line_start": 3946,
+    "line_end": 4053,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldCtpopPow2Test",
+    "line_start": 3908,
+    "line_end": 3943,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpBinOpEqualityWithConstant",
+    "line_start": 3753,
+    "line_end": 3906,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpInstWithConstant",
+    "line_start": 3661,
+    "line_end": 3749,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpBitCast",
+    "line_start": 3492,
+    "line_end": 3657,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpSelectConstant",
+    "line_start": 3444,
+    "line_end": 3490,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::matchThreeWayIntCompare",
+    "line_start": 3391,
+    "line_end": 3442,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpAddConstant",
+    "line_start": 3232,
+    "line_end": 3389,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpBinOpWithConstantViaTruthTable",
+    "line_start": 3193,
+    "line_end": 3229,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "createLogicFromTable",
+    "line_start": 3143,
+    "line_end": 3191,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpSubConstant",
+    "line_start": 3047,
+    "line_end": 3141,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpDivConstant",
+    "line_start": 2858,
+    "line_end": 3044,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpUDivConstant",
+    "line_start": 2825,
+    "line_end": 2855,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpSRemConstant",
+    "line_start": 2743,
+    "line_end": 2822,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpShrConstant",
+    "line_start": 2589,
+    "line_end": 2741,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpShlConstant",
+    "line_start": 2409,
+    "line_end": 2586,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpShlLHSC",
+    "line_start": 2359,
+    "line_end": 2406,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpMulConstant",
+    "line_start": 2232,
+    "line_end": 2356,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpOrConstant",
+    "line_start": 2131,
+    "line_end": 2229,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "foldICmpOrXorSubChain",
+    "line_start": 2072,
+    "line_end": 2128,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpAndConstant",
+    "line_start": 1952,
+    "line_end": 2069,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpAndConstConst",
+    "line_start": 1808,
+    "line_end": 1949,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpAndShift",
+    "line_start": 1721,
+    "line_end": 1805,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpXorShiftConst",
+    "line_start": 1692,
+    "line_end": 1718,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpXorConstant",
+    "line_start": 1620,
+    "line_end": 1687,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpTruncWithTruncOrExt",
+    "line_start": 1560,
+    "line_end": 1617,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpTruncConstant",
+    "line_start": 1470,
+    "line_end": 1556,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithDominatingICmp",
+    "line_start": 1394,
+    "line_end": 1467,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithConstant",
+    "line_start": 1344,
+    "line_end": 1391,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldIsMultipleOfAPowerOfTwo",
+    "line_start": 1314,
+    "line_end": 1337,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpWithZero",
+    "line_start": 1225,
+    "line_end": 1308,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldSignBitTest",
+    "line_start": 1194,
+    "line_end": 1222,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldIRemByPowerOfTwoToBitTest",
+    "line_start": 1175,
+    "line_end": 1190,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "processUGT_ADDCST_ADD",
+    "line_start": 1088,
+    "line_end": 1169,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpShlConstConst",
+    "line_start": 1044,
+    "line_end": 1079,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpShrConstConst",
+    "line_start": 985,
+    "line_end": 1040,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldICmpAddOpConst",
+    "line_start": 935,
+    "line_end": 980,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldAllocaCmp",
+    "line_start": 857,
+    "line_end": 932,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "captured",
+    "line_start": 883,
+    "line_end": 899,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "tooManyUses",
+    "line_start": 881,
+    "line_end": 881,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "CmpCaptureTracker",
+    "line_start": 879,
+    "line_end": 879,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldGEPICmp",
+    "line_start": 652,
+    "line_end": 855,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "transformToIndexedCompare",
+    "line_start": 608,
+    "line_end": 648,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "rewriteGEPAsOffset",
+    "line_start": 514,
+    "line_end": 603,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "setInsertionPoint",
+    "line_start": 488,
+    "line_end": 510,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "canRewriteGEPAsOffset",
+    "line_start": 400,
+    "line_end": 484,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "InstCombinerImpl::foldCmpLoadFromIndexedGlobal",
+    "line_start": 120,
+    "line_end": 395,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "isSignTest",
+    "line_start": 85,
+    "line_end": 105,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "hasBranchUse",
+    "line_start": 74,
+    "line_end": 79,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "subWithOverflow",
+    "line_start": 61,
+    "line_end": 70,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "name": "addWithOverflow",
+    "line_start": 48,
+    "line_end": 57,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "Negator",
+    "line_start": 926,
+    "line_end": 926,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "Negator",
+    "line_start": 925,
+    "line_end": 925,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "tryGetLog2",
+    "line_start": 882,
+    "line_end": 886,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "eraseInstFromFunction",
+    "line_start": 506,
+    "line_end": 521,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "createSelectInstWithUnknownProfile",
+    "line_start": 481,
+    "line_end": 488,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflow",
+    "line_start": 364,
+    "line_end": 373,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowMul",
+    "line_start": 358,
+    "line_end": 362,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowUnsignedMul",
+    "line_start": 351,
+    "line_end": 356,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowSignedMul",
+    "line_start": 345,
+    "line_end": 349,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowSub",
+    "line_start": 339,
+    "line_end": 343,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowUnsignedSub",
+    "line_start": 333,
+    "line_end": 337,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowSignedSub",
+    "line_start": 327,
+    "line_end": 331,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowAdd",
+    "line_start": 321,
+    "line_end": 325,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowUnsignedAdd",
+    "line_start": 314,
+    "line_end": 319,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "willNotOverflowSignedAdd",
+    "line_start": 307,
+    "line_end": 312,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "visitInstruction",
+    "line_start": 203,
+    "line_end": 203,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineInternal.h",
+    "name": "~InstCombinerImpl",
+    "line_start": 83,
+    "line_end": 83,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "InstCombinerImpl::mergeStoreIntoSuccessor",
+    "line_start": 1647,
+    "line_end": 1778,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "InstCombinerImpl::visitStoreInst",
+    "line_start": 1480,
+    "line_end": 1640,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "equivalentAddressValues",
+    "line_start": 1459,
+    "line_end": 1478,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "unpackStoreToAggregate",
+    "line_start": 1349,
+    "line_end": 1449,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "combineStoreToValueType",
+    "line_start": 1308,
+    "line_end": 1347,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "likeBitCastFromVector",
+    "line_start": 1247,
+    "line_end": 1286,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "InstCombinerImpl::visitLoadInst",
+    "line_start": 1101,
+    "line_end": 1231,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "InstCombinerImpl::simplifyNonNullOperand",
+    "line_start": 1044,
+    "line_end": 1099,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "canSimplifyNullLoadOrGEP",
+    "line_start": 1030,
+    "line_end": 1042,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "canSimplifyNullStoreOrGEP",
+    "line_start": 1019,
+    "line_end": 1028,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "replaceGEPIdxWithZero",
+    "line_start": 994,
+    "line_end": 1017,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "canReplaceGEPIdxWithZero",
+    "line_start": 919,
+    "line_end": 989,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isObjectSizeLessThanOrEq",
+    "line_start": 848,
+    "line_end": 902,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "unpackLoadToAggregate",
+    "line_start": 736,
+    "line_end": 840,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "combineLoadToOperationType",
+    "line_start": 688,
+    "line_end": 734,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "combineStoreToNewValue",
+    "line_start": 620,
+    "line_end": 669,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "InstCombinerImpl::combineLoadToNewType",
+    "line_start": 606,
+    "line_end": 615,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isSupportedAtomicType",
+    "line_start": 593,
+    "line_end": 595,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "InstCombinerImpl::visitAllocaInst",
+    "line_start": 505,
+    "line_end": 590,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "PointerReplacer::replace",
+    "line_start": 400,
+    "line_end": 503,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "PointerReplacer::replacePointer",
+    "line_start": 366,
+    "line_end": 398,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "PointerReplacer::collectUsers",
+    "line_start": 262,
+    "line_end": 364,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isEqualOrValidAddrSpaceCast",
+    "line_start": 245,
+    "line_end": 252,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isAvailable",
+    "line_start": 241,
+    "line_end": 243,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "getReplacement",
+    "line_start": 240,
+    "line_end": 240,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "PointerReplacer",
+    "line_start": 232,
+    "line_end": 233,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "simplifyAllocaArraySize",
+    "line_start": 177,
+    "line_end": 217,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isDereferenceableForAllocaSize",
+    "line_start": 168,
+    "line_end": 175,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isOnlyCopiedFromConstantMemory",
+    "line_start": 157,
+    "line_end": 165,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "name": "isOnlyCopiedFromConstantMemory",
+    "line_start": 41,
+    "line_end": 151,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitFRem",
+    "line_start": 2731,
+    "line_end": 2744,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitSRem",
+    "line_start": 2660,
+    "line_end": 2729,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitURem",
+    "line_start": 2586,
+    "line_end": 2658,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::commonIRemTransforms",
+    "line_start": 2550,
+    "line_end": 2584,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "simplifyIRemMulShl",
+    "line_start": 2441,
+    "line_end": 2544,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitFDiv",
+    "line_start": 2291,
+    "line_end": 2433,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "convertFSqrtDivIntoFMul",
+    "line_start": 2236,
+    "line_end": 2289,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "foldFDivSqrtDivisor",
+    "line_start": 2197,
+    "line_end": 2221,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "foldFDivPowDivisor",
+    "line_start": 2133,
+    "line_end": 2193,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "foldFDivConstantDividend",
+    "line_start": 2098,
+    "line_end": 2130,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::foldFDivConstantDivisor",
+    "line_start": 2053,
+    "line_end": 2095,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitSDiv",
+    "line_start": 1900,
+    "line_end": 2050,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitUDiv",
+    "line_start": 1805,
+    "line_end": 1898,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "narrowUDivURem",
+    "line_start": 1762,
+    "line_end": 1803,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::takeLog2",
+    "line_start": 1655,
+    "line_end": 1758,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::commonIDivTransforms",
+    "line_start": 1370,
+    "line_end": 1653,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::commonIDivRemTransforms",
+    "line_start": 1330,
+    "line_end": 1364,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "foldIDivShl",
+    "line_start": 1249,
+    "line_end": 1327,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "isMultiple",
+    "line_start": 1228,
+    "line_end": 1247,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "multiplyOverflows",
+    "line_start": 1220,
+    "line_end": 1225,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::simplifyDivRemOfSelectWithZeroOp",
+    "line_start": 1153,
+    "line_end": 1217,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitFMul",
+    "line_start": 1013,
+    "line_end": 1148,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::foldFMulReassoc",
+    "line_start": 836,
+    "line_end": 1011,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "isFSqrtDivToFMulLegal",
+    "line_start": 786,
+    "line_end": 834,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "getFSqrtDivOptPattern",
+    "line_start": 753,
+    "line_end": 773,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::foldPowiReassoc",
+    "line_start": 677,
+    "line_end": 746,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::foldFPSignBitOps",
+    "line_start": 647,
+    "line_end": 675,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "InstCombinerImpl::visitMul",
+    "line_start": 203,
+    "line_end": 645,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "foldMulShl1",
+    "line_start": 156,
+    "line_end": 201,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "foldMulSelectToNegate",
+    "line_start": 105,
+    "line_end": 152,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "name": "simplifyValueKnownNonZero",
+    "line_start": 48,
+    "line_end": 98,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::Negate",
+    "line_start": 541,
+    "line_end": 576,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::run",
+    "line_start": 528,
+    "line_end": 539,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::negate",
+    "line_start": 491,
+    "line_end": 526,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::visitImpl",
+    "line_start": 111,
+    "line_end": 489,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::getSortedOperandsOfBinOp",
+    "line_start": 100,
+    "line_end": 107,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::~Negator",
+    "line_start": 91,
+    "line_end": 93,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "name": "Negator::Negator",
+    "line_start": 81,
+    "line_end": 88,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::visitPHINode",
+    "line_start": 1397,
+    "line_end": 1609,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "foldDependentIVs",
+    "line_start": 1347,
+    "line_end": 1393,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "simplifyUsingControlFlow",
+    "line_start": 1247,
+    "line_end": 1341,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::SliceUpIllegalIntegerPHI",
+    "line_start": 1062,
+    "line_end": 1245,
+    "parse_error": true
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "isEqual",
+    "line_start": 1048,
+    "line_end": 1051,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "getHashValue",
+    "line_start": 1044,
+    "line_end": 1047,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "LoweredPHIRecord",
+    "line_start": 1039,
+    "line_end": 1039,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "LoweredPHIRecord",
+    "line_start": 1035,
+    "line_end": 1036,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "operator<",
+    "line_start": 1020,
+    "line_end": 1027,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "PHIUsageRecord",
+    "line_start": 1017,
+    "line_end": 1018,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "getAnyNonZeroConstInt",
+    "line_start": 1002,
+    "line_end": 1009,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "PHIsEqualValue",
+    "line_start": 974,
+    "line_end": 998,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgOpIntoPHI",
+    "line_start": 859,
+    "line_end": 969,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgZextsIntoPHI",
+    "line_start": 779,
+    "line_end": 854,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgLoadIntoPHI",
+    "line_start": 695,
+    "line_end": 774,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "isSafeAndProfitableToSinkLoad",
+    "line_start": 651,
+    "line_end": 693,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgGEPIntoPHI",
+    "line_start": 532,
+    "line_end": 642,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgBinOpIntoPHI",
+    "line_start": 437,
+    "line_end": 530,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgExtractValueInstructionIntoPHI",
+    "line_start": 400,
+    "line_end": 433,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgInsertValueInstructionIntoPHI",
+    "line_start": 360,
+    "line_end": 396,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldPHIArgIntToPtrToPHI",
+    "line_start": 337,
+    "line_end": 356,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldIntegerTypedPHI",
+    "line_start": 130,
+    "line_end": 333,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::foldDeadPhiWeb",
+    "line_start": 54,
+    "line_end": 78,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombinePHI.cpp",
+    "name": "InstCombinerImpl::PHIArgMergedDebugLoc",
+    "line_start": 38,
+    "line_end": 49,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::visitSelectInst",
+    "line_start": 4690,
+    "line_end": 5529,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "isSelectZeroSignInsignificant",
+    "line_start": 4663,
+    "line_end": 4688,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectAndOrPowerOfTwo",
+    "line_start": 4621,
+    "line_end": 4659,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectNegNot",
+    "line_start": 4582,
+    "line_end": 4617,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectBitTest",
+    "line_start": 4514,
+    "line_end": 4575,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectIntoAddConstant",
+    "line_start": 4454,
+    "line_end": 4512,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "hasAffectedValue",
+    "line_start": 4427,
+    "line_end": 4450,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "matchFMulByZeroIfResultEqZero",
+    "line_start": 4408,
+    "line_end": 4423,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::fmulByZeroIsZero",
+    "line_start": 4399,
+    "line_end": 4406,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectToCmp",
+    "line_start": 4264,
+    "line_end": 4397,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldBitCeil",
+    "line_start": 4202,
+    "line_end": 4251,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "isSafeToRemoveBitCeilSelect",
+    "line_start": 4107,
+    "line_end": 4180,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectOfBools",
+    "line_start": 3846,
+    "line_end": 4103,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "impliesPoisonOrCond",
+    "line_start": 3805,
+    "line_end": 3844,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldNestedSelects",
+    "line_start": 3719,
+    "line_end": 3800,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectOfSymmetricSelect",
+    "line_start": 3684,
+    "line_end": 3710,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldRoundUpIntegerWithPow2Alignment",
+    "line_start": 3612,
+    "line_end": 3670,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectOfOrderedFAbsCmpOfNaNScrubbedValue",
+    "line_start": 3505,
+    "line_end": 3596,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectWithFCmpToFabs",
+    "line_start": 3367,
+    "line_end": 3494,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldAndOrOfSelectUsingImpliedCond",
+    "line_start": 3351,
+    "line_end": 3363,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "simplifyNestedSelectsUsingImpliedCond",
+    "line_start": 3337,
+    "line_end": 3349,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectWithSRem",
+    "line_start": 3287,
+    "line_end": 3334,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectToPhi",
+    "line_start": 3266,
+    "line_end": 3279,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectToPhiImpl",
+    "line_start": 3205,
+    "line_end": 3264,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldVectorSelect",
+    "line_start": 3120,
+    "line_end": 3203,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectToCopysign",
+    "line_start": 3077,
+    "line_end": 3118,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectFunnelShift",
+    "line_start": 3006,
+    "line_end": 3075,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectCmpXchg",
+    "line_start": 2929,
+    "line_end": 2996,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectCmpBitcasts",
+    "line_start": 2862,
+    "line_end": 2904,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeScalarSelectOfVecs",
+    "line_start": 2841,
+    "line_end": 2857,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSelectToShuffle",
+    "line_start": 2802,
+    "line_end": 2835,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectExtConst",
+    "line_start": 2757,
+    "line_end": 2798,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldOverflowingAddSubSelect",
+    "line_start": 2642,
+    "line_end": 2755,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldAddSubSelect",
+    "line_start": 2567,
+    "line_end": 2635,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSPFofSPF",
+    "line_start": 2546,
+    "line_end": 2563,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectInstWithICmp",
+    "line_start": 2464,
+    "line_end": 2542,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldICmpUSubSatWithAndForMostSignificantBitCmp",
+    "line_start": 2418,
+    "line_end": 2461,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectWithConstOpToBinOp",
+    "line_start": 2315,
+    "line_end": 2404,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpEq",
+    "line_start": 2292,
+    "line_end": 2311,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectWithExtremeEqCond",
+    "line_start": 2254,
+    "line_end": 2290,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectInstWithICmpConst",
+    "line_start": 2191,
+    "line_end": 2250,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectZeroOrOnes",
+    "line_start": 2167,
+    "line_end": 2189,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "tryToReuseConstantFromSelectInComparison",
+    "line_start": 2095,
+    "line_end": 2165,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeClampLike",
+    "line_start": 1911,
+    "line_end": 2085,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectEqualityTest",
+    "line_start": 1870,
+    "line_end": 1895,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectValueEquivalence",
+    "line_start": 1743,
+    "line_end": 1856,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::replaceInInstruction",
+    "line_start": 1697,
+    "line_end": 1725,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSPF",
+    "line_start": 1662,
+    "line_end": 1695,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectCttzCtlz",
+    "line_start": 1600,
+    "line_end": 1660,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectCtlzToCttz",
+    "line_start": 1550,
+    "line_end": 1586,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldAbsDiff",
+    "line_start": 1470,
+    "line_end": 1540,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSaturatedAdd",
+    "line_start": 1455,
+    "line_end": 1467,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSaturatedAddSigned",
+    "line_start": 1336,
+    "line_end": 1453,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSaturatedAddUnsigned",
+    "line_start": 1234,
+    "line_end": 1334,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSaturatedSubtract",
+    "line_start": 1219,
+    "line_end": 1232,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSaturatedSubtractSigned",
+    "line_start": 1192,
+    "line_end": 1217,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canonicalizeSaturatedSubtractUnsigned",
+    "line_start": 1125,
+    "line_end": 1190,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectZeroOrFixedOp",
+    "line_start": 1061,
+    "line_end": 1121,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSetClearBits",
+    "line_start": 1018,
+    "line_end": 1046,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpAndBinOp",
+    "line_start": 946,
+    "line_end": 1014,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpLshrAshr",
+    "line_start": 891,
+    "line_end": 924,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpAndZeroShl",
+    "line_start": 853,
+    "line_end": 884,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpAndAnd",
+    "line_start": 791,
+    "line_end": 846,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpMinMax",
+    "line_start": 727,
+    "line_end": 781,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "canoncalizeSelectICmpMinMax",
+    "line_start": 689,
+    "line_end": 722,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectIntoOp",
+    "line_start": 598,
+    "line_end": 687,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "isSelect01",
+    "line_start": 590,
+    "line_end": 594,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectIntrinsic",
+    "line_start": 555,
+    "line_end": 588,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectIntoIntrinsicArg",
+    "line_start": 511,
+    "line_end": 549,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "InstCombinerImpl::foldSelectOpOp",
+    "line_start": 274,
+    "line_end": 508,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "getSelectFoldableOperands",
+    "line_start": 251,
+    "line_end": 271,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectICmpAnd",
+    "line_start": 153,
+    "line_end": 239,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSelect.cpp",
+    "name": "foldSelectBinOpIdentity",
+    "line_start": 63,
+    "line_end": 142,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::visitAShr",
+    "line_start": 1863,
+    "line_end": 2000,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::foldVariableSignZeroExtensionOfVariableHighBitExtract",
+    "line_start": 1796,
+    "line_end": 1861,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::visitLShr",
+    "line_start": 1427,
+    "line_end": 1794,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::visitShl",
+    "line_start": 1179,
+    "line_end": 1425,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "setShiftFlags",
+    "line_start": 1120,
+    "line_end": 1177,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::foldLShrOverflowBit",
+    "line_start": 1060,
+    "line_end": 1117,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::FoldShiftByConstant",
+    "line_start": 893,
+    "line_end": 1047,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "canShiftBinOpWithConstantRHS",
+    "line_start": 876,
+    "line_end": 891,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::getShiftedValue",
+    "line_start": 802,
+    "line_end": 872,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "foldShiftedShift",
+    "line_start": 729,
+    "line_end": 798,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::canEvaluateShifted",
+    "line_start": 638,
+    "line_end": 725,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "canEvaluateShiftedShift",
+    "line_start": 580,
+    "line_end": 625,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::commonShiftTransforms",
+    "line_start": 415,
+    "line_end": 576,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "foldShiftOfShiftedBinOp",
+    "line_start": 358,
+    "line_end": 413,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "dropRedundantMaskingOfLeftShiftInput",
+    "line_start": 193,
+    "line_end": 351,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "InstCombinerImpl::reassociateShiftAmtsOfTwoSameDirectionShifts",
+    "line_start": 63,
+    "line_end": 175,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "name": "canTryToConstantAddTwoShiftAmounts",
+    "line_start": 28,
+    "line_end": 50,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedFPClass",
+    "line_start": 3834,
+    "line_end": 3902,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyMultipleUseDemandedFPClass",
+    "line_start": 3699,
+    "line_end": 3832,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedUseFPClass",
+    "line_start": 2406,
+    "line_end": 3694,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyDemandedUseFPClassFPTrunc",
+    "line_start": 2367,
+    "line_end": 2404,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyDemandedFPClassMinMax",
+    "line_start": 2269,
+    "line_end": 2365,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyDemandedFPClassCopysignMag",
+    "line_start": 2242,
+    "line_end": 2267,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyDemandedFPClassFnegFabs",
+    "line_start": 2220,
+    "line_end": 2240,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyDemandedFPClassResult",
+    "line_start": 2195,
+    "line_end": 2215,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "adjustDemandedMaskFromFlags",
+    "line_start": 2183,
+    "line_end": 2191,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "inferFastMathValueFlags",
+    "line_start": 2163,
+    "line_end": 2181,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyDemandedFPClassFabs",
+    "line_start": 2138,
+    "line_end": 2158,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "getFPClassConstant",
+    "line_start": 2104,
+    "line_end": 2133,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedVectorElts",
+    "line_start": 1520,
+    "line_end": 2100,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "canSkipDemandedEltsInInsertChain",
+    "line_start": 1459,
+    "line_end": 1505,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::simplifyShrShlDemandedBits",
+    "line_start": 1393,
+    "line_end": 1453,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyMultipleUseDemandedBits",
+    "line_start": 1217,
+    "line_end": 1374,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedUseBits",
+    "line_start": 224,
+    "line_end": 1212,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedBits",
+    "line_start": 155,
+    "line_end": 199,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedInstructionFPClass",
+    "line_start": 139,
+    "line_end": 150,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedInstructionBits",
+    "line_start": 134,
+    "line_end": 137,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "InstCombinerImpl::SimplifyDemandedInstructionBits",
+    "line_start": 121,
+    "line_end": 130,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "getBitWidth",
+    "line_start": 112,
+    "line_end": 117,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "simplifyShiftSelectingPackedElement",
+    "line_start": 59,
+    "line_end": 108,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineSimplifyDemanded.cpp",
+    "name": "ShrinkDemandedConstant",
+    "line_start": 32,
+    "line_end": 51,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::foldExtractionOfVectorDeinterleave",
+    "line_start": 3410,
+    "line_end": 3543,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::visitShuffleVectorInst",
+    "line_start": 2990,
+    "line_end": 3392,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::simplifyBinOpSplats",
+    "line_start": 2963,
+    "line_end": 2988,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldIdentityPaddedShuffles",
+    "line_start": 2894,
+    "line_end": 2958,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldShuffleWithInsert",
+    "line_start": 2806,
+    "line_end": 2892,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldIdentityExtractShuffle",
+    "line_start": 2756,
+    "line_end": 2802,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldCastShuffle",
+    "line_start": 2692,
+    "line_end": 2753,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldShuffleOfUnaryOps",
+    "line_start": 2659,
+    "line_end": 2689,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "narrowVectorSelect",
+    "line_start": 2625,
+    "line_end": 2656,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldTruncShuffle",
+    "line_start": 2584,
+    "line_end": 2620,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::foldSelectShuffle",
+    "line_start": 2445,
+    "line_end": 2579,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "canonicalizeInsertSplat",
+    "line_start": 2413,
+    "line_end": 2442,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldSelectShuffleWith1Binop",
+    "line_start": 2337,
+    "line_end": 2407,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldSelectShuffleOfSelectShuffle",
+    "line_start": 2290,
+    "line_end": 2335,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "getAlternateBinop",
+    "line_start": 2255,
+    "line_end": 2285,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "BinopElts",
+    "line_start": 2245,
+    "line_end": 2247,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "isShuffleExtractingFromLHS",
+    "line_start": 2224,
+    "line_end": 2237,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "evaluateInDifferentElementOrder",
+    "line_start": 2116,
+    "line_end": 2216,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "buildNew",
+    "line_start": 2033,
+    "line_end": 2114,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "canEvaluateShuffled",
+    "line_start": 1945,
+    "line_end": 2029,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::visitInsertElementInst",
+    "line_start": 1790,
+    "line_end": 1941,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldTruncInsEltPair",
+    "line_start": 1727,
+    "line_end": 1788,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "narrowInsElt",
+    "line_start": 1694,
+    "line_end": 1723,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldConstantInsEltIntoShuffle",
+    "line_start": 1590,
+    "line_end": 1688,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "hoistInsEltConst",
+    "line_start": 1567,
+    "line_end": 1586,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldInsEltIntoIdentityShuffle",
+    "line_start": 1508,
+    "line_end": 1556,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldInsEltIntoSplat",
+    "line_start": 1471,
+    "line_end": 1504,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldInsSequenceIntoSplat",
+    "line_start": 1397,
+    "line_end": 1467,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "isShuffleEquivalentToSelect",
+    "line_start": 1369,
+    "line_end": 1392,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::visitInsertValueInst",
+    "line_start": 1332,
+    "line_end": 1367,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse",
+    "line_start": 986,
+    "line_end": 1323,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "collectShuffleElements",
+    "line_start": 899,
+    "line_end": 979,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "replaceExtractElements",
+    "line_start": 799,
+    "line_end": 887,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "collectSingleShuffleElements",
+    "line_start": 726,
+    "line_end": 794,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::visitExtractElementInst",
+    "line_start": 469,
+    "line_end": 722,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "foldExtractOfStridedPointerVector",
+    "line_start": 415,
+    "line_end": 467,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "getPreferredVectorIndex",
+    "line_start": 405,
+    "line_end": 411,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "findDemandedEltsByAllUsers",
+    "line_start": 381,
+    "line_end": 399,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "findDemandedEltsBySingleUser",
+    "line_start": 338,
+    "line_end": 375,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::foldBitcastExtElt",
+    "line_start": 197,
+    "line_end": 334,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "InstCombinerImpl::scalarizePHI",
+    "line_start": 100,
+    "line_end": 195,
+    "parse_error": false
+  },
+  {
+    "file": "InstCombineVectorOps.cpp",
+    "name": "cheapToScalarize",
+    "line_start": 58,
+    "line_end": 95,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "llvm::createInstructionCombiningPass",
+    "line_start": 6437,
+    "line_end": 6439,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "llvm::initializeInstCombine",
+    "line_start": 6433,
+    "line_end": 6435,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstructionCombiningPass::InstructionCombiningPass",
+    "line_start": 6416,
+    "line_end": 6416,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstructionCombiningPass::runOnFunction",
+    "line_start": 6386,
+    "line_end": 6412,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstructionCombiningPass::getAnalysisUsage",
+    "line_start": 6372,
+    "line_end": 6384,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinePass::run",
+    "line_start": 6336,
+    "line_end": 6370,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinePass::printPipeline",
+    "line_start": 6324,
+    "line_end": 6332,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinePass::InstCombinePass",
+    "line_start": 6322,
+    "line_end": 6322,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "combineInstructionsOverFunction",
+    "line_start": 6257,
+    "line_end": 6320,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::computeBackEdges",
+    "line_start": 6245,
+    "line_end": 6255,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::prepareWorklist",
+    "line_start": 6108,
+    "line_end": 6243,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isNoAliasScopeDeclDead",
+    "line_start": 6076,
+    "line_end": 6097,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "analyse",
+    "line_start": 6054,
+    "line_end": 6074,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isImplicitlyNoAlias",
+    "line_start": 6046,
+    "line_end": 6051,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "recordDisjointDomainScopes",
+    "line_start": 6026,
+    "line_end": 6041,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::run",
+    "line_start": 5815,
+    "line_end": 6007,
+    "parse_error": true
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::tryToSinkInstructionDbgVariableRecords",
+    "line_start": 5687,
+    "line_end": 5813,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::tryToSinkInstruction",
+    "line_start": 5591,
+    "line_end": 5685,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "SoleWriteToDeadLocal",
+    "line_start": 5547,
+    "line_end": 5585,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitFreeze",
+    "line_start": 5428,
+    "line_end": 5542,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isUsedWithinShuffleVector",
+    "line_start": 5418,
+    "line_end": 5426,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::freezeOtherUses",
+    "line_start": 5366,
+    "line_end": 5415,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldFreezeIntoRecurrence",
+    "line_start": 5298,
+    "line_end": 5364,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating",
+    "line_start": 5236,
+    "line_end": 5296,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitLandingPadInst",
+    "line_start": 4927,
+    "line_end": 5234,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "shorter_filter",
+    "line_start": 4920,
+    "line_end": 4925,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isCatchAll",
+    "line_start": 4890,
+    "line_end": 4918,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitExtractValueInst",
+    "line_start": 4760,
+    "line_end": 4887,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "foldFrexpOfSelect",
+    "line_start": 4717,
+    "line_end": 4759,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldExtractOfOverflowIntrinsic",
+    "line_start": 4631,
+    "line_end": 4715,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitSwitchInst",
+    "line_start": 4496,
+    "line_end": 4629,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "simplifySwitchOnSelectUsingRanges",
+    "line_start": 4467,
+    "line_end": 4494,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitCondBrInst",
+    "line_start": 4373,
+    "line_end": 4462,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::handlePotentiallyDeadSuccessors",
+    "line_start": 4359,
+    "line_end": 4371,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::handlePotentiallyDeadBlocks",
+    "line_start": 4346,
+    "line_end": 4357,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::handleUnreachableFrom",
+    "line_start": 4316,
+    "line_end": 4344,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::addDeadEdge",
+    "line_start": 4297,
+    "line_end": 4312,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitUncondBrInst",
+    "line_start": 4275,
+    "line_end": 4295,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitUnreachableInst",
+    "line_start": 4270,
+    "line_end": 4273,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::removeInstructionsBeforeUnreachable",
+    "line_start": 4243,
+    "line_end": 4268,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitReturnInst",
+    "line_start": 4210,
+    "line_end": 4240,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitFree",
+    "line_start": 4171,
+    "line_end": 4208,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "tryToMoveFreeBeforeNullTest",
+    "line_start": 4086,
+    "line_end": 4169,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitAllocSite",
+    "line_start": 3915,
+    "line_end": 4069,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isAllocSiteRemovable",
+    "line_start": 3766,
+    "line_end": 3913,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isRemovableWrite",
+    "line_start": 3746,
+    "line_end": 3764,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "isNeverEqualToUnescapedAlloc",
+    "line_start": 3734,
+    "line_end": 3742,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitGetElementPtrInst",
+    "line_start": 3346,
+    "line_end": 3732,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "foldGEPOfPhi",
+    "line_start": 3236,
+    "line_end": 3344,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "shouldCanonicalizeGEPToPtrAdd",
+    "line_start": 3207,
+    "line_end": 3234,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::getFreelyInvertedImpl",
+    "line_start": 3016,
+    "line_end": 3204,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::visitGEPOfGEP",
+    "line_start": 2910,
+    "line_end": 3014,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "combineConstantOffsets",
+    "line_start": 2856,
+    "line_end": 2908,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "canonicalizeGEPOfConstGEPI8",
+    "line_start": 2811,
+    "line_end": 2852,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "foldSelectGEP",
+    "line_start": 2784,
+    "line_end": 2806,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "getMergedGEPNoWrapFlags",
+    "line_start": 2777,
+    "line_end": 2780,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::narrowMathIfNoOverflow",
+    "line_start": 2722,
+    "line_end": 2773,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldVectorBinop",
+    "line_start": 2482,
+    "line_end": 2717,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "foldSpliceBinOp",
+    "line_start": 2441,
+    "line_end": 2480,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "constantFoldBinOpWithSplat",
+    "line_start": 2429,
+    "line_end": 2438,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::unshuffleConstant",
+    "line_start": 2388,
+    "line_end": 2426,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "shouldMergeGEPs",
+    "line_start": 2370,
+    "line_end": 2378,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinOpIntoSelectOrPhi",
+    "line_start": 2354,
+    "line_end": 2368,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinopWithPhiOperands",
+    "line_start": 2240,
+    "line_end": 2352,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinopWithRecurrence",
+    "line_start": 2137,
+    "line_end": 2238,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldOpIntoPhi",
+    "line_start": 1968,
+    "line_end": 2135,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinOpSelectBinOp",
+    "line_start": 1932,
+    "line_end": 1966,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "simplifyInstructionWithPHI",
+    "line_start": 1884,
+    "line_end": 1922,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::FoldOpIntoSelect",
+    "line_start": 1818,
+    "line_end": 1882,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "foldOperationIntoSelectOperand",
+    "line_start": 1809,
+    "line_end": 1816,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "simplifyOperationIntoSelectOperand",
+    "line_start": 1784,
+    "line_end": 1807,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinopOfSextBoolToSelect",
+    "line_start": 1764,
+    "line_end": 1782,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldFBinOpOfIntCasts",
+    "line_start": 1730,
+    "line_end": 1759,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldFBinOpOfIntCastsFromSign",
+    "line_start": 1570,
+    "line_end": 1723,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::dyn_castNegVal",
+    "line_start": 1526,
+    "line_end": 1561,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::freelyInvertAllUsersOf",
+    "line_start": 1480,
+    "line_end": 1522,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::SimplifySelectsFeedingBinaryOp",
+    "line_start": 1381,
+    "line_end": 1476,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::tryReassociateAndFoldSymmetricPair",
+    "line_start": 1352,
+    "line_end": 1379,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::matchSymmetricPair",
+    "line_start": 1315,
+    "line_end": 1350,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "matchSymmetricPhiNodesPair",
+    "line_start": 1288,
+    "line_end": 1313,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldUsingDistributiveLaws",
+    "line_start": 1196,
+    "line_end": 1286,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::tryFactorizationFolds",
+    "line_start": 1153,
+    "line_end": 1189,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinOpOfSelectAndCastOfSelectCondition",
+    "line_start": 1101,
+    "line_end": 1151,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::foldBinOpShiftWithShift",
+    "line_start": 955,
+    "line_end": 1090,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::tryFoldInstWithCtpopWithNot",
+    "line_start": 851,
+    "line_end": 930,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "tryFactorization",
+    "line_start": 746,
+    "line_end": 841,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "getBinOpsForFactorization",
+    "line_start": 717,
+    "line_end": 742,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "getIdentityValue",
+    "line_start": 705,
+    "line_end": 710,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "rightDistributesOverLeft",
+    "line_start": 690,
+    "line_end": 701,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "leftDistributesOverRight",
+    "line_start": 669,
+    "line_end": 686,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::SimplifyAssociativeOrCommutative",
+    "line_start": 470,
+    "line_end": 665,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::simplifyIntToPtrRoundTripCast",
+    "line_start": 434,
+    "line_end": 448,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "simplifyAssocCastAssoc",
+    "line_start": 385,
+    "line_end": 430,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "hasNoSignedWrap",
+    "line_start": 376,
+    "line_end": 379,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "hasNoUnsignedWrap",
+    "line_start": 371,
+    "line_end": 374,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "maintainNoSignedWrap",
+    "line_start": 343,
+    "line_end": 369,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::shouldChangeType",
+    "line_start": 327,
+    "line_end": 336,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::shouldChangeType",
+    "line_start": 299,
+    "line_end": 320,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::isDesirableIntType",
+    "line_start": 280,
+    "line_end": 289,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::EmitGEPOffsets",
+    "line_start": 208,
+    "line_end": 273,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombinerImpl::EmitGEPOffset",
+    "line_start": 187,
+    "line_end": 206,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::isValidAddrSpaceCast",
+    "line_start": 180,
+    "line_end": 185,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic",
+    "line_start": 166,
+    "line_end": 178,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::targetSimplifyDemandedUseBitsIntrinsic",
+    "line_start": 155,
+    "line_end": 164,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::targetInstCombineIntrinsic",
+    "line_start": 146,
+    "line_end": 153,
+    "parse_error": false
+  },
+  {
+    "file": "InstructionCombining.cpp",
+    "name": "InstCombiner::IRBuilderInstCombineInserter::InsertHelper",
+    "line_start": 136,
+    "line_end": 144,
+    "parse_error": false
+  }
+]

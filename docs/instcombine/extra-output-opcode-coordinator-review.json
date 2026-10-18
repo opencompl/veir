@@ -1,0 +1,363 @@
+{
+  "llvm_pin": "29eff20316c550d8e689a318c614e40186107820",
+  "applied": [
+    {
+      "inventory_id": "select-L1911",
+      "file": "InstCombineSelect.cpp",
+      "before": [
+        "icmp",
+        "select",
+        "sext",
+        "trunc"
+      ],
+      "after": [
+        "icmp",
+        "select",
+        "trunc"
+      ],
+      "reason": "ConstantFoldCastOperand(SExt) at2061/2063 extends constants; emitted ops at2075\u20132084 are ICmp, Select, Trunc."
+    },
+    {
+      "inventory_id": "cast-L1130",
+      "file": "InstCombineCasts.cpp",
+      "before": [
+        "icmp",
+        "sub"
+      ],
+      "after": [
+        "icmp"
+      ],
+      "reason": "ConstantExpr::getSub at1129 computes a comparison constant; line1130 emits only ICmpInst."
+    },
+    {
+      "inventory_id": "cmpa-L723",
+      "file": "InstCombineCompares.cpp",
+      "before": [
+        "icmp",
+        "bitcast"
+      ],
+      "after": [
+        "icmp"
+      ],
+      "reason": "ConstantExpr::getPointerBitCastOrAddrSpaceCast at724 converts a constant operand; only ICmpInst is emitted."
+    },
+    {
+      "inventory_id": "bitwise-L2794",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "CreateAnd at2794 retains Op0 and B as values; the matched complement/XOR chain is removed."
+    },
+    {
+      "inventory_id": "bitwise-L2797",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "CreateAnd at2797 retains Op1 and B; the matched complement/XOR chain is removed."
+    },
+    {
+      "inventory_id": "bitwise-L2825",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "CreateAnd at2825 builds A&B; matched OR and XOR nodes are consumed."
+    },
+    {
+      "inventory_id": "bitwise-L2833",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "CreateAnd at2833 builds A&B; matched OR and XOR nodes are consumed."
+    },
+    {
+      "inventory_id": "bitwise-L2841",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and",
+        "xor"
+      ],
+      "reason": "CreateAnd plus Builder.CreateNot at2841 emit and and xor; the matched OR node is consumed."
+    },
+    {
+      "inventory_id": "bitwise-L2849",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and",
+        "xor"
+      ],
+      "reason": "CreateAnd plus Builder.CreateNot at2849 emit and and xor; the matched OR node is consumed."
+    },
+    {
+      "inventory_id": "addconst-L876",
+      "file": "InstCombineAddSub.cpp",
+      "before": [
+        "sub",
+        "add"
+      ],
+      "after": [
+        "sub"
+      ],
+      "reason": "ConstantExpr::getAdd at879 computes the constant operand; only CreateSub emits an instruction."
+    },
+    {
+      "inventory_id": "sub-L2540",
+      "file": "InstCombineAddSub.cpp",
+      "before": [
+        "and",
+        "xor"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "ConstantFoldBinaryInstruction XOR at2547 computes the constant mask; only CreateAnd emits an instruction."
+    },
+    {
+      "inventory_id": "negator-L268",
+      "file": "InstCombineNegator.cpp",
+      "before": [
+        "sdiv",
+        "sub"
+      ],
+      "after": [
+        "sdiv"
+      ],
+      "reason": "ConstantExpr::getNeg at277 computes the constant divisor; CreateSDiv emits the replacement and setIsExact changes its property."
+    },
+    {
+      "inventory_id": "bitwise-L2136",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "and",
+        "xor"
+      ],
+      "reason": "The two input OR/XOR nodes are matched as `X`/`Y`; output is `BinaryOperator::CreateNot(Builder.CreateAnd(Or, Y))`. LLVM `CreateNot` materializes integer NOT as XOR with all-ones, so output opcodes are and+xor; no output OR is built."
+    },
+    {
+      "inventory_id": "bitwise-L3399",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "select",
+        "bitcast",
+        "trunc",
+        "zext",
+        "xor"
+      ],
+      "after": [
+        "bitcast",
+        "select",
+        "xor",
+        "trunc"
+      ],
+      "reason": "Retain trunc: getSelectCondition creates it at3308 for an arbitrary SSA value with all sign bits. Its CreateZExtOrTrunc at3322 is applied to a constant and targets i1; no runtime zext is needed. The caller builds bitcasts, select, and optional NOT/XOR at3390\u20133399."
+    },
+    {
+      "inventory_id": "bitwise-L4362",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "or",
+        "and"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "The OR expressions are matched/reused as operand `A` or `B`; the replacement is `BinaryOperator::CreateAnd(..., C01)`. No replacement OR is emitted."
+    },
+    {
+      "inventory_id": "bitwise-L4369",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "or",
+        "and"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "The OR expressions are matched/reused as operand `A` or `B`; the replacement is `BinaryOperator::CreateAnd(..., C01)`. No replacement OR is emitted."
+    },
+    {
+      "inventory_id": "bitwise-L4392",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "trunc",
+        "lshr"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "The lshr/trunc operations occur in the matched values A/B and are passed directly as the first operand of `BinaryOperator::CreateAnd`; the replacement constructor creates only the AND and constant mask."
+    },
+    {
+      "inventory_id": "bitwise-L4402",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "trunc",
+        "lshr"
+      ],
+      "after": [
+        "and"
+      ],
+      "reason": "The lshr/trunc operations occur in the matched values A/B and are passed directly as the first operand of `BinaryOperator::CreateAnd`; the replacement constructor creates only the AND and constant mask."
+    },
+    {
+      "inventory_id": "bitwise-L5067",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "or",
+        "xor"
+      ],
+      "reason": "The matched AND is input `X`/`Y`; source creates `Builder.CreateNot` of the matched OR, then returns `BinaryOperator::CreateOr`. Integer NOT emits XOR; output is or+xor."
+    },
+    {
+      "inventory_id": "bitwise-L5075",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "and",
+        "or",
+        "xor"
+      ],
+      "after": [
+        "or",
+        "xor"
+      ],
+      "reason": "The matched AND is input `X`/`Y`; source creates `Builder.CreateNot` of the matched OR, then returns `BinaryOperator::CreateOr`. Integer NOT emits XOR; output is or+xor."
+    },
+    {
+      "inventory_id": "bitwise-L2886",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "icmp",
+        "and",
+        "select"
+      ],
+      "after": [
+        "select"
+      ],
+      "reason": "createSelectInstWithUnknownProfile emits only select. The matched AND/SExt (and optional NOT) nodes are not recreated; the Boolean condition A is an existing value."
+    },
+    {
+      "inventory_id": "bitwise-L2892",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "icmp",
+        "and",
+        "select"
+      ],
+      "after": [
+        "select"
+      ],
+      "reason": "createSelectInstWithUnknownProfile emits only select. The matched AND/SExt (and optional NOT) nodes are not recreated; the Boolean condition A is an existing value."
+    },
+    {
+      "inventory_id": "bitwise-L2920",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "icmp",
+        "and",
+        "select"
+      ],
+      "after": [
+        "select",
+        "icmp"
+      ],
+      "reason": "`Builder.CreateIsNeg(X, \"isneg\")` creates the sign test (icmp), and `createSelectInstWithUnknownProfile` creates select. The matched AND/AShr nodes are consumed and are not recreated."
+    },
+    {
+      "inventory_id": "bitwise-L2930",
+      "file": "InstCombineAndOrXor.cpp",
+      "before": [
+        "icmp",
+        "and",
+        "select"
+      ],
+      "after": [
+        "select",
+        "icmp"
+      ],
+      "reason": "`Builder.CreateIsNeg(X, \"isneg\")` creates the sign test (icmp), and `createSelectInstWithUnknownProfile` creates select. The matched AND/AShr nodes are consumed and are not recreated."
+    },
+    {
+      "inventory_id": "add-L1887",
+      "file": "InstCombineAddSub.cpp",
+      "before": [
+        "select",
+        "add",
+        "sub"
+      ],
+      "after": [
+        "select"
+      ],
+      "reason": "`InstCombiner::AddOne(C)` / `SubOne(C)` produce adjusted constants; the only runtime instruction created here is `Builder.CreateSelect(Cond, Add, A)`. The matched add and extension are replaced."
+    },
+    {
+      "inventory_id": "fsub-reassoc-L3355",
+      "file": "InstCombineAddSub.cpp",
+      "before": [
+        "fadd",
+        "fsub",
+        "fneg"
+      ],
+      "after": [
+        "fadd",
+        "fsub"
+      ],
+      "reason": "The branch calls `Builder.CreateFSubFMF(Y, X, &I)` and returns `BinaryOperator::CreateFAddFMF(Op0, NewSub, &I)`. It does not create an `fneg`; `fneg` appears only in the explanatory comment about a later fold."
+    }
+  ],
+  "rejected_initial_proposals": [
+    {
+      "inventory_id": "cast-L1000",
+      "reason": "CreateTruncOrBitCast at1000 emits trunc: A is wider than the already-truncated SrcWidth, which is wider than DestWidth. Retain trunc."
+    },
+    {
+      "inventory_id": "shift-common-srem-L545",
+      "reason": "replaceOperand(I,1,Rem) at551 mutates the shift instruction. Retain shl/lshr/ashr together with new and."
+    }
+  ],
+  "review_limit": "Only these concrete source checks are applied; the other advisory rows require their own evidence."
+}

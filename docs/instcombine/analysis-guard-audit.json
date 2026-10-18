@@ -1,0 +1,202 @@
+[
+  {
+    "inventory": "arithmetic.json",
+    "id": "sdiv-knownneg-L2042",
+    "file": "InstCombineMulDivRem.cpp",
+    "hits": [
+      {
+        "line": 2043,
+        "call": "isKnownNegation"
+      }
+    ],
+    "review_note": "isKnownNegation is a structural matcher, not SSA analysis (ValueTracking.cpp:9042\u20139070)."
+  },
+  {
+    "inventory": "arithmetic.json",
+    "id": "negator-L346a",
+    "file": "InstCombineNegator.cpp",
+    "hits": [
+      {
+        "line": 323,
+        "call": "isKnownNegation"
+      }
+    ],
+    "review_note": "isKnownNegation is structural (ValueTracking.cpp:9042\u20139070); this record covers the root select and local arm-flag change, not recursive PHI/global negation construction."
+  },
+  {
+    "inventory": "arithmetic.json",
+    "id": "shift-common-nuwsub-static-L510",
+    "file": "InstCombineShifts.cpp",
+    "hits": [
+      {
+        "line": 518,
+        "call": "computeKnownBits"
+      }
+    ],
+    "review_note": "This entry selects the m_NUWSub disjunct. computeKnownBits at518 belongs only to the separately inventoried XOR disjunct sharing this source span."
+  },
+  {
+    "inventory": "bitwise.json",
+    "id": "bitwise-L2710",
+    "file": "InstCombineAndOrXor.cpp",
+    "hits": [
+      {
+        "line": 2704,
+        "call": "computeKnownBits"
+      }
+    ],
+    "review_note": "computeKnownBits receives LshrC, a ConstantExpr of matched constant C2 and constant log2(C3); it bounds a constant shift amount, not arbitrary SSA dataflow."
+  },
+  {
+    "inventory": "bitwise.json",
+    "id": "bitwise-L3728",
+    "file": "InstCombineAndOrXor.cpp",
+    "hits": [
+      {
+        "line": 3727,
+        "call": "isKnownInversion"
+      },
+      {
+        "line": 3727,
+        "call": "isKnownInversion"
+      }
+    ],
+    "review_note": "isKnownInversion checks ICmp operand/predicate identity and exactly complementary APInt-defined regions; its pinned ValueTracking.cpp9073\u20139100 body does not query SSA analysis facts."
+  },
+  {
+    "inventory": "bitwise.json",
+    "id": "bitwise-L3730",
+    "file": "InstCombineAndOrXor.cpp",
+    "hits": [
+      {
+        "line": 3729,
+        "call": "isKnownInversion"
+      },
+      {
+        "line": 3729,
+        "call": "isKnownInversion"
+      }
+    ],
+    "review_note": "isKnownInversion checks ICmp operand/predicate identity and exactly complementary APInt-defined regions; its pinned ValueTracking.cpp9073\u20139100 body does not query SSA analysis facts."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-minmax-const-same-L1413",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 1426,
+        "call": "isKnownNonNegative"
+      },
+      {
+        "line": 1426,
+        "call": "isKnownNonNegative"
+      }
+    ],
+    "review_note": "Both isKnownNonNegative operands are matched immediate constants C0/C1; this is a constant-sign predicate for the cross-signedness alternative."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-extrema-negation-L2467",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 2473,
+        "call": "isKnownNegation"
+      },
+      {
+        "line": 2482,
+        "call": "isKnownNegation"
+      }
+    ],
+    "review_note": "isKnownNegation is structural (ValueTracking.cpp:9042\u20139070); one-use operand selection is a profitability choice, not required analysis."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-fshr-to-fshl-L2722",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 2724,
+        "call": "isKnownNonZero"
+      }
+    ],
+    "review_note": "isKnownNonZero receives the matched constant ShAmtC, after constant modulo-width normalization."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-fshl-lshr-L2741",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 2745,
+        "call": "isKnownNonZero"
+      }
+    ],
+    "review_note": "isKnownNonZero receives the matched constant ShAmtC, after constant modulo-width normalization."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-matrix-move-neg-L3225",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 3225,
+        "call": "isKnownGT"
+      },
+      {
+        "line": 3226,
+        "call": "isKnownLT"
+      }
+    ],
+    "review_note": "ElementCount::isKnownGT/LT compare vector type lane counts for cost, not runtime SSA values."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-matrix-neg-result-L3232",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 3233,
+        "call": "isKnownGT"
+      }
+    ],
+    "review_note": "ElementCount::isKnownGT compares vector type lane counts for cost, not runtime SSA values."
+  },
+  {
+    "inventory": "calls.json",
+    "id": "calls-reduce-mul-bool-ext-L4391",
+    "file": "InstCombineCalls.cpp",
+    "hits": [
+      {
+        "line": 4402,
+        "call": "isKnownEven"
+      }
+    ],
+    "review_note": "ElementCount::isKnownEven tests the vector type lane-count expression, not an SSA value."
+  },
+  {
+    "inventory": "casts.json",
+    "id": "cast-L3249-selectconst",
+    "file": "InstCombineCasts.cpp",
+    "hits": [
+      {
+        "line": 3243,
+        "call": "isKnownLE"
+      }
+    ],
+    "review_note": "ElementCount::isKnownLE compares source/destination vector type lane counts, not runtime SSA values."
+  },
+  {
+    "inventory": "select.json",
+    "id": "select-L5421",
+    "file": "InstCombineSelect.cpp",
+    "hits": [
+      {
+        "line": 5420,
+        "call": "isKnownInversion"
+      }
+    ],
+    "review_note": "Pinned llvm/lib/Analysis/ValueTracking.cpp:9073\u20139100 implements isKnownInversion using ICmp graph matching, predicates, flags, and APInt comparison regions. It does not recognize arithmetic negation or literal XOR-NOT graphs and performs no arbitrary-SSA dataflow analysis. The flag-free scalar ICmp subset is expressible; vector and samesign behavior exceed the current Puddle scope."
+  }
+]

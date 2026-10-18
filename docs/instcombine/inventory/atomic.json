@@ -1,0 +1,97 @@
+[
+  {
+    "id": "atomicrmw-L112",
+    "file": "InstCombineAtomicRMW.cpp",
+    "line_start": 110,
+    "line_end": 116,
+    "function": "InstCombinerImpl::visitAtomicRMWInst",
+    "description": "For non-volatile atomicrmw with a saturating value, mutate the operation to xchg while retaining the operand. Exact integer cases: xchg; or all-ones; and zero; signed min with signed minimum; signed max with signed maximum; unsigned min with unsigned minimum; unsigned max with unsigned maximum. Exact FP cases: fmax +infinity; fmin -infinity; fadd/fsub NaN.",
+    "match_opcodes": [
+      "atomicrmw"
+    ],
+    "rewrite_opcodes": [
+      "atomicrmw"
+    ],
+    "extra_conditions": [
+      "not volatile",
+      "isSaturating true for one enumerated operation/constant pair",
+      "operation is not already xchg"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "atomicrmw-L122",
+    "file": "InstCombineAtomicRMW.cpp",
+    "line_start": 122,
+    "line_end": 136,
+    "function": "InstCombinerImpl::visitAtomicRMWInst",
+    "description": "atomicrmw add(ptr, 0 - x) -> atomicrmw sub(ptr, x), and atomicrmw sub(ptr, 0 - x) -> atomicrmw add(ptr, x); mutate operation and value operand.",
+    "match_opcodes": [
+      "atomicrmw",
+      "sub"
+    ],
+    "rewrite_opcodes": [
+      "atomicrmw"
+    ],
+    "extra_conditions": [
+      "not volatile",
+      "operation is add or sub",
+      "value operand matches negation form 0 - x exactly"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "atomicrmw-L139i",
+    "line_start": 139,
+    "line_end": 149,
+    "description": "Canonicalize an idempotent integer atomicrmw to or 0 by mutating operation and operand. Exact recognized cases: add/sub/or/xor with zero; and with all-ones; signed min with signed max; signed max with signed min; unsigned min with unsigned max; unsigned max with unsigned min.",
+    "extra_conditions": [
+      "not volatile",
+      "integer result type",
+      "isIdempotentRMW true for one enumerated operation/constant pair",
+      "current operation is not or"
+    ],
+    "file": "InstCombineAtomicRMW.cpp",
+    "function": "InstCombinerImpl::visitAtomicRMWInst",
+    "match_opcodes": [
+      "atomicrmw"
+    ],
+    "rewrite_opcodes": [
+      "atomicrmw"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  },
+  {
+    "id": "atomicrmw-L139f",
+    "line_start": 139,
+    "line_end": 154,
+    "description": "Canonicalize an idempotent floating atomicrmw to fadd -0.0: fadd -0.0 and fsub +0.0 retain the operand; mutate the operation to fadd and replace the value operand with negative zero.",
+    "extra_conditions": [
+      "not volatile",
+      "floating-point result type",
+      "operation/value pair is fadd with -0.0 or fsub with +0.0",
+      "current operation is not fadd"
+    ],
+    "file": "InstCombineAtomicRMW.cpp",
+    "function": "InstCombinerImpl::visitAtomicRMWInst",
+    "match_opcodes": [
+      "atomicrmw"
+    ],
+    "rewrite_opcodes": [
+      "atomicrmw"
+    ],
+    "uses_analysis": false,
+    "puddle_blocker": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect.",
+    "status": "unsupported",
+    "kind": "rewrite"
+  }
+]

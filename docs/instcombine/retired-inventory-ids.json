@@ -1,0 +1,12 @@
+{
+  "div-L1597": "Duplicate of idiv-double-L1571; source range erroneously pointed into adjacent select division fold.",
+  "shift-L1980": "Duplicate of ashr-L1991; source range erroneously pointed into adjacent sign-bit analysis fold.",
+  "select-L4846": "Duplicate of select-L4833; both described the same successful source return.",
+  "select-L5307": "Duplicate of select-L5299; both described the same successful source return.",
+  "select-L5329": "Duplicate of select-L5311; both described the same successful source return.",
+  "select-L5525": "Duplicate of select-L5512; both described the same successful source return.",
+  "select-L5012": "Duplicate of select-L4797 with a stale source span; actual lines5012\u20135014 dispatch foldSelectValueEquivalence, already recorded as select-L5014.",
+  "ic-gep-inbounds-nuw-and-add-split-L3657": "Retired overlapping umbrella entry with a stale span. Exact outcomes are ic-gep-mark-inbounds-dereferenceable-L3623, ic-gep-infer-nuw-from-nusw-L3646, ic-gep-split-add-index-L3657, and ic-gep-split-sext-nsw-constant-add-L3686.",
+  "ic-gep-select-srem-fold-L3700": "Retired overlapping umbrella entry with a stale span. The GEP-over-select dispatch is ic-gep-fold-select-helper-dispatch-L3709; the actual srem-to-urem rewrite is ic-gep-srem-to-urem-L3712. Lines 3700-3705 belong to ic-gep-split-sext-nsw-constant-add-L3686.",
+  "ic-vector-binop-splat-reassociate-L2719": "Mislocated duplicate of ic-vector-binop-splat-shuffle-reassociate-L2671. The old span (2719-2720) is the comment introducing narrowMathIfNoOverflow, not a splat rewrite."
+}

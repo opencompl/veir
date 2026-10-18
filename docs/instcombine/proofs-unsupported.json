@@ -1,0 +1,375 @@
+[
+  {
+    "inventory_id": "atomicrmw-L112",
+    "file": "InstCombineAtomicRMW.cpp",
+    "line_start": 110,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect."
+  },
+  {
+    "inventory_id": "atomicrmw-L122",
+    "file": "InstCombineAtomicRMW.cpp",
+    "line_start": 122,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect."
+  },
+  {
+    "inventory_id": "loadstore-alloca-L506",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 506,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Alloca is effectful; allocation operations are rejected by SupportedOpCode. The helper may also rely on DataLayout/DominatorTree."
+  },
+  {
+    "inventory_id": "loadstore-alloca-L512",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 512,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-alloca-L520a",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 521,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-alloca-L537",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 552,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-load-L1101a",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1101,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Load is effectful and unsupported; simplification consumes ValueTracking/assumption facts."
+  },
+  {
+    "inventory_id": "loadstore-load-L1107",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1107,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Requires memory access equivalence, load metadata preservation and use-count; loads are effectful and unsupported."
+  },
+  {
+    "inventory_id": "loadstore-load-L1111",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1111,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Requires object-size, dereferenceability, DataLayout and UB/value analysis over pointer provenance; load/GEP proof semantics are not adequate for this analysis-driven branch."
+  },
+  {
+    "inventory_id": "loadstore-load-L1114",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1114,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Requires memory access splitting, layout/alignment/metadata equivalence and aggregate/vector semantics; loads are effectful."
+  },
+  {
+    "inventory_id": "loadstore-load-L1123",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1123,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-load-L1136",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1136,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-load-L1143",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1143,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-load-L1192",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1192,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-load-L1200",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1200,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "atomicrmw-L139i",
+    "file": "InstCombineAtomicRMW.cpp",
+    "line_start": 139,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect."
+  },
+  {
+    "inventory_id": "atomicrmw-L139f",
+    "file": "InstCombineAtomicRMW.cpp",
+    "line_start": 139,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The Puddle LLVM dialect has no atomicrmw opcode/interpreter case. Effectful atomic operations would also be rejected by SupportedOpCode, which requires a nonterminating operation with no memory effect."
+  },
+  {
+    "inventory_id": "loadstore-store-L1486",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1486,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Also requires memory access/type and metadata equivalence."
+  },
+  {
+    "inventory_id": "loadstore-store-L1490",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1490,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Requires splitting a memory write while preserving layout, alignment and metadata."
+  },
+  {
+    "inventory_id": "loadstore-store-L1494",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1494,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Requires object-size/provenance and UB analysis in addition to effectful store semantics."
+  },
+  {
+    "inventory_id": "loadstore-store-L1504",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1504,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite creates, moves, merges, or removes alloca instructions; Puddle SupportedOpCode rejects allocation operations because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1517",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1517,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1543",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1532,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1572",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1572,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1595",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1595,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1600",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1600,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1606",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1606,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "Requires provenance/non-null analysis and store pointer rewriting; Puddle lacks this pointer analysis and store effects."
+  },
+  {
+    "inventory_id": "loadstore-store-L1634",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1611,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-storemerge-L1695",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1647,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "loadstore-storemerge-L1710",
+    "file": "InstCombineLoadStoreAlloca.cpp",
+    "line_start": 1647,
+    "status": "unsupported",
+    "scope": "The source transformation involves effectful memory operations. Pattern.Valid requires every matched/created opcode to be non-terminating and have no memory effects for every property.",
+    "validation": "Inspected Veir/PatternRewriter/Puddle/Validity.lean:34-36 and Veir/Dialects/LLVM/OpInfo.lean:get_effects. This is a structural limitation, not a failed semantic proof.",
+    "reason": "The rewrite reads, creates, forwards, or removes load instructions; Puddle SupportedOpCode rejects loads because they have memory effects."
+  },
+  {
+    "inventory_id": "negator-L207",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 210,
+    "status": "unsupported",
+    "reason": "Puddle has no scmp/ucmp intrinsic constructors or three-way comparison interpreter semantics; generic call effects also fail SupportedOpCode.",
+    "validation": "Inspected Llvm opcode constructors and Llvm.interpretOp' in Veir/Dialects/LLVM/OpInfo.lean, and Puddle SupportedOpCode plus rooted pattern structure."
+  },
+  {
+    "inventory_id": "negator-L303",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 303,
+    "status": "unsupported",
+    "reason": "Puddle does not model PHI/control-flow rewriting or dominance relations over CFG blocks.",
+    "validation": "Inspected Llvm opcode constructors and Llvm.interpretOp' in Veir/Dialects/LLVM/OpInfo.lean, and Puddle SupportedOpCode plus rooted pattern structure."
+  },
+  {
+    "inventory_id": "negator-L360",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 360,
+    "status": "unsupported",
+    "reason": "Puddle has no elementwise vector integer semantic proof interface for LLVM vector values and shufflevector.",
+    "validation": "Inspected Llvm opcode constructors and Llvm.interpretOp' in Veir/Dialects/LLVM/OpInfo.lean, and Puddle SupportedOpCode plus rooted pattern structure."
+  },
+  {
+    "inventory_id": "negator-L370",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 370,
+    "status": "unsupported",
+    "reason": "Puddle has no elementwise vector integer semantic proof interface for vector values and extractelement.",
+    "validation": "Inspected Llvm opcode constructors and Llvm.interpretOp' in Veir/Dialects/LLVM/OpInfo.lean, and Puddle SupportedOpCode plus rooted pattern structure."
+  },
+  {
+    "inventory_id": "negator-L379",
+    "file": "InstCombineNegator.cpp",
+    "line_start": 379,
+    "status": "unsupported",
+    "reason": "Puddle has no elementwise vector integer semantic proof interface for vector values and insertelement.",
+    "validation": "Inspected Llvm opcode constructors and Llvm.interpretOp' in Veir/Dialects/LLVM/OpInfo.lean, and Puddle SupportedOpCode plus rooted pattern structure."
+  },
+  {
+    "inventory_id": "ic-extractvalue-empty-L4763",
+    "file": "InstructionCombining.cpp",
+    "line_start": 4763,
+    "status": "unsupported",
+    "scope": "The complete empty-index extractvalue elimination branch.",
+    "reason": "The LLVM dialect declares and verifies extractvalue, but Llvm.interpretOp' has no extractvalue interpretation and falls through to none. Consequently this aggregate extraction cannot be modeled meaningfully as a Puddle rewrite; a proof from the absent interpreter branch would be vacuous.",
+    "validation": "Inspected pinned InstructionCombining.cpp:4763-4764 and Veir/Dialects/LLVM/OpInfo.lean:interpretOp' (ending with the wildcard none branch at line1666). Opcode presence and verifier support do not establish interpreter support."
+  },
+  {
+    "inventory_id": "ic-inttoptr-ptrtoint-roundtrip-L434",
+    "file": "InstructionCombining.cpp",
+    "line_start": 434,
+    "status": "unsupported",
+    "scope": "The general equal-width same-address-space inttoptr(ptrtoint(P)) -> P branch, including its 64-bit nonpoison specialization.",
+    "reason": "Puddle InterpretsTo requires one fixed result for every memory state, but inttoptr reconstructs pointer object identity through memory-dependent ptrFromInt/decode. It therefore cannot faithfully express the nonpoison source cast's behavior across arbitrary memories; proving the rule from an impossible fixed-result premise would be vacuous. Pointer/object consistency across a memory and a supplied SSA pointer is also absent from the pattern premises. A state-aware pointer semantics is needed, in addition to the full LLVM width/address-space conditions.",
+    "validation": "Inspected pinned InstructionCombining.cpp:434-445; Veir/PatternRewriter/Puddle/Validity.lean:511-514; Veir/Dialects/LLVM/OpInfo.lean:1656-1665; Veir/Interpreter/Memory.lean:95-110,180-182. This is a proof-model limitation, not an LLVM counterexample."
+  },
+  {
+    "inventory_id": "ic-worklist-dead-edge-poison-phi-L6117",
+    "file": "InstructionCombining.cpp",
+    "line_start": 6117,
+    "status": "unsupported",
+    "scope": "When predecessor edge is excluded, replace that predecessor value in every successor PHI with poison and record IR change.",
+    "validation": "Inspected the pinned prepareWorklist implementation at InstructionCombining.cpp:6117-6242, Puddle Validity.lean:34-36 and :651-686, and Llvm.verifyLocalInvariants / interpretOp' for mlir.constant in OpInfo.lean. These are missing model capabilities, not unfinished algebraic proofs.",
+    "reason": "The source mutates PHI incoming values selected by predecessor/dead-edge identity. Puddle has no PHI/control-flow semantics or modeled dead-edge/dominance facts, and a pattern replaces one root rather than updating successor-block PHIs."
+  },
+  {
+    "inventory_id": "ic-worklist-constant-branch-switch-edges-L6180",
+    "file": "InstructionCombining.cpp",
+    "line_start": 6178,
+    "status": "unsupported",
+    "scope": "For undef or constant condbr/switch condition, mark only feasible successors live (or none for undef) and poison PHI values on dead edges.",
+    "validation": "Inspected the pinned prepareWorklist implementation at InstructionCombining.cpp:6117-6242, Puddle Validity.lean:34-36 and :651-686, and Llvm.verifyLocalInvariants / interpretOp' for mlir.constant in OpInfo.lean. These are missing model capabilities, not unfinished algebraic proofs.",
+    "reason": "This transformation analyzes condbr/switch successor edges, marks unreachable edges, and poisons corresponding PHI inputs. SupportedOpCode rejects terminators; Puddle has no CFG reachability/dead-edge or PHI interpretation for the required mutation."
+  },
+  {
+    "inventory_id": "ic-worklist-unreachable-block-cleanup-L6202",
+    "file": "InstructionCombining.cpp",
+    "line_start": 6206,
+    "status": "unsupported",
+    "scope": "Remove nonterminator and non-EH-pad instructions from blocks not reached in live-block traversal.",
+    "validation": "Inspected the pinned prepareWorklist implementation at InstructionCombining.cpp:6117-6242, Puddle Validity.lean:34-36 and :651-686, and Llvm.verifyLocalInvariants / interpretOp' for mlir.constant in OpInfo.lean. These are missing model capabilities, not unfinished algebraic proofs.",
+    "reason": "Removal is justified by whole-function unreachable-block analysis and may erase effectful instructions inside those blocks. Puddle has no modeled reachability premise or block-editing creator; SupportedOpCode also excludes effectful instructions."
+  },
+  {
+    "inventory_id": "ic-worklist-dead-instruction-noalias-dce-L6218",
+    "file": "InstructionCombining.cpp",
+    "line_start": 6220,
+    "status": "unsupported",
+    "scope": "In reverse instruction order, erase trivially dead instruction or dead noalias-scope declaration after salvaging debug info; otherwise enqueue for InstCombine.",
+    "validation": "Inspected the pinned prepareWorklist implementation at InstructionCombining.cpp:6117-6242, Puddle Validity.lean:34-36 and :651-686, and Llvm.verifyLocalInvariants / interpretOp' for mlir.constant in OpInfo.lean. These are missing model capabilities, not unfinished algebraic proofs.",
+    "reason": "Dead-result deletion requires an observable-use/liveness premise, and dead noalias declarations require alias-scope state. Puddle validity instead refines every matched root result and has no modeled zero-use/liveness or alias-scope predicate. An empty replacement for a value-producing root cannot establish the required result refinement; alias-scope calls are effectful/unsupported."
+  },
+  {
+    "inventory_id": "ic-worklist-constant-operand-fold-L6156",
+    "file": "InstructionCombining.cpp",
+    "line_start": 6150,
+    "status": "unsupported",
+    "scope": "Fold ConstantVector or ConstantExpr operands through cache and mutate operand when folded value differs.",
+    "validation": "Inspected the pinned prepareWorklist implementation at InstructionCombining.cpp:6117-6242, Puddle Validity.lean:34-36 and :651-686, and Llvm.verifyLocalInvariants / interpretOp' for mlir.constant in OpInfo.lean. These are missing model capabilities, not unfinished algebraic proofs.",
+    "reason": "The source operates exclusively on LLVM ConstantVector or ConstantExpr operands. Puddle has no ConstantExpr attribute/expression semantics and its llvm.mlir.constant verifier/interpreter supports scalar integer/float constants, not this vector/expression constant representation. Replacing an ordinary scalar constant or a separately computed instruction would not implement this source branch."
+  }
+]

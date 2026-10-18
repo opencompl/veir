@@ -1,0 +1,15 @@
+{
+  "files": {
+    "InstCombineCompares.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          4830
+        ]
+      ],
+      "complete": false,
+      "range_complete": true,
+      "notes": "All candidate return and mutation sites in lines 1\u20134830 were reviewed source-by-source; each site is represented by an individual rewrite/delegation record or a reviewed helper/nonrewrite exclusion. Lines 4831\u20139622 remain assigned to the other inventory chunk, so file-level completeness remains false."
+    }
+  }
+}

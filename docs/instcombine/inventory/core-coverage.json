@@ -1,0 +1,15 @@
+{
+  "files": {
+    "InstructionCombining.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          6439
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "Manual source audit through line 6439 is complete. Source candidate mapping has zero unclassified sites for this file. Reviewed the visitor, helper, mutation, control-flow, vector, EH, and worklist families; broad entries retained are parameterized single algorithms with their complete source guards and updates documented."
+    }
+  }
+}

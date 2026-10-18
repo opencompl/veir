@@ -1,0 +1,5 @@
+{
+  "description": "Analysis-like calls in enclosing if-guards outside entry spans marked uses_analysis=false. Advisory only; constant calls and exclusion conditions require source review.",
+  "findings": [],
+  "candidate_count": 0
+}

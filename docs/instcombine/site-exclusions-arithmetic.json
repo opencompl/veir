@@ -1,0 +1,407 @@
+[
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 597,
+    "reason": "Query helper canEvaluateShiftedShift returns whether a nested shift is legal to evaluate; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 600,
+    "reason": "Query helper canEvaluateShiftedShift returns whether same-direction shift evaluation is semantically allowed; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 649,
+    "reason": "Query helper canEvaluateShifted returns a known-bit divisibility predicate for constant right shifts; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 666,
+    "reason": "Query helper canEvaluateShifted recursively checks whether both bitwise operands can be shifted; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 673,
+    "reason": "Query helper canEvaluateShifted delegates nested-shift legality to canEvaluateShiftedShift; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 680,
+    "reason": "Query helper canEvaluateShifted recursively checks both select arms; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 696,
+    "reason": "Query helper canEvaluateShifted checks a multiply pattern and shift semantics; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 705,
+    "reason": "Query helper canEvaluateShifted recursively checks add operands under lossy left-shift semantics; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 718,
+    "reason": "Query helper canEvaluateShifted checks required no-wrap flag and recursively checks operands; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 882,
+    "reason": "Predicate helper canShiftBinOpWithConstantRHS returns an opcode eligibility test; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 889,
+    "reason": "Predicate helper canShiftBinOpWithConstantRHS excludes logical-shift NOT patterns; no IR is changed."
+  },
+  {
+    "file": "InstCombineShifts.cpp",
+    "line": 1804,
+    "reason": "Local BitWidthSplat lambda returns a constant-shape match predicate; it is a query helper and does not change IR."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 106,
+    "reason": "getSortedOperandsOfBinOp returns a canonicalized operand pair for internal use; it does not rewrite IR."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 488,
+    "reason": "visitImpl unreachable assertion terminator is not a successful transform."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 510,
+    "reason": "Negator::negate returns cached recursive result; cache plumbing only."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 525,
+    "reason": "Negator::negate returns the newly computed recursive result; cache plumbing only."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 536,
+    "reason": "Negator::run returns failure after cleanup; no rewrite is produced."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 538,
+    "reason": "Negator::run packages successful result and new instructions; driver plumbing only."
+  },
+  {
+    "file": "InstCombineNegator.cpp",
+    "line": 575,
+    "reason": "Negator::Negate returns the completed root after worklist updates; driver plumbing only."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 79,
+    "reason": "FAddendCoef utility predicate used only to recognize FP or integer constants."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 82,
+    "reason": "FAddendCoef constant classification predicate; not an InstCombine rewrite."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 83,
+    "reason": "FAddendCoef constant classification predicate; not an InstCombine rewrite."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 84,
+    "reason": "FAddendCoef constant classification predicate; not an InstCombine rewrite."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 85,
+    "reason": "FAddendCoef constant classification predicate; not an InstCombine rewrite."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 88,
+    "reason": "FAddendCoef range predicate; internal matching utility."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 90,
+    "reason": "FAddendCoef storage accessor."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 93,
+    "reason": "FAddendCoef storage accessor."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 98,
+    "reason": "FAddendCoef value accessor."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 103,
+    "reason": "FAddendCoef value accessor."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 106,
+    "reason": "FAddendCoef integer-vs-FP predicate."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 1176,
+    "reason": "MulWillOverflow returns an overflow predicate consumed by matching logic, not an emitted transformation."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 2264,
+    "reason": "CommonPointerBase returns a candidate common base after analysis; it does not rewrite IR."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 2296,
+    "reason": "CommonPointerBase returns a candidate common base after analysis; it does not rewrite IR."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 2317,
+    "reason": "CommonPointerBase returns a candidate common base after analysis; it does not rewrite IR."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 2337,
+    "reason": "Pointer-difference profitability predicate; no IR mutation."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 685,
+    "reason": "Local lambda returns the constructed powi intrinsic as an intermediate; not an independent rewrite."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 772,
+    "reason": "Pattern-detection helper returns whether cross-instruction sqrt/div use sites exist; no IR mutation."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1224,
+    "reason": "multiplyOverflows returns an APInt overflow predicate consumed by integer division matching."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1246,
+    "reason": "isMultiple returns a divisibility predicate consumed by integer division matching."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 143,
+    "reason": "FAddend accessor returning the symbolic value; internal coefficient machinery."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 144,
+    "reason": "FAddend accessor returning coefficient state; internal machinery."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 146,
+    "reason": "FAddend constant predicate; internal machinery."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 147,
+    "reason": "FAddend zero predicate; internal machinery."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 249,
+    "reason": "FAddendCoef helper early-exit; not an IR transformation."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 263,
+    "reason": "FAddendCoef constant-construction helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 268,
+    "reason": "FAddendCoef conversion helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 285,
+    "reason": "FAddendCoef operator helper early-exit."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 292,
+    "reason": "FAddendCoef operator helper early-exit."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 301,
+    "reason": "FAddendCoef operator helper early-exit."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 305,
+    "reason": "FAddendCoef operator helper early-exit."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 312,
+    "reason": "FAddendCoef operator helper early-exit."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 337,
+    "reason": "FAddendCoef type conversion helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 388,
+    "reason": "FAddend expansion-cost helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 392,
+    "reason": "FAddend expansion-cost helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 400,
+    "reason": "FAddend expansion-cost helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 405,
+    "reason": "FAddend expansion-cost helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 422,
+    "reason": "FAddend drill-down depth helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 429,
+    "reason": "FAddend drill-down depth helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 659,
+    "reason": "FP expression emission helper returning a newly built fsub."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 666,
+    "reason": "FP expression emission helper returning a newly built fneg."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 673,
+    "reason": "FP expression emission helper returning a newly built fadd."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 680,
+    "reason": "FP expression emission helper returning a newly built fmul."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 717,
+    "reason": "N-ary expression cost helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 733,
+    "reason": "Weighted-addend value construction helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 740,
+    "reason": "Weighted-addend value construction helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 745,
+    "reason": "Weighted-addend value construction helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 749,
+    "reason": "Weighted-addend value construction helper."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 1066,
+    "reason": "matchesSquareSum returns a match predicate consumed by foldSquareSumInt/foldSquareSumFP; no rewrite is performed here."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 1081,
+    "reason": "matchesSquareSum returns a match predicate consumed by foldSquareSumInt/foldSquareSumFP; no rewrite is performed here."
+  },
+  {
+    "file": "InstCombineAddSub.cpp",
+    "line": 1071,
+    "reason": "matchesSquareSum returns a match predicate consumed by foldSquareSumInt/foldSquareSumFP; no rewrite is performed here."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1600,
+    "reason": "IsSafeDivisor lambda returns whether an sdiv divisor is a safe constant; analysis predicate only."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1601,
+    "reason": "IsSafeDivisor lambda returns nonzero/nonpoison facts; analysis predicate only."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1659,
+    "reason": "takeLog2 uses a sentinel when DoFold is false; internal query plumbing."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1660,
+    "reason": "takeLog2 invokes a callback to construct a folded expression; internal helper plumbing represented by branch rewrite records."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1667,
+    "reason": "takeLog2 checks whether a power-of-two constant can be extracted; helper matcher control, no rewrite output at this return."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1671,
+    "reason": "takeLog2 unreachable guard after exact constant log2 extraction; no independent rewrite."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1071,
+    "reason": "matchesSquareSum returns a matcher predicate; no rewrite occurs in this helper."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 1208,
+    "reason": "simplifyDivRemOfSelectWithZeroOp returns a helper success flag after direct operand/condition mutation; direct visitor delegation record covers its rewrite invocation."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 2461,
+    "reason": "MatchShiftOrMulXC returns a matching predicate used by simplifyIRemMulShl; no rewrite occurs."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 2473,
+    "reason": "MatchShiftCX returns a matching predicate used by simplifyIRemMulShl; no rewrite occurs."
+  },
+  {
+    "file": "InstCombineMulDivRem.cpp",
+    "line": 2514,
+    "reason": "CreateMulOrShift lambda constructs an intermediate multiply or shift used by the two remainder-factor rewrites; the successful outer rewrites are inventoried separately."
+  }
+]

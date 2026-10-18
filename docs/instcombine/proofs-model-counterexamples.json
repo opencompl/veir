@@ -1,0 +1,47 @@
+[
+  {
+    "inventory_id": "ic-freeze-push-through-op-L5236",
+    "file": "InstructionCombining.cpp",
+    "line_start": 5236,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreezePushThroughAddCounterexample.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreezePushThroughAddCounterexample.freezePushThroughAdd",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreezePushThroughAddCounterexample.freezePushThroughAdd_not_valid",
+    "status": "counterexample",
+    "scope": "Width-2 scalar unflagged add specialization `freeze (X + 1) -> freeze X + 1`; the constant is nonpoison and the add has one use, so the modeled fixture satisfies the source eligibility guards. With X poison, Puddle deterministically evaluates the source to 0 and the target to 1.",
+    "reason": "Puddle models `freeze poison` as deterministic zero. This makes pushing freeze through addition observably change the modeled result for poison X and constant 1. This is a Puddle model counterexample, not evidence of an LLVM bug because LLVM freeze may choose an arbitrary value.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMModelCounterexamples"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreezePushThroughAddCounterexample UnitTest.InstCombineLLVMModelCounterexamples; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "The counterexample is intentionally scalar; Puddle integer runtime values do not model LLVM vectors.",
+      "The full upstream routine mutates non-root operations and uses poison dataflow analysis; this executable Puddle pattern models the eligible one-use add specialization directly."
+    ]
+  },
+  {
+    "inventory_id": "ic-freeze-undef-use-choice-L5446",
+    "file": "InstructionCombining.cpp",
+    "line_start": 5446,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreezeUndefUseChoiceCounterexample.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreezeUndefUseChoiceCounterexample.freezePoisonOrAllOnes",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreezeUndefUseChoiceCounterexample.freezePoisonOrAllOnes_not_valid",
+    "status": "counterexample",
+    "scope": "Width-2 scalar one-use OR specialization of the use-based replacement: `or (freeze poison), Y -> or -1, Y`, preserving the source OR properties. The runtime fixture establishes that the freeze has exactly one OR use. With Y=0, Puddle evaluates the source to 0 and the target to all ones.",
+    "reason": "LLVM's `m_Undef` matcher also accepts poison, and the OR-only user choice replaces `freeze poison` with all ones. Puddle instead models `freeze poison` as deterministic zero, so this eligible scalar specialization changes the modeled result. This is a Puddle model counterexample, not evidence of an LLVM bug because LLVM freeze may choose the all-ones value consistently.",
+    "additional_patterns": [],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMModelCounterexamples"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreezeUndefUseChoiceCounterexample UnitTest.InstCombineLLVMModelCounterexamples; Tools/InstCombine/check_proofs.py",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "The counterexample is intentionally scalar; Puddle integer runtime values do not model LLVM vectors or the shuffle-use exclusion.",
+      "The full upstream routine chooses one value across every freeze use, including select and PHI users. This executable Puddle pattern models the concrete one-use OR specialization, where replacing the root context is equivalent to replacing the freeze's sole use.",
+      "Puddle has no distinct undef runtime value; the formal witness uses the poison alternative accepted by LLVM's `m_Undef` matcher."
+    ]
+  }
+]

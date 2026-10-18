@@ -1,0 +1,308 @@
+[
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 56,
+    "reason": "addWithOverflow computes the APInt carry/overflow flag used by constant arithmetic folding; boolean helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 69,
+    "reason": "subWithOverflow computes the APInt borrow/overflow flag used by constant arithmetic folding; boolean helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 90,
+    "reason": "isSignTest recognizes signed relational comparisons against zero; predicate helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 293,
+    "reason": "MaskIdx lambda returns a locally constructed index operand used as part of the enclosing load-comparison rewrites at cmpa-L302 through cmpa-L390; not a separate rewrite branch.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 435,
+    "reason": "IsNonConst local lambda returns a boolean matcher predicate used by a later comparison fold; it does not independently rewrite IR.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 493,
+    "reason": "setInsertionPoint positions Builder before the first insertion point of a PHI; builder-placement helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 499,
+    "reason": "setInsertionPoint positions Builder at an instruction (or its next instruction); builder-placement helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 505,
+    "reason": "setInsertionPoint positions Builder in an argument function entry block; builder-placement helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 596,
+    "reason": "rewriteGEPAsOffset installs the generated pointer replacement into external uses while materializing a whole common-base GEP rewrite; mutation is subsumed by transformToIndexedCompare at cmpa-L646.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 602,
+    "reason": "rewriteGEPAsOffset returns the constructed offset value to the enclosing whole-compare rewrite; helper output is subsumed by cmpa-L646.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 673,
+    "reason": "CanFold lambda tests whether comparison predicate and accumulated GEP nowrap flags permit the enclosing fold; guard helper only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 684,
+    "reason": "NewICmp lambda returns the unchanged instruction when its input is already an ICmp; it is an internal constructor helper, not a successful rewrite branch.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 894,
+    "reason": "CmpCaptureTracker::captured records eligible alloca equality uses and returns traversal Continue; capture-analysis callback only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 898,
+    "reason": "CmpCaptureTracker::captured marks an ineligible use captured and stops traversal; capture-analysis callback only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 931,
+    "reason": "foldAllocaCmp returns whether its body replaced comparisons at line 916; summary status, not a distinct rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 1456,
+    "reason": "Return V propagates a successful result from handleDomCond; its actual transformation branches are separately inventoried at cmpa-L1419, cmpa-L1421, cmpa-L1440, and cmpa-L1442.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 1462,
+    "reason": "Return V propagates a successful result from handleDomCond for the inverse dominating predicate; transformations are separately inventoried at cmpa-L1419, cmpa-L1421, cmpa-L1440, and cmpa-L1442.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 2093,
+    "reason": "Void return exits a local matcher lambda after recording a matched XOR leaf; no IR is rewritten at this site.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 2099,
+    "reason": "Void return exits a local matcher lambda after recording a matched SUB leaf; no IR is rewritten at this site.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 3092,
+    "reason": "This is the return value of the no-PHI-use predicate passed to none_of; it only guards the rewrite at cmpa-L3093.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 3151,
+    "reason": "FoldConstant local lambda returns a scalar/vector boolean constant consumed by truth-table cases at cmpa-L3156 and cmpa-L3186; it is a value constructor, not a separate successful compare fold.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 3211,
+    "reason": "ComputeTable local lambda returns the Boolean result of constant-folding a binary op and comparing it to C; it only constructs the table consumed by cmpa-L3227.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 3441,
+    "reason": "matchThreeWayIntCompare returns a Boolean shape-match result; it only extracts operands/constants for the independent rewrite at cmpa-L3487.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4520,
+    "reason": "SimplifyOp returns simplifyICmpInst result used by outer select comparison fold; this helper result is not independently installed as a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4539,
+    "reason": "Simplifies lambda returns a boolean profitability/match result used to gate the outer select fold; no independent IR replacement.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4618,
+    "reason": "isMaskOrZero recursively recognizes zero-extension preserving a low-bit mask; analysis-helper return, not an IR rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4622,
+    "reason": "isMaskOrZero recursively recognizes sign-extension preserving the requested mask/complement class; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4629,
+    "reason": "isMaskOrZero recursively checks both operands of bitwise AND/OR for the same mask class; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4633,
+    "reason": "isMaskOrZero recursively checks NOT(X) after toggling requested mask/complement class; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4637,
+    "reason": "isMaskOrZero matches X xor -X as a complement low-bit mask; analysis-helper predicate.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4640,
+    "reason": "isMaskOrZero matches X xor (X-1) as a low-bit mask; analysis-helper predicate.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4643,
+    "reason": "isMaskOrZero recursively requires both select arms to be the requested mask class; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4647,
+    "reason": "isMaskOrZero accepts left-shifted complements of masks; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4650,
+    "reason": "isMaskOrZero accepts logical-right-shifted masks; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4654,
+    "reason": "isMaskOrZero accepts arithmetic-right-shifted masks or complements; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4658,
+    "reason": "isMaskOrZero recognizes 2^n-1 as a mask only when KnownPowerOfTwo proves the addend is power-of-two-or-zero; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4664,
+    "reason": "isMaskOrZero recognizes -2^n as complement mask only when KnownPowerOfTwo proves the subtrahend is power-of-two-or-zero; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4676,
+    "reason": "isMaskOrZero recursively recognizes signed/unsigned min/max and requires both operands to match mask class; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4681,
+    "reason": "isMaskOrZero recognizes bitreverse by recursively checking its argument under opposite mask polarity; analysis-helper return.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4775,
+    "reason": "IsLowBitMask lambda proves a signed comparison variant from nonnegative mask (or isKnownNonNegative); matcher helper predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4781,
+    "reason": "IsLowBitMask lambda proves signed complement-mask case from isKnownNonZero(X); matcher helper predicate only.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4802,
+    "reason": "Nested Check lambda return is a successful helper match for (~x | Mask)==-1, consumed by IsLowBitMask; no independent rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4820,
+    "reason": "Nested Check lambda return is a successful helper match for (x & ~Mask)==0; consumed by IsLowBitMask; no independent rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4828,
+    "reason": "This return creates the final ICmp replacement and is inventoried as cmpa-L4828.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4520,
+    "reason": "SimplifyOp returns simplifyICmpInst result used by outer select comparison fold; this helper result is not independently installed as a rewrite.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4523,
+    "reason": "SimplifyOp returns a constant when isImpliedCondition proves the selected arm comparison; this feeds the later select rewrite and is not an independent IR replacement.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4539,
+    "reason": "Simplifies lambda returns a boolean profitability/match result used to gate the outer select fold; no independent IR replacement.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 4523,
+    "reason": "Simplifies lambda returns an implied Boolean constant for branch selection; this helper predicate is not an independent IR transformation.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 679,
+    "reason": "NewICmp lambda constructs an ICmp with signed-mapped predicate when accumulated GEP nowrap lacks NUW; constructor helper used by actual GEP rewrites already inventoried at lines 693,748,816,847.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 993,
+    "reason": "getICmp lambda constructs a compare with EQ/NE inversion for right-shift constant folds; helper result is represented by individual transformations at lines 1012,1016,1029,1030,1032,1039.",
+    "reviewed": true
+  },
+  {
+    "file": "InstCombineCompares.cpp",
+    "line": 1052,
+    "reason": "getICmp lambda constructs a compare with EQ/NE inversion for left-shift constant folds; helper result is represented by individual transformations at lines 1062,1067,1073,1078.",
+    "reviewed": true
+  }
+]

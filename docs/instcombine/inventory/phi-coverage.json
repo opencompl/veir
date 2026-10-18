@@ -1,0 +1,16 @@
+{
+  "source_commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombinePHI.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          1609
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "Every return/mutation candidate in InstCombinePHI.cpp lines 1\u20131609 was source-reviewed and is represented by a rewrite, helper delegation/analysis-helper record, or a reviewed precise helper/bookkeeping exclusion. PHI/CFG transformations are marked unsupported with the specific CFG, dominance, cycle, memory, or analysis dependency."
+    }
+  }
+}

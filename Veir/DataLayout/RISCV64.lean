@@ -69,4 +69,27 @@ private def queryRISCV64 (type : Attribute) : Option DataLayoutTypeInfo :=
 public def riscv64 : DataLayout :=
   { query := queryRISCV64 }
 
+/-- On RV64 an `i8` occupies one byte and has one-byte ABI alignment, so its
+    allocation stride is exactly one byte. -/
+@[simp] public theorem riscv64_getTypeAllocSize_i8 :
+    riscv64.getTypeAllocSize
+      (.integerType { bitwidth := 8, signedness := .signless }) = some 1 := by
+  change Option.map DataLayoutTypeInfo.allocSize
+    (queryRISCV64 (.integerType { bitwidth := 8, signedness := .signless })) = some 1
+  rw [show queryRISCV64
+    (.integerType { bitwidth := 8, signedness := .signless }) =
+      some { size := 1, abiAlignment := 1, preferredAlignment := 1 } by rfl]
+  simp
+
+/-- On RV64 an `i32` occupies four bytes with four-byte ABI alignment. -/
+@[simp] public theorem riscv64_getTypeAllocSize_i32 :
+    riscv64.getTypeAllocSize
+      (.integerType { bitwidth := 32, signedness := .signless }) = some 4 := by
+  change Option.map DataLayoutTypeInfo.allocSize
+    (queryRISCV64 (.integerType { bitwidth := 32, signedness := .signless })) = some 4
+  rw [show queryRISCV64
+    (.integerType { bitwidth := 32, signedness := .signless }) =
+      some { size := 4, abiAlignment := 4, preferredAlignment := 4 } by rfl]
+  simp
+
 end Veir.DataLayout

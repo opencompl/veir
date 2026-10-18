@@ -1,0 +1,16 @@
+{
+  "source_commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombineSelect.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          5529
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "Read the full pinned source. All 335 candidate return/mutation checklist sites map to branch-level rewrite/delegation records or reviewed helper exclusions; branch variants are split where they produce distinct formulas or output DAGs. Parser audit reports zero Select function mismatches and no Select spans crossing function boundaries."
+    }
+  }
+}

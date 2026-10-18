@@ -35,6 +35,18 @@ deriving Inhabited, Repr, DecidableEq
 def DataLayoutTypeInfo.allocSize (info : DataLayoutTypeInfo) : Nat :=
   alignTo info.size info.abiAlignment
 
+/-- A one-byte scalar with one-byte alignment has a one-byte allocation stride. -/
+@[simp] theorem DataLayoutTypeInfo.allocSize_one :
+    ({ size := 1, abiAlignment := 1, preferredAlignment := 1 } :
+      DataLayoutTypeInfo).allocSize = 1 := by
+  rfl
+
+/-- A four-byte scalar with four-byte alignment has a four-byte allocation stride. -/
+@[simp] theorem DataLayoutTypeInfo.allocSize_four :
+    ({ size := 4, abiAlignment := 4, preferredAlignment := 4 } :
+      DataLayoutTypeInfo).allocSize = 4 := by
+  rfl
+
 /--
   A target data layout. Unsupported or unsized types return `none`.
 
@@ -63,7 +75,7 @@ def getTypePreferredAlignment (layout : DataLayout) (type : Attribute) : Option 
   Return the allocation size of `type`, in bytes: the stride between consecutive
   objects, including tail padding required by the ABI alignment.
 -/
-def getTypeAllocSize (layout : DataLayout) (type : Attribute) : Option Nat :=
+@[expose] def getTypeAllocSize (layout : DataLayout) (type : Attribute) : Option Nat :=
   (layout.query type).map (·.allocSize)
 
 end DataLayout

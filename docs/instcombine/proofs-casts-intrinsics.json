@@ -1,0 +1,605 @@
+[
+  {
+    "inventory_id": "cast-L243",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 235,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExt",
+    "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExt_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector and scalar/vector bitcast forms lack elementwise vector cast semantics",
+      "floating cast pairs lack complete poison/FP semantics",
+      "pointer cast-pair cases that construct a pointer from integer or byte bits remain unsupported: Puddle inttoptr/byte-to-pointer reconstruction depends on MemoryState under the all-memory InterpretsTo contract"
+    ],
+    "scope": "All modeled scalar eliminable cast pairs in the LLVM table are covered. IntegerType rows use arbitrary valid widths, including trunc/trunc, zext/zext, sext/sext, zext/sext, every extension followed by trunc width ordering, and the integer bitcast rows. The seven additional same-width IntegerType/ByteType triples are covered at arbitrary nonzero widths; B->I->B uses refinement because whole-value integer poison may discard per-bit information. The memory-independent pointer subset covers same-address-space P->P->P, P->P->B, P->B->B, and P->B->I (the last emits ptrtoint), with byte/integer pointer endpoints fixed by the modeled 64-bit pointer width. All source poison flags are modeled and replacement flags are cleared exactly where LLVM creates an unflagged cast.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.ComposeZExt Veir.Passes.InstCombineLLVM.ComposeBitcastScalar UnitTest.InstCombineLLVMCastsIntrinsics; Tools/InstCombine/check_proofs.py",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeTrunc",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeTrunc_valid",
+        "scope": "Arbitrary scalar widths D < M < S; both matched trunc flag sets are modeled and the direct trunc clears nsw/nuw."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExt",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExt_valid",
+        "scope": "Arbitrary scalar widths S < M < D for sext(sext(x)) to a direct sext."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtSExt",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtSExt_valid",
+        "scope": "Arbitrary scalar widths S < M < D for sext(zext(x)) to direct unflagged zext; inner nneg poison is modeled."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToZExt",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToZExt_valid",
+        "scope": "Arbitrary scalar widths S < D < M for trunc_D(zext_M(x:S)) to direct unflagged zext_D."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToTrunc",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToTrunc_valid",
+        "scope": "Arbitrary scalar widths D < S < M for trunc_D(zext_M(x:S)) to direct unflagged trunc_D."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToBitcast",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtTruncToBitcast_valid",
+        "scope": "Arbitrary scalar widths S < M with destination width S for trunc_S(zext_M(x:S)) to an integer bitcast."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToSExt",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToSExt_valid",
+        "scope": "Arbitrary scalar widths S < D < M for trunc_D(sext_M(x:S)) to direct sext_D."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToTrunc",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToTrunc_valid",
+        "scope": "Arbitrary scalar widths D < S < M for trunc_D(sext_M(x:S)) to direct unflagged trunc_D."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToBitcast",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtTruncToBitcast_valid",
+        "scope": "Arbitrary scalar widths S < M with destination width S for trunc_S(sext_M(x:S)) to an integer bitcast."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeTruncBitcast",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeTruncBitcast_valid",
+        "scope": "Scalar trunc followed by a same-type integer bitcast, at arbitrary widths D < S; the direct trunc clears nsw/nuw."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtBitcast",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeZExtBitcast_valid",
+        "scope": "Scalar zext followed by a same-type integer bitcast, at arbitrary widths S < D; the direct zext clears nneg."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtBitcast",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeSExtBitcast_valid",
+        "scope": "Scalar sext followed by a same-type integer bitcast, at arbitrary widths S < D."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastTrunc",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastTrunc_valid",
+        "scope": "Same-type scalar integer bitcast followed by trunc, at arbitrary widths D < S; the direct trunc clears nsw/nuw."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastZExt",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastZExt_valid",
+        "scope": "Same-type scalar integer bitcast followed by zext, at arbitrary widths S < D; the direct zext clears nneg."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastSExt",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastSExt_valid",
+        "scope": "Same-type scalar integer bitcast followed by sext, at arbitrary widths S < D."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeZExt.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastBitcast",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeZExt.composeBitcastBitcast_valid",
+        "scope": "Two same-type scalar integer bitcasts collapse to one, at arbitrary integer widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIIB",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIIB_valid",
+        "scope": "I->I->B, arbitrary equal nonzero scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIBI",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIBI_valid",
+        "scope": "I->B->I, arbitrary equal nonzero scalar widths; byte round-trip is exact for valid widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIBB",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastIBB_valid",
+        "scope": "I->B->B, arbitrary equal nonzero scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBII",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBII_valid",
+        "scope": "B->I->I, arbitrary equal nonzero scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBIB",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBIB_valid",
+        "scope": "B->I->B, arbitrary equal nonzero scalar widths; the composed whole-value-poison result refines the direct per-bit byte."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBBI",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBBI_valid",
+        "scope": "B->B->I, arbitrary equal nonzero scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBBB",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastBBB_valid",
+        "scope": "B->B->B, arbitrary scalar byte widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPPP",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPPP_valid",
+        "scope": "Same-address-space scalar P->P->P; pointer RuntimeValue is preserved without memory reconstruction."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPPB",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPPB_valid",
+        "scope": "Scalar P->P->B at the modeled 64-bit pointer width."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPBB",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPBB_valid",
+        "scope": "Scalar P->B->B at the modeled 64-bit pointer width."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/ComposeBitcastScalar.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPBI",
+        "theorem": "Veir.Passes.InstCombineLLVM.ComposeBitcastScalar.composeBitcastPBI_valid",
+        "scope": "Scalar P->B->I at the modeled 64-bit pointer width; replacement is ptrtoint and both paths expose the address without memory reconstruction."
+      }
+    ]
+  },
+  {
+    "inventory_id": "calls-count-bitreverse-L478",
+    "file": "InstCombineCalls.cpp",
+    "line_start": 478,
+    "lean_file": "Veir/Passes/InstCombineLLVM/CountBitReverse.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.CountBitReverse.ctlzBitReverse",
+    "theorem": "Veir.Passes.InstCombineLLVM.CountBitReverse.ctlzBitReverse_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector count-intrinsic semantics"
+    ],
+    "scope": "All four scalar arbitrary-width source variants are proven: ctlz/cttz reverse orientation crossed with is_zero_poison=false/true. Ordinary poison and zero-input poison are modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/CountBitReverse.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.CountBitReverse.cttzBitReverse",
+        "theorem": "Veir.Passes.InstCombineLLVM.CountBitReverse.cttzBitReverse_valid",
+        "scope": "Scalar arbitrary-width cttz(bitreverse(x),false) to ctlz(x,false), including poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/CountBitReverse.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.CountBitReverse.ctlzBitReverseZeroPoison",
+        "theorem": "Veir.Passes.InstCombineLLVM.CountBitReverse.ctlzBitReverseZeroPoison_valid",
+        "scope": "Scalar arbitrary-width ctlz(bitreverse(x),true) to cttz(x,true), including zero-input poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/CountBitReverse.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.CountBitReverse.cttzBitReverseZeroPoison",
+        "theorem": "Veir.Passes.InstCombineLLVM.CountBitReverse.cttzBitReverseZeroPoison_valid",
+        "scope": "Scalar arbitrary-width cttz(bitreverse(x),true) to ctlz(x,true), including zero-input poison."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.CountBitReverse UnitTest.InstCombineLLVMCastsIntrinsics; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "calls-ctpop-reorder-L659",
+    "file": "InstCombineCalls.cpp",
+    "line_start": 659,
+    "lean_file": "Veir/Passes/InstCombineLLVM/CtpopReorder.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopBitReverse",
+    "theorem": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopBitReverse_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector population-count and reorder semantics"
+    ],
+    "scope": "All scalar alternatives in the source branch: arbitrary-width bitreverse, verifier-supported bswap widths 16/32/64, and arbitrary-width fshl/fshr rotates with identical value operands. Poison inputs and poison funnel-shift amounts are modeled.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/CtpopReorder.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopBSwap",
+        "theorem": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopBSwap_valid",
+        "scope": "Scalar ctpop(bswap(x)) to ctpop(x) at verifier-supported widths 16, 32, and 64, including poison."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/CtpopReorder.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopFShl",
+        "theorem": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopFShl_valid",
+        "scope": "Scalar arbitrary-width ctpop(fshl(x,x,amount)) to ctpop(x), including poison values and poison shift amounts."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/CtpopReorder.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopFShr",
+        "theorem": "Veir.Passes.InstCombineLLVM.CtpopReorder.ctpopFShr_valid",
+        "scope": "Scalar arbitrary-width ctpop(fshr(x,x,amount)) to ctpop(x), including poison values and poison shift amounts."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.CtpopReorder UnitTest.InstCombineLLVMCastsIntrinsics; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cast-L1644",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1639,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtNNegI1.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtNNegI1.zextNNegI1ToZero",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtNNegI1.zextNNegI1ToZero_valid",
+    "status": "proven",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector i1 forms lack elementwise vector cast semantics"
+    ],
+    "scope": "All scalar i1-to-iN zext nneg forms with N > 1 become typed iN zero. The nonconstant matched SSA value and nneg poison on true are modeled.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.ZExtNNegI1 UnitTest.InstCombineLLVMCastsIntrinsics; Tools/InstCombine/check_proofs.py"
+  },
+  {
+    "inventory_id": "cast-L1717",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1697,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtTruncLowMaskSrcLt.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcLt.zextTruncLowMaskSrcLt",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcLt.zextTruncLowMaskSrcLt_valid",
+    "status": "proven",
+    "scope": "All scalar integer width triples M < S < N: zext_N(trunc_M(x:S)) becomes zext_N(x & (2^M-1)). The matcher checks the width ordering, constructs the mask from M, and models arbitrary trunc nsw/nuw and outer zext nneg flags.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1722",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1719,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtTruncLowMaskSrcEq.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcEq.zextTruncLowMaskSrcEq",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcEq.zextTruncLowMaskSrcEq_valid",
+    "status": "proven",
+    "scope": "All scalar integer width pairs M < N where source and destination both have width N: zext_N(trunc_M(x:N)) becomes x & (2^M-1). The matcher constructs the mask from M and models arbitrary trunc nsw/nuw and outer zext nneg flags.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1728",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1723,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtTruncLowMaskSrcGt.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcGt.zextTruncLowMaskSrcGt",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtTruncLowMaskSrcGt.zextTruncLowMaskSrcGt_valid",
+    "status": "proven",
+    "scope": "All scalar integer width triples M < N < S: zext_N(trunc_M(x:S)) becomes trunc_N(x) & (2^M-1). The matcher checks the width ordering, constructs the mask from M, models arbitrary source trunc flags and outer zext nneg, and creates an unflagged trunc.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1763",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1755,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtAndTruncMask.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtAndTruncMask.zextAndTruncMask",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtAndTruncMask.zextAndTruncMask_valid",
+    "status": "proven",
+    "scope": "All scalar integer width pairs N < W with an arbitrary matched iN integer constant: zext_W(and(trunc_N(x), C)) becomes and(x, zext_W(C)). Arbitrary trunc flags and outer nneg are modeled.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1745",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1738,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtXorAndTruncMask.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtXorAndTruncMask.zextXorAndTruncMask",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtXorAndTruncMask.zextXorAndTruncMask_valid",
+    "status": "proven",
+    "scope": "All scalar integer width pairs N < W with an arbitrary matched iN integer constant: zext_W(xor(and(trunc_N(x), C), C)) becomes xor(and(x, zext_W(C)), zext_W(C)). Arbitrary trunc flags and outer nneg are modeled.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1753",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1747,
+    "lean_file": "Veir/Passes/InstCombineLLVM/ZExtNegTruncLowMask.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.ZExtNegTruncLowMask.zextNegTruncLowMask",
+    "theorem": "Veir.Passes.InstCombineLLVM.ZExtNegTruncLowMask.zextNegTruncLowMask_valid",
+    "status": "proven",
+    "scope": "All scalar integer width pairs N < W: zext_W(0 - trunc_N(x)) becomes (0 - x) & (2^N-1). The mask is constructed from N; arbitrary trunc, subtraction, and outer zext poison flags are modeled and safely refined away.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1136",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1132,
+    "lean_file": "Veir/Passes/InstCombineLLVM/TopShiftTruncToICmp.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.TopShiftTruncToICmp.truncLShrTopToICmpSlt",
+    "theorem": "Veir.Passes.InstCombineLLVM.TopShiftTruncToICmp.truncLShrTopToICmpSlt_valid",
+    "status": "proven",
+    "scope": "Arbitrary scalar integer source widths greater than one: trunc(lshr(x, BW-1)) to i1 becomes icmp slt x, 0. Exact and trunc nsw/nuw poison are modeled. The arithmetic-right-shift source variant is registered separately.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/TopShiftTruncToICmp.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.TopShiftTruncToICmp.truncAShrTopToICmpSlt",
+        "theorem": "Veir.Passes.InstCombineLLVM.TopShiftTruncToICmp.truncAShrTopToICmpSlt_valid",
+        "scope": "Arbitrary scalar integer source widths greater than one, arithmetic-right-shift variant, including exact and trunc flags."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector shift, truncation, and comparison semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1145",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1138,
+    "lean_file": "Veir/Passes/InstCombineLLVM/LShrTruncToBitTest.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.LShrTruncToBitTest.lshrTruncToBitTest",
+    "theorem": "Veir.Passes.InstCombineLLVM.LShrTruncToBitTest.lshrTruncToBitTest_valid",
+    "status": "proven",
+    "scope": "Arbitrary scalar integer source widths greater than one and arbitrary immediate shift constants: trunc(lshr(x,C)) to i1 becomes icmp ne (x & (1 << C)), 0. Exact and trunc flags, including out-of-range shift poison, are modeled.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector shift, truncation, and comparison semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1153",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1147,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OrLShrTruncToBitTest.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OrLShrTruncToBitTest.orLShrTruncToBitTest",
+    "theorem": "Veir.Passes.InstCombineLLVM.OrLShrTruncToBitTest.orLShrTruncToBitTest_valid",
+    "status": "proven",
+    "scope": "Arbitrary scalar integer source widths greater than one and arbitrary immediate shift constants: trunc(or(lshr(x,C),x)) to i1 becomes icmp ne (x & ((1 << C) | 1)), 0. Exact, disjoint, and trunc flags are modeled; both commutative OR operand orders are registered.",
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/OrLShrTruncToBitTest.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.OrLShrTruncToBitTest.orLShrTruncToBitTestCommuted",
+        "theorem": "Veir.Passes.InstCombineLLVM.OrLShrTruncToBitTest.orLShrTruncToBitTestCommuted_valid",
+        "scope": "Arbitrary scalar integer widths and immediate shift constants with x as the left OR operand, including exact, disjoint, and trunc flags."
+      }
+    ],
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector shift, bitwise, truncation, and comparison semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1160",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1157,
+    "lean_file": "Veir/Passes/InstCombineLLVM/OddShlTruncToICmp.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.OddShlTruncToICmp.oddShlTruncToICmpEqZero",
+    "theorem": "Veir.Passes.InstCombineLLVM.OddShlTruncToICmp.oddShlTruncToICmpEqZero_valid",
+    "status": "proven",
+    "scope": "Arbitrary nonzero scalar integer widths: trunc(C << X) to i1 becomes icmp eq X, 0 for every integral constant C whose low bit is one. Shift and trunc poison, including out-of-range X and all nsw/nuw flag combinations, are modeled.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector shift, truncation, and comparison semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1167",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1163,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FlaggedXorTruncToICmp.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FlaggedXorTruncToICmp.flaggedXorTruncToICmpNe",
+    "theorem": "Veir.Passes.InstCombineLLVM.FlaggedXorTruncToICmp.flaggedXorTruncToICmpNe_valid",
+    "status": "proven",
+    "scope": "Arbitrary nonzero scalar integer source widths: trunc(x xor y) to i1 becomes icmp ne x, y whenever the trunc has nsw, nuw, or both. Violated trunc flags produce poison and are proved to refine the defined comparison.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector xor, truncation, and comparison semantics"
+    ]
+  },
+  {
+    "inventory_id": "cast-L1172",
+    "file": "InstCombineCasts.cpp",
+    "line_start": 1170,
+    "lean_file": "Veir/Passes/InstCombineLLVM/UsubSatTruncToICmp.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.UsubSatTruncToICmp.usubSatOneTruncToICmpEqZero",
+    "theorem": "Veir.Passes.InstCombineLLVM.UsubSatTruncToICmp.usubSatOneTruncToICmpEqZero_valid",
+    "status": "proven",
+    "scope": "Arbitrary nonzero scalar integer widths: trunc(usub.sat(1,x)) to i1 becomes icmp eq x, 0, including every trunc nsw/nuw flag combination. The proven rewrite is semantically valid without the source profitability-only one-use restriction.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "scope_review_complete": true,
+    "remaining_supported_scope": [],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector saturating-subtraction, truncation, and comparison semantics"
+    ]
+  },
+  {
+    "inventory_id": "ic-free-invert-casts-L3150",
+    "file": "InstructionCombining.cpp",
+    "line_start": 3150,
+    "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+    "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExt",
+    "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExt_valid",
+    "status": "proven",
+    "scope": "Exact A = ~X scalar specialization of the freely inverted cast arms at arbitrary valid integer widths. Covers sext and zext nneg widening to an unflagged sext, and trunc narrowing to an unflagged trunc, with all four independent inner/outer xor operand orientations. All-ones matching compares the normalized bit pattern at each SSA width, including parser-normalized i1 value 1. Trunc proofs account for every matched nsw/nuw combination.",
+    "execution_modules": [
+      "UnitTest.InstCombineLLVMCastsIntrinsics"
+    ],
+    "validation": "lake build Veir.Passes.InstCombineLLVM.FreeInvertCasts UnitTest.InstCombineLLVMCastsIntrinsics; explicit #print axioms for all twelve Pattern.Valid theorems",
+    "scope_review_complete": true,
+    "remaining_supported_scope": [
+      "recursive source operands A whose free inversion is a nontrivial expression rather than the exact complemented-input specialization; these require composition with the corresponding getFreelyInvertedImpl opcode-family proofs"
+    ],
+    "unsupported_scope": [
+      "vector forms lack elementwise vector cast and poison semantics"
+    ],
+    "additional_patterns": [
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtInnerLeft_valid",
+        "scope": "sext arm with the inner all-ones xor commuted at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtOuterLeft_valid",
+        "scope": "sext arm with the outer all-ones xor commuted at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertSExtBothLeft_valid",
+        "scope": "sext arm with both all-ones xors commuted at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNeg",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNeg_valid",
+        "scope": "zext nneg arm in canonical xor order, rewritten to sext at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegInnerLeft_valid",
+        "scope": "zext nneg arm with the inner all-ones xor commuted at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegOuterLeft_valid",
+        "scope": "zext nneg arm with the outer all-ones xor commuted at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertZExtNNegBothLeft_valid",
+        "scope": "zext nneg arm with both all-ones xors commuted at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTrunc",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTrunc_valid",
+        "scope": "trunc arm in canonical xor order; arbitrary source nsw/nuw flags are cleared at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncInnerLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncInnerLeft_valid",
+        "scope": "trunc arm with the inner all-ones xor commuted; arbitrary source flags at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncOuterLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncOuterLeft_valid",
+        "scope": "trunc arm with the outer all-ones xor commuted; arbitrary source flags at arbitrary valid scalar widths."
+      },
+      {
+        "lean_file": "Veir/Passes/InstCombineLLVM/FreeInvertCasts.lean",
+        "definition": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncBothLeft",
+        "theorem": "Veir.Passes.InstCombineLLVM.FreeInvertCasts.invertTruncBothLeft_valid",
+        "scope": "trunc arm with both all-ones xors commuted; arbitrary source flags at arbitrary valid scalar widths."
+      }
+    ]
+  }
+]

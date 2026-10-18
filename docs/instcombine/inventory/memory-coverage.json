@@ -1,0 +1,16 @@
+{
+  "commit": "29eff20316c550d8e689a318c614e40186107820",
+  "files": {
+    "InstCombineLoadStoreAlloca.cpp": {
+      "covered_ranges": [
+        [
+          1,
+          1778
+        ]
+      ],
+      "complete": true,
+      "range_complete": true,
+      "notes": "Audited all alloca, load, store, memory helper and store-merging branches through EOF. Distinct successful transformations are separated by semantic branch; query/use-graph predicates are helpers, wrapper calls are delegations, and the shared load-construction utility is inventoried as a helper rather than a duplicate rewrite. The no-op PointerReplacer early return is explicitly excluded. Load/store/alloca effects and pointer/alias/CFG analysis remain exact Puddle blockers."
+    }
+  }
+}
