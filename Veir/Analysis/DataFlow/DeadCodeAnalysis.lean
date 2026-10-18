@@ -145,8 +145,6 @@ def visitBranchOperation
   let (dfCtx, operands?) := getOperandValues branch dfCtx irCtx
   let some operands := operands?
     | return dfCtx
-  let some _ := branch.getParent! irCtx.raw
-    | return dfCtx
 
   match BranchOpInterface.getSuccessorIndexForOperands? branch operands irCtx.raw with
   | some index =>
