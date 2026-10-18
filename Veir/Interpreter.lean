@@ -7,3 +7,4 @@ public import Veir.Interpreter.EquationLemma
 public import Veir.Interpreter.Refinement
 public import Veir.Interpreter.CollectingSemantics
 public import Veir.Interpreter.CollectingRefinement
+public import Veir.Interpreter.CTreeInterpreter

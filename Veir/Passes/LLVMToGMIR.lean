@@ -52,6 +52,13 @@ def g_sub := (lowerBinop .sub .g_sub).compile
 
 def g_icmp := (lowerBinop .icmp  .g_icmp).compile
 
+def g_and := (lowerBinop .and .g_and).compile
+
+def g_or := (lowerBinop .or .g_or).compile
+
+def g_xor := (lowerBinop .xor .g_xor).compile
+
+
 /--
   GMIR lowerings with Puddle for integer casts.
 -/
@@ -83,7 +90,8 @@ def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
-    g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run
+    g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
+    g_and.run, g_or.run, g_xor.run
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"
