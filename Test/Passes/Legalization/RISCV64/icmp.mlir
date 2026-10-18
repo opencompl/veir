@@ -19,7 +19,13 @@
     // CHECK-NEXT: "gmir.g_icmp"({{.*}}) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i1
 
-    "test.test"(%slt, %ult) : (i1, i1) -> ()
+    // Pointer operands are legal, so only the result is widened.
+    %ptr = "llvm.mlir.zero"() : () -> !llvm.ptr
+    %eq = "gmir.g_icmp"(%ptr, %ptr) <{predicate = 0 : i64}> : (!llvm.ptr, !llvm.ptr) -> i1
+    // CHECK:      "gmir.g_icmp"({{.*}}) <{"predicate" = 0 : i64}> : (!llvm.ptr, !llvm.ptr) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i1
+
+    "test.test"(%slt, %ult, %eq) : (i1, i1, i1) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

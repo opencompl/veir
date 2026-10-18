@@ -69,6 +69,10 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   -- The high bits matter for the comparison, and sign extension preserves both the signed and
   -- the unsigned order.
   | .g_icmp, .type 1, width => widenTypeGroup .g_icmp (.type 1) .g_sext width
+  | .g_and, .type 0, width => widenTypeGroup .g_and (.type 0) .g_anyext width
+  | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width
+  | .g_xor, .type 0, width => widenTypeGroup .g_xor (.type 0) .g_anyext width
+
   | _, _, _ => none
 
 end
