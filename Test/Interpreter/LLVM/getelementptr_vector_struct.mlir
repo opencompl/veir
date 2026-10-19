@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // A packed struct still uses the vector's four-byte allocation size, placing
 // the final i8 at offset 5. Write at that byte offset, then read through a
