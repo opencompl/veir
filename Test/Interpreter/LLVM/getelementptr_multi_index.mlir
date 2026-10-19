@@ -1,4 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // `getelementptr`s with several indices, into a struct
 // `{i8, [3 x [5 x i16]], i64}`: the array is at offset 2, and the i64 at 32.
