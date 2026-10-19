@@ -1107,6 +1107,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
     pure ()
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1114,6 +1116,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
     pure ()
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn
