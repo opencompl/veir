@@ -635,6 +635,9 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
 
+/-- The largest alignment LLVM accepts, its `Value::MaximumAlignment`. -/
+def maximumLLVMAlignment : Int := 2 ^ 32
+
 /-- Check an `llvm.return` against its enclosing `llvm.func`'s declared results. -/
 def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Llvm] (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -875,6 +878,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "'alignment' must be a 64-bit integer attribute"
       if !isValidLLVMAlignment alignment.value then
         throw "alignment attribute is not a power of 2"
+      if alignment.value > maximumLLVMAlignment then
+        throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
     if let some value := properties.value then
@@ -1109,6 +1114,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
     if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
       throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1118,6 +1125,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
     if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
       throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn
