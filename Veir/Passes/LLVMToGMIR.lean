@@ -68,6 +68,29 @@ def g_srem := (lowerBinop .srem .g_srem).compile
 
 def g_urem := (lowerBinop .urem .g_urem).compile
 
+def g_smax := (lowerBinop .intr__smax .g_smax).compile
+
+def g_smin := (lowerBinop .intr__smin .g_smin).compile
+
+def g_umax := (lowerBinop .intr__umax .g_umax).compile
+
+def g_umin := (lowerBinop .intr__umin .g_umin).compile
+
+/--
+  `llvm.intr.abs` -> `gmir.g_abs`. As in upstream's IRTranslator, `is_int_min_poison` is dropped:
+  `g_abs` of the minimum value is the minimum value, which refines poison.
+-/
+def g_abs := (Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let operand ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm .intr__abs) #[operand] #[type]
+      return (type, operand))
+    (fun (type, operand) => do
+      let props ← Puddle.CreateProg.property (.gmir .g_abs) ()
+      Puddle.CreateProg.operation (.gmir .g_abs) #[operand] #[type] props)
+    (fun newOp => newOp)).compile
+
 /--
   GMIR lowerings with Puddle for integer casts.
 -/
@@ -101,7 +124,8 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run,
-    g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run
+    g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
+    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"

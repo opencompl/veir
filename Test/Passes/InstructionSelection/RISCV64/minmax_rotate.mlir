@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 "builtin.module"() ({
 
@@ -56,41 +56,43 @@
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i32 smax: sextw before max for correct signed comparison
+    // i32 smax: widened to i64 with sext, which preserves the signed order
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "f6"}> ({
     ^bb0(%a: i32, %b: i32):
         %r = "llvm.intr.smax"(%a, %b) : (i32, i32) -> i32
-        // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
-        // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        // CHECK-DAG: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
+        // CHECK-DAG: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.max"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i32 smin: sextw before min for correct signed comparison
+    // i32 smin: widened to i64 with sext, which preserves the signed order
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "f7"}> ({
     ^bb0(%a: i32, %b: i32):
         %r = "llvm.intr.smin"(%a, %b) : (i32, i32) -> i32
-        // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
-        // CHECK-DAG: %{{.*}} = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        // CHECK-DAG: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
+        // CHECK-DAG: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.min"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i32 umax: zero-extended values work correctly with maxu
+    // i32 umax: widened to i64 with sext (cheaper than zext on RV64), which preserves the unsigned order
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "f8"}> ({
     ^bb0(%a: i32, %b: i32):
         %r = "llvm.intr.umax"(%a, %b) : (i32, i32) -> i32
+        // CHECK-DAG: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.maxu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 
-    // i32 umin: zero-extended values work correctly with minu
+    // i32 umin: widened to i64 with sext (cheaper than zext on RV64), which preserves the unsigned order
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "f9"}> ({
     ^bb0(%a: i32, %b: i32):
         %r = "llvm.intr.umin"(%a, %b) : (i32, i32) -> i32
+        // CHECK-DAG: %{{.*}} = "gmir.g_sext"(%{{.*}}) : (i32) -> i64
         // CHECK-DAG: %{{.*}} = "riscv.minu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()

@@ -48,6 +48,35 @@ def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
           #[riscvResOp.res[0]!] #[opType] castProps)
     (fun castBackOp => castBackOp)
 
+open Puddle in
+
+/--
+  Custom legalization of `i64` `g_abs` into `max(x, -x)`, as in upstream's `lowerAbsToMaxNeg`.
+  Upstream builds `G_SUB 0, x` and `G_SMAX`; we emit `riscv.neg` and `riscv.max` directly, since
+  `g_constant` cannot be legalized yet. `neg` wraps the minimum value to itself, which is what
+  `g_abs` returns for it.
+-/
+def customLegalizeAbs : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value opType
+      let _ ← MatchProg.root (.gmir .g_abs) #[x] #[opType]
+      return (opType, x))
+    (fun (opType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let negProps ← CreateProg.property (.riscv .neg) ()
+      let negOp ← CreateProg.operation (.riscv .neg) #[castOp.res[0]!] #[regType] negProps
+      let maxProps ← CreateProg.property (.riscv .max) ()
+      let maxOp ← CreateProg.operation (.riscv .max)
+          #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[maxOp.res[0]!] #[opType] castProps)
+    (fun castBackOp => castBackOp)
+
 end
 
 private def s16 : LLT := .scalar 16
@@ -103,6 +132,14 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 32,
       .minScalar (.type 0) 64,
     ]
+    | .g_smax | .g_smin | .g_umax | .g_umin => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_abs => [
+      .customFor [s64],
+      .minScalar (.type 0) 64,
+    ]
     | _ => []
   legalizeCustom
     | .g_add => customLegalizeWord .g_add .addw ()
@@ -111,7 +148,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
     | .g_udiv => customLegalizeWord .g_udiv .divuw ()
     | .g_urem => customLegalizeWord .g_urem .remuw ()
+    | .g_abs => customLegalizeAbs
     | _ => none
+  -- Mirrors `RISCVTargetLowering::isSExtCheaperThanZExt`: `sext.w` is a single instruction.
+  isSExtCheaperThanZExt fromWidth toWidth := fromWidth == 32 && toWidth == 64
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"

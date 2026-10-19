@@ -182,6 +182,12 @@ structure LegalizerInfo where
   rules : (opcode : GMIR) → List (LegalizeRule opcode)
   /-- The pattern that legalizes an operation whose action is `custom`, if any. -/
   legalizeCustom : (opcode : GMIR) → Option (Puddle.Pattern OpCode) := fun _ => none
+  /--
+  Whether sign extension from `fromWidth` to `toWidth` bits is cheaper than zero extension, for
+  widenings where either is correct.
+  Mirrors `TargetLowering::isSExtCheaperThanZExt`.
+  -/
+  isSExtCheaperThanZExt : (fromWidth toWidth : Nat) → Bool := fun _ _ => false
 
 /-- The action of the first rule of `opcode` that applies to `query`. -/
 def LegalizerInfo.getActionFor (info : LegalizerInfo) (query : LegalityQuery opcode) :
