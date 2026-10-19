@@ -155,7 +155,7 @@ meta def getMaskedExprFromProp (g : MVarId) (prop : WidthProp) (proof : Expr)
 
 /-- Construct the mask `Expr` for each `WidthProp` and add it to the context. -/
 public meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (widthInfos : WidthInfos) : FreshMVarM (MVarId × WidthInfos) := do
-  this.props.foldM (init := (g, widthInfos)) fun (g, infos) widthProp proof => do
+  this.foldM (init := (g, widthInfos)) fun (g, infos) widthProp proof => do
     -- Obtain the `Expr` of the prop in terms of the mask.
     let (g, infos, expr) ← getMaskedExprFromProp g widthProp proof infos
     -- State the prop in terms of the masks.
@@ -170,7 +170,7 @@ public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (env : TmWidt
   : FreshMVarM (MVarId × WidthInfos)
   := g.withContext do
   -- Intro all the masks
-  widthTms.terms.foldM
+  widthTms.foldM
     (init := (g, { env, blastWidth }))
     fun (g, widthInfos) widthTm => do
       let (g, _, infos) ← getOrCreateWidthMask g widthTm widthInfos
@@ -213,7 +213,7 @@ Eliminate the bitvector variables to introduce the masked versions.
 -/
 public meta def introMaskedBitvectors (bvs : BitVecFVarsToRevert) (g : MVarId)
     (widthInfos : WidthInfos) : MetaM (MVarId × BitVecInfos) := do
-  bvs.bvs.foldM (init := (g, {})) fun (g, bvInfos) bvFvarId widthTm => do
+  bvs.foldM (init := (g, {})) fun (g, bvInfos) bvFvarId widthTm => do
     introBitvecFVarUnchecked widthInfos g bvInfos bvFvarId widthTm
 
 end Veir.Meta.Tactic.PBVDecide

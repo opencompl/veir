@@ -26,40 +26,15 @@ meta def dropNatReferences (g : MVarId) (infos : WidthInfos) : MetaM MVarId := g
     let g ← g.clear info.widthMaskHypFvar
     return g
 
-/-- Everything found while reifying the goal and context. -/
-structure Collected where
-  widthTms : WidthTms
-  bvs : BitVecFVarsToRevert
-  props : WidthProps
-  blastWidth : Nat
+abbrev CollectedM := ReaderT ReifyState FreshMVarM
 
-abbrev ContextM := ReaderT PbvDecideContext WidthEnvM
-
-meta def collect (g : MVarId) : ContextM (Collected) := g.withContext do
-  -- Find `BitVec`s and reify their widths
-  let (widthTms, bvsToRevert) ← visitExprRec {} {} (← g.getType)
-  -- Find `BitVec`s in the hypotheses that will be reverted along with them
-  let (widthTms, bvsToRevert) ← visitDependentHyps widthTms bvsToRevert
-  -- Traverse the context to find props on widths (preconditions)
-  let widthProps ← reifyPreconditions
-  -- Compute the blast width
-  let blastWidth := (widthTms.getWidthUpperBound (← read)).max
-                    <| widthProps.getWidthUpperBound (← read)
-
-  return ({ widthTms, bvs := bvsToRevert, props := widthProps, blastWidth })
-
-abbrev CollectedM := ReaderT (Collected × TmWidthEnv) FreshMVarM
-
-meta def collected : CollectedM Collected := do pure (← read).fst
-meta def env : CollectedM TmWidthEnv := do pure (← read).snd
-
-meta def convertMasks (g : MVarId) : CollectedM (MVarId × Infos) := g.withContext do
+meta def convertMasks (g : MVarId) (blastWidth : Nat) : CollectedM (MVarId × Infos) := g.withContext do
   -- Introduce the width masks, bounded by the blast width
-  let (g, widthInfos) ← introMaskWidths g (← collected).widthTms (← env) (← collected).blastWidth
+  let (g, widthInfos) ← introMaskWidths g (← read).widthTms (← read).env blastWidth
   -- Translate props on the width vars into props on the masks
-  let (g, widthInfos) ← (← collected).props.translateToMask g widthInfos
+  let (g, widthInfos) ← (← read).props.translateToMask g widthInfos
   -- Intro the `BitVec`s
-  let (g, bvInfos) ← introMaskedBitvectors (← collected).bvs g widthInfos
+  let (g, bvInfos) ← introMaskedBitvectors (← read).bvs g widthInfos
 
   return (g, { width := widthInfos, bitvec := bvInfos })
 
@@ -71,11 +46,11 @@ the provided context. Returns the modified goal and any generate side-goals.
 -/
 meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × ProofObligations × Infos)
   := g.withContext do
-  let (collected, env) ← ((collect g).run ctx).run {}
+  let (blastWidth, reifiedState) ← ReifyM.run ctx <| reifyWidths g
   -- Convert parametric widths into masks in terms of the bound
-  let ((g, infos), proofs) ← ((convertMasks g).run (collected, env)).run {}
+  let ((g, infos), proofs) ← ((convertMasks g blastWidth).run reifiedState).run {}
   -- Lift the goal to the blast width and push the `setWidth`s in
-  let g ← liftToBlastWidth g collected.blastWidth infos.width infos.bitvec
+  let g ← liftToBlastWidth g blastWidth infos.width infos.bitvec
   -- Drop references to `Nat` width variables
   let g ← dropNatReferences g infos.width
 

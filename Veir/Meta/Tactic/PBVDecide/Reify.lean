@@ -1,8 +1,7 @@
 module
 
 public meta import Veir.Meta.Tactic.PBVDecide.Config
-
-public section
+public meta import Veir.Meta.Tactic.PBVDecide.Basic
 
 open Lean Meta Std
 
@@ -15,49 +14,13 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
   | BitVec w => some w
   | _ => none
 
-meta def mkNatLT (a b : Expr) : Expr :=
-  mkApp2 (mkApp2 (mkConst ``LT.lt [0]) Nat.mkType Nat.mkInstLT) a b
-
-/--
-An environment that maps the width atoms of a `Tm` to their `Expr`s.
--/
-meta structure TmWidthEnv where
-  width2expr : Array Expr := #[]
-
-meta def TmWidthEnv.push (this : TmWidthEnv) (width : Expr) : TmWidthEnv :=
-  { width2expr := this.width2expr.push width }
-
-abbrev WidthEnvM := StateRefT TmWidthEnv MetaM
-
-meta def getIdOrPush (width : Expr) : WidthEnvM Nat := do
-  if let some id := (← get).width2expr.idxOf? width then
+meta def getIdOrPush (width : Expr) : ReifyM Nat := do
+  if let some id := (← getWidthEnv).idxOf? width then
     return id
   else
-    modifyGet (fun env => (env.width2expr.size, env.push width))
+    modifyGet fun s => (s.env.size, { s with env := s.env.push width })
 
-/--
-Type to capture the expressions this tactic handles: `Nat` width terms and
-the propositions relating them.
--/
-inductive TmKind
-| width
-| prop
-
-meta inductive Tm : TmKind → Type
-| widthLit (val : Nat) : Tm .width
-| widthAtom (id : Nat) : Tm .width
-| widthFVar (id : Nat) (fid : FVarId) : Tm .width
-| widthAdd (v w : Tm .width) : Tm .width
-| widthLt (v w : Tm .width) : Tm .prop
-| widthLe (v w : Tm .width) : Tm .prop
-| widthEq (v w : Tm .width) : Tm .prop
-| and (v w : Tm .prop) : Tm .prop
-deriving BEq, Hashable
-
-abbrev WidthTm := Tm .width
-abbrev WidthProp := Tm .prop
-
-meta partial def Tm.reifyWidth (e : Expr) : WidthEnvM (Tm .width) := do
+meta partial def Tm.reifyWidth (e : Expr) : ReifyM WidthTm := do
   if let some fvarid := e.fvarId? then
     return .widthFVar (← getIdOrPush e) fvarid
   else if let some val := e.nat? then
@@ -74,8 +37,7 @@ meta partial def Tm.reifyWidth (e : Expr) : WidthEnvM (Tm .width) := do
     if let some reified := op then
       return reified
     else
-      return (.widthAtom (←   getIdOrPush e))
-
+      return (.widthAtom (← getIdOrPush e))
 
 /--
 Match a width relation over `Nat`, returning the `Tm .prop` constructor for it
@@ -93,7 +55,7 @@ meta def matchWidthRel (e : Expr) :
   | Eq ty ea eb          => if Expr.isNat ty then some (.widthEq, ea, eb) else none
   | _ => none
 
-meta partial def Tm.reifyProp (e : Expr) : WidthEnvM (Option (Tm .prop)) := do
+meta partial def Tm.reifyProp (e : Expr) : ReifyM (Option WidthProp) := do
   if let some (rel, ea, eb) := matchWidthRel e then
     let wa ← Tm.reifyWidth ea
     let wb ← Tm.reifyWidth eb
@@ -106,140 +68,72 @@ meta partial def Tm.reifyProp (e : Expr) : WidthEnvM (Option (Tm .prop)) := do
       return some (.and pa pb)
     | _ => return none
 
-meta def Tm.toExpr {k : TmKind} (this : Tm k) (env : TmWidthEnv) : Expr :=
-  match this with
-  | .widthLit val => mkNatLit val
-  | .widthAtom id | .widthFVar id _ => env.width2expr[id]!
-  | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
-  | .widthLt  v w => mkNatLT (v.toExpr env) (w.toExpr env)
-  | .widthLe  v w => mkNatLE (v.toExpr env) (w.toExpr env)
-  | .widthEq  v w => mkNatEq (v.toExpr env) (w.toExpr env)
-  | .and      a b => mkAnd (a.toExpr env) (b.toExpr env)
-
-/--
-Generate a `Name` from a `Tm`. Uses the index of the atoms as the basic variable name.
--/
-meta def Tm.toName {k : TmKind} (tm : Tm k) : Name :=
-  match tm with
-  | .widthLit val => Name.mkSimple s!"lit{val}"
-  | .widthAtom id | .widthFVar id _ => Name.mkSimple s!"w{id}"
-  | .widthAdd v w => Name.mkSimple s!"{v.toName}_add_{w.toName}"
-  | .widthLt  v w => Name.mkSimple s!"{v.toName}_lt_{w.toName}"
-  | .widthLe  v w => Name.mkSimple s!"{v.toName}_le_{w.toName}"
-  | .widthEq  v w => Name.mkSimple s!"{v.toName}_eq_{w.toName}"
-  | .and      a b => Name.mkSimple s!"{a.toName}_and_{b.toName}"
-
-/--
-Compute an upper bound on the widths in this term: an atom is bounded by the
-bmc bound, a sum by the sum of the bounds of its parts, and a prop by the
-maximum of the bounds of its parts.
-The maximum over all widths and width props gives the blast width used for the
-whole goal.
--/
-meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvDecideContext) : Nat :=
-  match tm with
-  | .widthLit val => val
-  | .widthAtom _ | .widthFVar _ _ => ctx.bmcBound
-  | .widthAdd wa wb => wa.getWidthUpperBound ctx + wb.getWidthUpperBound ctx
-  | .widthLt  v w
-  | .widthLe  v w
-  | .widthEq  v w
-  | .and      v w => (v.getWidthUpperBound ctx).max (w.getWidthUpperBound ctx)
-
-structure WidthTms where
-  /-- The set of width terms found in the goal. -/
-  terms : HashSet WidthTm := {}
-
-meta def WidthTms.push (this : WidthTms) (width : WidthTm) : WidthTms :=
-{ this with terms := this.terms.insert width }
-
-/-- Get the maximum width needed for blasting across all widths. -/
-meta def WidthTms.getWidthUpperBound (this : WidthTms)
-    (ctx : PbvDecideContext) : Nat :=
-  this.terms.fold (fun val wTm =>
-    val.max (wTm.getWidthUpperBound ctx)) ctx.bmcBound
-
-structure WidthProps where
-  /-- A map from a `Tm .prop` to the `Nat` proof it was reified from -/
-  props : HashMap WidthProp Expr := {}
-
 /-- Insert a `WidthProp`, checking that the type of `expr` matches the `Tm`. -/
-meta def WidthProps.pushProp (this : WidthProps) (prop : Tm .prop) (expr : Expr) : WidthEnvM WidthProps := do
-  unless ← isDefEq (← inferType expr) (prop.toExpr (← get))
-    do throwError m!"Cannot insert prop {prop.toExpr (← get)}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
-  return { this with props := this.props.insert prop expr }
-
-meta def WidthProps.getWidthUpperBound (this : WidthProps) (ctx : PbvDecideContext) : Nat :=
-  this.props.fold (fun val wTm _ =>
-    val.max (wTm.getWidthUpperBound ctx)) ctx.bmcBound
-
+meta def pushProp (prop : Tm .prop) (expr : Expr) : ReifyM Unit := do
+  unless ← isDefEq (← inferType expr) (prop.toExpr (← getWidthEnv))
+    do throwError m!"Cannot insert prop {prop.toExpr (← getWidthEnv)}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
+  modify fun s => { s with props := s.props.insert prop expr }
 /--
 Traverse the local context and try to reify `Prop`s on width terms.
 -/
-meta def reifyPreconditions
-    : WidthEnvM WidthProps := do
-  (← getLCtx).foldlM (init := {}) fun props ldecl => do
+meta def reifyPreconditions : ReifyM Unit := do
+  (← getLCtx).forM fun ldecl => do
     if let some prop ← Tm.reifyProp (ldecl.type) then
-      return ← props.pushProp prop ldecl.toExpr
-    return props
-
-structure BitVecFVarsToRevert where
-  bvs : HashMap FVarId WidthTm := {}
-
-meta def BitVecFVarsToRevert.push (this : BitVecFVarsToRevert) (fvar : FVarId) (widthTm : WidthTm) : BitVecFVarsToRevert :=
-  if this.bvs.contains fvar then this
-  else { bvs := this.bvs.insert fvar widthTm }
+      pushProp prop ldecl.toExpr
 
 /--
 Given an expression, if it is of `BitVec w` type then create a term `Tm` for the
 width `w`. If it is also an FVar then it is a variable, and hence has to be
 added to the set of FVars to be reverted.
 -/
-meta def visitExprNonrec
-    (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
-    (e : Expr) : WidthEnvM (WidthTms × BitVecFVarsToRevert) := do
+meta def visitExprNonrec (e : Expr) : ReifyM Unit := do
   let te ← inferType e
-  let some wExpr := getBitvecType? te
-    | return (widthTms, bvs)
+  let some wExpr := getBitvecType? te | return
   let widthTm ← Tm.reifyWidth wExpr
-  let widthTms := widthTms.push widthTm
-  let some fvarId := e.fvarId?
-    | return (widthTms, bvs)
-  return (widthTms, bvs.push fvarId widthTm)
+  modify fun s => { s with widthTms := s.widthTms.insert widthTm }
+  if let some fvarId := e.fvarId? then
+    modify fun s => { s with bvs := s.bvs.insert fvarId widthTm }
 
 /--
 Visit an expression, collecting all widths and all bitvectors `FVars` that
 correspond to individual bitvector variables.
 -/
-meta partial def visitExprRec (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
-    (e : Expr) : WidthEnvM (WidthTms × BitVecFVarsToRevert) := do
-  let (widthTms, bvs) ← visitExprNonrec widthTms bvs e
+meta partial def visitExprRec (e : Expr) : ReifyM Unit := do
+  visitExprNonrec e
   if e.isApp then
     let (f, args) := (e.getAppFn, e.getAppArgs)
-    let (widthTms, bvs) ←
-      args.foldlM (init := (widthTms, bvs)) fun (widthTms, bvs) arg =>
-        visitExprRec widthTms bvs arg
-    visitExprRec widthTms bvs f
-  else
-    return (widthTms, bvs)
+    args.forM fun arg =>
+      visitExprRec arg
+    visitExprRec f
 
 /--
 Visit the hypotheses that depend on the collected `BitVec` variables. These are
 reverted into the goal when the variables are eliminated, so the `BitVec`s and
 widths they mention must be collected too. Repeat until no new variables are found.
 -/
-meta partial def visitDependentHyps (widthTms : WidthTms) (bvs : BitVecFVarsToRevert)
-    (visited : FVarIdSet := {}) : WidthEnvM (WidthTms × BitVecFVarsToRevert) := do
-  let (widthTms, newBvs, visited) ← (← getLCtx).foldlM
-    (init := (widthTms, bvs, visited)) fun (widthTms, newBvs, visited) ldecl => do
+meta partial def visitDependentHyps (visited : FVarIdSet := {}) : ReifyM Unit := do
+  let oldBvs := (← get).bvs.size
+  let visited ← (← getLCtx).foldlM
+    (init := visited) fun visited ldecl => do
       if ldecl.isImplementationDetail || visited.contains ldecl.fvarId then
-        return (widthTms, newBvs, visited)
-      unless ← bvs.bvs.toList.anyM (fun (fvar, _) => localDeclDependsOn ldecl fvar) do
-        return (widthTms, newBvs, visited)
-      let (widthTms, newBvs) ← visitExprRec widthTms newBvs ldecl.type
-      return (widthTms, newBvs, visited.insert ldecl.fvarId)
-  if newBvs.bvs.size == bvs.bvs.size then
-    return (widthTms, newBvs)
-  visitDependentHyps widthTms newBvs visited
+        return visited
+      unless ← (← get).bvs.toList.anyM (fun (fvar, _) => localDeclDependsOn ldecl fvar) do
+        return visited
+      visitExprRec ldecl.type
+      return visited.insert ldecl.fvarId
+  if oldBvs != (← get).bvs.size then
+    visitDependentHyps visited
+
+
+public meta def reifyWidths (g : MVarId) : ReifyM Nat := g.withContext do
+  -- Find `BitVec`s and reify their widths
+  visitExprRec (← g.getType)
+  -- Find `BitVec`s in the hypotheses that will be reverted along with them
+  visitDependentHyps
+  -- Traverse the context to find props on widths (preconditions)
+  reifyPreconditions
+  -- Compute the blast width
+  return ((← get).props.getUpperBound (← read).bmcBound).max
+          <| (← get).widthTms.getUpperBound (← read).bmcBound
 
 end Veir.Meta.Tactic.PBVDecide
