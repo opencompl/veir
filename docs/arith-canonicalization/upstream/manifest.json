@@ -1,0 +1,24 @@
+{
+  "commit": "32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "url": "https://github.com/llvm/llvm-project/commit/32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "author_date": "2026-10-19T02:05:21Z",
+  "committer_date": "2026-10-19T02:05:21Z",
+  "subject": "[RISCV][P-ext] Restructure scalar tests to increase testing and reduce duplicaton. NFC (#232613)",
+  "resolved_at_utc": "2026-10-19T02:07:58.670219+00:00",
+  "files": {
+    "ArithCanonicalization.td": "26fed4b0059dd9c53c19034563d538a9a1f48bfc1bbb7f6f92106bcd66d8c454",
+    "ArithDialect.cpp": "83242cdf5f94befb7b0a812b6630c4af86f69255ee56921ba524ab626156ef92",
+    "ArithOps.cpp": "b88481f10c89c616c664fc050fae2dcddb8749693a2d267723635f3ee00eaac6",
+    "ArithOps.td": "ee3547e7d42d4fba0f61ac50c386d7493570728dee9d48e256c16a4f2ebd2a40",
+    "Canonicalizer.cpp": "b5d84f480d7a8fc718d3ee66bc46d746cd02d911c32fa307353c764898c219a1",
+    "CastInterfaces.cpp": "986bdecbba28fe7a98037b683483e94796ba7591a7aff40f145d2b63b98b2561",
+    "CastInterfaces.h": "82d5cb1f7085637d031f0577638ba206d7a3f173a520499a799c6f8506b9314e",
+    "CastInterfaces.td": "0ef2423f75bc551026527fecb0e1427850043e4b3f6fd760b877d5e6808c6dd4",
+    "CommonFolders.h": "52b0362642fb9e6d64382e34426f16d85372ad5b14f1250e60d95dc8f52e409c",
+    "GreedyPatternRewriteDriver.cpp": "56a3be8121817a378056d30abe9ee07a0e93b3f492bb77a797547f79d8b14c8f",
+    "OpDefinition.h": "cd270feeb2a9e2e6d36931cec91944b1c2978256efca101728273f29dbb7edb7",
+    "Operation.cpp": "9be683f7ef6bc18c46a3fea97004c762e32cace02e914c44f50983732909debd",
+    "OperationSupport.cpp": "bb1b91a8391f0ee65ecd7fb1f238bbd9233cb2bb88d785aff0478d455c114c9d",
+    "commit.txt": "362c9ae43a868f25a5481a037e2ee71239268e5174c0407cfbe329f52c8d2790"
+  }
+}

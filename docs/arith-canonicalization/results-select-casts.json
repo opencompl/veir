@@ -1,0 +1,413 @@
+{
+  "upstream_commit": "32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "results": [
+    {
+      "id": "CP001",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/CP001.lean",
+      "theorem": "Veir.ArithCanonicalize.CP001.valid",
+      "details": "Pattern.Valid proof of trunci(maxsi(extsi(x), extsi(y))) to maxsi(x,y), with the upstream one-use matcher guard via inspectOperation and all poison behavior.",
+      "scope": "scalar integer; all valid widening widths; arbitrary trunc nsw/nuw flags"
+    },
+    {
+      "id": "CP002",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/CP002.lean",
+      "theorem": "Veir.ArithCanonicalize.CP002.valid",
+      "details": "Pattern.Valid proof of trunci(minsi(extsi(x), extsi(y))) to minsi(x,y), with the upstream one-use matcher guard via inspectOperation and all poison behavior.",
+      "scope": "scalar integer; all valid widening widths; arbitrary trunc nsw/nuw flags"
+    },
+    {
+      "id": "CP003",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/CP003.lean",
+      "theorem": "Veir.ArithCanonicalize.CP003.valid",
+      "details": "Pattern.Valid proof of trunci(maxui(extui(x), extui(y))) to maxui(x,y), with the upstream one-use matcher guard via inspectOperation and all poison behavior.",
+      "scope": "scalar integer; all valid widening widths; arbitrary trunc nsw/nuw and extui nneg flags"
+    },
+    {
+      "id": "CP004",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/CP004.lean",
+      "theorem": "Veir.ArithCanonicalize.CP004.valid",
+      "details": "Pattern.Valid proof of trunci(minui(extui(x), extui(y))) to minui(x,y), with the upstream one-use matcher guard via inspectOperation and all poison behavior.",
+      "scope": "scalar integer; all valid widening widths; arbitrary trunc nsw/nuw and extui nneg flags"
+    },
+    {
+      "id": "CP012",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/CP012.lean",
+      "theorem": "Veir.ArithCanonicalize.CP012.valid",
+      "details": "Pattern.Valid proof of select(cond, 1, 0) to extui(cond), with signless-i1 constant normalization and poison semantics.",
+      "scope": "scalar integer; all result widths greater than one; arbitrary integer signedness"
+    },
+    {
+      "id": "CP013",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/CP013.lean",
+      "theorem": "Veir.ArithCanonicalize.CP013.valid",
+      "details": "Pattern.Valid proof of select(cond, 0, 1) to extui(xori(cond, 1)), with signless-i1 constant normalization and poison semantics.",
+      "scope": "scalar integer; all result widths greater than one; arbitrary integer signedness"
+    },
+    {
+      "id": "F006",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F006.lean",
+      "theorem": "Veir.ArithCanonicalize.F006.valid",
+      "details": "Pattern.Valid proof of constant folding both addui_extended results, including the unsigned carry, via exact bitvector arithmetic and normalized IntegerAttr values.",
+      "scope": "scalar integer; all valid widths and signednesses; both results"
+    },
+    {
+      "id": "F009",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F009.lean",
+      "theorem": "Veir.ArithCanonicalize.F009.valid",
+      "details": "Pattern.Valid proof of constant folding both subui_extended results, including the unsigned borrow, via exact bitvector arithmetic and normalized IntegerAttr values.",
+      "scope": "scalar integer; all valid widths and signednesses; both results"
+    },
+    {
+      "id": "F019",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F019.lean",
+      "theorem": "Veir.ArithCanonicalize.F019.valid",
+      "details": "Pattern.Valid proof of both results for mulsi_extended(x, 0) to (0, 0), including poison on either result.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F020",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F020.lean",
+      "theorem": "Veir.ArithCanonicalize.F020.valid",
+      "details": "Pattern.Valid proof of constant folding both mulsi_extended results, including the signed high product, via exact bitvector arithmetic and normalized IntegerAttr values.",
+      "scope": "scalar integer; all valid widths and signednesses; both results"
+    },
+    {
+      "id": "F021",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F021.lean",
+      "theorem": "Veir.ArithCanonicalize.F021.valid",
+      "details": "Pattern.Valid proof of both results for mului_extended(x, 0) to (0, 0), including poison on either result.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F022",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F022.lean",
+      "theorem": "Veir.ArithCanonicalize.F022.valid",
+      "details": "Pattern.Valid proof of both results for mului_extended(x, 1) to (x, 0), including poison on either result.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F023",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F023.lean",
+      "theorem": "Veir.ArithCanonicalize.F023.valid",
+      "details": "Pattern.Valid proof of constant folding both mului_extended results, including the unsigned high product, via exact bitvector arithmetic and normalized IntegerAttr values.",
+      "scope": "scalar integer; all valid widths and signednesses; both results"
+    },
+    {
+      "id": "F027",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F027.lean",
+      "theorem": "Veir.ArithCanonicalize.F027.valid; Veir.ArithCanonicalize.F027.valid_swapped",
+      "details": "Two Pattern.Valid proofs cover (a*b)/b and (b*a)/b for divui when muli has nuw. The proof handles arbitrary nsw and exact flags, overflow poison, and zero-divisor behavior.",
+      "scope": "scalar integer; all widths and signednesses; both multiplication operand orders"
+    },
+    {
+      "id": "F116",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F116.lean",
+      "theorem": "Veir.ArithCanonicalize.F116.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F120",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F120.lean",
+      "theorem": "Veir.ArithCanonicalize.F120.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F124",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F124.lean",
+      "theorem": "Veir.ArithCanonicalize.F124.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F128",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F128.lean",
+      "theorem": "Veir.ArithCanonicalize.F128.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F140",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F140.lean",
+      "theorem": "Veir.ArithCanonicalize.F140.valid",
+      "details": "Pattern.Valid proof that nested zero extension equals direct extension with the inner nneg flag retained; outer nneg is vacuous after the first widening.",
+      "scope": "scalar integer; all strictly increasing source, middle, and result widths; both nneg flags"
+    },
+    {
+      "id": "F141",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F141.lean",
+      "theorem": "Veir.ArithCanonicalize.F141.valid",
+      "details": "Pattern.Valid proof of scalar integer constant-folding extui; the replacement attribute is constructed from the exact BitVec cast result, including source poison from nneg flags.",
+      "scope": "scalar integer; all legal source/result widths; nneg flags"
+    },
+    {
+      "id": "F142",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F142.lean",
+      "theorem": "Veir.ArithCanonicalize.F142.valid",
+      "details": "Pattern.Valid proof that nested sign extension equals direct sign extension, using all-width BitVec signed-value composition and strict verified width ordering.",
+      "scope": "scalar integer; all strictly increasing source, middle, and result widths"
+    },
+    {
+      "id": "F143",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F143.lean",
+      "theorem": "Veir.ArithCanonicalize.F143.valid",
+      "details": "Pattern.Valid proof of scalar integer constant-folding extsi; the replacement attribute is constructed from the exact BitVec cast result, including source poison from none flags.",
+      "scope": "scalar integer; all legal source/result widths; none flags"
+    },
+    {
+      "id": "F147a",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F147a.lean",
+      "theorem": "Veir.ArithCanonicalize.F147a.valid",
+      "details": "Pattern.Valid proof that trunci(unsigned extension(x)) folds to trunci(x), preserving original nsw/nuw flags and the extension poison behavior.",
+      "scope": "scalar integer; all widths satisfying result < source < extension; arbitrary original flags"
+    },
+    {
+      "id": "F147b",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F147b.lean",
+      "theorem": "Veir.ArithCanonicalize.F147b.valid",
+      "details": "Pattern.Valid proof that trunci(signed extension(x)) folds to trunci(x), preserving original nsw/nuw flags and the extension poison behavior.",
+      "scope": "scalar integer; all widths satisfying result < source < extension; arbitrary original flags"
+    },
+    {
+      "id": "F148a",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F148a.lean",
+      "theorem": "Veir.ArithCanonicalize.F148a.valid",
+      "details": "Pattern.Valid proof of trunci(extui(x)) to x at the original width, including arbitrary inner nneg and outer nsw/nuw poison behavior.",
+      "scope": "scalar integer; every strictly widening extension and reverse truncation; all flags"
+    },
+    {
+      "id": "F148b",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F148b.lean",
+      "theorem": "Veir.ArithCanonicalize.F148b.valid",
+      "details": "Pattern.Valid proof of trunci(extsi(x)) to x at the original width, including arbitrary outer nsw/nuw poison behavior.",
+      "scope": "scalar integer; every strictly widening extension and reverse truncation; all flags"
+    },
+    {
+      "id": "F149",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F149.lean",
+      "theorem": "Veir.ArithCanonicalize.F149.pattern_not_valid",
+      "details": "Direct Lean proof that nested trunci bypass violates Pattern.Valid: source i16 255 \u2192 i8 -1 \u2192 i4 nsw -1 is defined; direct i16 \u2192 i4 nsw is poison.",
+      "scope": "general scalar integer Puddle pattern; concrete i16\u2192i8\u2192i4 witness"
+    },
+    {
+      "id": "F150",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F150.lean",
+      "theorem": "Veir.ArithCanonicalize.F150.valid",
+      "details": "Pattern.Valid proof of scalar integer constant-folding trunci; the replacement attribute is constructed from the exact BitVec cast result, including source poison from nsw/nuw flags.",
+      "scope": "scalar integer; all legal source/result widths; nsw/nuw flags"
+    },
+    {
+      "id": "F168",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F168.lean",
+      "theorem": "Veir.ArithCanonicalize.F168.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F169",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F169.lean",
+      "theorem": "Veir.ArithCanonicalize.F169.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F170",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F170.lean",
+      "theorem": "Veir.ArithCanonicalize.F170.valid",
+      "details": "Pattern.Valid proof for the scalar upstream fold at every integer width, including poison semantics.",
+      "scope": "scalar integer; all widths and signednesses"
+    },
+    {
+      "id": "F171",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F171.lean",
+      "theorem": "Veir.ArithCanonicalize.F171.valid",
+      "details": "Pattern.Valid proof for the fully poison integer arm represented by llvm.mlir.poison, the operation used by VeIR integer poison materialization.",
+      "scope": "scalar integer; all widths and signednesses; llvm.mlir.poison producer"
+    },
+    {
+      "id": "F172",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F172.lean",
+      "theorem": "Veir.ArithCanonicalize.F172.valid",
+      "details": "Pattern.Valid proof for the fully poison integer arm represented by llvm.mlir.poison, the operation used by VeIR integer poison materialization.",
+      "scope": "scalar integer; all widths and signednesses; llvm.mlir.poison producer"
+    },
+    {
+      "id": "F173",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F173.lean",
+      "theorem": "Veir.ArithCanonicalize.F173.valid",
+      "details": "Pattern.Valid proof of select(cond, true, false) to cond, with exact signless-i1 type guard and poison semantics.",
+      "scope": "scalar signless i1; all condition values including poison"
+    },
+    {
+      "id": "F174a",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F174a.lean",
+      "theorem": "Veir.ArithCanonicalize.F174a.valid; Veir.ArithCanonicalize.F174a.valid_swapped",
+      "details": "Two Pattern.Valid proofs cover both select arm orders for cmpi eq, including poison inputs.",
+      "scope": "scalar integer; all widths and signednesses; both arm orders"
+    },
+    {
+      "id": "F174b",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F174b.lean",
+      "theorem": "Veir.ArithCanonicalize.F174b.valid; Veir.ArithCanonicalize.F174b.valid_swapped",
+      "details": "Two Pattern.Valid proofs cover both select arm orders for cmpi ne, including poison inputs.",
+      "scope": "scalar integer; all widths and signednesses; both arm orders"
+    },
+    {
+      "id": "G005",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/G005.lean",
+      "theorem": "Veir.ArithCanonicalize.G005.extuiValid; Veir.ArithCanonicalize.G005.extsiValid; Veir.ArithCanonicalize.G005.trunciValid",
+      "details": "Three Pattern.Valid proofs for integer cast poison propagation via llvm.mlir.poison, VeIR\u2019s integer poison materialization. The float, index, and shaped instances of this generic rule remain unsupported by the current interpreter.",
+      "scope": "scalar integer extui/extsi/trunci; all legal widths; all nneg/nsw/nuw flags; excludes float/index/shaped operations"
+    },
+    {
+      "id": "TD017",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD017.lean",
+      "theorem": "Veir.ArithCanonicalize.TD017.valid",
+      "details": "Pattern.Valid proof of mulsi_extended(x, strictly positive one) to (x, extsi(cmpi slt x, 0)); proves signed high product is the replicated sign bit, including poison.",
+      "scope": "scalar integer; all widths greater than one (exact upstream strictly-positive-one guard); both results"
+    },
+    {
+      "id": "TD021",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD021.lean",
+      "theorem": "Veir.ArithCanonicalize.TD021.valid",
+      "details": "Pattern.Valid proof of xori commuting with two extui operations, including poison; nneg on replacement is conjunction of input nneg flags.",
+      "scope": "scalar integer; all valid widening widths; all input nneg flags"
+    },
+    {
+      "id": "TD022",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD022.lean",
+      "theorem": "Veir.ArithCanonicalize.TD022.valid",
+      "details": "Pattern.Valid proof of xori commuting with two extsi operations, including poison; no flags.",
+      "scope": "scalar integer; all valid widening widths"
+    },
+    {
+      "id": "TD025",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD025.lean",
+      "theorem": "Veir.ArithCanonicalize.TD025.valid",
+      "details": "Pattern.Valid proof of i1 condition complement and arm swap, including poison. Signless i1 all-ones is normalized as integer attribute value +1.",
+      "scope": "scalar integer; arbitrary result width and signedness"
+    },
+    {
+      "id": "TD026",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD026.lean",
+      "theorem": "Veir.ArithCanonicalize.TD026.valid",
+      "details": "Pattern.Valid proof for redundant nested select with the same condition SSA value, including poison and arbitrary arm values.",
+      "scope": "scalar integer; arbitrary result width and signedness"
+    },
+    {
+      "id": "TD027",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD027.lean",
+      "theorem": "Veir.ArithCanonicalize.TD027.valid",
+      "details": "Pattern.Valid proof for redundant nested select with the same condition SSA value, including poison and arbitrary arm values.",
+      "scope": "scalar integer; arbitrary result width and signedness"
+    },
+    {
+      "id": "TD048",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD048.lean",
+      "theorem": "Veir.ArithCanonicalize.TD048.valid",
+      "details": "Pattern.Valid proof that extsi(extui(x)) equals a wider extui(x), retaining the inner nneg flag and poison behavior.",
+      "scope": "scalar integer; all strictly increasing source, middle, and result widths; either nneg value"
+    },
+    {
+      "id": "TD050",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD050.lean",
+      "theorem": "Veir.ArithCanonicalize.TD050.valid",
+      "details": "Pattern.Valid proof of andi commuting with two extui operations, including poison; nneg on replacement is disjunction of input nneg flags.",
+      "scope": "scalar integer; all valid widening widths; all input nneg flags"
+    },
+    {
+      "id": "TD051",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD051.lean",
+      "theorem": "Veir.ArithCanonicalize.TD051.valid",
+      "details": "Pattern.Valid proof of andi commuting with two extsi operations, including poison; no flags.",
+      "scope": "scalar integer; all valid widening widths"
+    },
+    {
+      "id": "TD053",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD053.lean",
+      "theorem": "Veir.ArithCanonicalize.TD053.valid",
+      "details": "Pattern.Valid proof of ori commuting with two extui operations, including poison from optional disjoint on the source OR; target OR has upstream default disjoint=false; nneg on replacement is conjunction of both input nneg flags.",
+      "scope": "scalar integer; all valid widening widths; all input nneg and source disjoint flags"
+    },
+    {
+      "id": "TD054",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD054.lean",
+      "theorem": "Veir.ArithCanonicalize.TD054.valid",
+      "details": "Pattern.Valid proof of ori commuting with two extsi operations, including poison from optional disjoint on the source OR; target OR has upstream default disjoint=false; no extension flags.",
+      "scope": "scalar integer; all valid widening widths; optional source disjoint flag"
+    },
+    {
+      "id": "TD055",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD055.lean",
+      "theorem": "Veir.ArithCanonicalize.TD055.valid",
+      "details": "Pattern.Valid proof of trunci(extsi(x)) to an extsi at the intermediate result width. All nsw/nuw truncation flags are modeled; the source may become poison while the replacement remains defined.",
+      "scope": "scalar integer; all source < result < extension widths; all truncation flags"
+    },
+    {
+      "id": "TD056",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD056.lean",
+      "theorem": "Veir.ArithCanonicalize.TD056.valid",
+      "details": "Pattern.Valid proof of trunci(extui(x)) to an extui at the intermediate result width, preserving nneg and modeling all nsw/nuw truncation flags.",
+      "scope": "scalar integer; all source < result < extension widths; all nneg/nsw/nuw flags"
+    },
+    {
+      "id": "TD057",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD057.lean",
+      "theorem": "Veir.ArithCanonicalize.TD057.pattern_not_valid",
+      "details": "Direct Lean proof that arithmetic-to-logical shift rewrite violates Pattern.Valid with retained nsw: source i8 -4 >>s 4 \u2192 i4 -1 is defined; logical shift gives i8 15 then i4 nsw poison.",
+      "scope": "general scalar integer Puddle pattern; concrete i8\u2192i4 witness"
+    }
+  ]
+}

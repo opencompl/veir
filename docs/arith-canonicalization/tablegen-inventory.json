@@ -1,0 +1,1195 @@
+{
+  "upstream_commit": "32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "source": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+  "registered_pattern_count": 67,
+  "patterns": [
+    {
+      "id": "TD001",
+      "name": "AddIAddConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 73,
+      "line_end": 78,
+      "description": "Combine nested addi with a constant on each level: addi(addi(x,c0),c1) -> addi(x,c0+c1).",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.addi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.addi",
+        "arith.constant"
+      ],
+      "conditions": "Both matched constants are ConstantLike integer attributes; APInt arithmetic is at the result width; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD002",
+      "name": "AddISubConstantRHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 81,
+      "line_end": 86,
+      "description": "Fold addi(subi(x,c0),c1) into addi(x,c1-c0).",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.subi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.addi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags from inner subi and outer addi are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD003",
+      "name": "AddISubConstantLHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 89,
+      "line_end": 94,
+      "description": "Fold addi(subi(c0,x),c1) into subi(c0+c1,x).",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.subi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags from inner subi and outer addi are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD004",
+      "name": "AddIMulNegativeOneRhs",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 102,
+      "line_end": 107,
+      "description": "Rewrite addi(x,muli(y,-1)) to subi(x,y).",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.muli",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi"
+      ],
+      "conditions": "Multiplier constant must be scalar/splat integer all-ones (-1); replacement uses default/no-overflow flags (TODO in source notes lost overflow flags).",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD005",
+      "name": "AddIMulNegativeOneLhs",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 110,
+      "line_end": 115,
+      "description": "Rewrite addi(muli(x,-1),y) to subi(y,x).",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.muli",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi"
+      ],
+      "conditions": "Multiplier constant must be scalar/splat integer all-ones (-1); replacement uses default/no-overflow flags (TODO in source notes lost overflow flags).",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD006",
+      "name": "MulIMulIConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 118,
+      "line_end": 125,
+      "description": "Combine muli(muli(x,c0),c1) into muli(x,c0*c1).",
+      "match_opcodes": [
+        "arith.muli",
+        "arith.muli",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.muli",
+        "arith.constant"
+      ],
+      "conditions": "Both constants\u2019 integer attribute types must equal the outer result type; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD007",
+      "name": "AddUIExtendedToAddI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 133,
+      "line_end": 136,
+      "description": "Replace addui_extended(x,y) by addi(x,y) and x for the unused overflow result.",
+      "match_opcodes": [
+        "arith.addui_extended"
+      ],
+      "rewrite_opcodes": [
+        "arith.addi"
+      ],
+      "conditions": "Second/overflow result must have no uses; any replacement value is permitted for that unused result; addi receives default/no-overflow flags.",
+      "kind": "Pattern"
+    },
+    {
+      "id": "TD008",
+      "name": "SubUIExtendedToSubI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 144,
+      "line_end": 147,
+      "description": "Replace subui_extended(x,y) by subi(x,y) and x for the unused borrow result.",
+      "match_opcodes": [
+        "arith.subui_extended"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi"
+      ],
+      "conditions": "Second/borrow result must have no uses; any replacement value is permitted for that unused result; subi receives default/no-overflow flags.",
+      "kind": "Pattern"
+    },
+    {
+      "id": "TD009",
+      "name": "SubIRHSAddConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 154,
+      "line_end": 159,
+      "description": "Fold subi(addi(x,c0),c1) into addi(x,c0-c1).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.addi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.addi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; replacement uses default/no-overflow flags (TODO in source notes lost overflow flags).",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD010",
+      "name": "SubILHSAddConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 162,
+      "line_end": 167,
+      "description": "Fold subi(c1,addi(x,c0)) into subi(c1-c0,x).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.addi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags from inner addi and outer subi are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD011",
+      "name": "SubIRHSSubConstantRHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 170,
+      "line_end": 175,
+      "description": "Fold subi(subi(x,c0),c1) into subi(x,c0+c1).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.subi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD012",
+      "name": "SubIRHSSubConstantLHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 178,
+      "line_end": 183,
+      "description": "Fold subi(subi(c0,x),c1) into subi(c0-c1,x).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.subi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD013",
+      "name": "SubILHSSubConstantRHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 186,
+      "line_end": 191,
+      "description": "Fold subi(c1,subi(x,c0)) into subi(c0+c1,x).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.subi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD014",
+      "name": "SubILHSSubConstantLHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 194,
+      "line_end": 199,
+      "description": "Fold subi(c1,subi(c0,x)) into addi(x,c1-c0).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.subi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.addi",
+        "arith.constant"
+      ],
+      "conditions": "Both constants are ConstantLike integer attributes; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD015",
+      "name": "SubISubILHSRHSLHS",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 202,
+      "line_end": 206,
+      "description": "Rewrite subi(subi(x,y),x) to subi(0,y).",
+      "match_opcodes": [
+        "arith.subi",
+        "arith.subi"
+      ],
+      "rewrite_opcodes": [
+        "arith.subi",
+        "arith.constant"
+      ],
+      "conditions": "Repeated x must be the same SSA value; zero constant materialization requires scalar or statically shaped type; overflow flags are merged by bitwise intersection.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD016",
+      "name": "MulSIExtendedToMulI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 214,
+      "line_end": 217,
+      "description": "Replace mulsi_extended(x,y) by muli(x,y) and x for unused high result.",
+      "match_opcodes": [
+        "arith.mulsi_extended"
+      ],
+      "rewrite_opcodes": [
+        "arith.muli"
+      ],
+      "conditions": "High result must have no uses; any replacement value is permitted for that unused result; muli receives default/no-overflow flags.",
+      "kind": "Pattern"
+    },
+    {
+      "id": "TD017",
+      "name": "MulSIExtendedRHSOne",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 227,
+      "line_end": 234,
+      "description": "Rewrite mulsi_extended(x,1) to x and extsi(cmpi slt,x,0).",
+      "match_opcodes": [
+        "arith.mulsi_extended",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.extsi",
+        "arith.cmpi",
+        "arith.constant"
+      ],
+      "conditions": "RHS must be scalar/splat integer value strictly positive and equal to 1; zero constant for cmpi must be materializable for x type.",
+      "kind": "Pattern"
+    },
+    {
+      "id": "TD018",
+      "name": "MulUIExtendedToMulI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 242,
+      "line_end": 245,
+      "description": "Replace mului_extended(x,y) by muli(x,y) and x for unused high result.",
+      "match_opcodes": [
+        "arith.mului_extended"
+      ],
+      "rewrite_opcodes": [
+        "arith.muli"
+      ],
+      "conditions": "High result must have no uses; any replacement value is permitted for that unused result; muli receives default/no-overflow flags.",
+      "kind": "Pattern"
+    },
+    {
+      "id": "TD019",
+      "name": "XOrIXOrIConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 255,
+      "line_end": 261,
+      "description": "Combine xori(xori(x,c0),c1) into xori(x,c0 xor c1).",
+      "match_opcodes": [
+        "arith.xori",
+        "arith.xori",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.xori",
+        "arith.constant"
+      ],
+      "conditions": "Both integer attribute types must equal the outer result type.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD020",
+      "name": "XOrINotCmpI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 265,
+      "line_end": 269,
+      "description": "Rewrite xori(cmpi(pred,a,b),true) to cmpi(invert(pred),a,b).",
+      "match_opcodes": [
+        "arith.xori",
+        "arith.cmpi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.cmpi"
+      ],
+      "conditions": "The xor constant must be scalar i1 constant 1; all CmpI predicates have a defined inverse.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD021",
+      "name": "XOrIOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 274,
+      "line_end": 278,
+      "description": "Push xori through two extui operations: xori(extui(x),extui(y)) -> extui(xori(x,y)).",
+      "match_opcodes": [
+        "arith.xori",
+        "arith.extui",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.extui",
+        "arith.xori"
+      ],
+      "conditions": "Narrow source types must match; resulting nneg is preserved only when both input extui ops carry nneg.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD022",
+      "name": "XOrIOfExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 281,
+      "line_end": 283,
+      "description": "Push xori through two extsi operations.",
+      "match_opcodes": [
+        "arith.xori",
+        "arith.extsi",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.extsi",
+        "arith.xori"
+      ],
+      "conditions": "Narrow source types must match.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD023",
+      "name": "CmpIExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 290,
+      "line_end": 295,
+      "description": "Push equality/inequality cmpi through matching extsi operands.",
+      "match_opcodes": [
+        "arith.cmpi",
+        "arith.extsi",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.cmpi"
+      ],
+      "conditions": "Narrow source types must match; predicate must be eq or ne.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD024",
+      "name": "CmpIExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 298,
+      "line_end": 303,
+      "description": "Push equality/inequality cmpi through matching extui operands.",
+      "match_opcodes": [
+        "arith.cmpi",
+        "arith.extui",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.cmpi"
+      ],
+      "conditions": "Narrow source types must match; predicate must be eq or ne; nneg flags do not constrain match.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD025",
+      "name": "SelectNotCond",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 310,
+      "line_end": 313,
+      "description": "Rewrite select(xori(pred,-1),a,b) to select(pred,b,a).",
+      "match_opcodes": [
+        "arith.select",
+        "arith.xori",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.select"
+      ],
+      "conditions": "Xor constant must be scalar/splat all-ones (-1).",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD026",
+      "name": "RedundantSelectTrue",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 316,
+      "line_end": 318,
+      "description": "Simplify select(pred,select(pred,a,b),c) to select(pred,a,c).",
+      "match_opcodes": [
+        "arith.select",
+        "arith.select"
+      ],
+      "rewrite_opcodes": [
+        "arith.select"
+      ],
+      "conditions": "Inner and outer conditions must be the same SSA value.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD027",
+      "name": "RedundantSelectFalse",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 321,
+      "line_end": 323,
+      "description": "Simplify select(pred,a,select(pred,b,c)) to select(pred,a,c).",
+      "match_opcodes": [
+        "arith.select",
+        "arith.select"
+      ],
+      "rewrite_opcodes": [
+        "arith.select"
+      ],
+      "conditions": "Inner and outer conditions must be the same SSA value.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD028",
+      "name": "SelectI1ToNot",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 326,
+      "line_end": 330,
+      "description": "Rewrite select(pred,false,true) to xori(pred,true).",
+      "match_opcodes": [
+        "arith.select",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.xori",
+        "arith.constant"
+      ],
+      "conditions": "True/false arms must be scalar i1 constants 0 and 1, respectively.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD029",
+      "name": "SelectCmpISltToMinSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 349,
+      "line_end": 349,
+      "description": "Canonicalize select(cmpi slt,a,b) to arith.minsi(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minsi"
+      ],
+      "conditions": "Predicate is exactly slt; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD030",
+      "name": "SelectCmpISleToMinSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 350,
+      "line_end": 350,
+      "description": "Canonicalize select(cmpi sle,a,b) to arith.minsi(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minsi"
+      ],
+      "conditions": "Predicate is exactly sle; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD031",
+      "name": "SelectCmpISgtToMaxSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 351,
+      "line_end": 351,
+      "description": "Canonicalize select(cmpi sgt,a,b) to arith.maxsi(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxsi"
+      ],
+      "conditions": "Predicate is exactly sgt; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD032",
+      "name": "SelectCmpISgeToMaxSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 352,
+      "line_end": 352,
+      "description": "Canonicalize select(cmpi sge,a,b) to arith.maxsi(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxsi"
+      ],
+      "conditions": "Predicate is exactly sge; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD033",
+      "name": "SelectCmpIUltToMinUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 353,
+      "line_end": 353,
+      "description": "Canonicalize select(cmpi ult,a,b) to arith.minui(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minui"
+      ],
+      "conditions": "Predicate is exactly ult; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD034",
+      "name": "SelectCmpIUleToMinUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 354,
+      "line_end": 354,
+      "description": "Canonicalize select(cmpi ule,a,b) to arith.minui(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minui"
+      ],
+      "conditions": "Predicate is exactly ule; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD035",
+      "name": "SelectCmpIUgtToMaxUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 355,
+      "line_end": 355,
+      "description": "Canonicalize select(cmpi ugt,a,b) to arith.maxui(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxui"
+      ],
+      "conditions": "Predicate is exactly ugt; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD036",
+      "name": "SelectCmpIUgeToMaxUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 356,
+      "line_end": 356,
+      "description": "Canonicalize select(cmpi uge,a,b) to arith.maxui(a,b) when select arms are a,b arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxui"
+      ],
+      "conditions": "Predicate is exactly uge; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD037",
+      "name": "SelectCmpISltToMaxSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 359,
+      "line_end": 359,
+      "description": "Canonicalize select(cmpi slt,a,b) to arith.maxsi(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxsi"
+      ],
+      "conditions": "Predicate is exactly slt; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD038",
+      "name": "SelectCmpISleToMaxSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 360,
+      "line_end": 360,
+      "description": "Canonicalize select(cmpi sle,a,b) to arith.maxsi(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxsi"
+      ],
+      "conditions": "Predicate is exactly sle; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD039",
+      "name": "SelectCmpISgtToMinSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 361,
+      "line_end": 361,
+      "description": "Canonicalize select(cmpi sgt,a,b) to arith.minsi(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minsi"
+      ],
+      "conditions": "Predicate is exactly sgt; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD040",
+      "name": "SelectCmpISgeToMinSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 362,
+      "line_end": 362,
+      "description": "Canonicalize select(cmpi sge,a,b) to arith.minsi(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minsi"
+      ],
+      "conditions": "Predicate is exactly sge; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD041",
+      "name": "SelectCmpIUltToMaxUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 363,
+      "line_end": 363,
+      "description": "Canonicalize select(cmpi ult,a,b) to arith.maxui(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxui"
+      ],
+      "conditions": "Predicate is exactly ult; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD042",
+      "name": "SelectCmpIUleToMaxUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 364,
+      "line_end": 364,
+      "description": "Canonicalize select(cmpi ule,a,b) to arith.maxui(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.maxui"
+      ],
+      "conditions": "Predicate is exactly ule; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD043",
+      "name": "SelectCmpIUgtToMinUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 365,
+      "line_end": 365,
+      "description": "Canonicalize select(cmpi ugt,a,b) to arith.minui(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minui"
+      ],
+      "conditions": "Predicate is exactly ugt; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD044",
+      "name": "SelectCmpIUgeToMinUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 366,
+      "line_end": 366,
+      "description": "Canonicalize select(cmpi uge,a,b) to arith.minui(a,b) when select arms are b,a arms.",
+      "match_opcodes": [
+        "arith.select",
+        "arith.cmpi"
+      ],
+      "rewrite_opcodes": [
+        "arith.minui"
+      ],
+      "conditions": "Predicate is exactly uge; compare operands and the corresponding select arms are SSA-identical as required by the base pattern.",
+      "kind": "class-instantiation"
+    },
+    {
+      "id": "TD045",
+      "name": "IndexCastOfExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 373,
+      "line_end": 374,
+      "description": "Remove redundant sign extension under index_cast.",
+      "match_opcodes": [
+        "arith.index_cast",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.index_cast"
+      ],
+      "conditions": "No additional pattern constraint; replacement must satisfy op verifier/type rules.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD046",
+      "name": "IndexCastUIOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 381,
+      "line_end": 383,
+      "description": "Remove nested zero extension under index_castui.",
+      "match_opcodes": [
+        "arith.index_castui",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.index_castui"
+      ],
+      "conditions": "No additional pattern constraint; outer index_castui retains inner extui nneg attribute.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD047",
+      "name": "BitcastOfBitcast",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 391,
+      "line_end": 392,
+      "description": "Collapse nested bitcast.",
+      "match_opcodes": [
+        "arith.bitcast",
+        "arith.bitcast"
+      ],
+      "rewrite_opcodes": [
+        "arith.bitcast"
+      ],
+      "conditions": "Types must satisfy bitcast verifier constraints.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD048",
+      "name": "ExtSIOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 399,
+      "line_end": 401,
+      "description": "Replace extsi(extui(x)) with extui(x).",
+      "match_opcodes": [
+        "arith.extsi",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.extui"
+      ],
+      "conditions": "No additional pattern constraint; retain extui nneg attribute.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD049",
+      "name": "AndIAndIConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 408,
+      "line_end": 414,
+      "description": "Combine andi(andi(x,c0),c1) into andi(x,c0 & c1).",
+      "match_opcodes": [
+        "arith.andi",
+        "arith.andi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.andi",
+        "arith.constant"
+      ],
+      "conditions": "Both integer attribute types must equal the outer result type.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD050",
+      "name": "AndOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 419,
+      "line_end": 423,
+      "description": "Push andi through two extui operations.",
+      "match_opcodes": [
+        "arith.andi",
+        "arith.extui",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.extui",
+        "arith.andi"
+      ],
+      "conditions": "Narrow source types must match; resulting nneg is true if either input extui has nneg.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD051",
+      "name": "AndOfExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 426,
+      "line_end": 429,
+      "description": "Push andi through two extsi operations.",
+      "match_opcodes": [
+        "arith.andi",
+        "arith.extsi",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.extsi",
+        "arith.andi"
+      ],
+      "conditions": "Narrow source types must match.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD052",
+      "name": "OrIOrIConstant",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 436,
+      "line_end": 442,
+      "description": "Combine ori(ori(x,c0),c1) into ori(x,c0 | c1).",
+      "match_opcodes": [
+        "arith.ori",
+        "arith.ori",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.ori",
+        "arith.constant"
+      ],
+      "conditions": "Both integer attribute types must equal the outer result type.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD053",
+      "name": "OrOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 447,
+      "line_end": 451,
+      "description": "Push ori through two extui operations.",
+      "match_opcodes": [
+        "arith.ori",
+        "arith.extui",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.extui",
+        "arith.ori"
+      ],
+      "conditions": "Narrow source types must match; resulting nneg is preserved only when both input extui ops carry nneg.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD054",
+      "name": "OrOfExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 454,
+      "line_end": 457,
+      "description": "Push ori through two extsi operations.",
+      "match_opcodes": [
+        "arith.ori",
+        "arith.extsi",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.extsi",
+        "arith.ori"
+      ],
+      "conditions": "Narrow source types must match.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD055",
+      "name": "TruncIExtSIToExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 475,
+      "line_end": 479,
+      "description": "Cancel truncation of an extension when the trunc result remains wider than the original source.",
+      "match_opcodes": [
+        "arith.trunci",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.extsi"
+      ],
+      "conditions": "Extension result width > trunc result width > source width; preserve semantics at widths above zero.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD056",
+      "name": "TruncIExtUIToExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 482,
+      "line_end": 486,
+      "description": "Cancel truncation of an extension when the trunc result remains wider than the original source.",
+      "match_opcodes": [
+        "arith.trunci",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.extui"
+      ],
+      "conditions": "Extension result width > trunc result width > source width; preserve extui nneg.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD057",
+      "name": "TruncIShrSIToTrunciShrUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 489,
+      "line_end": 493,
+      "description": "Rewrite trunci(shrsi(x,c)) to trunci(shrui(x,c)) when truncation removes exactly the shifted-off sign bits.",
+      "match_opcodes": [
+        "arith.trunci",
+        "arith.shrsi",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.trunci",
+        "arith.shrui",
+        "arith.constant"
+      ],
+      "conditions": "Shift amount must be scalar/splat integer and equal input width minus trunc result width; the typed shift attribute is retained; exact flag and trunc overflow attribute are preserved.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD058",
+      "name": "TruncFSIToFPToSIToFP",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 500,
+      "line_end": 503,
+      "description": "Cancel truncf(sitofp(x)) when truncf uses default rounding mode.",
+      "match_opcodes": [
+        "arith.truncf",
+        "arith.sitofp"
+      ],
+      "rewrite_opcodes": [
+        "arith.sitofp"
+      ],
+      "conditions": "Outer truncf rounding mode must be absent/null; floating-point fast-math flags are not checked by this pattern.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD059",
+      "name": "TruncFUIToFPToUIToFP",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 506,
+      "line_end": 509,
+      "description": "Cancel truncf(uitofp(x)) when truncf uses default rounding mode.",
+      "match_opcodes": [
+        "arith.truncf",
+        "arith.uitofp"
+      ],
+      "rewrite_opcodes": [
+        "arith.uitofp"
+      ],
+      "conditions": "Outer truncf rounding mode must be absent/null; preserve uitofp nneg; floating-point fast-math flags are not checked by this pattern.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD060",
+      "name": "SIToFPOfExtSI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 516,
+      "line_end": 518,
+      "description": "Remove redundant sign extension before sitofp.",
+      "match_opcodes": [
+        "arith.sitofp",
+        "arith.extsi"
+      ],
+      "rewrite_opcodes": [
+        "arith.sitofp"
+      ],
+      "conditions": "No additional pattern constraint.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD061",
+      "name": "SIToFPOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 521,
+      "line_end": 523,
+      "description": "Rewrite sitofp(extui(x)) as uitofp(x).",
+      "match_opcodes": [
+        "arith.sitofp",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.uitofp"
+      ],
+      "conditions": "Preserve extui nneg on replacement uitofp.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD062",
+      "name": "UIToFPOfExtUI",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 530,
+      "line_end": 532,
+      "description": "Remove redundant extui before uitofp.",
+      "match_opcodes": [
+        "arith.uitofp",
+        "arith.extui"
+      ],
+      "rewrite_opcodes": [
+        "arith.uitofp"
+      ],
+      "conditions": "Preserve extui nneg on replacement uitofp.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD063",
+      "name": "AddFOfNegFLhs",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 544,
+      "line_end": 546,
+      "description": "Rewrite addf(negf(x),y) to subf(y,x).",
+      "match_opcodes": [
+        "arith.addf",
+        "arith.negf"
+      ],
+      "rewrite_opcodes": [
+        "arith.subf"
+      ],
+      "conditions": "Negf fast-math flags are ignored; addf fast-math flags and rounding mode are preserved on subf. Source comment claims bit identity for any rounding mode.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD064",
+      "name": "AddFOfNegFRhs",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 548,
+      "line_end": 550,
+      "description": "Rewrite addf(x,negf(y)) to subf(x,y).",
+      "match_opcodes": [
+        "arith.addf",
+        "arith.negf"
+      ],
+      "rewrite_opcodes": [
+        "arith.subf"
+      ],
+      "conditions": "Negf fast-math flags are ignored; addf fast-math flags and rounding mode are preserved on subf. Source comment claims bit identity for any rounding mode.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD065",
+      "name": "SubFOfNegZero",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 564,
+      "line_end": 568,
+      "description": "Rewrite subf(-0.0,x) to negf(x).",
+      "match_opcodes": [
+        "arith.subf",
+        "arith.constant"
+      ],
+      "rewrite_opcodes": [
+        "arith.negf"
+      ],
+      "conditions": "LHS must match scalar/splat negative-zero float; subf rounding mode must be absent/null (source TODO says custom rounding mode safety unverified); subf fast-math flags are transferred.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD066",
+      "name": "MulFOfNegF",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 577,
+      "line_end": 581,
+      "description": "Rewrite mulf(negf(x),negf(y)) to mulf(x,y).",
+      "match_opcodes": [
+        "arith.mulf",
+        "arith.negf",
+        "arith.negf"
+      ],
+      "rewrite_opcodes": [
+        "arith.mulf"
+      ],
+      "conditions": "x and y types must match; outer mulf rounding mode must be absent/null; preserve outer fast-math flags. Source TODO says custom-rounding safety unverified.",
+      "kind": "Pat"
+    },
+    {
+      "id": "TD067",
+      "name": "DivFOfNegF",
+      "file": "docs/arith-canonicalization/upstream/ArithCanonicalization.td",
+      "line_start": 590,
+      "line_end": 594,
+      "description": "Rewrite divf(negf(x),negf(y)) to divf(x,y).",
+      "match_opcodes": [
+        "arith.divf",
+        "arith.negf",
+        "arith.negf"
+      ],
+      "rewrite_opcodes": [
+        "arith.divf"
+      ],
+      "conditions": "x and y types must match; outer divf rounding mode must be absent/null; preserve outer fast-math flags. Source TODO says custom-rounding safety unverified.",
+      "kind": "Pat"
+    }
+  ]
+}

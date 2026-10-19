@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""Validate and render the pinned Arith canonicalization inventory.
+
+Run after compiling Veir.Passes.ArithCanonicalize; this checks provenance and
+coverage metadata, not Lean proofs (those are checked by Lake).
+"""
+import argparse
+import collections
+import hashlib
+import json
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / "docs/arith-canonicalization"
+OUTPUT = ROOT / "docs/arith-canonicalization.md"
+IMPORTS = ROOT / "Veir/Passes/ArithCanonicalize.lean"
+UPSTREAM_PATHS = {
+    "ArithCanonicalization.td": "mlir/lib/Dialect/Arith/IR/ArithCanonicalization.td",
+    "ArithOps.cpp": "mlir/lib/Dialect/Arith/IR/ArithOps.cpp",
+    "ArithOps.td": "mlir/include/mlir/Dialect/Arith/IR/ArithOps.td",
+    "OpDefinition.h": "mlir/include/mlir/IR/OpDefinition.h",
+    "OperationSupport.cpp": "mlir/lib/IR/OperationSupport.cpp",
+    "Operation.cpp": "mlir/lib/IR/Operation.cpp",
+    "CastInterfaces.cpp": "mlir/lib/Interfaces/CastInterfaces.cpp",
+    "CommonFolders.h": "mlir/include/mlir/Dialect/CommonFolders.h",
+}
+
+
+def read_entries(path):
+    value = json.loads(path.read_text())
+    if isinstance(value, list):
+        return value
+    for key in ("patterns", "entries", "results", "rewrites", "traits"):
+        if key in value:
+            return value[key]
+    raise ValueError(f"No entries in {path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Require complete outcomes and current Markdown")
+    args = parser.parse_args()
+    manifest = json.loads((DATA / "upstream/manifest.json").read_text())
+    commit = manifest["commit"]
+    resolved = datetime.fromisoformat(manifest["resolved_at_utc"]).astimezone(
+        timezone.utc
+    ).strftime("%Y-%m-%d %H:%M:%S %Z")
+    for filename, expected in manifest["files"].items():
+        actual = hashlib.sha256((DATA / "upstream" / filename).read_bytes()).hexdigest()
+        assert actual == expected, f"Pinned source checksum mismatch: {filename}"
+    entries = read_entries(DATA / "tablegen-inventory.json") + read_entries(DATA / "cpp-inventory.json")
+    extra = DATA / "trait-inventory.json"
+    if extra.exists():
+        entries += read_entries(extra)
+    ids = [entry["id"] for entry in entries]
+    assert len(ids) == len(set(ids)), "Duplicate inventory IDs"
+    cpp_source = (DATA / "upstream/ArithOps.cpp").read_text()
+    source_hooks = set(re.findall(r"\b(\w+Op)::fold\s*\(", cpp_source))
+    inventoried_hooks = {
+        re.search(r"(\w+Op)::fold", entry["name"]).group(1)
+        for entry in entries if entry["kind"] == "fold"
+    }
+    assert source_hooks - inventoried_hooks == {"ConstantOp"}, "Uninventoried operation fold hooks"
+    assert not inventoried_hooks - source_hooks, "Inventory refers to nonexistent fold hooks"
+    registrations = []
+    for group in re.findall(r"(?:patterns|results)\.(?:add|insert)<(.*?)>\s*\(\s*context\s*\)",
+                            cpp_source, re.S):
+        depth = 0
+        start = 0
+        for index, char in enumerate(group + ","):
+            if char == "<":
+                depth += 1
+            elif char == ">":
+                depth -= 1
+            elif char == "," and depth == 0:
+                registrations.append(re.sub(r"\s+", "", group[start:index]))
+                start = index + 1
+    handwritten = {"NarrowExtremum", "CmpFIntToFPConst", "SelectToExtUI"}
+    registered_td = {name for name in registrations if name.split("<")[0] not in handwritten}
+    inventoried_td = {entry["name"] for entry in entries if entry["id"].startswith("TD")}
+    assert registered_td == inventoried_td, (
+        f"TableGen registration coverage mismatch: {registered_td ^ inventoried_td}"
+    )
+    assert sum(name.startswith("NarrowExtremum<") for name in registrations) == 10
+    assert registrations.count("CmpFIntToFPConst") == 1
+    assert registrations.count("SelectToExtUI") == 1
+    outcomes = {}
+    for path in sorted(DATA.glob("results-*.json")):
+        for result in read_entries(path):
+            key = result["id"]
+            assert key in ids, f"Unknown result ID {key} in {path}"
+            assert key not in outcomes, f"Duplicate outcome for {key}"
+            assert result["status"] in ("proven", "counterexample", "unsupported"), result
+            if result["status"] != "unsupported":
+                lean = ROOT / result["lean_file"]
+                assert lean.is_file(), f"Missing Lean file: {lean}"
+                assert lean.stem == key, f"Each entry needs its own Lean file: {key}"
+                assert result.get("theorem"), f"Missing theorem: {key}"
+                for theorem in result["theorem"].split(";"):
+                    declaration = theorem.strip().split(".")[-1]
+                    signature = re.search(
+                        rf"\btheorem\s+{re.escape(declaration)}\b(.*?)\s*:=",
+                        lean.read_text(), re.S,
+                    )
+                    assert signature, (
+                        f"Missing declaration for {key}: {theorem}"
+                    )
+                    assert "Pattern.Valid" in signature[1], (
+                        f"Outcome theorem does not state Pattern.Valid for {key}: {theorem}"
+                    )
+                    disproves_validity = bool(re.search(r"¬\s*Pattern\.Valid", signature[1]))
+                    assert disproves_validity == (result["status"] == "counterexample"), (
+                        f"Outcome disagrees with theorem statement for {key}: {theorem}"
+                    )
+            else:
+                assert result.get("details"), f"Unsupported entry lacks explanation: {key}"
+            outcomes[key] = result
+    missing = set(ids) - outcomes.keys()
+    if args.check:
+        assert not missing, f"Missing outcomes ({len(missing)}): {', '.join(sorted(missing))}"
+    counts = collections.Counter(result["status"] for result in outcomes.values())
+    modules = sorted({
+        str(Path(result["lean_file"]).with_suffix("")).replace("/", ".")
+        for result in outcomes.values() if result.get("lean_file")
+    })
+    if args.check:
+        rewrite_dir = ROOT / "Veir/Passes/ArithCanonicalize"
+        expected_modules = {
+            str(path.relative_to(ROOT).with_suffix("")).replace("/", ".")
+            for path in rewrite_dir.glob("*.lean")
+        }
+        reachable = set()
+        queue = list(modules)
+        while queue:
+            module = queue.pop()
+            if module in reachable:
+                continue
+            reachable.add(module)
+            if module not in expected_modules:
+                continue
+            source = ROOT / (module.replace(".", "/") + ".lean")
+            queue.extend(re.findall(r"^(?:public )?import\s+(\S+)", source.read_text(), re.M))
+        assert expected_modules <= reachable, (
+            f"Orphan Lean modules omitted from the build: {sorted(expected_modules - reachable)}"
+        )
+    imports = "\n".join([
+        "/- Checked Puddle translations of the pinned MLIR Arith canonicalizer.",
+        "Generated by Tools/arith-inventory from the outcome manifests.",
+        "Counterexample modules are included for verification; this module does not",
+        "register any pattern as a runnable optimization pass. -/",
+        "",
+        *(f"import {module}" for module in modules),
+        "",
+    ])
+    lines = [
+        "# MLIR Arith canonicalization and Puddle verification", "",
+        f"Pinned LLVM commit: [`{commit}`](https://github.com/llvm/llvm-project/commit/{commit}).",
+        f"Resolved from `refs/heads/main` at {resolved}; all source links below use this commit.", "",
+        "## Scope and counting", "",
+        "The inventory includes registered TableGen patterns, handwritten C++ canonicalization patterns, "
+        "and individual operation-fold rules invoked by `--canonicalize`. Concrete template instances "
+        "have separate entries; symmetric operand-order variants explicitly described in one rule are counted once. "
+        "Constant evaluation is a rule family parameterized by its constant operands. "
+        "The generic canonicalizer's dead-operation removal and constant uniquing are infrastructure, "
+        "not additional Arith peepholes. `arith.constant`'s attribute-returning fold hook is materialization "
+        "support: the greedy driver skips folding constant-like operations.", "",
+        "Opcode lists use `arith.constant` as the representative constant producer; upstream "
+        "`ConstantLike` matchers and fold adaptors can obtain attributes from other producers too. "
+        "An empty replacement-opcode list means forwarding an existing SSA value. "
+        "In-place folds list the operation that remains after its operands or properties change.", "",
+        "Each Puddle rule is checked independently. The collection does not reproduce the greedy "
+        "driver's scheduling or the order of early returns within a fold hook; independently valid "
+        "rules can overlap. The source conditions below describe when the upstream branch applies.", "",
+        "A proven entry means a Lean theorem of `Puddle.Pattern.Valid` for the stated implementation scope. "
+        "Scalar integer rules quantify over widths and include poison/refinement and the flags stated in each entry. "
+        "This does not claim coverage of vector/tensor/index variants: VeIR's Arith interpreter currently models "
+        "scalar integers. Missing floating-point, index, shaped-value or contextual semantics are documented "
+        "explicitly. A counterexample is a checked failure of the stated upstream rule, not a failed proof search.", "",
+        "**Signed remainder semantics:** verification retains VeIR's original `arith.remsi` semantics, "
+        "as requested: `INT_MIN % -1` is undefined behavior. The interpreter, direct LLVM lowering, "
+        "and existing UB tests are unchanged. The pinned constant folder can materialize zero in this case; "
+        "that is a refinement of an undefined source, not evidence that the source operation is defined.", "",
+        "**Arith support:** [Veir/Dialects/Arith/Puddle.lean](../Veir/Dialects/Arith/Puddle.lean) adds "
+        "the shared Puddle proof API, including operation-interpretation lemmas and constant match/create helpers. "
+        "The translations build on VeIR's existing scalar-integer Arith parser, verifier, interpreter, "
+        "and LLVM lowering. Additional proof helpers live alongside the individual rewrite files.", "",
+        "## Results", "",
+        "| Inventory entries | Implemented | Proven correct | Counterexamples | Unsupported | Pending |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: |",
+        f"| {len(entries)} | {counts['proven'] + counts['counterexample']} | {counts['proven']} | "
+        f"{counts['counterexample']} | {counts['unsupported']} | {len(missing)} |", "",
+        "Implementation counts include counterexample patterns; only proven patterns are candidates for use in an optimizer. "
+        "The source snapshots and SHA-256 manifest live in [arith-canonicalization/upstream](arith-canonicalization/upstream). "
+        "The JSON inventories and result manifests are the machine-readable sources for this document.", "",
+        "## Reproducing verification", "",
+        "`Veir.Passes.ArithCanonicalize` imports every implemented entry, including checked counterexamples. "
+        "It is imported by the main `Veir` library, so the proofs are part of the normal build. "
+        "The module does not register counterexample patterns as optimizations.", "",
+        "```sh", "lake build Veir", "lake test",
+        "uv run lit Test/Interpreter/Arith Test/Passes/ArithToLLVM -v",
+        "python3 Tools/arith-inventory --check", "```", "",
+        "The inventory checker validates source checksums, TableGen registration coverage, operation fold-hook "
+        "coverage, complete outcomes, and generated documentation/imports. Lean checks the proof declarations. "
+        "Matcher regression tests additionally check normalized i1 constants, stable constant operand ordering, "
+        "creation of fresh result types, and the positive-one guard on signed extended multiplication.", "",
+        "## Rewrites", "",
+    ]
+    for entry in entries:
+        name = Path(entry["file"]).name
+        source_path = UPSTREAM_PATHS.get(name)
+        assert source_path, f"Unknown upstream path for {name}"
+        start, end = entry["line_start"], entry["line_end"]
+        assert 0 < start <= end <= len((DATA / "upstream" / name).read_text().splitlines())
+        url = f"https://github.com/llvm/llvm-project/blob/{commit}/{source_path}#L{start}-L{end}"
+        opcodes = lambda key: ", ".join(f"`{op}`" for op in dict.fromkeys(entry[key])) or "existing SSA value"
+        lines += [
+            f"### {entry['id']}: {entry['name']}", "",
+            f"[Original code: {name}:{start}–{end}]({url}).", "",
+            entry["description"], "",
+            f"**Matched:** {opcodes('match_opcodes')}. **Replacement:** {opcodes('rewrite_opcodes')}.", "",
+            f"**Conditions:** {entry['conditions']}", "",
+        ]
+        result = outcomes.get(entry["id"])
+        if result is None:
+            lines += ["**Status: pending.** Implementation/proof assessment is in progress.", ""]
+            continue
+        labels = {"proven": "Succeeded — proven", "counterexample": "Counterexample", "unsupported": "Cannot be implemented with current Puddle support"}
+        lines += [f"**Status: {labels[result['status']]}.** {result['details']}", ""]
+        if result.get("scope"):
+            lines += [f"**Coverage:** {result['scope']}", ""]
+        if result.get("lean_file"):
+            file = result["lean_file"]
+            lines += [f"**Lean:** [{file}](../{file}); `{result.get('theorem', '')}`.", ""]
+    rendered = "\n".join(lines)
+    if args.check:
+        assert OUTPUT.read_text() == rendered, "Markdown is stale; run Tools/arith-inventory"
+        assert IMPORTS.read_text() == imports, "Lean imports are stale; run Tools/arith-inventory"
+    else:
+        OUTPUT.write_text(rendered)
+        IMPORTS.write_text(imports)
+    print(json.dumps({"entries": len(entries), **counts, "pending": len(missing)}, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,493 @@
+{
+  "upstream_commit": "32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "results": [
+    {
+      "id": "F056",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F056.lean",
+      "theorem": "Veir.ArithCanonicalize.F056.valid",
+      "details": "All-width Pattern.Valid proof for nested andi absorption in both inner and outer operand orders (four instances), including poison.",
+      "scope": "all scalar integer operand-order instances of pinned fold; shaped variants outside scalar Puddle model"
+    },
+    {
+      "id": "F062",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F062.lean",
+      "theorem": "Veir.ArithCanonicalize.F062.valid",
+      "details": "All-width Pattern.Valid proof for nested ori absorption in both inner and outer operand orders (four instances), retaining arbitrary independent disjoint flags and poison.",
+      "scope": "all scalar integer operand-order instances of pinned fold; shaped variants outside scalar Puddle model"
+    },
+    {
+      "id": "F066",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F066.lean",
+      "theorem": "Veir.ArithCanonicalize.F066.valid",
+      "details": "All-width Pattern.Valid proof for xori(xori(x,a),a) cancellation with both inner operand orders, including poison.",
+      "scope": "all scalar integer operand-order instances of pinned fold; shaped variants outside scalar Puddle model"
+    },
+    {
+      "id": "F067",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F067.lean",
+      "theorem": "Veir.ArithCanonicalize.F067.valid",
+      "details": "All-width Pattern.Valid proof for xori(a,xori(x,a)) cancellation with both inner operand orders, including poison.",
+      "scope": "all scalar integer operand-order instances of pinned fold; shaped variants outside scalar Puddle model"
+    },
+    {
+      "id": "F081",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F081.lean",
+      "theorem": "Veir.ArithCanonicalize.F081.pattern_true_valid; Veir.ArithCanonicalize.F081.pattern_false_valid",
+      "details": "Two exact predicate partitions cover all ten cmpi(x,x) cases; both Pattern.Valid proofs quantify all integer widths and poison.",
+      "scope": "scalar integer cmpi result i1; both true/false predicate partitions"
+    },
+    {
+      "id": "F082",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F082.lean",
+      "theorem": "Veir.ArithCanonicalize.F082.valid",
+      "details": "Scalar i1 extsi comparison to zero folds to source, for every wider integer width and poison.",
+      "scope": "scalar i1-to-wider-integer extsi with arith.constant zero RHS; shaped and non-Arith constant producers outside current Puddle instance"
+    },
+    {
+      "id": "F083",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F083.lean",
+      "theorem": "Veir.ArithCanonicalize.F083.valid",
+      "details": "Scalar i1 extui comparison to zero folds to source, including arbitrary nneg property and poison.",
+      "scope": "scalar i1-to-wider-integer extui with arith.constant zero RHS; arbitrary nneg property; shaped and non-Arith constant producers outside current Puddle instance"
+    },
+    {
+      "id": "F084",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F084.lean",
+      "theorem": "Veir.ArithCanonicalize.F084.valid",
+      "details": "All-value Pattern.Valid proof for scalar i1 cmpi ne(x, 0) \u2192 x, including poison and both bit values.",
+      "scope": "scalar i1 integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F085",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F085.lean",
+      "theorem": "Veir.ArithCanonicalize.F085.valid",
+      "details": "All-value Pattern.Valid proof for scalar i1 cmpi eq(x, 1) \u2192 x, including poison and both bit values.",
+      "scope": "scalar i1 integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F086",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F086.lean",
+      "theorem": "Veir.ArithCanonicalize.F086.valid",
+      "details": "All ten integer predicates preserve meaning under operand swap and order-predicate swap; matcher rejects any ConstantLike RHS producer.",
+      "scope": "scalar integer cmpi with arith.constant LHS and any non-ConstantLike RHS; other constant-like LHS producers and shaped variants outside this instance"
+    },
+    {
+      "id": "F087",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F087.lean",
+      "theorem": "Veir.ArithCanonicalize.F087.valid",
+      "details": "Both scalar arith.constant operands fold under all ten comparison predicates to a typed signless i1 constant.",
+      "scope": "scalar integer cmpi with two arith.constant operands and signless i1 result; shaped and other folded constant producers outside this instance"
+    },
+    {
+      "id": "F117",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F117.lean",
+      "theorem": "Veir.ArithCanonicalize.F117.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F118",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F118.lean",
+      "theorem": "Veir.ArithCanonicalize.F118.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F119",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F119.lean",
+      "theorem": "Veir.ArithCanonicalize.F119.valid",
+      "details": "Both scalar arith.constant operands fold to signed maximum at every integer width.",
+      "scope": "scalar integer maxsi with two arith.constant operands; shaped and other folded constant producers outside this instance"
+    },
+    {
+      "id": "F121",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F121.lean",
+      "theorem": "Veir.ArithCanonicalize.F121.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F122",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F122.lean",
+      "theorem": "Veir.ArithCanonicalize.F122.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F123",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F123.lean",
+      "theorem": "Veir.ArithCanonicalize.F123.valid",
+      "details": "Both scalar arith.constant operands fold to unsigned maximum at every integer width.",
+      "scope": "scalar integer maxui with two arith.constant operands; shaped and other folded constant producers outside this instance"
+    },
+    {
+      "id": "F125",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F125.lean",
+      "theorem": "Veir.ArithCanonicalize.F125.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F126",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F126.lean",
+      "theorem": "Veir.ArithCanonicalize.F126.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F127",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F127.lean",
+      "theorem": "Veir.ArithCanonicalize.F127.valid",
+      "details": "Both scalar arith.constant operands fold to signed minimum at every integer width.",
+      "scope": "scalar integer minsi with two arith.constant operands; shaped and other folded constant producers outside this instance"
+    },
+    {
+      "id": "F129",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F129.lean",
+      "theorem": "Veir.ArithCanonicalize.F129.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F130",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F130.lean",
+      "theorem": "Veir.ArithCanonicalize.F130.valid",
+      "details": "All-width Pattern.Valid proof for the typed scalar extremal constant fold; exact signed/unsigned bitpattern guard and poison refinement.",
+      "scope": "scalar integer and arith.constant RHS subset of pinned fold"
+    },
+    {
+      "id": "F131",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F131.lean",
+      "theorem": "Veir.ArithCanonicalize.F131.valid",
+      "details": "Both scalar arith.constant operands fold to unsigned minimum at every integer width.",
+      "scope": "scalar integer minui with two arith.constant operands; shaped and other folded constant producers outside this instance"
+    },
+    {
+      "id": "G001",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/G001.lean",
+      "theorem": "Veir.ArithCanonicalize.G001.pattern_valid",
+      "details": "All-width Pattern.Valid for scalar addi, muli, andi, ori (preserving disjoint), xori, maxsi, maxui, minsi, minui via the parameterized theorem; also exact two-result addui_extended, mulsi_extended, mului_extended patterns with `pattern_addui_extended_valid`, `pattern_mulsi_extended_valid`, `pattern_mului_extended_valid`. Original properties and both extended results are preserved. RHS ConstantLike producer is rejected to retain stable constant ordering.",
+      "scope": "12 scalar integer Arith commutative operations; shaped and FP variants remain unsupported by the current Puddle integer model and are not claimed by these theorems"
+    },
+    {
+      "id": "G004",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/G004.lean",
+      "theorem": "Veir.ArithCanonicalize.G004.addiValid; Veir.ArithCanonicalize.G004.subiValid; Veir.ArithCanonicalize.G004.muliValid; Veir.ArithCanonicalize.G004.divuiValid; Veir.ArithCanonicalize.G004.divsiValid; Veir.ArithCanonicalize.G004.ceildivuiValid; Veir.ArithCanonicalize.G004.ceildivsiValid; Veir.ArithCanonicalize.G004.floordivsiValid; Veir.ArithCanonicalize.G004.remuiValid; Veir.ArithCanonicalize.G004.remsiValid; Veir.ArithCanonicalize.G004.andiValid; Veir.ArithCanonicalize.G004.oriValid; Veir.ArithCanonicalize.G004.xoriValid; Veir.ArithCanonicalize.G004.maxsiValid; Veir.ArithCanonicalize.G004.maxuiValid; Veir.ArithCanonicalize.G004.minsiValid; Veir.ArithCanonicalize.G004.minuiValid; Veir.ArithCanonicalize.G004.addui_extendedValid; Veir.ArithCanonicalize.G004.subui_extendedValid; Veir.ArithCanonicalize.G004.mulsi_extendedValid; Veir.ArithCanonicalize.G004.mului_extendedValid",
+      "details": "All 21 listed scalar integer operation families have Pattern.Valid proofs for poison on either operand. Extended operations create and prove poison for both results. Source UB exclusions for division/remainder remain in their interpretation; right-poison divisor cases are vacuous only when source interpretation is undefined. The patterns are independently checked and do not encode upstream early-return priority.",
+      "scope": "17 single-result scalar integer ops (addi, subi, muli, divui, divsi, ceildivui, ceildivsi, floordivsi, remui, remsi, andi, ori, xori, maxsi, maxui, minsi, minui); four two-result scalar extended ops (addui_extended, subui_extended, mulsi_extended, mului_extended). Floating-point and shaped variants are outside current integer Puddle model. Upstream excludes shifts, cmpi, cmpf, select."
+    },
+    {
+      "id": "TD001",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD001.lean",
+      "theorem": "Veir.ArithCanonicalize.TD001.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x8, c1=0xf; source result=0x8, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD002",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD002.lean",
+      "theorem": "Veir.ArithCanonicalize.TD002.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x1, c1=0x8; source result=0x8, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD003",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD003.lean",
+      "theorem": "Veir.ArithCanonicalize.TD003.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x1, c1=0x7; source result=0x7, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD004",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD004.lean",
+      "theorem": "Veir.ArithCanonicalize.TD004.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar all-ones multiplier, arbitrary source overflow flags, and default-flag subtraction target; includes signless i1.",
+      "scope": "scalar integer arith.constant instance of pinned upstream pattern"
+    },
+    {
+      "id": "TD005",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD005.lean",
+      "theorem": "Veir.ArithCanonicalize.TD005.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar all-ones multiplier, arbitrary source overflow flags, and default-flag subtraction target; includes signless i1.",
+      "scope": "scalar integer arith.constant instance of pinned upstream pattern"
+    },
+    {
+      "id": "TD006",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD006.lean",
+      "theorem": "Veir.ArithCanonicalize.TD006.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0xf, c0=0x2, c1=0x4; source result=0x8, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD009",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD009.lean",
+      "theorem": "Veir.ArithCanonicalize.TD009.pattern_valid",
+      "details": "All-width Pattern.Valid proof: arbitrary source add/sub overflow flags may poison; the default-flag replacement computes the same modular result when source is defined.",
+      "scope": "scalar integer arith.constant instance of pinned upstream pattern"
+    },
+    {
+      "id": "TD010",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD010.lean",
+      "theorem": "Veir.ArithCanonicalize.TD010.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x8, c1=0x0; source result=0x7, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD011",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD011.lean",
+      "theorem": "Veir.ArithCanonicalize.TD011.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x0, c0=0x1, c1=0x7; source result=0x8, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD012",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD012.lean",
+      "theorem": "Veir.ArithCanonicalize.TD012.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x0, c1=0x8; source result=0x7, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD013",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD013.lean",
+      "theorem": "Veir.ArithCanonicalize.TD013.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x1, c1=0x7; source result=0x7, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD014",
+      "status": "counterexample",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD014.lean",
+      "theorem": "Veir.ArithCanonicalize.TD014.pattern_not_valid",
+      "details": "Lean-checked direct \u00acPattern.Valid witness at i4: x=0x1, c0=0x1, c1=0x8; source result=0x8, while the replacement is poison. Both source operations and the replacement retain nsw=true, nuw=false under upstream flag intersection.",
+      "scope": "general-width scalar integer pattern using arith.constant; i4 counterexample"
+    },
+    {
+      "id": "TD015",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD015.lean",
+      "theorem": "Veir.ArithCanonicalize.TD015.valid",
+      "details": "All-width exact Pattern.Valid proof for subi(subi(x,y),x) to subi(0,y), retaining upstream intersected nsw/nuw flags and poison refinement.",
+      "scope": "general-width scalar integer Puddle instance of pinned rule; shaped variants outside current scalar model"
+    },
+    {
+      "id": "TD019",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD019.lean",
+      "theorem": "Veir.ArithCanonicalize.TD019.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar integer arith.constant instances. The matcher preserves upstream attribute-type guards; OR allows arbitrary source disjoint flags and creates a default-flag target.",
+      "scope": "scalar integer arith.constant instance of pinned upstream pattern"
+    },
+    {
+      "id": "TD020",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD020.lean",
+      "theorem": "Veir.ArithCanonicalize.TD020.valid",
+      "details": "All-width Pattern.Valid proof for xor(cmpi(pred,a,b),i1 true) to cmpi(invert(pred),a,b), covering all ten predicates and poison.",
+      "scope": "scalar integer operands and arith.constant i1 one subset of ConstantLike matcher"
+    },
+    {
+      "id": "TD023",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD023.lean",
+      "theorem": "Veir.ArithCanonicalize.TD023.valid",
+      "details": "All-width Pattern.Valid proof for eq/ne cmpi through two matching sign extensions, preserving the predicate and poison.",
+      "scope": "scalar integer source/result types and signless i1 cmpi result; exact source-width and eq/ne guards"
+    },
+    {
+      "id": "TD024",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD024.lean",
+      "theorem": "Veir.ArithCanonicalize.TD024.valid",
+      "details": "All-width Pattern.Valid proof for eq/ne cmpi through two matching zero extensions, preserving the predicate and poison. Independent extui nneg flags are retained on the source and included in the refinement.",
+      "scope": "scalar integer source/result types and signless i1 cmpi result; exact source-width and eq/ne guards"
+    },
+    {
+      "id": "TD028",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD028.lean",
+      "theorem": "Veir.ArithCanonicalize.TD028.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar i1 select(false,true) to XOR with literal one; poison-aware.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule (arith.constant subset of ConstantLike only for TD028)"
+    },
+    {
+      "id": "TD029",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD029.lean",
+      "theorem": "Veir.ArithCanonicalize.TD029.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD030",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD030.lean",
+      "theorem": "Veir.ArithCanonicalize.TD030.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD031",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD031.lean",
+      "theorem": "Veir.ArithCanonicalize.TD031.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD032",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD032.lean",
+      "theorem": "Veir.ArithCanonicalize.TD032.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD033",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD033.lean",
+      "theorem": "Veir.ArithCanonicalize.TD033.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD034",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD034.lean",
+      "theorem": "Veir.ArithCanonicalize.TD034.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD035",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD035.lean",
+      "theorem": "Veir.ArithCanonicalize.TD035.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD036",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD036.lean",
+      "theorem": "Veir.ArithCanonicalize.TD036.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD037",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD037.lean",
+      "theorem": "Veir.ArithCanonicalize.TD037.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD038",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD038.lean",
+      "theorem": "Veir.ArithCanonicalize.TD038.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD039",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD039.lean",
+      "theorem": "Veir.ArithCanonicalize.TD039.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD040",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD040.lean",
+      "theorem": "Veir.ArithCanonicalize.TD040.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD041",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD041.lean",
+      "theorem": "Veir.ArithCanonicalize.TD041.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD042",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD042.lean",
+      "theorem": "Veir.ArithCanonicalize.TD042.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD043",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD043.lean",
+      "theorem": "Veir.ArithCanonicalize.TD043.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD044",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD044.lean",
+      "theorem": "Veir.ArithCanonicalize.TD044.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar select(cmpi predicate, a, b) to the pinned signed/unsigned min/max operation; exact predicate and arm-order match, including poison.",
+      "scope": "general-width scalar integer Puddle instance of pinned TableGen rule"
+    },
+    {
+      "id": "TD049",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD049.lean",
+      "theorem": "Veir.ArithCanonicalize.TD049.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar integer arith.constant instances. The matcher preserves upstream attribute-type guards; OR allows arbitrary source disjoint flags and creates a default-flag target.",
+      "scope": "scalar integer arith.constant instance of pinned upstream pattern"
+    },
+    {
+      "id": "TD052",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/TD052.lean",
+      "theorem": "Veir.ArithCanonicalize.TD052.pattern_valid",
+      "details": "All-width Pattern.Valid proof for scalar integer arith.constant instances. The matcher preserves upstream attribute-type guards; OR allows arbitrary source disjoint flags and creates a default-flag target.",
+      "scope": "scalar integer arith.constant instance of pinned upstream pattern"
+    }
+  ]
+}

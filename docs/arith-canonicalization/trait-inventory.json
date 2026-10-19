@@ -1,0 +1,309 @@
+{
+  "source_commit": "32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "source": "docs/arith-canonicalization/upstream/Operation.cpp and ArithOps.td",
+  "traits": [
+    {
+      "id": "G001",
+      "name": "OpTrait::IsCommutative::foldTrait",
+      "file": "docs/arith-canonicalization/upstream/Operation.cpp",
+      "line_start": 863,
+      "line_end": 878,
+      "description": "For commutative Arith ops, move constant operands to the end in-place, preserving relative order of nonconstant and constant operands.",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.addui_extended",
+        "arith.muli",
+        "arith.mulsi_extended",
+        "arith.mului_extended",
+        "arith.andi",
+        "arith.ori",
+        "arith.xori",
+        "arith.addf",
+        "arith.maximumf",
+        "arith.maxnumf",
+        "arith.maximumnumf",
+        "arith.maxsi",
+        "arith.maxui",
+        "arith.minimumf",
+        "arith.minnumf",
+        "arith.minimumnumf",
+        "arith.minsi",
+        "arith.minui",
+        "arith.mulf"
+      ],
+      "rewrite_opcodes": [
+        "arith.addi",
+        "arith.addui_extended",
+        "arith.muli",
+        "arith.mulsi_extended",
+        "arith.mului_extended",
+        "arith.andi",
+        "arith.ori",
+        "arith.xori",
+        "arith.addf",
+        "arith.maximumf",
+        "arith.maxnumf",
+        "arith.maximumnumf",
+        "arith.maxsi",
+        "arith.maxui",
+        "arith.minimumf",
+        "arith.minnumf",
+        "arith.minimumnumf",
+        "arith.minsi",
+        "arith.minui",
+        "arith.mulf"
+      ],
+      "conditions": "At least two operands; operation has Commutative trait; fold adaptor marks constants by non-null attributes; stable partition changes operand order only if a constant precedes a nonconstant.",
+      "kind": "generic-trait",
+      "source_refs": [
+        {
+          "file": "docs/arith-canonicalization/upstream/Operation.cpp",
+          "line_start": 863,
+          "line_end": 878
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 272,
+          "line_end": 272
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 314,
+          "line_end": 314
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 464,
+          "line_end": 464
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 511,
+          "line_end": 511
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 554,
+          "line_end": 554
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 848,
+          "line_end": 848
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 877,
+          "line_end": 877
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 906,
+          "line_end": 906
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1092,
+          "line_end": 1092
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1156,
+          "line_end": 1156
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1176,
+          "line_end": 1176
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1197,
+          "line_end": 1197
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1225,
+          "line_end": 1225
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1235,
+          "line_end": 1235
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1244,
+          "line_end": 1244
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1264,
+          "line_end": 1264
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1285,
+          "line_end": 1285
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1312,
+          "line_end": 1312
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1322,
+          "line_end": 1322
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 1332,
+          "line_end": 1332
+        }
+      ]
+    },
+    {
+      "id": "G002",
+      "name": "OpTrait::IsIdempotent::foldTrait",
+      "file": "docs/arith-canonicalization/upstream/Operation.cpp",
+      "line_start": 880,
+      "line_end": 892,
+      "description": "andi(x,x) -> x; ori(x,x) -> x.",
+      "match_opcodes": [
+        "arith.andi",
+        "arith.ori"
+      ],
+      "rewrite_opcodes": [],
+      "conditions": "Operation has Idempotent trait and binary operands are the same SSA value. Generic helper also handles unary idempotent op nested with itself, but no Arith idempotent op is unary.",
+      "kind": "generic-trait",
+      "source_refs": [
+        {
+          "file": "docs/arith-canonicalization/upstream/Operation.cpp",
+          "line_start": 880,
+          "line_end": 892
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 848,
+          "line_end": 848
+        },
+        {
+          "file": "docs/arith-canonicalization/upstream/ArithOps.td",
+          "line_start": 877,
+          "line_end": 877
+        }
+      ]
+    },
+    {
+      "id": "G003",
+      "name": "CastOpInterface::foldTrait (identity bitcast)",
+      "file": "docs/arith-canonicalization/upstream/CastInterfaces.cpp",
+      "line_start": 20,
+      "line_end": 36,
+      "description": "arith.bitcast(x : T) : T -> x. The cast-interface trait forwards all operands when operand and result type lists agree exactly. Among verified Arith operations this identity case is available for bitcast; width-changing casts and int/float or int/index casts cannot have identical types, and convertf explicitly rejects identical element types.",
+      "match_opcodes": [
+        "arith.bitcast"
+      ],
+      "rewrite_opcodes": [],
+      "conditions": "Nonempty operands and identical operand/result type lists; inherited CastOpInterface trait. For shaped bitcast the entire types (not only element widths) must agree.",
+      "kind": "generic-trait"
+    },
+    {
+      "id": "G004",
+      "name": "CommonFolders binary poison propagation",
+      "file": "docs/arith-canonicalization/upstream/CommonFolders.h",
+      "line_start": 43,
+      "line_end": 66,
+      "description": "For the listed binary operations, an operand folded to ub.poison yields poison; the other operand need not be constant. Extended arithmetic yields poison for both results (addui/subui have an explicit two-result poison branch).",
+      "match_opcodes": [
+        "arith.addi",
+        "arith.addui_extended",
+        "arith.subui_extended",
+        "arith.subi",
+        "arith.muli",
+        "arith.mulsi_extended",
+        "arith.mului_extended",
+        "arith.divui",
+        "arith.divsi",
+        "arith.ceildivui",
+        "arith.ceildivsi",
+        "arith.floordivsi",
+        "arith.remui",
+        "arith.remsi",
+        "arith.andi",
+        "arith.ori",
+        "arith.xori",
+        "arith.addf",
+        "arith.subf",
+        "arith.maximumf",
+        "arith.maxnumf",
+        "arith.maximumnumf",
+        "arith.maxsi",
+        "arith.maxui",
+        "arith.minimumf",
+        "arith.minnumf",
+        "arith.minimumnumf",
+        "arith.minsi",
+        "arith.minui",
+        "arith.mulf",
+        "arith.divf",
+        "arith.remf",
+        "ub.poison"
+      ],
+      "rewrite_opcodes": [
+        "ub.poison"
+      ],
+      "conditions": "The operation-specific earlier folds must not already have succeeded; the default PoisonAttr helper specialization recognizes a fully poisoned fold-adaptor attribute. Caller-side error flags remain false when the helper bypasses calculation. Excludes shli/shrsi/shrui (their bounded flag remains false, rejecting the fold), cmpi (explicit-result-type helper disables poison propagation and TypedAttr gating), cmpf and select. This separates the poison branch from the numeric constant-evaluation entries.",
+      "kind": "common-folder"
+    },
+    {
+      "id": "G005",
+      "name": "CommonFolders unary/cast poison propagation",
+      "file": "docs/arith-canonicalization/upstream/CommonFolders.h",
+      "line_start": 354,
+      "line_end": 375,
+      "description": "For the listed unary/cast operations, op(ub.poison) -> ub.poison of the result type. Negation/flush use the analogous unary helper; integer/float/index casts use constFoldCastOp.",
+      "match_opcodes": [
+        "arith.negf",
+        "arith.flush_denormals",
+        "arith.extui",
+        "arith.extsi",
+        "arith.extf",
+        "arith.trunci",
+        "arith.truncf",
+        "arith.convertf",
+        "arith.uitofp",
+        "arith.sitofp",
+        "arith.fptoui",
+        "arith.fptosi",
+        "arith.index_cast",
+        "arith.index_castui",
+        "ub.poison"
+      ],
+      "rewrite_opcodes": [
+        "ub.poison"
+      ],
+      "conditions": "The operation-specific earlier folds must not already have succeeded. The helper receives a fully poisoned fold-adaptor attribute and returns it before attempting numeric conversion, bypassing conversion-status checks. Numeric constant branches are listed separately. Bitcast has its own explicit F165 branch.",
+      "kind": "common-folder"
+    },
+    {
+      "id": "G006",
+      "name": "Scaling-cast poison propagation",
+      "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+      "line_start": 1924,
+      "line_end": 1938,
+      "description": "scaling_extf(poison, scale), scaling_extf(in, poison), scaling_truncf(poison, scale), or scaling_truncf(in, poison) -> poison of the result type. Only one operand needs to be a known poison; the other may be unknown.",
+      "match_opcodes": [
+        "arith.scaling_extf",
+        "arith.scaling_truncf",
+        "ub.poison"
+      ],
+      "rewrite_opcodes": [
+        "ub.poison"
+      ],
+      "conditions": "The scale element type must be exactly f8E8M0FNU (checked by both callers before invoking foldScalingCastOp). The helper recognizes a fully poisoned input or scale attribute before checking whether both operands are constant or performing any conversion. This is separate from numeric constant evaluation in F146/F155.",
+      "kind": "common-folder"
+    }
+  ]
+}

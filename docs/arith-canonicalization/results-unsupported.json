@@ -1,0 +1,666 @@
+[
+  {
+    "id": "TD007",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "The rewrite replaces an unused secondary result by an arbitrary value. Puddle Pattern.Valid requires elementwise refinement of every root result; MatchDecl.Models deliberately forgets use-count facts from inspectOperation. It cannot validate the exact upstream dead-result replacement without a liveness-aware semantic model (and the add/sub arbitrary replacement can have a different type).",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD008",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "The rewrite replaces an unused secondary result by an arbitrary value. Puddle Pattern.Valid requires elementwise refinement of every root result; MatchDecl.Models deliberately forgets use-count facts from inspectOperation. It cannot validate the exact upstream dead-result replacement without a liveness-aware semantic model (and the add/sub arbitrary replacement can have a different type).",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD016",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "The rewrite replaces an unused secondary result by an arbitrary value. Puddle Pattern.Valid requires elementwise refinement of every root result; MatchDecl.Models deliberately forgets use-count facts from inspectOperation. It cannot validate the exact upstream dead-result replacement without a liveness-aware semantic model (and the add/sub arbitrary replacement can have a different type).",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD018",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "The rewrite replaces an unused secondary result by an arbitrary value. Puddle Pattern.Valid requires elementwise refinement of every root result; MatchDecl.Models deliberately forgets use-count facts from inspectOperation. It cannot validate the exact upstream dead-result replacement without a liveness-aware semantic model (and the add/sub arbitrary replacement can have a different type).",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD045",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR has no arith.index_cast/index_castui opcode or target-dependent index RuntimeValue/conformance/interpreter. The rewrite cannot be stated with its upstream source and destination semantics in current Puddle.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD046",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR has no arith.index_cast/index_castui opcode or target-dependent index RuntimeValue/conformance/interpreter. The rewrite cannot be stated with its upstream source and destination semantics in current Puddle.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD047",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR has no arith.bitcast opcode or Arith float/integer bitcast interpretation. LLVM bitcast supports a restricted scalar int/byte/pointer subset, which does not provide the upstream Arith floating and shaped bitcast semantics.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD058",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD059",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD060",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD061",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD062",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD063",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD064",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD065",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD066",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "TD067",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the matched Arith floating-point opcodes and their interpreter semantics (including exact APFloat formats, rounding modes, NaN/signed-zero behavior and fast-math). Existing RuntimeValue.float alone does not supply these semantics; the LLVM interpreter also leaves floating arithmetic unsupported. A Puddle Valid proof using failed interpretation would be vacuous, so none is claimed.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP005",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf, arith.maximumf, arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP006",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf, arith.maxnumf, arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP007",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf, arith.maximumnumf, arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP008",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf, arith.minimumf, arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP009",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf, arith.minnumf, arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP010",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf, arith.minimumnumf, arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "CP011",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.cmpf, arith.sitofp, arith.uitofp. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F088",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.negf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F089",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.negf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F090",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.flush_denormals. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F091",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.flush_denormals. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F092",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.addf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F093",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.addf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F094",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.addf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F095",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.subf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F096",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.subf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F097",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.subf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F098",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maximumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F099",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maximumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F100",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maximumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F101",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maxnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F102",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maxnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F103",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maxnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F104",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maximumnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F105",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maximumnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F106",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.maximumnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F107",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minimumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F108",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minimumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F109",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minimumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F110",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F111",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F112",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F113",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minimumnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F114",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minimumnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F115",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.minimumnumf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F132",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.mulf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F133",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.mulf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F134",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.mulf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F135",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.divf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F136",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.divf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F137",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.remf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F144",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F145",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.extf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F146",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.scaling_extf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F151",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F152",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F153",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F154",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.convertf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F155",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.scaling_truncf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F156",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.uitofp. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F157",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.sitofp. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F158",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.fptoui. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F159",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.fptosi. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F160",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the Arith index-cast opcodes and target-dependent index runtime semantics. A proof requires an index width/data-layout model, rather than silently treating index as a fixed integer width.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F161",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the Arith index-cast opcodes and target-dependent index runtime semantics. A proof requires an index width/data-layout model, rather than silently treating index as a fixed integer width.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F162",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the Arith index-cast opcodes and target-dependent index runtime semantics. A proof requires an index width/data-layout model, rather than silently treating index as a fixed integer width.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F163",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks the Arith index-cast opcodes and target-dependent index runtime semantics. A proof requires an index width/data-layout model, rather than silently treating index as a fixed integer width.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F164",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks arith.bitcast and its floating/integer/shaped bitcast interpretation. The restricted LLVM scalar int/byte/pointer bitcast interpretation does not cover this upstream Arith rule.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F165",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks arith.bitcast and its floating/integer/shaped bitcast interpretation. The restricted LLVM scalar int/byte/pointer bitcast interpretation does not cover this upstream Arith rule.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F166",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks arith.bitcast and its floating/integer/shaped bitcast interpretation. The restricted LLVM scalar int/byte/pointer bitcast interpretation does not cover this upstream Arith rule.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F167",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.cmpf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F175",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "This rule specifically requires non-splat dense vector/tensor conditions and dense result attributes. RuntimeValue has no shaped lane values and Arith verification/interpreting is scalar integer only. There is no scalar instance of this branch.",
+    "scope": "Dense vector/tensor rule"
+  },
+  {
+    "id": "F167a",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.cmpf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "F167b",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR lacks Arith floating-point interpreter semantics for arith.cmpf. RuntimeValue.float does not supply APFloat arithmetic, conversions, rounding modes, fast-math, or exact NaN/signed-zero semantics. Failed interpretation is not used to claim a vacuous Valid proof.",
+    "scope": "Full upstream rule"
+  },
+  {
+    "id": "G003",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR has no arith.bitcast opcode or its float/integer/shaped runtime semantics. Adding a vacuous identity proof over failed interpretation would not implement the upstream rule.",
+    "scope": "Full upstream bitcast identity"
+  },
+  {
+    "id": "G006",
+    "status": "unsupported",
+    "lean_file": null,
+    "theorem": null,
+    "details": "VeIR has no arith.scaling_extf/scaling_truncf opcodes or floating-point interpretation, including the f8E8M0FNU scale format. A poison rewrite cannot be verified against a meaningful source interpretation until that support exists.",
+    "scope": "Full upstream rule"
+  }
+]

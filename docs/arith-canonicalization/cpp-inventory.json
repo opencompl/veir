@@ -1,0 +1,3098 @@
+[
+  {
+    "id": "CP001",
+    "name": "NarrowExtremum<TruncI, extsi, maxsi>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "trunci(extremum(ext(x),ext(y))) -> extremum(x,y); concrete extremum is arith.maxsi.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.maxsi",
+      "arith.extsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.maxsi"
+    ],
+    "conditions": "Extremum has one use; both extremum operands are produced by the stated extension; both extension sources have the trunci result type.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP002",
+    "name": "NarrowExtremum<TruncI, extsi, minsi>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "trunci(extremum(ext(x),ext(y))) -> extremum(x,y); concrete extremum is arith.minsi.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.minsi",
+      "arith.extsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.minsi"
+    ],
+    "conditions": "Extremum has one use; both extremum operands are produced by the stated extension; both extension sources have the trunci result type.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP003",
+    "name": "NarrowExtremum<TruncI, extui, maxui>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "trunci(extremum(ext(x),ext(y))) -> extremum(x,y); concrete extremum is arith.maxui.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.maxui",
+      "arith.extui"
+    ],
+    "rewrite_opcodes": [
+      "arith.maxui"
+    ],
+    "conditions": "Extremum has one use; both extremum operands are produced by the stated extension; both extension sources have the trunci result type.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP004",
+    "name": "NarrowExtremum<TruncI, extui, minui>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "trunci(extremum(ext(x),ext(y))) -> extremum(x,y); concrete extremum is arith.minui.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.minui",
+      "arith.extui"
+    ],
+    "rewrite_opcodes": [
+      "arith.minui"
+    ],
+    "conditions": "Extremum has one use; both extremum operands are produced by the stated extension; both extension sources have the trunci result type.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP005",
+    "name": "NarrowExtremum<extf, maximumf>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "truncf(maximumf(extf(x),extf(y))) -> maximumf(x,y).",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf",
+      "arith.extf",
+      "arith.maximumf"
+    ],
+    "rewrite_opcodes": [
+      "arith.maximumf"
+    ],
+    "conditions": "Extremum has one use; both extension inputs equal trunc result type; source FP semantics widen losslessly including signed zero and signaling-NaN behavior; `nnan` permits ignoring NaN representation differences.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP006",
+    "name": "NarrowExtremum<extf, maxnumf>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "truncf(maxnumf(extf(x),extf(y))) -> maxnumf(x,y).",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf",
+      "arith.extf",
+      "arith.maxnumf"
+    ],
+    "rewrite_opcodes": [
+      "arith.maxnumf"
+    ],
+    "conditions": "Extremum has one use; both extension inputs equal trunc result type; source FP semantics widen losslessly including signed zero and signaling-NaN behavior; `nnan` permits ignoring NaN representation differences.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP007",
+    "name": "NarrowExtremum<extf, maximumnumf>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "truncf(maximumnumf(extf(x),extf(y))) -> maximumnumf(x,y).",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf",
+      "arith.extf",
+      "arith.maximumnumf"
+    ],
+    "rewrite_opcodes": [
+      "arith.maximumnumf"
+    ],
+    "conditions": "Extremum has one use; both extension inputs equal trunc result type; source FP semantics widen losslessly including signed zero and signaling-NaN behavior; `nnan` permits ignoring NaN representation differences.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP008",
+    "name": "NarrowExtremum<extf, minimumf>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "truncf(minimumf(extf(x),extf(y))) -> minimumf(x,y).",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf",
+      "arith.extf",
+      "arith.minimumf"
+    ],
+    "rewrite_opcodes": [
+      "arith.minimumf"
+    ],
+    "conditions": "Extremum has one use; both extension inputs equal trunc result type; source FP semantics widen losslessly including signed zero and signaling-NaN behavior; `nnan` permits ignoring NaN representation differences.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP009",
+    "name": "NarrowExtremum<extf, minnumf>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "truncf(minnumf(extf(x),extf(y))) -> minnumf(x,y).",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf",
+      "arith.extf",
+      "arith.minnumf"
+    ],
+    "rewrite_opcodes": [
+      "arith.minnumf"
+    ],
+    "conditions": "Extremum has one use; both extension inputs equal trunc result type; source FP semantics widen losslessly including signed zero and signaling-NaN behavior; `nnan` permits ignoring NaN representation differences.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP010",
+    "name": "NarrowExtremum<extf, minimumnumf>",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1369,
+    "line_end": 1427,
+    "description": "truncf(minimumnumf(extf(x),extf(y))) -> minimumnumf(x,y).",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf",
+      "arith.extf",
+      "arith.minimumnumf"
+    ],
+    "rewrite_opcodes": [
+      "arith.minimumnumf"
+    ],
+    "conditions": "Extremum has one use; both extension inputs equal trunc result type; source FP semantics widen losslessly including signed zero and signaling-NaN behavior; `nnan` permits ignoring NaN representation differences.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP011",
+    "name": "CmpFIntToFPConst",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2734,
+    "line_end": 3017,
+    "description": "cmpf(pred, sitofp(x)|uitofp(x), C) becomes an integer comparison with truncTowardZero(C), or an i1 constant. ORD -> true and UNO -> false. Above the integer maximum, ne/lt/le -> true and eq/gt/ge -> false; below the minimum, ne/gt/ge -> true and eq/lt/le -> false. For a fractional C, eq -> false and ne -> true; signed comparisons use < ceil(C) or <= floor(C), and > floor(C) or >= ceil(C), implemented by adjusting the predicate around truncTowardZero(C). Unsigned negative thresholds collapse to constants. For integral C (including -0.0), retain the equivalent signed/unsigned integer predicate. Ordered/unordered variants share the integer predicate because neither input is NaN under the guards.",
+    "match_opcodes": [
+      "arith.cmpf",
+      "arith.sitofp",
+      "arith.uitofp",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.cmpi",
+      "arith.constant"
+    ],
+    "conditions": "Scalar RHS is a non-NaN FloatAttr with positive mantissa width m; LHS is sitofp/uitofp of an integer of width w (value bits v=w-1 signed, w unsigned). If w>m, reject finite thresholds with m <= ilogb(C) <= v, and reject infinite thresholds if the largest finite FP exponent is < v. Then apply range checks against FP-converted integer extrema. In-range C must convert toward zero without opInvalidOp. The implementation handles ORD/UNO and the twelve relational predicates; convertToIntegerPredicate has an unreachable default for other predicates.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP012",
+    "name": "SelectToExtUI1",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3029,
+    "line_end": 3060,
+    "description": "select(cond, 1, 0) -> extui(cond).",
+    "match_opcodes": [
+      "arith.select",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.extui"
+    ],
+    "conditions": "Result type is integer and not i1; true/false arms match the stated constants.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "CP013",
+    "name": "SelectToExtUI2",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3029,
+    "line_end": 3060,
+    "description": "select(cond, 0, 1) -> extui(xori(cond, 1)).",
+    "match_opcodes": [
+      "arith.select",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.extui",
+      "arith.xori",
+      "arith.constant"
+    ],
+    "conditions": "Result type is integer and not i1; true/false arms match the stated constants.",
+    "kind": "cpp-pattern"
+  },
+  {
+    "id": "F001",
+    "name": "arith::AddIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 433,
+    "line_end": 451,
+    "description": "addi(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.addi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches scalar or splat zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F002",
+    "name": "arith::AddIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 433,
+    "line_end": 451,
+    "description": "addi(subi(a, b), b) -> a.",
+    "match_opcodes": [
+      "arith.addi",
+      "arith.subi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is subi(a,b), and outer RHS is exactly its RHS operand.",
+    "kind": "fold"
+  },
+  {
+    "id": "F003",
+    "name": "arith::AddIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 433,
+    "line_end": 451,
+    "description": "addi(b, subi(a, b)) -> a.",
+    "match_opcodes": [
+      "arith.addi",
+      "arith.subi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is subi(a,b), and outer LHS is exactly its RHS operand.",
+    "kind": "fold"
+  },
+  {
+    "id": "F004",
+    "name": "arith::AddIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 433,
+    "line_end": 451,
+    "description": "Constant-fold addi over integer attributes: (a,b) -> a+b modulo result bit width.",
+    "match_opcodes": [
+      "arith.addi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible IntegerAttr values; generic constFold helper handles scalar and shaped elementwise cases, and propagates poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F005",
+    "name": "arith::AddUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 476,
+    "line_end": 516,
+    "description": "addui_extended(x, 0) -> (x, false).",
+    "match_opcodes": [
+      "arith.addui_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches zero; false is zero attribute of overflow result type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F006",
+    "name": "arith::AddUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 476,
+    "line_end": 516,
+    "description": "addui_extended(constant_a, constant_b) -> (constant_sum, constant_carry), carry = unsigned sum < lhs.",
+    "match_opcodes": [
+      "arith.addui_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constant-fold as IntegerAttr; if sum is poison, both results are poison; otherwise carry folds over lhs and sum using i1 same-shape type; failure to materialize carry causes fold failure.",
+    "kind": "fold"
+  },
+  {
+    "id": "F007",
+    "name": "arith::SubUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 540,
+    "line_end": 595,
+    "description": "subui_extended(x, 0) -> (x, false).",
+    "match_opcodes": [
+      "arith.subui_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches zero; false has borrow result type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F008",
+    "name": "arith::SubUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 540,
+    "line_end": 595,
+    "description": "subui_extended(x, x) -> (0, false).",
+    "match_opcodes": [
+      "arith.subui_extended"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands are identical; result shape must be static if shaped; zero attr must be buildable.",
+    "kind": "fold"
+  },
+  {
+    "id": "F009",
+    "name": "arith::SubUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 540,
+    "line_end": 595,
+    "description": "subui_extended(constant_a, constant_b) -> (constant_diff, constant_borrow), borrow = lhs < rhs unsigned.",
+    "match_opcodes": [
+      "arith.subui_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to IntegerAttr; poison diff propagates to both results; otherwise borrow is elementwise over operands with i1 same-shape result; if borrow cannot fold, fail.",
+    "kind": "fold"
+  },
+  {
+    "id": "F010",
+    "name": "arith::SubIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 606,
+    "line_end": 635,
+    "description": "subi(x, x) -> 0.",
+    "match_opcodes": [
+      "arith.subi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; scalar or static-shaped result only; dynamic-shaped result cannot materialize zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F011",
+    "name": "arith::SubIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 606,
+    "line_end": 635,
+    "description": "subi(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.subi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F012",
+    "name": "arith::SubIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 606,
+    "line_end": 635,
+    "description": "subi(addi(a, b), b) -> a.",
+    "match_opcodes": [
+      "arith.subi",
+      "arith.addi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is addi(a,b), outer RHS equals addi RHS.",
+    "kind": "fold"
+  },
+  {
+    "id": "F013",
+    "name": "arith::SubIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 606,
+    "line_end": 635,
+    "description": "subi(addi(a, b), a) -> b.",
+    "match_opcodes": [
+      "arith.subi",
+      "arith.addi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is addi(a,b), outer RHS equals addi LHS.",
+    "kind": "fold"
+  },
+  {
+    "id": "F014",
+    "name": "arith::SubIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 606,
+    "line_end": 635,
+    "description": "subi(a, subi(a, b)) -> b.",
+    "match_opcodes": [
+      "arith.subi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is subi(a,b), outer LHS equals inner LHS.",
+    "kind": "fold"
+  },
+  {
+    "id": "F015",
+    "name": "arith::SubIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 606,
+    "line_end": 635,
+    "description": "Constant-fold subi: (a,b) -> a-b modulo result bit width.",
+    "match_opcodes": [
+      "arith.subi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible IntegerAttr values; constFoldBinaryOp semantics apply, including generic poison propagation.",
+    "kind": "fold"
+  },
+  {
+    "id": "F016",
+    "name": "arith::MulIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 648,
+    "line_end": 661,
+    "description": "muli(x, 0) -> 0.",
+    "match_opcodes": [
+      "arith.muli",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches zero; returns RHS attribute.",
+    "kind": "fold"
+  },
+  {
+    "id": "F017",
+    "name": "arith::MulIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 648,
+    "line_end": 661,
+    "description": "muli(x, 1) -> x.",
+    "match_opcodes": [
+      "arith.muli",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F018",
+    "name": "arith::MulIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 648,
+    "line_end": 661,
+    "description": "Constant-fold muli: (a,b) -> a*b modulo result bit width.",
+    "match_opcodes": [
+      "arith.muli",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible IntegerAttr values; the folder deliberately does not handle overflow flags/overflow case beyond modular result semantics.",
+    "kind": "fold"
+  },
+  {
+    "id": "F019",
+    "name": "arith::MulSIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 706,
+    "line_end": 732,
+    "description": "mulsi_extended(x, 0) -> (0, 0).",
+    "match_opcodes": [
+      "arith.mulsi_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches zero; reuse zero attribute for both results.",
+    "kind": "fold"
+  },
+  {
+    "id": "F020",
+    "name": "arith::MulSIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 706,
+    "line_end": 732,
+    "description": "Constant-fold mulsi_extended constants to (low product, signed high product).",
+    "match_opcodes": [
+      "arith.mulsi_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold via IntegerAttr low product; high product uses APIntOps::mulhs and is asserted available.",
+    "kind": "fold"
+  },
+  {
+    "id": "F021",
+    "name": "arith::MulUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 750,
+    "line_end": 785,
+    "description": "mului_extended(x, 0) -> (0, 0).",
+    "match_opcodes": [
+      "arith.mului_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches zero; reuse zero attribute.",
+    "kind": "fold"
+  },
+  {
+    "id": "F022",
+    "name": "arith::MulUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 750,
+    "line_end": 785,
+    "description": "mului_extended(x, 1) -> (x, 0).",
+    "match_opcodes": [
+      "arith.mului_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches one; zero attribute must be buildable for LHS type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F023",
+    "name": "arith::MulUIExtendedOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 750,
+    "line_end": 785,
+    "description": "Constant-fold mului_extended constants to (low product, unsigned high product).",
+    "match_opcodes": [
+      "arith.mului_extended",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold via IntegerAttr low product; high product uses APIntOps::mulhu and is asserted available.",
+    "kind": "fold"
+  },
+  {
+    "id": "F024",
+    "name": "arith::DivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 812,
+    "line_end": 845,
+    "description": "divui(x, 1) -> x.",
+    "match_opcodes": [
+      "arith.divui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F025",
+    "name": "arith::DivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 812,
+    "line_end": 845,
+    "description": "divui(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.divui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; division by zero is undefined, so choosing zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F026",
+    "name": "arith::DivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 812,
+    "line_end": 845,
+    "description": "divui(x, x) -> 1.",
+    "match_opcodes": [
+      "arith.divui"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; includes x=0 where source is undefined, so constant 1 is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F027",
+    "name": "arith::DivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 812,
+    "line_end": 845,
+    "description": "(a*b)/b -> a for divui, when multiplication carries nuw.",
+    "match_opcodes": [
+      "arith.divui",
+      "arith.muli"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is arith.muli with one operand identical to divisor RHS; inner muli must have nuw overflow flag; operand order can be either.",
+    "kind": "fold"
+  },
+  {
+    "id": "F028",
+    "name": "arith::DivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 812,
+    "line_end": 845,
+    "description": "Constant-fold divui: unsigned quotient.",
+    "match_opcodes": [
+      "arith.divui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to IntegerAttr and divisor is nonzero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F029",
+    "name": "arith::DivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 864,
+    "line_end": 897,
+    "description": "divsi(x, 1) -> x.",
+    "match_opcodes": [
+      "arith.divsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F030",
+    "name": "arith::DivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 864,
+    "line_end": 897,
+    "description": "divsi(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.divsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; division by zero is undefined, so choosing zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F031",
+    "name": "arith::DivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 864,
+    "line_end": 897,
+    "description": "divsi(x, x) -> 1.",
+    "match_opcodes": [
+      "arith.divsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; includes x=0 where source is undefined, so constant 1 is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F032",
+    "name": "arith::DivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 864,
+    "line_end": 897,
+    "description": "(a*b)/b -> a for divsi, when multiplication carries nsw.",
+    "match_opcodes": [
+      "arith.divsi",
+      "arith.muli"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is arith.muli with one operand identical to divisor RHS; inner muli must have nsw overflow flag; operand order can be either.",
+    "kind": "fold"
+  },
+  {
+    "id": "F033",
+    "name": "arith::DivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 864,
+    "line_end": 897,
+    "description": "Constant-fold divsi: signed quotient.",
+    "match_opcodes": [
+      "arith.divsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to IntegerAttr and divisor is nonzero; signed division must also be representable (MIN / -1 does not fold).",
+    "kind": "fold"
+  },
+  {
+    "id": "F034",
+    "name": "arith::CeilDivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 920,
+    "line_end": 952,
+    "description": "ceildivui(x, 1) -> x.",
+    "match_opcodes": [
+      "arith.ceildivui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F035",
+    "name": "arith::CeilDivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 920,
+    "line_end": 952,
+    "description": "ceildivui(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.ceildivui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; x=0 case is undefined and refining to zero is valid.",
+    "kind": "fold"
+  },
+  {
+    "id": "F036",
+    "name": "arith::CeilDivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 920,
+    "line_end": 952,
+    "description": "ceildivui(x, x) -> 1.",
+    "match_opcodes": [
+      "arith.ceildivui"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; x=0 is undefined and replacement is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F037",
+    "name": "arith::CeilDivUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 920,
+    "line_end": 952,
+    "description": "Constant-fold unsigned ceil division: q=a/b if divisible, else q+1.",
+    "match_opcodes": [
+      "arith.ceildivui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constants; divisor nonzero; increment overflow rejects fold.",
+    "kind": "fold"
+  },
+  {
+    "id": "F038",
+    "name": "arith::CeilDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 962,
+    "line_end": 1013,
+    "description": "ceildivsi(x, 1) -> x.",
+    "match_opcodes": [
+      "arith.ceildivsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F039",
+    "name": "arith::CeilDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 962,
+    "line_end": 1013,
+    "description": "ceildivsi(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.ceildivsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; x=0 is undefined and replacement is valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F040",
+    "name": "arith::CeilDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 962,
+    "line_end": 1013,
+    "description": "ceildivsi(x, x) -> 1.",
+    "match_opcodes": [
+      "arith.ceildivsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; x=0 is undefined and replacement is valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F041",
+    "name": "arith::CeilDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 962,
+    "line_end": 1013,
+    "description": "Constant-fold signed ceil division, correcting truncating quotient by +1 only for positive inexact quotient.",
+    "match_opcodes": [
+      "arith.ceildivsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constants; divisor nonzero; MIN/-1 overflow rejects; inexact correction is checked for overflow.",
+    "kind": "fold"
+  },
+  {
+    "id": "F042",
+    "name": "arith::FloorDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1023,
+    "line_end": 1052,
+    "description": "floordivsi(x, 1) -> x.",
+    "match_opcodes": [
+      "arith.floordivsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F043",
+    "name": "arith::FloorDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1023,
+    "line_end": 1052,
+    "description": "floordivsi(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.floordivsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; x=0 undefined and replacement valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F044",
+    "name": "arith::FloorDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1023,
+    "line_end": 1052,
+    "description": "floordivsi(x, x) -> 1.",
+    "match_opcodes": [
+      "arith.floordivsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; x=0 undefined and replacement valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F045",
+    "name": "arith::FloorDivSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1023,
+    "line_end": 1052,
+    "description": "Constant-fold signed floor division.",
+    "match_opcodes": [
+      "arith.floordivsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constants; divisor nonzero; signed overflow (MIN/-1) rejects fold.",
+    "kind": "fold"
+  },
+  {
+    "id": "F046",
+    "name": "arith::RemUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1058,
+    "line_end": 1084,
+    "description": "remui(x, 1) -> 0.",
+    "match_opcodes": [
+      "arith.remui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F047a",
+    "name": "arith::RemUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1058,
+    "line_end": 1084,
+    "description": "remui(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.remui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "LHS matches zero; if x=0, source is undefined, so zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F047b",
+    "name": "arith::RemUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1058,
+    "line_end": 1084,
+    "description": "remui(x, x) -> 0.",
+    "match_opcodes": [
+      "arith.remui"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands are identical; when x=0 source is undefined, so zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F048",
+    "name": "arith::RemUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1058,
+    "line_end": 1084,
+    "description": "Constant-fold unsigned remainder.",
+    "match_opcodes": [
+      "arith.remui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible integer attributes; divisor is nonzero. The common helper also propagates poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F049",
+    "name": "arith::RemSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1094,
+    "line_end": 1120,
+    "description": "remsi(x, 1) -> 0.",
+    "match_opcodes": [
+      "arith.remsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS matches one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F050a",
+    "name": "arith::RemSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1094,
+    "line_end": 1120,
+    "description": "remsi(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.remsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "LHS matches zero; if x=0, source is undefined, so zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F050b",
+    "name": "arith::RemSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1094,
+    "line_end": 1120,
+    "description": "remsi(x, x) -> 0.",
+    "match_opcodes": [
+      "arith.remsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands are identical; when x=0 source is undefined, so zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F051",
+    "name": "arith::RemSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1094,
+    "line_end": 1120,
+    "description": "Constant-fold signed remainder.",
+    "match_opcodes": [
+      "arith.remsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to integer attributes; the divisor must be nonzero. The pinned folder computes zero for INT_MIN % -1. Verification preserves VeIR's original semantics, as requested: that source case is undefined behavior, so replacing it with zero is a refinement. The common helper also handles poison propagation.",
+    "kind": "fold"
+  },
+  {
+    "id": "F052",
+    "name": "arith::AndIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1154,
+    "line_end": 1181,
+    "description": "andi(x, 0) -> 0.",
+    "match_opcodes": [
+      "arith.andi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches scalar/splat zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F053",
+    "name": "arith::AndIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1154,
+    "line_end": 1181,
+    "description": "andi(x, all_ones) -> x.",
+    "match_opcodes": [
+      "arith.andi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is IntegerAttr constant whose APInt is all ones.",
+    "kind": "fold"
+  },
+  {
+    "id": "F054",
+    "name": "arith::AndIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1154,
+    "line_end": 1181,
+    "description": "andi(x, xori(x, all_ones)) -> 0.",
+    "match_opcodes": [
+      "arith.andi",
+      "arith.xori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS is xori with LHS equal to outer LHS and XOR mask all ones.",
+    "kind": "fold"
+  },
+  {
+    "id": "F055",
+    "name": "arith::AndIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1154,
+    "line_end": 1181,
+    "description": "andi(xori(x, all_ones), x) -> 0.",
+    "match_opcodes": [
+      "arith.andi",
+      "arith.xori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "LHS is xori with LHS equal to outer RHS and XOR mask all ones.",
+    "kind": "fold"
+  },
+  {
+    "id": "F056",
+    "name": "arith::AndIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1154,
+    "line_end": 1181,
+    "description": "andi(a, andi(a, b)) -> andi(a, b), in either operand ordering.",
+    "match_opcodes": [
+      "arith.andi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "One operand is nested andi; other operand equals either nested operand; helper checks both outer and inner operand order.",
+    "kind": "fold"
+  },
+  {
+    "id": "F057",
+    "name": "arith::AndIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1154,
+    "line_end": 1181,
+    "description": "Constant-fold andi: a & b.",
+    "match_opcodes": [
+      "arith.andi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible IntegerAttr values; generic const fold supports shaped elementwise values and poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F058",
+    "name": "arith::OrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1187,
+    "line_end": 1216,
+    "description": "ori(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.ori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is zero IntegerAttr.",
+    "kind": "fold"
+  },
+  {
+    "id": "F059",
+    "name": "arith::OrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1187,
+    "line_end": 1216,
+    "description": "ori(x, all_ones) -> all_ones.",
+    "match_opcodes": [
+      "arith.ori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS is all-ones IntegerAttr.",
+    "kind": "fold"
+  },
+  {
+    "id": "F060",
+    "name": "arith::OrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1187,
+    "line_end": 1216,
+    "description": "ori(x, xori(x, all_ones)) -> all_ones.",
+    "match_opcodes": [
+      "arith.ori",
+      "arith.xori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is xori with common x and all-ones mask; returns the XOR constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F061",
+    "name": "arith::OrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1187,
+    "line_end": 1216,
+    "description": "ori(xori(x, all_ones), x) -> all_ones.",
+    "match_opcodes": [
+      "arith.ori",
+      "arith.xori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is xori with common x and all-ones mask; returns the XOR constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F062",
+    "name": "arith::OrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1187,
+    "line_end": 1216,
+    "description": "ori(a, ori(a, b)) -> ori(a, b), in either operand ordering.",
+    "match_opcodes": [
+      "arith.ori"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "One operand is nested ori; other equals either nested operand; helper checks both orders.",
+    "kind": "fold"
+  },
+  {
+    "id": "F063",
+    "name": "arith::OrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1187,
+    "line_end": 1216,
+    "description": "Constant-fold ori: a | b.",
+    "match_opcodes": [
+      "arith.ori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible IntegerAttr values; generic const fold supports shaped elementwise values and poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F064",
+    "name": "arith::XOrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1222,
+    "line_end": 1254,
+    "description": "xori(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.xori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches scalar/splat zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F065",
+    "name": "arith::XOrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1222,
+    "line_end": 1254,
+    "description": "xori(x, x) -> 0.",
+    "match_opcodes": [
+      "arith.xori"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; scalar or static-shaped type only; dynamic-shaped result cannot materialize zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F066",
+    "name": "arith::XOrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1222,
+    "line_end": 1254,
+    "description": "xori(xori(x, a), a) -> x, including both inner operand orders.",
+    "match_opcodes": [
+      "arith.xori"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is xori and either inner operand equals outer RHS.",
+    "kind": "fold"
+  },
+  {
+    "id": "F067",
+    "name": "arith::XOrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1222,
+    "line_end": 1254,
+    "description": "xori(a, xori(x, a)) -> x, including both inner operand orders.",
+    "match_opcodes": [
+      "arith.xori"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is xori and either inner operand equals outer LHS.",
+    "kind": "fold"
+  },
+  {
+    "id": "F068",
+    "name": "arith::XOrIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1222,
+    "line_end": 1254,
+    "description": "Constant-fold xori: a ^ b.",
+    "match_opcodes": [
+      "arith.xori",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to compatible IntegerAttr values; generic const fold supports shaped elementwise values and poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F069",
+    "name": "arith::ShLIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3209,
+    "line_end": 3230,
+    "description": "shli(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.shli",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F070",
+    "name": "arith::ShLIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3209,
+    "line_end": 3230,
+    "description": "shli(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.shli",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; even if shift count is out of range, replacing possible poison with zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F071",
+    "name": "arith::ShLIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3209,
+    "line_end": 3230,
+    "description": "Constant-fold shli: a << b.",
+    "match_opcodes": [
+      "arith.shli",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constant and shift count b is less than bit width; out-of-range shift count is not folded (no poison is materialized).",
+    "kind": "fold"
+  },
+  {
+    "id": "F072",
+    "name": "arith::ShRUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3236,
+    "line_end": 3261,
+    "description": "shrui(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.shrui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F073",
+    "name": "arith::ShRUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3236,
+    "line_end": 3261,
+    "description": "shrui(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.shrui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; out-of-range shift count would be poison, so zero is a valid refinement.",
+    "kind": "fold"
+  },
+  {
+    "id": "F074",
+    "name": "arith::ShRUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3236,
+    "line_end": 3261,
+    "description": "shrui(x, x) -> 0.",
+    "match_opcodes": [
+      "arith.shrui"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; for in-range unsigned x, x >> x is zero; out-of-range source is poison and can refine to zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F075",
+    "name": "arith::ShRUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3236,
+    "line_end": 3261,
+    "description": "Constant-fold shrui: logical a >> b.",
+    "match_opcodes": [
+      "arith.shrui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constant and b < bit width; out-of-range shift count is not folded.",
+    "kind": "fold"
+  },
+  {
+    "id": "F076",
+    "name": "arith::ShRSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3267,
+    "line_end": 3297,
+    "description": "shrsi(x, 0) -> x.",
+    "match_opcodes": [
+      "arith.shrsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F077",
+    "name": "arith::ShRSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3267,
+    "line_end": 3297,
+    "description": "shrsi(0, x) -> 0.",
+    "match_opcodes": [
+      "arith.shrsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS matches zero; out-of-range shift count yields poison and can refine to zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F078",
+    "name": "arith::ShRSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3267,
+    "line_end": 3297,
+    "description": "shrsi(x, x) -> 0.",
+    "match_opcodes": [
+      "arith.shrsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operands identical; in-range x is nonnegative and x >> x is zero; out-of-range source can refine from poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F079",
+    "name": "arith::ShRSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3267,
+    "line_end": 3297,
+    "description": "shrsi(-1, x) -> -1.",
+    "match_opcodes": [
+      "arith.shrsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "LHS is all-ones integer constant; any in-range arithmetic shift is all ones; out-of-range source poison can refine to this constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F080",
+    "name": "arith::ShRSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3267,
+    "line_end": 3297,
+    "description": "Constant-fold shrsi: arithmetic a >> b.",
+    "match_opcodes": [
+      "arith.shrsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constant and b < bit width; out-of-range shift count is not folded.",
+    "kind": "fold"
+  },
+  {
+    "id": "F081",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "cmpi(pred, x, x) -> bool(pred is true on equal operands).",
+    "match_opcodes": [
+      "arith.cmpi"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "LHS and RHS identical; true for eq/sle/sge/ule/uge, false for ne/slt/sgt/ult/ugt.",
+    "kind": "fold"
+  },
+  {
+    "id": "F082",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "cmpi(ne, extsi(x:i1), 0) -> x.",
+    "match_opcodes": [
+      "arith.cmpi",
+      "arith.extsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS zero; LHS is extsi from 1-bit integer (scalar or vector element width); predicate ne.",
+    "kind": "fold"
+  },
+  {
+    "id": "F083",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "cmpi(ne, extui(x:i1), 0) -> x.",
+    "match_opcodes": [
+      "arith.cmpi",
+      "arith.extui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS zero; LHS is extui from 1-bit integer; predicate ne.",
+    "kind": "fold"
+  },
+  {
+    "id": "F084",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "cmpi(ne, x:i1, 0) -> x.",
+    "match_opcodes": [
+      "arith.cmpi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS zero; LHS element type i1; predicate ne.",
+    "kind": "fold"
+  },
+  {
+    "id": "F085",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "cmpi(eq, x:i1, 1) -> x.",
+    "match_opcodes": [
+      "arith.cmpi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS one; LHS element type i1; predicate eq.",
+    "kind": "fold"
+  },
+  {
+    "id": "F086",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "Move constant LHS to RHS and invert order predicate in-place: cmpi(pred,c,x) -> cmpi(invert_order(pred),x,c).",
+    "match_opcodes": [
+      "arith.cmpi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.cmpi"
+    ],
+    "conditions": "Adaptor has constant LHS and nonconstant RHS; maps slt\u2194sgt, sle\u2194sge, ult\u2194ugt, ule\u2194uge; eq/ne unchanged; updates predicate and swaps operands, returns same op.",
+    "kind": "fold"
+  },
+  {
+    "id": "F087",
+    "name": "arith::CmpIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2584,
+    "line_end": 2658,
+    "description": "Constant-fold cmpi using the selected signed/unsigned/equality predicate.",
+    "match_opcodes": [
+      "arith.cmpi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands fold to integer attributes; result is i1 with same shape as integer operands.",
+    "kind": "fold"
+  },
+  {
+    "id": "F088",
+    "name": "arith::NegFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1266,
+    "line_end": 1276,
+    "description": "negf(negf(x)) -> x.",
+    "match_opcodes": [
+      "arith.negf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operand is defined by arith.negf.",
+    "kind": "fold"
+  },
+  {
+    "id": "F089",
+    "name": "arith::NegFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1266,
+    "line_end": 1276,
+    "description": "Constant-fold negf by APFloat unary negation.",
+    "match_opcodes": [
+      "arith.negf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operand constant and its FP semantics have signed representation; otherwise conditional folder fails.",
+    "kind": "fold"
+  },
+  {
+    "id": "F090",
+    "name": "arith::FlushDenormalsOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1282,
+    "line_end": 1298,
+    "description": "flush_denormals(flush_denormals(x)) -> flush_denormals(x) (return inner op result).",
+    "match_opcodes": [
+      "arith.flush_denormals"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operand is defined by arith.flush_denormals.",
+    "kind": "fold"
+  },
+  {
+    "id": "F091",
+    "name": "arith::FlushDenormalsOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1282,
+    "line_end": 1298,
+    "description": "Constant-fold flush_denormals: denormal -> signed zero; other constants unchanged.",
+    "match_opcodes": [
+      "arith.flush_denormals",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Float constant; sign of denormal is preserved when creating zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F092",
+    "name": "arith::AddFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1304,
+    "line_end": 1319,
+    "description": "addf(x, -0.0) -> x.",
+    "match_opcodes": [
+      "arith.addf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is negative-zero float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F093",
+    "name": "arith::AddFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1304,
+    "line_end": 1319,
+    "description": "addf(x, +0.0) -> x.",
+    "match_opcodes": [
+      "arith.addf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is positive-zero float constant and fastmath contains nsz.",
+    "kind": "fold"
+  },
+  {
+    "id": "F094",
+    "name": "arith::AddFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1304,
+    "line_end": 1319,
+    "description": "Constant-fold addf with the op rounding mode.",
+    "match_opcodes": [
+      "arith.addf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat add uses converted arith rounding mode.",
+    "kind": "fold"
+  },
+  {
+    "id": "F095",
+    "name": "arith::SubFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1330,
+    "line_end": 1351,
+    "description": "subf(x, +0.0) -> x.",
+    "match_opcodes": [
+      "arith.subf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is positive-zero float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F096",
+    "name": "arith::SubFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1330,
+    "line_end": 1351,
+    "description": "subf(x, -0.0) -> x.",
+    "match_opcodes": [
+      "arith.subf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS negative zero and fastmath contains nsz.",
+    "kind": "fold"
+  },
+  {
+    "id": "F097",
+    "name": "arith::SubFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1330,
+    "line_end": 1351,
+    "description": "Constant-fold subf using op rounding mode.",
+    "match_opcodes": [
+      "arith.subf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands constants; if target FP semantics lack signed representation and a < b (negative difference), APFloat path rejects the fold; otherwise subtraction is rounded per op mode.",
+    "kind": "fold"
+  },
+  {
+    "id": "F098",
+    "name": "arith::MaximumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1429,
+    "line_end": 1439,
+    "description": "maximumf(x,x) -> x.",
+    "match_opcodes": [
+      "arith.maximumf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F099",
+    "name": "arith::MaximumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1429,
+    "line_end": 1439,
+    "description": "maximumf(x, -infinity) -> x.",
+    "match_opcodes": [
+      "arith.maximumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches -infinity float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F100",
+    "name": "arith::MaximumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1429,
+    "line_end": 1439,
+    "description": "Constant-fold maximumf with llvm::maximum.",
+    "match_opcodes": [
+      "arith.maximumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat semantics are those of llvm::maximum.",
+    "kind": "fold"
+  },
+  {
+    "id": "F101",
+    "name": "arith::MaxNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1445,
+    "line_end": 1455,
+    "description": "maxnumf(x,x) -> x.",
+    "match_opcodes": [
+      "arith.maxnumf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F102",
+    "name": "arith::MaxNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1445,
+    "line_end": 1455,
+    "description": "maxnumf(x, NaN) -> x.",
+    "match_opcodes": [
+      "arith.maxnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches NaN float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F103",
+    "name": "arith::MaxNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1445,
+    "line_end": 1455,
+    "description": "Constant-fold maxnumf with llvm::maxnum.",
+    "match_opcodes": [
+      "arith.maxnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat semantics are those of llvm::maxnum.",
+    "kind": "fold"
+  },
+  {
+    "id": "F104",
+    "name": "arith::MaximumNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1461,
+    "line_end": 1471,
+    "description": "maximumnumf(x,x) -> x.",
+    "match_opcodes": [
+      "arith.maximumnumf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F105",
+    "name": "arith::MaximumNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1461,
+    "line_end": 1471,
+    "description": "maximumnumf(x, NaN) -> x.",
+    "match_opcodes": [
+      "arith.maximumnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches NaN float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F106",
+    "name": "arith::MaximumNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1461,
+    "line_end": 1471,
+    "description": "Constant-fold maximumnumf with llvm::maximumnum.",
+    "match_opcodes": [
+      "arith.maximumnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat semantics are those of llvm::maximumnum.",
+    "kind": "fold"
+  },
+  {
+    "id": "F107",
+    "name": "arith::MinimumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1523,
+    "line_end": 1533,
+    "description": "minimumf(x,x) -> x.",
+    "match_opcodes": [
+      "arith.minimumf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F108",
+    "name": "arith::MinimumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1523,
+    "line_end": 1533,
+    "description": "minimumf(x, +infinity) -> x.",
+    "match_opcodes": [
+      "arith.minimumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches +infinity float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F109",
+    "name": "arith::MinimumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1523,
+    "line_end": 1533,
+    "description": "Constant-fold minimumf with llvm::minimum.",
+    "match_opcodes": [
+      "arith.minimumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat semantics are those of llvm::minimum.",
+    "kind": "fold"
+  },
+  {
+    "id": "F110",
+    "name": "arith::MinNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1539,
+    "line_end": 1549,
+    "description": "minnumf(x,x) -> x.",
+    "match_opcodes": [
+      "arith.minnumf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F111",
+    "name": "arith::MinNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1539,
+    "line_end": 1549,
+    "description": "minnumf(x, NaN) -> x.",
+    "match_opcodes": [
+      "arith.minnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches NaN float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F112",
+    "name": "arith::MinNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1539,
+    "line_end": 1549,
+    "description": "Constant-fold minnumf with llvm::minnum.",
+    "match_opcodes": [
+      "arith.minnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat semantics are those of llvm::minnum.",
+    "kind": "fold"
+  },
+  {
+    "id": "F113",
+    "name": "arith::MinimumNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1555,
+    "line_end": 1565,
+    "description": "minimumnumf(x,x) -> x.",
+    "match_opcodes": [
+      "arith.minimumnumf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F114",
+    "name": "arith::MinimumNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1555,
+    "line_end": 1565,
+    "description": "minimumnumf(x, NaN) -> x.",
+    "match_opcodes": [
+      "arith.minimumnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches NaN float constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F115",
+    "name": "arith::MinimumNumFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1555,
+    "line_end": 1565,
+    "description": "Constant-fold minimumnumf with llvm::minimumnum.",
+    "match_opcodes": [
+      "arith.minimumnumf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr-compatible constants; APFloat semantics are those of llvm::minimumnum.",
+    "kind": "fold"
+  },
+  {
+    "id": "F116",
+    "name": "arith::MaxSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1477,
+    "line_end": 1494,
+    "description": "maxsi(x,x) -> x.",
+    "match_opcodes": [
+      "arith.maxsi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F117",
+    "name": "arith::MaxSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1477,
+    "line_end": 1494,
+    "description": "maxsi(x, max signed value) -> return RHS.",
+    "match_opcodes": [
+      "arith.maxsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F118",
+    "name": "arith::MaxSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1477,
+    "line_end": 1494,
+    "description": "maxsi(x, min signed value) -> return LHS.",
+    "match_opcodes": [
+      "arith.maxsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F119",
+    "name": "arith::MaxSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1477,
+    "line_end": 1494,
+    "description": "Constant-fold maxsi to signed max.",
+    "match_opcodes": [
+      "arith.maxsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands IntegerAttr-compatible constants.",
+    "kind": "fold"
+  },
+  {
+    "id": "F120",
+    "name": "arith::MaxUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1500,
+    "line_end": 1517,
+    "description": "maxui(x,x) -> x.",
+    "match_opcodes": [
+      "arith.maxui"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F121",
+    "name": "arith::MaxUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1500,
+    "line_end": 1517,
+    "description": "maxui(x, all-ones value) -> return RHS.",
+    "match_opcodes": [
+      "arith.maxui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F122",
+    "name": "arith::MaxUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1500,
+    "line_end": 1517,
+    "description": "maxui(x, zero value) -> return LHS.",
+    "match_opcodes": [
+      "arith.maxui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F123",
+    "name": "arith::MaxUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1500,
+    "line_end": 1517,
+    "description": "Constant-fold maxui to unsigned max.",
+    "match_opcodes": [
+      "arith.maxui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands IntegerAttr-compatible constants.",
+    "kind": "fold"
+  },
+  {
+    "id": "F124",
+    "name": "arith::MinSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1571,
+    "line_end": 1588,
+    "description": "minsi(x,x) -> x.",
+    "match_opcodes": [
+      "arith.minsi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F125",
+    "name": "arith::MinSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1571,
+    "line_end": 1588,
+    "description": "minsi(x, min signed value) -> return RHS.",
+    "match_opcodes": [
+      "arith.minsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F126",
+    "name": "arith::MinSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1571,
+    "line_end": 1588,
+    "description": "minsi(x, max signed value) -> return LHS.",
+    "match_opcodes": [
+      "arith.minsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F127",
+    "name": "arith::MinSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1571,
+    "line_end": 1588,
+    "description": "Constant-fold minsi to signed min.",
+    "match_opcodes": [
+      "arith.minsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands IntegerAttr-compatible constants.",
+    "kind": "fold"
+  },
+  {
+    "id": "F128",
+    "name": "arith::MinUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1594,
+    "line_end": 1611,
+    "description": "minui(x,x) -> x.",
+    "match_opcodes": [
+      "arith.minui"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operands identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F129",
+    "name": "arith::MinUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1594,
+    "line_end": 1611,
+    "description": "minui(x, zero value) -> return RHS.",
+    "match_opcodes": [
+      "arith.minui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F130",
+    "name": "arith::MinUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1594,
+    "line_end": 1611,
+    "description": "minui(x, all-ones value) -> return LHS.",
+    "match_opcodes": [
+      "arith.minui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS is integer constant with stated extreme value.",
+    "kind": "fold"
+  },
+  {
+    "id": "F131",
+    "name": "arith::MinUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1594,
+    "line_end": 1611,
+    "description": "Constant-fold minui to unsigned min.",
+    "match_opcodes": [
+      "arith.minui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands IntegerAttr-compatible constants.",
+    "kind": "fold"
+  },
+  {
+    "id": "F132",
+    "name": "arith::MulFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1617,
+    "line_end": 1642,
+    "description": "mulf(x, 1.0) -> x.",
+    "match_opcodes": [
+      "arith.mulf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one float.",
+    "kind": "fold"
+  },
+  {
+    "id": "F133",
+    "name": "arith::MulFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1617,
+    "line_end": 1642,
+    "description": "mulf(x, 0.0) -> 0.0 when one operand is zero.",
+    "match_opcodes": [
+      "arith.mulf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Fastmath contains both nnan and nsz; not both operands are constants; either operand may be any signed zero; returns the zero operand to preserve its sign.",
+    "kind": "fold"
+  },
+  {
+    "id": "F134",
+    "name": "arith::MulFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1617,
+    "line_end": 1642,
+    "description": "Constant-fold mulf using op rounding mode.",
+    "match_opcodes": [
+      "arith.mulf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr constants; the constant path preserves signed zero; APFloat multiply uses the op rounding mode.",
+    "kind": "fold"
+  },
+  {
+    "id": "F135",
+    "name": "arith::DivFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1653,
+    "line_end": 1665,
+    "description": "divf(x, 1.0) -> x.",
+    "match_opcodes": [
+      "arith.divf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "RHS matches one float.",
+    "kind": "fold"
+  },
+  {
+    "id": "F136",
+    "name": "arith::DivFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1653,
+    "line_end": 1665,
+    "description": "Constant-fold divf using op rounding mode.",
+    "match_opcodes": [
+      "arith.divf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr constants; APFloat divide uses op rounding mode.",
+    "kind": "fold"
+  },
+  {
+    "id": "F137",
+    "name": "arith::RemFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1676,
+    "line_end": 1686,
+    "description": "Constant-fold remf using APFloat remainder (mod), with result sign of LHS.",
+    "match_opcodes": [
+      "arith.remf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands FloatAttr constants; operation calls APFloat::mod.",
+    "kind": "fold"
+  },
+  {
+    "id": "F140",
+    "name": "arith::ExtUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1819,
+    "line_end": 1835,
+    "description": "Fold nested extui by bypassing inner extui; preserve the inner nneg attribute on the outer op.",
+    "match_opcodes": [
+      "arith.extui"
+    ],
+    "rewrite_opcodes": [
+      "arith.extui"
+    ],
+    "conditions": "Operand is defined by extui; mutates operand and nneg in place; inner nneg describes surviving source.",
+    "kind": "fold"
+  },
+  {
+    "id": "F141",
+    "name": "arith::ExtUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1819,
+    "line_end": 1835,
+    "description": "Constant-fold extui by zero-extending each integer element.",
+    "match_opcodes": [
+      "arith.extui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Integer constant; target integer element width is used; constFoldCastOp succeeds only when conversion is supported.",
+    "kind": "fold"
+  },
+  {
+    "id": "F142",
+    "name": "arith::ExtSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1849,
+    "line_end": 1862,
+    "description": "Fold nested extsi by bypassing inner extsi.",
+    "match_opcodes": [
+      "arith.extsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.extsi"
+    ],
+    "conditions": "Operand is defined by extsi; mutates operand in place.",
+    "kind": "fold"
+  },
+  {
+    "id": "F143",
+    "name": "arith::ExtSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1849,
+    "line_end": 1862,
+    "description": "Constant-fold extsi by sign-extending each integer element.",
+    "match_opcodes": [
+      "arith.extsi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Integer constant; target integer element width; conversion supported.",
+    "kind": "fold"
+  },
+  {
+    "id": "F144",
+    "name": "arith::ExtFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1883,
+    "line_end": 1912,
+    "description": "extf(truncf(x)) -> x.",
+    "match_opcodes": [
+      "arith.extf",
+      "arith.truncf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Operand is truncf(x) and truncf operand type equals extf result type; both truncf and extf fastmath contain contract.",
+    "kind": "fold"
+  },
+  {
+    "id": "F145",
+    "name": "arith::ExtFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1883,
+    "line_end": 1912,
+    "description": "Constant-fold extf to target FP semantics.",
+    "match_opcodes": [
+      "arith.extf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "FloatAttr constant; convertFloatValue to target semantics must succeed without information loss; otherwise no fold.",
+    "kind": "fold"
+  },
+  {
+    "id": "F146",
+    "name": "arith::ScalingExtFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 1988,
+    "line_end": 2009,
+    "description": "Constant-fold scaling_extf(in, scale) according to mulf(extf(in), extf(scale)).",
+    "match_opcodes": [
+      "arith.scaling_extf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Scale element type is exactly f8E8M0FNU; both operands are compatible scalar/dense FP constants; static shaped result and equal element counts required for dense operands. Both widenings must be lossless; multiplication uses default rounding. Dense splats and non-splats share the same elementwise semantic rule. Poison propagation is documented separately in G006.",
+    "kind": "fold"
+  },
+  {
+    "id": "F147a",
+    "name": "arith::TruncIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2024,
+    "line_end": 2057,
+    "description": "trunci(extui(x)) -> trunci(x), in place.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.extui"
+    ],
+    "rewrite_opcodes": [
+      "arith.trunci"
+    ],
+    "conditions": "Source element width is greater than trunc result element width; source is unwrapped from one extui/extsi.",
+    "kind": "fold"
+  },
+  {
+    "id": "F147b",
+    "name": "arith::TruncIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2024,
+    "line_end": 2057,
+    "description": "trunci(extsi(x)) -> trunci(x), in place.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.extsi"
+    ],
+    "rewrite_opcodes": [
+      "arith.trunci"
+    ],
+    "conditions": "Source element width is greater than trunc result element width; source is unwrapped from one extui/extsi.",
+    "kind": "fold"
+  },
+  {
+    "id": "F148a",
+    "name": "arith::TruncIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2024,
+    "line_end": 2057,
+    "description": "trunci(extui(x)) -> x.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.extui"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Source element type equals trunc result element type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F148b",
+    "name": "arith::TruncIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2024,
+    "line_end": 2057,
+    "description": "trunci(extsi(x)) -> x.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.extsi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Source element type equals trunc result element type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F149",
+    "name": "arith::TruncIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2024,
+    "line_end": 2057,
+    "description": "trunci(trunci(x)) -> trunci(x), in place.",
+    "match_opcodes": [
+      "arith.trunci"
+    ],
+    "rewrite_opcodes": [
+      "arith.trunci"
+    ],
+    "conditions": "Input is defined by trunci; outer operand is reset to inner operand.",
+    "kind": "fold"
+  },
+  {
+    "id": "F150",
+    "name": "arith::TruncIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2024,
+    "line_end": 2057,
+    "description": "Constant-fold trunci to low result-width bits.",
+    "match_opcodes": [
+      "arith.trunci",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Integer constant; truncation to result element bit width.",
+    "kind": "fold"
+  },
+  {
+    "id": "F151",
+    "name": "arith::TruncFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2082,
+    "line_end": 2120,
+    "description": "truncf(extf(x)) -> truncf(x), in place.",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf"
+    ],
+    "rewrite_opcodes": [
+      "arith.truncf"
+    ],
+    "conditions": "Source-to-intermediate FP conversion is lossless including signaling NaNs and signed zero; source width > result width.",
+    "kind": "fold"
+  },
+  {
+    "id": "F152",
+    "name": "arith::TruncFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2082,
+    "line_end": 2120,
+    "description": "truncf(extf(x)) -> x.",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.extf"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Source-to-intermediate FP conversion is lossless; source type equals trunc result element type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F153",
+    "name": "arith::TruncFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2082,
+    "line_end": 2120,
+    "description": "Constant-fold truncf with its rounding mode.",
+    "match_opcodes": [
+      "arith.truncf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "FloatAttr constant; convertFloatValue at the operation rounding mode must have no information loss and APFloat status opOK. Unrepresentable infinity/NaN is rejected before conversion. Inexact, overflowing, or otherwise lossy conversions do not fold.",
+    "kind": "fold"
+  },
+  {
+    "id": "F154",
+    "name": "arith::ConvertFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2145,
+    "line_end": 2161,
+    "description": "Constant-fold convertf to target FP semantics with its rounding mode.",
+    "match_opcodes": [
+      "arith.convertf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "FloatAttr constant; source and destination have equal bitwidth but different semantics. Conversion at the operation rounding mode must lose no information and return APFloat status opOK; unrepresentable special values are rejected.",
+    "kind": "fold"
+  },
+  {
+    "id": "F155",
+    "name": "arith::ScalingTruncFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2192,
+    "line_end": 2219,
+    "description": "Constant-fold scaling_truncf(in,scale) as truncf(in / extf(scale)).",
+    "match_opcodes": [
+      "arith.scaling_truncf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Scale element type is exactly f8E8M0FNU; both operands are compatible scalar/dense FP constants; static shape and equal element counts required for dense operands. Scale extension to input semantics must be lossless; division uses default rounding and final truncation uses the operation rounding mode; conversion must succeed. Poison propagation is documented separately in G006.",
+    "kind": "fold"
+  },
+  {
+    "id": "F156",
+    "name": "arith::UIToFPOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2271,
+    "line_end": 2283,
+    "description": "Constant-fold uitofp by unsigned APInt-to-APFloat conversion (nearest ties to even).",
+    "match_opcodes": [
+      "arith.uitofp",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "IntegerAttr constant; destination float semantics available.",
+    "kind": "fold"
+  },
+  {
+    "id": "F157",
+    "name": "arith::SIToFPOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2298,
+    "line_end": 2315,
+    "description": "Constant-fold sitofp by signed APInt-to-APFloat conversion (nearest ties to even).",
+    "match_opcodes": [
+      "arith.sitofp",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "IntegerAttr constant; negative input is rejected when target FP semantics have no signed representation; otherwise target semantics available.",
+    "kind": "fold"
+  },
+  {
+    "id": "F158",
+    "name": "arith::FPToUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2330,
+    "line_end": 2342,
+    "description": "Constant-fold fptoui by conversion toward zero to unsigned result width.",
+    "match_opcodes": [
+      "arith.fptoui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "FloatAttr constant; APFloat conversion must not return opInvalidOp (value representable under conversion).",
+    "kind": "fold"
+  },
+  {
+    "id": "F159",
+    "name": "arith::FPToSIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2352,
+    "line_end": 2364,
+    "description": "Constant-fold fptosi by conversion toward zero to signed result width.",
+    "match_opcodes": [
+      "arith.fptosi",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "FloatAttr constant; APFloat conversion must not return opInvalidOp (value representable under conversion).",
+    "kind": "fold"
+  },
+  {
+    "id": "F160",
+    "name": "arith::IndexCastOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2397,
+    "line_end": 2421,
+    "description": "Constant-fold index_cast with sign extension/truncation to target storage width.",
+    "match_opcodes": [
+      "arith.index_cast",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Integer constant; result width is integer result width or index internal storage width 64.",
+    "kind": "fold"
+  },
+  {
+    "id": "F161",
+    "name": "arith::IndexCastOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2397,
+    "line_end": 2421,
+    "description": "index_cast(index_cast(x:A):B):A -> x.",
+    "match_opcodes": [
+      "arith.index_cast"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Input is same op; inner source type exactly outer result type; intermediate width >= source width (index width treated as 64); avoids lossy narrower inner cast.",
+    "kind": "fold"
+  },
+  {
+    "id": "F162",
+    "name": "arith::IndexCastUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2437,
+    "line_end": 2461,
+    "description": "Constant-fold index_castui with zero extension/truncation to target storage width.",
+    "match_opcodes": [
+      "arith.index_castui",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Integer constant; result width is integer result width or index internal storage width 64.",
+    "kind": "fold"
+  },
+  {
+    "id": "F163",
+    "name": "arith::IndexCastUIOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2437,
+    "line_end": 2461,
+    "description": "index_castui(index_castui(x:A):B):A -> x.",
+    "match_opcodes": [
+      "arith.index_castui"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Input is same op; inner source type exactly outer result type; intermediate width >= source width (index width treated as 64).",
+    "kind": "fold"
+  },
+  {
+    "id": "F164",
+    "name": "arith::BitcastOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2484,
+    "line_end": 2515,
+    "description": "Constant-fold shaped dense elements by bitcasting their element type.",
+    "match_opcodes": [
+      "arith.bitcast",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operand is DenseElementsAttr; result is shaped; DenseElementsAttr::bitcast must accept result element type.",
+    "kind": "fold"
+  },
+  {
+    "id": "F165",
+    "name": "arith::BitcastOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2484,
+    "line_end": 2515,
+    "description": "bitcast(poison) -> poison.",
+    "match_opcodes": [
+      "arith.bitcast",
+      "ub.poison"
+    ],
+    "rewrite_opcodes": [
+      "ub.poison"
+    ],
+    "conditions": "Operand is UB poison and result is scalar (shaped poison path not handled here).",
+    "kind": "fold"
+  },
+  {
+    "id": "F166",
+    "name": "arith::BitcastOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2484,
+    "line_end": 2515,
+    "description": "Constant-fold scalar integer/float bitcast by preserving raw bits.",
+    "match_opcodes": [
+      "arith.bitcast",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Operand is IntegerAttr or FloatAttr; result scalar integer/float width equals source bits; result type determines IntegerAttr vs FloatAttr interpretation.",
+    "kind": "fold"
+  },
+  {
+    "id": "F167",
+    "name": "arith::CmpFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2717,
+    "line_end": 2732,
+    "description": "Constant-fold cmpf when both operands are float constants, applying the selected floating predicate to APFloat comparison, including unordered/NaN cases.",
+    "match_opcodes": [
+      "arith.cmpf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Both operands are scalar FloatAttr constants; evaluate the selected predicate (including AlwaysTrue/AlwaysFalse and unordered comparisons) on APFloat::compare. The separate single-NaN branches below do not require the other operand to be constant.",
+    "kind": "fold"
+  },
+  {
+    "id": "F167a",
+    "name": "arith::CmpFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2717,
+    "line_end": 2732,
+    "description": "cmpf(pred, a, b) -> the predicate result for unordered operands when LHS is a constant NaN, even if the other operand is unknown.",
+    "match_opcodes": [
+      "arith.cmpf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "LHS fold-adaptor attribute is a scalar FloatAttr NaN. The implementation substitutes it for the other attribute locally and evaluates the predicate: unordered predicates (UEQ/UGT/UGE/ULT/ULE/UNE/UNO) and AlwaysTrue yield true; ordered predicates and AlwaysFalse yield false.",
+    "kind": "fold"
+  },
+  {
+    "id": "F167b",
+    "name": "arith::CmpFOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 2717,
+    "line_end": 2732,
+    "description": "cmpf(pred, a, b) -> the predicate result for unordered operands when RHS is a constant NaN, even if the other operand is unknown.",
+    "match_opcodes": [
+      "arith.cmpf",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "RHS fold-adaptor attribute is a scalar FloatAttr NaN. The implementation substitutes it for the other attribute locally and evaluates the predicate: unordered predicates (UEQ/UGT/UGE/ULT/ULE/UNE/UNO) and AlwaysTrue yield true; ordered predicates and AlwaysFalse yield false.",
+    "kind": "fold"
+  },
+  {
+    "id": "F168",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(cond, trueVal, falseVal) -> trueVal when arms are the same SSA value.",
+    "match_opcodes": [
+      "arith.select"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "True and false SSA values identical.",
+    "kind": "fold"
+  },
+  {
+    "id": "F169",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(true, t, f) -> t.",
+    "match_opcodes": [
+      "arith.select",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Condition folds to one.",
+    "kind": "fold"
+  },
+  {
+    "id": "F170",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(false, t, f) -> f.",
+    "match_opcodes": [
+      "arith.select",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Condition folds to zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F171",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(cond, poison, x) -> x.",
+    "match_opcodes": [
+      "arith.select",
+      "ub.poison"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "True arm is fully poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F172",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(cond, x, poison) -> x.",
+    "match_opcodes": [
+      "arith.select",
+      "ub.poison"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "False arm is fully poison.",
+    "kind": "fold"
+  },
+  {
+    "id": "F173",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(cond, true, false) -> cond.",
+    "match_opcodes": [
+      "arith.select",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Result type is signless i1; true arm constant one and false arm constant zero.",
+    "kind": "fold"
+  },
+  {
+    "id": "F174a",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(cmpi eq, a, b) with arms {a,b} -> false arm.",
+    "match_opcodes": [
+      "arith.select",
+      "arith.cmpi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Condition is cmpi eq; true and false arms match the cmpi operands in either order.",
+    "kind": "fold"
+  },
+  {
+    "id": "F174b",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "select(cmpi ne, a, b) with arms {a,b} -> true arm.",
+    "match_opcodes": [
+      "arith.select",
+      "arith.cmpi"
+    ],
+    "rewrite_opcodes": [],
+    "conditions": "Condition is cmpi ne; true and false arms match the cmpi operands in either order.",
+    "kind": "fold"
+  },
+  {
+    "id": "F175",
+    "name": "arith::SelectOp::fold",
+    "file": "docs/arith-canonicalization/upstream/ArithOps.cpp",
+    "line_start": 3074,
+    "line_end": 3151,
+    "description": "Constant-fold select elementwise for a non-splat dense condition and dense true/false arms.",
+    "match_opcodes": [
+      "arith.select",
+      "arith.constant"
+    ],
+    "rewrite_opcodes": [
+      "arith.constant"
+    ],
+    "conditions": "Condition, true arm, and false arm are DenseElementsAttr; condition shape is static; each BoolAttr chooses corresponding arm element.",
+    "kind": "fold"
+  }
+]

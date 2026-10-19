@@ -1,0 +1,11 @@
+# C++ canonicalization and fold inventory
+
+Pinned source: LLVM commit `32ec2901f308caee5c76dbdc8d21a12a08d5457a`. This fragment covers handwritten C++ logic in `ArithOps.cpp`; generated TableGen patterns are inventoried separately.
+
+The C++ inventory contains 13 concrete pattern registrations (10 `NarrowExtremum`, one `CmpFIntToFPConst`, and two `SelectToExtUI` cases) and 180 granular fold rows covering all 55 operation fold hooks used by the greedy canonicalizer. The source has 56 fold hooks including `ConstantOp::fold`, which the greedy driver skips.
+
+The handwritten patterns are concrete `NarrowExtremum` registrations, `CmpFIntToFPConst`, and two `SelectToExtUI` variants. See JSON for exact source ranges and opcode sets. Shared rows G001–G006 separately record constant-to-end ordering, exact-operand idempotence, CastOpInterface identity bitcasts, binary/unary poison propagation, and the scaling-cast helper's poison propagation in trait-inventory.json.
+
+Fold rows include algebraic identities, casts, comparisons, selects, multi-result folds, poison propagation, and constant evaluation. Each row records its formula, branch guards, opcode set, and source range. Integer division constant folders reject zero divisors and signed overflow; remainder constant folders reject zero divisors. VeIR retains undefined behavior for signed `INT_MIN % -1`, as explained in the main document. Shift constant folds reject out-of-range shift counts; float conversions respect representability and rounding constraints.
+
+Scope boundary: this file counts Arith operation fold hooks and handwritten Arith rewrite patterns. Shared folds that affect Arith operations are included separately in trait-inventory.json: `Commutative` moves constants to the end, `Idempotent` folds equal operands for andi/ori, the cast interface removes identity bitcasts, and common folders propagate fully poisoned attributes. Dead-operation removal and constant uniquing remain generic canonicalizer infrastructure. `hasFolder` declarations expose operation fold hooks to generic folding. `ConstantOp::fold` is present in C++ but the greedy canonicalizer explicitly skips folding constant operations at GreedyPatternRewriteDriver.cpp:494–495 to avoid an infinite loop, so it is excluded from the applied peephole inventory.

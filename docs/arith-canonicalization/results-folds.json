@@ -1,0 +1,573 @@
+{
+  "upstream_commit": "32ec2901f308caee5c76dbdc8d21a12a08d5457a",
+  "results": [
+    {
+      "id": "F001",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F001.lean",
+      "theorem": "Veir.ArithCanonicalize.F001.valid",
+      "details": "Puddle Pattern.Valid proof for addi(x, 0) -> x, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F002",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F002.lean",
+      "theorem": "Veir.ArithCanonicalize.F002.valid",
+      "details": "Puddle Pattern.Valid proof for addi(subi(a, b), b) -> a, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F003",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F003.lean",
+      "theorem": "Veir.ArithCanonicalize.F003.valid",
+      "details": "Puddle Pattern.Valid proof for addi(b, subi(a, b)) -> a, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F004",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F004.lean",
+      "theorem": "Veir.ArithCanonicalize.F004.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded addi: a + b modulo result width. Source overflow flags may produce poison, which refines the modular constant.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F005",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F005.lean",
+      "theorem": "Veir.ArithCanonicalize.F005.valid",
+      "details": "Two-result Puddle Pattern.Valid proof for addui_extended(x, 0) -> (x, false); each result is checked under poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F007",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F007.lean",
+      "theorem": "Veir.ArithCanonicalize.F007.valid",
+      "details": "Two-result Puddle Pattern.Valid proof for subui_extended(x, 0) -> (x, false); each result is checked under poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F008",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F008.lean",
+      "theorem": "Veir.ArithCanonicalize.F008.valid",
+      "details": "Two-result Puddle Pattern.Valid proof for subui_extended(x, x) -> (0, false); each result is checked under poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F010",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F010.lean",
+      "theorem": "Veir.ArithCanonicalize.F010.valid",
+      "details": "Puddle Pattern.Valid proof for subi(x, x) -> 0, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F011",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F011.lean",
+      "theorem": "Veir.ArithCanonicalize.F011.valid",
+      "details": "Puddle Pattern.Valid proof for subi(x, 0) -> x, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F012",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F012.lean",
+      "theorem": "Veir.ArithCanonicalize.F012.valid",
+      "details": "Puddle Pattern.Valid proof for subi(addi(a, b), b) -> a, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F013",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F013.lean",
+      "theorem": "Veir.ArithCanonicalize.F013.valid",
+      "details": "Puddle Pattern.Valid proof for subi(addi(a, b), a) -> b, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F014",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F014.lean",
+      "theorem": "Veir.ArithCanonicalize.F014.valid",
+      "details": "Puddle Pattern.Valid proof for subi(a, subi(a, b)) -> b, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F015",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F015.lean",
+      "theorem": "Veir.ArithCanonicalize.F015.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded subi: a - b modulo result width. Source overflow flags may produce poison, which refines the modular constant.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F016",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F016.lean",
+      "theorem": "Veir.ArithCanonicalize.F016.valid",
+      "details": "Puddle Pattern.Valid proof for muli(x, 0) -> 0, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F017",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F017.lean",
+      "theorem": "Veir.ArithCanonicalize.F017.valid",
+      "details": "Puddle Pattern.Valid proof for muli(x, 1) -> x, including poison, applicable overflow or exact flags.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F018",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F018.lean",
+      "theorem": "Veir.ArithCanonicalize.F018.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded muli: a * b modulo result width. Source overflow flags may produce poison, which refines the modular constant.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F024",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F024.lean",
+      "theorem": "Veir.ArithCanonicalize.F024.valid",
+      "details": "Puddle Pattern.Valid proof for divui(x, 1) -> x, including poison, the exact flag, and undefined division cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F025",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F025.lean",
+      "theorem": "Veir.ArithCanonicalize.F025.valid",
+      "details": "Puddle Pattern.Valid proof for divui(0, x) -> 0, including poison, the exact flag, and undefined division cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F026",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F026.lean",
+      "theorem": "Veir.ArithCanonicalize.F026.valid",
+      "details": "Puddle Pattern.Valid proof for divui(x, x) -> 1; successful source excludes zero or poison divisor, and exact division preserves the result.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F028",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F028.lean",
+      "theorem": "Veir.ArithCanonicalize.F028.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded divui(a, b) -> unsigned quotient a/b, guarded by a nonzero divisor; zero divisors are excluded and any source poison result refines the constant.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F029",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F029.lean",
+      "theorem": "Veir.ArithCanonicalize.F029.valid",
+      "details": "Puddle Pattern.Valid proof for divsi(x, 1) -> x, including poison, the exact flag, and undefined division cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F030",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F030.lean",
+      "theorem": "Veir.ArithCanonicalize.F030.valid",
+      "details": "Puddle Pattern.Valid proof for divsi(0, x) -> 0, including poison, the exact flag, and undefined division cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F031",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F031.lean",
+      "theorem": "Veir.ArithCanonicalize.F031.valid",
+      "details": "Puddle Pattern.Valid proof for divsi(x, x) -> 1, including poison and exact division. Zero and signed overflow source cases are undefined.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F033",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F033.lean",
+      "theorem": "Veir.ArithCanonicalize.F033.valid",
+      "details": "Puddle Pattern.Valid proof for scalar signed quotient constants, guarded by nonzero divisor and excluding INT_MIN/-1 overflow; exact-source poison refines the computed constant.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F046",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F046.lean",
+      "theorem": "Veir.ArithCanonicalize.F046.valid",
+      "details": "Puddle Pattern.Valid proof for remui(x, 1) -> 0, including poison and undefined remainder cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F047a",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F047a.lean",
+      "theorem": "Veir.ArithCanonicalize.F047a.valid",
+      "details": "Puddle Pattern.Valid proof for remui(0, x) -> 0, including poison and undefined remainder cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F047b",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F047b.lean",
+      "theorem": "Veir.ArithCanonicalize.F047b.valid",
+      "details": "Puddle Pattern.Valid proof for remui(x, x) -> 0, including poison and undefined remainder cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F048",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F048.lean",
+      "theorem": "Veir.ArithCanonicalize.F048.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded remui(a, b) -> unsigned remainder a%b, guarded by a nonzero divisor; zero divisors are excluded and any source poison result refines the constant.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F049",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F049.lean",
+      "theorem": "Veir.ArithCanonicalize.F049.valid",
+      "details": "Puddle Pattern.Valid proof for remsi(x, 1) -> 0, including poison and undefined remainder cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F050a",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F050a.lean",
+      "theorem": "Veir.ArithCanonicalize.F050a.valid",
+      "details": "Puddle Pattern.Valid proof for remsi(0, x) -> 0, including poison and undefined remainder cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F050b",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F050b.lean",
+      "theorem": "Veir.ArithCanonicalize.F050b.valid",
+      "details": "Puddle Pattern.Valid proof for remsi(x, x) -> 0, including poison and undefined remainder cases.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F051",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F051.lean",
+      "theorem": "Veir.ArithCanonicalize.F051.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded remsi(a, b) -> signed remainder a srem b, guarded by a nonzero divisor; zero divisors are excluded and VeIR signed-overflow UB permits the folded result.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F052",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F052.lean",
+      "theorem": "Veir.ArithCanonicalize.F052.valid",
+      "details": "Puddle Pattern.Valid proof for andi(x, 0) -> 0; covers poison.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F053",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F053.lean",
+      "theorem": "Veir.ArithCanonicalize.F053.valid",
+      "details": "Puddle Pattern.Valid proof for andi(x, all_ones) -> x; covers poison; all-ones matching compares normalized bit patterns.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F054",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F054.lean",
+      "theorem": "Veir.ArithCanonicalize.F054.valid",
+      "details": "Puddle Pattern.Valid proof for andi(x, xori(x, all_ones)) -> 0, including poison and normalized all-ones bit-pattern matching.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F055",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F055.lean",
+      "theorem": "Veir.ArithCanonicalize.F055.valid",
+      "details": "Puddle Pattern.Valid proof for andi(xori(x, all_ones), x) -> 0, including poison and normalized all-ones bit-pattern matching.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F057",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F057.lean",
+      "theorem": "Veir.ArithCanonicalize.F057.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded andi; integer attributes are normalized to the exact result bit pattern, including OR disjoint flag poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F058",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F058.lean",
+      "theorem": "Veir.ArithCanonicalize.F058.valid",
+      "details": "Puddle Pattern.Valid proof for ori(x, 0) -> x; covers poison.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F059",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F059.lean",
+      "theorem": "Veir.ArithCanonicalize.F059.valid",
+      "details": "Puddle Pattern.Valid proof for ori(x, all_ones) -> all_ones; covers poison; all-ones matching compares normalized bit patterns.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F060",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F060.lean",
+      "theorem": "Veir.ArithCanonicalize.F060.valid",
+      "details": "Puddle Pattern.Valid proof for ori(x, xori(x, all_ones)) -> all_ones, including poison and normalized all-ones bit-pattern matching.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F061",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F061.lean",
+      "theorem": "Veir.ArithCanonicalize.F061.valid",
+      "details": "Puddle Pattern.Valid proof for ori(xori(x, all_ones), x) -> all_ones, including poison and normalized all-ones bit-pattern matching.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F063",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F063.lean",
+      "theorem": "Veir.ArithCanonicalize.F063.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded ori; integer attributes are normalized to the exact result bit pattern, including OR disjoint flag poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F064",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F064.lean",
+      "theorem": "Veir.ArithCanonicalize.F064.valid",
+      "details": "Puddle Pattern.Valid proof for xori(x, 0) -> x; covers poison.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F065",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F065.lean",
+      "theorem": "Veir.ArithCanonicalize.F065.valid",
+      "details": "Puddle Pattern.Valid proof for xori(x, x) -> 0; covers poison.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F068",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F068.lean",
+      "theorem": "Veir.ArithCanonicalize.F068.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded xori; integer attributes are normalized to the exact result bit pattern, including OR disjoint flag poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F069",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F069.lean",
+      "theorem": "Veir.ArithCanonicalize.F069.valid",
+      "details": "Puddle Pattern.Valid proof for shli(x, 0) -> x; out-of-range counts and enabled overflow/exact flags preserve poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F070",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F070.lean",
+      "theorem": "Veir.ArithCanonicalize.F070.valid",
+      "details": "Puddle Pattern.Valid proof for shli(0, x) -> 0; out-of-range counts and enabled overflow/exact flags preserve poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F071",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F071.lean",
+      "theorem": "Veir.ArithCanonicalize.F071.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded shli (left shift); source overflow/exact poison refines the APInt result, with explicit shift count < bit width guard.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F072",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F072.lean",
+      "theorem": "Veir.ArithCanonicalize.F072.valid",
+      "details": "Puddle Pattern.Valid proof for shrui(x, 0) -> x; out-of-range counts and enabled overflow/exact flags preserve poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F073",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F073.lean",
+      "theorem": "Veir.ArithCanonicalize.F073.valid",
+      "details": "Puddle Pattern.Valid proof for shrui(0, x) -> 0; out-of-range counts and enabled overflow/exact flags preserve poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F074",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F074.lean",
+      "theorem": "Veir.ArithCanonicalize.F074.valid",
+      "details": "Puddle Pattern.Valid proof for shrui(x,x) -> 0; out-of-range/exact source poison refines zero, and in-range bitvector self-shift is zero.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F075",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F075.lean",
+      "theorem": "Veir.ArithCanonicalize.F075.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded shrui (logical right shift); source overflow/exact poison refines the APInt result, with explicit shift count < bit width guard.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F076",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F076.lean",
+      "theorem": "Veir.ArithCanonicalize.F076.valid",
+      "details": "Puddle Pattern.Valid proof for shrsi(x, 0) -> x; out-of-range counts and enabled overflow/exact flags preserve poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F077",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F077.lean",
+      "theorem": "Veir.ArithCanonicalize.F077.valid",
+      "details": "Puddle Pattern.Valid proof for shrsi(0, x) -> 0; out-of-range counts and enabled overflow/exact flags preserve poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F078",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F078.lean",
+      "theorem": "Veir.ArithCanonicalize.F078.valid",
+      "details": "Puddle Pattern.Valid proof for shrsi(x,x) -> 0; out-of-range/exact source poison refines zero, and in-range bitvector self-shift is zero.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F079",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F079.lean",
+      "theorem": "Veir.ArithCanonicalize.F079.valid",
+      "details": "Puddle Pattern.Valid proof for shrsi(all_ones, x) -> all_ones, with normalized bit-pattern matching and exact/out-of-range poison refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F080",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F080.lean",
+      "theorem": "Veir.ArithCanonicalize.F080.valid",
+      "details": "Puddle Pattern.Valid proof for scalar constant-folded shrsi (arithmetic right shift); source overflow/exact poison refines the APInt result, with explicit shift count < bit width guard.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "G002",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/G002.lean",
+      "theorem": "Veir.ArithCanonicalize.G002.andValid; Veir.ArithCanonicalize.G002.orValid",
+      "details": "Two Puddle Pattern.Valid proofs for generic idempotence: andi(x,x) and ori(x,x), including poison and the VeIR OR disjoint flag.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F034",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F034.lean",
+      "theorem": "Veir.ArithCanonicalize.F034.valid",
+      "details": "All-width Puddle Pattern.Valid proof for ceildivui(x, 1) -> x; the source division condition excludes the zero-width encoding of one.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F035",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F035.lean",
+      "theorem": "Veir.ArithCanonicalize.F035.valid",
+      "details": "All-width Puddle Pattern.Valid proof for ceildivui(0, x) -> 0; zero divisors are undefined and a poison divisor cannot produce a defined result.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F036",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F036.lean",
+      "theorem": "Veir.ArithCanonicalize.F036.valid",
+      "details": "All-width Puddle Pattern.Valid proof for ceildivui(x, x) -> 1; the source division condition excludes zero and poison divisors.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F037",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F037.lean",
+      "theorem": "Veir.ArithCanonicalize.F037.valid",
+      "details": "All-width Puddle Pattern.Valid proof for unsigned ceil-division constant evaluation. The proof equates the interpreter predecessor quotient with the pinned APInt quotient-plus-remainder formula, with nonzero-divisor and correction-overflow guards.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F038",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F038.lean",
+      "theorem": "Veir.ArithCanonicalize.F038.valid",
+      "details": "All-width Puddle Pattern.Valid proof for ceildivsi x / 1 -> x; signed division by zero or signed overflow is excluded by source UB and poison refinement is preserved.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F039",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F039.lean",
+      "theorem": "Veir.ArithCanonicalize.F039.valid",
+      "details": "All-width Puddle Pattern.Valid proof for ceildivsi 0 / x -> 0; signed division by zero or signed overflow is excluded by source UB and poison refinement is preserved.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F040",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F040.lean",
+      "theorem": "Veir.ArithCanonicalize.F040.valid",
+      "details": "All-width Puddle Pattern.Valid proof for ceildivsi x / x -> 1; signed division by zero or signed overflow is excluded by source UB and poison refinement is preserved.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F042",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F042.lean",
+      "theorem": "Veir.ArithCanonicalize.F042.valid",
+      "details": "All-width Puddle Pattern.Valid proof for floordivsi x / 1 -> x; signed division by zero or signed overflow is excluded by source UB and poison refinement is preserved.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F043",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F043.lean",
+      "theorem": "Veir.ArithCanonicalize.F043.valid",
+      "details": "All-width Puddle Pattern.Valid proof for floordivsi 0 / x -> 0; signed division by zero or signed overflow is excluded by source UB and poison refinement is preserved.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F044",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F044.lean",
+      "theorem": "Veir.ArithCanonicalize.F044.valid",
+      "details": "All-width Puddle Pattern.Valid proof for floordivsi x / x -> 1; signed division by zero or signed overflow is excluded by source UB and poison refinement is preserved.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F041",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F041.lean",
+      "theorem": "Veir.ArithCanonicalize.F041.valid",
+      "details": "All-width Puddle Pattern.Valid proof for signed ceil-division constant evaluation. The calculator applies the pinned truncating quotient correction only for equal-sign inexact operands; matching excludes zero divisors, MIN/-1 signed overflow, and correction overflow.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F045",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F045.lean",
+      "theorem": "Veir.ArithCanonicalize.F045.valid",
+      "details": "All-width Puddle Pattern.Valid proof for signed floor-division constant evaluation. The calculator applies the floor correction to truncating division for opposite-sign inexact operands; matching excludes zero divisors and MIN/-1 signed overflow.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    },
+    {
+      "id": "F032",
+      "status": "proven",
+      "lean_file": "Veir/Passes/ArithCanonicalize/F032.lean",
+      "theorem": "Veir.ArithCanonicalize.F032.valid; Veir.ArithCanonicalize.F032.valid_commuted",
+      "details": "Two all-width Puddle Pattern.Valid proofs for divsi(muli(a,b),b) -> a in both multiplication operand orders. Matching requires nsw on the multiplication; arbitrary nuw and exact flags, poison, zero divisors, and signed division overflow are handled by source UB and refinement.",
+      "scope": "all scalar integer bit widths and signednesses modeled by VeIR"
+    }
+  ]
+}
