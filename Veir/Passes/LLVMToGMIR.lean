@@ -94,6 +94,24 @@ def g_zext := (lowerIntegerCast .zext .g_zext).compile
 
 def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
 
+/-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
+def lowerIntegerConstant : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType)
+      let root ← Puddle.MatchProg.root (.llvm .mlir__constant) #[] #[resultType]
+          (fun props => props.value matches .integer _)
+      return (resultType, root))
+    (fun (resultType, root) => do
+      let props ← Puddle.CreateProg.applyNative root.properties fun props =>
+        match props.value with
+        | .integer value => some (GMIRConstantProperties.mk value)
+        | _ => none
+      Puddle.CreateProg.operation (.gmir .g_constant) #[] #[resultType] props)
+    (fun newOp => newOp)
+
+def g_constant := lowerIntegerConstant.compile
+
 /-! ## Pass implementation -/
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
@@ -101,7 +119,8 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run,
-    g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run
+    g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
+    g_constant.run
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"

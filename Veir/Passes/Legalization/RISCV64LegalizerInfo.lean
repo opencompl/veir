@@ -103,6 +103,11 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 32,
       .minScalar (.type 0) 64,
     ]
+    | .g_constant => [
+      -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
     | _ => []
   legalizeCustom
     | .g_add => customLegalizeWord .g_add .addw ()
