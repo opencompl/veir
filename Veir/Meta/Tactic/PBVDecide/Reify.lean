@@ -15,7 +15,7 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
   | _ => none
 
 meta def getIdOrPush (width : Expr) : ReifyM Nat := do
-  if let some id := (← getWidthEnv).idxOf? width then
+  if let some id := (← get).env.idxOf? width then
     return id
   else
     modifyGet fun s => (s.env.size, { s with env := s.env.push width })
@@ -70,8 +70,8 @@ meta partial def Tm.reifyProp (e : Expr) : ReifyM (Option WidthProp) := do
 
 /-- Insert a `WidthProp`, checking that the type of `expr` matches the `Tm`. -/
 meta def pushProp (prop : Tm .prop) (expr : Expr) : ReifyM Unit := do
-  unless ← isDefEq (← inferType expr) (prop.toExpr (← getWidthEnv))
-    do throwError m!"Cannot insert prop {prop.toExpr (← getWidthEnv)}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
+  unless ← isDefEq (← inferType expr) (prop.toExpr (← get).env)
+    do throwError m!"Cannot insert prop {prop.toExpr (← get).env}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
   modify fun s => { s with props := s.props.insert prop expr }
 /--
 Traverse the local context and try to reify `Prop`s on width terms.
