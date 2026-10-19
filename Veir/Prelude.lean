@@ -2,6 +2,12 @@ module
 
 public section
 
+/-- Like `let pat := expr | fallback` in a `do` block, retaining the match equation. -/
+macro "rlet" pat:term ":=" expr:term " | " fallback:doSeq rest:doSeq : doElem =>
+  `(doElem| match _ : $expr with
+    | $pat => $rest
+    | _ => $fallback)
+
 macro:50 "rlet" pat:term ":=" expr:term rest:term : term =>
   `(match _ : $expr:term with
       | $pat => $rest)

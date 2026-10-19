@@ -26,7 +26,7 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
     let pattern? := match info.getAction ctx.raw op opcode with
-      | .widenScalar typeIdx newType => widenScalar? opcode typeIdx newType
+      | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
       | .custom => info.legalizeCustom opcode
       | .legal | .unsupported => none
     let some pattern := pattern? | return (ctx, none)

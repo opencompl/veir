@@ -5,7 +5,7 @@
 // object, so the load through the reconstructed pointer sees the stored
 // value.
 
-// llubi crashes on a byte-typed value that holds pointer bits.
+// llubi reports undefined behavior for a byte-typed value that holds pointer bits.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
@@ -20,4 +20,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x0000000000000001#64]
-// LLUBI: Crashed
+// LLUBI: Undefined behavior
