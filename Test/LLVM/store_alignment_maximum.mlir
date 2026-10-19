@@ -1,4 +1,5 @@
-// RUN: veir-opt %s | filecheck %s
+// RUN: VEIR_ROUNDTRIP
+// RUN: MLIR_ROUNDTRIP
 
 // The largest alignment LLVM supports, 2^32, is accepted.
 
