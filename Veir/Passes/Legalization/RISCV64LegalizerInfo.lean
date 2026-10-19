@@ -89,17 +89,17 @@ def riscv64LegalizerInfo : LegalizerInfo where
         .minScalar (.type 0) 64,
       ]
     | .g_mul => [
-      .legalFor [64],
-      .customFor [32],
+      .legalFor [s64],
+      .customFor [s32],
       .minScalar (.type 0) 64,
     ]
     | .g_srem => [
-      .legalFor [64],
+      .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
     | .g_sdiv | .g_udiv | .g_urem => [
-      .legalFor [64],
-      .customFor [32],
+      .legalFor [s64],
+      .customFor [s32],
       .minScalar (.type 0) 32,
       .minScalar (.type 0) 64,
     ]
