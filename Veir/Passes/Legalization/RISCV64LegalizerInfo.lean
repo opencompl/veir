@@ -113,15 +113,16 @@ def riscv64LegalizerInfo : LegalizerInfo where
     -- The `Zbb` rules, which the RISC-V 64 instruction selection assumes.
     | .g_ctlz | .g_cttz => [
       .legalForTypePairs [(s64, s64)],
-      .customFor [s32],
+      .customIf (.all [.typeIs (.type 0) s32, .typeIs (.type 1) s32]),
       .minScalar (.type 0) 32,
       .minScalar (.type 1) 32,
       .minScalar (.type 0) 64,
       .minScalar (.type 1) 64,
     ]
+    -- TODO: Add `g_ctlz_zero_poison`/`g_cttz_zero_poison`, which LLVM lowers to `G_CTLZ`/`G_CTTZ`.
     | .g_ctpop => [
       .legalForTypePairs [(s64, s64)],
-      .customFor [s32],
+      .customIf (.all [.typeIs (.type 0) s32, .typeIs (.type 1) s32]),
       .minScalar (.type 0) 32,
       .minScalar (.type 1) 32,
       .minScalar (.type 0) 64,
@@ -135,9 +136,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
     | .g_udiv => customLegalizeWord .g_udiv .divuw ()
     | .g_urem => customLegalizeWord .g_urem .remuw ()
-    | .g_ctlz => customLegalizeWord .g_ctlz .clzw ()
-    | .g_cttz => customLegalizeWord .g_cttz .ctzw ()
-    | .g_ctpop => customLegalizeWord .g_ctpop .cpopw ()
+    | .g_ctlz => customLegalizeWord .g_ctlz .clzw () (numOperands := 1)
+    | .g_cttz => customLegalizeWord .g_cttz .ctzw () (numOperands := 1)
+    | .g_ctpop => customLegalizeWord .g_ctpop .cpopw () (numOperands := 1)
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

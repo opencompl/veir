@@ -42,15 +42,19 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
 
 /--
   RISC-V lowerings with Puddle for unary operations.
-  TODO: Add a `guard` to check for legality once needed, just like for `lowerBinary`.
+  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation,
+  just like for `lowerBinary`.
 -/
 def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let returnType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
       let x ← MatchProg.value returnType
-      let _ ← MatchProg.root srcOp #[x] #[returnType]
+      let root ← MatchProg.root srcOp #[x] #[returnType]
+      guard returnType root.properties
       return (returnType, x))
     (fun (returnType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -2225,11 +2229,15 @@ def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   LLVM's instruction selector only sees legalized gMIR.
 -/
 
-/-- Matches only if an `opcode` operation of type `type` with `properties` is legal. -/
+/--
+Matches only if an `opcode` operation with `properties`, whose `numTypeGroups` type groups all
+have type `type`, is legal.
+-/
 def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
-    (properties : Handle OpCode (.prop (.gmir opcode))) : MatchProg.Builder Unit :=
+    (properties : Handle OpCode (.prop (.gmir opcode))) (numTypeGroups : Nat := 1) :
+    MatchProg.Builder Unit :=
   MatchProg.matchNative (type, properties) fun (type, properties) =>
-    riscv64LegalizerInfo.isLegal opcode #[type] properties
+    riscv64LegalizerInfo.isLegal opcode (Array.replicate numTypeGroups type) properties
 
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
@@ -2296,6 +2304,23 @@ def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
 def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
 def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
 
+/-- `gmir.g_ctlz` (`i64`) -> `riscv.clz`. -/
+def gmirCtlz_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_ctlz) 64 .clz () (guard := (matchLegal .g_ctlz · · (numTypeGroups := 2)))
+
+/-- `gmir.g_cttz` (`i64`) -> `riscv.ctz`. -/
+def gmirCttz_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_cttz) 64 .ctz () (guard := (matchLegal .g_cttz · · (numTypeGroups := 2)))
+
+/-- `gmir.g_ctpop` (`i64`) -> `riscv.cpop`. -/
+def gmirCtpop_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_ctpop) 64 .cpop ()
+    (guard := (matchLegal .g_ctpop · · (numTypeGroups := 2)))
+
+def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
+def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
+def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
+
 /-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
   Pattern.Builder
@@ -2345,6 +2370,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
+    gmirCtlz.run, gmirCttz.run, gmirCtpop.run,
     gmirConstant.run]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"

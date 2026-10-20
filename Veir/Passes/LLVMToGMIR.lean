@@ -105,8 +105,9 @@ def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
 
 /-
   Upstream translates a zero-poison `ctlz`/`cttz` to `G_CTLZ_ZERO_POISON`/`G_CTTZ_ZERO_POISON`.
-  We do not have those, so `is_zero_poison` is dropped: `g_ctlz`/`g_cttz` are defined at zero,
-  which refines the poison result.
+  TODO: Do so once GMIR has `g_ctlz_zero_poison`/`g_cttz_zero_poison` and the legalizer can lower
+  them. Until then, `is_zero_poison` is dropped: `g_ctlz`/`g_cttz` are defined at zero, which refines the poison
+  result.
 -/
 def g_ctlz := (lowerIntegerUnary .intr__ctlz .g_ctlz fun _ => ()).compile
 

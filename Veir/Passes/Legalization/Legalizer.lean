@@ -25,12 +25,15 @@ namespace LegalizerInfo
 private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCode :=
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    let pattern? := match info.getAction ctx.raw op opcode with
-      | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
-      | .custom => info.legalizeCustom opcode
-      | .legal | .unsupported => none
-    let some pattern := pattern? | return (ctx, none)
-    pattern.interpret ctx op
+    let patterns := match info.getAction ctx.raw op opcode with
+      | .widenScalar typeIdx width => widenScalar opcode typeIdx width
+      | .custom => (info.legalizeCustom opcode).toList
+      | .legal | .unsupported => []
+    -- The first pattern that matches `op` applies.
+    for pattern in patterns do
+      let (ctx', rewrite?) ← pattern.interpret ctx op
+      if rewrite?.isSome then return (ctx', rewrite?)
+    return (ctx, none)
 
 /-- The error message for `op`, which could not be legalized with `action`. -/
 private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR)
