@@ -72,7 +72,13 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_and, .type 0, width => widenTypeGroup .g_and (.type 0) .g_anyext width
   | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width
   | .g_xor, .type 0, width => widenTypeGroup .g_xor (.type 0) .g_anyext width
-
+  | .g_mul, .type 0, width => widenTypeGroup .g_mul (.type 0) .g_anyext width clearNswNuwProperties
+  -- The high bits matter for division and remainder, so the operands are extended according to
+  -- the signedness of the operation. Exactness is preserved by both extensions.
+  | .g_sdiv, .type 0, width => widenTypeGroup .g_sdiv (.type 0) .g_sext width
+  | .g_srem, .type 0, width => widenTypeGroup .g_srem (.type 0) .g_sext width
+  | .g_udiv, .type 0, width => widenTypeGroup .g_udiv (.type 0) .g_zext width
+  | .g_urem, .type 0, width => widenTypeGroup .g_urem (.type 0) .g_zext width
   | _, _, _ => none
 
 end

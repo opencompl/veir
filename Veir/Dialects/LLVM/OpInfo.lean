@@ -631,9 +631,29 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
     }
   | _ => none
 
+/--
+  The alignment an `llvm.load` or `llvm.store` of a value of `type` requires:
+  its `alignment` attribute, or, when the attribute is absent, which the parser
+  records as `0`, the ABI alignment of `type` under `layout`, as in LLVM. A
+  type the layout does not know requires none.
+-/
+def Llvm.accessAlignment (layout : DataLayout) (alignment : IntegerAttr) (type : Attribute) : Nat :=
+  if alignment.value ≠ 0 then alignment.value.toNat
+  else (layout.getTypeABIAlignment type).getD 1
+
+/-- The type of a value an `llvm.store` can store, for the data layout. -/
+def RuntimeValue.storedType : RuntimeValue → Option Attribute
+  | .int bw _ => some (.integerType (IntegerType.signless bw))
+  | .byte bw _ => some (.byteType ⟨bw⟩)
+  | .addr _ => some (.llvmPointerType ⟨⟩)
+  | _ => none
+
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
+
+/-- The largest alignment LLVM accepts, its `Value::MaximumAlignment`. -/
+def maximumLLVMAlignment : Int := 2 ^ 32
 
 /-- Check an `llvm.return` against its enclosing `llvm.func`'s declared results. -/
 def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
@@ -901,6 +921,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "'alignment' must be a 64-bit integer attribute"
       if !isValidLLVMAlignment alignment.value then
         throw "alignment attribute is not a power of 2"
+      if alignment.value > maximumLLVMAlignment then
+        throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
     if let some value := properties.value then
@@ -1133,6 +1155,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1140,6 +1166,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1618,11 +1648,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
     let [type] := resultTypes.toList | none
+    addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type.val)
     let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
+    if let some type := val.storedType then
+      addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type)
     let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .intr__memset => do

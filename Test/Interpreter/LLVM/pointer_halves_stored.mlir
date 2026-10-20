@@ -1,9 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI_CHECK
+// RUN: ALIVE_EXEC_CHECK
 
 // A pointer's address split into two `i32` halves, stored side by side and
 // loaded back as a pointer reaches the object.
 //
-// LLUBI and ALIVE_EXEC: report undefined behaviour: for them a pointer loaded
+// llubi and alive-exec report undefined behaviour: for them a pointer loaded
 // from bytes an integer wrote has no provenance.
 
 "builtin.module"() ({
@@ -29,3 +31,5 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x000000000000002a#64]
+// LLUBI: Undefined behavior
+// ALIVE_EXEC: Undefined behavior

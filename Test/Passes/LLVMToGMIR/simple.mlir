@@ -14,7 +14,13 @@
       %and = "llvm.and"(%a, %b) : (i16, i16) -> i16
       %or = "llvm.or"(%a, %b) <{isDisjoint}> : (i16, i16) -> i16
       %xor = "llvm.xor"(%a, %b) : (i16, i16) -> i16
+      %mul = "llvm.mul"(%a, %b) <{overflowFlags = 2 : i32}> : (i16, i16) -> i16
+      %sdiv = "llvm.sdiv"(%a, %b) <{isExact}> : (i16, i16) -> i16
+      %udiv = "llvm.udiv"(%a, %b) : (i16, i16) -> i16
+      %srem = "llvm.srem"(%a, %b) : (i16, i16) -> i16
+      %urem = "llvm.urem"(%a, %b) : (i16, i16) -> i16
       "test.test"(%add, %sub, %cmp, %sext, %zext, %trunc, %and, %or, %xor) : (i16, i16, i1, i32, i32, i8, i16, i16, i16) -> ()
+      "test.test"(%mul, %sdiv, %udiv, %srem, %urem) : (i16, i16, i16, i16, i16) -> ()
       "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -31,3 +37,8 @@
 // CHECK: "gmir.g_and"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 // CHECK: "gmir.g_or"(%{{.*}}, %{{.*}}) <{isDisjoint}> : (i16, i16) -> i16
 // CHECK: "gmir.g_xor"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 2 : i32}> : (i16, i16) -> i16
+// CHECK: "gmir.g_sdiv"(%{{.*}}, %{{.*}}) <{isExact}> : (i16, i16) -> i16
+// CHECK: "gmir.g_udiv"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// CHECK: "gmir.g_srem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// CHECK: "gmir.g_urem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16

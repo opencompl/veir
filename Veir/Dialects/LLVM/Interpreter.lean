@@ -311,11 +311,14 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [.addr addr] := operands.toList | fail
     let .val addr := addr | ub
     let [type] := resultTypes.toList | fail
+    monadLift $ addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type.val)
     let val ← monadLift $ mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | fail
     let .val addr := addr | ub
+    if let some type := val.storedType then
+      monadLift $ addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type)
     let mem ← monadLift $ mem.llvmStore addr val
     return (#[], mem, none)
   | .intr__memset => do
