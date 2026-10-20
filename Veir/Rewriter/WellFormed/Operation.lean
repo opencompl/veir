@@ -643,12 +643,35 @@ theorem BlockPtr.operationList_rewriter_eraseOp
       BlockPtr.opChain_rewriter_detachOperands,
       BlockPtr.opChain_rewriter_detachBlockOperands]
 
-set_option warn.sorry false in
+/-- Erasing an operation leaves the operands of every other operation as they were. -/
+theorem OperationPtr.getOperands!_Rewriter_eraseOp {op' : OperationPtr} (hne : op' ≠ op)
+    (hin : op'.InBounds ctx) :
+    op'.getOperands! (Rewriter.eraseOp ctx op hctx hop) = op'.getOperands! ctx := by
+  simp only [Rewriter.eraseOp]
+  rw [OperationPtr.getOperands!_OperationPtr_dealloc (by grind),
+    OperationPtr.getOperands!_detachBlockOperands, OperationPtr.getOperands!_detachOperands,
+    OperationPtr.getOperands!_detachOpIfAttached]
+
+/-- Erasing an operation leaves the number of operands of every other operation as it was. -/
+theorem OperationPtr.getNumOperands!_Rewriter_eraseOp {op' : OperationPtr} (hne : op' ≠ op)
+    (hin : op'.InBounds ctx) :
+    op'.getNumOperands! (Rewriter.eraseOp ctx op hctx hop) = op'.getNumOperands! ctx := by
+  simp only [Rewriter.eraseOp]
+  rw [OperationPtr.getNumOperands!_OperationPtr_dealloc (by grind),
+    OperationPtr.getNumOperands!_detachBlockOperands, OperationPtr.getNumOperands!_detachOperands,
+    OperationPtr.getNumOperands!_detachOpIfAttached]
+
+/-- Erasing an operation leaves every operand of every other operation as it was. -/
 theorem OperationPtr.getOperand_Rewriter_eraseOp
-    (heq : Rewriter.eraseOp ctx op hctx hop = newCtx) (hne : op ≠ op'):
+    (heq : Rewriter.eraseOp ctx op hctx hop = newCtx) (hne : op ≠ op')
+    (inBounds' : op'.InBounds ctx) (idxInBounds' : idx < op'.getNumOperands! ctx) :
     OperationPtr.getOperand op' newCtx idx inBounds idxInBounds =
-    OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
-  sorry
+    OperationPtr.getOperand op' ctx idx inBounds' idxInBounds' := by
+  subst heq
+  rw [← OperationPtr.getOperand!_eq_getOperand, ← OperationPtr.getOperand!_eq_getOperand,
+    ← OperationPtr.getOperands!.getElem!_eq_getOperand!,
+    ← OperationPtr.getOperands!.getElem!_eq_getOperand!,
+    OperationPtr.getOperands!_Rewriter_eraseOp hne.symm inBounds']
 
 section createOp
 
