@@ -1,4 +1,5 @@
-#include <cstring>
+#include <string.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <lean/lean.h>
 #include <lean/lean_gmp.h>
@@ -6,12 +7,10 @@
 typedef size_t usize;
 typedef uint8_t uint8;
 
-extern "C" {
-
 __attribute__((always_inline))
 lean_object * buffed_zalloc_object(size_t sz) {
     void * r = mi_zalloc(sz);
-    if (r == nullptr) lean_internal_panic_out_of_memory();
+    if (r == NULL) lean_internal_panic_out_of_memory();
     lean_object * o = (lean_object*)r;
     // not a small object
     o->m_cs_sz = 0;
@@ -157,10 +156,10 @@ lean_obj_res buffed_ex_array_size(b_lean_obj_arg a) {
 __attribute__((always_inline))
 lean_obj_res buffed_ex_array_push(lean_obj_arg a, uint8 b) {
     lean_object * r = buffed_ex_array_ensure_exclusive(buffed_ex_array_ensure_capacity(a, buffed_sarray_size(a) + 1, /* exact */ false));
-    size_t & sz  = buffed_to_ex_array(r)->m_size;
+    size_t sz = buffed_to_ex_array(r)->m_size;
     uint8 * it   = buffed_ex_array_cptr(r) + sz;
     *it = b;
-    sz++;
+    buffed_to_ex_array(r)->m_size = sz + 1;
     return r;
 }
 
@@ -219,7 +218,7 @@ lean_obj_res buffed_ex_array_blit(b_lean_obj_arg *w, lean_obj_arg a, size_t offs
         p[i] = (uint8_t)(val >> 8*i);
       }
     } else {
-      mpz_object *nat = (mpz_object *)o;
+      struct mpz_object *nat = (struct mpz_object *)o;
       mpz_t temp;
       mpz_init(temp);
       for (int i = 0; i < len; i++) {
@@ -231,6 +230,4 @@ lean_obj_res buffed_ex_array_blit(b_lean_obj_arg *w, lean_obj_arg a, size_t offs
     }
 
     return r;
-}
-
 }
