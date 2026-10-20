@@ -186,7 +186,7 @@ def LocalRewritePattern.PreservesSemantics
   state.isRefinedByAt state' (LocalRewritePattern.mapping hpattern) (.at (.before op)) (.at (.before op)) →
   ∃ newState',
     interpretOpList newOps.toList state' (by grind [ReturnOps]) = some (newState', cf) ∧
-    newState.memory = newState'.memory ∧
+    newState.memory ⊒ newState'.memory ∧
     ∃ targetValues,
       newValues.mapM (newState'.variables.getVar? ·) = some targetValues ∧
       sourceValues ⊒ targetValues

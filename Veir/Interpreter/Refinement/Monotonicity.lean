@@ -110,19 +110,20 @@ theorem interpretOp_monotone
   -- If the source interpretation fails, then the refinement is trivial
   by_cases hsource : (interpretOp op state opIn).isFail
   · rcases h : interpretOp op state opIn with _ | _ | _ <;> simp_all [Interp.isRefinedBy]
-  -- Source/target operands are defined, and memory is equal.
+  -- Source/target operands are defined, and the memories refine.
   have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
     grind [interpretOp]
   obtain ⟨operands', hTgtOps, hOpsRef⟩ :=
     VariableState.getOperandValues_isRefinedBy hState.2 opIn hPreserves.operands hSrcOps
-  have hMem : state.memory = state'.memory := hState.1
-  -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
+  have hMem : state.memory ⊒ state'.memory := hState.1
+  -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`, on the two
+  -- memories.
   have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
     (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory hOpsRef
-  -- Add the equality between `interpretOp'` on `operands'`
+    operands operands' (op.getSuccessors! ctx.raw) state.memory state'.memory hMem hOpsRef
+  -- `op'` in `ctx'` interprets as `op` in `ctx`, on the target's operands and memory.
   have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
-                    op.interpret ctx.raw operands' state.memory := by
+                    op.interpret ctx.raw operands' state'.memory := by
      grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
   /- Do a case analysis on the source interpretation -/
   rcases hsrc : interpretOp op state opIn with _ | _ | ⟨state₂, act⟩
@@ -137,8 +138,7 @@ theorem interpretOp_monotone
       (interpretOp_ok_iff_of_getOperandValues_eq_some hSrcOps).mp hsrc
     simp only [hinterp', Interp.isRefinedBy_ok_target_iff, OperationResult.isRefinedBy,
       Prod.exists] at hPR1
-    have ⟨resValues', memory'₂, act', hinterp'Tgt, resValuesRef, memoryEq, actRef⟩ := hPR1
-    subst memory'₂
+    have ⟨resValues', memory'₂, act', hinterp'Tgt, resValuesRef, memoryRef, actRef⟩ := hPR1
     simp only [← hInterp'Eq] at hinterp'Tgt
     simp only [interpretOp, hTgtOps, bind, hinterp'Tgt, liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform (opInBounds := opIn') opVerif' (VariableState.getOperandValues_conforms hTgtOps) hinterp'Tgt

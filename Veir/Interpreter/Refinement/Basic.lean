@@ -78,12 +78,12 @@ def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
 /--
-A function interpretation `source` is refined by `target`. This asserts that the final memories
-are equal, and the returned values refine pointwise.
+A function interpretation `source` is refined by `target`. This asserts that the final memory
+of `source` is refined by that of `target`, and the returned values refine pointwise.
 -/
 @[expose]
 def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
-  source.1 = target.1 ∧ source.2 ⊒ target.2
+  source.1 ⊒ target.1 ∧ source.2 ⊒ target.2
 
 @[inherit_doc] infix:50 " ⊒ " => FunctionResult.isRefinedBy
 
@@ -127,12 +127,12 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
 
 /--
 The result of interpreting a single operation. `source` is refined by `target`
-when values refine pointwise, memories are equal, and actions refine.
+when values refine pointwise, memories refine, and actions refine.
 -/
 @[expose]
 def OperationResult.isRefinedBy (source target :
     Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
-  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
+  source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
     ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
 
 /--
@@ -242,14 +242,14 @@ def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
 
 /--
 An interpreter state `state` is refined by `state'` through the value mapping
-`mapping`: they have the same memory, and the variable state of `state` is refined by the variable
-state of `state'` through `mapping`.
+`mapping`: the memory of `state` is refined by that of `state'`, and the variable state of
+`state` is refined by the variable state of `state'` through `mapping`.
 -/
 @[expose]
 def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') : Prop :=
-  state.memory = state'.memory ∧
+  state.memory ⊒ state'.memory ∧
   state.variables.isRefinedBy state'.variables mapping
 
 /-!
@@ -338,13 +338,13 @@ def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
 
 /--
 A refinement relation for interpreter states in two different locations.
-This asserts that memory is equal, and that the variable states are refined at the given points.
+This asserts that memory is refined, and that the variable states are refined at the given points.
 -/
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
     (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
-  state.memory = state'.memory ∧
+  state.memory ⊒ state'.memory ∧
   state.variables.isRefinedByAt state'.variables mapping s s'
 
 end Veir

@@ -122,7 +122,8 @@ theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
 
 theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
     (h12 : r₁ ⊒ r₂) (h23 : r₂ ⊒ r₃) : r₁ ⊒ r₃ := by
-  grind [FunctionResult.isRefinedBy, RuntimeValue.arrayIsRefinedBy_trans]
+  grind [FunctionResult.isRefinedBy, RuntimeValue.arrayIsRefinedBy_trans,
+    MemoryState.isRefinedBy_trans]
 
 theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
     (hR : ∀ a b c, R a b → R b c → R a c)

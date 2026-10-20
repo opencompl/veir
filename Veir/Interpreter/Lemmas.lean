@@ -663,17 +663,18 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
   (op.interpret ctx.raw operands mem).isFail = false
 
 /--
-Monotonicity of `interpretOp'` in its operands, as a class so that a dialect can discharge it for
-its own opcodes without this file knowing about the dialect.
+Monotonicity of `interpretOp'` in its operands and its memory, as a class so that a dialect can
+discharge it for its own opcodes without this file knowing about the dialect.
 -/
 class InterpretOp'Monotone (opType : OpCode) : Prop where
   monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState) :
+    (mem mem' : MemoryState) :
+    mem ⊒ mem' →
     operands ⊒ operands' →
     Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem')
 
 /-- Assumed for an opcode that has no proof yet. -/
 axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opType
@@ -681,12 +682,14 @@ axiom interpretOp'_monotone_assumed (opType : OpCode) : InterpretOp'Monotone opT
 theorem interpretOp'_monotone
     (opType : OpCode) [inst : InterpretOp'Monotone opType] (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr)
-    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem mem' : MemoryState) :
+    mem ⊒ mem' →
     operands ⊒ operands' →
     Interp.isRefinedBy OperationResult.isRefinedBy
       (interpretOp' opType properties resultTypes operands blockOperands mem)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem) :=
-  inst.monotone properties resultTypes operands operands' blockOperands mem
+      (interpretOp' opType properties resultTypes operands' blockOperands mem') :=
+  inst.monotone properties resultTypes operands operands' blockOperands mem mem'
 
 /--
 A successful operation interpretation returns result values that conform to the declared
