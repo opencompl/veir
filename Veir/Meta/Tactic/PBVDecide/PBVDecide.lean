@@ -20,9 +20,9 @@ are the width relations `<`, `≤`, `>`, `≥` and `=`, and conjunctions (`∧`)
 them, when they occur as hypotheses: each is translated into the corresponding
 relation on the width masks.
 
-By default, the tactic discharged the generated main goal using `bv_decide` and
-any side goals using `grind`, these prove the width parameters are bounded by
-the computed bound. Options `-grind` and `-bv_decide` can be passed to turn off
+By default, the tactic discharges the generated main goal using `bv_decide` and
+any side goals using `grind`; the side goals prove the width parameters are
+bounded by the computed bound. Options `-grind` and `-bv_decide` can be passed to turn off
 either of these tactics and return the generated goals.
 -/
 syntax (name := pbvDecide) "pbv_decide" (ppSpace colGt num optConfig) : tactic

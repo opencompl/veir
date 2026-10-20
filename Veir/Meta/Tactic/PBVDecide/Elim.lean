@@ -10,6 +10,9 @@ open Veir.Data.PBV
 
 namespace Veir.Meta.Tactic.PBVDecide
 
+/--
+Get the side goal for `prop`, creating a fresh mvar for it if there is none yet.
+-/
 meta def getOrCreateFreshMVar (g : MVarId)
   (prop : WidthProp) : TranslateM Expr := do
   if let some mvar := (← get).freshMVars.get? prop then
@@ -21,8 +24,8 @@ meta def getOrCreateFreshMVar (g : MVarId)
 
 /--
 Given a width term (`widthTm`), introduce a `BitVec` variable corresponding
-to the mask of that width. Then introduce a hypothesis bounding the width to the
-provided `blastWidth` and enforce it as a mask with `and_add_one_eq_zero_of_maskOfWidth`.
+to the mask of that width. Then introduce a hypothesis bounding the width by the
+blast width and enforce it as a mask with `and_add_one_eq_zero_of_maskOfWidth`.
 -/
 meta def introMaskWidth (g : MVarId) (widthTm : WidthTm)
   : TranslateM (MVarId × WidthInfo) := g.withContext do
@@ -50,6 +53,11 @@ meta def introMaskWidth (g : MVarId) (widthTm : WidthTm)
     modifyGet fun s =>
       ((g, info), { s with widthInfos := s.widthInfos.insert widthTm info })
 
+/--
+Introduce the mask of a width literal. Its value is known, so the mask is
+defined directly, and the proofs that it is a mask and is within the blast width
+are computed.
+-/
 meta def introMaskLit (g : MVarId) (widthLit : WidthTm) : TranslateM (MVarId × WidthInfo) := g.withContext do
   let .widthLit val := widthLit | throwError m!"{widthLit.toExpr (← read).env} is not a width literal."
   if val > (← read).blastWidth then
@@ -81,8 +89,8 @@ meta def introMaskLit (g : MVarId) (widthLit : WidthTm) : TranslateM (MVarId × 
     ((g, info), { s with widthInfos := s.widthInfos.insert widthLit info })
 
 /--
-Recurse through a `.width Tm`, converting `Nat` term into a `BitVec` mask, and
-translating relations on the terms into relations on the `BitVec` (eg. add).
+Get the mask of a width term, creating it if needed. The mask of a sum is
+created from the masks of its parts, together with a hypothesis relating them.
 -/
 meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) : TranslateM (MVarId × WidthInfo) := do
   -- Check if this width term is already in widthInfos
@@ -112,8 +120,8 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) : TranslateM (MVa
     return (g, thisInfo)
 
 /--
-Given a `Tm .prop` and the `Expr` it was reified from, construct the expr that
-corresponds to the `Prop` expressed in terms of the masks.
+Given a `Tm .prop` and a `proof` of it, construct a proof of the same prop
+stated in terms of the masks.
 -/
 meta def getMaskedExprFromProp (g : MVarId) (prop : WidthProp) (proof : Expr)
     : TranslateM (MVarId × Expr) := g.withContext do
@@ -145,7 +153,7 @@ meta def getMaskedExprFromProp (g : MVarId) (prop : WidthProp) (proof : Expr)
     let expr ← g.withContext <| mkAppM ``And.intro #[aExpr, bExpr]
     return (g, expr)
 
-/-- Construct the mask `Expr` for each `WidthProp` and add it to the context. -/
+/-- State each reified width prop in terms of the masks, adding it to the context. -/
 public meta def translatePropsToMask (g : MVarId) : TranslateM MVarId := do
   (← read).props.foldM (init := g) fun g widthProp proof => do
     -- Obtain the `Expr` of the prop in terms of the mask.
@@ -168,8 +176,8 @@ public meta def introMaskWidths (g : MVarId) : TranslateM MVarId
       return g
 
 /--
-Analyze a single bitvector FVarId, and introduce it as a `BitVec` variable in
-our larger universe. `Unchecked` because `widthTm` is trusted to be the width of
+Eliminate a single `BitVec` variable, replacing it with a variable at the blast
+width constrained by the mask of its width. `Unchecked` because `widthTm` is trusted to be the width of
 `bvFVarId`; it is not re-derived from the local context.
 -/
 meta def introBitvecFVarUnchecked (g : MVarId) (bvFVarId : FVarId) (widthTm : WidthTm) :
