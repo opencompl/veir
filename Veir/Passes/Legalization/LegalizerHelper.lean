@@ -92,13 +92,12 @@ Widens the operand (type group 1) of a bit counting `opcode` to `width` bits, as
 `G_CTTZ` and `G_CTPOP` case of LLVM's `LegalizerHelper::widenScalar` does:
 - The operand is extended, with `g_anyext` when its extra bits do not matter, and `g_zext` otherwise.
 - `g_cttz` sets the bit just above the operand, so that a zero operand still counts the bitwidth
-  of the operand.
+  of the operand. The extended operand is then non-zero, so it uses `g_cttz_zero_poison`.
+- `g_ctlz_zero_poison` shifts the operand left by the extra bits, which drops them from the count.
 - The count is computed in `iwidth`, and `g_ctlz` subtracts the extra leading zeros from it.
 - The count is then zero-extended or truncated to the result type.
 LLVM decides the latter by the result type, so there is one pattern for each ordering of the
 width of the result and `width`.
-TODO: LLVM also widens `G_CTLZ_ZERO_POISON` (by shifting the operand left by the extra bits) and
-`G_CTTZ_ZERO_POISON` here. Do so once GMIR has `g_ctlz_zero_poison`/`g_cttz_zero_poison`.
 -/
 def widenBitCountOperand (opcode : GMIR) (props : propertiesOf (OpCode.gmir opcode))
     (width : Nat) : List (Pattern OpCode) :=
@@ -123,11 +122,15 @@ def widenBitCountOperand (opcode : GMIR) (props : propertiesOf (OpCode.gmir opco
             let orProps ← CreateProg.property (.gmir .g_or) default
             let src ← CreateProg.operation (.gmir .g_or) #[ext.res[0]!, topBit.res[0]!]
                 #[wideType] orProps
-            /- TODO: The extended operand is non-zero, so LLVM uses `G_CTTZ_ZERO_POISON` here.
-               Do so once GMIR has `g_cttz_zero_poison` and the legalizer can lower it back to
-               `g_cttz`. -/
-            let countProps ← CreateProg.property (.gmir .g_cttz) ()
-            CreateProg.operation (.gmir .g_cttz) #[src.res[0]!] #[wideType] countProps
+            let countProps ← CreateProg.property (.gmir .g_cttz_zero_poison) ()
+            CreateProg.operation (.gmir .g_cttz_zero_poison) #[src.res[0]!] #[wideType] countProps
+          else if opcode = .g_ctlz_zero_poison then do
+            let sizeDiff ← constantOfWidth operandType width (width - ·)
+            let shlProps ← CreateProg.property (.gmir .g_shl) default
+            let src ← CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, sizeDiff.res[0]!]
+                #[wideType] shlProps
+            let countProps ← CreateProg.property (.gmir opcode) props
+            CreateProg.operation (.gmir opcode) #[src.res[0]!] #[wideType] countProps
           else do
             let countProps ← CreateProg.property (.gmir opcode) props
             CreateProg.operation (.gmir opcode) #[ext.res[0]!] #[wideType] countProps
@@ -148,7 +151,29 @@ def widenBitCountOperand (opcode : GMIR) (props : propertiesOf (OpCode.gmir opco
           CreateProg.operation (.gmir .g_zext) #[count.res[0]!] #[resultType] zextProps)
       (fun result => result)
 
+/-- Replaces the unary `opcode` by `newOpcode` with `props`, keeping its operand and result. -/
+def lowerToOpcode (opcode newOpcode : GMIR) (props : propertiesOf (OpCode.gmir newOpcode)) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let operandType ← MatchProg.type (Attr := TypeAttr)
+      let resultType ← MatchProg.type (Attr := TypeAttr)
+      let operand ← MatchProg.value operandType
+      let _ ← MatchProg.root (.gmir opcode) #[operand] #[resultType]
+      return (resultType, operand))
+    (fun (resultType, operand) => do
+      let newProps ← CreateProg.property (.gmir newOpcode) props
+      CreateProg.operation (.gmir newOpcode) #[operand] #[resultType] newProps)
+    (fun newOp => newOp)
+
 public section
+
+/-- The pattern that lowers `opcode`, if it can be lowered. -/
+def lower? : GMIR → Option (Pattern OpCode)
+  -- The zero-poison variants trivially expand to the variants that are defined at zero.
+  | .g_ctlz_zero_poison => lowerToOpcode .g_ctlz_zero_poison .g_ctlz ()
+  | .g_cttz_zero_poison => lowerToOpcode .g_cttz_zero_poison .g_cttz ()
+  | _ => none
 
 /--
 The patterns that widen type group `typeIdx` of `opcode` to `width` bits, tried in order.
@@ -157,6 +182,8 @@ def widenScalar (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat) : List (Patt
   match opcode, typeIdx with
   | .g_ctlz, .type 1 => widenBitCountOperand .g_ctlz () width
   | .g_cttz, .type 1 => widenBitCountOperand .g_cttz () width
+  | .g_ctlz_zero_poison, .type 1 => widenBitCountOperand .g_ctlz_zero_poison () width
+  | .g_cttz_zero_poison, .type 1 => widenBitCountOperand .g_cttz_zero_poison () width
   | .g_ctpop, .type 1 => widenBitCountOperand .g_ctpop () width
   | _, _ => (widenScalar? opcode typeIdx width).toList
 where
@@ -184,6 +211,10 @@ where
   | .g_constant, .type 0, width => widenConstant width
   | .g_cttz, .type 0, width => widenTypeGroup .g_cttz (.type 0) .g_zext width
   | .g_ctlz , .type 0, width => widenTypeGroup .g_ctlz (.type 0) .g_zext width
+  | .g_cttz_zero_poison, .type 0, width =>
+    widenTypeGroup .g_cttz_zero_poison (.type 0) .g_zext width
+  | .g_ctlz_zero_poison, .type 0, width =>
+    widenTypeGroup .g_ctlz_zero_poison (.type 0) .g_zext width
   | .g_ctpop , .type 0, width => widenTypeGroup .g_ctpop (.type 0) .g_zext width
   | _, _, _ => none
 

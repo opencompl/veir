@@ -54,6 +54,8 @@ inductive GMIR where
 | g_abs
 | g_ctlz
 | g_cttz
+| g_ctlz_zero_poison
+| g_cttz_zero_poison
 | g_ctpop
 deriving Inhabited, Repr, Hashable, DecidableEq
 
@@ -71,7 +73,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop => Unit
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -89,7 +91,7 @@ def GMIR.fromAttrDict
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
-     | g_ctlz | g_cttz | g_ctpop => exact .ok ()
+     | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -124,7 +126,7 @@ def GMIR.toAttrDict
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop => {}
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop => {}
 
 #generate_dialect GMIR
 
@@ -169,7 +171,8 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
   | .g_anyext | .g_sext | .g_zext | .g_trunc
-  | .g_inttoptr | .g_ptrtoint | .g_ctlz | .g_cttz | .g_ctpop =>
+  | .g_inttoptr | .g_ptrtoint | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison
+  | .g_ctpop =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
   | .g_bswap | .g_bitreverse | .g_abs | .g_sext_inreg =>
@@ -206,7 +209,7 @@ private def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.In
   | .val v => .val (if v.toNat < w then BitVec.ofNat w v.toNat else BitVec.allOnes w)
   | .poison => .poison
 
-/-- Converts a bit count to the width `w` of the result (type group 0) of `g_ctlz`/`g_cttz`/`g_ctpop`. -/
+/-- Converts a bit count to the width `w` of the result (type group 0) of the bit counting operations. -/
 private def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
   | .val v => .val (BitVec.ofNat w v.toNat)
   | .poison => .poison
@@ -394,6 +397,16 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.cttz x false))], mem, none)
+  | .g_ctlz_zero_poison => do
+    let [.int _ x] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.ctlz x true))], mem, none)
+  | .g_cttz_zero_poison => do
+    let [.int _ x] := operands.toList | none
+    let some resType := resultTypes[0]? | none
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (resizeCount resBw.bitwidth (Data.LLVM.Int.cttz x true))], mem, none)
   | .g_ctpop => do
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
@@ -467,7 +480,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_shl | .g_lshr | .g_ashr
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
-  | .g_ctlz | .g_cttz | .g_ctpop =>
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
   | .g_bswap =>
@@ -508,7 +521,8 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg => true
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
+  | .g_sext_inreg => true
   | .g_constant => false
 
 def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=

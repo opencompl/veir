@@ -119,7 +119,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 64,
       .minScalar (.type 1) 64,
     ]
-    -- TODO: Add `g_ctlz_zero_poison`/`g_cttz_zero_poison`, which LLVM lowers to `G_CTLZ`/`G_CTTZ`.
+    | .g_ctlz_zero_poison | .g_cttz_zero_poison => [
+      .lower,
+    ]
     | .g_ctpop => [
       .legalForTypePairs [(s64, s64)],
       .customIf (.all [.typeIs (.type 0) s32, .typeIs (.type 1) s32]),
