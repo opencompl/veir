@@ -38,7 +38,7 @@ def DataLayoutTypeInfo.allocSize (info : DataLayoutTypeInfo) : Nat :=
 /--
   LLVM's `StructLayout` for a struct whose fields have the layouts `fields`: each
   field is placed at the next multiple of its ABI alignment (1 if packed), and the
-  size is rounded up to the largest field alignment. The default `a:8:64` entry
+  size is rounded up to the largest field alignment. The default `a:0:64` entry
   makes the struct ABI alignment at least 1 and its preferred alignment at least
   8. Returns the byte offset of each field, and the layout of the struct.
 -/
