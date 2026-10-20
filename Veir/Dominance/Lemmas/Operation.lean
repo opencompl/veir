@@ -61,34 +61,6 @@ theorem OperationPtr.dominates_iff_properlyDominates_or_eq :
       op₁.ProperlyDominates op₂ ctx enclosingOk ∨ op₁ = op₂ := by
   grind [OperationPtr.Dominates]
 
-/-- Same-region proper dominance identifies the dominator's parent region. -/
-@[grind →]
-theorem OperationPtr.ProperlyDominatesInRegion.parentRegion_dominator
-    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx) :
-    op₁.getParentRegion! ctx.raw = some region := by
-  cases dominance with
-  | SameBlock dominance =>
-    cases dominance <;>
-      grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
-        OperationPtr.ProperlyDominatesInGraphBlock]
-  | BlockDominance _ _ dominance =>
-    have parent := dominance.parent_dominator
-    grind
-
-/-- Same-region proper dominance identifies the dominated operation's parent region. -/
-@[grind →]
-theorem OperationPtr.ProperlyDominatesInRegion.parentRegion_dominated
-    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx) :
-    op₂.getParentRegion! ctx.raw = some region := by
-  cases dominance with
-  | SameBlock dominance =>
-    cases dominance <;>
-      grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
-        OperationPtr.ProperlyDominatesInGraphBlock]
-  | BlockDominance _ _ dominance =>
-    have parent := dominance.parent_dominated
-    grind
-
 /-- A proper dominator encloses its target or has a parent region enclosing the target. -/
 theorem OperationPtr.ProperlyDominates.ancestor_or_parentRegion
     (dominance : op₁.ProperlyDominates op₂ ctx enclosingOk) :
