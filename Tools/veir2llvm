@@ -874,6 +874,8 @@ def translate_nonterminator(
         indices = []
         next_dynamic = 1
         for value in raw:
+            if not -0x80000000 <= value <= 0xffffffff:
+                raise Error(f"llvm.getelementptr: raw constant index {value} does not fit in i32")
             value &= 0xffffffff
             if value == 0x80000000:
                 if next_dynamic >= len(op.operands):
@@ -887,7 +889,8 @@ def translate_nonterminator(
                 indices.append(f"i32 {value}")
         if next_dynamic != len(op.operands):
             raise Error("llvm.getelementptr: more operands than dynamic indices")
-        return [f"  {out_result} = getelementptr {elem}, ptr {ptr}, " + ", ".join(indices)]
+        return [f"  {out_result} = getelementptr {elem}, ptr {ptr}"
+                + "".join(f", {index}" for index in indices)]
 
     # Intrinsics and freeze carry their own attributes and bypass flag parsing.
     intrinsic = translate_intrinsic(op, out_result, dst_type, aliases, declarations)
