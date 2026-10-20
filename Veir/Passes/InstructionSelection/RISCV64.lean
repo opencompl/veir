@@ -6,6 +6,7 @@ import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
+import Veir.Passes.Matching.GMIR.Basic
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
@@ -2161,7 +2162,7 @@ def memIntrinsic_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let align := if isMemset then memArgAlign props 0
     else min (memArgAlign props 0) (memArgAlign props 1)
   let accesses? : Option (Array (Nat × Nat)) := do
-    let len ← matchConstantIntVal len ctx.raw
+    let len ← matchGConstantIntVal len ctx.raw
     guard (0 ≤ len ∧ len ≤ 8 * memMaxStores)
     let accesses := memAccesses len.toNat align
     guard (accesses.size ≤ memMaxStores)
@@ -2189,7 +2190,7 @@ def memIntrinsic_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
        take the low bits of the 64-bit splat of the fill byte. -/
     let mut srcReg := dstReg
     if isMemset && !accesses.all (·.2 = 1) then
-      match matchConstantIntVal src ctx.raw with
+      match matchGConstantIntVal src ctx.raw with
       | some c =>
         let (ctx', li) ← createRISCVImmLocal ctx .li rfl #[] ((c % 256) * 0x0101010101010101)
         ctx := ctx'; ops := ops.push li; srcReg := li.getResult 0
