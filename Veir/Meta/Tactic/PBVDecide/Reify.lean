@@ -9,6 +9,7 @@ namespace Veir.Meta.Tactic.PBVDecide
 
 meta def Expr.isNat (e : Expr) : Bool := e.isConstOf ``Nat
 
+/-- If `e` is `BitVec w`, return `w`. -/
 meta def getBitvecType? (e : Expr) : Option Expr :=
   match_expr e with
   | BitVec w => some w
@@ -20,6 +21,10 @@ meta def getIdOrPush (width : Expr) : ReifyM Nat := do
   else
     modifyGet fun s => (s.env.size, { s with env := s.env.push width })
 
+/--
+Reify a `Nat` width: fvars, literals and `+` become the corresponding `Tm`
+constructors, anything else becomes an opaque atom.
+-/
 meta partial def Tm.reifyWidth (e : Expr) : ReifyM WidthTm := do
   if let some fvarid := e.fvarId? then
     return .widthFVar (← getIdOrPush e) fvarid
@@ -55,6 +60,10 @@ meta def matchWidthRel (e : Expr) :
   | Eq ty ea eb          => if Expr.isNat ty then some (.widthEq, ea, eb) else none
   | _ => none
 
+/--
+Reify a proposition on widths: a relation between widths, or a conjunction of
+them. Returns `none` for anything else.
+-/
 meta partial def Tm.reifyProp (e : Expr) : ReifyM (Option WidthProp) := do
   if let some (rel, ea, eb) := matchWidthRel e then
     let wa ← Tm.reifyWidth ea
@@ -73,6 +82,7 @@ meta def pushProp (prop : Tm .prop) (expr : Expr) : ReifyM Unit := do
   unless ← isDefEq (← inferType expr) (prop.toExpr (← get).env)
     do throwError m!"Cannot insert prop {prop.toExpr (← get).env}: it doesn't match the type of the corresponding fvar: {← inferType expr}"
   modify fun s => { s with props := s.props.insert prop expr }
+
 /--
 Traverse the local context and try to reify `Prop`s on width terms.
 -/
@@ -125,6 +135,11 @@ meta partial def visitDependentHyps (visited : FVarIdSet := {}) : ReifyM Unit :=
     visitDependentHyps visited
 
 
+/--
+Reify the goal: collect the widths of the `BitVec`s in the goal and in the
+hypotheses that depend on them, and the props on widths in the local context.
+Returns the blast width, the upper bound on all the collected widths.
+-/
 public meta def reifyWidths (g : MVarId) : ReifyM Nat := g.withContext do
   -- Find `BitVec`s and reify their widths
   visitExprRec (← g.getType)

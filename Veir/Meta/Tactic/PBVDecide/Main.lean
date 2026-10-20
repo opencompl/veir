@@ -26,8 +26,9 @@ meta def dropNatReferences (g : MVarId) : TranslateM MVarId := g.withContext do
     return g
 
 /--
-Translate the provided parametric `BitVec` goal into a concrete width goal using
-the provided context. Returns the modified goal and any generate side-goals.
+Translate the parametric `BitVec` goal into a concrete width goal, using the
+reified widths, `BitVec`s and preconditions. The side goals generated along the
+way are collected in the `TranslateState`.
 -/
 meta def pbvTranslate (g : MVarId) : TranslateM MVarId := g.withContext do
   -- Introduce the width masks, bounded by the blast width

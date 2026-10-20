@@ -95,7 +95,7 @@ meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskC
   )
 
 /--
-Convert a bv_decide counterexample into a string, mapping concrete mask `BitVec`
+Convert a `bv_decide` counterexample into a message, mapping concrete mask `BitVec`
 values to concrete width `Nat` values, and keeping track if any counterexamples
 belong to expressions which have been abstracted as opaque variables.
 -/
