@@ -76,6 +76,11 @@
           default = pkgs.mkShell {
             packages = developmentPackages pkgs;
 
+            # The clang wrapper's default hardening defines `_FORTIFY_SOURCE`,
+            # and glibc warns about it at `-O0`, which `lake build --iofail`
+            # turns into a failure of every C file of a debug build.
+            hardeningDisable = [ "fortify" "fortify3" ];
+
             # ExArray uses Clang LTO and therefore needs its compiler wrapper
             # together with LLVM's archiver.
             LEAN_AR = "${(llvmPackages pkgs).llvm}/bin/llvm-ar";
