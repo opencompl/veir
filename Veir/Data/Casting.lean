@@ -81,3 +81,10 @@ theorem toByte_eq_val {r : Veir.Data.RISCV.Reg} :
 theorem toByte_val {w : Nat} {r : Veir.Data.RISCV.Reg} :
     (RISCV.Reg.toByte r w).val = (r.val).zeroExtend w := by
   simp [RISCV.Reg.toByte]
+
+/--
+  Cast `LLVM.Byte` to `LLVM.Int`. The result is poison only if every bit is poison, otherwise
+  poison bits become zero.
+-/
+def LLVM.Byte.toFrozenInt (b : Veir.Data.LLVM.Byte w) : Veir.Data.LLVM.Int w :=
+  if b.poison = BitVec.allOnes w then .poison else .val b.val

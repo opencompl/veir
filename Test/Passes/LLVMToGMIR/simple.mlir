@@ -19,8 +19,11 @@
       %udiv = "llvm.udiv"(%a, %b) : (i16, i16) -> i16
       %srem = "llvm.srem"(%a, %b) : (i16, i16) -> i16
       %urem = "llvm.urem"(%a, %b) : (i16, i16) -> i16
+      %byte = "llvm.mlir.poison"() : () -> !llvm.byte<16>
+      %truncByte = "llvm.trunc"(%byte) <{overflowFlags = 1 : i32}> : (!llvm.byte<16>) -> !llvm.byte<8>
       "test.test"(%add, %sub, %cmp, %sext, %zext, %trunc, %and, %or, %xor) : (i16, i16, i1, i32, i32, i8, i16, i16, i16) -> ()
       "test.test"(%mul, %sdiv, %udiv, %srem, %urem) : (i16, i16, i16, i16, i16) -> ()
+      "test.test"(%truncByte) : (!llvm.byte<8>) -> ()
       "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -44,3 +47,6 @@
 // CHECK: "gmir.g_udiv"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 // CHECK: "gmir.g_srem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 // CHECK: "gmir.g_urem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<16>) -> i16
+// CHECK: "gmir.g_trunc"(%{{.*}}) <{"overflowFlags" = 1 : i32}> : (i16) -> i8
+// CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !llvm.byte<8>

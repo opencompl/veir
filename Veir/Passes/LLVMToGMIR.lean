@@ -20,6 +20,8 @@ namespace Veir
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
+  - Upstream gives bytes the same LLT as integers; we cast bytes to integers with
+    `builtin.unrealized_conversion_cast` (see `LLVM.Byte.toFrozenInt`).
 -/
 
 /-! ## Lowering Patterns -/
@@ -112,6 +114,41 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
 
 def g_constant := lowerIntegerConstant.compile
 
+/-- The integer type with the same width as the byte type `type`. -/
+def TypeAttr.intOfByte? (type : TypeAttr) : Option TypeAttr := do
+  let type ← type.cast? LLVM.ByteType
+  return IntegerType.signless type.bitwidth
+
+/--
+  GMIR lowerings with Puddle for byte casts, through integers of the same width.
+-/
+def lowerByteCast (lOp : Llvm) (gOp : GMIR)
+    (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
+      let resultType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
+      let operand ← Puddle.MatchProg.value operandType
+      let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[resultType]
+      return (operandType, resultType, operand, root))
+    (fun (operandType, resultType, operand, root) => do
+      let intOperandType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
+          operandType TypeAttr.intOfByte?
+      let intResultType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
+          resultType TypeAttr.intOfByte?
+      let castProps ← Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[operand] #[intOperandType] castProps
+      let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!]
+          #[intResultType] props
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
+          #[resultType] castProps)
+    (fun castBackOp => castBackOp)
+
+def g_truncByte := (lowerByteCast .trunc .g_trunc).compile
+
 /-! ## Pass implementation -/
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
@@ -120,7 +157,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
-    g_constant.run
+    g_constant.run, g_truncByte.run
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"

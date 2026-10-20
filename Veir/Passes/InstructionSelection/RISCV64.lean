@@ -856,6 +856,23 @@ def bitcast_pattern : Pattern OpCode :=
 /-- llvm.bitcast -> builtin_unrealized_conversion_cast (see `bitcast_pattern`). -/
 def bitcast : Puddle.CompiledPattern OpCode := bitcast_pattern.compile
 
+/-- Whether `opType` and `resType` are a byte and an integer type of the same width at most 64. -/
+def isByteIntCast (opType resType : TypeAttr) : Bool :=
+  match opType.val, resType.val with
+  | .byteType b, .integerType i | .integerType i, .byteType b =>
+    b.bitwidth = i.bitwidth && i.bitwidth ≤ 64
+  | _, _ => false
+
+/-- `builtin.unrealized_conversion_cast` between a byte and an integer -> two casts through
+    `!riscv.reg`. -/
+def byteIntCast_pattern : Pattern OpCode :=
+  lowerRegCast (.builtin .unrealized_conversion_cast) fun opType resType _ =>
+    isByteIntCast opType resType
+
+/-- `builtin.unrealized_conversion_cast` between a byte and an integer -> two casts through
+    `!riscv.reg` (see `byteIntCast_pattern`). -/
+def byteIntCast : Puddle.CompiledPattern OpCode := byteIntCast_pattern.compile
+
 /--
   Lower LLVM lifetime instructions to nothing. This is a refinement that we can
   revisit later if we want to perform certain stack slot optimizations.
@@ -2337,7 +2354,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     constant.run, addressof, add32.run, add64.run, ashr64.run, ashr32.run, ashr8.run] ++
     icmp.map (·.run) ++ #[
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
-    sub64.run, sub32.run, bitcast.run] ++
+    sub64.run, sub32.run, bitcast.run, byteIntCast.run] ++
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
