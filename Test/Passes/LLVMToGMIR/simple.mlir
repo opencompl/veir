@@ -26,6 +26,8 @@
 }) : () -> ()
 
 // CHECK: "builtin.module"
+// CHECK: "gmir.g_constant"() <{"value" = 100 : i16}> : () -> i16
+// CHECK: "gmir.g_constant"() <{"value" = 42 : i16}> : () -> i16
 // CHECK: "gmir.g_add"
 // CHECK-SAME: "overflowFlags" = 3 : i32
 // CHECK: "gmir.g_sub"

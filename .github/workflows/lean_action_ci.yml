@@ -23,6 +23,9 @@ jobs:
       - name: Check that every Lean module is built
         run: ./Tools/check-orphan-modules
 
+      - name: Check that every LLVM interpreter test is cross-checked
+        run: ./Tools/check-interpreter-cross-checks
+
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -68,17 +71,44 @@ jobs:
         with:
           arguments: --no-write-lock-file
 
+      # Keep debug and release artifacts separate. Include the native
+      # environment and package configurations, and only fall back across
+      # source commits with the same configuration. Docs mirrors the release
+      # key and paths, so update its restore step when changing these.
+      - name: Restore the Lake build
+        id: lake-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake
+            ExArray/.lake
+            lean-ctrees/.lake
+          key: lake-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.buildType }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-${{ github.sha }}
+          restore-keys: lake-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.buildType }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-
+
       - name: Build the project
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
         with:
           build-args: "--iofail"
           test: false
+          use-github-cache: false
 
-      - name: Run unit tests
-        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
+      # Save before `lake test`: UnitTest uses compile-time checks that must
+      # run again on the next CI run, even when the production build is cached.
+      - name: Save the Lake build
+        if: steps.lake-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          test-args: "--iofail"
-          test: true
+          path: |
+            .lake
+            ExArray/.lake
+            lean-ctrees/.lake
+          key: ${{ steps.lake-cache.outputs.cache-primary-key }}
+
+      # Reuse the build and toolchain in place; another lean-action invocation
+      # would restore the cache again and run a second `lake build`.
+      - name: Run unit tests
+        run: lake test --iofail
 
       - name: Install Python dependencies
         run: uv sync
@@ -87,12 +117,9 @@ jobs:
         run: uv run lit Test/ -v
 
       - name: Build the ExArray package
-        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
-        with:
-          lake-package-directory: "ExArray"
+        working-directory: ExArray
+        run: lake build
 
       - name: Run the ExArray test binary
-        run: |
-          pushd ExArray
-          lake exe test
-          popd
+        working-directory: ExArray
+        run: lake exe test

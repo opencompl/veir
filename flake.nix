@@ -14,6 +14,11 @@
       forAllSystems = nixpkgs.lib.genAttrs systems;
       llvmPackages = pkgs: pkgs.llvmPackages_23;
 
+      # Lean's prebuilt macOS libraries require macOS 15.
+      developmentEnvironment = pkgs: nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+        MACOSX_DEPLOYMENT_TARGET = "15.0";
+      };
+
       developmentPackages = pkgs: with pkgs; [
         bash
         (llvmPackages pkgs).clang
@@ -33,6 +38,7 @@
           package = pkgs.writeShellApplication {
             name = "veir-${suffix}";
             runtimeInputs = developmentPackages pkgs;
+            runtimeEnv = developmentEnvironment pkgs;
             text = ''
               export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
               export LEAN_CC="${self}/ExArray/compiler"
@@ -54,6 +60,7 @@
           package = pkgs.writeShellApplication {
             name = target;
             runtimeInputs = developmentPackages pkgs;
+            runtimeEnv = developmentEnvironment pkgs;
             text = ''
               export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
               export LEAN_CC="${self}/ExArray/compiler"
@@ -73,14 +80,22 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          default = pkgs.mkShell {
+          default = pkgs.mkShell ({
             packages = developmentPackages pkgs;
+            buildInputs = nixpkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+              (pkgs.darwinMinVersionHook "15.0")
+            ];
+
+            # The clang wrapper's default hardening defines `_FORTIFY_SOURCE`,
+            # and glibc warns about it at `-O0`, which `lake build --iofail`
+            # turns into a failure of every C file of a debug build.
+            hardeningDisable = [ "fortify" "fortify3" ];
 
             # ExArray uses Clang LTO and therefore needs its compiler wrapper
             # together with LLVM's archiver.
             LEAN_AR = "${(llvmPackages pkgs).llvm}/bin/llvm-ar";
             LEAN_CC = "${self}/ExArray/compiler";
-          };
+          } // developmentEnvironment pkgs);
         });
 
       apps = forAllSystems (system:
