@@ -69,10 +69,11 @@ def g_srem := (lowerBinop .srem .g_srem).compile
 def g_urem := (lowerBinop .urem .g_urem).compile
 
 /--
-  GMIR lowerings with Puddle for integer casts.
+  GMIR lowerings with Puddle for unary integer operations, whose operand and result types may
+  differ. `convertProps` maps the LLVM properties to the GMIR ones.
 -/
-def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
-    (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
+def lowerIntegerUnary (lOp : Llvm) (gOp : GMIR)
+    (convertProps : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp)) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -83,16 +84,35 @@ def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
       return (resultType, operand, root))
     (fun (resultType, operand, root) => do
       let props ← Puddle.CreateProg.applyNative root.properties
-                    (fun p => some (cast h p))
+                    (fun p => some (convertProps p))
       let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] props
       return newOp)
     (fun newOp => newOp)
+
+/--
+  GMIR lowerings with Puddle for integer casts.
+-/
+def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
+    (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
+    Puddle.Pattern OpCode :=
+  lowerIntegerUnary lOp gOp (cast h)
 
 def g_sext := (lowerIntegerCast .sext .g_sext).compile
 
 def g_zext := (lowerIntegerCast .zext .g_zext).compile
 
 def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
+
+/-
+  Upstream translates a zero-poison `ctlz`/`cttz` to `G_CTLZ_ZERO_POISON`/`G_CTTZ_ZERO_POISON`.
+  We do not have those, so `is_zero_poison` is dropped: `g_ctlz`/`g_cttz` are defined at zero,
+  which refines the poison result.
+-/
+def g_ctlz := (lowerIntegerUnary .intr__ctlz .g_ctlz fun _ => ()).compile
+
+def g_cttz := (lowerIntegerUnary .intr__cttz .g_cttz fun _ => ()).compile
+
+def g_ctpop := (lowerIntegerCast .intr__ctpop .g_ctpop).compile
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -120,6 +140,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
+    g_ctlz.run, g_cttz.run, g_ctpop.run,
     g_constant.run
   ]
   match RewritePattern.applyInContext pattern ctx with

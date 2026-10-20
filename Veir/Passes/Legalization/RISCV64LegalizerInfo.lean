@@ -20,30 +20,30 @@ section
 open Puddle in
 
 /--
-  Custom legalization of `i32` binary operations into their RISC-V word variant
-  (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
+  Custom legalization of `i32` operations with `numOperands` operands into their RISC-V word
+  variant (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`, `g_ctlz` -> `riscv.clzw`).
   For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
-  later. For `g_sdiv`/`g_udiv`/`g_urem`, LLVM custom-legalizes into `RISCV::G_DIVW` etc.
+  later. For `g_sdiv`/`g_udiv`/`g_urem`/`g_ctlz`/`g_cttz`, LLVM custom-legalizes into
+  `RISCV::G_DIVW`, `RISCV::G_CLZW` etc.
 -/
 def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) (numOperands : Nat := 2) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let opType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
-      let lhs ← MatchProg.value opType
-      let rhs ← MatchProg.value opType
-      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[opType]
-      return (opType, lhs, rhs))
-    (fun (opType, lhs, rhs) => do
+      let operands ← (Array.replicate numOperands ()).mapM fun _ => MatchProg.value opType
+      let _ ← MatchProg.root (.gmir opcode) operands #[opType]
+      return (opType, operands))
+    (fun (opType, operands) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] castProps
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] castProps
+      let regOperands ← operands.mapM fun operand => do
+        let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+            #[operand] #[regType] castProps
+        return castOp.res[0]!
       let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp) regOperands #[regType] riscvOpProps
       CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[riscvResOp.res[0]!] #[opType] castProps)
     (fun castBackOp => castBackOp)
@@ -108,6 +108,25 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_bswap => sorry
+    | .g_bitreverse => sorry
+    -- The `Zbb` rules, which the RISC-V 64 instruction selection assumes.
+    | .g_ctlz | .g_cttz => [
+      .legalForTypePairs [(s64, s64)],
+      .customFor [s32],
+      .minScalar (.type 0) 32,
+      .minScalar (.type 1) 32,
+      .minScalar (.type 0) 64,
+      .minScalar (.type 1) 64,
+    ]
+    | .g_ctpop => [
+      .legalForTypePairs [(s64, s64)],
+      .customFor [s32],
+      .minScalar (.type 0) 32,
+      .minScalar (.type 1) 32,
+      .minScalar (.type 0) 64,
+      .minScalar (.type 1) 64,
+    ]
     | _ => []
   legalizeCustom
     | .g_add => customLegalizeWord .g_add .addw ()
@@ -116,6 +135,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
     | .g_udiv => customLegalizeWord .g_udiv .divuw ()
     | .g_urem => customLegalizeWord .g_urem .remuw ()
+    | .g_ctlz => customLegalizeWord .g_ctlz .clzw ()
+    | .g_cttz => customLegalizeWord .g_cttz .ctzw ()
+    | .g_ctpop => customLegalizeWord .g_ctpop .cpopw ()
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

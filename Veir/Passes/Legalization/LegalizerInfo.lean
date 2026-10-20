@@ -106,6 +106,18 @@ def scalarNarrowerThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate o
     | .scalar width' => width' < width
     | .pointer _ => false
 
+/-- True if type group `typeIdx` is a scalar whose width is not a power of two. -/
+def sizeNotPow2 (typeIdx : TypeGroup) : LegalityPredicate opcode :=
+  fun query => match query.getLLT! typeIdx with
+    | .scalar width => width.nextPowerOfTwo != width
+    | .pointer _ => false
+
+/-- True if type group `typeIdx` is a scalar narrower than the scalar of type group `otherIdx`. -/
+def scalarNarrowerThanType (typeIdx otherIdx : TypeGroup) : LegalityPredicate opcode :=
+  fun query => match query.getLLT! typeIdx, query.getLLT! otherIdx with
+    | .scalar width, .scalar otherWidth => width < otherWidth
+    | _, _ => false
+
 /-- True if all of `predicates` hold. -/
 def all (predicates : List (LegalityPredicate opcode)) : LegalityPredicate opcode :=
   fun query => predicates.all (· query)
