@@ -30,21 +30,21 @@ jobs:
         with:
           arguments: --no-write-lock-file
 
-      # The checkout wipes the workspace, so `.lake` does not exist when the
-      # cache action runs and it has nothing to bind the volume onto. It skips
-      # the path with "Some cache paths missing" and still reports success, so
-      # the directory has to be created first.
-      - name: Create the build directory
-        run: mkdir -p ${{ github.workspace }}/.lake
+      # The checkout wipes the workspace, so create the build directories
+      # before binding the cache volume. Otherwise the action skips them with
+      # "Some cache paths missing" and still reports success.
+      - name: Create the build directories
+        run: mkdir -p .lake ExArray/.lake lean-ctrees/.lake
 
-      # `~/.elan` holds the Lean toolchain and `.lake` the build tree; together
-      # they dominate the run.
+      # Path dependencies keep their build trees outside the root `.lake`.
       - name: Set up caches
         uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
         with:
           path: |
             ~/.elan
             ${{ github.workspace }}/.lake
+            ${{ github.workspace }}/ExArray/.lake
+            ${{ github.workspace }}/lean-ctrees/.lake
 
       # One invocation: `lean-action` runs `lake build` and then `lake test`,
       # so a second one only repeated the build as a no-op.

@@ -30,15 +30,19 @@ jobs:
           use-github-cache: false
 
       # Start from the build that `Lean Action CI` saved for `main`, so Lake
-      # only rebuilds the modules that changed. The key mirrors lean-action's;
-      # CI usually has not saved this commit yet, so the restore key picks the
-      # previous one. Restore only: the cache is already at its size limit.
+      # only rebuilds the modules that changed. The key and paths mirror the
+      # release cache in lean_action_ci.yml. CI usually has not saved this
+      # commit yet, so the restore key picks the previous one.
+      # Restore only: the cache is already at its size limit.
       - name: Restore the Lake build from main CI
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .lake
-          key: lake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain') }}-${{ hashFiles('lake-manifest.json') }}-${{ github.sha }}
-          restore-keys: lake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean-toolchain') }}-${{ hashFiles('lake-manifest.json') }}-
+          path: |
+            .lake
+            ExArray/.lake
+            lean-ctrees/.lake
+          key: lake-v2-${{ runner.os }}-${{ runner.arch }}-release-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-${{ github.sha }}
+          restore-keys: lake-v2-${{ runner.os }}-${{ runner.arch }}-release-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-
 
       # docgen-action builds `<target>:docs` for every default target, and
       # executables have no `docs` facet. The `grep` fails the job if the
