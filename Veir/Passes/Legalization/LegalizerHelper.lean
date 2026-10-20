@@ -76,6 +76,10 @@ def widenConstant (width : Nat) : Pattern OpCode :=
 
 public section
 
+/-- The pattern that lowers `opcode`, if it can be lowered. -/
+def lower? : GMIR → Option (Pattern OpCode)
+  | _ => none
+
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
   -- The high bits of the operands never reach the low bits of the result, so any extension is
