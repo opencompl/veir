@@ -220,6 +220,12 @@ def TypeAttr.verifyI64
   | .integerType { bitwidth := 64, .. } => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyTensorType
+    (ty : TypeAttr) (errMsg : String) : Except String TensorType :=
+  match ty.val with
+  | .tensorType type => pure type
+  | type => throw s!"{errMsg}, but found {type}"
+
 /--
   Verify the operand and result counts of a "plain" operation: one that has no
   regions and no successors. The instruction name is included in each error
