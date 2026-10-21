@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// NO_CROSS_CHECK: the `llvm.byte` type: alive-exec rejects it and llubi crashes on it.
 
 // Bitcasting a poison pointer to an `llvm.byte` gives a byte whose every bit
 // is poison.

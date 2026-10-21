@@ -24,8 +24,9 @@
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i64}>
     %special = "llvm.alloca"(%one) <{elem_type = i8, inalloca}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i8, inalloca}>
-    %layout = "llvm.alloca"(%one) <{elem_type = !llvm.struct<(i32, i64)>}> : (i64) -> !llvm.ptr
-    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = !llvm.struct<(i32, i64)>}>
+    // An unresolved struct reference has no layout.
+    %layout = "llvm.alloca"(%one) <{elem_type = !llvm.struct<"unresolved_t">}> : (i64) -> !llvm.ptr
+    // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = !llvm.struct<"unresolved_t">}>
 
     // The byte size must fit a signed 64-bit value without wrapping, even for a
     // wide count: `riscv_stack.alloca` stores it as a nonnegative `BitVec 64`.

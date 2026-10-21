@@ -20,10 +20,12 @@ section
 open Puddle in
 
 /--
-  Custom legalization of `i32` `g_add`/`g_sub`.
-  LLVM emits `G_SEXT_INREG` here instead, and selects the word variant later.
+  Custom legalization of `i32` binary operations into their RISC-V word variant
+  (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
+  For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
+  later. For `g_sdiv`/`g_udiv`/`g_urem`, LLVM custom-legalizes into `RISCV::G_DIVW` etc.
 -/
-def customLegalizeAddSub (opcode : GMIR) (riscvOp : Riscv)
+def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -86,10 +88,34 @@ def riscv64LegalizerInfo : LegalizerInfo where
         .legalFor [s64],
         .minScalar (.type 0) 64,
       ]
+    | .g_mul => [
+      .legalFor [s64],
+      .customFor [s32],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_srem => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_sdiv | .g_udiv | .g_urem => [
+      .legalFor [s64],
+      .customFor [s32],
+      .minScalar (.type 0) 32,
+      .minScalar (.type 0) 64,
+    ]
+    | .g_constant => [
+      -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
     | _ => []
   legalizeCustom
-    | .g_add => customLegalizeAddSub .g_add .addw ()
-    | .g_sub => customLegalizeAddSub .g_sub .subw ()
+    | .g_add => customLegalizeWord .g_add .addw ()
+    | .g_sub => customLegalizeWord .g_sub .subw ()
+    | .g_mul => customLegalizeWord .g_mul .mulw ()
+    | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
+    | .g_udiv => customLegalizeWord .g_udiv .divuw ()
+    | .g_urem => customLegalizeWord .g_urem .remuw ()
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

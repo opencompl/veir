@@ -8,7 +8,7 @@
   // 7 bytes, align 4 (the smaller of the two arguments): word, half, byte.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr)>, linkage = #llvm.linkage<external>, sym_name = "cpy7_a4"}> ({
   ^bb0(%d: !llvm.ptr, %s: !llvm.ptr):
-    %n = "llvm.mlir.constant"() <{value = 7 : i64}> : () -> i64
+    %n = "gmir.g_constant"() <{value = 7 : i64}> : () -> i64
     "llvm.intr.memcpy"(%d, %s, %n) <{arg_attrs = [{llvm.align = 4 : i64}, {llvm.align = 8 : i64}, {}], isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -24,7 +24,7 @@
   // 64 bytes, align 8: eight doublewords.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr)>, linkage = #llvm.linkage<external>, sym_name = "cpy64_a8"}> ({
   ^bb0(%d: !llvm.ptr, %s: !llvm.ptr):
-    %n = "llvm.mlir.constant"() <{value = 64 : i64}> : () -> i64
+    %n = "gmir.g_constant"() <{value = 64 : i64}> : () -> i64
     "llvm.intr.memcpy"(%d, %s, %n) <{arg_attrs = [{llvm.align = 8 : i64}, {llvm.align = 8 : i64}, {}], isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -36,7 +36,7 @@
   // 9 bytes, unknown alignment: more than 8 byte accesses, so a call.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr)>, linkage = #llvm.linkage<external>, sym_name = "cpy9"}> ({
   ^bb0(%d: !llvm.ptr, %s: !llvm.ptr):
-    %n = "llvm.mlir.constant"() <{value = 9 : i64}> : () -> i64
+    %n = "gmir.g_constant"() <{value = 9 : i64}> : () -> i64
     "llvm.intr.memcpy"(%d, %s, %n) <{isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -58,8 +58,8 @@
   // Volatile zero memset: the accesses stay volatile.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr)>, linkage = #llvm.linkage<external>, sym_name = "zero16_a8_volatile"}> ({
   ^bb0(%d: !llvm.ptr):
-    %n = "llvm.mlir.constant"() <{value = 16 : i64}> : () -> i64
-    %z = "llvm.mlir.constant"() <{value = 0 : i8}> : () -> i8
+    %n = "gmir.g_constant"() <{value = 16 : i64}> : () -> i64
+    %z = "gmir.g_constant"() <{value = 0 : i8}> : () -> i8
     "llvm.intr.memset"(%d, %z, %n) <{arg_attrs = [{llvm.align = 8 : i64}, {}, {}], isVolatile = true}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -72,8 +72,8 @@
   // Constant fill: one splat constant, narrower stores take its low bits.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr)>, linkage = #llvm.linkage<external>, sym_name = "set6_a2"}> ({
   ^bb0(%d: !llvm.ptr):
-    %n = "llvm.mlir.constant"() <{value = 6 : i64}> : () -> i64
-    %c = "llvm.mlir.constant"() <{value = -86 : i8}> : () -> i8
+    %n = "gmir.g_constant"() <{value = 6 : i64}> : () -> i64
+    %c = "gmir.g_constant"() <{value = -86 : i8}> : () -> i8
     "llvm.intr.memset"(%d, %c, %n) <{arg_attrs = [{llvm.align = 2 : i64}, {}, {}], isVolatile = false}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -87,7 +87,7 @@
   // Variable fill, wider than a byte: splat by multiplying with 0x0101010101010101.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, i8)>, linkage = #llvm.linkage<external>, sym_name = "set8_a8"}> ({
   ^bb0(%d: !llvm.ptr, %c: i8):
-    %n = "llvm.mlir.constant"() <{value = 8 : i64}> : () -> i64
+    %n = "gmir.g_constant"() <{value = 8 : i64}> : () -> i64
     "llvm.intr.memset"(%d, %c, %n) <{arg_attrs = [{llvm.align = 8 : i64}, {}, {}], isVolatile = false}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -101,7 +101,7 @@
   // Variable fill, byte stores only: no splat needed.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, i8)>, linkage = #llvm.linkage<external>, sym_name = "set2"}> ({
   ^bb0(%d: !llvm.ptr, %c: i8):
-    %n = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
+    %n = "gmir.g_constant"() <{value = 2 : i64}> : () -> i64
     "llvm.intr.memset"(%d, %c, %n) <{isVolatile = false}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
@@ -114,7 +114,7 @@
   // 12 bytes, unknown alignment: a call, with the fill byte widened to an int.
   "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, i8)>, linkage = #llvm.linkage<external>, sym_name = "set12"}> ({
   ^bb0(%d: !llvm.ptr, %c: i8):
-    %n = "llvm.mlir.constant"() <{value = 12 : i64}> : () -> i64
+    %n = "gmir.g_constant"() <{value = 12 : i64}> : () -> i64
     "llvm.intr.memset"(%d, %c, %n) <{isVolatile = false}> : (!llvm.ptr, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
