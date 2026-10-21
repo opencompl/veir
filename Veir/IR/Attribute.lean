@@ -596,6 +596,23 @@ structure VectorType where
   elementType : Attribute
 
 /--
+  A builtin ranked tensor type with a static shape.
+
+  The shape contains one entry per dimension, and `elementType` is the type of
+  the tensor elements. For example, `tensor<2x4xf32>` is represented by shape
+  `#[2, 4]` and element type `f32`.
+
+  Dynamic dimensions (`?`), unranked tensors (`tensor<*xf32>`), and encodings
+  are not yet supported.
+
+  The element-type invariant (`TensorType.isValidElementType`) is not proof-enforced
+  in VeIR; the parser rejects invalid element types, as MLIR does.
+-/
+structure TensorType where
+  shape : Array Nat
+  elementType : Attribute
+
+/--
   The signature of a function, consisting of an array of input attributes
   and an array of output attributes.
 -/
@@ -705,6 +722,8 @@ inductive Attribute
 | floatType (type : FloatType)
 /-- Builtin fixed-size vector type -/
 | vectorType (type : VectorType)
+/-- Builtin ranked tensor type -/
+| tensorType (type : TensorType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
 /-- Index attribute -/
@@ -823,15 +842,18 @@ end
 
 /- Derive Repr and Hashable instances for the mutual group. -/
 derive_mutual_repr for
-  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
+  VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
   UnregisteredAttr, Attribute
 derive_mutual_hashable for
-  VectorType, FunctionType, LLVMFunctionType, CirFuncType,
+  VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
   ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
   UnregisteredAttr, Attribute
 
 instance : Inhabited VectorType where
+  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
+
+instance : Inhabited TensorType where
   default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
 
 instance : Coe FunctionType LLVMFunctionType where
@@ -871,6 +893,10 @@ theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.out
 theorem VectorType.sizeOf_elementType {t : VectorType} :
     sizeOf t.elementType < sizeOf t := by
   grind [cases VectorType]
+
+theorem TensorType.sizeOf_elementType {t : TensorType} :
+    sizeOf t.elementType < sizeOf t := by
+  grind [cases TensorType]
 
 theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
     sizeOf ft.functionType < sizeOf ft := by
@@ -1134,12 +1160,19 @@ instance : ToString Seq.FirMemType where
       | none => ""
     s!"!seq.firmem<{type.depth} x {type.width}{mask}>"
 
+/-- Print a shaped type such as `vector<2x4xi32>` or `tensor<f32>`. -/
+def shapedTypeToString (keyword : String) (shape : Array Nat) (elementType : String) : String :=
+  let shape := String.intercalate "x" (shape.toList.map ToString.toString)
+  let shape := if shape.isEmpty then "" else shape ++ "x"
+  s!"{keyword}<{shape}{elementType}>"
+
 mutual
 
 partial def VectorType.toString (type : VectorType) : String :=
-  let shape := String.intercalate "x" (type.shape.toList.map ToString.toString)
-  let shape := if shape.isEmpty then "" else shape ++ "x"
-  s!"vector<{shape}{Attribute.toString type.elementType}>"
+  shapedTypeToString "vector" type.shape (Attribute.toString type.elementType)
+
+partial def TensorType.toString (type : TensorType) : String :=
+  shapedTypeToString "tensor" type.shape (Attribute.toString type.elementType)
 
 partial def ArrayAttr.toString (attr : ArrayAttr) : String :=
   let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
@@ -1226,6 +1259,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .integerType type => ToString.toString type
   | .floatType type => ToString.toString type
   | .vectorType type => type.toString
+  | .tensorType type => type.toString
   | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
@@ -1290,6 +1324,9 @@ instance : ToString Attribute where
 
 instance : ToString VectorType where
   toString := VectorType.toString
+
+instance : ToString TensorType where
+  toString := TensorType.toString
 
 instance : ToString FunctionType where
   toString := FunctionType.toString
@@ -1584,6 +1621,16 @@ def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
 termination_by sizeOf type1
 decreasing_by exact VectorType.sizeOf_elementType
 
+def TensorType.decEq (type1 type2 : TensorType) : Decidable (type1 = type2) :=
+  if hshape : type1.shape = type2.shape then
+    match Attribute.decEq type1.elementType type2.elementType with
+    | isTrue _ => isTrue (by grind [cases TensorType])
+    | isFalse _ => isFalse (by grind)
+  else
+    isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by exact TensorType.sizeOf_elementType
+
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
@@ -1715,6 +1762,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case vectorType x =>
     exact IsAttr.decEqAgainst x attr2 (VectorType.decEq x)
+  case tensorType x =>
+    exact IsAttr.decEqAgainst x attr2 (TensorType.decEq x)
   case integerAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case indexAttr x =>
@@ -1834,6 +1883,7 @@ end
 
 instance : DecidableEq Attribute := Attribute.decEq
 instance : DecidableEq VectorType := VectorType.decEq
+instance : DecidableEq TensorType := TensorType.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
 instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
 instance : DecidableEq CirFuncType := CirFuncType.decEq
@@ -1859,6 +1909,7 @@ def isType (attr : Attribute) : Bool :=
   | .integerType _ => true
   | .floatType _ => true
   | .vectorType _ => true
+  | .tensorType _ => true
   | .byteType _ => true
   | .fastMathFlagsAttr _ => false
   | .arithIntegerOverflowFlagsAttr _ => false
@@ -1935,6 +1986,8 @@ theorem isType_integerType type : (Attribute.of IntegerType type).isType = true 
 theorem isType_floatType type : (Attribute.of FloatType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_vectorType type : (Attribute.of VectorType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_tensorType type : (Attribute.of TensorType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_byteType type : (Attribute.of LLVM.ByteType type).isType = true := by rfl
 @[simp, grind =]
@@ -2018,6 +2071,14 @@ theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = tr
 theorem isType_seqFirMemType type : (Attribute.of Seq.FirMemType type).isType = true := by rfl
 
 end Attribute
+
+/-- Whether `type` may be a vector element type. Unlike MLIR, only tensors are rejected. -/
+def VectorType.isValidElementType (type : Attribute) : Bool :=
+  !(type matches .tensorType _)
+
+/-- Whether `type` may be a tensor element type. As in MLIR, tensors and functions are not. -/
+def TensorType.isValidElementType (type : Attribute) : Bool :=
+  !(type matches .tensorType _ | .functionType _)
 
 /--
   An attribute that can be used as a type annotation for SSA values.
@@ -2216,6 +2277,7 @@ macro_rules
 type_attribute_instance IntegerType => Attribute.integerType
 type_attribute_instance FloatType => Attribute.floatType
 type_attribute_instance VectorType => Attribute.vectorType
+type_attribute_instance TensorType => Attribute.tensorType
 type_attribute_instance LLVM.ByteType => Attribute.byteType
 type_attribute_instance FunctionType => Attribute.functionType
 type_attribute_instance LLVMFunctionType => Attribute.llvmFunctionType
