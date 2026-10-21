@@ -304,16 +304,6 @@ theorem OperationPtr.DominatesIp.properlyDominatesBlock_of_atStart
     | Before dominance =>
       exact dominance.properlyDominatesBlock_of_firstOp blockParent regionSSA first
 
-/-- In an SSA region, a value dominating a successor block's entry dominates the
-predecessor's exit or is an argument of the successor. -/
-axiom ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr}
-    (blockParent : block.getParent! ctx.raw = some region)
-    (succParent : succ.getParent! ctx.raw = some region)
-    (regionSSA : region.hasSSADominance ctx)
-    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
-    value.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
-    value.DominatesIp (.atEnd block) ctx ∨ value ∈ succ.getArguments! ctx.raw
-
 /-- In an SSA region, an operation dominating a successor block's entry also dominates
 the predecessor's exit. No CFG reachability is required. -/
 theorem OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
@@ -326,6 +316,32 @@ theorem OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
   intro dominance
   have blockDominance := dominance.properlyDominatesBlock_of_atStart succParent regionSSA
   exact blockDominance.dominatesIp_predecessor_exit blockParent succParent hsucc
+
+/-- In an SSA region, an in-bounds value dominating a successor block's entry dominates the
+predecessor's exit or is an argument of the successor. -/
+theorem ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr}
+    (valueInBounds : value.InBounds ctx.raw)
+    (blockParent : block.getParent! ctx.raw = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
+    (regionSSA : region.hasSSADominance ctx)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
+    value.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
+    value.DominatesIp (.atEnd block) ctx ∨ value ∈ succ.getArguments! ctx.raw := by
+  intro dominance
+  cases dominance with
+  | OpResult dominance =>
+    exact Or.inl (.OpResult
+      (dominance.predecessor_exit_of_successor_entry blockParent succParent regionSSA hsucc))
+  | BlockArg ipParent dominance =>
+    rename_i argument ipBlock
+    have succInBounds : succ.InBounds ctx.raw := by
+      grind [BlockPtr.getParent!_of_not_inBounds]
+    have ipParentEq := InsertPoint.block!_atStart!_eq ctx.wellFormed succInBounds
+    by_cases same : argument.block = succ
+    · exact Or.inr ((BlockArgumentPtr.block_of_mem_getArguments! (by grind)).mp same)
+    · exact Or.inl (.BlockArg (by simp)
+        (BlockPtr.Dominates.predecessor_of_dominates_successor
+          blockParent succParent same hsucc (by grind)))
 
 /-- An argument of a block dominates any insertion point belonging to that block. -/
 theorem BlockPtr.argument_dominatesIp {ip : InsertPoint}
