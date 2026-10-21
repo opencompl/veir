@@ -23,6 +23,6 @@
 
 // SRC:   Program output: #[0xffffffff80000000#64, 0x0000000080000000#64, 0x0000000000000030#64, 0x0000000000000030#64]
 // CHECK:    "riscv.addw"
-// CHECK:    "riscv.zextw"
 // CHECK:    "riscv.sextw"
+// CHECK:    "riscv.zextw"
 // CHECK:    Program output: #[0xffffffff80000000#64, 0x0000000080000000#64, 0x0000000000000030#64, 0x0000000000000030#64]
