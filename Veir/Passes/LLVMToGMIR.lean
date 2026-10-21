@@ -2,6 +2,8 @@ module
 
 public import Veir.Pass
 import Veir.Passes.Matching
+import Veir.Passes.CastsReconciliation.Reconciliation
+import Veir.Passes.DCE.dce
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -20,8 +22,6 @@ namespace Veir
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
-  - Upstream gives bytes the same LLT as integers; we cast bytes to integers with
-    `builtin.unrealized_conversion_cast` (see `LLVM.Byte.toFrozenInt`).
 -/
 
 /-! ## Lowering Patterns -/
@@ -114,15 +114,20 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
 
 def g_constant := lowerIntegerConstant.compile
 
-/-- The integer type with the same width as the byte type `type`. -/
+/--
+  The integer type with the same width as the byte type `type`.
+  Returns `none` if `type` is not a byte type.
+-/
 def TypeAttr.intOfByte? (type : TypeAttr) : Option TypeAttr := do
   let type ← type.cast? LLVM.ByteType
   return IntegerType.signless type.bitwidth
 
 /--
-  GMIR lowerings with Puddle for byte casts, through integers of the same width.
+  `lOp` on bytes -> `gOp` on integers of the same widths, between `builtin.unrealized_conversion_cast`s.
+  LLVM converts all byte types to integer types of the same width when translating to gMIR
+  (see `getLLTForType`); this mirrors that conversion.
 -/
-def lowerByteCast (lOp : Llvm) (gOp : GMIR)
+def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -147,7 +152,44 @@ def lowerByteCast (lOp : Llvm) (gOp : GMIR)
           #[resultType] castProps)
     (fun castBackOp => castBackOp)
 
-def g_truncByte := (lowerByteCast .trunc .g_trunc).compile
+def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
+
+/-- Whether `opType` and `resType` are a byte and an integer type of the same width. -/
+def isByteIntBitcast (opType resType : TypeAttr) : Bool :=
+  match opType.val, resType.val with
+  | .byteType b, .integerType i | .integerType i, .byteType b => b.bitwidth = i.bitwidth
+  | _, _ => false
+
+/--
+  `llvm.bitcast` between a byte and an integer of the same width -> `builtin.unrealized_conversion_cast`.
+  LLVM reuses the source register for these (see `translateBitCast`).
+-/
+def lowerByteIntBitcast : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let operand ← Puddle.MatchProg.value operandType
+      let _ ← Puddle.MatchProg.root (.llvm .bitcast) #[operand] #[resultType]
+      Puddle.MatchProg.matchNative (operandType, resultType)
+          fun (operandType, resultType) => isByteIntBitcast operandType resultType
+      return (resultType, operand))
+    (fun (resultType, operand) => do
+      let castProps ← Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[operand] #[resultType]
+          castProps)
+    (fun castOp => castOp)
+
+def byteIntBitcast := lowerByteIntBitcast.compile
+
+/--
+  Whether `iN -> !llvm.byte<N> -> iN` is the identity (see `LLVM.Byte.toFrozenInt_fromInt`).
+  The round trip from a byte freezes its poison bits, so it is not folded.
+-/
+def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
+  match inputType.val, interType.val with
+  | .integerType i, .byteType b => i.bitwidth = b.bitwidth && 0 < i.bitwidth
+  | _, _ => false
 
 /-! ## Pass implementation -/
 
@@ -157,11 +199,16 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
-    g_constant.run, g_truncByte.run
+    g_constant.run, g_truncByte.run, byteIntBitcast.run,
+    .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"
-  | some ctx => pure ctx
+  | some ctx =>
+    -- A local rewrite may only erase the matched cast, so the folded first cast is left dead.
+    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+    | none => throw "Error while applying DCE after llvm-to-gmir translation"
+    | some ctx => pure ctx
 
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"

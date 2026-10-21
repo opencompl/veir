@@ -6,6 +6,7 @@ public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 
 import all Veir.Data.LLVM.Int.Bitblast
+import all Veir.Data.LLVM.Byte.Basic
 meta import Veir.Meta.Tactic.BVDecide
 
 public section
@@ -88,3 +89,12 @@ theorem toByte_val {w : Nat} {r : Veir.Data.RISCV.Reg} :
 -/
 def LLVM.Byte.toFrozenInt (b : Veir.Data.LLVM.Byte w) : Veir.Data.LLVM.Int w :=
   if b.poison = BitVec.allOnes w then .poison else .val b.val
+
+/--
+  An integer cast to a byte and back is unchanged.
+-/
+@[simp, grind =]
+theorem LLVM.Byte.toFrozenInt_fromInt {w : Nat} (h : 0 < w) (x : Veir.Data.LLVM.Int w) :
+    LLVM.Byte.toFrozenInt (Veir.Data.LLVM.Byte.fromInt x) = x := by
+  cases x <;> simp [LLVM.Byte.toFrozenInt, Veir.Data.LLVM.Byte.fromInt,
+    Veir.Data.LLVM.Int.isPoison] <;> grind
