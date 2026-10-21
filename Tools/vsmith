@@ -225,7 +225,10 @@ def translate_to_llvm(repo: Path, mlir_path: Path, ll_path: Path) -> tuple[bool,
         return False, result.output
     if not result.output.strip().startswith("define "):
         return False, result.output
-    ll_path.write_text(result.output)
+    # Aggregate offsets must use the same layout as veir-interpret. LLVM's
+    # default layout has different alignments for i64 and wider integers.
+    layout = 'target datalayout = "e-m:e-p:64:64-i64:64-i128:128-n32:64-S128"\n'
+    ll_path.write_text(layout + result.output)
     return True, result.output
 
 
@@ -668,9 +671,9 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
     # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
     rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
-                        "-run-pass=phi-node-elimination,twoaddressinstruction,"
-                        "register-coalescer,greedy,virtregrewriter,prolog-epilog,"
-                        "postrapseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
+                        "-run-pass=phi-node-elimination,two-address-instruction,"
+                        "register-coalescer,greedy,virt-reg-rewriter,prolog-epilog,"
+                        "post-ra-pseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
@@ -846,6 +849,7 @@ def _worker(
     riscv: bool,
     keep: bool,
     mir_exec: bool,
+    memory_only: bool,
     queue: "multiprocessing.Queue",
 ) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -857,7 +861,7 @@ def _worker(
             idx = start_index + i
             src = workdir / f"case_{idx}.mlir"
             opt = workdir / f"case_{idx}.opt.mlir"
-            generate(src, rng, riscv)
+            generate(src, rng, riscv, memory_only)
             result = check(repo, interp_bin, opt_bin, llvm_interps, src, opt, passes, riscv, keep, mir_exec)
             if not result.ok:
                 queue.put(("fail", result.message))
@@ -897,6 +901,7 @@ def fuzz(
     num_workers: int,
     spinner: Spinner,
     verbose: bool,
+    memory_only: bool = False,
 ) -> bool:
     infinite = iterations < 0
     if not infinite and iterations == 0:
@@ -920,7 +925,7 @@ def fuzz(
         subdir = workdir / f"w{w}"
         p = ctx.Process(
             target=_worker,
-            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, riscv, keep, mir_exec, queue),
+            args=(repo, interp_bin, opt_bin, llvm_interps, subdir, seed, count, start, passes, riscv, keep, mir_exec, memory_only, queue),
         )
         p.start()
         processes.append(p)
@@ -995,6 +1000,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help=f"veir-opt pass pipeline (default: {DEFAULT_PASSES})")
     parser.add_argument("--riscv", action="store_true",
                         help="use the RISC-V backend pass pipeline")
+    parser.add_argument("--memory-only", action="store_true",
+                        help="generate only defined GEP/load/store programs returning a memory checksum")
     parser.add_argument("--keep", action="store_true",
                         help="keep workdir on success (always kept on failure)")
     parser.add_argument("--no-mir-exec", action="store_true",
@@ -1035,7 +1042,7 @@ def main(argv: list[str]) -> int:
     if args.llubi:
         llvm_interps.append(resolve_llvm_interp("llubi", "--llubi", ("--verbose",), classify_llubi_output))
     if args.alive_exec:
-        llvm_interps.append(resolve_llvm_interp("alive-exec", "--alive-exec", (), classify_alive_exec_output))
+        llvm_interps.append(resolve_llvm_interp("alive-exec", "--alive-exec", ("--func=veir_test_main",), classify_alive_exec_output))
     seed = args.seed if args.seed is not None else secrets.randbits(64)
     rng = random.Random(seed)
 
@@ -1057,7 +1064,7 @@ def main(argv: list[str]) -> int:
     success = fuzz(
         repo, interp_bin, opt_bin, llvm_interps, workdir,
         args.iterations, args.passes, args.riscv, args.keep, mir_exec, rng,
-        args.workers, Spinner(), args.verbose,
+        args.workers, Spinner(), args.verbose, args.memory_only,
     )
 
     if success and not args.keep:
