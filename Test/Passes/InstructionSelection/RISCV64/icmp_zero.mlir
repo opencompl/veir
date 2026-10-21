@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=riscv | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64,isel-riscv64,reconcile-cast | filecheck %s
 
 // Peephole: comparing against a constant 0 on the rhs lowers `eq`/`ne` directly
 // on the non-zero operand, with no `riscv.xor`. Canonicalization runs before

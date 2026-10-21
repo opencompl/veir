@@ -91,9 +91,10 @@ def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop
   most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
   unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
   the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
-  result back to the (generically-matched) result type.
+  result back to the (generically-matched) result type. Only extensions that
+  `riscv64LegalizerInfo` considers legal are selected.
 -/
-def lowerExt (srcOp : OpCode) (opBw : Nat) (riscvOp : Riscv)
+def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -101,7 +102,10 @@ def lowerExt (srcOp : OpCode) (opBw : Nat) (riscvOp : Riscv)
       let resType ← MatchProg.type (Attr := IntegerType)
           (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
       let x ← MatchProg.value opType
-      let _ ← MatchProg.root srcOp #[x] #[resType]
+      let root ← MatchProg.root (.gmir srcOp) #[x] #[resType]
+      MatchProg.matchNative (opType, resType, root.properties)
+          fun (opType, resType, props) =>
+            riscv64LegalizerInfo.isLegal srcOp #[resType, opType] props
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -117,23 +121,23 @@ def lowerExt (srcOp : OpCode) (opBw : Nat) (riscvOp : Riscv)
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Pattern OpCode := lowerExt (.llvm .sext) 8 .sextb ()
+/-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
+def sext8_pattern : Pattern OpCode := lowerExt .g_sext 8 .sextb ()
 
-/-- `llvm.sext` (`i16` operand) -> `riscv.sexth`. -/
-def sext16_pattern : Pattern OpCode := lowerExt (.llvm .sext) 16 .sexth ()
+/-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
+def sext16_pattern : Pattern OpCode := lowerExt .g_sext 16 .sexth ()
 
-/-- `llvm.sext` (`i32` operand) -> `riscv.sextw`. -/
-def sext32_pattern : Pattern OpCode := lowerExt (.llvm .sext) 32 .sextw ()
+/-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
+def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
 
-/-- `llvm.zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Pattern OpCode := lowerExt (.llvm .zext) 8 .zextb ()
+/-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
+def zext8_pattern : Pattern OpCode := lowerExt .g_zext 8 .zextb ()
 
-/-- `llvm.zext` (`i16` operand) -> `riscv.zexth`. -/
-def zext16_pattern : Pattern OpCode := lowerExt (.llvm .zext) 16 .zexth ()
+/-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
+def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
 
-/-- `llvm.zext` (`i32` operand) -> `riscv.zextw`. -/
-def zext32_pattern : Pattern OpCode := lowerExt (.llvm .zext) 32 .zextw ()
+/-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
+def zext32_pattern : Pattern OpCode := lowerExt .g_zext 32 .zextw ()
 
 /--
   RISC-V for binary operations that share a single integer type between both operands and the
@@ -709,11 +713,11 @@ def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
 def sub32 : Puddle.CompiledPattern OpCode := sub32_pattern.compile
 
 /--
-  llvm.sext %x `i8`  to `i32` -> riscv.sextb %x
-  llvm.sext %x `i8`  to `i64` -> riscv.sextb %x
-  llvm.sext %x `i16` to `i64` -> riscv.sexth %x
-  llvm.sext %x `i16` to `i32` -> riscv.sexth %x
-  llvm.sext %x `i32` to `i64` -> riscv.sextw %x
+  gmir.g_sext %x `i8`  to `i32` -> riscv.sextb %x
+  gmir.g_sext %x `i8`  to `i64` -> riscv.sextb %x
+  gmir.g_sext %x `i16` to `i64` -> riscv.sexth %x
+  gmir.g_sext %x `i16` to `i32` -> riscv.sexth %x
+  gmir.g_sext %x `i32` to `i64` -> riscv.sextw %x
 -/
 def sext8 : Puddle.CompiledPattern OpCode := sext8_pattern.compile
 
@@ -721,11 +725,11 @@ def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
 
 def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
 /--
-  llvm.zext %x `i8`  to `i32` -> riscv.zextb %x
-  llvm.zext %x `i8`  to `i64` -> riscv.zextb %x
-  llvm.zext %x `i16` to `i64` -> riscv.zexth %x
-  llvm.zext %x `i16` to `i32` -> riscv.zexth %x
-  llvm.zext %x `i32` to `i64` -> riscv.zextw %x
+  gmir.g_zext %x `i8`  to `i32` -> riscv.zextb %x
+  gmir.g_zext %x `i8`  to `i64` -> riscv.zextb %x
+  gmir.g_zext %x `i16` to `i64` -> riscv.zexth %x
+  gmir.g_zext %x `i16` to `i32` -> riscv.zexth %x
+  gmir.g_zext %x `i32` to `i64` -> riscv.zextw %x
 -/
 def zext8 : Puddle.CompiledPattern OpCode := zext8_pattern.compile
 
