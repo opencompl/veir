@@ -339,13 +339,81 @@ axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
     op₁.ProperlyDominates op₃ ctx true
 
 /--
-If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
-if it exists.
+Proper dominance in a region is preserved when advancing the dominated operation to its next
+operation in the same block.
 -/
-axiom OperationPtr.dominates_next :
-  op₁.Dominates op₂ ctx enclosingOk →
-  op₂.getNextOp! ctx.raw = some op₂Next →
-  op₁.Dominates op₂Next ctx enclosingOk
+theorem OperationPtr.ProperlyDominatesInRegion.next {nextOp : OperationPtr}
+    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
+    (next : op₂.getNextOp! ctx.raw = some nextOp) :
+    op₁.ProperlyDominatesInRegion nextOp region ctx := by
+  obtain ⟨parent, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp dominance.parentRegion_dominated
+  obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
+  have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
+  cases dominance with
+  | SameBlock dominance =>
+    cases dominance with
+    | Ssa dominance =>
+      have nextIndex := OperationPtr.idxInParent_next_eq op₂ ctx.raw nextOp next
+        (by grind) (by grind) ctx.wellFormed
+      exact .SameBlock (block := parent)
+        (.Ssa (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock]))
+    | Graph dominance =>
+      exact .SameBlock (block := parent)
+        (.Graph (by grind [OperationPtr.ProperlyDominatesInGraphBlock]))
+  | BlockDominance dominatorParent dominatedParent dominance =>
+    exact .BlockDominance dominatorParent (by grind) dominance
+
+grind_pattern OperationPtr.ProperlyDominatesInRegion.next =>
+    op₁.ProperlyDominatesInRegion op₂ region ctx,
+    op₂.getNextOp! ctx.raw, some nextOp where
+  guard op₂.getNextOp! ctx.raw = some nextOp
+
+/--
+If an operation `op₁` dominates an operation `op₂` in a region, it dominates the operation after
+`op₂`, if it exists.
+-/
+theorem OperationPtr.dominates_next
+    (parentRegion : op₂.getParentRegion! ctx.raw = some region) :
+    op₁.Dominates op₂ ctx enclosingOk →
+    op₂.getNextOp! ctx.raw = some op₂Next →
+    op₁.Dominates op₂Next ctx enclosingOk := by
+  intro dominance next
+  obtain ⟨parent, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
+  have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
+  rcases dominance with rfl | dominance
+  · have nextIndex := OperationPtr.idxInParent_next_eq op₁ ctx.raw op₂Next next
+      (by grind) (by grind) ctx.wellFormed
+    apply Or.inr
+    apply OperationPtr.ProperlyDominates.AncestorDominatedInRegion .refl (region := region)
+    apply OperationPtr.ProperlyDominatesInRegion.SameBlock (block := parent)
+    cases regionSSA : region.hasSSADominance ctx with
+    | false => exact .Graph (by grind [OperationPtr.ProperlyDominatesInGraphBlock])
+    | true => exact .Ssa (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock])
+  · cases dominance with
+    | Ancestor ancestry distinct =>
+      by_cases same : op₁ = op₂Next
+      · exact Or.inl same
+      · exact Or.inr (.Ancestor
+          (IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .block parent)
+            (ancestry.toProperAncestor (by simpa using distinct)) (by grind) (by grind)) same)
+    | @AncestorDominatedInRegion ancestor localRegion ancestry localDominance enclosingOk =>
+      by_cases same : ancestor = op₂
+      · subst ancestor
+        exact Or.inr (.AncestorDominatedInRegion .refl (localDominance.next next) enclosingOk)
+      · exact Or.inr (.AncestorDominatedInRegion
+          (IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .block parent)
+            (ancestry.toProperAncestor (by simpa using same)) (by grind) (by grind))
+          localDominance enclosingOk)
+
+grind_pattern OperationPtr.dominates_next =>
+    op₁.Dominates op₂ ctx enclosingOk,
+    op₂.getParentRegion! ctx.raw, some region,
+    op₂.getNextOp! ctx.raw, some op₂Next where
+  guard op₂.getParentRegion! ctx.raw = some region
+  guard op₂.getNextOp! ctx.raw = some op₂Next
 
 /-- A dominator is rooted at the same root as the operation it dominates. -/
 @[grind →]
