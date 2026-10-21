@@ -16,7 +16,23 @@ namespace Veir
   `llvm.unreachable` by `riscv_cf.unreachable`. Then the arguments
   of every block that is branched to become registers, with a cast back to
   their original type at the start of the block.
+
+  A branch is left alone, together with the blocks it targets, when its
+  operands do not fit a register. In strict mode, the default, the pass then
+  fails; with `strict=false` the branch survives alongside the lowered ones.
 -/
+
+/-- Whether a value of type `type` fits into a register without losing information. -/
+def fitsRegister (type : TypeAttr) : Bool :=
+  match type.val with
+  | .integerType intType => 0 < intType.bitwidth && intType.bitwidth ≤ 64
+  | .byteType byteType => 0 < byteType.bitwidth && byteType.bitwidth ≤ 64
+  | .llvmPointerType _ => true
+  -- FIXME: Too conservative for structs. The RISC-V calling convention passes a
+  -- struct of up to 8 bytes in one register and of up to 16 bytes in two. The
+  -- lowering has to split such a struct into its registers in front of the
+  -- branch and reassemble it in the successor before it can be admitted here.
+  | _ => false
 
 /--
   Cast `operand` to a register with a cast inserted at `ip`, and append the
@@ -30,12 +46,18 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
     #[] default ip | throw "isel-br-riscv64: cannot cast a branch operand to a register"
   return (ctx, casts.push cast)
 
+/-- Whether the arguments of `block` all fit a register, so it can be converted. -/
+def isConvertible (ctx : WfIRContext OpCode) (block : BlockPtr) : Bool :=
+  (List.range (block.getNumArguments! ctx.raw)).all fun i =>
+    fitsRegister ((ValuePtr.blockArgument { block := block, index := i }).getType! ctx.raw)
+
 /--
   Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`,
   an `llvm.cond_br` or an `llvm.unreachable`, and leave any other operation
-  alone. The operands are cast to registers in front of the new branch.
+  alone. The operands are cast to registers in front of the new branch. A
+  branch to a block that cannot be converted is left alone as well.
 -/
-def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
+def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     : Except String (WfIRContext OpCode) := do
   let opType := op.getOpType! ctx
   if opType = OpCode.llvm .unreachable then
@@ -44,6 +66,8 @@ def convertBranch (ctx : WfIRContext OpCode) (op : OperationPtr)
       | throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
     return WfRewriter.eraseOp! ctx op
   if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then
+    return ctx
+  if !(op.getSuccessors! ctx.raw).all convertible then
     return ctx
 
   let ip := InsertPoint.before op
@@ -91,34 +115,51 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   let ctx := WfRewriter.replaceValue! ctx bap (cast.getResult 0)
   return WfRewriter.pushOperand! ctx cast bap
 
-/-- Turn the arguments of `block` into registers, unless nothing branches to it. -/
-def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
+/--
+  Turn the arguments of `block` into registers, unless nothing branches to it
+  or it cannot be converted.
+-/
+def convertBlock (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) := do
   -- If the block has no uses (e.g., the entry block) we can skip it.
   if block.getFirstUse! ctx.raw == none then
     return ctx
+  if !convertible block then
+    return ctx
   (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
 
 /--
-  The pure core of the pass. The operations and blocks to visit are fixed up
-  front, so the operations the pass creates are not visited again.
+  The pure core of the pass. The operations and blocks to visit, and the blocks
+  that can be converted, are fixed up front, so the operations the pass creates
+  are not visited again.
 -/
 def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
   let ops := ctx.raw.operations.keys
   let blocks := ctx.raw.blocks.keys
-  let ctx ← ops.foldlM convertBranch ctx
-  blocks.foldlM convertBlock ctx
+  let convertible := blocks.filter (isConvertible ctx)
+  let ctx ← ops.foldlM (convertBranch convertible.contains) ctx
+  blocks.foldlM (convertBlock convertible.contains) ctx
 
 /-! # Pass implementation -/
 
-def ISelBrPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  match convertModule ctx with
-  | .ok ctx => return ctx
-  | .error message => throw message
+def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  let ctx ← match convertModule ctx with
+    | .ok ctx => pure ctx
+    | .error message => throw message
+  -- In strict mode, no LLVM branch may remain.
+  if strict then
+    for o in ctx.raw.operations.keys do
+      let opType := o.getOpType! ctx.raw
+      if opType = OpCode.llvm .br || opType = OpCode.llvm .cond_br then
+        throw "isel-br-riscv64: a branch operand does not fit a register"
+  return ctx
 
 public def IselBrRISCV64 : Pass OpCode :=
   { name := "isel-br-riscv64"
     description :=
       "Lower LLVM IR branch instructions to RISCV 64 assembly."
-    run := fun _ => ISelBrPass.impl }
+    options := .ofList [
+      ("strict", { description := "Fail if not all LLVM branches could be lowered.",
+                   defaultValue := true })]
+    run := fun options => ISelBrPass.impl ((options.get? "strict").getD true) }
