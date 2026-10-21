@@ -701,26 +701,6 @@ def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zero
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/--
-  llvm.icmp -> riscv comparison sequence (see the arms above).
-
-  Peephole for `eq`/`ne`: when the rhs is a constant `0`, the `xor` is unnecessary and the
-  comparison is against the left register directly (`seqz`/`snez`). These patterns come first, so
-  they take priority over the generic arms. Canonicalization runs before isel and moves the
-  constant to the rhs, so we only check that side.
-  LLVM: `Pat<(riscv_seteq GPR:$rs1), (SLTIU GPR:$rs1, 1)>` and
-  `Pat<(riscv_setne GPR:$rs1), (SLTU (XLenVT X0), GPR:$rs1)>`.
-  https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1649
--/
-def icmp : Array (Puddle.CompiledPattern OpCode) :=
-  let widths := #[64, 32, 8]
-  let preds : Array Data.LLVM.IntPred :=
-    #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
-  let peepholes := widths.flatMap fun w =>
-    #[Data.LLVM.IntPred.eq, .ne].map fun pred => lowerIcmp (.llvm .icmp) pred w true
-  let generic := widths.flatMap fun w =>
-    preds.map fun pred => lowerIcmp (.llvm .icmp) pred w false
-  (peepholes ++ generic).map (·.compile)
 
 /-- llvm.sub -> riscv.sub -/
 def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
@@ -2317,6 +2297,50 @@ def gmirConstant_pattern : Pattern OpCode :=
 
 def gmirConstant : Puddle.CompiledPattern OpCode := gmirConstant_pattern.compile
 
+/--
+  `gmir.g_icmp pred` -> the comparison sequence of the `llvm.icmp` arm for `pred` (see
+  `icmpEmit`). Legal operands are `i64` or `!llvm.ptr`, so they fill a register and need no
+  sign-extension. When `zeroRhs` is set, the rhs must be the `gmir.g_constant` `0`.
+-/
+def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value opType
+      let rhs ← if zeroRhs then do
+          let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[opType]
+          MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+          pure zeroOp.res[0]!
+        else
+          MatchProg.value opType
+      let root ← MatchProg.root (.gmir .g_icmp) #[lhs, rhs] #[resType]
+          (fun props => props.predicate = pred)
+      MatchProg.matchNative (resType, opType, root.properties)
+          fun (resType, opType, props) =>
+            riscv64LegalizerInfo.isLegal .g_icmp #[resType, opType] props
+      return (resType, lhs, rhs))
+    (fun (resType, lhs, rhs) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let (a, b) ← icmpCastExt regType lhs rhs none
+      let cmpOp ← icmpEmit regType pred zeroRhs a b
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cmpOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/--
+  `gmir.g_icmp` -> riscv comparison sequence. As for `llvm.icmp`, the `eq`/`ne`-against-zero
+  peepholes come first so they take priority over the generic arms.
+-/
+def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
+  let preds : Array Data.LLVM.IntPred :=
+    #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
+  let peepholes := #[Data.LLVM.IntPred.eq, .ne].map (gmirIcmp_pattern · true)
+  let generic := preds.map (gmirIcmp_pattern · false)
+  (peepholes ++ generic).map (·.compile)
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -2335,7 +2359,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     #[selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
     constant.run, addressof, add32.run, add64.run, ashr64.run, ashr32.run, ashr8.run] ++
-    icmp.map (·.run) ++ #[
+    #[
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
     sub64.run, sub32.run, bitcast.run] ++
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
@@ -2345,7 +2369,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
-    gmirConstant.run]
+    gmirConstant.run] ++
+    gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

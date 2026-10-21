@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // Pointer comparisons lower exactly like `i64` comparisons: a pointer fills a
 // whole register, so no sign-extension prologue is needed.
