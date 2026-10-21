@@ -41,9 +41,6 @@ meta def introMaskWidth (g : MVarId) (widthTm : WidthTm)
     -- Introduce width bound on the variable.
     let hypWidthLeBound ← getOrCreateFreshMVar g (.widthLe widthTm (.widthLit (← read).blastWidth))
     let (hypWidthLeBoundNote, g) ← g.note (Name.mkSimple s!"h_{maskName}_le_blast") hypWidthLeBound
-    -- Assert the BitVec mask constraint.
-    let hypExpr ← g.withContext do mkAppM ``and_add_one_eq_zero_of_maskOfWidth #[mkFVar maskHyp]
-    let (_, g) ← g.note (Name.mkSimple s!"h_{maskName}_bv_mask") hypExpr
 
     let info : WidthInfo := {
       widthMaskFVar := mask,
@@ -98,7 +95,13 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) : TranslateM (MVa
     return (g, info)
   -- Otherwise, recurse through the term to create it
   match widthTm with
-  | .widthAtom _ | .widthFVar _ _ => introMaskWidth g widthTm
+  | .widthAtom _ | .widthFVar _ _ => do
+    let (g, info) ← introMaskWidth g widthTm
+    let maskName := Name.mkSimple s!"m_{widthTm.toName}"
+    -- Assert the BitVec mask constraint.
+    let hypExpr ← g.withContext do mkAppM ``and_add_one_eq_zero_of_maskOfWidth #[.fvar info.widthMaskHypFvar]
+    let (_, g) ← g.note (Name.mkSimple s!"h_{maskName}_bv_mask") hypExpr
+    return (g, info)
   | .widthLit _ => introMaskLit g widthTm
   | .widthAdd v w => do
     -- Get or create masks of the children
