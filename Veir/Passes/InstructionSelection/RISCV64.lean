@@ -204,52 +204,6 @@ def umax_pattern : Pattern OpCode :=
 def umin_pattern : Pattern OpCode :=
   lowerBinary (.llvm .intr__umin) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
 
-/--
-  Shared shape of the binary RISC-V lowerings that accept both integer and byte values (`shl`/`lshr`):
-  match an lhs of width `bw` (an integer or byte type), cast both operands to registers, apply
-  `riscvOp`, and cast the result back to the result type.
--/
-def lowerByteBinaryW (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let lhsType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => getIntByteTypeBitwidth t = some bw)
-      let rhsType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let lhs ← MatchProg.value lhsType
-      let rhs ← MatchProg.value rhsType
-      let _ ← MatchProg.root (.llvm llvmOp) #[lhs, rhs] #[resType]
-      return (resType, lhs, rhs))
-    (fun (resType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- `llvm.shl` (`i64`) -> `riscv.sll`. -/
-def shl64_pattern : Pattern OpCode := lowerByteBinaryW .shl 64 .sll ()
-
-/-- `llvm.shl` (`i32`) -> `riscv.sllw`. -/
-def shl32_pattern : Pattern OpCode := lowerByteBinaryW .shl 32 .sllw ()
-
-/-- `llvm.lshr` (`i64`) -> `riscv.srl`. -/
-def lshr64_pattern : Pattern OpCode := lowerByteBinaryW .lshr 64 .srl ()
-
-/-- `llvm.lshr` (`i32`) -> `riscv.srlw`. -/
-def lshr32_pattern : Pattern OpCode := lowerByteBinaryW .lshr 32 .srlw ()
-
 /-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
 def smax64_pattern : Pattern OpCode :=
   lowerBinary (.llvm .intr__smax) (fun t => t.bitwidth = 64) .max ()
@@ -473,65 +427,6 @@ def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
 
 /-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
 def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
-
-/--
-  `llvm.ashr` with an `i64`, `i32`, or `i8` result of width `bw` -> `riscv.sra` (`riscv.sraw` for
-  `i32`, which sign-extends the result). An `i8` lhs is sign-extended with `riscv.sextb` first, so
-  the arithmetic shift sees its sign bit.
--/
-def lowerAshr (bw : Nat) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      /- support `i64`, `i32`, and `i8` -/
-      let lhsType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
-      let rhsType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 8)
-      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let lhs ← MatchProg.value lhsType
-      let rhs ← MatchProg.value rhsType
-      let _ ← MatchProg.root (.llvm .ashr) #[lhs, rhs] #[resType]
-      return (resType, lhs, rhs))
-    (fun (resType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      /- First, cast the operands to registers -/
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
-      let sraOp ← if bw = 8 then do
-          let sextbProps ← CreateProg.property (.riscv .sextb) ()
-          let sextbOp ← CreateProg.operation (.riscv .sextb)
-              #[lcastOp.res[0]!] #[regType] sextbProps
-          let sraProps ← CreateProg.property (.riscv .sra) ()
-          CreateProg.operation (.riscv .sra)
-              #[sextbOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
-        else if bw = 32 then do
-          /- sraw for i32 (sign-extends result) -/
-          let srawProps ← CreateProg.property (.riscv .sraw) ()
-          CreateProg.operation (.riscv .sraw)
-              #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] srawProps
-        else do
-          let sraProps ← CreateProg.property (.riscv .sra) ()
-          CreateProg.operation (.riscv .sra)
-              #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] sraProps
-      /- Cast back result for type consistency -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[sraOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- llvm.ashr -> riscv.sra -/
-def ashr64 : Puddle.CompiledPattern OpCode := (lowerAshr 64).compile
-
-/-- llvm.ashr -> riscv.sraw (sign-extends the result) -/
-def ashr32 : Puddle.CompiledPattern OpCode := (lowerAshr 32).compile
-
-/-- llvm.ashr -> riscv.sextb + riscv.sra -/
-def ashr8 : Puddle.CompiledPattern OpCode := (lowerAshr 8).compile
 
 /-! ### `llvm.icmp` lowering
 
@@ -795,18 +690,6 @@ def trunc_pattern : Pattern OpCode :=
   llvm.trunc -> builtin_unrealized_conversion_cast (see `trunc_pattern`).
 -/
 def trunc : Puddle.CompiledPattern OpCode := trunc_pattern.compile
-
-/-- llvm.shl -> riscv.sll -/
-def shl64 : Puddle.CompiledPattern OpCode := shl64_pattern.compile
-
-/-- llvm.shl -> riscv.sllw -/
-def shl32 : Puddle.CompiledPattern OpCode := shl32_pattern.compile
-
-/-- llvm.lshr -> riscv.srl -/
-def lshr64 : Puddle.CompiledPattern OpCode := lshr64_pattern.compile
-
-/-- llvm.lshr -> riscv.srlw -/
-def lshr32 : Puddle.CompiledPattern OpCode := lshr32_pattern.compile
 
 def checkBitcastType (t : TypeAttr) : Bool :=
   match t.val with
@@ -2380,9 +2263,9 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run, ashr64.run, ashr32.run, ashr8.run] ++
+    constant.run, addressof, add32.run, add64.run] ++
     #[
-    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run, shl64.run, shl32.run, lshr64.run, lshr32.run,
+    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run,
     sub64.run, sub32.run, bitcast.run] ++
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,

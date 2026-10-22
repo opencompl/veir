@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -27,16 +28,17 @@ namespace Veir
 /-! ## Lowering Patterns -/
 
 /--
-  GMIR lowerings with Puddle for binary operations.
+  GMIR lowerings with Puddle for binary operations on values that gMIR can represent, i.e. whose
+  types have an `LLT`. (This is intended to guard against matching byte type operands.)
 -/
 def lowerBinop (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let lhsType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let rhsType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let lhsType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let rhsType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
       let lhs ← Puddle.MatchProg.value lhsType
       let rhs ← Puddle.MatchProg.value rhsType
       let root ← Puddle.MatchProg.root (.llvm lOp) #[lhs, rhs] #[resultType]
@@ -59,6 +61,12 @@ def g_and := (lowerBinop .and .g_and).compile
 def g_or := (lowerBinop .or .g_or).compile
 
 def g_xor := (lowerBinop .xor .g_xor).compile
+
+def g_shl := (lowerBinop .shl .g_shl).compile
+
+def g_lshr := (lowerBinop .lshr .g_lshr).compile
+
+def g_ashr := (lowerBinop .ashr .g_ashr).compile
 
 def g_mul := (lowerBinop .mul .g_mul).compile
 
@@ -123,11 +131,12 @@ def TypeAttr.intOfByte? (type : TypeAttr) : Option TypeAttr := do
   return IntegerType.signless type.bitwidth
 
 /--
-  `lOp` on bytes -> `gOp` on integers of the same widths, between `builtin.unrealized_conversion_cast`s.
+  `lOp` on a byte, followed by `numIntOperands` integer operands -> `gOp` on integers of the same
+  widths, between `builtin.unrealized_conversion_cast`s.
   LLVM converts all byte types to integer types of the same width when translating to gMIR
   (see `getLLTForType`); this mirrors that conversion.
 -/
-def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
+def lowerByteOp (lOp : Llvm) (gOp : GMIR) (numIntOperands : Nat := 0)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -135,9 +144,11 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
       let operandType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
       let resultType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
       let operand ← Puddle.MatchProg.value operandType
-      let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[resultType]
-      return (operandType, resultType, operand, root))
-    (fun (operandType, resultType, operand, root) => do
+      let intOperands ← (Array.range numIntOperands).mapM fun _ => do
+        Puddle.MatchProg.value (← Puddle.MatchProg.type (Attr := IntegerType))
+      let root ← Puddle.MatchProg.root (.llvm lOp) (#[operand] ++ intOperands) #[resultType]
+      return (operandType, resultType, operand, intOperands, root))
+    (fun (operandType, resultType, operand, intOperands, root) => do
       let intOperandType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
           operandType TypeAttr.intOfByte?
       let intResultType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
@@ -146,13 +157,17 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
       let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[operand] #[intOperandType] castProps
       let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
-      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!]
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) (#[castOp.res[0]!] ++ intOperands)
           #[intResultType] props
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
           #[resultType] castProps)
     (fun castBackOp => castBackOp)
 
-def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
+def g_truncByte := (lowerByteOp .trunc .g_trunc).compile
+
+def g_shlByte := (lowerByteOp .shl .g_shl (numIntOperands := 1)).compile
+
+def g_lshrByte := (lowerByteOp .lshr .g_lshr (numIntOperands := 1)).compile
 
 /-- Whether `opType` and `resType` are a byte and an integer type of the same width. -/
 def isByteIntBitcast (opType resType : TypeAttr) : Bool :=
@@ -197,9 +212,9 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
-    g_and.run, g_or.run, g_xor.run,
+    g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
-    g_constant.run, g_truncByte.run, byteIntBitcast.run,
+    g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with
