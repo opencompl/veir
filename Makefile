@@ -14,7 +14,7 @@ tests: build ## run all tests
 	uv sync
 	lake test
 	uv run lit Test/ -v
-	. ./.envrc && cd ExArray && lake exe test
+	cd ExArray && lake exe test
 
 .PHONY: sqlite
 sqlite: build ## test sqlite3 parsing (expected to fail until fully supported)

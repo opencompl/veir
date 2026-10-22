@@ -22,6 +22,9 @@ Building VeIR requires [Lean 4 and its build tool Lake](https://lean-lang.org/in
 Common tasks are wrapped in the [`Makefile`](Makefile): `make build` to build and
 `make tests` to run the tests. Run `make` to list every target.
 
+Lake builds ExArray's native C code with Lean's bundled LLVM toolchain.
+Non-Nix builds need GMP development headers and `pkg-config` (or `pkgconf`).
+
 With Nix, `nix develop` enters a development shell containing Lean's toolchain
 manager and all native and Python dependencies needed by those Make targets.
 Executable targets like `veir-opt` and `veir-interpret` can be run with `nix run

@@ -31,3 +31,4 @@ import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.DataFlowFramework.SCCPChecker
 import UnitTest.MemoryLayout
+import UnitTest.DataLayout

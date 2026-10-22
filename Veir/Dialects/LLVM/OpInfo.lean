@@ -631,9 +631,29 @@ def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.proper
     }
   | _ => none
 
+/--
+  The alignment an `llvm.load` or `llvm.store` of a value of `type` requires:
+  its `alignment` attribute, or, when the attribute is absent, which the parser
+  records as `0`, the ABI alignment of `type` under `layout`, as in LLVM. A
+  type the layout does not know requires none.
+-/
+def Llvm.accessAlignment (layout : DataLayout) (alignment : IntegerAttr) (type : Attribute) : Nat :=
+  if alignment.value ≠ 0 then alignment.value.toNat
+  else (layout.getTypeABIAlignment type).getD 1
+
+/-- The type of a value an `llvm.store` can store, for the data layout. -/
+def RuntimeValue.storedType : RuntimeValue → Option Attribute
+  | .int bw _ => some (.integerType (IntegerType.signless bw))
+  | .byte bw _ => some (.byteType ⟨bw⟩)
+  | .addr _ => some (.llvmPointerType ⟨⟩)
+  | _ => none
+
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/
 def isValidLLVMAlignment (n : Int) : Bool :=
   decide (0 < n) && (n.toNat &&& (n.toNat - 1)) == 0
+
+/-- The largest alignment LLVM accepts, its `Value::MaximumAlignment`. -/
+def maximumLLVMAlignment : Int := 2 ^ 32
 
 /-- Check an `llvm.return` against its enclosing `llvm.func`'s declared results. -/
 def OperationPtr.verifyLLVMFuncReturnTypes {OpInfo : Type} [IsOpCode OpInfo]
@@ -800,6 +820,32 @@ def Llvm.verifyAggregatePosition (containerType : TypeAttr) (position : DenseArr
   return some current
 
 /--
+  Check the type path of a GEP, requiring every struct index to be a constant
+  within the field list. The first index steps over whole objects, and array
+  and vector indices need not be in bounds. As with `verifyAggregatePosition`,
+  stop when an opaque struct or unresolved reference hides the remaining path.
+-/
+private def Llvm.verifyGEPIndices (elemType : TypeAttr) (indices : DenseArrayAttr) :
+    Except String PUnit := do
+  let mut current := elemType.val
+  for pos in [1:indices.values.size] do
+    let index := indices.values[pos]!
+    match current with
+    | .llvmStructType structType =>
+      if index = -2147483648 then
+        throw s!"expected index {pos} indexing a struct to be constant"
+      if index < 0 then
+        throw s!"index {pos} indexing a struct is out of bounds"
+      let some field := structType.body[index.toNat]?
+        | throw s!"index {pos} indexing a struct is out of bounds"
+      current := field
+    | .llvmArrayType arrayType => current := arrayType.type
+    | .vectorType vectorType => current := vectorType.elementType
+    | _ =>
+      if isOpaqueLLVMStruct current then return ()
+      throw s!"type {current} cannot be indexed (index #{pos})"
+
+/--
 Verify the local invariants of an `llvm` operation in any operation-info type
 containing the `llvm` dialect.
 -/
@@ -875,6 +921,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "'alignment' must be a 64-bit integer attribute"
       if !isValidLLVMAlignment alignment.value then
         throw "alignment attribute is not a power of 2"
+      if alignment.value > maximumLLVMAlignment then
+        throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     if properties.addr_space.type.bitwidth ≠ 32 then
       throw "'addr_space' must be a 32-bit signless integer attribute"
     if let some value := properties.value then
@@ -1107,6 +1155,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1114,6 +1166,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
+    if properties.alignment.value ≠ 0 ∧ !isValidLLVMAlignment properties.alignment.value then
+      throw "alignment attribute is not a power of 2"
+    if properties.alignment.value > maximumLLVMAlignment then
+      throw "alignment attribute exceeds the largest alignment LLVM supports, 2^32"
     pure ()
   | .insertelement => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -1200,7 +1256,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
-    pure ()
+    Llvm.verifyGEPIndices props.elem_type props.rawConstantIndices
   | .call_intrinsic => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMCompatibleTypes ctx opIn
@@ -1293,6 +1349,10 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
+  | .addr (.val pointer), .llvmPointerType _ =>
+    if pointer = Pointer.null then some (.of Llvm.mlir__zero ()) else none
+  | .addr .poison, .llvmPointerType _ =>
+    some (.of Llvm.mlir__poison ())
   | .float type value, .floatType floatType =>
     -- Materialize the constant as long as the runtime float type matches the result type.
     if type = floatType then
@@ -1592,11 +1652,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [.addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
     let [type] := resultTypes.toList | none
+    addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type.val)
     let val ← mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | none
     let .val addr := addr | Interp.ub none
+    if let some type := val.storedType then
+      addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type)
     let mem ← mem.llvmStore addr val
     return (#[], mem, none)
   | .intr__memset => do
@@ -1616,14 +1679,18 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       else mem.memmove dst src len.toNat
     return (#[], mem, none)
   | .getelementptr => do
-    /- only supports exactly one dynamic index for now -/
-    let [.addr ptr, .int _ idx] := operands.toList | none
-    /- The index scales by the element's stride, matching the `getTypeAllocSize`
-       that `isel-riscv64` uses to lower this operation. -/
-    let size ← layout.getTypeAllocSize properties.elem_type.val
-    match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.address.toNat + idx.toNat * size)⟩)], mem, none)
-    | _, _ => return (#[.addr .poison], mem, none)
+    let .addr ptr :: _ := operands.toList | none
+    /- Decompose the address into a constant offset and scaled dynamic indices. -/
+    let indices := GEPIndex.decode properties.rawConstantIndices.values (operands.extract 1)
+    let (offset, dynamic) ← layout.gepOffsets properties.elem_type.val indices
+    let .val ptr := ptr | return (#[.addr .poison], mem, none)
+    let mut addr := (ptr.address.toNat : Int) + offset
+    for (idx, stride) in dynamic do
+      /- An index is signed, and sign-extended to the pointer width. -/
+      let .int _ idx := idx | none
+      let .val idx := idx | return (#[.addr .poison], mem, none)
+      addr := addr + idx.toInt * stride
+    return (#[.addr (.val ⟨ptr.object, UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
     match val with
