@@ -16,23 +16,27 @@ public import QPFTypes.Theory.QPF.IsPolynomial
 @[expose] public section
 
 
-universe u
+universe w u
 
 namespace QPFTypes.QPF
 
 open MvFunctor
 
-variable {n : Nat} {A : Type u}
-variable (F : A → TypeVec.{u} n → Type u)
+/-
+The index type `A` may live in a lower universe `w` than the family `F`;
+the universe `max w u` encodes the constraint that `w ≤ max w u`.
+-/
+variable {n : Nat} {A : Type w}
+variable (F : A → TypeVec.{max w u} n → Type (max w u))
 
 /-- Dependent sum of an `n`-ary functor. The sum can range over
 data types like `Nat` or over `Type.{u-1}` -/
-def Sigma (v : TypeVec.{u} n) : Type u :=
+def Sigma (v : TypeVec.{max w u} n) : Type (max w u) :=
   Σ α : A, F α v
 
 /-- Dependent product of an `n`-ary functor. The sum can range over
 data types like `Nat` or over `Type.{u-1}` -/
-def Pi (v : TypeVec.{u} n) : Type u :=
+def Pi (v : TypeVec.{max w u} n) : Type (max w u) :=
   ∀ α : A, F α v
 
 instance Sigma.inhabited {α} [Inhabited A] [Inhabited (F default α)] : Inhabited (Sigma F α) :=
@@ -49,7 +53,7 @@ instance [∀ α, MvFunctor <| F α] : MvFunctor (Sigma F) where
 variable [∀ α, QPF <| F α]
 
 /-- polynomial functor representation of a dependent sum -/
-protected def P : MvPFunctor n :=
+protected def P : MvPFunctor.{max w u} n :=
   ⟨Σ a, (P (F a)).A, fun x => (P (F x.1)).B x.2⟩
 
 /-- abstraction function for dependent sums -/
@@ -93,7 +97,7 @@ instance [∀ α, MvFunctor <| F α] : MvFunctor (Pi F) where map f x a := f <$$
 variable [∀ α, QPF <| F α]
 
 /-- polynomial functor representation of a dependent product -/
-protected def P : MvPFunctor n :=
+protected def P : MvPFunctor.{max w u} n :=
   ⟨∀ a, (P (F a)).A, fun x i => Σ a, (P (F a)).B (x a) i⟩
 
 /-- abstraction function for dependent products -/
