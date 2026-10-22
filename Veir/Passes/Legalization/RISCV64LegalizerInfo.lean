@@ -19,8 +19,14 @@ namespace Veir
 section
 open Puddle in
 
-/-- Custom legalization of an `i32` `opcode` to its word variant `riscvOp`. -/
-def customLegalizeWordOp (opcode : GMIR) (riscvOp : Riscv)
+/--
+  Custom legalization of `i32` binary operations into their RISC-V word variant
+  (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
+  For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
+  later. For `g_sdiv`/`g_udiv`/`g_urem` and the shifts, LLVM custom-legalizes into `RISCV::G_DIVW`,
+  `RISCV::G_SLLW` etc.
+-/
+def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
   Pattern.Builder
     (do
@@ -45,24 +51,29 @@ def customLegalizeWordOp (opcode : GMIR) (riscvOp : Riscv)
 
 end
 
+private def s16 : LLT := .scalar 16
+private def s32 : LLT := .scalar 32
+private def s64 : LLT := .scalar 64
+private def p0 : LLT := .pointer 0
+
 public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
-      .legalFor [64],
-      .customFor [32],
+      .legalFor [s64],
+      .customFor [s32],
       .minScalar (.type 0) 64,
     ]
     | .g_shl | .g_lshr | .g_ashr => [
-      .legalForTypePairs [(64, 64)],
+      .legalForTypePairs [(s64, s64)],
       -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
-      .customForTypePairs [(32, 32)],
+      .customForTypePairs [(s32, s32)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
-      .legalForTypePairs [(64, 64)],
+      .legalForTypePairs [(s64, s64), (s64, p0)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
@@ -74,21 +85,48 @@ def riscv64LegalizerInfo : LegalizerInfo where
       -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
       -- or `g_and`.
       -- FIXME: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths always legal.
-      .legalForTypePairs [(32, 16), (64, 16), (64, 32)],
+      .legalForTypePairs [(s32, s16), (s64, s16), (s64, s32)],
       .alwaysLegal
     ]
     | .g_trunc => [
       .alwaysLegal,
     ]
+    | .g_and | .g_or | .g_xor =>
+      [
+        .legalFor [s64],
+        .minScalar (.type 0) 64,
+      ]
+    | .g_mul => [
+      .legalFor [s64],
+      .customFor [s32],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_srem => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_sdiv | .g_udiv | .g_urem => [
+      .legalFor [s64],
+      .customFor [s32],
+      .minScalar (.type 0) 32,
+      .minScalar (.type 0) 64,
+    ]
+    | .g_constant => [
+      -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
     | _ => []
   legalizeCustom
-    -- LLVM instead emits `G_ADD` + `G_SEXT_IN_REG` instead, and matches on this later during
-    -- instruction selection. We omit the word-variant directly as a simplification.
-    | .g_add => customLegalizeWordOp .g_add .addw ()
-    | .g_sub => customLegalizeWordOp .g_sub .subw ()
-    | .g_shl => customLegalizeWordOp .g_shl .sllw ()
-    | .g_lshr => customLegalizeWordOp .g_lshr .srlw ()
-    | .g_ashr => customLegalizeWordOp .g_ashr .sraw ()
+    | .g_add => customLegalizeWord .g_add .addw ()
+    | .g_sub => customLegalizeWord .g_sub .subw ()
+    | .g_mul => customLegalizeWord .g_mul .mulw ()
+    | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
+    | .g_udiv => customLegalizeWord .g_udiv .divuw ()
+    | .g_urem => customLegalizeWord .g_urem .remuw ()
+    | .g_shl => customLegalizeWord .g_shl .sllw ()
+    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
+    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

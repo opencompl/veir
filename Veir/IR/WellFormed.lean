@@ -185,6 +185,23 @@ grind_pattern RegionPtr.BlockChain.allBlocksInChain =>
     RegionPtr.BlockChain region ctx array, (bl.getParent! ctx) where
   guard (bl.getParent! ctx) = some region
 
+/-- A block chain with the same first and last block consists of that block alone. -/
+theorem RegionPtr.BlockChain.eq_singleton_of_first_eq_last
+    (chain : RegionPtr.BlockChain region ctx array)
+    (first : region.getFirstBlock! ctx = some block)
+    (last : region.getLastBlock! ctx = some block) :
+    array = #[block] := by
+  have nonempty : 0 < array.size := by grind
+  have size : array.size = 1 := by
+    by_cases singleton : array.size = 1
+    · exact singleton
+    have previous := chain.prev (array.size - 1) (by omega) (by omega)
+    have noPrevious := chain.prevFirst first
+    grind
+  apply Array.ext
+  · simp [size]
+  · grind
+
 structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
   inBounds : Operation.FieldsInBounds opPtr ctx hop
   result_index i (iInBounds : i < opPtr.getNumResults! ctx) : (opPtr.getResult i).getIndex! ctx = i
@@ -1070,6 +1087,20 @@ theorem RegionPtr.blockListWF (ctx : IRContext OpInfo) (region : RegionPtr)
     RegionPtr.BlockChain region ctx (RegionPtr.blockList region ctx hctx hregion) :=
   Exists.choose_spec (hctx.blockChain region hregion)
 
+/-- If a region's first and last blocks coincide, every block in the region equals them. -/
+theorem RegionPtr.block_eq_of_first_eq_last {entry : BlockPtr}
+    (hctx : ctx.WellFormed)
+    (parent : bl.getParent! ctx = some region)
+    (first : region.getFirstBlock! ctx = some entry)
+    (last : region.getLastBlock! ctx = some entry) :
+    bl = entry := by
+  have blockInBounds : bl.InBounds ctx := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  obtain ⟨array, chain⟩ := hctx.blockChain region (by grind)
+  have singleton := chain.eq_singleton_of_first_eq_last first last
+  have member := chain.allBlocksInChain bl blockInBounds parent
+  grind
+
 @[grind =]
 theorem RegionPtr.blockList_iff_RegionPtr_BlockChain :
     RegionPtr.BlockChain region ctx array ↔
@@ -1483,6 +1514,32 @@ theorem RegionPtr.lastBlock!_parent! {reg : RegionPtr}
 grind_pattern RegionPtr.lastBlock!_parent! =>
   ctx.WellFormed missingUses missingSuccessorUses, reg.getLastBlock! ctx, some lastBl,
   lastBl.getParent! ctx
+
+/-- Every indexed operation in a block's operation list is in bounds. -/
+@[grind .]
+theorem BlockPtr.operationList.inBounds_getElem {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
+    ((block.operationList ctx hctx hblock)[i]).InBounds ctx :=
+  (BlockPtr.operationListWF ctx block hblock hctx).arrayInBounds (Array.getElem_mem hi)
+
+/-- An operation's position in the block's operation list is its index in its parent. -/
+theorem BlockPtr.operationList.idxInParent_getElem {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
+    ((block.operationList ctx hctx hblock)[i]).idxInParent ctx (by grind) hctx = i := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  grind [OperationPtr.idxInParent, chain.idxOf_getElem_array i hi]
+
+/-- The first operation of a block has index zero in its parent. -/
+theorem OperationPtr.idxInParent_eq_zero_of_getFirstOp! {block : BlockPtr} {op : OperationPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (first : block.getFirstOp! ctx = some op) :
+    op.idxInParent ctx (by grind) hctx = 0 := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  have zeroInBounds : 0 < (block.operationList ctx hctx hblock).size := by grind
+  have firstAtZero : (block.operationList ctx hctx hblock)[0] = op := by grind
+  simpa only [firstAtZero] using BlockPtr.operationList.idxInParent_getElem hctx hblock 0 zeroInBounds
 
 @[grind .]
 theorem OperationPtr.idxInParent_lt_size_operationList

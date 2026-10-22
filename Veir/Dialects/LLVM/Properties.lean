@@ -561,7 +561,11 @@ def GetelementptrProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | some attr => .error s!"expected 'noWrapFlag' to be an optional integer attribute, but got {attr}"
     | none => .ok { value := 0, type := { bitwidth := 32 } }
   let rawConstantIndices ← match attrDict["rawConstantIndices".toUTF8]? with
-    | some (.denseArrayAttr arr) => .ok arr
+    | some (.denseArrayAttr arr) =>
+      if let some value := arr.values.find? fun v => v < -2^31 || v ≥ 2^32 then
+        .error s!"getelementptr: raw constant index {value} does not fit in i32"
+      else
+        .ok { arr with values := arr.values.map fun value => (BitVec.ofInt 32 value).toInt }
     | some attr => .error s!"getelementptr: expected 'rawConstantIndices' to be a dense array attribute,
         but got {attr}"
     | none => .error "getelementptr: missing 'rawConstantIndices' property"

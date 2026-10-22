@@ -26,7 +26,8 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
     let pattern? := match info.getAction ctx.raw op opcode with
-      | .widenScalar typeIdx newType => widenScalar? opcode typeIdx newType
+      | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
+      | .lower => lower? opcode
       | .custom => info.legalizeCustom opcode
       | .legal | .unsupported => none
     let some pattern := pattern? | return (ctx, none)
@@ -39,6 +40,7 @@ private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode :
   let types := opcode.getTypeGroupTypes! op ctx
   let reason := match action, types.find? fun type => (LLT.ofType? type).isNone with
     | .widenScalar (.type idx) _, _ => s!"widening type group {idx} is not implemented"
+    | .lower, _ => "the lowering is not implemented"
     | .custom, _ => "the custom legalization does not apply"
     | _, some type => s!"unsupported type {type}"
     | _, none => "no legalization rule matches"

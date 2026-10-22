@@ -211,6 +211,9 @@ def MatchDecl.collectBindings (decl : MatchDecl OpCode)
       defined.insertFresh result
   | .type _ result =>
       defined.insertFresh result
+  | @MatchDecl.inspectOperation _ _ _ outputBundle opHandle _ outputs => do
+      guard (defined.require opHandle)
+      outputBundle.shape.insertFreshBindings defined outputs
   | @MatchDecl.applyNative _ _ _ inputBundle inputs _ => do
       guard (inputBundle.shape.requireBindings defined inputs)
       return defined
@@ -232,6 +235,7 @@ def MatchProg.collectDeclBindings :
 def MatchProg.bindingDecls (prog : MatchProg OpInfo α) : List (MatchDecl OpInfo) :=
   let (structural, guards) := prog.decls.partition fun
     | @MatchDecl.applyNative _ _ _ _ _ _ => false
+    | @MatchDecl.inspectOperation _ _ _ _ _ _ _ => false
     | _ => true
   structural.reverse ++ guards
 
@@ -549,6 +553,10 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
         InterpretsTo opCode property resultTypes.toArray operands.toArray results.toArray →
         k (assignment.bindProperty propertyHandle property)
       | _, _ => False
+  | @MatchDecl.inspectOperation _ _ _ outputBundle _ _ outputs =>
+    /- Contextual inspection are not reasoned about in our current model, so we only bind the
+    matched metadata without constraining it. -/
+    ∀ values, k (MetadataTuple.bindSemantic (self := outputBundle) assignment outputs values)
   | MatchDecl.applyNative (hInputs := inputBundle) inputs predicate =>
     match MetadataTuple.resolveSemantic (self := inputBundle) assignment inputs with
     | some values => predicate values = true → k assignment
@@ -685,6 +693,7 @@ macro "unfoldPuddleBuilder" : tactic =>
     /- Unfold the builder functions -/
     simp only [Pattern.Builder, MatchProg.build, CreateProg.build, bind, pure,
       MatchProg.value, MatchProg.type, MatchProg.root, MatchProg.operation, MatchProg.matchNative,
+      MatchProg.inspectOperation,
       CreateProg.type, CreateProg.operation, CreateProg.property, CreateProg.applyNative,
       MetadataTuple.fresh,
       IsMetadataTuple.shape_unit, IsMetadataTuple.shape_type, IsMetadataTuple.shape_property,
@@ -742,6 +751,23 @@ macro "simpPuddleSemantics" : tactic =>
     /- Elementwise array refinement -/
     RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.arrayIsRefinedBy_refl])
 
+namespace PuddleCbv
+
+/-
+Lean 4.35's cbv simproc for `if True` has a bug that prevents it from being used with `cbv`.
+This `cbv_eval` rule will prevent this `if True` from appearing in puddle proofs.
+-/
+@[scoped cbv_eval]
+theorem guard_eq_cond {condition : Prop} [Decidable condition] :
+    (guard condition : Option Unit) = cond (decide condition) (some ()) none := by
+  cases ‹Decidable condition› <;> rfl
+
+/- Evaluate arrays through their list representation even when Array.Basic's
+implementation is hidden by module imports. -/
+attribute [scoped cbv_eval ←] List.toArray_range
+
+end PuddleCbv
+
 /-- Discharge structural obligations and expose a pattern's assignment-free semantic proposition. -/
 macro "provePuddleValid" : tactic =>
   `(tactic| (
@@ -749,7 +775,7 @@ macro "provePuddleValid" : tactic =>
     constructor
     · provePuddleSupported
     · cbv
-    · native_decide
+    · open scoped PuddleCbv in cbv
     simpPuddleSemantics
   ))
 

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// NO_CROSS_CHECK: the `llvm.byte` type: alive-exec rejects it and llubi crashes on it.
 
 // A poison integer reinterpreted as an `llvm.byte` has every bit poison,
 // where the integer was poison as a whole.

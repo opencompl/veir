@@ -19,15 +19,6 @@ open Veir.Data
 
 namespace Veir
 
-/-- Choice of a bitvector of a given bitwidth (input type) -/
-structure FreezeCIn : Type u where
-  bw : Nat
-
-/-- Choice of a bitvector of a given bitwidth (output type) -/
-abbrev FreezeC (c : FreezeCIn.{u}) : Type :=
-  match c with
-  | .mk bw => BitVec bw
-
 def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
@@ -320,11 +311,14 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     let [.addr addr] := operands.toList | fail
     let .val addr := addr | ub
     let [type] := resultTypes.toList | fail
+    monadLift $ addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type.val)
     let val ← monadLift $ mem.llvmLoad addr type
     return (#[val], mem, none)
   | .store => do
     let [val, .addr addr] := operands.toList | fail
     let .val addr := addr | ub
+    if let some type := val.storedType then
+      monadLift $ addr.checkAlignment (Llvm.accessAlignment layout properties.alignment type)
     let mem ← monadLift $ mem.llvmStore addr val
     return (#[], mem, none)
   | .intr__memset => do
@@ -344,14 +338,18 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
       else mem.memmove dst src len.toNat
     return (#[], mem, none)
   | .getelementptr => do
-    /- only supports exactly one dynamic index for now -/
-    let [.addr ptr, .int _ idx] := operands.toList | fail
-    /- The index scales by the element's stride, matching the `getTypeAllocSize`
-       that `isel-riscv64` uses to lower this operation. -/
-    let size ← monadLift $ layout.getTypeAllocSize properties.elem_type.val
-    match ptr, idx with
-    | .val ptr, .val idx => return (#[.addr (.val ⟨ptr.object, UInt64.ofNat (ptr.address.toNat + idx.toNat * size)⟩)], mem, none)
-    | _, _ => return (#[.addr .poison], mem, none)
+    let .addr ptr :: _ := operands.toList | fail
+    /- Decompose the address into a constant offset and scaled dynamic indices. -/
+    let indices := GEPIndex.decode properties.rawConstantIndices.values (operands.extract 1)
+    let (offset, dynamic) ← monadLift $ layout.gepOffsets properties.elem_type.val indices
+    let .val ptr := ptr | return (#[.addr .poison], mem, none)
+    let mut addr := (ptr.address.toNat : Int) + offset
+    for (idx, stride) in dynamic do
+      /- An index is signed, and sign-extended to the pointer width. -/
+      let .int _ idx := idx | fail
+      let .val idx := idx | return (#[.addr .poison], mem, none)
+      addr := addr + idx.toInt * stride
+    return (#[.addr (.val ⟨ptr.object, UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | fail
     match val with

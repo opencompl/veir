@@ -1,10 +1,12 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI_CHECK
+// RUN: ALIVE_EXEC_CHECK
 
 // A pointer assembled from the low half of one stored pointer and the high
 // half of another. The two objects share their high four address bytes, so
 // the address is `%a`'s, and the load through it reads `%a`.
 //
-// LLUBI and ALIVE_EXEC: report undefined behaviour: for them each byte of a
+// llubi and alive-exec report undefined behaviour: for them each byte of a
 // stored pointer remembers the pointer it came from, and bytes of two
 // pointers make one with no provenance.
 
@@ -32,3 +34,5 @@
 }) : () -> ()
 
 // CHECK: Program output: #[0x000000000000002a#64]
+// LLUBI: Undefined behavior
+// ALIVE_EXEC: Undefined behavior

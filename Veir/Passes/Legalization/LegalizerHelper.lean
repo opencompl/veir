@@ -56,7 +56,29 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
 def clearNswNuwProperties (props : NswNuwProperties) : NswNuwProperties :=
   { props with nsw := false, nuw := false }
 
+/-- Widens `g_constant` to `width` bits and then truncates it back, extending the value as LLVM's
+`LegalizerInfo::getExtOpcodeForWideningConstant` does. -/
+def widenConstant (width : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
+      return (type, root))
+    (fun (type, root) => do
+      let wideType ← CreateProg.type (IntegerType.signless width)
+      let props ← CreateProg.applyNative root.properties fun ⟨⟨value, ⟨w, _⟩⟩⟩ =>
+        let value := if w % 8 = 0 then value else (BitVec.ofInt w value).toNat
+        some (GMIRConstantProperties.mk (.ofInt value (.signless width)))
+      let wide ← CreateProg.operation (.gmir .g_constant) #[] #[wideType] props
+      let truncProps ← CreateProg.property (.gmir .g_trunc) default
+      CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type] truncProps)
+    (fun trunc => trunc)
+
 public section
+
+/-- The pattern that lowers `opcode`, if it can be lowered. -/
+def lower? : GMIR → Option (Pattern OpCode)
+  | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
@@ -79,6 +101,17 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_shl, .type 1, width => widenTypeGroup .g_shl (.type 1) .g_zext width
   | .g_ashr, .type 1, width => widenTypeGroup .g_ashr (.type 1) .g_zext width
   | .g_lshr, .type 1, width => widenTypeGroup .g_lshr (.type 1) .g_zext width
+  | .g_and, .type 0, width => widenTypeGroup .g_and (.type 0) .g_anyext width
+  | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width
+  | .g_xor, .type 0, width => widenTypeGroup .g_xor (.type 0) .g_anyext width
+  | .g_mul, .type 0, width => widenTypeGroup .g_mul (.type 0) .g_anyext width clearNswNuwProperties
+  -- The high bits matter for division and remainder, so the operands are extended according to
+  -- the signedness of the operation. Exactness is preserved by both extensions.
+  | .g_sdiv, .type 0, width => widenTypeGroup .g_sdiv (.type 0) .g_sext width
+  | .g_srem, .type 0, width => widenTypeGroup .g_srem (.type 0) .g_sext width
+  | .g_udiv, .type 0, width => widenTypeGroup .g_udiv (.type 0) .g_zext width
+  | .g_urem, .type 0, width => widenTypeGroup .g_urem (.type 0) .g_zext width
+  | .g_constant, .type 0, width => widenConstant width
   | _, _, _ => none
 
 end

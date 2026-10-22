@@ -1,4 +1,5 @@
 import UnitTest.Lexer
+import UnitTest.LeanBugs
 import UnitTest.Deriving
 import UnitTest.ParserError
 import UnitTest.Parser
@@ -28,3 +29,4 @@ import UnitTest.BoundedBitblasting.Elab
 import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
+import UnitTest.DataLayout

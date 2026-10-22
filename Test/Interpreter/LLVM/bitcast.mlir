@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// NO_CROSS_CHECK: the `llvm.byte` type: alive-exec rejects it and llubi crashes on it.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (!llvm.byte<64>, i64, i64)}> ({
