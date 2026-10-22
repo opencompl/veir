@@ -80,13 +80,25 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_anyext => [
       .alwaysLegal,
     ]
-    | .g_sext | .g_zext => [
+    | .g_sext => [
+      .legalForTypePairs [(s32, s16), (s64, s16), (s64, s32)],
       -- In LLVM, extensions from other widths never reach these rules: their operands are always
-      -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
-      -- or `g_and`.
-      -- FIXME: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths always legal.
+      -- the result of a `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`.
+      -- We lower them to `g_sext_inreg` here instead.
+      .lowerIf fun query => match query.getLLT! (.type 0), query.getLLT! (.type 1) with
+        | .scalar dst, .scalar src => dst ≤ 64 ∧ src ∉ [8, 16, 32]
+        | _, _ => false,
+      .alwaysLegal
+    ]
+    | .g_zext => [
+      -- As for `g_sext`, LLVM's artifact combiner turns extensions from other widths into `g_and`.
+      -- FIXME: Add `g_and` and this fold. Until then, other widths always legal.
       .legalForTypePairs [(s32, s16), (s64, s16), (s64, s32)],
       .alwaysLegal
+    ]
+    | .g_sext_inreg => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
     ]
     | .g_trunc => [
       .alwaysLegal,

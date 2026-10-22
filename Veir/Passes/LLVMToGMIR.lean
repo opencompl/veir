@@ -23,6 +23,8 @@ namespace Veir
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
+  - GEP indices are normalized here, but GEP address arithmetic remains in the LLVM dialect
+    until instruction selection. The currently supported pointer index width is 64 bits.
 -/
 
 /-! ## Lowering Patterns -/
@@ -103,6 +105,43 @@ def g_sext := (lowerIntegerCast .sext .g_sext).compile
 def g_zext := (lowerIntegerCast .zext .g_zext).compile
 
 def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
+
+/--
+  Normalize dynamic GEP indices to the current 64-bit pointer index type, as in
+  LLVM's `IRTranslator::translateGetElementPtr`: sign-extend narrower indices
+  and truncate wider ones before scaling them. Rewrite a dynamic index that is a
+  constant as an `i64` constant instead. Preserve constant indices and GEP flags. Plain truncation may refine poison from a violated GEP no-wrap flag.
+-/
+private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
+  let some (ptr, indices, props) := matchGetelementptrIndices op ctx.raw | return (ctx, none)
+  let mut ctx := ctx
+  let mut ops := #[]
+  let mut operands := #[ptr]
+  for index in indices do
+    if let .integerType type := (index.getType! ctx.raw).val then
+      if type.bitwidth ≠ 0 && type.bitwidth ≠ 64 then
+        /- Fold a constant index into an `i64` `g_constant`, so that load/store selection can
+           still fold it into the access's immediate offset. -/
+        let constant := matchConstantIntVal index ctx.raw <|> matchGConstantIntVal index ctx.raw
+        let (ctx', castOp) ← if let some value := constant then
+            WfRewriter.createOp! ctx GMIR.g_constant #[IntegerType.signless 64] #[] #[] #[]
+                (GMIRConstantProperties.mk (.ofInt (BitVec.ofInt 64 value).toInt (.signless 64)))
+                none
+          else if type.bitwidth < 64 then
+            WfRewriter.createOp! ctx GMIR.g_sext #[IntegerType.signless 64]
+                #[index] #[] #[] () none
+          else
+            WfRewriter.createOp! ctx GMIR.g_trunc #[IntegerType.signless 64]
+                #[index] #[] #[] (NswNuwProperties.mk false false) none
+        ctx := ctx'
+        ops := ops.push castOp
+        operands := operands.push (castOp.getResult 0)
+        continue
+    operands := operands.push index
+  if ops.isEmpty then return (ctx, none)
+  let (ctx', gep) ← WfRewriter.createOp! ctx Llvm.getelementptr (op.getResultTypes! ctx.raw)
+      operands #[] #[] props none
+  return (ctx', some (ops.push gep, #[gep.getResult 0]))
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -240,6 +279,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
+    .fromLocalRewrite normalizeGEPIndices,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with
