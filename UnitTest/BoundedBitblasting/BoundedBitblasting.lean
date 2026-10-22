@@ -627,3 +627,64 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
 example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
     x.smtSDiv y = bif x.msb then 1 else -1 := by
   pbv_decide 4
+
+/-- Leading zeros are at most the width -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.clz ≤ BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- A non-zero bitvector has fewer leading zeros than its width -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (h : x ≠ 0#w) :
+    x.clz < BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Shifting out the leading zeros sets the top bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (h : x ≠ 0#w) :
+    (x <<< x.clz).msb = true := by
+  pbv_decide 8
+
+/-- A conditional on a comparison -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (if x ≤ 1#w then 1#w else x) = (if x.ule 1#w then 1#w else x) := by
+  pbv_decide 8
+
+/-! ### LLVM's `bit_ceil` fold
+
+`bit_ceil(x)` is the smallest power of two that is at least `x`, computed by
+`1 << (w - clz(x - 1))` with a guard for `x ≤ 1`. LLVM folds the guard away
+by masking the shift amount, `1 << (-clz(x - 1) & (w - 1))`, when the width
+is a power of two and the shift does not overflow.
+-/
+
+def bitCeilSrc {w : Nat} (x : BitVec w) : BitVec w :=
+  if x ≤ 1#w then 1#w else 1#w <<< (BitVec.ofNat w w - (x - 1#w).clz)
+
+def bitCeilTgt {w : Nat} (x : BitVec w) : BitVec w :=
+  1#w <<< ((-(x - 1#w).clz) &&& BitVec.ofNat w (w - 1))
+
+def NoOverflow {w : Nat} (x : BitVec w) : Prop := x ≤ 1#w ∨ (x - 1#w).msb = false
+
+/-- The `bit_ceil` fold, for widths that are a power of two up to 64 -/
+theorem foldBitCeil_correct (k : Nat) (hk : k ≤ 6) (x : BitVec (2 ^ k)) (h : NoOverflow x) :
+    bitCeilSrc x = bitCeilTgt x := by
+  unfold bitCeilSrc bitCeilTgt NoOverflow at *
+  have hle : 2 ^ k ≤ 64 :=
+    calc 2 ^ k ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) hk
+      _ = 64 := by decide
+  -- The width is a power of two: `w &&& (w - 1) = 0`.
+  have hpow : BitVec.ofNat (2 ^ k) (2 ^ k) &&& BitVec.ofNat (2 ^ k) (2 ^ k - 1) = 0#(2 ^ k) := by
+    rw [← BitVec.ofNat_and, Nat.and_two_pow_sub_one_eq_mod, Nat.mod_self]
+  -- The `Nat` subtraction `w - 1` as a `BitVec` subtraction.
+  have hsub : BitVec.ofNat (2 ^ k) (2 ^ k - 1) = BitVec.ofNat (2 ^ k) (2 ^ k) - 1#(2 ^ k) := by
+    have h1 : 1 ≤ 2 ^ k := Nat.one_le_two_pow
+    have h2 : 2 ^ k < 2 ^ 2 ^ k := Nat.lt_two_pow_self
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_sub_of_le, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt h2, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
+    rw [BitVec.le_def, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2,
+      Nat.mod_eq_of_lt (by omega)]
+    exact h1
+  rw [hsub] at hpow ⊢
+  generalize 2 ^ k = w at *
+  revert hpow h
+  pbv_decide 64

@@ -30,6 +30,7 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Signed `<`                      | `BitVec.slt`                 | `slt_setWidth`                     |
 | Signed `≤`                      | `BitVec.sle`                 | `sle_setWidth`                     |
 | Conditional (bif/cond)          | `cond`                       | `setWidth_bif`                     |
+| Conditional (if/ite)            | `ite`                        | `setWidth_ite`                     |
 | Literal (`n#w`)                 | `BitVec.ofNat`               | `setWidth_ofNat`                   |
 | Zero (`0#w`)                    | `BitVec.zero`                | `BitVec.setWidth_zero`             |
 | All ones                        | `BitVec.allOnes`             | —                                  |
@@ -81,7 +82,7 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Bit, from MSB                   | `BitVec.getMsbD`             | —                                  |
 | Reverse                         | `BitVec.reverse`             | —                                  |
 | Popcount                        | `BitVec.cpop`                | —                                  |
-| Leading zeros                   | `BitVec.clz`                 | —                                  |
+| Leading zeros                   | `BitVec.clz`                 | `setWidth_clz`                     |
 | Trailing zeros                  | `BitVec.ctz`                 | —                                  |
 | Unsigned add overflow           | `BitVec.uaddOverflow`        | —                                  |
 | Signed add overflow             | `BitVec.saddOverflow`        | —                                  |
@@ -160,6 +161,11 @@ theorem sle_setWidth (o : Nat) {w : Nat} (h : w ≤ o) (a b : BitVec w) :
 theorem setWidth_bif {c : Bool} {o w : Nat} (a b : BitVec w) :
     (bif c then a else b).setWidth o
       = bif c then (a.setWidth o) else (b.setWidth o) := by grind
+
+@[pbv_push]
+theorem setWidth_ite {o w : Nat} (c : Prop) [Decidable c] (a b : BitVec w) :
+    (if c then a else b).setWidth o = if c then a.setWidth o else b.setWidth o := by
+  split <;> rfl
 
 /-! ## Pushing `setWidth o` towards the leaves — leaves and width changes -/
 
@@ -428,6 +434,29 @@ theorem msb_eq_and_signBitOfMask_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) (a : 
     cases a.getLsbD (w - 1)
     · simp
     · simp [BitVec.twoPow_ne_zero hlt]
+
+/-- The leading zeros at the blast width, less the bits the widening added. -/
+@[pbv_push]
+theorem setWidth_clz {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    (a.clz).setWidth o =
+      ((a.setWidth o).clz - (BitVec.ofNat o o - BitVec.cpop (maskOfWidth o w)))
+        &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  have hc := BitVec.toNat_clz_setWidth h a
+  have hclz : a.clz.toNat ≤ w := by
+    have := BitVec.clz_le (x := a)
+    rw [BitVec.le_def, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt Nat.lt_two_pow_self] at this
+    exact this
+  have ho : o < 2 ^ o := Nat.lt_two_pow_self
+  have hsub : (BitVec.ofNat o o - BitVec.cpop (maskOfWidth o w)).toNat = o - w := by
+    rw [BitVec.toNat_sub_of_le, BitVec.toNat_ofNat, toNat_cpop_maskOfWidth_eq_width h,
+      Nat.mod_eq_of_lt ho]
+    rw [BitVec.le_def, BitVec.toNat_ofNat, toNat_cpop_maskOfWidth_eq_width h, Nat.mod_eq_of_lt ho]
+    exact h
+  rw [BitVec.toNat_sub_of_le, hsub, hc, Nat.add_sub_cancel, Nat.mod_eq_of_lt]
+  · exact Nat.lt_of_le_of_lt hclz Nat.lt_two_pow_self
+  · rw [BitVec.le_def, hsub, hc]; lia
 
 /-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
 @[pbv_push]

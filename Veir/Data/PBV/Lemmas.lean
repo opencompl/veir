@@ -30,6 +30,18 @@ theorem two_pow_sub_mod_of_le {w o n : Nat} (h : w ≤ o) (hn : n ≤ 2 ^ w) :
   simp only [this, Nat.add_sub_assoc (by apply Nat.pow_le_pow_right (n := 2) (by grind) h),
     add_mod, h0, Nat.add_zero, Nat.dvd_refl, mod_mod_of_dvd]
 
+/-- The exponent `e` with `2 ^ (e - 1) ≤ t < 2 ^ e` is unique among `e ≥ 1`. -/
+theorem eq_of_two_pow_sub_one_le_of_lt {t e₁ e₂ : Nat} (h₁ : 0 < e₁) (h₂ : 0 < e₂)
+    (hl₁ : 2 ^ (e₁ - 1) ≤ t) (hu₁ : t < 2 ^ e₁)
+    (hl₂ : 2 ^ (e₂ - 1) ≤ t) (hu₂ : t < 2 ^ e₂) :
+    e₁ = e₂ := by
+  rcases Nat.lt_trichotomy e₁ e₂ with h | h | h
+  · have := Nat.pow_le_pow_right (n := 2) (by decide) (show e₁ ≤ e₂ - 1 by lia)
+    lia
+  · exact h
+  · have := Nat.pow_le_pow_right (n := 2) (by decide) (show e₂ ≤ e₁ - 1 by lia)
+    lia
+
 end Nat
 
 namespace BitVec
@@ -51,5 +63,47 @@ theorem twoPow_ne_zero {o k : Nat} (h : k < o) : twoPow o k ≠ 0#o := by
   rw [toNat_twoPow, toNat_zero,
     Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by lia) h)] at hn
   exact absurd hn (Nat.ne_of_gt (Nat.two_pow_pos k))
+
+/-- Widening a bitvector adds the new bits to its leading zeros. -/
+theorem toNat_clz_setWidth {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    (a.setWidth o).clz.toNat = a.clz.toNat + (o - w) := by
+  by_cases ha : a = 0#w
+  · subst ha
+    have h1 : (0#w).clz = BitVec.ofNat w w := clz_eq_iff_eq_zero.mpr rfl
+    have h2 : (0#o).clz = BitVec.ofNat o o := clz_eq_iff_eq_zero.mpr rfl
+    rw [setWidth_zero, h1, h2, toNat_ofNat, toNat_ofNat,
+      Nat.mod_eq_of_lt Nat.lt_two_pow_self, Nat.mod_eq_of_lt Nat.lt_two_pow_self]
+    lia
+  · have hw : 0 < w := by
+      rcases Nat.eq_zero_or_pos w with rfl | hw
+      · exact absurd of_length_zero ha
+      · exact hw
+    have ha' : a.setWidth o ≠ 0#o := by
+      intro h0
+      apply ha
+      apply eq_of_toNat_eq
+      have := congrArg BitVec.toNat h0
+      rw [toNat_setWidth_of_le h] at this
+      simpa using this
+    have hcw : a.clz.toNat < w := by
+      have := clz_lt_iff_ne_zero.mpr ha
+      rw [lt_def, natCast_eq_ofNat, toNat_ofNat, Nat.mod_eq_of_lt Nat.lt_two_pow_self] at this
+      exact this
+    have hco : (a.setWidth o).clz.toNat < o := by
+      have := clz_lt_iff_ne_zero.mpr ha'
+      rw [lt_def, natCast_eq_ofNat, toNat_ofNat, Nat.mod_eq_of_lt Nat.lt_two_pow_self] at this
+      exact this
+    have l₁ := two_pow_sub_clz_le_toNat_of_ne_zero hw ha
+    have u₁ := toNat_lt_two_pow_sub_clz (x := a)
+    have l₂ := two_pow_sub_clz_le_toNat_of_ne_zero (by lia) ha'
+    have u₂ := toNat_lt_two_pow_sub_clz (x := a.setWidth o)
+    rw [toNat_setWidth_of_le h] at l₂ u₂
+    have := Nat.eq_of_two_pow_sub_one_le_of_lt
+      (e₁ := w - a.clz.toNat) (e₂ := o - (a.setWidth o).clz.toNat) (by lia) (by lia)
+      (by rw [show w - a.clz.toNat - 1 = w - 1 - a.clz.toNat by lia]; exact l₁) u₁
+      (by rw [show o - (a.setWidth o).clz.toNat - 1 = o - 1 - (a.setWidth o).clz.toNat by lia]
+          exact l₂)
+      u₂
+    lia
 
 end BitVec
