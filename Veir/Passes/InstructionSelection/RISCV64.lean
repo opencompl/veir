@@ -533,18 +533,18 @@ def ashr32 : Puddle.CompiledPattern OpCode := (lowerAshr 32).compile
 /-- llvm.ashr -> riscv.sextb + riscv.sra -/
 def ashr8 : Puddle.CompiledPattern OpCode := (lowerAshr 8).compile
 
-/-! ### `llvm.icmp` lowering
+/-! ### `gmir.icmp` lowering
 
-    llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
-    llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
-    llvm.icmp slt lhs rhs -> riscv.slt lhs rhs
-    llvm.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
-    llvm.icmp sgt lhs rhs -> riscv.slt rhs lhs
-    llvm.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
-    llvm.icmp ult lhs rhs -> riscv.sltu lhs rhs
-    llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
-    llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs
-    llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
+    gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
+    gmir.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
+    gmir.icmp slt lhs rhs -> riscv.slt lhs rhs
+    gmir.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
+    gmir.icmp sgt lhs rhs -> riscv.slt rhs lhs
+    gmir.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
+    gmir.icmp ult lhs rhs -> riscv.sltu lhs rhs
+    gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
+    gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
+    gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
 
   Every arm shares the same prologue (`icmpCastExt`: cast both operands into registers, and
   sign-extend them when they are narrower than a register) and the same epilogue (cast the `i1`
@@ -668,43 +668,6 @@ def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
   | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, icmpOneImm⟩)
   | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, icmpOneImm⟩)
   | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
-
-/--
-  `icmp pred` whose lhs is `lhsWidth` bits wide once in a register (`i64`/`!llvm.ptr`,
-  `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`.
--/
-def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool)
-    (h : propertiesOf srcOp = IcmpProperties := by rfl) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
-      let lhsType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => icmpTypeWidth? t = some lhsWidth)
-      let rhsType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => (icmpTypeWidth? t).any (· ∈ [64, 32, 8]))
-      /- The result is cast back for type consistency, so it must be an integer type. -/
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let lhs ← MatchProg.value lhsType
-      let rhs ← if zeroRhs then do
-          let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[rhsType]
-          MatchProg.matchNative (rhsType, zeroOp.properties)
-              fun (type, props) => isConstantZero type props
-          pure zeroOp.res[0]!
-        else
-          MatchProg.value rhsType
-      let _ ← MatchProg.root srcOp #[lhs, rhs] #[resType]
-          (fun props => (cast h props).predicate = pred)
-      return (resType, lhs, rhs))
-    (fun (resType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let (a, b) ← icmpCastExt regType lhs rhs (icmpExtOf lhsWidth)
-      let cmpOp ← icmpEmit regType pred zeroRhs a b
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cmpOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
 
 /-- llvm.sub -> riscv.sub -/
 def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
@@ -2209,11 +2172,20 @@ def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   LLVM's instruction selector only sees legalized gMIR.
 -/
 
-/-- Matches only if an `opcode` operation of type `type` with `properties` is legal. -/
+/--
+  Matches only if an `opcode` operation of type `type` with `properties` is legal. Opcodes with a
+  second type index (e.g. `g_icmp`'s operand type) pass it as `type₁`.
+-/
 def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
-    (properties : Handle OpCode (.prop (.gmir opcode))) : MatchProg.Builder Unit :=
-  MatchProg.matchNative (type, properties) fun (type, properties) =>
-    riscv64LegalizerInfo.isLegal opcode #[type] properties
+    (properties : Handle OpCode (.prop (.gmir opcode)))
+    (type₁ : Option (Handle OpCode .type) := none) : MatchProg.Builder Unit :=
+  match type₁ with
+  | none =>
+    MatchProg.matchNative (type, properties) fun (type, properties) =>
+      riscv64LegalizerInfo.isLegal opcode #[type] properties
+  | some type₁ =>
+    MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
+      riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
 
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
@@ -2320,9 +2292,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
           MatchProg.value opType
       let root ← MatchProg.root (.gmir .g_icmp) #[lhs, rhs] #[resType]
           (fun props => props.predicate = pred)
-      MatchProg.matchNative (resType, opType, root.properties)
-          fun (resType, opType, props) =>
-            riscv64LegalizerInfo.isLegal .g_icmp #[resType, opType] props
+      matchLegal .g_icmp resType root.properties (type₁ := opType)
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
