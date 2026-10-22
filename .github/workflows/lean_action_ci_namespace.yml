@@ -12,29 +12,39 @@ jobs:
     # The runner profile pins the machine shape (32 vCPU, eight times what the
     # GitHub-hosted runner in the sibling `Lean Action CI` workflow gets, so
     # Lake builds with `-j32` instead of `-j4`), the cache volume and the git
-    # mirror. It also carries the custom base image that provides `mlir-opt`,
-    # `uv`, `lit`, `filecheck` and `elan`; its Dockerfile is kept in
-    # `.github/docker/namespace-base-image.Dockerfile`.
+    # mirror. Nix supplies the native dependencies; the custom base image
+    # supplies `lit`, `filecheck`, and the `llubi`/`alive-exec` cross-check tools.
+    # Its Dockerfile is `.github/docker/namespace-base-image.Dockerfile`.
     runs-on: namespace-profile-veir
 
     steps:
       - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
 
-      # The checkout wipes the workspace, so `.lake` does not exist when the
-      # cache action runs and it has nothing to bind the volume onto. It skips
-      # the path with "Some cache paths missing" and still reports success, so
-      # the directory has to be created first.
-      - name: Create the build directory
-        run: mkdir -p ${{ github.workspace }}/.lake
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # `~/.elan` holds the Lean toolchain and `.lake` the build tree; together
-      # they dominate the run.
+      - name: Activate the Nix development environment
+        uses: nicknovitski/nix-develop@9be7cfb4b10451d3390a75dc18ad0465bed4932a # v1.2.1
+        with:
+          arguments: --no-write-lock-file
+
+      # The checkout wipes the workspace, so create the build directories
+      # before binding the cache volume. Otherwise the action skips them with
+      # "Some cache paths missing" and still reports success.
+      - name: Create the build directories
+        run: mkdir -p .lake ExArray/.lake lean-ctrees/.lake
+
+      # Path dependencies keep their build trees outside the root `.lake`.
       - name: Set up caches
         uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
         with:
           path: |
             ~/.elan
             ${{ github.workspace }}/.lake
+            ${{ github.workspace }}/ExArray/.lake
+            ${{ github.workspace }}/lean-ctrees/.lake
 
       # One invocation: `lean-action` runs `lake build` and then `lake test`,
       # so a second one only repeated the build as a no-op.

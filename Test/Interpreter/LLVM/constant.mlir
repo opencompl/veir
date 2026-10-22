@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// NO_CROSS_CHECK: constants the translator does not emit, with no integer value.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32, f64)}> ({

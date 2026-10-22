@@ -23,6 +23,9 @@ jobs:
       - name: Check that every Lean module is built
         run: ./Tools/check-orphan-modules
 
+      - name: Check that every LLVM interpreter test is cross-checked
+        run: ./Tools/check-interpreter-cross-checks
+
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -45,48 +48,67 @@ jobs:
           sed -i 's/^buildType = "release"$/buildType = "debug"/' lakefile.toml
           grep -qx 'buildType = "debug"' lakefile.toml
 
-      - name: Source environment variables
-        run: source .envrc
-
-      - name: Add LLVM apt repository
-        uses: gerlero/add-apt-repository@397d907a67c29d276af289f5e9574375b8fc7481 # v1.1.0
-        with:
-          uri: http://apt.llvm.org/noble/ 
-          key: https://apt.llvm.org/llvm-snapshot.gpg.key
-          component: main
-          suite: llvm-toolchain-noble-23
-
-      - name: Install mlir-opt
-        uses: gerlero/apt-install@c0fa73fe5c4a22deecf6d629565be92a15dd2026 # v1.3.12
-        with:
-          packages: mlir-23-tools
-
-      - name: Rename MLIR-opt
-        run: |
-          sudo ln -s /usr/bin/mlir-opt-23 /usr/bin/mlir-opt
-
-      - name: Build the project
-        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
-        with:
-          build-args: "--iofail"
-          test: false
-
-      - name: Run unit tests
-        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
-        with:
-          test-args: "--iofail"
-          test: true
-
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
+      # setup-python overwrites PKG_CONFIG_PATH, so run it before Nix adds GMP.
       - name: Set up Python 3.13
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: 3.13
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Export the flake's environment to subsequent steps, including lean-action.
+      - name: Activate the Nix development environment
+        uses: nicknovitski/nix-develop@9be7cfb4b10451d3390a75dc18ad0465bed4932a # v1.2.1
+        with:
+          arguments: --no-write-lock-file
+
+      # Keep debug and release artifacts separate. Include the native
+      # environment and package configurations, and only fall back across
+      # source commits with the same configuration. Docs mirrors the release
+      # key and paths, so update its restore step when changing these.
+      - name: Restore the Lake build
+        id: lake-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake
+            ExArray/.lake
+            lean-ctrees/.lake
+          key: lake-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.buildType }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-${{ github.sha }}
+          restore-keys: lake-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.buildType }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-
+
+      - name: Build the project
+        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
+        with:
+          build-args: "--iofail"
+          test: false
+          use-github-cache: false
+
+      # Save before `lake test`: UnitTest uses compile-time checks that must
+      # run again on the next CI run, even when the production build is cached.
+      - name: Save the Lake build
+        if: steps.lake-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake
+            ExArray/.lake
+            lean-ctrees/.lake
+          key: ${{ steps.lake-cache.outputs.cache-primary-key }}
+
+      # Reuse the build and toolchain in place; another lean-action invocation
+      # would restore the cache again and run a second `lake build`.
+      - name: Run unit tests
+        run: lake test --iofail
 
       - name: Install Python dependencies
         run: uv sync
@@ -95,12 +117,9 @@ jobs:
         run: uv run lit Test/ -v
 
       - name: Build the ExArray package
-        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
-        with:
-          lake-package-directory: "ExArray"
+        working-directory: ExArray
+        run: lake build
 
       - name: Run the ExArray test binary
-        run: |
-          pushd ExArray
-          lake exe test
-          popd
+        working-directory: ExArray
+        run: lake exe test

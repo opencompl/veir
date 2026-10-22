@@ -258,9 +258,21 @@ def convert_type(typ: str) -> str:
     m = re.fullmatch(r"!llvm.byte<(\d+)>", typ)
     if m:
         return f"b{m.group(1)}"
-    m = re.fullmatch(r"!llvm.array<\s*(\d+)\s*x\s*(.+)>", typ)
+    # Inside an aggregate MLIR drops the `!llvm.` prefix of a nested type.
+    m = re.fullmatch(r"(?:!llvm\.)?array<\s*(\d+)\s*x\s*(.+)>", typ, re.S)
     if m:
         return f"[{m.group(1)} x {convert_type(m.group(2))}]"
+    m = re.fullmatch(r"vector<\s*(\d+)\s*x\s*(.+)>", typ, re.S)
+    if m:
+        return f"<{m.group(1)} x {convert_type(m.group(2))}>"
+    # A struct with a body becomes a literal struct type, which has the same
+    # layout whether or not MLIR named it. An opaque or unresolved struct has
+    # no body and stays unsupported.
+    m = re.fullmatch(r'(?:!llvm\.)?struct<\s*(?:"[^"]*"\s*,\s*)?(packed\s*)?\((.*)\)\s*>', typ, re.S)
+    if m:
+        fields = [convert_type(f) for f in split_top_level(m.group(2))] if m.group(2).strip() else []
+        body = "{ " + ", ".join(fields) + " }" if fields else "{}"
+        return f"<{body}>" if m.group(1) else body
     if typ == "f16":
         return "half"
     if typ == "f32":
@@ -518,11 +530,37 @@ def align_suffix(attr: str) -> str:
     return f", align {m.group(1)}" if m else ""
 
 
-def parse_elem_type(attr: str) -> str:
-    m = re.search(r'"?elem_type"?\s*=\s*([^,}]+)', attr)
+def parse_attr_text(attr: str, name: str) -> str | None:
+    """The text of the attribute `name` in a property dictionary, up to the
+    next top-level comma or closing brace, so that a type with commas and
+    nested brackets inside, such as a struct, comes out whole."""
+    m = re.search(rf'"?{re.escape(name)}"?\s*=\s*', attr)
     if not m:
+        return None
+    start = m.end()
+    depth = 0
+    in_string = False
+    for i in range(start, len(attr)):
+        ch = attr[i]
+        if ch == '"':
+            in_string = not in_string
+        elif not in_string:
+            if ch in "<([{":
+                depth += 1
+            elif ch in ">)]}":
+                if depth == 0:
+                    return attr[start:i].strip()
+                depth -= 1
+            elif ch == "," and depth == 0:
+                return attr[start:i].strip()
+    return attr[start:].strip()
+
+
+def parse_elem_type(attr: str) -> str:
+    text = parse_attr_text(attr, "elem_type")
+    if text is None:
         raise Error("expected an elem_type attribute")
-    return convert_type(m.group(1))
+    return convert_type(text)
 
 
 def flags_from_attrs(op: str, attr: str) -> list[str]:
@@ -825,15 +863,34 @@ def translate_nonterminator(
         return [f"  {out_result} = inttoptr {convert_type(op.operand_types[0])} {src} to ptr"]
 
     if name == "llvm.getelementptr":
-        require_operands(op, 2)
-        raw = re.search(r'"?rawConstantIndices"?\s*=\s*array<i32:\s*([^>]*)>', op.attr)
-        if not raw or raw.group(1).strip() != "-2147483648":
-            raise Error("llvm.getelementptr supports exactly one dynamic index")
+        raw = parse_i32_array(op.attr, "rawConstantIndices")
+        if raw is None:
+            raise Error("llvm.getelementptr: missing rawConstantIndices")
         elem = parse_elem_type(op.attr)
         ptr = llvm_value(op.operands[0], aliases)
-        index = llvm_value(op.operands[1], aliases)
-        return [f"  {out_result} = getelementptr {elem}, ptr {ptr}, "
-                f"{convert_type(op.operand_types[1])} {index}"]
+        # Each raw index is an `i32`, possibly written as an unsigned literal:
+        # the sentinel `-2^31` takes the next operand, any other value is a
+        # constant index.
+        indices = []
+        next_dynamic = 1
+        for value in raw:
+            if not -0x80000000 <= value <= 0xffffffff:
+                raise Error(f"llvm.getelementptr: raw constant index {value} does not fit in i32")
+            value &= 0xffffffff
+            if value == 0x80000000:
+                if next_dynamic >= len(op.operands):
+                    raise Error("llvm.getelementptr: more dynamic indices than operands")
+                indices.append(f"{convert_type(op.operand_types[next_dynamic])} "
+                               f"{llvm_value(op.operands[next_dynamic], aliases)}")
+                next_dynamic += 1
+            else:
+                if value >= 0x80000000:
+                    value -= 0x100000000
+                indices.append(f"i32 {value}")
+        if next_dynamic != len(op.operands):
+            raise Error("llvm.getelementptr: more operands than dynamic indices")
+        return [f"  {out_result} = getelementptr {elem}, ptr {ptr}"
+                + "".join(f", {index}" for index in indices)]
 
     # Intrinsics and freeze carry their own attributes and bypass flag parsing.
     intrinsic = translate_intrinsic(op, out_result, dst_type, aliases, declarations)

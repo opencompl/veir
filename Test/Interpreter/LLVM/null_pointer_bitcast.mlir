@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// NO_CROSS_CHECK: the `llvm.byte` type: alive-exec rejects it and llubi crashes on it.
 
 // The operation `llvm.mlir.zero` yields the zero address (null-pointer).
 // Bitcasting it to an `llvm.byte` gives that address with no poison bits.
