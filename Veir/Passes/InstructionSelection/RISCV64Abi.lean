@@ -170,7 +170,8 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     return (ctx, none)
   let mut calleeEntries := #[]
   if callee.isSome then
-    let some target := (CallOp.of? op ctx.raw).bind (·.resolveCallable?) | return (ctx, none)
+    let callOp ← CallOp.of? op ctx.raw
+    let some target := callOp.resolveCallable? | return (ctx, none)
     if !supportsFunctionAbi ctx.raw target then return (ctx, none)
     calleeEntries := abiAttrEntries ctx.raw target
   let operands := op.getOperands! ctx.raw

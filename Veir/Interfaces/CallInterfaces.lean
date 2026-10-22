@@ -45,11 +45,10 @@ def getCallableForCallee? (callOp : CallOp ctx op) : Option CallInterfaceCallabl
   callOp.callOpInterface.getCallableForCallee? props (op.getOperands! ctx)
 
 /-- Returns the operation defining the callee of the call. -/
-def resolveCallable? (callOp : CallOp ctx op) : Option OperationPtr :=
-  match callOp.getCallableForCallee? with
-  | some (.symbol ref) => do op.lookupNearestSymbolFrom? ctx ⟨← ref.getName?⟩
-  | some (.value value) => value.definingOp?
-  | none => none
+def resolveCallable? (callOp : CallOp ctx op) : Option OperationPtr := do
+  match ← callOp.getCallableForCallee? with
+  | .symbol ref => op.lookupNearestSymbolFrom? ctx ⟨← ref.getName?⟩
+  | .value value => value.definingOp?
 
 end CallOp
 
