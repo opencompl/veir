@@ -170,9 +170,9 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
     return (ctx, none)
   let mut calleeEntries := #[]
   if callee.isSome then
-    if let some target := (CallOp.of? op ctx.raw).bind (·.resolveCallable?) then
-      if !supportsFunctionAbi ctx.raw target then return (ctx, none)
-      calleeEntries := abiAttrEntries ctx.raw target
+    let some target := (CallOp.of? op ctx.raw).bind (·.resolveCallable?) | return (ctx, none)
+    if !supportsFunctionAbi ctx.raw target then return (ctx, none)
+    calleeEntries := abiAttrEntries ctx.raw target
   let operands := op.getOperands! ctx.raw
   -- Stack arguments are not lowered yet; an indirect target is not an argument.
   let numTargets := if callee.isSome then 0 else 1
