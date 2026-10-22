@@ -271,6 +271,16 @@ variable (A : Type v)
 #gsynth QPF (@TypeFun.ofCurried 1 (UniversePi A))
 #gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 (UniversePi A))
 
+-- A dead component of a product may live in a lower universe than the QPF
+@[qpf] def ProdDeadLeft (α : liveParam (Type u)) := Nat × α
+
+#gsynth QPF (@TypeFun.ofCurried 1 ProdDeadLeft)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 ProdDeadLeft)
+
+#guard_msgs (drop error) in
+@[qpf] def ProdDeadRight (α : liveParam (Type u)) := α × Nat
+-- FIXME: the above currently fails, but ought to work
+
 end
 
 /-!
@@ -297,21 +307,6 @@ a function type is not functorial in its domain.
 -/
 #guard_msgs in
 @[qpf] def FailsLiveDomain (α : liveParam Type) := α → Nat
-
--- Both components of a product must live in the universe of the QPF, as the
--- `QPF` instance only exists for `Prod.{u, u}`.
-/--
-error: While deriving a QPF from definition:
-  FailsProdUniverse
-
-failed to find a QPF in the head of the application:
-  Nat × α
-note that the head, after applying it to zero or more of the arguments, must be a type function with a `QPF` instance
--/
-#guard_msgs in
-@[qpf] def FailsProdUniverse (α : liveParam (Type 1)) := Nat × α
--- FIXME: the `FailsProdUniverse` really ought to work, since the `Nat` is dead.
---        that is, we should have a `QPF` instance for `Prod Nat`
 
 
 /--

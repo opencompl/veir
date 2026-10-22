@@ -87,6 +87,10 @@ private def parseApp (u : Level) (isLiveVar : FVarId → Bool) (target : Expr) :
     -- `IsPolynomial` for *this* `qpf` instance, not just for `typefun`.
     let isPolynomial? ←
       synthInstance? (mkApp3 (mkConst ``QPF.IsPolynomial [u, u]) (toExpr k) typefun qpf)
+
+    let _ ← processPostponed (mayPostpone := false) (exceptionOnFailure := true)
+    let qpf ← instantiateMVars qpf
+    let isPolynomial? ← isPolynomial?.mapM instantiateMVars
     return ⟨k, { domLevel := u, codLevel := u, typefun, qpf, isPolynomial? }, rest.toVector⟩
 
   if let some err := liveVarError? then
