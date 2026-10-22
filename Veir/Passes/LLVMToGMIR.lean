@@ -131,12 +131,11 @@ def TypeAttr.intOfByte? (type : TypeAttr) : Option TypeAttr := do
   return IntegerType.signless type.bitwidth
 
 /--
-  `lOp` on a byte, followed by `numIntOperands` integer operands -> `gOp` on integers of the same
-  widths, between `builtin.unrealized_conversion_cast`s.
+  `lOp` on bytes -> `gOp` on integers of the same widths, between `builtin.unrealized_conversion_cast`s.
   LLVM converts all byte types to integer types of the same width when translating to gMIR
   (see `getLLTForType`); this mirrors that conversion.
 -/
-def lowerByteOp (lOp : Llvm) (gOp : GMIR) (numIntOperands : Nat := 0)
+def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
     (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -144,11 +143,9 @@ def lowerByteOp (lOp : Llvm) (gOp : GMIR) (numIntOperands : Nat := 0)
       let operandType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
       let resultType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
       let operand ← Puddle.MatchProg.value operandType
-      let intOperands ← (Array.range numIntOperands).mapM fun _ => do
-        Puddle.MatchProg.value (← Puddle.MatchProg.type (Attr := IntegerType))
-      let root ← Puddle.MatchProg.root (.llvm lOp) (#[operand] ++ intOperands) #[resultType]
-      return (operandType, resultType, operand, intOperands, root))
-    (fun (operandType, resultType, operand, intOperands, root) => do
+      let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[resultType]
+      return (operandType, resultType, operand, root))
+    (fun (operandType, resultType, operand, root) => do
       let intOperandType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
           operandType TypeAttr.intOfByte?
       let intResultType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
@@ -157,17 +154,45 @@ def lowerByteOp (lOp : Llvm) (gOp : GMIR) (numIntOperands : Nat := 0)
       let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[operand] #[intOperandType] castProps
       let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
-      let newOp ← Puddle.CreateProg.operation (.gmir gOp) (#[castOp.res[0]!] ++ intOperands)
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!]
           #[intResultType] props
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
           #[resultType] castProps)
     (fun castBackOp => castBackOp)
 
-def g_truncByte := (lowerByteOp .trunc .g_trunc).compile
+def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
 
-def g_shlByte := (lowerByteOp .shl .g_shl (numIntOperands := 1)).compile
+/--
+  A shift of a byte by an integer amount -> `gOp` on the integer of the same width, between
+  `builtin.unrealized_conversion_cast`s, as in `lowerUnaryByteOp`.
+-/
+def lowerByteShift (lOp : Llvm) (gOp : GMIR)
+    (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let byteType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
+      let amountType ← Puddle.MatchProg.type (Attr := IntegerType)
+      let value ← Puddle.MatchProg.value byteType
+      let amount ← Puddle.MatchProg.value amountType
+      let root ← Puddle.MatchProg.root (.llvm lOp) #[value, amount] #[byteType]
+      return (byteType, value, amount, root))
+    (fun (byteType, value, amount, root) => do
+      let intType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
+          byteType TypeAttr.intOfByte?
+      let castProps ← Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[value] #[intType] castProps
+      let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!, amount]
+          #[intType] props
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
+          #[byteType] castProps)
+    (fun castBackOp => castBackOp)
 
-def g_lshrByte := (lowerByteOp .lshr .g_lshr (numIntOperands := 1)).compile
+def g_shlByte := (lowerByteShift .shl .g_shl).compile
+
+def g_lshrByte := (lowerByteShift .lshr .g_lshr).compile
 
 /-- Whether `opType` and `resType` are a byte and an integer type of the same width. -/
 def isByteIntBitcast (opType resType : TypeAttr) : Bool :=
