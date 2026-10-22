@@ -76,14 +76,13 @@ instance qpf : QPF (Sigma F) where
     simp only [Sigma.abs, MvPFunctor.map_eq]
     simp only [(· <$$> ·), ← abs_map, ← MvPFunctor.map_eq]
 
-set_option backward.isDefEq.respectTransparency false in
 /-- A dependent sum of polynomial functors is polynomial. -/
 instance instIsPolynomial [p : ∀ a, IsPolynomial (F a)] : IsPolynomial (Sigma F) where
   repr_abs {β} x := by
     show Sigma.repr F (Sigma.abs F x) = x
     obtain ⟨⟨a, x⟩, f⟩ := x
     simp only [Sigma.repr, Sigma.abs]
-    rw [(p a).repr_abs]
+    erw [(p a).repr_abs]
 
 end Sigma
 
