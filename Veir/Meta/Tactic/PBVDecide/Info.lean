@@ -27,6 +27,8 @@ structure WidthInfos where
   infos : HashMap WidthTm WidthInfo := {}
   env : TmWidthEnv
   blastWidth : Nat
+  /-- The bound on the width atoms that the user asked for. -/
+  bmcBound : Nat
 
 meta def WidthInfos.push (this : WidthInfos) (widthTm : WidthTm) (info : WidthInfo) : WidthInfos :=
   { this with infos := this.infos.insert widthTm info }

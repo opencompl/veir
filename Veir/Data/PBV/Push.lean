@@ -458,6 +458,50 @@ theorem setWidth_clz {o w : Nat} (h : w ≤ o) (a : BitVec w) :
   · exact Nat.lt_of_le_of_lt hclz Nat.lt_two_pow_self
   · rw [BitVec.le_def, hsub, hc]; lia
 
+/-- A `Nat` subtraction from a width, as a bitvector literal, is a bitvector
+subtraction from the `cpop` of the mask, guarded against going below zero. The
+subtrahend is clamped, so that nothing is required of it. -/
+@[pbv_push high]
+theorem ofNat_sub_eq_ite_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o)
+    (hm : m = maskOfWidth o w) :
+    BitVec.ofNat o (w - n) =
+      if BitVec.ofNatClamp o n ≤ BitVec.cpop m then BitVec.cpop m - BitVec.ofNatClamp o n
+      else 0#o := by
+  rw [cpop_eq_width_of_maskOfWidth h hm]
+  have ho : o < 2 ^ o := Nat.lt_two_pow_self
+  have hw : (BitVec.ofNat o w).toNat = w := by rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by lia)]
+  by_cases hn : n < 2 ^ o
+  · rw [BitVec.ofNatClamp_eq_ofNat hn]
+    have hle : (BitVec.ofNat o n ≤ BitVec.ofNat o w) ↔ n ≤ w := by
+      rw [BitVec.le_def, BitVec.toNat_ofNat, hw, Nat.mod_eq_of_lt hn]
+    split
+    · rename_i hnw
+      rw [hle] at hnw
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.toNat_sub_of_le (hle.mpr hnw), hw]
+      simp only [BitVec.toNat_ofNat]
+      rw [Nat.mod_eq_of_lt hn, Nat.mod_eq_of_lt (by lia : w - n < 2 ^ o)]
+    · rename_i hnw
+      rw [hle] at hnw
+      rw [show w - n = 0 by lia]
+  · -- The clamp saturates at `2 ^ o - 1`, which exceeds `w` unless `o ≤ 1`.
+    rw [show w - n = 0 by lia]
+    have hcl : (BitVec.ofNatClamp o n).toNat = 2 ^ o - 1 := by
+      rw [BitVec.toNat_ofNatClamp]; lia
+    split
+    · rename_i hle
+      rw [BitVec.le_def, hcl, hw] at hle
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.toNat_sub, hcl, hw, BitVec.toNat_ofNat, Nat.zero_mod]
+      rcases o with _ | _ | o
+      · lia
+      · have : w = 1 := by lia
+        simp [this]
+      · have h4 : 2 ^ (o + 1 + 1) = 2 ^ o * 4 := by rw [Nat.pow_succ, Nat.pow_succ]; lia
+        have := Nat.lt_two_pow_self (n := o)
+        lia
+    · rfl
+
 /-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
 @[pbv_push]
 theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :

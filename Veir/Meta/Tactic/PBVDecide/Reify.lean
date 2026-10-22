@@ -18,6 +18,12 @@ meta def getBitvecType? (e : Expr) : Option Expr :=
 meta def mkNatLT (a b : Expr) : Expr :=
   mkApp2 (mkApp2 (mkConst ``LT.lt [0]) Nat.mkType Nat.mkInstLT) a b
 
+/-- The `Nat` expression `2 ^ e`. -/
+meta def mkNatTwoPow (e : Expr) : Expr :=
+  let inst := mkApp3 (mkConst ``instHPow [0, 0]) Nat.mkType Nat.mkType
+    (mkApp2 (mkConst ``instPowNat [0]) Nat.mkType (mkConst ``instNatPowNat))
+  mkApp6 (mkConst ``HPow.hPow [0, 0, 0]) Nat.mkType Nat.mkType Nat.mkType inst (mkNatLit 2) e
+
 /--
 An environment that maps the width atoms of a `Tm` to their `Expr`s.
 -/
@@ -26,21 +32,6 @@ meta structure TmWidthEnv where
 
 meta def TmWidthEnv.push (this : TmWidthEnv) (width : Expr) : TmWidthEnv :=
   { width2expr := this.width2expr.push width }
-
-/--
-Traverse the local context to extract the width 'atoms' that make up width
-expressions. These are either width `Expr`s coming from `BitVec w` (unless w is
-a numeric literal) or `Nat` variables in the local context.
--/
-meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
-  (← getLCtx).foldrM (init := {}) fun ldecl widthEnv => do
-    if let some width := getBitvecType? ldecl.type then
-      if width.nat?.isSome || widthEnv.width2expr.contains width then
-        return widthEnv
-      return widthEnv.push width
-    if Expr.isNat ldecl.type then
-      return widthEnv.push ldecl.toExpr
-    return widthEnv
 
 /--
 Type to capture the expressions this tactic handles: `Nat` width terms and
@@ -54,6 +45,7 @@ meta inductive Tm : TmKind → Type
 | widthLit (val : Nat) : Tm .width
 | widthAtom (id : Nat) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
+| widthTwoPow (e : Tm .width) : Tm .width
 | widthLt (v w : Tm .width) : Tm .prop
 | widthLe (v w : Tm .width) : Tm .prop
 | widthEq (v w : Tm .width) : Tm .prop
@@ -76,7 +68,29 @@ meta partial def Tm.reifyWidth (env : TmWidthEnv) (e : Expr) : MetaM (Option Wid
         let some a ← Tm.reifyWidth env ae | pure none
         let some b ← Tm.reifyWidth env be | pure none
         return some (widthAdd a b)
+    | HPow.hPow ty _ _ _ base ee =>
+        let .true := Expr.isNat ty | pure none
+        let some 2 := base.nat? | pure none
+        let some e ← Tm.reifyWidth env ee | pure none
+        return some (widthTwoPow e)
     | _ => return none
+
+/--
+Traverse the local context to extract the width 'atoms' that make up width
+expressions. These are either `Nat` variables in the local context or width
+`Expr`s coming from `BitVec w` that are not built from atoms already found,
+such as a numeric literal or `2 ^ k` for a `Nat` variable `k`. The context is
+visited in order, so a `Nat` variable is an atom before the widths that use it.
+-/
+meta def createWidthEnv (g : MVarId) : MetaM TmWidthEnv := g.withContext do
+  (← getLCtx).foldlM (init := {}) fun widthEnv ldecl => do
+    if let some width := getBitvecType? ldecl.type then
+      if (← Tm.reifyWidth widthEnv width).isSome then
+        return widthEnv
+      return widthEnv.push width
+    if Expr.isNat ldecl.type then
+      return widthEnv.push ldecl.toExpr
+    return widthEnv
 
 /--
 Match a width relation over `Nat`, returning the `Tm .prop` constructor for it
@@ -112,6 +126,7 @@ meta def Tm.toExpr {k : TmKind} (this : Tm k) (env : TmWidthEnv) : Expr :=
   | .widthLit val => mkNatLit val
   | .widthAtom id => env.width2expr[id]!
   | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
+  | .widthTwoPow e => mkNatTwoPow (e.toExpr env)
   | .widthLt  v w => mkNatLT (v.toExpr env) (w.toExpr env)
   | .widthLe  v w => mkNatLE (v.toExpr env) (w.toExpr env)
   | .widthEq  v w => mkNatEq (v.toExpr env) (w.toExpr env)
@@ -125,6 +140,7 @@ meta def Tm.toName {k : TmKind} (tm : Tm k) : Name :=
   | .widthLit val => Name.mkSimple s!"lit{val}"
   | .widthAtom e  => Name.mkSimple s!"w{e}"
   | .widthAdd v w => Name.mkSimple s!"{v.toName}_add_{w.toName}"
+  | .widthTwoPow e => Name.mkSimple s!"two_pow_{e.toName}"
   | .widthLt  v w => Name.mkSimple s!"{v.toName}_lt_{w.toName}"
   | .widthLe  v w => Name.mkSimple s!"{v.toName}_le_{w.toName}"
   | .widthEq  v w => Name.mkSimple s!"{v.toName}_eq_{w.toName}"
@@ -132,8 +148,9 @@ meta def Tm.toName {k : TmKind} (tm : Tm k) : Name :=
 
 /--
 Compute an upper bound on the widths in this term: an atom is bounded by the
-bmc bound, a sum by the sum of the bounds of its parts, and a prop by the
-maximum of the bounds of its parts.
+bmc bound, a sum by the sum of the bounds of its parts, a power of two by the
+power of two of the bound of its exponent, and a prop by the maximum of the
+bounds of its parts.
 The maximum over all widths and width props gives the blast width used for the
 whole goal.
 -/
@@ -142,6 +159,7 @@ meta def Tm.getWidthUpperBound {k : TmKind} (tm : Tm k) (ctx : PbvDecideContext)
   | .widthLit val => val
   | .widthAtom _ => ctx.bmcBound
   | .widthAdd wa wb => wa.getWidthUpperBound ctx + wb.getWidthUpperBound ctx
+  | .widthTwoPow e => 2 ^ e.getWidthUpperBound ctx
   | .widthLt  v w
   | .widthLe  v w
   | .widthEq  v w

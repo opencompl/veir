@@ -664,27 +664,18 @@ def bitCeilTgt {w : Nat} (x : BitVec w) : BitVec w :=
 
 def NoOverflow {w : Nat} (x : BitVec w) : Prop := x ≤ 1#w ∨ (x - 1#w).msb = false
 
+/-- A width that is a power of two -/
+example (k : Nat) (hk : k ≤ 3) (x : BitVec (2 ^ k)) :
+    x + x = x <<< 1 := by
+  pbv_decide 3
+
+/-- A `Nat` subtraction inside a literal -/
+example {w : Nat} (hw : w ≤ 8) (x : BitVec w) :
+    x <<< BitVec.ofNat w (w - 1) = x <<< (BitVec.ofNat w w - 1#w) := by
+  pbv_decide 8
+
 /-- The `bit_ceil` fold, for widths that are a power of two up to 64 -/
 theorem foldBitCeil_correct (k : Nat) (hk : k ≤ 6) (x : BitVec (2 ^ k)) (h : NoOverflow x) :
     bitCeilSrc x = bitCeilTgt x := by
   unfold bitCeilSrc bitCeilTgt NoOverflow at *
-  have hle : 2 ^ k ≤ 64 :=
-    calc 2 ^ k ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) hk
-      _ = 64 := by decide
-  -- The width is a power of two: `w &&& (w - 1) = 0`.
-  have hpow : BitVec.ofNat (2 ^ k) (2 ^ k) &&& BitVec.ofNat (2 ^ k) (2 ^ k - 1) = 0#(2 ^ k) := by
-    rw [← BitVec.ofNat_and, Nat.and_two_pow_sub_one_eq_mod, Nat.mod_self]
-  -- The `Nat` subtraction `w - 1` as a `BitVec` subtraction.
-  have hsub : BitVec.ofNat (2 ^ k) (2 ^ k - 1) = BitVec.ofNat (2 ^ k) (2 ^ k) - 1#(2 ^ k) := by
-    have h1 : 1 ≤ 2 ^ k := Nat.one_le_two_pow
-    have h2 : 2 ^ k < 2 ^ 2 ^ k := Nat.lt_two_pow_self
-    apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_sub_of_le, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
-      Nat.mod_eq_of_lt h2, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
-    rw [BitVec.le_def, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2,
-      Nat.mod_eq_of_lt (by omega)]
-    exact h1
-  rw [hsub] at hpow ⊢
-  generalize 2 ^ k = w at *
-  revert hpow h
-  pbv_decide 64
+  pbv_decide 6

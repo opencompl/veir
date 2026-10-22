@@ -43,7 +43,7 @@ meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × L
   -- Compute the blast width
   let blastWidth := (widthTms.getWidthUpperBound ctx).max <| widthProps.getWidthUpperBound ctx
   -- Introduce the width masks, bounded by the blast width
-  let (g, widthInfos) ← introMaskWidths g widthTms blastWidth
+  let (g, widthInfos) ← introMaskWidths g widthTms blastWidth ctx.bmcBound
   -- Translate props on the width vars into props on the masks
   let (g, widthInfos) ← widthProps.translateToMask g widthInfos
   -- Intro the `BitVec`s

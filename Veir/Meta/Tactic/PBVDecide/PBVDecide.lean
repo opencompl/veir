@@ -15,8 +15,8 @@ open Lean Elab Tactic Meta
 parametric bitvector goal into a concrete width formula, and then solve it
 using `bv_decide`.
 
-Widths built out of width variables, numeric literals and `+` are supported. So
-are the width relations `<`, `≤`, `>`, `≥` and `=`, and conjunctions (`∧`) of
+Widths built out of width variables, numeric literals, `+` and `2 ^` are
+supported. So are the width relations `<`, `≤`, `>`, `≥` and `=`, and conjunctions (`∧`) of
 them, when they occur as hypotheses: each is translated into the corresponding
 relation on the width masks.
 

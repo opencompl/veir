@@ -3,8 +3,8 @@ import Veir.Meta.Tactic.PBVDecide
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
   p = 7  	(m_w0 = 0x7f#8)
-  r = 8  	(m_w1 = 0xff#8)
-  q = 0  	(m_w2 = 0x00#8)
+  q = 6  	(m_w1 = 0x3f#8)
+  r = 8  	(m_w2 = 0xff#8)
   x = 0x7f#7
 -/
 #guard_msgs in
@@ -14,9 +14,9 @@ example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r
 
 /--
 error: The prover found a counterexample, consider the following assignment:
-m_w2 = 0#8
+m_w2 = 255#8
 m_w0 = 127#8
-m_w1 = 255#8
+m_w1 = 63#8
 m_lit8 = 255#8
 x = 127#8
 -/
@@ -36,7 +36,15 @@ hr : r ≤ 8
 h_qp : p < q
 h_pr : p < r
 m_w2 : BitVec 8
-h_m_w2 : m_w2 = Veir.Data.PBV.maskOfWidth 8 q
+h_m_w2 : m_w2 = Veir.Data.PBV.maskOfWidth 8 r
+h_m_w2_le_blast : r ≤ 8
+h_m_w2_bv_mask : m_w2 &&& m_w2 + 1#8 = 0#8
+m_w0 : BitVec 8
+h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 8 p
+h_m_w0_le_blast : p ≤ 8
+h_m_w0_bv_mask : m_w0 &&& m_w0 + 1#8 = 0#8
+m_w1 : BitVec 8
+h_m_w1 : m_w1 = Veir.Data.PBV.maskOfWidth 8 q
 ⊢ q ≤ 8
 -/
 #guard_msgs in
@@ -58,12 +66,12 @@ example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
 -- Every composite width gets its own mask, reported next to the `Nat` value it encodes
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 4  	(m_w0 = 0x0f#8)
-  w + v = 8  	(m_w0_add_w1 = 0xff#8)
-  v = 4  	(m_w1 = 0x0f#8)
-  v + w = 8  	(m_w1_add_w0 = 0xff#8)
-  x = 0xe#4
-  y = 0xf#4
+  v = 4  	(m_w0 = 0x0f#8)
+  v + w = 8  	(m_w0_add_w1 = 0xff#8)
+  w = 4  	(m_w1 = 0x0f#8)
+  w + v = 8  	(m_w1_add_w0 = 0xff#8)
+  x = 0xf#4
+  y = 0xe#4
 -/
 #guard_msgs in
 example (v w : Nat) (x : BitVec v) (y : BitVec w) (hv : v ≤ 4) (hw : w ≤ 4) (h : v = w) :
@@ -84,9 +92,9 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
 -- A width only mentioned in a hypothesis is reported alongside the sum it is equal to
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 4  	(m_w0 = 0x0f#5)
-  w + 1 = 5  	(m_w0_add_lit1 = 0x1f#5)
-  v = 5  	(m_w2 = 0x1f#5)
+  v = 5  	(m_w0 = 0x1f#5)
+  w = 4  	(m_w1 = 0x0f#5)
+  w + 1 = 5  	(m_w1_add_lit1 = 0x1f#5)
   x = 0xf#4
 -/
 #guard_msgs in
@@ -142,18 +150,7 @@ example (w : Nat) (x y : BitVec w) :
     x + y = x := by
   pbv_decide 4
 
--- The bound must also cover widths built from literals: `w + 2` can exceed 4
-/--
-warning: `grind` could not prove the following : w + 2 ≤ 4
----
-error: unsolved goals
-w : Nat
-x y : BitVec (w + 2)
-hw : w ≤ 4
-m_w0 : BitVec 4
-h_m_w0 : m_w0 = Veir.Data.PBV.maskOfWidth 4 (w + 2)
-⊢ w + 2 ≤ 4
--/
+-- A width built from a literal, `w + 2`, is bounded by the bound of `w` plus the literal
 #guard_msgs in
 example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
     x + y = y + x := by
@@ -205,15 +202,15 @@ example (a : BitVec w) (h : w ≤ 4) :
     (a.extractLsb' (w - 1) 1 == 1) = a.msb := by
   pbv_decide 4
 
--- `w + w` treated as an atom and hence differs from `w`
+-- `w + w` is a sum of the atom `w`, so the counterexample is genuine
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 8  	(m_w0 = 0xff#8)
-  w + (w + w) = 8  	(m_w0_add_w1 = 0xff#8)
-  w + w = 4  	(m_w1 = 0x0f#8)
-  w + w + w = 8  	(m_w1_add_w0 = 0xff#8)
+  w = 2  	(m_w0 = 0x003#12)
+  w + w = 4  	(m_w0_add_w0 = 0x00f#12)
+  w + w + w = 6  	(m_w0_add_w0_add_w0 = 0x03f#12)
+  w + (w + w) = 6  	(m_w0_add_w0_add_w0 = 0x03f#12)
   a = 0xf#4
-  b = 0x7f#8
+  b = 0x1#2
 -/
 #guard_msgs in
 example (a : BitVec (w + w)) (b : BitVec w) (hw4 : w + w ≤ 4):

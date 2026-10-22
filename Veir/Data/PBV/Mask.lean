@@ -146,6 +146,19 @@ theorem add_eq_shift_sum_of_maskOfWidth {o w₁ w₂ : Nat} {m₁ m₂ m₃ : Bi
       BitVec.ofNat_add_ofNat, BitVec.shiftLeft_ofNat_eq, BitVec.shiftLeft_eq_mul_twoPow,
       BitVec.one_mul, Nat.mod_eq_of_lt (by grind[Nat.lt_pow_self]), maskOfWidth_eq_twoPow_sub_one h₁₂]
 
+/-- A power of two as a width becomes a shift of masks: the mask `m₂` of
+`2 ^ k` is `2 ^ (2 ^ k) - 1`, written in terms of the mask `m₁` of `k`. -/
+theorem two_pow_eq_shift_of_maskOfWidth {o k : Nat} {m₁ m₂ : BitVec o}
+    (h₁ : k ≤ o) (h₂ : 2 ^ k ≤ o) (hm₁ : m₁ = maskOfWidth o k) (hm₂ : m₂ = maskOfWidth o (2 ^ k)) :
+    m₂ = (1#o <<< (1#o <<< BitVec.cpop m₁)) - 1#o := by
+  subst m₂
+  have hk : k < o := Nat.lt_of_lt_of_le Nat.lt_two_pow_self h₂
+  have hko : k < 2 ^ o := Nat.lt_trans hk Nat.lt_two_pow_self
+  rw [cpop_eq_width_of_maskOfWidth h₁ hm₁, BitVec.shiftLeft_ofNat_eq, Nat.mod_eq_of_lt hko,
+    BitVec.shiftLeft_eq_mul_twoPow, BitVec.one_mul, BitVec.shiftLeft_eq', BitVec.toNat_twoPow,
+    Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by decide) hk), BitVec.shiftLeft_eq_mul_twoPow,
+    BitVec.one_mul, maskOfWidth_eq_twoPow_sub_one h₂]
+
 /-! ## The sign bit helpers -/
 
 /-- `signBitOfMask m` keeps only the top bit of the mask `m`.

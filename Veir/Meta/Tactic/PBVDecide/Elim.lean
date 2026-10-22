@@ -108,6 +108,35 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) (infos : WidthInf
       ]
 
     return (g, thisInfo, infos)
+  | .widthTwoPow e => do
+    -- Get or create the mask of the exponent
+    let (g, eInfo, infos) ← getOrCreateWidthMask g e infos
+    -- Intro the mask for this term
+    let (g, thisInfo, infos) ← introMaskWidth g widthTm infos
+    -- `grind` cannot bound a power. `2 ^ e ≤ blastWidth` follows from `e ≤ bmcBound`,
+    -- which is left as the side goal instead, and `2 ^ bmcBound ≤ blastWidth` by `decide`.
+    let some boundMVar := thisInfo.hypWidthLeBoundMVarId
+      | throwError m!"The mask of {widthTm.toExpr infos.env} should carry a bound to prove."
+    let eLeBound ← g.withContext do
+      let eLeBound ← mkFreshExprMVar (mkNatLE (e.toExpr infos.env) (mkNatLit infos.bmcBound))
+      let twoPos ← mkDecideProof (mkNatLT (mkNatLit 0) (mkNatLit 2))
+      let powLe ← mkAppM ``Nat.pow_le_pow_right #[twoPos, eLeBound]
+      let blastLe ← mkDecideProof
+        (mkNatLE ((Tm.widthTwoPow (.widthLit infos.bmcBound)).toExpr infos.env)
+          (mkNatLit infos.blastWidth))
+      boundMVar.assign <| ← mkAppM ``Nat.le_trans #[powLe, blastLe]
+      return eLeBound
+    let thisInfo := { thisInfo with hypWidthLeBoundMVarId := some eLeBound.mvarId! }
+    let infos := infos.push widthTm thisInfo
+    -- Rewrite the mask of a power of two in terms of the mask of the exponent.
+    let (_hyp, g) ← g.withContext do
+      g.note (Name.mkSimple s!"bv_{widthTm.toName}") <| ← mkAppM ``two_pow_eq_shift_of_maskOfWidth #[
+        .fvar eInfo.hypWidthLeBoundNote,
+        .fvar thisInfo.hypWidthLeBoundNote,
+        .fvar eInfo.widthMaskHypFvar,
+        .fvar thisInfo.widthMaskHypFvar
+      ]
+    return (g, thisInfo, infos)
 
 /--
 Given a `Tm .prop` and the `Expr` it was reified from, construct the expr that
@@ -156,12 +185,12 @@ public meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (wid
 Given the width terms in the formula, translate all `Nat` widths into `BitVec`
 masks and introduce the hypotheses that model the masks.
 -/
-public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (blastWidth : Nat)
+public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (blastWidth bmcBound : Nat)
   : MetaM (MVarId × WidthInfos)
   := g.withContext do
   -- Intro all the masks
   widthTms.terms.foldM
-    (init := (g, { env := widthTms.env, blastWidth }))
+    (init := (g, { env := widthTms.env, blastWidth, bmcBound }))
     fun (g, widthInfos) widthTm => do
       let (g, _, infos) ← getOrCreateWidthMask g widthTm widthInfos
       return (g, infos)
