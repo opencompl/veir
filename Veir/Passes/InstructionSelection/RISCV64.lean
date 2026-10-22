@@ -718,6 +718,52 @@ def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValueP
   | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
   | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
 
+/-- The properties of the `getelementptr` an address is folded from by `matchAddr`, and of its
+  constant index, if it has one. -/
+abbrev GepHandles :=
+  Handle OpCode (.prop (.llvm .getelementptr)) ×
+    Option (Handle OpCode (.prop (.gmir .g_constant)))
+
+/-- Match the address of a load or store of `base`, split into a base register and a signed
+  12-bit offset as `mode` says (see `AddrMode`). -/
+def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
+    MatchProg.Builder (Handle OpCode .value × Option GepHandles) :=
+  match mode with
+  | .reg => pure (base, none)
+  | .gepIndex => do
+    let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+    let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
+    let addrType ← MatchProg.type (Attr := TypeAttr)
+    let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base, idxOp.res[0]!] #[addrType]
+    MatchProg.matchNative (gepOp.properties, idxOp.properties)
+        fun (gep, idx) => (selectAddrRegImm gep #[idx]).isSome
+    pure (gepOp.res[0]!, some (gepOp.properties, some idxOp.properties))
+  | .gepConst => do
+    let addrType ← MatchProg.type (Attr := TypeAttr)
+    let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base] #[addrType]
+    MatchProg.matchNative gepOp.properties fun gep => (selectAddrRegImm gep #[]).isSome
+    pure (gepOp.res[0]!, some (gepOp.properties, none))
+
+/-- The `riscvOp` properties of a load or store with properties `access` at an address
+  matched by `matchAddr`: the folded offset, and the access's volatility. Volatility carries
+  over since, although the riscv op encodes the same access, the flag keeps later passes
+  from deleting or duplicating it. -/
+def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties)
+    {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool) (gep? : Option GepHandles)
+    (access : Handle OpCode (.prop accessOp)) :
+    CreateProg.Builder (Handle OpCode (.prop (.riscv riscvOp))) :=
+  let memProps (offset? : Option Int) (props : propertiesOf accessOp) :=
+    offset?.map fun offset =>
+      cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) (volatile props))
+  match gep? with
+  | some (gepProps, some idxProps) =>
+    CreateProg.applyNative (gepProps, idxProps, access)
+      fun (gep, idx, props) => memProps (selectAddrRegImm gep #[idx]) props
+  | some (gepProps, none) =>
+    CreateProg.applyNative (gepProps, access)
+      fun (gep, props) => memProps (selectAddrRegImm gep #[]) props
+  | none => CreateProg.applyNative access fun props => memProps (some 0) props
+
 /--
   llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8), for a
   `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
@@ -729,25 +775,7 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (do
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
-      /- Split the address into a base register and a signed 12-bit offset. -/
-      let (addr, gep?) ← match mode with
-        | .reg => pure (base, none)
-        | .gepIndex => do
-          let idxType ← MatchProg.type (Attr := IntegerType)
-              (fun t => t.bitwidth = 64)
-          let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
-          let addrType ← MatchProg.type (Attr := TypeAttr)
-          let gepOp ← MatchProg.operation (.llvm .getelementptr)
-              #[base, idxOp.res[0]!] #[addrType]
-          MatchProg.matchNative (gepOp.properties, idxOp.properties)
-              fun (gep, idx) => (selectAddrRegImm gep #[idx]).isSome
-          pure (gepOp.res[0]!, some (gepOp.properties, some idxOp.properties))
-        | .gepConst => do
-          let addrType ← MatchProg.type (Attr := TypeAttr)
-          let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base] #[addrType]
-          MatchProg.matchNative gepOp.properties
-              fun gep => (selectAddrRegImm gep #[]).isSome
-          pure (gepOp.res[0]!, some (gepOp.properties, none))
+      let (addr, gep?) ← matchAddr mode base
       /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
       let resType ← MatchProg.type (Attr := TypeAttr)
           (fun t => memAccessWidth? t = some width)
@@ -759,25 +787,8 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
       let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType] baseCastProps
-      /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
-         flag keeps later passes from deleting or duplicating the access. -/
-      let memProps ← match gep? with
-        | some (gepProps, some idxProps) =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
-              (gepProps, idxProps, loadProps)
-              fun (gep, idx, load) => (selectAddrRegImm gep #[idx]).map fun offset =>
-                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) load.volatile_)
-        | some (gepProps, none) =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
-              (gepProps, loadProps)
-              fun (gep, load) => (selectAddrRegImm gep #[]).map fun offset =>
-                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) load.volatile_)
-        | none =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) loadProps
-              fun load => some (cast h.symm (RISCVMemProperties.mk 0 load.volatile_))
+      let memProps ←
+        addrMemProps riscvOp h (accessOp := .llvm .load) (·.volatile_) gep? loadProps
       let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
       let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
@@ -810,25 +821,7 @@ def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
       let val ← MatchProg.value valType
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
-      /- Split the address into a base register and a signed 12-bit offset. -/
-      let (addr, gep?) ← match mode with
-        | .reg => pure (base, none)
-        | .gepIndex => do
-          let idxType ← MatchProg.type (Attr := IntegerType)
-              (fun t => t.bitwidth = 64)
-          let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
-          let addrType ← MatchProg.type (Attr := TypeAttr)
-          let gepOp ← MatchProg.operation (.llvm .getelementptr)
-              #[base, idxOp.res[0]!] #[addrType]
-          MatchProg.matchNative (gepOp.properties, idxOp.properties)
-              fun (gep, idx) => (selectAddrRegImm gep #[idx]).isSome
-          pure (gepOp.res[0]!, some (gepOp.properties, some idxOp.properties))
-        | .gepConst => do
-          let addrType ← MatchProg.type (Attr := TypeAttr)
-          let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base] #[addrType]
-          MatchProg.matchNative gepOp.properties
-              fun gep => (selectAddrRegImm gep #[]).isSome
-          pure (gepOp.res[0]!, some (gepOp.properties, none))
+      let (addr, gep?) ← matchAddr mode base
       let root ← MatchProg.root (.llvm .store) #[val, addr] #[]
       return (val, base, gep?, root.properties))
     (fun (val, base, gep?, storeProps) => do
@@ -841,25 +834,9 @@ def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
       let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType] valCastProps
-      /- The store writes the low `width` bytes of the value register. Volatility carries over
-         from the `llvm.store`, as in `lowerLoad`. -/
-      let memProps ← match gep? with
-        | some (gepProps, some idxProps) =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
-              (gepProps, idxProps, storeProps)
-              fun (gep, idx, store) => (selectAddrRegImm gep #[idx]).map fun offset =>
-                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) store.volatile_)
-        | some (gepProps, none) =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
-              (gepProps, storeProps)
-              fun (gep, store) => (selectAddrRegImm gep #[]).map fun offset =>
-                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) store.volatile_)
-        | none =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) storeProps
-              fun store => some (cast h.symm (RISCVMemProperties.mk 0 store.volatile_))
+      /- The store writes the low `width` bytes of the value register. -/
+      let memProps ←
+        addrMemProps riscvOp h (accessOp := .llvm .store) (·.volatile_) gep? storeProps
       let _ ← CreateProg.operation (.riscv riscvOp)
           #[valCastOp.res[0]!, baseCastOp.res[0]!] #[] memProps
       return ())
@@ -873,158 +850,6 @@ def store : Array (Puddle.CompiledPattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
     #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw,
       lowerStore mode 8 .sd].map (·.compile)
-
-/--
-  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`, where `scale`
-  is the allocation size (ABI stride) of the element type, for a `scale` of 1, 2, 4, or 8:
-  `ptr + idx` or `(idx << log2 scale) + ptr` with `riscv.sh{1,2,3}add`.
--/
-def lowerGetelementptr (scale : Nat) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      /- The index must be `i64`. -/
-      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let ptr ← MatchProg.value ptrType
-      let idx ← MatchProg.value idxType
-      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
-      MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any (· = scale)
-      return (resType, ptr, idx, root.properties))
-    (fun (resType, ptr, idx, _) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
-      let addOp ←
-        if scale = 1 then do
-          /- ptr + idx -/
-          let addProps ← CreateProg.property (.riscv .add) ()
-          CreateProg.operation (.riscv .add)
-              #[ptrCastOp.res[0]!, idxCastOp.res[0]!] #[regType] addProps
-        else if scale = 2 then do
-          /- (idx << 1) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh1add) ()
-          CreateProg.operation (.riscv .sh1add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
-        else if scale = 4 then do
-          /- (idx << 2) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh2add) ()
-          CreateProg.operation (.riscv .sh2add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
-        else do
-          /- (idx << 3) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh3add) ()
-          CreateProg.operation (.riscv .sh3add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
-      /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  `getelementptr` whose `scale` is any other power of two: `ptr + (idx << log2 scale)`.
-
-  `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
-  `scale &&& (scale - 1) = 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
-  `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
-  beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
-  `li`/`mul` form of `getelementptrMul_pattern`, which truncates modulo `2^64` exactly as the
-  source does.
--/
-def getelementptrShift_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      /- The index must be `i64`. -/
-      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let ptr ← MatchProg.value ptrType
-      let idx ← MatchProg.value idxType
-      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
-      MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
-          scale ∉ [1, 2, 4, 8] ∧ 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64
-      return (resType, ptr, idx, root.properties))
-    (fun (resType, ptr, idx, gepProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
-      let slliProps ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.riscv .slli))) gepProps
-          fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
-            RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
-      let slliOp ← CreateProg.operation (.riscv .slli)
-          #[idxCastOp.res[0]!] #[regType] slliProps
-      let addProps ← CreateProg.property (.riscv .add) ()
-      let addOp ← CreateProg.operation (.riscv .add)
-          #[ptrCastOp.res[0]!, slliOp.res[0]!] #[regType] addProps
-      /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  `getelementptr` with an arbitrary `scale` (see `getelementptrShift_pattern`):
-  `ptr + idx * scale`.
--/
-def getelementptrMul_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      /- The index must be `i64`. -/
-      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let ptr ← MatchProg.value ptrType
-      let idx ← MatchProg.value idxType
-      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
-      MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
-          scale ∉ [1, 2, 4, 8] ∧ ¬ (0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64)
-      return (resType, ptr, idx, root.properties))
-    (fun (resType, ptr, idx, gepProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
-      let liProps ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.riscv .li))) gepProps
-          fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
-            RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
-      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let mulProps ← CreateProg.property (.riscv .mul) ()
-      let mulOp ← CreateProg.operation (.riscv .mul)
-          #[idxCastOp.res[0]!, liOp.res[0]!] #[regType] mulProps
-      let addProps ← CreateProg.property (.riscv .add) ()
-      let addOp ← CreateProg.operation (.riscv .add)
-          #[ptrCastOp.res[0]!, mulOp.res[0]!] #[regType] addProps
-      /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
 
 /--
   Create the detached ops computing `pReg + iReg * scale`, returning them and the
@@ -1050,6 +875,10 @@ def addScaledLocal (ctx : WfIRContext OpCode) (pReg iReg : ValuePtr) (scale : Na
     let (ctx, addOp) ← createRISCVUnitLocal ctx .sh3add rfl #[iReg, pReg]
     pure (ctx, #[addOp], addOp.getResult 0)
   | _ =>
+    /- `0 < scale` excludes zero-sized element types, for which `Nat.log2 0 = 0` would give
+       `ptr + idx`, and `Nat.log2 scale < 64` excludes shifts that do not fit the 6-bit
+       immediate. Both take the `li`/`mul` form, which truncates modulo `2^64` exactly as the
+       source does. -/
     if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
       /- scale is a power of two: ptr + (idx << log2 scale) -/
       let (ctx, slliOp) ← createRISCVImmLocal ctx .slli rfl #[iReg] (Nat.log2 scale)
@@ -1061,14 +890,6 @@ def addScaledLocal (ctx : WfIRContext OpCode) (pReg iReg : ValuePtr) (scale : Na
       let (ctx, mulOp) ← createRISCVUnitLocal ctx .mul rfl #[iReg, liOp.getResult 0]
       let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, mulOp.getResult 0]
       pure (ctx, #[liOp, mulOp, addOp], addOp.getResult 0)
-
-/--
-  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the allocation size (ABI stride) of the element type.
--/
-def getelementptr : Array (Puddle.CompiledPattern OpCode) :=
-  #[lowerGetelementptr 1, lowerGetelementptr 2, lowerGetelementptr 4, lowerGetelementptr 8,
-    getelementptrShift_pattern, getelementptrMul_pattern].map (·.compile)
 
 /--
   Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into:
@@ -1114,8 +935,7 @@ def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
 /--
   Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into
-  (see `getelementptr_local`). A fallback for the GEPs that the single-index
-  `getelementptr` patterns do not match.
+  (see `getelementptr_local`).
 -/
 def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
@@ -2343,7 +2163,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     sext32.run, sext16.run, sext8.run, .fromLocalRewrite sextInReg_local,
     zext32.run, zext16.run, zext8.run, trunc.run,
     sub64.run, sub32.run, bitcast.run] ++
-    load.map (·.run) ++ getelementptr.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
+    load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
