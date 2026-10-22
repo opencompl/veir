@@ -24,13 +24,6 @@ open Veir.Puddle
 
 /-! # Lowering Patterns -/
 
-/-- Extension operations (`sext`/`zext`) in RISC-V 64 are legal from `i8`, `i16`, and
-  `i32` source widths (`zext.b`/`zext.h`/`zext.w`, `sext.b`/`sext.h`/`sext.w`).
-  See: https://github.com/llvm/llvm-project/blob/16a0a1042f7e4e5a0c667096fcdeb5803e06d120/llvm/lib/Target/RISCV/GISel/RISCVLegalizerInfo.cpp#L171-L179
--/
-def isLegalExtOpWidth (w : Nat) : Bool :=
-  w = 8 ∨ w = 16 ∨ w = 32
-
 /--
   Returns the bitwidth of the given type if it is either an LLVM integer or byte type.
 -/
@@ -490,11 +483,7 @@ def ashr8 : Puddle.CompiledPattern OpCode := (lowerAshr 8).compile
     gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
     gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
     gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
-
-  Every arm shares the same prologue (`icmpCastExt`: cast both operands into registers, and
-  sign-extend them when they are narrower than a register) and the same epilogue (cast the `i1`
-  result back). Only the comparison sequence in between differs (`icmpEmit`). Since the prologue
-  depends on the lhs width, there is one Puddle pattern per predicate and lhs width. -/
+-/
 
 /-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
 def icmpOneImm : RISCVImmediateProperties :=
@@ -504,10 +493,6 @@ def icmpOneImm : RISCVImmediateProperties :=
 def icmpZeroImm : RISCVImmediateProperties :=
   RISCVImmediateProperties.mk 0#64
 
-/-- The sign-extension instruction needed to compare two `bw`-wide operands in a register, if any. -/
-def icmpExtOf (bw : Nat) : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) :=
-  if bw = 32 then some ⟨.sextw, ()⟩ else if bw = 8 then some ⟨.sextb, ()⟩ else none
-
 /-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
     width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
 def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
@@ -515,13 +500,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
   | .integerType t => some t.bitwidth
   | .llvmPointerType _ => some 64
   | _ => none
-
-/-- Whether an `llvm.mlir.constant` with result type `type` and properties `props` is the integer
-    `0` (as `matchConstantZero`). -/
-def isConstantZero (type : TypeAttr) (props : LLVMConstantProperties) : Bool :=
-  match type.val, props.value with
-  | .integerType t, .integer attr => (BitVec.ofInt t.bitwidth attr.value).toInt = 0
-  | _, _ => false
 
 /-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
 def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
