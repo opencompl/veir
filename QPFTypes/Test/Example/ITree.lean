@@ -25,39 +25,18 @@ universe u
 
 /-! ## The type -/
 section Def
-variable {ε : Type u} (E : ε → Type u) (R : Type u)
-
-@[qpf] def ITreeF (ITree : liveParam (Type u)) : Type u :=
-    R ⊕ ITree ⊕ (Σ e : ε, E e → ITree)
-
-/-
-FIXME: the above has the effects and result living in the same universe `u`,
-these ought to be decoupled, as in the following definition:
-```
 variable {ε : Type u} (E : ε → Type u) (R : Type v)
 
 @[qpf] def ITreeF (ITree : liveParam (Type (max u v))) : Type (max u v) :=
     R ⊕ ITree ⊕ (Σ e : ε, E e → ITree)
-```
-
-Doing so currently raises the following error:
-```
-While deriving a QPF from definition:
-  ITreeF
-
-failed to find a QPF in the head of the application:
-  R ⊕ ITree ⊕ (e : ε) × (E e → ITree)
-note that the head, after applying it to zero or more of the arguments, must be a type function with a `QPF` instance
-```
--/
 
 /-- Interaction trees -/
-def ITree : Type u :=
+def ITree : Type (max u v) :=
   Cofix (@TypeFun.ofCurried 1 (ITreeF E R)) #t[]
 
 end Def
 
-variable {ε : Type u} {E : ε → Type u} {R : Type u}
+variable {ε : Type u} {E : ε → Type u} {R : Type v}
 
 /-! ## Constructors and destructor -/
 
