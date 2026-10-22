@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // A `llvm.getelementptr` with a constant index is absorbed into the signed
 // 12-bit offset field of the load or store that uses it, mirroring the

@@ -1,5 +1,5 @@
 ; End-to-end: LLVM IR using the intrinsics the Veir LLVM dialect supports,
-; lowered all the way to RISC-V via isel-riscv64.
+; lowered all the way to RISC-V via the riscv pipeline.
 ;
 ;   smax/smin/umax/umin  -> max/min/maxu/minu   (Zbb)
 ;   fshl/fshr (rotate form, identical data ops) -> rol/ror   (Zbb)
@@ -15,7 +15,7 @@
 ; form with mlir-opt, then run the RISC-V instruction selector with veir-opt.
 
 ; REQUIRES: mlir-translate, mlir-opt
-; RUN: mlir-translate --import-llvm %s | mlir-opt --mlir-print-op-generic --mlir-print-local-scope | veir-opt -p=isel-riscv64 | filecheck %s
+; RUN: mlir-translate --import-llvm %s | mlir-opt --mlir-print-op-generic --mlir-print-local-scope | veir-opt -p=riscv | filecheck %s
 
 declare i64 @llvm.fshl.i64(i64, i64, i64)
 declare i64 @llvm.fshr.i64(i64, i64, i64)

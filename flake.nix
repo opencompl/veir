@@ -3,7 +3,7 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-  outputs = { self, nixpkgs, ... }:
+  outputs = { nixpkgs, ... }:
     let
       systems = [
         "aarch64-darwin"
@@ -13,6 +13,11 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
       llvmPackages = pkgs: pkgs.llvmPackages_23;
+
+      # Lean's prebuilt macOS libraries require macOS 15.
+      developmentEnvironment = pkgs: nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+        MACOSX_DEPLOYMENT_TARGET = "15.0";
+      };
 
       developmentPackages = pkgs: with pkgs; [
         bash
@@ -33,9 +38,8 @@
           package = pkgs.writeShellApplication {
             name = "veir-${suffix}";
             runtimeInputs = developmentPackages pkgs;
+            runtimeEnv = developmentEnvironment pkgs;
             text = ''
-              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
-              export LEAN_CC="${self}/ExArray/compiler"
               exec ${command} "$@"
             '';
           };
@@ -54,9 +58,8 @@
           package = pkgs.writeShellApplication {
             name = target;
             runtimeInputs = developmentPackages pkgs;
+            runtimeEnv = developmentEnvironment pkgs;
             text = ''
-              export LEAN_AR="${(llvmPackages pkgs).llvm}/bin/llvm-ar"
-              export LEAN_CC="${self}/ExArray/compiler"
               exec lake exe ${target} "$@"
             '';
           };
@@ -73,14 +76,12 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          default = pkgs.mkShell {
+          default = pkgs.mkShell ({
             packages = developmentPackages pkgs;
-
-            # ExArray uses Clang LTO and therefore needs its compiler wrapper
-            # together with LLVM's archiver.
-            LEAN_AR = "${(llvmPackages pkgs).llvm}/bin/llvm-ar";
-            LEAN_CC = "${self}/ExArray/compiler";
-          };
+            buildInputs = nixpkgs.lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+              (pkgs.darwinMinVersionHook "15.0")
+            ];
+          } // developmentEnvironment pkgs);
         });
 
       apps = forAllSystems (system:
