@@ -36,6 +36,8 @@ def RISCVImmediateProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attr
   encode identically -- so this mirrors `LoadProperties`/`StoreProperties`
   in the LLVM dialect, where volatility is likewise a promise to the
   optimizer rather than something the target encodes.
+
+  TODO: Carry over `MachineMemOperand` from the gMIR dialect.
 -/
 structure RISCVMemProperties where
   value : BitVec 64

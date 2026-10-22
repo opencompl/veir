@@ -55,6 +55,8 @@ inductive GMIR where
 | g_ctlz
 | g_cttz
 | g_ctpop
+| g_load
+| g_store
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -66,6 +68,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_zext => NnegProperties
   | .g_sext_inreg => SextInRegProperties
   | .g_constant => GMIRConstantProperties
+  | .g_load | .g_store => MachineMemOperand
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
@@ -84,6 +87,8 @@ def GMIR.fromAttrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_sext_inreg => exact SextInRegProperties.fromAttrDict attrDict
   case g_constant => exact GMIRConstantProperties.fromAttrDict attrDict
+  case g_load => exact MachineMemOperand.fromAttrDict "gmir.g_load" attrDict
+  case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
   case g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
@@ -119,6 +124,7 @@ def GMIR.toAttrDict
   | .g_zext => props.toAttrDict
   | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
   | .g_constant => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (.integerAttr props.value)
+  | .g_load | .g_store => props.toAttrDict
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
@@ -178,6 +184,12 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_constant =>
     { outOperandList := #[.type 0]
       inOperandList := #[] }
+  | .g_load =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 1] }
+  | .g_store =>
+    { outOperandList := #[]
+      inOperandList := #[.type 0, .type 1] }
 
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
@@ -407,6 +419,33 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType resBw := resType.val | none
     if resBw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
+  | .g_load => do
+    let [.addr addr] := operands.toList | none
+    let [type] := resultTypes.toList | none
+    let .val addr := addr | Interp.ub none
+    addr.checkAlignment properties.alignment.toNat
+    let .integerType ⟨w, _⟩ := type.val
+      | return (#[← mem.llvmLoad addr type], mem, none)
+    let size := properties.size.toNat
+    -- gMIR has no byte type, so a byte load is converted to an integer load of the same size.
+    let val ← mem.frozenLoad addr size
+    /- TODO: The high bits of a wider result are undefined and should have the same semantic
+       like `g_anyext`. Support nondeterminisim once CTrees have landed. -/
+    if h : size < w then return (#[.int w (val.zext w (_h := h))], mem, none)
+    if h : size = w then return (#[.int w (val.cast h)], mem, none)
+    none
+  | .g_store => do
+    let [val, .addr addr] := operands.toList | none
+    let .val addr := addr | Interp.ub none
+    addr.checkAlignment properties.alignment.toNat
+    -- A wider value is truncated to the stored size.
+    let size := properties.size.toNat
+    let val ← match val with
+      | .int w v =>
+        if h : size < w then pure (.int size (v.trunc size (_h := h)))
+        else if size = w then pure val else none
+      | _ => pure val
+    return (#[], ← mem.llvmStore addr val, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -431,6 +470,26 @@ private def OperationPtr.verifyGMIRSextInReg {OpInfo : Type} [IsOpCode OpInfo]
     throw s!"{instrName}: Expected 'sz' to be at least 1, but got {sz}"
   if width ≤ sz then
     throw s!"{instrName}: Expected 'sz' to be smaller than the operand width {width}, but got {sz}"
+
+/--
+Verifies that the memory operand of a `g_load` or `g_store` of a value of type `type` has a
+power-of-two alignment, and a `size` that is a positive multiple of 8 and at most the width of the
+value, or equal to it for a pointer.
+-/
+private def MachineMemOperand.verify (mmo : MachineMemOperand) (type : TypeAttr)
+    (instrName : String) : Except String PUnit := do
+  let alignment := mmo.alignment.toNat
+  if alignment = 0 ∨ alignment &&& (alignment - 1) ≠ 0 then
+    throw s!"{instrName}: Expected 'alignment' to be a power of two, but got {alignment}"
+  let some width := Attribute.bitwidthOfType type.val | pure ()
+  let size := mmo.size.toNat
+  if size = 0 ∨ size % 8 ≠ 0 then
+    throw s!"{instrName}: Expected 'size' to be a positive multiple of 8, but got {size}"
+  if width < size then
+    throw s!"{instrName}: Expected 'size' to be at most the value width {width}, but got {size}"
+  if type.val matches .llvmPointerType _ then
+    if size ≠ width then
+      throw s!"{instrName}: Expected 'size' to be the pointer width {width}, but got {size}"
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
@@ -500,6 +559,22 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if props.value.type ≠ ((opPtr.getResult 0).getType! ctx.raw).val then
       throw "gmir.g_constant: Expected result type to be equal to the constant's type"
     opPtr.verifyNormalizedIntegerAttr ctx opIn props.value
+  | .g_load =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    let resultType := (opPtr.getResult 0).getType! ctx.raw
+    ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_load: Expected operand 0 to have !llvm.ptr type"
+    resultType.verifyIntegerOrPointerType
+      "gmir.g_load: Expected result to have integer or !llvm.ptr type"
+    (opPtr.getProperties! ctx.raw GMIR.g_load).verify resultType "gmir.g_load"
+  | .g_store =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    let valueType := (opPtr.getOperand! ctx.raw 0).getType! ctx.raw
+    valueType.verifyIntegerOrPointerType
+      "gmir.g_store: Expected operand 0 to have integer or !llvm.ptr type"
+    ((opPtr.getOperand! ctx.raw 1).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_store: Expected operand 1 to have !llvm.ptr type"
+    (opPtr.getProperties! ctx.raw GMIR.g_store).verify valueType "gmir.g_store"
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
@@ -509,10 +584,17 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg => true
-  | .g_constant => false
+  | .g_constant | .g_load | .g_store => false
 
-def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
-  .none
+/--
+`g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
+`llvm.store`. Other operations have no effects.
+-/
+def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :=
+  match op, props with
+  | .g_load, props => if props.volatile_ then .readWrite else .read
+  | .g_store, props => if props.volatile_ then .readWrite else .write
+  | _, _ => .none
 
 def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
