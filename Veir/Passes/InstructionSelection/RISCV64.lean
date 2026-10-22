@@ -24,13 +24,6 @@ open Veir.Puddle
 
 /-! # Lowering Patterns -/
 
-/-- Extension operations (`sext`/`zext`) in RISC-V 64 are legal from `i8`, `i16`, and
-  `i32` source widths (`zext.b`/`zext.h`/`zext.w`, `sext.b`/`sext.h`/`sext.w`).
-  See: https://github.com/llvm/llvm-project/blob/16a0a1042f7e4e5a0c667096fcdeb5803e06d120/llvm/lib/Target/RISCV/GISel/RISCVLegalizerInfo.cpp#L171-L179
--/
-def isLegalExtOpWidth (w : Nat) : Bool :=
-  w = 8 ∨ w = 16 ∨ w = 32
-
 /--
   Returns the bitwidth of the given type if it is either an LLVM integer or byte type.
 -/
@@ -83,61 +76,6 @@ def ctpop32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 32 .cpop
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
 def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop ()
-
-/--
-  RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
-  single-operand extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
-  or `32`, see `isLegalExtOpWidth`) and whose result is a strictly wider integer type of width at
-  most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
-  unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
-  the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
-  result back to the (generically-matched) result type. Only extensions that
-  `riscv64LegalizerInfo` considers legal are selected.
--/
-def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
-      let x ← MatchProg.value opType
-      let root ← MatchProg.root (.gmir srcOp) #[x] #[resType]
-      MatchProg.matchNative (opType, resType, root.properties)
-          fun (opType, resType, props) =>
-            riscv64LegalizerInfo.isLegal srcOp #[resType, opType] props
-      return (resType, x))
-    (fun (resType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Pattern OpCode := lowerExt .g_sext 8 .sextb ()
-
-/-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
-def sext16_pattern : Pattern OpCode := lowerExt .g_sext 16 .sexth ()
-
-/-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
-def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
-
-/-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Pattern OpCode := lowerExt .g_zext 8 .zextb ()
-
-/-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
-def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
-
-/-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
-def zext32_pattern : Pattern OpCode := lowerExt .g_zext 32 .zextw ()
 
 /--
   RISC-V for binary operations that share a single integer type between both operands and the
@@ -428,23 +366,19 @@ def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
 /-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
 def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
 
-/-! ### `llvm.icmp` lowering
+/-! ### `gmir.icmp` lowering
 
-    llvm.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
-    llvm.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
-    llvm.icmp slt lhs rhs -> riscv.slt lhs rhs
-    llvm.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
-    llvm.icmp sgt lhs rhs -> riscv.slt rhs lhs
-    llvm.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
-    llvm.icmp ult lhs rhs -> riscv.sltu lhs rhs
-    llvm.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
-    llvm.icmp ugt lhs rhs -> riscv.sltu rhs lhs
-    llvm.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
-
-  Every arm shares the same prologue (`icmpCastExt`: cast both operands into registers, and
-  sign-extend them when they are narrower than a register) and the same epilogue (cast the `i1`
-  result back). Only the comparison sequence in between differs (`icmpEmit`). Since the prologue
-  depends on the lhs width, there is one Puddle pattern per predicate and lhs width. -/
+    gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
+    gmir.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
+    gmir.icmp slt lhs rhs -> riscv.slt lhs rhs
+    gmir.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
+    gmir.icmp sgt lhs rhs -> riscv.slt rhs lhs
+    gmir.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
+    gmir.icmp ult lhs rhs -> riscv.sltu lhs rhs
+    gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
+    gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
+    gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
+-/
 
 /-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
 def icmpOneImm : RISCVImmediateProperties :=
@@ -454,10 +388,6 @@ def icmpOneImm : RISCVImmediateProperties :=
 def icmpZeroImm : RISCVImmediateProperties :=
   RISCVImmediateProperties.mk 0#64
 
-/-- The sign-extension instruction needed to compare two `bw`-wide operands in a register, if any. -/
-def icmpExtOf (bw : Nat) : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) :=
-  if bw = 32 then some ⟨.sextw, ()⟩ else if bw = 8 then some ⟨.sextb, ()⟩ else none
-
 /-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
     width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
 def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
@@ -465,13 +395,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
   | .integerType t => some t.bitwidth
   | .llvmPointerType _ => some 64
   | _ => none
-
-/-- Whether an `llvm.mlir.constant` with result type `type` and properties `props` is the integer
-    `0` (as `matchConstantZero`). -/
-def isConstantZero (type : TypeAttr) (props : LLVMConstantProperties) : Bool :=
-  match type.val, props.value with
-  | .integerType t, .integer attr => (BitVec.ofInt t.bitwidth attr.value).toInt = 0
-  | _, _ => false
 
 /-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
 def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
@@ -487,8 +410,7 @@ def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
   Returns the two registers to compare.
 -/
 def icmpCastExt (regType : Handle OpCode .type)
-    (lhs rhs : Handle OpCode .value)
-    (ext : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp))) :
+    (lhs rhs : Handle OpCode .value) :
     CreateProg.Builder
       (Handle OpCode .value × Handle OpCode .value) := do
   let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
@@ -497,15 +419,8 @@ def icmpCastExt (regType : Handle OpCode .type)
   let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
   let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
       #[rhs] #[regType] rcastProps
-  match ext with
-  | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-  | some ⟨extOp, extProps'⟩ => do
-    let extProps ← CreateProg.property (.riscv extOp) extProps'
-    let lextOp ← CreateProg.operation (.riscv extOp)
-        #[lcastOp.res[0]!] #[regType] extProps
-    let rextOp ← CreateProg.operation (.riscv extOp)
-        #[rcastOp.res[0]!] #[regType] extProps
-    pure (lextOp.res[0]!, rextOp.res[0]!)
+  pure (lcastOp.res[0]!, rcastOp.res[0]!)
+
 
 /--
   `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
@@ -564,73 +479,12 @@ def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
   | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, icmpOneImm⟩)
   | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
 
-/--
-  `icmp pred` whose lhs is `lhsWidth` bits wide once in a register (`i64`/`!llvm.ptr`,
-  `i32`, or `i8`). When `zeroRhs` is set, the rhs must be the constant `0`.
--/
-def lowerIcmp (srcOp : OpCode) (pred : Data.LLVM.IntPred) (lhsWidth : Nat) (zeroRhs : Bool)
-    (h : propertiesOf srcOp = IcmpProperties := by rfl) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      /- support `i64`, `i32`, `i8` and `!llvm.ptr` -/
-      let lhsType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => icmpTypeWidth? t = some lhsWidth)
-      let rhsType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => (icmpTypeWidth? t).any (· ∈ [64, 32, 8]))
-      /- The result is cast back for type consistency, so it must be an integer type. -/
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let lhs ← MatchProg.value lhsType
-      let rhs ← if zeroRhs then do
-          let zeroOp ← MatchProg.operation (.llvm .mlir__constant) #[] #[rhsType]
-          MatchProg.matchNative (rhsType, zeroOp.properties)
-              fun (type, props) => isConstantZero type props
-          pure zeroOp.res[0]!
-        else
-          MatchProg.value rhsType
-      let _ ← MatchProg.root srcOp #[lhs, rhs] #[resType]
-          (fun props => (cast h props).predicate = pred)
-      return (resType, lhs, rhs))
-    (fun (resType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let (a, b) ← icmpCastExt regType lhs rhs (icmpExtOf lhsWidth)
-      let cmpOp ← icmpEmit regType pred zeroRhs a b
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cmpOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-
 /-- llvm.sub -> riscv.sub -/
 def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
 
 /-- llvm.sub -> riscv.subw -/
 def sub32 : Puddle.CompiledPattern OpCode := sub32_pattern.compile
 
-/--
-  gmir.g_sext %x `i8`  to `i32` -> riscv.sextb %x
-  gmir.g_sext %x `i8`  to `i64` -> riscv.sextb %x
-  gmir.g_sext %x `i16` to `i64` -> riscv.sexth %x
-  gmir.g_sext %x `i16` to `i32` -> riscv.sexth %x
-  gmir.g_sext %x `i32` to `i64` -> riscv.sextw %x
--/
-def sext8 : Puddle.CompiledPattern OpCode := sext8_pattern.compile
-
-def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
-
-def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
-/--
-  gmir.g_zext %x `i8`  to `i32` -> riscv.zextb %x
-  gmir.g_zext %x `i8`  to `i64` -> riscv.zextb %x
-  gmir.g_zext %x `i16` to `i64` -> riscv.zexth %x
-  gmir.g_zext %x `i16` to `i32` -> riscv.zexth %x
-  gmir.g_zext %x `i32` to `i64` -> riscv.zextw %x
--/
-def zext8 : Puddle.CompiledPattern OpCode := zext8_pattern.compile
-
-def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
-
-def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
   byte types, and the result is strictly narrower than the operand.
@@ -2094,12 +1948,19 @@ def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 
 /--
   Matches only if an `opcode` operation whose type groups all have type `type`, with `properties`,
-  is legal.
+  is legal. Opcodes with a second type index of another type (e.g. `g_icmp`'s operand type) pass it
+  as `type₁`.
 -/
 def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
-    (properties : Handle OpCode (.prop (.gmir opcode))) : MatchProg.Builder Unit :=
-  MatchProg.matchNative (type, properties) fun (type, properties) =>
-    riscv64LegalizerInfo.isLegal opcode (.replicate opcode.numTypeGroups type) properties
+    (properties : Handle OpCode (.prop (.gmir opcode)))
+    (type₁ : Option (Handle OpCode .type) := none) : MatchProg.Builder Unit :=
+  match type₁ with
+  | none =>
+    MatchProg.matchNative (type, properties) fun (type, properties) =>
+      riscv64LegalizerInfo.isLegal opcode (.replicate opcode.numTypeGroups type) properties
+  | some type₁ =>
+    MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
+      riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
 
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
@@ -2138,6 +1999,85 @@ def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
 def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
 def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
 def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
+
+/--
+  RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
+  single-operand extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
+  or `32`, see `isLegalExtOpWidth`) and whose result is a strictly wider integer type of width at
+  most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
+  unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
+  the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
+  result back to the (generically-matched) result type. Only extensions that
+  `riscv64LegalizerInfo` considers legal are selected.
+-/
+def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
+      let resType ← MatchProg.type (Attr := IntegerType)
+          (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
+      let x ← MatchProg.value opType
+      let root ← MatchProg.root (.gmir srcOp) #[x] #[resType]
+      matchLegal srcOp resType root.properties (type₁ := opType)
+      return (resType, x))
+    (fun (resType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType] castProps
+      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
+          #[castOp.res[0]!] #[regType] riscvOpProps
+      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[riscvResOp.res[0]!] #[resType] castBackProps
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
+/-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
+def sext8_pattern : Pattern OpCode := lowerExt .g_sext 8 .sextb ()
+
+/-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
+def sext16_pattern : Pattern OpCode := lowerExt .g_sext 16 .sexth ()
+
+/-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
+def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
+
+/-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
+def zext8_pattern : Pattern OpCode := lowerExt .g_zext 8 .zextb ()
+
+/-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
+def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
+
+/-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
+def zext32_pattern : Pattern OpCode := lowerExt .g_zext 32 .zextw ()
+
+/--
+  gmir.g_sext %x `i8`  to `i32` -> riscv.sextb %x
+  gmir.g_sext %x `i8`  to `i64` -> riscv.sextb %x
+  gmir.g_sext %x `i16` to `i64` -> riscv.sexth %x
+  gmir.g_sext %x `i16` to `i32` -> riscv.sexth %x
+  gmir.g_sext %x `i32` to `i64` -> riscv.sextw %x
+-/
+def sext8 : Puddle.CompiledPattern OpCode := sext8_pattern.compile
+
+def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
+
+def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
+
+/--
+  gmir.g_zext %x `i8`  to `i32` -> riscv.zextb %x
+  gmir.g_zext %x `i8`  to `i64` -> riscv.zextb %x
+  gmir.g_zext %x `i16` to `i64` -> riscv.zexth %x
+  gmir.g_zext %x `i16` to `i32` -> riscv.zexth %x
+  gmir.g_zext %x `i32` to `i64` -> riscv.zextw %x
+-/
+def zext8 : Puddle.CompiledPattern OpCode := zext8_pattern.compile
+
+def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
+
+def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
 
 /-- `gmir.g_and` (`i64`) -> `riscv.and`. -/
 def gmirAnd_pattern : Pattern OpCode :=
@@ -2221,13 +2161,11 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
           MatchProg.value opType
       let root ← MatchProg.root (.gmir .g_icmp) #[lhs, rhs] #[resType]
           (fun props => props.predicate = pred)
-      MatchProg.matchNative (resType, opType, root.properties)
-          fun (resType, opType, props) =>
-            riscv64LegalizerInfo.isLegal .g_icmp #[resType, opType] props
+      matchLegal .g_icmp resType root.properties (type₁ := opType)
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let (a, b) ← icmpCastExt regType lhs rhs none
+      let (a, b) ← icmpCastExt regType lhs rhs
       let cmpOp ← icmpEmit regType pred zeroRhs a b
       let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
