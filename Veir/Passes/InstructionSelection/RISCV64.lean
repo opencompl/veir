@@ -47,15 +47,12 @@ def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
       return (returnType, x))
     (fun (returnType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+          #[x] #[regType]
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[castOp.res[0]!] #[regType] riscvProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[returnType] castBackProps
+          #[riscvResOp.res[0]!] #[returnType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -99,25 +96,20 @@ def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp :
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
+          #[rhs] #[regType]
       let (lval, rval) ← match extend with
-        | some ⟨extOp, extProps'⟩ => do
-          let extProps ← CreateProg.property (.riscv extOp) extProps'
+        | some ⟨extOp, extProps⟩ => do
           let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
           let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
           pure (lextOp.res[0]!, rextOp.res[0]!)
         | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lval, rval] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lval, rval] #[regType] riscvProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castBackProps
+          #[riscvResOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -163,18 +155,14 @@ def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
       return (opType, a, amt))
     (fun (opType, a, amt) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let aCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let aCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[a] #[regType] aCastProps
-      let amtCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[a] #[regType]
       let amtCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[amt] #[regType] amtCastProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+          #[amt] #[regType]
       let rotOp ← CreateProg.operation (.riscv riscvOp)
-          #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rotOp.res[0]!] #[opType] castBackProps
+          #[rotOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -222,21 +210,18 @@ def lowerBswap (bw : Nat) : Pattern OpCode :=
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let rev8Props ← CreateProg.property (.riscv .rev8) ()
+          #[x] #[regType]
       let rev8Op ← CreateProg.operation (.riscv .rev8)
-          #[castOp.res[0]!] #[regType] rev8Props
+          #[castOp.res[0]!] #[regType]
       let resOp ← if bw = 32 then do
           let srliProps ← CreateProg.property (.riscv .srli)
               (RISCVImmediateProperties.mk 32#64)
           CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
         else
           pure rev8Op
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[resOp.res[0]!] #[resType] castBackProps
+          #[resOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -253,26 +238,18 @@ def bswap32 : Puddle.CompiledPattern OpCode := (lowerBswap 32).compile
 def bitreverseStage (regType : Handle OpCode .type) (mask shamt : Int)
     (input : Handle OpCode .value) :
     CreateProg.Builder (Handle OpCode .value) := do
-  let maskProps ← CreateProg.property (.riscv .li)
-      (RISCVImmediateProperties.mk (BitVec.ofInt 64 mask))
-  let maskOp ← CreateProg.operation (.riscv .li) #[] #[regType] maskProps
-  let lowProps ← CreateProg.property (.riscv .and) ()
+  let maskOp ← CreateProg.operation (.riscv .li)
+      #[] #[regType] (.inl $ .mk (.ofInt 64 mask))
   let lowOp ← CreateProg.operation (.riscv .and)
-      #[maskOp.res[0]!, input] #[regType] lowProps
-  let lowShiftProps ← CreateProg.property (.riscv .slli)
-      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
+      #[maskOp.res[0]!, input] #[regType]
   let lowShiftOp ← CreateProg.operation (.riscv .slli)
-      #[lowOp.res[0]!] #[regType] lowShiftProps
-  let highShiftProps ← CreateProg.property (.riscv .srli)
-      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
+      #[lowOp.res[0]!] #[regType] (.inl $ .mk (BitVec.ofInt 64 shamt))
   let highShiftOp ← CreateProg.operation (.riscv .srli)
-      #[input] #[regType] highShiftProps
-  let highProps ← CreateProg.property (.riscv .and) ()
+      #[input] #[regType] (.inl $ .mk (BitVec.ofInt 64 shamt))
   let highOp ← CreateProg.operation (.riscv .and)
-      #[maskOp.res[0]!, highShiftOp.res[0]!] #[regType] highProps
-  let orProps ← CreateProg.property (.riscv .or) ()
+      #[maskOp.res[0]!, highShiftOp.res[0]!] #[regType]
   let orOp ← CreateProg.operation (.riscv .or)
-      #[lowShiftOp.res[0]!, highOp.res[0]!] #[regType] orProps
+      #[lowShiftOp.res[0]!, highOp.res[0]!] #[regType]
   return orOp.res[0]!
 
 /--
@@ -288,9 +265,8 @@ def lowerBitreverse (bw : Nat) : Pattern OpCode :=
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
+          #[x] #[regType]
       let resOp ← if bw = 32 then do
           /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
              rev8 brings bits to high 32; srli 32 moves them back down. -/
@@ -308,9 +284,8 @@ def lowerBitreverse (bw : Nat) : Pattern OpCode :=
           let x3 ← bitreverseStage regType 0x0f0f0f0f0f0f0f0f 4 x2
           let rev8Props ← CreateProg.property (.riscv .rev8) ()
           CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[resOp.res[0]!] #[resType] castBackProps
+          #[resOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -339,9 +314,8 @@ def constant_pattern : Pattern OpCode :=
             return RISCVImmediateProperties.mk
                 ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[type] castBackProps
+          #[liOp.res[0]!] #[type]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -397,13 +371,11 @@ def lowerRegCast (srcOp : OpCode) (legal : TypeAttr → TypeAttr → propertiesO
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- First, cast the operand to registers -/
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
+          #[x] #[regType]
       /- Then, cast register to expected output type. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[castOp.res[0]!] #[resType] castBackProps
+          #[castOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -623,9 +595,8 @@ def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
     (fun (resType, base, gep?, loadProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
-      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[base] #[regType] baseCastProps
+          #[base] #[regType]
       /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
          flag keeps later passes from deleting or duplicating the access. -/
       let memProps ← match gep? with
@@ -641,9 +612,8 @@ def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
               fun load => some (cast h.symm (RISCVMemProperties.mk 0 load.volatile_))
       let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ldOp.res[0]!] #[resType] castBackProps
+          #[ldOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -689,13 +659,11 @@ def lowerStore (folded : Bool) (width : Nat) (riscvOp : Riscv)
     (fun (val, base, gep?, storeProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
-      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[base] #[regType] baseCastProps
+          #[base] #[regType]
       /- cast value (i64/i32/i16/i8/ptr) -> register -/
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
+          #[val] #[regType]
       /- The store writes the low `width` bytes of the value register. Volatility carries over
          from the `llvm.store`, as in `lowerLoad`. -/
       let memProps ← match gep? with
@@ -745,37 +713,30 @@ def lowerGetelementptr (scale : Nat) : Pattern OpCode :=
       return (resType, ptr, idx, root.properties))
     (fun (resType, ptr, idx, _) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[ptr] #[regType]
       let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
+          #[idx] #[regType]
       let addOp ←
         if scale = 1 then do
           /- ptr + idx -/
-          let addProps ← CreateProg.property (.riscv .add) ()
           CreateProg.operation (.riscv .add)
-              #[ptrCastOp.res[0]!, idxCastOp.res[0]!] #[regType] addProps
+              #[ptrCastOp.res[0]!, idxCastOp.res[0]!] #[regType]
         else if scale = 2 then do
           /- (idx << 1) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh1add) ()
           CreateProg.operation (.riscv .sh1add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
+              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType]
         else if scale = 4 then do
           /- (idx << 2) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh2add) ()
           CreateProg.operation (.riscv .sh2add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
+              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType]
         else do
           /- (idx << 3) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh3add) ()
           CreateProg.operation (.riscv .sh3add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
+              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType]
       /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
+          #[addOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -807,25 +768,21 @@ def getelementptrShift_pattern : Pattern OpCode :=
       return (resType, ptr, idx, root.properties))
     (fun (resType, ptr, idx, gepProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[ptr] #[regType]
       let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
+          #[idx] #[regType]
       let slliProps ← CreateProg.applyNative
           (Outputs := Handle OpCode (.prop (.riscv .slli))) gepProps
           fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
             RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
       let slliOp ← CreateProg.operation (.riscv .slli)
           #[idxCastOp.res[0]!] #[regType] slliProps
-      let addProps ← CreateProg.property (.riscv .add) ()
       let addOp ← CreateProg.operation (.riscv .add)
-          #[ptrCastOp.res[0]!, slliOp.res[0]!] #[regType] addProps
+          #[ptrCastOp.res[0]!, slliOp.res[0]!] #[regType]
       /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
+          #[addOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -851,27 +808,22 @@ def getelementptrMul_pattern : Pattern OpCode :=
       return (resType, ptr, idx, root.properties))
     (fun (resType, ptr, idx, gepProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[ptr] #[regType]
       let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
+          #[idx] #[regType]
       let liProps ← CreateProg.applyNative
           (Outputs := Handle OpCode (.prop (.riscv .li))) gepProps
           fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
             RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let mulProps ← CreateProg.property (.riscv .mul) ()
       let mulOp ← CreateProg.operation (.riscv .mul)
-          #[idxCastOp.res[0]!, liOp.res[0]!] #[regType] mulProps
-      let addProps ← CreateProg.property (.riscv .add) ()
+          #[idxCastOp.res[0]!, liOp.res[0]!] #[regType]
       let addOp ← CreateProg.operation (.riscv .add)
-          #[ptrCastOp.res[0]!, mulOp.res[0]!] #[regType] addProps
+          #[ptrCastOp.res[0]!, mulOp.res[0]!] #[regType]
       /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
+          #[addOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -916,18 +868,14 @@ def selectCzeroeqz_pattern : Pattern OpCode :=
       return (resType, cond, val))
     (fun (resType, cond, val) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
-      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[val] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType] condCastProps
-      let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+          #[cond] #[regType]
       let czOp ← CreateProg.operation (.riscv .czeroeqz)
-          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType]
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType] castBackProps
+          #[czOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -955,18 +903,15 @@ def selectCzeronez_pattern : Pattern OpCode :=
       return (resType, cond, val))
     (fun (resType, cond, val) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
-      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[val] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType] condCastProps
+          #[cond] #[regType]
       let czProps ← CreateProg.property (.riscv .czeronez) ()
       let czOp ← CreateProg.operation (.riscv .czeronez)
           #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType] castBackProps
+          #[czOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -994,15 +939,12 @@ def selectGeneral_pattern : Pattern OpCode :=
       return (resType, cond, tval, fval))
     (fun (resType, cond, tval, fval) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let tCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[tval] #[regType] tCastProps
-      let fCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[tval] #[regType]
       let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[fval] #[regType] fCastProps
-      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[fval] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType] condCastProps
+          #[cond] #[regType]
       let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
       let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
           #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
@@ -1012,9 +954,8 @@ def selectGeneral_pattern : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1108,12 +1049,10 @@ def saddSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
       let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
@@ -1139,9 +1078,8 @@ def saddSat_pattern : Pattern OpCode :=
       let satOp ← CreateProg.operation (.riscv .xor)
           #[sumSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType sumOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[selectOp.res[0]!] #[resType] castBackProps
+          #[selectOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1167,12 +1105,10 @@ def ssubSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
       let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
@@ -1198,9 +1134,8 @@ def ssubSat_pattern : Pattern OpCode :=
       let satOp ← CreateProg.operation (.riscv .xor)
           #[diffSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType diffOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[selectOp.res[0]!] #[resType] castBackProps
+          #[selectOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1225,12 +1160,10 @@ def uaddSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let notRhsProps ← CreateProg.property (.riscv .xori) (mkRISCVImm (-1))
       let notRhsOp ← CreateProg.operation (.riscv .xori)
           #[rCastOp.res[0]!] #[regType] notRhsProps
@@ -1240,9 +1173,8 @@ def uaddSat_pattern : Pattern OpCode :=
       let addProps ← CreateProg.property (.riscv .add) ()
       let addOp ← CreateProg.operation (.riscv .add)
           #[minuOp.res[0]!, rCastOp.res[0]!] #[regType] addProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
+          #[addOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1266,21 +1198,18 @@ def usubSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let maxuProps ← CreateProg.property (.riscv .maxu) ()
       let maxuOp ← CreateProg.operation (.riscv .maxu)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] maxuProps
       let subProps ← CreateProg.property (.riscv .sub) ()
       let subOp ← CreateProg.operation (.riscv .sub)
           #[maxuOp.res[0]!, rCastOp.res[0]!] #[regType] subProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[subOp.res[0]!] #[resType] castBackProps
+          #[subOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1305,12 +1234,10 @@ def sshlSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let shiftedProps ← CreateProg.property (.riscv .sll) ()
       let shiftedOp ← CreateProg.operation (.riscv .sll)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
@@ -1333,9 +1260,8 @@ def sshlSat_pattern : Pattern OpCode :=
       let satOp ← CreateProg.operation (.riscv .xor)
           #[signOp.res[0]!, intMaxOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType shiftedOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[selectOp.res[0]!] #[resType] castBackProps
+          #[selectOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1362,12 +1288,10 @@ def ushlSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let shiftedProps ← CreateProg.property (.riscv .sll) ()
       let shiftedOp ← CreateProg.operation (.riscv .sll)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
@@ -1386,9 +1310,8 @@ def ushlSat_pattern : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[overflowMaskOp.res[0]!, shiftedOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1413,18 +1336,16 @@ def abs_pattern : Pattern OpCode :=
       return (resType, val))
     (fun (resType, val) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] castProps
+          #[val] #[regType]
       let negProps ← CreateProg.property (.riscv .neg) ()
       let negOp ← CreateProg.operation (.riscv .neg)
           #[castOp.res[0]!] #[regType] negProps
       let maxProps ← CreateProg.property (.riscv .max) ()
       let maxOp ← CreateProg.operation (.riscv .max)
           #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[maxOp.res[0]!] #[resType] castBackProps
+          #[maxOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1456,9 +1377,8 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
+          #[val] #[regType]
       let imm := fun (type : TypeAttr) (props : GMIRConstantProperties) => do
         let .integerType t := type.val | none
         let amt := props.value
@@ -1479,9 +1399,8 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
               fun (type, props) => imm type props
           CreateProg.operation (.riscv .rori)
               #[valCastOp.res[0]!] #[regType] roriProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[roriOp.res[0]!] #[resType] castBackProps
+          #[roriOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1536,15 +1455,12 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] xCastProps
-      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[x] #[regType]
       let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[y] #[regType] yCastProps
-      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[y] #[regType]
       let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[z] #[regType] zCastProps
+          #[z] #[regType]
       /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
       let notzProps ← CreateProg.property (.riscv .xori)
           (RISCVImmediateProperties.mk (-1#64))
@@ -1577,9 +1493,8 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1605,15 +1520,12 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] xCastProps
-      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[x] #[regType]
       let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[y] #[regType] yCastProps
-      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[y] #[regType]
       let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[z] #[regType] zCastProps
+          #[z] #[regType]
       /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
       let notzProps ← CreateProg.property (.riscv .xori)
           (RISCVImmediateProperties.mk (-1#64))
@@ -1646,9 +1558,8 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1670,9 +1581,8 @@ def poisonConst_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[resType] castBackProps
+          #[liOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1688,9 +1598,8 @@ def zeroConst_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[resType] castBackProps
+          #[liOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1898,15 +1807,13 @@ def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
+          #[x] #[regType]
       let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
           #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
+          #[riscvResOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -2008,10 +1915,9 @@ def gmirConstant_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let liProps ← CreateProg.applyNative constProps fun ⟨const⟩ =>
         some (RISCVImmediateProperties.mk (BitVec.ofInt 64 const.value))
-      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] (.inr liProps)
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[type] castBackProps
+          #[liOp.res[0]!] #[type]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -2111,16 +2017,13 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
+          #[rhs] #[regType]
       let cmpOp ← icmpEmit regType pred zeroRhs lcastOp.res[0]! rcastOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cmpOp.res[0]!] #[resType] castBackProps
+          #[cmpOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 

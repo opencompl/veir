@@ -299,18 +299,31 @@ def CreateProg.property (opCode : OpCode) (value : propertiesOf opCode) :
       decls := .property opCode value result :: state.decls
     })⟩
 
+/-- Either raw properties, or a properties handle -/
+abbrev PropertiesOrHandle opCode := propertiesOf opCode ⊕ Handle OpCode (.prop opCode)
+
+instance : Coe (propertiesOf op) (PropertiesOrHandle op) where
+  coe := .inl
+
+instance : Coe (Handle OpCode (.prop op)) (PropertiesOrHandle op) where
+  coe := .inr
+
 /-- Append an operation to the creation program and return handles for it and its results. -/
 @[expose, inline]
 def CreateProg.operation (opCode : OpCode) (operands : Array (Handle OpCode .value))
     (resultTypes : Array (Handle OpCode .type))
-    (properties : Handle OpCode (.prop opCode)) : CreateProg.Builder CreatedOpHandle :=
+    (properties : PropertiesOrHandle opCode := .inl default) : CreateProg.Builder CreatedOpHandle :=
   ⟨fun state =>
+    let (properties, state) := match properties with
+    | .inl properties => (CreateProg.property opCode properties).run state
+    | .inr properties => (properties, state)
     let op := Handle.mk (OpInfo := OpCode) state.nextId
     let res := (Array.range resultTypes.size).map fun index =>
       Handle.mk (OpInfo := OpCode) (state.nextId + index + 1)
     (⟨op, res⟩, {
       nextId := state.nextId + resultTypes.size + 1
-      decls := .operation opCode operands resultTypes properties op res :: state.decls
+      decls :=
+        .operation opCode operands resultTypes properties op res :: state.decls
     })⟩
 
 /--
