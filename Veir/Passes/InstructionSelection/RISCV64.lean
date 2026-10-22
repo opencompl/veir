@@ -515,8 +515,7 @@ def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
   Returns the two registers to compare.
 -/
 def icmpCastExt (regType : Handle OpCode .type)
-    (lhs rhs : Handle OpCode .value)
-    (ext : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp))) :
+    (lhs rhs : Handle OpCode .value) :
     CreateProg.Builder
       (Handle OpCode .value × Handle OpCode .value) := do
   let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
@@ -525,15 +524,8 @@ def icmpCastExt (regType : Handle OpCode .type)
   let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
   let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
       #[rhs] #[regType] rcastProps
-  match ext with
-  | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-  | some ⟨extOp, extProps'⟩ => do
-    let extProps ← CreateProg.property (.riscv extOp) extProps'
-    let lextOp ← CreateProg.operation (.riscv extOp)
-        #[lcastOp.res[0]!] #[regType] extProps
-    let rextOp ← CreateProg.operation (.riscv extOp)
-        #[rcastOp.res[0]!] #[regType] extProps
-    pure (lextOp.res[0]!, rextOp.res[0]!)
+  pure (lcastOp.res[0]!, rcastOp.res[0]!)
+
 
 /--
   `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
@@ -2274,7 +2266,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let (a, b) ← icmpCastExt regType lhs rhs none
+      let (a, b) ← icmpCastExt regType lhs rhs
       let cmpOp ← icmpEmit regType pred zeroRhs a b
       let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
