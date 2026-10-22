@@ -186,7 +186,7 @@ def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPt
   let ctx ← match convertModule ctx with
     | .ok ctx => pure ctx
     | .error message => throw message
-  -- In strict mode, only RISC-V branches may have successors.
+  -- In strict mode, no branch but a RISC-V one may remain.
   if strict then
     for o in ctx.raw.operations.keys do
       if !isLoweredBranch ctx o && o.getNumSuccessors! ctx.raw ≠ 0 then
