@@ -37,13 +37,6 @@ def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (CallOp ctx op) :=
   | some callOpInterface => some ⟨callOpInterface, h⟩
   | none => none
 
-@[simp]
-theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (callOp : CallOp ctx op) :
-    of? op ctx = some callOp := by
-  cases callOp; grind [of?]
-
-grind_pattern of?_eq_some => of? op ctx, callOp.callOpInterface
-
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 
 /-- Returns the callee of the call. -/
