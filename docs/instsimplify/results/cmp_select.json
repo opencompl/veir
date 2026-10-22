@@ -1,0 +1,2005 @@
+[
+  {
+    "id": "IS2650",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "extractEquivalentCondition is a condition-finding helper, not an independent IR rewrite. It returns an existing compare inside a select for the min/max callers; concrete semantic rewrites are separately inventoried at IS3675/3677/3689/3691/3749/3751/3763/3765.",
+    "kind": "schema"
+  },
+  {
+    "id": "IS2653",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "extractEquivalentCondition is a condition-finding helper, not an independent IR rewrite. It returns an existing compare inside a select for the min/max callers; concrete semantic rewrites are separately inventoried at IS3675/3677/3689/3691/3749/3751/3763/3765.",
+    "kind": "schema"
+  },
+  {
+    "id": "IS2803",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires DataLayout pointer index-width reasoning and constant-offset stripping."
+  },
+  {
+    "id": "IS2827",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires pointer provenance, storage-disjointness and object-size/nullability analyses."
+  },
+  {
+    "id": "IS2855",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires underlying-object provenance and noalias/allocation-disjoint analysis."
+  },
+  {
+    "id": "IS2895",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires target-library allocation recognition, known-nonzero and capture tracking; upstream marks this case FIXME/PR54002."
+  },
+  {
+    "id": "IS2928",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2928.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2928_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM Puddle validity; all listed scalar i1 predicates and poison behavior covered."
+  },
+  {
+    "id": "IS2934",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2934.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2934_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM Puddle validity; poison included and widths follow upstream constraints."
+  },
+  {
+    "id": "IS2939",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2939.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2939_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM Puddle validity; all listed scalar i1 predicates and poison behavior covered."
+  },
+  {
+    "id": "IS2943",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2943.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2943_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM Puddle validity; all listed scalar i1 predicates and poison behavior covered."
+  },
+  {
+    "id": "IS2953",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2953.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2953_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM Puddle validity; all listed scalar i1 predicates and poison behavior covered."
+  },
+  {
+    "id": "IS2959",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2959.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2959_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM Puddle validity; poison included and widths follow upstream constraints."
+  },
+  {
+    "id": "IS2964",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2964.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2964_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM Puddle validity; all listed scalar i1 predicates and poison behavior covered."
+  },
+  {
+    "id": "IS2968",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2968.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2968_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM Puddle validity; all listed scalar i1 predicates and poison behavior covered."
+  },
+  {
+    "id": "IS2980",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires isImpliedCondition analysis; Puddle Models currently erases inspectOperation facts and has no semantic analysis certificate interface."
+  },
+  {
+    "id": "IS2991",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires isImpliedCondition analysis; Puddle Models currently erases inspectOperation facts and has no semantic analysis certificate interface."
+  },
+  {
+    "id": "IS2995",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires isImpliedCondition analysis; Puddle Models currently erases inspectOperation facts and has no semantic analysis certificate interface."
+  },
+  {
+    "id": "IS3000",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires isImpliedCondition analysis; Puddle Models currently erases inspectOperation facts and has no semantic analysis certificate interface."
+  },
+  {
+    "id": "IS3074",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3074.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3074_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM comparison Puddle validity; arbitrary widths and all specified predicates/poison behavior."
+  },
+  {
+    "id": "IS3076",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3076.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3076_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM comparison Puddle validity; arbitrary widths and all specified predicates/poison behavior."
+  },
+  {
+    "id": "IS3080",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires known-nonzero value analysis."
+  },
+  {
+    "id": "IS3085",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires known-nonzero value analysis."
+  },
+  {
+    "id": "IS3090",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3092",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3098",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3100",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits and known-nonzero analysis."
+  },
+  {
+    "id": "IS3106",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3108",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3114",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3116",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits and known-nonzero analysis."
+  },
+  {
+    "id": "IS3140",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires floating conversion sign-bit semantics and isSignBitCheck predicate analysis."
+  },
+  {
+    "id": "IS3146",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3146.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3146_valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary positive width; all integer predicates.",
+    "reason": "Compiled exhaustive scalar comparison empty/full-region characterization across all predicates and extrema, for every positive LLVM integer width."
+  },
+  {
+    "id": "IS3148",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3148.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3148_valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary positive width; all integer predicates.",
+    "reason": "Compiled exhaustive scalar comparison empty/full-region characterization across all predicates and extrema, for every positive LLVM integer width."
+  },
+  {
+    "id": "IS3153",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires ConstantRange/value-range analysis."
+  },
+  {
+    "id": "IS3155",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires ConstantRange/value-range analysis."
+  },
+  {
+    "id": "IS3166",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3166.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3166_valid"
+    ],
+    "domain": "Scalar integers of arbitrary width, with the actual nsw/nuw multiplier guard and nonmultiple literal; equality and inequality predicates, all other flags preserved.",
+    "reason": "Proved using actual LLVM mul and icmp semantics; signed/unsigned no-overflow multiplication is divisible by its nonzero multiplier."
+  },
+  {
+    "id": "IS3169",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires known-nonzero analysis."
+  },
+  {
+    "id": "IS3242",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires a value-monotonicity analysis and known-nonzero/nuw reasoning; matching the listed opcode graph is insufficient without those facts."
+  },
+  {
+    "id": "IS3259",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3261",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires KnownBits analysis."
+  },
+  {
+    "id": "IS3280",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3280.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3280_valid"
+    ],
+    "domain": "Scalar LLVM arbitrary-width integers; unsigned/equality predicates only.",
+    "reason": "Compiled scalar LLVM Puddle validity; exact native numeric/flag guards and arbitrary bitwidth. Signed remainder variants requiring known-nonnegative analysis are outside the represented domain."
+  },
+  {
+    "id": "IS3291",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3291.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3291_valid"
+    ],
+    "domain": "Scalar LLVM arbitrary-width integers; unsigned/equality predicates only.",
+    "reason": "Compiled scalar LLVM Puddle validity; exact native numeric/flag guards and arbitrary bitwidth. Signed remainder variants requiring known-nonnegative analysis are outside the represented domain."
+  },
+  {
+    "id": "IS3315",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source lines3306-3320 requires isKnownNonZero(RHS,Q) on the variable X in addition to constant divisor/shift guards. Puddle Models has no semantic known-nonzero certificate, and inspectOperation analysis facts are erased. No restriction to a toy constant-X instance is claimed."
+  },
+  {
+    "id": "IS3319",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source lines3306-3320 requires isKnownNonZero(RHS,Q) on the variable X in addition to constant divisor/shift guards. Puddle Models has no semantic known-nonzero certificate, and inspectOperation analysis facts are erased. No restriction to a toy constant-X instance is claimed."
+  },
+  {
+    "id": "IS3341",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3341.lean",
+      "Veir/InstSimplify/CmpNumericExtra.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3341_valid"
+    ],
+    "domain": "Scalar integers of arbitrary width, including poison and every overflow/exact flag combination permitted by the LLVM guard.",
+    "reason": "All three exact upstream shapes proved: multiply/unsigned-divide, multiply/logical-right-shift, and left-shift/unsigned-divide with their respective constant bounds."
+  },
+  {
+    "id": "IS3343",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3343.lean",
+      "Veir/InstSimplify/CmpNumericExtra.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3343_valid"
+    ],
+    "domain": "Scalar integers of arbitrary width, including poison and every overflow/exact flag combination permitted by the LLVM guard.",
+    "reason": "All three exact upstream shapes proved: multiply/unsigned-divide, multiply/logical-right-shift, and left-shift/unsigned-divide with their respective constant bounds."
+  },
+  {
+    "id": "IS3350",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3350.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3350_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity with exact upstream numeric and poison-generating flag guards."
+  },
+  {
+    "id": "IS3350a",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "trySimplifyICmpWithAdds returns only a Boolean eligibility certificate under UseInstrInfo, signed predicates and NSW/constant guards; it performs no independent IR rewrite. Actual cancellation caller IS3462 requires recursive simplifyICmpInst/result/recursion-budget contract absent from local Puddle Models.",
+    "kind": "schema"
+  },
+  {
+    "id": "IS3428",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires add flag inspection and recursive ICmp simplification."
+  },
+  {
+    "id": "IS3435",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires add flag inspection and recursive ICmp simplification."
+  },
+  {
+    "id": "IS3462",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires overflow-flag/signed-add proof and recursive ICmp simplification."
+  },
+  {
+    "id": "IS3468",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Forwards one of the independently inventoried binop rules."
+  },
+  {
+    "id": "IS3473",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Forwards one of the independently inventoried binop rules."
+  },
+  {
+    "id": "IS3512",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3512.lean",
+      "Veir/InstSimplify/CmpNumericExtra.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3512_valid"
+    ],
+    "domain": "Scalar integers of arbitrary positive width; every power-of-two bit and non-power-of-two literal, all poison/overflow behavior, with all four exact safety alternatives.",
+    "reason": "Proved all upstream safety alternatives separately: nsw, nuw, base one, or nonzero comparison constant. Shift flags otherwise unconstrained."
+  },
+  {
+    "id": "IS3514",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3514.lean",
+      "Veir/InstSimplify/CmpNumericExtra.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3514_valid"
+    ],
+    "domain": "Scalar integers of arbitrary positive width; every power-of-two bit and non-power-of-two literal, all poison/overflow behavior, with all four exact safety alternatives.",
+    "reason": "Proved all upstream safety alternatives separately: nsw, nuw, base one, or nonzero comparison constant. Shift flags otherwise unconstrained."
+  },
+  {
+    "id": "IS3523",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3523.lean",
+      "Veir/InstSimplify/CmpNumericExtra.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3523_valid"
+    ],
+    "domain": "Scalar integers of arbitrary width, including poison and every overflow/exact flag combination permitted by the LLVM guard.",
+    "reason": "Power-of-two constants are parameterized by every bit below the width; successful shifts remain a single bit or zero, bounded by the unsigned sign mask. Poison shifts refine the literal result."
+  },
+  {
+    "id": "IS3525",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3525.lean",
+      "Veir/InstSimplify/CmpNumericExtra.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3525_valid"
+    ],
+    "domain": "Scalar integers of arbitrary width, including poison and every overflow/exact flag combination permitted by the LLVM guard.",
+    "reason": "Power-of-two constants are parameterized by every bit below the width; successful shifts remain a single bit or zero, bounded by the unsigned sign mask. Poison shifts refine the literal result."
+  },
+  {
+    "id": "IS3543",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires wrap-flag and known-nonzero analysis plus recursive comparison."
+  },
+  {
+    "id": "IS3563",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3563.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3563_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM constant-mask comparison for AND and OR with all disjoint flags, subset direction canonicalization, and same-sign guard for signed predicates."
+  },
+  {
+    "id": "IS3565",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3565.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3565_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM constant-mask comparison for AND and OR with all disjoint flags, subset direction canonicalization, and same-sign guard for signed predicates."
+  },
+  {
+    "id": "IS3568",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3568.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3568_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM constant-mask comparison for AND and OR with all disjoint flags, subset direction canonicalization, and same-sign guard for signed predicates."
+  },
+  {
+    "id": "IS3570",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3570.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3570_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM constant-mask comparison for AND and OR with all disjoint flags, subset direction canonicalization, and same-sign guard for signed predicates."
+  },
+  {
+    "id": "IS3590",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires exact-flag inspection and recursive comparison."
+  },
+  {
+    "id": "IS3598",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires exact-flag inspection and recursive comparison."
+  },
+  {
+    "id": "IS3605",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires exact-flag inspection and recursive comparison."
+  },
+  {
+    "id": "IS3616",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires wrap-flag inspection and recursive comparison."
+  },
+  {
+    "id": "IS3675",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3677",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3681",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3689",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3691",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3695",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3700",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3700.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3700_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3703",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3703.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3703_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3749",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3751",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3755",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3763",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3765",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Bookkeeping/apparent-unreachable: min/max matchers only accept intrinsic calls, but extractEquivalentCondition only accepts select instructions. Existing manifest explains apparent cyclic SSA obstacle; this is not a proved global unreachability claim.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3769",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3773",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3773.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3773_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3775",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3775.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3775_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3793",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3793.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3793_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3796",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3796.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3796_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3802",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3802.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3802_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3805",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3805.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3805_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM min/max intrinsic comparison with all min/max, shared operand ordering, and comparison-side canonicalizations."
+  },
+  {
+    "id": "IS3827",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires context-valid dominating llvm.assume facts, assumption cache and context dominance. Puddle local Models has no CFG context/assumption certificate."
+  },
+  {
+    "id": "IS3846",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3846.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3846_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width saturation-versus-wrapping arithmetic comparison, including all nsw/nuw flags, arithmetic commutation when applicable, and swapped comparison sides."
+  },
+  {
+    "id": "IS3848",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3848.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3848_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width saturation-versus-wrapping arithmetic comparison, including all nsw/nuw flags, arithmetic commutation when applicable, and swapped comparison sides."
+  },
+  {
+    "id": "IS3856",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3856.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3856_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width saturation-versus-wrapping arithmetic comparison, including all nsw/nuw flags, arithmetic commutation when applicable, and swapped comparison sides."
+  },
+  {
+    "id": "IS3858",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3858.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3858_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width saturation-versus-wrapping arithmetic comparison, including all nsw/nuw flags, arithmetic commutation when applicable, and swapped comparison sides."
+  },
+  {
+    "id": "IS3891",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3891.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3891_valid"
+    ],
+    "domain": "Scalar LLVM integer constants (integer literals, zero, poison); arbitrary widths and predicates.",
+    "reason": "Compiled exhaustive scalar comparison constant folding, including integer/zero/poison literal representations and arbitrary widths/predicates."
+  },
+  {
+    "id": "IS3907",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3907.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3907_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM scalar Puddle validity with arbitrary bitwidth and poison behavior."
+  },
+  {
+    "id": "IS3913",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "LLVM undef is absent from LLVM.Int, and Llvm.interpretOp' has no mlir__undef interpretation. No vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS3918",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS3918.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3918_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM comparison Puddle validity; arbitrary widths and all specified predicates/poison behavior."
+  },
+  {
+    "id": "IS3921",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS3926",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS3929",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS3959",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires address-width/DataLayout pointer cast semantics plus recursive pointer comparison. Llvm.interpretOp' icmp accepts scalar integers only; no vacuous pointer proof is claimed.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3966",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires address-width/DataLayout pointer cast semantics plus recursive pointer comparison. Llvm.interpretOp' icmp accepts scalar integers only; no vacuous pointer proof is claimed.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS3979",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4014",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4058",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4091",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4126",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4135",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Source returns only the result of a recursive simplifyICmpInst call, not a newly created comparison. Implementing this dispatcher requires a recursive simplification/result certificate and recursion budget contract absent from local Puddle Models; equivalent local comparison-creation schemas are not claimed as actual upstream rewrites.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4148",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires isKnownNonEqual value analysis."
+  },
+  {
+    "id": "IS4152",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS4155",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS4158",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to simplifyICmpWithIntrinsicOnLHS; all concrete saturating-comparison callees IS3846/3848/3856/3858 are separately marked proved."
+  },
+  {
+    "id": "IS4161",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Same saturating-comparison helper as IS4158 after operand/predicate swap; all four concrete callees are separately marked proved."
+  },
+  {
+    "id": "IS4164",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS4167",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS4170",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Requires recursive helper or analysis semantics described in `extra`."
+  },
+  {
+    "id": "IS4174",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Frozen source lines 4172-4174 convert isImpliedByDomCondition into a boolean; requires a certified dominance/context analysis result, not a recursive comparison contract."
+  },
+  {
+    "id": "IS4180",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Plain computePointerICmp forwarder in frozen source lines 4178-4180. All concrete pointer branches are separately inventoried at IS2803/2827/2855/2895; this return introduces no additional rewrite boundary."
+  },
+  {
+    "id": "IS4186",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Frozen helper at lines 433-474 recursively simplifies the comparison on both select arms and combines results; requires recursive/contextual simplification correctness."
+  },
+  {
+    "id": "IS4192",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Frozen helper at lines 525-567 evaluates PHI incoming operands in predecessor-edge contexts and checks dominance plus recursive common results; missing PHI/CFG semantics is primary."
+  },
+  {
+    "id": "IS4214",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4225",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4227",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4232",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4239",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4245",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4247",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4260",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4263",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4268",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4290",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4292",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4301",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4319",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4329",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4349",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4354",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4363",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4372",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4396",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4407",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4419",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4425",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS4450",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Operand-substitution helper returns its caller-provided RepOp when V equals Op. This is not an independent semantically valid replacement without the condition/substitution context; concrete conditional select callers are inventoried separately.",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4513",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4516",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4530",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4539",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4552",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4568",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4588",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4597",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. Additionally, scalar pointer GEP memory semantics are outside this integer comparison port.",
+    "kind": "schema"
+  },
+  {
+    "id": "IS4613",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4666",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4669",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Internal simplifyWithOpsReplaced helper branch under caller-provided replacement map and AllowRefinement/DropFlags policy. Replacement keys/values are condition-derived, and operation poison/flag-removal obligations must remain tied to the surrounding select context. It is not an independent local IR rewrite with arbitrary replacement operands. A contextual substitution/result certificate and recursive helper contract are absent from Puddle Models; concrete select callers are inventoried separately. ",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4705",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4705.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4705_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar bit-test select with all complement/power-of-two, polarity, and disjoint guards."
+  },
+  {
+    "id": "IS4711",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4711.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4711_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar bit-test select with all complement/power-of-two, polarity, and disjoint guards."
+  },
+  {
+    "id": "IS4721",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4721.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4721_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity with exact upstream numeric and poison-generating flag guards."
+  },
+  {
+    "id": "IS4731",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4731.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4731_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity with exact upstream numeric and poison-generating flag guards."
+  },
+  {
+    "id": "IS4785",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4785.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4785_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity, all upstream scalar canonicalization variants and predicates."
+  },
+  {
+    "id": "IS4793",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4793.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4793_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity, all upstream scalar canonicalization variants and predicates."
+  },
+  {
+    "id": "IS4797",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4797.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4797_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity, all upstream scalar canonicalization variants and predicates."
+  },
+  {
+    "id": "IS4805",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4805.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4805_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled arbitrary-width scalar LLVM Puddle validity, all upstream scalar canonicalization variants and predicates."
+  },
+  {
+    "id": "IS4815",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires decomposeBitTest correctness before forwarding; underlying bit-test select equations IS4705/4711/4721/4731 are proved."
+  },
+  {
+    "id": "IS4841",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Depends on recursive substitution and poison/refinement handling; pointer replacement additionally requires equality legality analysis."
+  },
+  {
+    "id": "IS4858",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to simplifyCmpSelOfMaxMin; IS4785/4793/4797/4805 are separately marked proved.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS4879",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires SelectPattern analysis and limit computation."
+  },
+  {
+    "id": "IS4889",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to simplifySelectBitTest for an explicit zero equality test; concrete IS4705/4711/4721/4731 are separately marked proved."
+  },
+  {
+    "id": "IS4949",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires recursive operand substitution and pointer-equality legality."
+  },
+  {
+    "id": "IS4954",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires recursive operand substitution and pointer-equality legality."
+  },
+  {
+    "id": "IS4964",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires recursive operand substitution and poison/refinement-safe equivalence."
+  },
+  {
+    "id": "IS4973",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires recursive operand substitution and poison/refinement-safe equivalence."
+  },
+  {
+    "id": "IS5003",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS5006",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS5020",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS5024",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Floating-point comparison semantics is absent from Llvm.interpretOp'; no vacuous validity theorem is claimed."
+  },
+  {
+    "id": "IS5122",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5122.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5122_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar literal selection across integer, zero and poison constants at arbitrary result width."
+  },
+  {
+    "id": "IS5126",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5126.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5126_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM scalar Puddle validity with arbitrary bitwidth and poison behavior."
+  },
+  {
+    "id": "IS5130",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Llvm.interpretOp' has no mlir__undef denotation and LLVM.Int has no undef constructor. No vacuous Pattern.Valid proof is claimed."
+  },
+  {
+    "id": "IS5137",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5137.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5137_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM scalar Puddle validity with arbitrary bitwidth and poison behavior."
+  },
+  {
+    "id": "IS5139",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5139.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5139_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled LLVM scalar Puddle validity with arbitrary bitwidth and poison behavior."
+  },
+  {
+    "id": "IS5150",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5150.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5150_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar i1 Puddle validity including poison."
+  },
+  {
+    "id": "IS5154",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5154.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5154_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5158",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5158.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5158_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5163",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5163.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5163_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5169",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5169.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5169_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled complete scalar forms. Inventory originally reversed the true and false arms in its description.",
+    "description": "For i1 values, `!(X || Y) ? X : false` folds to false, with either OR ordering and bitwise/select logical OR forms."
+  },
+  {
+    "id": "IS5172",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5172.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5172_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5176",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5176.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5176_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5179",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5179.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5179_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5185",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5185.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5185_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5188",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5188.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5188_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5195",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5195.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5195_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5198",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5198.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5198_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5202",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5202.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5202_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5205",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5205.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5205_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5211",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5211.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5211_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5216",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5216.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5216_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar i1 Puddle validity including poison."
+  },
+  {
+    "id": "IS5219",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5219.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5219_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar i1 Puddle validity including poison."
+  },
+  {
+    "id": "IS5224",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5224.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5224_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar i1 Puddle validity including poison."
+  },
+  {
+    "id": "IS5227",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5227.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5227_valid"
+    ],
+    "domain": "Scalar i1 LLVM integers with all property flags.",
+    "reason": "Compiled scalar i1 Puddle validity including poison."
+  },
+  {
+    "id": "IS5237a",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5237a.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5237a_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5237b",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires nondeterministic LLVM undef semantics and a certified impliesPoison(FalseVal, Cond) analysis fact. The undef opcode exists but is not interpreted by the validity semantics."
+  },
+  {
+    "id": "IS5242a",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5242a.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5242a_valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Compiled scalar LLVM Puddle validity, including poison, every commutative operand ordering, bitwise and logical-select forms where applicable."
+  },
+  {
+    "id": "IS5242b",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires nondeterministic LLVM undef semantics and a certified impliesPoison(TrueVal, Cond) analysis fact. The undef opcode exists but is not interpreted by the validity semantics."
+  },
+  {
+    "id": "IS5278",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Forwards separately inventoried ICmp-conditioned select rules."
+  },
+  {
+    "id": "IS5281",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Simple forwarder to separately inventoried helper cases; no distinct transformation or new semantic precondition at this return. Forwards separately inventoried bit-test select rules."
+  },
+  {
+    "id": "IS5285",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Plain simplifySelectWithFCmp forwarder in frozen source lines 5282-5285. Concrete FP-conditioned select branches are separately inventoried; this return introduces no additional rewrite boundary."
+  },
+  {
+    "id": "IS5289",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires dominating-condition implication analysis."
+  },
+  {
+    "id": "IS5294",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires loop-PHI induction pattern analysis."
+  },
+  {
+    "id": "IS5296",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers, arbitrary widths unless upstream requires i1; vector/FP/undef cases excluded as unmodeled.",
+    "reason": "Requires loop-PHI induction pattern analysis."
+  }
+]

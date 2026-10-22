@@ -1,0 +1,5393 @@
+[
+  {
+    "id": "IS0121",
+    "start_line": 120,
+    "end_line": 121,
+    "function": "simplifyCmpSelCase",
+    "description": "%cmp simplified to the select condition (%cond).; returns `TrueOrFalse`. Guard: `SimplifiedCmp == Cond`.",
+    "opcodes": [
+      "icmp",
+      "fcmp"
+    ],
+    "extra": [
+      "recursive comparison simplification; exact predicate, swapped-predicate, and select-condition identity matching"
+    ],
+    "kind": "schema",
+    "returns": [
+      121
+    ]
+  },
+  {
+    "id": "IS0125",
+    "start_line": 125,
+    "end_line": 125,
+    "function": "simplifyCmpSelCase",
+    "description": "If the composed comparison did not simplify and `Cond` is syntactically `Pred LHS, RHS` (or the swapped predicate with operands reversed), return typed `TrueOrFalse`. Guard: `!SimplifiedCmp && isSameCompare(Cond, Pred, LHS, RHS)`.",
+    "opcodes": [
+      "icmp",
+      "fcmp"
+    ],
+    "extra": [
+      "recursive comparison simplification; exact predicate, swapped-predicate, and select-condition identity matching"
+    ],
+    "kind": "schema",
+    "returns": [
+      125
+    ]
+  },
+  {
+    "id": "IS0127",
+    "start_line": 127,
+    "end_line": 127,
+    "function": "simplifyCmpSelCase",
+    "description": "Return the simplified composed comparison when neither select-condition identity case applies. Guard: `SimplifiedCmp != Cond` and not (`!SimplifiedCmp && isSameCompare(Cond, Pred, LHS, RHS)`).",
+    "opcodes": [
+      "icmp",
+      "fcmp"
+    ],
+    "extra": [
+      "recursive comparison simplification; exact predicate, swapped-predicate, and select-condition identity matching"
+    ],
+    "kind": "schema",
+    "returns": [
+      127
+    ]
+  },
+  {
+    "id": "IS0134",
+    "start_line": 134,
+    "end_line": 134,
+    "function": "simplifyCmpSelTrueCase",
+    "description": "For the true arm of a select, simplify `Pred LHS, RHS`; if it matches the select condition, use typed true. Guard: call `simplifyCmpSelCase` with `getTrue(Cond->getType())`.",
+    "opcodes": [
+      "icmp",
+      "fcmp",
+      "select"
+    ],
+    "extra": [
+      "recursive comparison simplification; preserves select condition result type and arm polarity"
+    ],
+    "kind": "schema",
+    "returns": [
+      134
+    ]
+  },
+  {
+    "id": "IS0142",
+    "start_line": 142,
+    "end_line": 142,
+    "function": "simplifyCmpSelFalseCase",
+    "description": "For the false arm of a select, simplify `Pred LHS, RHS`; if it matches the select condition, use typed false. Guard: call `simplifyCmpSelCase` with `getFalse(Cond->getType())`.",
+    "opcodes": [
+      "icmp",
+      "fcmp",
+      "select"
+    ],
+    "extra": [
+      "recursive comparison simplification; preserves select condition result type and arm polarity"
+    ],
+    "kind": "schema",
+    "returns": [
+      142
+    ]
+  },
+  {
+    "id": "IS0160",
+    "start_line": 158,
+    "end_line": 160,
+    "function": "handleOtherCmpSelSimplifications",
+    "description": "If the false value simplified to false, then the result of the compare is equal to \"Cond && TCmp\".  This also catches the case when the false value simplified to false and the true value to true, returning \"Cond\". Folding select to and/or isn't poison-safe in general; impliesPoison checks whether folding it does not convert a well-defined value into poison.; returns `V`. Guard: `match(FCmp, m_Zero()) && impliesPoison(TCmp, Cond)` and `Value *V = simplifyAndInst(Cond, TCmp, Q, MaxRecurse)`. Delegates to `simplifyAndInst`.",
+    "opcodes": [
+      "icmp",
+      "fcmp",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget",
+      "analysis required: poison implication (`impliesPoison`) proves select-to-boolean folding preserves definedness"
+    ],
+    "kind": "delegation",
+    "returns": [
+      160
+    ]
+  },
+  {
+    "id": "IS0165",
+    "start_line": 163,
+    "end_line": 165,
+    "function": "handleOtherCmpSelSimplifications",
+    "description": "If the true value simplified to true, then the result of the compare is equal to \"Cond || FCmp\".; returns `V`. Guard: `match(TCmp, m_One()) && impliesPoison(FCmp, Cond)` and `Value *V = simplifyOrInst(Cond, FCmp, Q, MaxRecurse)`. Delegates to `simplifyOrInst`.",
+    "opcodes": [
+      "icmp",
+      "fcmp",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget",
+      "analysis required: poison implication (`impliesPoison`) proves select-to-boolean folding preserves definedness"
+    ],
+    "kind": "delegation",
+    "returns": [
+      165
+    ]
+  },
+  {
+    "id": "IS0171",
+    "start_line": 169,
+    "end_line": 171,
+    "function": "handleOtherCmpSelSimplifications",
+    "description": "Finally, if the false value simplified to true and the true value to false, then the result of the compare is equal to \"!Cond\".; returns `V`. Guard: `match(FCmp, m_One()) && match(TCmp, m_Zero())` and `Value *V = simplifyXorInst( Cond, Constant::getAllOnesValue(Cond->getType()), Q, MaxRecurse)`. Delegates to `simplifyXorInst`.",
+    "opcodes": [
+      "icmp",
+      "fcmp",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      171
+    ]
+  },
+  {
+    "id": "IS0218",
+    "start_line": 217,
+    "end_line": 218,
+    "function": "expandBinOp",
+    "description": "Does the expanded pair of binops simplify to the existing binop?; returns `B`. Guard: `(L == B0 && R == B1) || (Instruction::isCommutative(OpcodeToExpand) && L == B1 && R == B0)`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      218
+    ]
+  },
+  {
+    "id": "IS0227",
+    "start_line": 227,
+    "end_line": 227,
+    "function": "expandBinOp",
+    "description": "Return the simplified expanded result `S = simplifyBinOp(OpcodeToExpand, L, R)` after distributing `Opcode` to both operands of `V`; `L` and `R` are successful simplifications of `B0 op OtherOp` and `B1 op OtherOp`. Guard: `V` is a binary op with opcode `OpcodeToExpand`, both child operations simplify, and `S` is nonnull.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      227
+    ]
+  },
+  {
+    "id": "IS0242",
+    "start_line": 241,
+    "end_line": 242,
+    "function": "expandCommutativeBinOp",
+    "description": "Recursion is always used, so bail out at once if we already hit the limit.; returns `V`. Guard: `Value *V = expandBinOp(Opcode, L, R, OpcodeToExpand, Q, MaxRecurse)`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      242
+    ]
+  },
+  {
+    "id": "IS0244",
+    "start_line": 243,
+    "end_line": 244,
+    "function": "expandCommutativeBinOp",
+    "description": "Recursion is always used, so bail out at once if we already hit the limit.; returns `V`. Guard: `Value *V = expandBinOp(Opcode, R, L, OpcodeToExpand, Q, MaxRecurse)`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      244
+    ]
+  },
+  {
+    "id": "IS0274",
+    "start_line": 271,
+    "end_line": 274,
+    "function": "simplifyAssociativeBinOp",
+    "description": "It does!  Return \"A op V\" if it simplifies or is already available. If V equals B then \"A op V\" is just the LHS.; returns `LHS`. Guard: `Op0 && Op0->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, B, C, Q, MaxRecurse)` and `V == B`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      274
+    ]
+  },
+  {
+    "id": "IS0278",
+    "start_line": 275,
+    "end_line": 278,
+    "function": "simplifyAssociativeBinOp",
+    "description": "Otherwise return \"A op V\" if it simplifies.; returns `W`. Guard: `Op0 && Op0->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, B, C, Q, MaxRecurse)` and `Value *W = simplifyBinOp(Opcode, A, V, Q, MaxRecurse)`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      278
+    ]
+  },
+  {
+    "id": "IS0294",
+    "start_line": 291,
+    "end_line": 294,
+    "function": "simplifyAssociativeBinOp",
+    "description": "It does!  Return \"V op C\" if it simplifies or is already available. If V equals B then \"V op C\" is just the RHS.; returns `RHS`. Guard: `Op1 && Op1->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, A, B, Q, MaxRecurse)` and `V == B`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      294
+    ]
+  },
+  {
+    "id": "IS0298",
+    "start_line": 295,
+    "end_line": 298,
+    "function": "simplifyAssociativeBinOp",
+    "description": "Otherwise return \"V op C\" if it simplifies.; returns `W`. Guard: `Op1 && Op1->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, A, B, Q, MaxRecurse)` and `Value *W = simplifyBinOp(Opcode, V, C, Q, MaxRecurse)`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      298
+    ]
+  },
+  {
+    "id": "IS0318",
+    "start_line": 315,
+    "end_line": 318,
+    "function": "simplifyAssociativeBinOp",
+    "description": "It does!  Return \"V op B\" if it simplifies or is already available. If V equals A then \"V op B\" is just the LHS.; returns `LHS`. Guard: `Op0 && Op0->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, C, A, Q, MaxRecurse)` and `V == A`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      318
+    ]
+  },
+  {
+    "id": "IS0322",
+    "start_line": 319,
+    "end_line": 322,
+    "function": "simplifyAssociativeBinOp",
+    "description": "Otherwise return \"V op B\" if it simplifies.; returns `W`. Guard: `Op0 && Op0->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, C, A, Q, MaxRecurse)` and `Value *W = simplifyBinOp(Opcode, V, B, Q, MaxRecurse)`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      322
+    ]
+  },
+  {
+    "id": "IS0338",
+    "start_line": 335,
+    "end_line": 338,
+    "function": "simplifyAssociativeBinOp",
+    "description": "It does!  Return \"B op V\" if it simplifies or is already available. If V equals C then \"B op V\" is just the RHS.; returns `RHS`. Guard: `Op1 && Op1->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, C, A, Q, MaxRecurse)` and `V == C`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      338
+    ]
+  },
+  {
+    "id": "IS0342",
+    "start_line": 339,
+    "end_line": 342,
+    "function": "simplifyAssociativeBinOp",
+    "description": "Otherwise return \"B op V\" if it simplifies.; returns `W`. Guard: `Op1 && Op1->getOpcode() == Opcode` and `Value *V = simplifyBinOp(Opcode, C, A, Q, MaxRecurse)` and `Value *W = simplifyBinOp(Opcode, B, V, Q, MaxRecurse)`.",
+    "opcodes": [
+      "add",
+      "mul",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      342
+    ]
+  },
+  {
+    "id": "IS0383",
+    "start_line": 382,
+    "end_line": 383,
+    "function": "threadBinOpOverSelect",
+    "description": "If they simplified to the same value, then return the common value. If they both failed to simplify then return null.; returns `TV`. Guard: `TV == FV`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      383
+    ]
+  },
+  {
+    "id": "IS0387",
+    "start_line": 386,
+    "end_line": 387,
+    "function": "threadBinOpOverSelect",
+    "description": "If one branch simplified to undef, return the other one.; returns `FV`. Guard: `TV && Q.isUndefValue(TV)`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics",
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      387
+    ]
+  },
+  {
+    "id": "IS0389",
+    "start_line": 388,
+    "end_line": 389,
+    "function": "threadBinOpOverSelect",
+    "description": "If one branch simplified to undef, return the other one.; returns `TV`. Guard: `FV && Q.isUndefValue(FV)`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics",
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      389
+    ]
+  },
+  {
+    "id": "IS0394",
+    "start_line": 393,
+    "end_line": 394,
+    "function": "threadBinOpOverSelect",
+    "description": "If applying the operation did not change the true and false select values, then the result of the binop is the select itself.; returns `SI`. Guard: `TV == SI->getTrueValue() && FV == SI->getFalseValue()`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      394
+    ]
+  },
+  {
+    "id": "IS0413",
+    "start_line": 410,
+    "end_line": 413,
+    "function": "threadBinOpOverSelect",
+    "description": "The value that didn't simplify is \"UnsimplifiedLHS op UnsimplifiedRHS\". We already know that \"op\" is the same as for the simplified value.  See if the operands match too.  If so, return the simplified value.; returns `Simplified`. Guard: `(FV && !TV) || (TV && !FV)` and `Simplified && Simplified->getOpcode() == unsigned(Opcode) && !Simplified->hasPoisonGeneratingFlags()` and `Simplified->getOperand(0) == UnsimplifiedLHS && Simplified->getOperand(1) == UnsimplifiedRHS`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "instruction property required: simplified result must have no poison-generating flags",
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      413
+    ]
+  },
+  {
+    "id": "IS0417",
+    "start_line": 414,
+    "end_line": 417,
+    "function": "threadBinOpOverSelect",
+    "description": "The value that didn't simplify is \"UnsimplifiedLHS op UnsimplifiedRHS\". We already know that \"op\" is the same as for the simplified value.  See if the operands match too.  If so, return the simplified value.; returns `Simplified`. Guard: `(FV && !TV) || (TV && !FV)` and `Simplified && Simplified->getOpcode() == unsigned(Opcode) && !Simplified->hasPoisonGeneratingFlags()` and `Simplified->isCommutative() && Simplified->getOperand(1) == UnsimplifiedLHS && Simplified->getOperand(0) == UnsimplifiedRHS`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "instruction property required: simplified result must have no poison-generating flags",
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      417
+    ]
+  },
+  {
+    "id": "IS0464",
+    "start_line": 463,
+    "end_line": 464,
+    "function": "threadCmpOverSelect",
+    "description": "If both sides simplified to the same value, then use it as the result of the original comparison.; returns `TCmp`. Guard: `TCmp == FCmp`.",
+    "opcodes": [
+      "icmp",
+      "fcmp"
+    ],
+    "extra": [
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      464
+    ]
+  },
+  {
+    "id": "IS0469",
+    "start_line": 468,
+    "end_line": 469,
+    "function": "threadCmpOverSelect",
+    "description": "The remaining cases only make sense if the select condition has the same type as the result of the comparison, so bail out if this is not so.; returns `handleOtherCmpSelSimplifications(TCmp, FCmp, Cond, Q, MaxRecurse)`. Guard: `Cond->getType()->isVectorTy() == RHS->getType()->isVectorTy()`.",
+    "opcodes": [
+      "icmp",
+      "fcmp"
+    ],
+    "extra": [
+      "recursive evaluation of select true/false arms under the same operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      469
+    ]
+  },
+  {
+    "id": "IS0518",
+    "start_line": 518,
+    "end_line": 518,
+    "function": "threadBinOpOverPHI",
+    "description": "For a PHI operand, evaluate the binop/comparison for every non-self incoming value at that predecessor terminator; return the common simplified value only if every edge simplifies to the same value. Guard: non-PHI operand dominates the PHI (or is argument/constant; absent DT, only entry-block non-invoke/non-callbr instructions qualify), and no edge result is null or differs.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "and",
+      "or",
+      "xor",
+      "shl",
+      "lshr",
+      "ashr",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "requires per-edge phi evaluation, skips self-references, checks non-phi operand dominance, and simplifies with the incoming terminator as context",
+      "requires LLVM PHI incoming values, edge terminator context, and self-reference handling; Veir block arguments do not provide this LLVM PHI model"
+    ],
+    "kind": "schema",
+    "returns": [
+      518
+    ]
+  },
+  {
+    "id": "IS0563",
+    "start_line": 563,
+    "end_line": 563,
+    "function": "threadCmpOverPHI",
+    "description": "For a PHI operand, evaluate the binop/comparison for every non-self incoming value at that predecessor terminator; return the common simplified value only if every edge simplifies to the same value. Guard: non-PHI operand dominates the PHI (or is argument/constant; absent DT, only entry-block non-invoke/non-callbr instructions qualify), and no edge result is null or differs.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "requires per-edge phi evaluation, skips self-references, checks non-phi operand dominance, and simplifies with the incoming terminator as context",
+      "requires LLVM PHI incoming values, edge terminator context, and self-reference handling; Veir block arguments do not provide this LLVM PHI model"
+    ],
+    "kind": "schema",
+    "returns": [
+      563
+    ]
+  },
+  {
+    "id": "IS0580",
+    "start_line": 577,
+    "end_line": 580,
+    "function": "foldOrCommuteConstant",
+    "description": "When both operands are constants and a folding context is available, fold the floating-point binary operation with `ConstantFoldFPInstOperands`.",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "and",
+      "or",
+      "xor",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "constant-folding semantics; floating-point folding also requires CtxI and DataLayout",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      580
+    ]
+  },
+  {
+    "id": "IS0582",
+    "start_line": 580,
+    "end_line": 582,
+    "function": "foldOrCommuteConstant",
+    "description": "When both operands are constants, fold the binary operation with `ConstantFoldBinaryOpOperands` (including the floating-point fallback when no folding context is available).",
+    "opcodes": [
+      "add",
+      "sub",
+      "mul",
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "and",
+      "or",
+      "xor",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "constant-folding semantics; floating-point folding also requires CtxI and DataLayout",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      582
+    ]
+  },
+  {
+    "id": "IS0597",
+    "start_line": 596,
+    "end_line": 597,
+    "function": "simplifyAddInst",
+    "description": "Given operands for an Add, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Instruction::Add, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      597
+    ]
+  },
+  {
+    "id": "IS0601",
+    "start_line": 600,
+    "end_line": 601,
+    "function": "simplifyAddInst",
+    "description": "X + poison -> poison; returns `Op1`. Guard: `isa<PoisonValue>(Op1)`.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      601
+    ]
+  },
+  {
+    "id": "IS0605",
+    "start_line": 604,
+    "end_line": 605,
+    "function": "simplifyAddInst",
+    "description": "X + undef -> undef; returns `Op1`. Guard: `Q.isUndefValue(Op1)`.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      605
+    ]
+  },
+  {
+    "id": "IS0609",
+    "start_line": 608,
+    "end_line": 609,
+    "function": "simplifyAddInst",
+    "description": "X + 0 -> X; returns `Op0`. Guard: `match(Op1, m_Zero())`.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      609
+    ]
+  },
+  {
+    "id": "IS0613",
+    "start_line": 612,
+    "end_line": 613,
+    "function": "simplifyAddInst",
+    "description": "`add X,Y -> 0` when `isKnownNegation(X,Y)` proves that the operands are additive inverses. The source comment says \"negative\", but the guard requires negation of each other, not merely negative signs.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "analysis required: known-negation analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      613
+    ]
+  },
+  {
+    "id": "IS0621",
+    "start_line": 620,
+    "end_line": 621,
+    "function": "simplifyAddInst",
+    "description": "X + (Y - X) -> Y (Y - X) + X -> Y Eg: X + -X -> 0; returns `Y`. Guard: `match(Op1, m_Sub(m_Value(Y), m_Specific(Op0))) || match(Op0, m_Sub(m_Value(Y), m_Specific(Op1)))`.",
+    "opcodes": [
+      "add",
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      621
+    ]
+  },
+  {
+    "id": "IS0626",
+    "start_line": 625,
+    "end_line": 626,
+    "function": "simplifyAddInst",
+    "description": "X + ~X -> -1   since   ~X = -X-1; returns `Constant::getAllOnesValue(Ty)`. Guard: `match(Op0, m_Not(m_Specific(Op1))) || match(Op1, m_Not(m_Specific(Op0)))`.",
+    "opcodes": [
+      "add",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      626
+    ]
+  },
+  {
+    "id": "IS0633",
+    "start_line": 632,
+    "end_line": 633,
+    "function": "simplifyAddInst",
+    "description": "add nsw/nuw (xor Y, signmask), signmask --> Y The no-wrapping add guarantees that the top bit will be set by the add. Therefore, the xor must be clearing the already set sign bit of Y.; returns `Y`. Guard: `(IsNSW || IsNUW) && match(Op1, m_SignMask()) && match(Op0, m_Xor(m_Value(Y), m_SignMask()))`.",
+    "opcodes": [
+      "add",
+      "xor"
+    ],
+    "extra": [
+      "instruction flags: requires `nsw` or `nuw` on the add"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      633
+    ]
+  },
+  {
+    "id": "IS0637",
+    "start_line": 637,
+    "end_line": 637,
+    "function": "simplifyAddInst",
+    "description": "`add nuw X, -1 -> -1`. Guard: add has `nuw` and RHS is all ones.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "instruction flag: `nuw`"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      637
+    ]
+  },
+  {
+    "id": "IS0642",
+    "start_line": 640,
+    "end_line": 642,
+    "function": "simplifyAddInst",
+    "description": "i1 add -> xor.; returns `V`. Guard: `MaxRecurse && Op0->getType()->isIntOrIntVectorTy(1)` and `Value *V = simplifyXorInst(Op0, Op1, Q, MaxRecurse - 1)`. Delegates to `simplifyXorInst`.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      642
+    ]
+  },
+  {
+    "id": "IS0647",
+    "start_line": 646,
+    "end_line": 647,
+    "function": "simplifyAddInst",
+    "description": "Try some generic simplifications for associative operations.; returns `V`. Guard: `Value *V = simplifyAssociativeBinOp(Instruction::Add, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAssociativeBinOp`.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      647
+    ]
+  },
+  {
+    "id": "IS0727",
+    "start_line": 726,
+    "end_line": 727,
+    "function": "simplifyByDomEq",
+    "description": "At top-level recursion depth, `sub X,Y`, `xor X,Y`, `urem X,Y`, or `srem X,Y` folds to zero when a dominating condition implies `X == Y`.",
+    "opcodes": [
+      "sub",
+      "xor",
+      "urem",
+      "srem"
+    ],
+    "extra": [
+      "requires a dominating `icmp eq` proof for the two operands at the current instruction context"
+    ],
+    "kind": "schema",
+    "returns": [
+      727
+    ]
+  },
+  {
+    "id": "IS0731",
+    "start_line": 730,
+    "end_line": 731,
+    "function": "simplifyByDomEq",
+    "description": "At top-level recursion depth, `sdiv X,Y` or `udiv X,Y` folds to one when a dominating condition implies `X == Y`.",
+    "opcodes": [
+      "sdiv",
+      "udiv"
+    ],
+    "extra": [
+      "requires a dominating `icmp eq` proof for the two operands at the current instruction context"
+    ],
+    "kind": "schema",
+    "returns": [
+      731
+    ]
+  },
+  {
+    "id": "IS0736",
+    "start_line": 735,
+    "end_line": 736,
+    "function": "simplifyByDomEq",
+    "description": "At top-level recursion depth, `and X,Y` or `or X,Y` folds to Y when a dominating condition implies `X == Y`.",
+    "opcodes": [
+      "and",
+      "or"
+    ],
+    "extra": [
+      "requires a dominating `icmp eq` proof for the two operands at the current instruction context"
+    ],
+    "kind": "schema",
+    "returns": [
+      736
+    ]
+  },
+  {
+    "id": "IS0749",
+    "start_line": 748,
+    "end_line": 749,
+    "function": "simplifySubInst",
+    "description": "Given operands for a Sub, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Instruction::Sub, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      749
+    ]
+  },
+  {
+    "id": "IS0754",
+    "start_line": 753,
+    "end_line": 754,
+    "function": "simplifySubInst",
+    "description": "X - poison -> poison poison - X -> poison; returns `PoisonValue::get(Op0->getType())`. Guard: `isa<PoisonValue>(Op0) || isa<PoisonValue>(Op1)`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      754
+    ]
+  },
+  {
+    "id": "IS0759",
+    "start_line": 758,
+    "end_line": 759,
+    "function": "simplifySubInst",
+    "description": "X - undef -> undef undef - X -> undef; returns `UndefValue::get(Op0->getType())`. Guard: `Q.isUndefValue(Op0) || Q.isUndefValue(Op1)`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      759
+    ]
+  },
+  {
+    "id": "IS0763",
+    "start_line": 762,
+    "end_line": 763,
+    "function": "simplifySubInst",
+    "description": "X - 0 -> X; returns `Op0`. Guard: `match(Op1, m_Zero())`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      763
+    ]
+  },
+  {
+    "id": "IS0767",
+    "start_line": 766,
+    "end_line": 767,
+    "function": "simplifySubInst",
+    "description": "X - X -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `Op0 == Op1`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      767
+    ]
+  },
+  {
+    "id": "IS0773",
+    "start_line": 771,
+    "end_line": 773,
+    "function": "simplifySubInst",
+    "description": "0 - X -> 0 if the sub is NUW.; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Zero())` and `IsNUW`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      773
+    ]
+  },
+  {
+    "id": "IS0780",
+    "start_line": 777,
+    "end_line": 780,
+    "function": "simplifySubInst",
+    "description": "Op1 is either 0 or the minimum signed value. If the sub is NSW, then Op1 must be 0 because negating the minimum signed value is undefined.; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Zero())` and `Known.Zero.isMaxSignedValue()` and `IsNSW`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: nsw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      780
+    ]
+  },
+  {
+    "id": "IS0783",
+    "start_line": 781,
+    "end_line": 783,
+    "function": "simplifySubInst",
+    "description": "0 - X -> X if X is 0 or the minimum signed value.; returns `Op1`. Guard: `match(Op0, m_Zero())` and `Known.Zero.isMaxSignedValue()`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      783
+    ]
+  },
+  {
+    "id": "IS0797",
+    "start_line": 794,
+    "end_line": 797,
+    "function": "simplifySubInst",
+    "description": "It does, we successfully reassociated!; returns `W`. Guard: `MaxRecurse && match(Op0, m_Add(m_Value(X), m_Value(Y)))) { // (X + Y` and `Value *W = simplifyBinOp(Instruction::Add, X, V, Q, MaxRecurse - 1)` and `Value *V = simplifyBinOp(Instruction::Sub, Y, Z, Q, MaxRecurse - 1)`. Delegates to `simplifyBinOp`.",
+    "opcodes": [
+      "sub",
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      797
+    ]
+  },
+  {
+    "id": "IS0805",
+    "start_line": 802,
+    "end_line": 805,
+    "function": "simplifySubInst",
+    "description": "It does, we successfully reassociated!; returns `W`. Guard: `MaxRecurse && match(Op0, m_Add(m_Value(X), m_Value(Y)))) { // (X + Y` and `Value *W = simplifyBinOp(Instruction::Add, Y, V, Q, MaxRecurse - 1)` and `Value *V = simplifyBinOp(Instruction::Sub, X, Z, Q, MaxRecurse - 1)`. Delegates to `simplifyBinOp`.",
+    "opcodes": [
+      "sub",
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      805
+    ]
+  },
+  {
+    "id": "IS0819",
+    "start_line": 816,
+    "end_line": 819,
+    "function": "simplifySubInst",
+    "description": "It does, we successfully reassociated!; returns `W`. Guard: `MaxRecurse && match(Op1, m_Add(m_Value(Y), m_Value(Z)))) { // X - (Y + Z` and `Value *W = simplifyBinOp(Instruction::Sub, V, Z, Q, MaxRecurse - 1)` and `Value *V = simplifyBinOp(Instruction::Sub, X, Y, Q, MaxRecurse - 1)`. Delegates to `simplifyBinOp`.",
+    "opcodes": [
+      "sub",
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      819
+    ]
+  },
+  {
+    "id": "IS0827",
+    "start_line": 824,
+    "end_line": 827,
+    "function": "simplifySubInst",
+    "description": "It does, we successfully reassociated!; returns `W`. Guard: `MaxRecurse && match(Op1, m_Add(m_Value(Y), m_Value(Z)))) { // X - (Y + Z` and `Value *W = simplifyBinOp(Instruction::Sub, V, Y, Q, MaxRecurse - 1)` and `Value *V = simplifyBinOp(Instruction::Sub, X, Z, Q, MaxRecurse - 1)`. Delegates to `simplifyBinOp`.",
+    "opcodes": [
+      "sub",
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      827
+    ]
+  },
+  {
+    "id": "IS0841",
+    "start_line": 838,
+    "end_line": 841,
+    "function": "simplifySubInst",
+    "description": "It does, we successfully reassociated!; returns `W`. Guard: `Value *W = simplifyBinOp(Instruction::Add, V, Y, Q, MaxRecurse - 1)` and `MaxRecurse && match(Op1, m_Sub(m_Value(X), m_Value(Y)))) // Z - (X - Y` and `Value *V = simplifyBinOp(Instruction::Sub, Z, X, Q, MaxRecurse - 1)`. Delegates to `simplifyBinOp`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      841
+    ]
+  },
+  {
+    "id": "IS0854",
+    "start_line": 850,
+    "end_line": 854,
+    "function": "simplifySubInst",
+    "description": "It does, return the simplified \"trunc V\".; returns `W`. Guard: `MaxRecurse && match(Op0, m_Trunc(m_Value(X))) && match(Op1, m_Trunc(m_Value(Y)))` and `X->getType() == Y->getType()` and `Value *V = simplifyBinOp(Instruction::Sub, X, Y, Q, MaxRecurse - 1)` and `Value *W = simplifyCastInst(Instruction::Trunc, V, Op0->getType(), Q, MaxRecurse - 1)`. Delegates to `simplifyCastInst`.",
+    "opcodes": [
+      "sub",
+      "trunc"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      854
+    ]
+  },
+  {
+    "id": "IS0860",
+    "start_line": 860,
+    "end_line": 860,
+    "function": "simplifySubInst",
+    "description": "`ptrtoint(GEP(base, I)) - ptrtoint(GEP(base, J))` folds to the signed integer cast of `I - J` when both pointers strip to the same base with constant offsets. Guard: both operands match ptr-to-int-or-address forms; `computePointerDifference` finds same base; cast uses target DataLayout.",
+    "opcodes": [
+      "sub",
+      "getelementptr",
+      "ptrtoint",
+      "addrspacecast"
+    ],
+    "extra": [
+      "analysis required: DataLayout index widths and common-base constant-offset proof"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      860
+    ]
+  },
+  {
+    "id": "IS0867",
+    "start_line": 865,
+    "end_line": 867,
+    "function": "simplifySubInst",
+    "description": "i1 sub -> xor.; returns `V`. Guard: `MaxRecurse && Op0->getType()->isIntOrIntVectorTy(1)` and `Value *V = simplifyXorInst(Op0, Op1, Q, MaxRecurse - 1)`. Delegates to `simplifyXorInst`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      867
+    ]
+  },
+  {
+    "id": "IS0879",
+    "start_line": 878,
+    "end_line": 879,
+    "function": "simplifySubInst",
+    "description": "Threading Sub over selects and phi nodes is pointless, so don't bother. Threading over the select in \"A - select(cond, B, C)\" means evaluating \"A-B\" and \"A-C\" and seeing if they are equal; but they are equal if and only if B and C are equal.  If B and C are equal then (since we assume that operands have already been simplified) \"select(cond, B, C)\" should have been simplified to the common value of B and C already.  Analysing \"A-B\" and \"A-C\" thus gains nothing, but costs compile time.  Similarly for threading over phi nodes.; returns `V`. Guard: `Value *V = simplifyByDomEq(Instruction::Sub, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyByDomEq`.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      879
+    ]
+  },
+  {
+    "id": "IS0886",
+    "start_line": 884,
+    "end_line": 886,
+    "function": "simplifySubInst",
+    "description": "(sub nuw C_Mask, (xor X, C_Mask)) -> X; returns `X`. Guard: `IsNUW` and `match(Op1, m_Xor(m_Value(X), m_Specific(Op0))) && match(Op0, m_LowBitMask())`.",
+    "opcodes": [
+      "sub",
+      "xor"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      886
+    ]
+  },
+  {
+    "id": "IS0902",
+    "start_line": 901,
+    "end_line": 902,
+    "function": "simplifyMulInst",
+    "description": "Given operands for a Mul, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Instruction::Mul, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      902
+    ]
+  },
+  {
+    "id": "IS0906",
+    "start_line": 905,
+    "end_line": 906,
+    "function": "simplifyMulInst",
+    "description": "X * poison -> poison; returns `Op1`. Guard: `isa<PoisonValue>(Op1)`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      906
+    ]
+  },
+  {
+    "id": "IS0911",
+    "start_line": 910,
+    "end_line": 911,
+    "function": "simplifyMulInst",
+    "description": "`mul X,0 -> 0`, with either operand order. The undef alternative at this return is recorded separately as IS0911u.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      911
+    ]
+  },
+  {
+    "id": "IS0911u",
+    "start_line": 910,
+    "end_line": 911,
+    "function": "simplifyMulInst",
+    "description": "`mul X,undef -> 0`, with either operand order.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      911
+    ]
+  },
+  {
+    "id": "IS0915",
+    "start_line": 914,
+    "end_line": 915,
+    "function": "simplifyMulInst",
+    "description": "X * 1 -> X; returns `Op0`. Guard: `match(Op1, m_One())`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      915
+    ]
+  },
+  {
+    "id": "IS0923",
+    "start_line": 922,
+    "end_line": 923,
+    "function": "simplifyMulInst",
+    "description": "(X / Y) * Y -> X if the division is exact.; returns `X`. Guard: `Q.IIQ.UseInstrInfo && (match(Op0, m_Exact(m_IDiv(m_Value(X), m_Specific(Op1)))) || // (X / Y) * Y match(Op1, m_Exact(m_IDiv(m_Value(X), m_Specific(Op0)))))) // Y * (X / Y`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "instruction property required: exact operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      923
+    ]
+  },
+  {
+    "id": "IS0929",
+    "start_line": 926,
+    "end_line": 929,
+    "function": "simplifyMulInst",
+    "description": "mul i1 nsw is a special-case because -1 * -1 is poison (+1 is not representable). All other cases reduce to 0, so just return 0.; returns `ConstantInt::getNullValue(Op0->getType())`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `Q.IIQ.UseInstrInfo && (match(Op0, m_Exact(m_IDiv(m_Value(X), m_Specific(Op1)))) || // (X / Y) * Y match(Op1, m_Exact(m_IDiv(m_Value(X), m_Specific(Op0)))))) // Y * (X / Y` and `IsNSW`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "type required: i1 scalar or vector",
+      "instruction flag: `nsw`"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      929
+    ]
+  },
+  {
+    "id": "IS0934",
+    "start_line": 930,
+    "end_line": 934,
+    "function": "simplifyMulInst",
+    "description": "For i1 operands, treat multiplication as bitwise AND and return the recursive `simplifyAndInst` result when it simplifies. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `MaxRecurse`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "instruction property required: exact operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery",
+      "type required: integer scalar/vector with the stated bit width",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      934
+    ]
+  },
+  {
+    "id": "IS0940",
+    "start_line": 939,
+    "end_line": 940,
+    "function": "simplifyMulInst",
+    "description": "Try some generic simplifications for associative operations.; returns `V`. Guard: `Value *V = simplifyAssociativeBinOp(Instruction::Mul, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAssociativeBinOp`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      940
+    ]
+  },
+  {
+    "id": "IS0945",
+    "start_line": 944,
+    "end_line": 945,
+    "function": "simplifyMulInst",
+    "description": "Mul distributes over Add. Try some generic simplifications based on this.; returns `V`. Guard: `Value *V = expandCommutativeBinOp(Instruction::Mul, Op0, Op1, Instruction::Add, Q, MaxRecurse)`. Delegates to `expandCommutativeBinOp`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      945
+    ]
+  },
+  {
+    "id": "IS0952",
+    "start_line": 950,
+    "end_line": 952,
+    "function": "simplifyMulInst",
+    "description": "If the operation is with the result of a select instruction, check whether operating on either branch of the select always yields the same value.; returns `V`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Value *V = threadBinOpOverSelect(Instruction::Mul, Op0, Op1, Q, MaxRecurse)`. Delegates to `threadBinOpOverSelect`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      952
+    ]
+  },
+  {
+    "id": "IS0959",
+    "start_line": 957,
+    "end_line": 959,
+    "function": "simplifyMulInst",
+    "description": "If the operation is with the result of a phi instruction, check whether operating on all incoming values of the phi always yields the same value.; returns `V`. Guard: `isa<PHINode>(Op0) || isa<PHINode>(Op1)` and `Value *V = threadBinOpOverPHI(Instruction::Mul, Op0, Op1, Q, MaxRecurse)`. Delegates to `threadBinOpOverPHI`.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      959
+    ]
+  },
+  {
+    "id": "IS1016",
+    "start_line": 1013,
+    "end_line": 1016,
+    "function": "isDivZero",
+    "description": "Special-case: we can't take the abs() of a minimum signed value. If that's the divisor, then all we have to do is prove that the dividend is also not the minimum signed value.; returns `isICmpTrue(CmpInst::ICMP_NE, X, Y, Q, MaxRecurse)`. Guard: `IsSigned` and `match(Y, m_APInt(C))` and `C->isMinSignedValue()`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1016
+    ]
+  },
+  {
+    "id": "IS1057",
+    "start_line": 1056,
+    "end_line": 1057,
+    "function": "simplifyDivRem",
+    "description": "`sdiv`, `udiv`, `srem`, or `urem` with a poison divisor folds to poison. The undef alternative at this return is IS1057u.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM undef nondeterministic semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1057
+    ]
+  },
+  {
+    "id": "IS1057u",
+    "start_line": 1056,
+    "end_line": 1057,
+    "function": "simplifyDivRem",
+    "description": "`sdiv X,undef`, `udiv X,undef`, `srem X,undef`, and `urem X,undef` fold to poison.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM undef nondeterministic semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1057
+    ]
+  },
+  {
+    "id": "IS1063",
+    "start_line": 1062,
+    "end_line": 1063,
+    "function": "simplifyDivRem",
+    "description": "X / 0 -> poison X % 0 -> poison We don't need to preserve faults!; returns `PoisonValue::get(Ty)`. Guard: `match(Op1, m_Zero())`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1063
+    ]
+  },
+  {
+    "id": "IS1068",
+    "start_line": 1067,
+    "end_line": 1068,
+    "function": "simplifyDivRem",
+    "description": "poison / X -> poison poison % X -> poison; returns `Op0`. Guard: `isa<PoisonValue>(Op0)`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1068
+    ]
+  },
+  {
+    "id": "IS1073",
+    "start_line": 1072,
+    "end_line": 1073,
+    "function": "simplifyDivRem",
+    "description": "undef / X -> 0 undef % X -> 0; returns `Constant::getNullValue(Ty)`. Guard: `Q.isUndefValue(Op0)`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1073
+    ]
+  },
+  {
+    "id": "IS1078",
+    "start_line": 1077,
+    "end_line": 1078,
+    "function": "simplifyDivRem",
+    "description": "0 / X -> 0 0 % X -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Zero())`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1078
+    ]
+  },
+  {
+    "id": "IS1083",
+    "start_line": 1082,
+    "end_line": 1083,
+    "function": "simplifyDivRem",
+    "description": "X / X -> 1 X % X -> 0; returns `IsDiv ? ConstantInt::get(Ty, 1) : Constant::getNullValue(Ty)`. Guard: `Op0 == Op1`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1083
+    ]
+  },
+  {
+    "id": "IS1092",
+    "start_line": 1091,
+    "end_line": 1092,
+    "function": "simplifyDivRem",
+    "description": "X / 0 -> poison X % 0 -> poison If the divisor is known to be zero, just return poison. This can happen in some cases where its provable indirectly the denominator is zero but it's not trivially simplifiable (i.e known zero through a phi node).; returns `PoisonValue::get(Ty)`. Guard: `Known.isZero()`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1092
+    ]
+  },
+  {
+    "id": "IS1100",
+    "start_line": 1099,
+    "end_line": 1100,
+    "function": "simplifyDivRem",
+    "description": "X / 1 -> X X % 1 -> 0 If the divisor can only be zero or one, we can't have division-by-zero or remainder-by-zero, so assume the divisor is 1. e.g. 1, zext (i8 X), sdiv X (Y and 1); returns `IsDiv ? Op0 : Constant::getNullValue(Ty)`. Guard: `Known.countMinLeadingZeros() == Known.getBitWidth() - 1`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1100
+    ]
+  },
+  {
+    "id": "IS1114",
+    "start_line": 1112,
+    "end_line": 1114,
+    "function": "simplifyDivRem",
+    "description": "The multiplication can't overflow if it is defined not to, or if X == A / Y for some A.; returns `IsDiv ? X : Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_c_Mul(m_Value(X), m_Specific(Op1)))` and `(IsSigned && Q.IIQ.hasNoSignedWrap(Mul)) || (!IsSigned && Q.IIQ.hasNoUnsignedWrap(Mul)) || (IsSigned && match(X, m_SDiv(m_Value(), m_Specific(Op1)))) || (!IsSigned && match(X, m_UDiv(m_Value(), m_Specific(Op1))))`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "instruction property required: operator flags via InstrInfoQuery",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1114
+    ]
+  },
+  {
+    "id": "IS1119",
+    "start_line": 1118,
+    "end_line": 1119,
+    "function": "simplifyDivRem",
+    "description": "For division or remainder of a product by one factor, use `isDivZero` to detect when the product's other factor must be zero; return zero for division or the original product for remainder.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "analysis required: division-to-zero analysis",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1119
+    ]
+  },
+  {
+    "id": "IS1122",
+    "start_line": 1121,
+    "end_line": 1122,
+    "function": "simplifyDivRem",
+    "description": "Apply the dominance-based equality simplifier to the division or remainder operands; return its result when it finds an equivalent value.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1122
+    ]
+  },
+  {
+    "id": "IS1128",
+    "start_line": 1126,
+    "end_line": 1128,
+    "function": "simplifyDivRem",
+    "description": "If the operation is with the result of a select instruction, check whether operating on either branch of the select always yields the same value.; returns `V`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Value *V = threadBinOpOverSelect(Opcode, Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1128
+    ]
+  },
+  {
+    "id": "IS1134",
+    "start_line": 1132,
+    "end_line": 1134,
+    "function": "simplifyDivRem",
+    "description": "If the operation is with the result of a phi instruction, check whether operating on all incoming values of the phi always yields the same value.; returns `V`. Guard: `isa<PHINode>(Op0) || isa<PHINode>(Op1)` and `Value *V = threadBinOpOverPHI(Opcode, Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "sdiv",
+      "udiv",
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1134
+    ]
+  },
+  {
+    "id": "IS1144",
+    "start_line": 1143,
+    "end_line": 1144,
+    "function": "simplifyDiv",
+    "description": "These are simplifications common to SDiv and UDiv.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Opcode, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "sdiv",
+      "udiv"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1144
+    ]
+  },
+  {
+    "id": "IS1147",
+    "start_line": 1146,
+    "end_line": 1147,
+    "function": "simplifyDiv",
+    "description": "These are simplifications common to SDiv and UDiv.; returns `V`. Guard: `Value *V = simplifyDivRem(Opcode, Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "sdiv",
+      "udiv"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1147
+    ]
+  },
+  {
+    "id": "IS1157",
+    "start_line": 1154,
+    "end_line": 1157,
+    "function": "simplifyDiv",
+    "description": "If this is an exact divide by a constant, then the dividend (Op0) must have at least as many trailing zeros as the divisor to divide evenly. If it has less trailing zeros, then the result must be poison.; returns `PoisonValue::get(Op0->getType())`. Guard: `IsExact && match(Op1, m_APInt(DivC))` and `DivC->countr_zero()` and `KnownOp0.countMaxTrailingZeros() < DivC->countr_zero()`.",
+    "opcodes": [
+      "sdiv",
+      "udiv"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: exact flag",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1157
+    ]
+  },
+  {
+    "id": "IS1168",
+    "start_line": 1166,
+    "end_line": 1168,
+    "function": "simplifyDiv",
+    "description": "udiv exact (mul nsw X, C), C --> X sdiv exact (mul nuw X, C), C --> X where C is not a power of 2.; returns `X`. Guard: `IsExact && match(Op1, m_APInt(DivC))` and `!DivC->isPowerOf2() && (Opcode == Instruction::UDiv ? match(Op0, m_NSWMul(m_Value(X), m_Specific(Op1))) : match(Op0, m_NUWMul(m_Value(X), m_Specific(Op1))))`.",
+    "opcodes": [
+      "sdiv",
+      "udiv"
+    ],
+    "extra": [
+      "instruction property required: exact flag",
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: no-signed-wrap operator flag",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1168
+    ]
+  },
+  {
+    "id": "IS1178",
+    "start_line": 1177,
+    "end_line": 1178,
+    "function": "simplifyRem",
+    "description": "These are simplifications common to SRem and URem.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Opcode, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1178
+    ]
+  },
+  {
+    "id": "IS1181",
+    "start_line": 1180,
+    "end_line": 1181,
+    "function": "simplifyRem",
+    "description": "These are simplifications common to SRem and URem.; returns `V`. Guard: `Value *V = simplifyDivRem(Opcode, Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1181
+    ]
+  },
+  {
+    "id": "IS1189",
+    "start_line": 1187,
+    "end_line": 1189,
+    "function": "simplifyRem",
+    "description": "(X << Y) % X -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `Q.IIQ.UseInstrInfo` and `(Opcode == Instruction::SRem && match(Op0, m_NSWShl(m_Specific(Op1), m_Value()))) || (Opcode == Instruction::URem && match(Op0, m_NUWShl(m_Specific(Op1), m_Value())))`.",
+    "opcodes": [
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: no-signed-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1189
+    ]
+  },
+  {
+    "id": "IS1198",
+    "start_line": 1195,
+    "end_line": 1198,
+    "function": "simplifyRem",
+    "description": "(srem (mul nsw X, C1), C0) -> 0 if C1 s% C0 == 0 (urem (mul nuw X, C1), C0) -> 0 if C1 u% C0 == 0; returns `C.srem(*C0).isZero()`. Guard: `Q.IIQ.UseInstrInfo` and `match(Op1, m_APInt(C0))` and `Opcode == Instruction::SRem ? match(Op0, m_NSWMul(m_Value(), m_CheckedInt([C0](const APInt &C) { return C.srem(*C0).isZero(); }))) : match(Op0, m_NUWMul(m_Value(), m_CheckedInt([C0](const APInt &C) { return C.urem(*C0).isZero(); })))`.",
+    "opcodes": [
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: no-signed-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1198
+    ]
+  },
+  {
+    "id": "IS1202",
+    "start_line": 1200,
+    "end_line": 1202,
+    "function": "simplifyRem",
+    "description": "(srem (mul nsw X, C1), C0) -> 0 if C1 s% C0 == 0 (urem (mul nuw X, C1), C0) -> 0 if C1 u% C0 == 0; returns `C.urem(*C0).isZero()`. Guard: `Q.IIQ.UseInstrInfo` and `match(Op1, m_APInt(C0))`.",
+    "opcodes": [
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1202
+    ]
+  },
+  {
+    "id": "IS1204",
+    "start_line": 1202,
+    "end_line": 1204,
+    "function": "simplifyRem",
+    "description": "(srem (mul nsw X, C1), C0) -> 0 if C1 s% C0 == 0 (urem (mul nuw X, C1), C0) -> 0 if C1 u% C0 == 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `Q.IIQ.UseInstrInfo` and `match(Op1, m_APInt(C0))`.",
+    "opcodes": [
+      "srem",
+      "urem"
+    ],
+    "extra": [
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery",
+      "generic recursive schema; preserve source recursion bound and associativity/commutativity conditions"
+    ],
+    "kind": "schema",
+    "returns": [
+      1204
+    ]
+  },
+  {
+    "id": "IS1216",
+    "start_line": 1215,
+    "end_line": 1216,
+    "function": "simplifySDivInst",
+    "description": "If two operands are negated and no signed overflow, return -1.; returns `Constant::getAllOnesValue(Op0->getType())`. Guard: `isKnownNegation(Op0, Op1, /*NeedNSW=*/true)`.",
+    "opcodes": [
+      "sdiv"
+    ],
+    "extra": [
+      "analysis required: known-negation analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1216
+    ]
+  },
+  {
+    "id": "IS1218",
+    "start_line": 1218,
+    "end_line": 1218,
+    "function": "simplifySDivInst",
+    "description": "Fallback delegation to common SDiv simplification after the known-negation special case does not fire.",
+    "opcodes": [
+      "sdiv"
+    ],
+    "extra": [
+      "shared simplification schema; preserve exactness flag and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1218
+    ]
+  },
+  {
+    "id": "IS1230",
+    "start_line": 1230,
+    "end_line": 1230,
+    "function": "simplifyUDivInst",
+    "description": "Delegate UDiv folding to shared `simplifyDiv`.",
+    "opcodes": [
+      "udiv"
+    ],
+    "extra": [
+      "shared simplification schema; preserve exactness flag and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1230
+    ]
+  },
+  {
+    "id": "IS1246",
+    "start_line": 1245,
+    "end_line": 1246,
+    "function": "simplifySRemInst",
+    "description": "If the divisor is 0, the result is undefined, so assume the divisor is -1. srem Op0, (sext i1 X) --> srem Op0, -1 --> 0; returns `ConstantInt::getNullValue(Op0->getType())`. Guard: `match(Op1, m_SExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1)`.",
+    "opcodes": [
+      "srem",
+      "sext"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1246
+    ]
+  },
+  {
+    "id": "IS1250",
+    "start_line": 1249,
+    "end_line": 1250,
+    "function": "simplifySRemInst",
+    "description": "If the two operands are negated, return 0.; returns `ConstantInt::getNullValue(Op0->getType())`. Guard: `isKnownNegation(Op0, Op1)`.",
+    "opcodes": [
+      "srem"
+    ],
+    "extra": [
+      "analysis required: known-negation analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1250
+    ]
+  },
+  {
+    "id": "IS1252",
+    "start_line": 1252,
+    "end_line": 1252,
+    "function": "simplifySRemInst",
+    "description": "Fallback delegation to common SRem simplification after the i1 sign-extension and known-negation special cases do not fire.",
+    "opcodes": [
+      "srem"
+    ],
+    "extra": [
+      "shared simplification schema and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1252
+    ]
+  },
+  {
+    "id": "IS1263",
+    "start_line": 1263,
+    "end_line": 1263,
+    "function": "simplifyURemInst",
+    "description": "Delegate URem folding to shared `simplifyRem`.",
+    "opcodes": [
+      "urem"
+    ],
+    "extra": [
+      "shared simplification schema and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1263
+    ]
+  },
+  {
+    "id": "IS1306",
+    "start_line": 1305,
+    "end_line": 1306,
+    "function": "simplifyShift",
+    "description": "Given operands for an Shl, LShr or AShr, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Opcode, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1306
+    ]
+  },
+  {
+    "id": "IS1310",
+    "start_line": 1309,
+    "end_line": 1310,
+    "function": "simplifyShift",
+    "description": "poison shift by X -> poison; returns `Op0`. Guard: `isa<PoisonValue>(Op0)`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1310
+    ]
+  },
+  {
+    "id": "IS1314",
+    "start_line": 1313,
+    "end_line": 1314,
+    "function": "simplifyShift",
+    "description": "0 shift by X -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Zero())`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1314
+    ]
+  },
+  {
+    "id": "IS1322",
+    "start_line": 1321,
+    "end_line": 1322,
+    "function": "simplifyShift",
+    "description": "X shift by 0 -> X Shift-by-sign-extended bool must be shift-by-0 because shift-by-all-ones would be poison.; returns `Op0`. Guard: `match(Op1, m_Zero()) || (match(Op1, m_SExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1))`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr",
+      "sext"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1322
+    ]
+  },
+  {
+    "id": "IS1326",
+    "start_line": 1325,
+    "end_line": 1326,
+    "function": "simplifyShift",
+    "description": "`shl`, `lshr`, or `ashr` by a constant count at least the integer bitwidth folds to poison. `isPoisonShift` also recognizes vector splats and fixed vectors whose lanes all have poison shifts. Its undef alternative is IS1326u.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1326
+    ]
+  },
+  {
+    "id": "IS1326u",
+    "start_line": 1325,
+    "end_line": 1326,
+    "function": "simplifyShift",
+    "description": "`shl X,undef`, `lshr X,undef`, and `ashr X,undef` fold to poison because undef can choose an out-of-range count; prior zero-source and constant-folding branches take precedence.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1326
+    ]
+  },
+  {
+    "id": "IS1332",
+    "start_line": 1330,
+    "end_line": 1332,
+    "function": "simplifyShift",
+    "description": "If the operation is with the result of a select instruction, check whether operating on either branch of the select always yields the same value.; returns `V`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Value *V = threadBinOpOverSelect(Opcode, Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1332
+    ]
+  },
+  {
+    "id": "IS1338",
+    "start_line": 1336,
+    "end_line": 1338,
+    "function": "simplifyShift",
+    "description": "If the operation is with the result of a phi instruction, check whether operating on all incoming values of the phi always yields the same value.; returns `V`. Guard: `isa<PHINode>(Op0) || isa<PHINode>(Op1)` and `Value *V = threadBinOpOverPHI(Opcode, Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1338
+    ]
+  },
+  {
+    "id": "IS1344",
+    "start_line": 1343,
+    "end_line": 1344,
+    "function": "simplifyShift",
+    "description": "If any bits in the shift amount make that value greater than or equal to the number of bits in the type, the shift is undefined.; returns `PoisonValue::get(Op0->getType())`. Guard: `KnownAmt.getMinValue().uge(KnownAmt.getBitWidth())`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1344
+    ]
+  },
+  {
+    "id": "IS1350",
+    "start_line": 1349,
+    "end_line": 1350,
+    "function": "simplifyShift",
+    "description": "If all valid bits in the shift amount are known zero, the first operand is unchanged.; returns `Op0`. Guard: `KnownAmt.countMinTrailingZeros() >= NumValidShiftBits`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1350
+    ]
+  },
+  {
+    "id": "IS1364",
+    "start_line": 1362,
+    "end_line": 1364,
+    "function": "simplifyShift",
+    "description": "Check for nsw shl leading to a poison value.; returns `PoisonValue::get(Op0->getType())`. Guard: `IsNSW` and `KnownShl.hasConflict()`.",
+    "opcodes": [
+      "shl",
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: nsw flag",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics",
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1364
+    ]
+  },
+  {
+    "id": "IS1377",
+    "start_line": 1376,
+    "end_line": 1377,
+    "function": "simplifyRightShift",
+    "description": "Given operands for an LShr or AShr, see if we can fold the result.  If not, this returns null.; returns `V`. Guard: `Value *V = simplifyShift(Opcode, Op0, Op1, /*IsNSW*/ false, Q, MaxRecurse)`.",
+    "opcodes": [
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "instruction property required: nsw flag",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1377
+    ]
+  },
+  {
+    "id": "IS1381",
+    "start_line": 1380,
+    "end_line": 1381,
+    "function": "simplifyRightShift",
+    "description": "X >> X -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `Op0 == Op1`.",
+    "opcodes": [
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1381
+    ]
+  },
+  {
+    "id": "IS1386",
+    "start_line": 1385,
+    "end_line": 1386,
+    "function": "simplifyRightShift",
+    "description": "undef >> X -> 0 undef >> X -> undef (if it's exact); returns `IsExact ? Op0 : Constant::getNullValue(Op0->getType())`. Guard: `Q.isUndefValue(Op0)`.",
+    "opcodes": [
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1386
+    ]
+  },
+  {
+    "id": "IS1393",
+    "start_line": 1391,
+    "end_line": 1393,
+    "function": "simplifyRightShift",
+    "description": "The low bit cannot be shifted out of an exact shift if it is set. TODO: Generalize by counting trailing zeros (see fold for exact division).; returns `Op0`. Guard: `IsExact` and `Op0Known.One[0]`.",
+    "opcodes": [
+      "lshr",
+      "ashr"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: exact flag",
+      "shared shift schema for the named opcode family; preserve poison shift-amount and exactness/nowrap semantics"
+    ],
+    "kind": "schema",
+    "returns": [
+      1393
+    ]
+  },
+  {
+    "id": "IS1405",
+    "start_line": 1404,
+    "end_line": 1405,
+    "function": "simplifyShlInst",
+    "description": "Given operands for an Shl, see if we can fold the result. If not, this returns null.; returns `V`. Guard: `Value *V = simplifyShift(Instruction::Shl, Op0, Op1, IsNSW, Q, MaxRecurse)`. Delegates to `simplifyShift`.",
+    "opcodes": [
+      "shl"
+    ],
+    "extra": [
+      "instruction property required: nsw flag",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1405
+    ]
+  },
+  {
+    "id": "IS1411",
+    "start_line": 1410,
+    "end_line": 1411,
+    "function": "simplifyShlInst",
+    "description": "undef << X -> 0 undef << X -> undef if (if it's NSW/NUW); returns `IsNSW || IsNUW ? Op0 : Constant::getNullValue(Ty)`. Guard: `Q.isUndefValue(Op0)`.",
+    "opcodes": [
+      "shl"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1411
+    ]
+  },
+  {
+    "id": "IS1417",
+    "start_line": 1416,
+    "end_line": 1417,
+    "function": "simplifyShlInst",
+    "description": "(X >> A) << A -> X; returns `X`. Guard: `Q.IIQ.UseInstrInfo && match(Op0, m_Exact(m_Shr(m_Value(X), m_Specific(Op1))))`.",
+    "opcodes": [
+      "shl"
+    ],
+    "extra": [
+      "instruction property required: exact operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1417
+    ]
+  },
+  {
+    "id": "IS1421",
+    "start_line": 1420,
+    "end_line": 1421,
+    "function": "simplifyShlInst",
+    "description": "shl nuw i8 C, %x  ->  C  iff C has sign bit set.; returns `Op0`. Guard: `IsNUW && match(Op0, m_Negative())`.",
+    "opcodes": [
+      "shl"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1421
+    ]
+  },
+  {
+    "id": "IS1430",
+    "start_line": 1429,
+    "end_line": 1430,
+    "function": "simplifyShlInst",
+    "description": "\"nuw\" guarantees that only zeros are shifted out, and \"nsw\" guarantees that the sign-bit does not change, so the only input that does not produce poison is 0, and \"0 << (bitwidth-1) --> 0\".; returns `Constant::getNullValue(Ty)`. Guard: `IsNSW && IsNUW && match(Op1, m_SpecificInt(Ty->getScalarSizeInBits() - 1))`.",
+    "opcodes": [
+      "shl"
+    ],
+    "extra": [
+      "instruction property required: nsw flag",
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1430
+    ]
+  },
+  {
+    "id": "IS1446",
+    "start_line": 1445,
+    "end_line": 1446,
+    "function": "simplifyLShrInst",
+    "description": "Given operands for an LShr, see if we can fold the result. If not, this returns null.; returns `V`. Guard: `Value *V = simplifyRightShift(Instruction::LShr, Op0, Op1, IsExact, Q, MaxRecurse)`. Delegates to `simplifyRightShift`.",
+    "opcodes": [
+      "lshr"
+    ],
+    "extra": [
+      "instruction property required: exact flag",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1446
+    ]
+  },
+  {
+    "id": "IS1451",
+    "start_line": 1450,
+    "end_line": 1451,
+    "function": "simplifyLShrInst",
+    "description": "(X << A) >> A -> X; returns `X`. Guard: `Q.IIQ.UseInstrInfo && match(Op0, m_NUWShl(m_Value(X), m_Specific(Op1)))`.",
+    "opcodes": [
+      "lshr"
+    ],
+    "extra": [
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1451
+    ]
+  },
+  {
+    "id": "IS1466",
+    "start_line": 1464,
+    "end_line": 1466,
+    "function": "simplifyLShrInst",
+    "description": "((X << A) | Y) >> A -> X  if effective width of Y is not larger than A. We can return X as we do in the above case since OR alters no bits in X. SimplifyDemandedBits in InstCombine can do more general optimization for bit manipulation. This pattern aims to provide opportunities for other optimizers by supporting a simple but common case in InstSimplify.; returns `X`. Guard: `Q.IIQ.UseInstrInfo && match(Op1, m_APInt(ShRAmt)) && match(Op0, m_c_Or(m_NUWShl(m_Value(X), m_APInt(ShLAmt)), m_Value(Y))) && *ShRAmt == *ShLAmt` and `ShRAmt->uge(EffWidthY)`.",
+    "opcodes": [
+      "lshr"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1466
+    ]
+  },
+  {
+    "id": "IS1483",
+    "start_line": 1482,
+    "end_line": 1483,
+    "function": "simplifyAShrInst",
+    "description": "Given operands for an AShr, see if we can fold the result. If not, this returns null.; returns `V`. Guard: `Value *V = simplifyRightShift(Instruction::AShr, Op0, Op1, IsExact, Q, MaxRecurse)`. Delegates to `simplifyRightShift`.",
+    "opcodes": [
+      "ashr"
+    ],
+    "extra": [
+      "instruction property required: exact flag",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1483
+    ]
+  },
+  {
+    "id": "IS1490",
+    "start_line": 1489,
+    "end_line": 1490,
+    "function": "simplifyAShrInst",
+    "description": "-1 >>a X --> -1 (-1 << X) a>> X --> -1 We could return the original -1 constant to preserve poison elements.; returns `Constant::getAllOnesValue(Op0->getType())`. Guard: `match(Op0, m_AllOnes()) || match(Op0, m_Shl(m_AllOnes(), m_Specific(Op1)))`.",
+    "opcodes": [
+      "ashr",
+      "shl"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1490
+    ]
+  },
+  {
+    "id": "IS1495",
+    "start_line": 1494,
+    "end_line": 1495,
+    "function": "simplifyAShrInst",
+    "description": "(X << A) >> A -> X; returns `X`. Guard: `Q.IIQ.UseInstrInfo && match(Op0, m_NSWShl(m_Value(X), m_Specific(Op1)))`.",
+    "opcodes": [
+      "ashr"
+    ],
+    "extra": [
+      "instruction property required: no-signed-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1495
+    ]
+  },
+  {
+    "id": "IS1500",
+    "start_line": 1499,
+    "end_line": 1500,
+    "function": "simplifyAShrInst",
+    "description": "Arithmetic shifting an all-sign-bit value is a no-op.; returns `Op0`. Guard: `NumSignBits == Op0->getType()->getScalarSizeInBits()`.",
+    "opcodes": [
+      "ashr"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1500
+    ]
+  },
+  {
+    "id": "IS1534",
+    "start_line": 1531,
+    "end_line": 1534,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "A >=/<= B || (A - B) != 0  <-->  true; returns `ConstantInt::getTrue(UnsignedICmp->getType())`. Guard: `match(Y, m_Sub(m_Value(A), m_Value(B)))` and `match(UnsignedICmp, m_c_ICmp(UnsignedPred, m_Specific(A), m_Specific(B))) && ICmpInst::isUnsigned(UnsignedPred)` and `(UnsignedPred == ICmpInst::ICMP_UGE || UnsignedPred == ICmpInst::ICMP_ULE) && EqPred == ICmpInst::ICMP_NE && !IsAnd`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1534
+    ]
+  },
+  {
+    "id": "IS1539",
+    "start_line": 1536,
+    "end_line": 1539,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "A </> B && (A - B) == 0  <-->  false; returns `ConstantInt::getFalse(UnsignedICmp->getType())`. Guard: `match(Y, m_Sub(m_Value(A), m_Value(B)))` and `match(UnsignedICmp, m_c_ICmp(UnsignedPred, m_Specific(A), m_Specific(B))) && ICmpInst::isUnsigned(UnsignedPred)` and `(UnsignedPred == ICmpInst::ICMP_ULT || UnsignedPred == ICmpInst::ICMP_UGT) && EqPred == ICmpInst::ICMP_EQ && IsAnd`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1539
+    ]
+  },
+  {
+    "id": "IS1545",
+    "start_line": 1542,
+    "end_line": 1545,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "A </> B && (A - B) != 0  <-->  A </> B A </> B || (A - B) != 0  <-->  (A - B) != 0; returns `IsAnd ? UnsignedICmp : ZeroICmp`. Guard: `match(Y, m_Sub(m_Value(A), m_Value(B)))` and `match(UnsignedICmp, m_c_ICmp(UnsignedPred, m_Specific(A), m_Specific(B))) && ICmpInst::isUnsigned(UnsignedPred)` and `EqPred == ICmpInst::ICMP_NE && (UnsignedPred == ICmpInst::ICMP_ULT || UnsignedPred == ICmpInst::ICMP_UGT)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1545
+    ]
+  },
+  {
+    "id": "IS1551",
+    "start_line": 1548,
+    "end_line": 1551,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "A <=/>= B && (A - B) == 0  <-->  (A - B) == 0 A <=/>= B || (A - B) == 0  <-->  A <=/>= B; returns `IsAnd ? ZeroICmp : UnsignedICmp`. Guard: `match(Y, m_Sub(m_Value(A), m_Value(B)))` and `match(UnsignedICmp, m_c_ICmp(UnsignedPred, m_Specific(A), m_Specific(B))) && ICmpInst::isUnsigned(UnsignedPred)` and `EqPred == ICmpInst::ICMP_EQ && (UnsignedPred == ICmpInst::ICMP_ULE || UnsignedPred == ICmpInst::ICMP_UGE)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "sub"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1551
+    ]
+  },
+  {
+    "id": "IS1561",
+    "start_line": 1558,
+    "end_line": 1561,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "Given  Y = (A - B) Y >= A && Y != 0  --> Y >= A  iff B != 0 Y <  A || Y == 0  --> Y <  A  iff B != 0; returns `UnsignedICmp`. Guard: `match(Y, m_Sub(m_Value(A), m_Value(B)))` and `match(UnsignedICmp, m_c_ICmp(UnsignedPred, m_Specific(Y), m_Specific(A)))` and `UnsignedPred == ICmpInst::ICMP_UGE && IsAnd && EqPred == ICmpInst::ICMP_NE && isKnownNonZero(B, Q)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "sub"
+    ],
+    "extra": [
+      "analysis required: known-nonzero value-tracking proof",
+      "analysis required: source value-tracking proves the matched operand nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1561
+    ]
+  },
+  {
+    "id": "IS1564",
+    "start_line": 1561,
+    "end_line": 1564,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "Given  Y = (A - B) Y >= A && Y != 0  --> Y >= A  iff B != 0 Y <  A || Y == 0  --> Y <  A  iff B != 0; returns `UnsignedICmp`. Guard: `match(Y, m_Sub(m_Value(A), m_Value(B)))` and `match(UnsignedICmp, m_c_ICmp(UnsignedPred, m_Specific(Y), m_Specific(A)))` and `UnsignedPred == ICmpInst::ICMP_ULT && !IsAnd && EqPred == ICmpInst::ICMP_EQ && isKnownNonZero(B, Q)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "sub"
+    ],
+    "extra": [
+      "analysis required: known-nonzero value-tracking proof",
+      "analysis required: source value-tracking proves the matched operand nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1564
+    ]
+  },
+  {
+    "id": "IS1582",
+    "start_line": 1581,
+    "end_line": 1582,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "X > Y && Y == 0  -->  Y == 0  iff X != 0 X > Y || Y == 0  -->  X > Y   iff X != 0; returns `IsAnd ? ZeroICmp : UnsignedICmp`. Guard: `UnsignedPred == ICmpInst::ICMP_UGT && EqPred == ICmpInst::ICMP_EQ && isKnownNonZero(X, Q)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "analysis required: known-nonzero value-tracking proof",
+      "analysis required: source value-tracking proves the matched operand nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1582
+    ]
+  },
+  {
+    "id": "IS1588",
+    "start_line": 1587,
+    "end_line": 1588,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "X <= Y && Y != 0  -->  X <= Y  iff X != 0 X <= Y || Y != 0  -->  Y != 0  iff X != 0; returns `IsAnd ? UnsignedICmp : ZeroICmp`. Guard: `UnsignedPred == ICmpInst::ICMP_ULE && EqPred == ICmpInst::ICMP_NE && isKnownNonZero(X, Q)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "analysis required: known-nonzero value-tracking proof",
+      "analysis required: source value-tracking proves the matched operand nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1588
+    ]
+  },
+  {
+    "id": "IS1598",
+    "start_line": 1597,
+    "end_line": 1598,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "X < Y && Y != 0  -->  X < Y X < Y || Y != 0  -->  Y != 0; returns `IsAnd ? UnsignedICmp : ZeroICmp`. Guard: `UnsignedPred == ICmpInst::ICMP_ULT && EqPred == ICmpInst::ICMP_NE`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1598
+    ]
+  },
+  {
+    "id": "IS1603",
+    "start_line": 1602,
+    "end_line": 1603,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "X >= Y && Y == 0  -->  Y == 0 X >= Y || Y == 0  -->  X >= Y; returns `IsAnd ? ZeroICmp : UnsignedICmp`. Guard: `UnsignedPred == ICmpInst::ICMP_UGE && EqPred == ICmpInst::ICMP_EQ`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1603
+    ]
+  },
+  {
+    "id": "IS1608",
+    "start_line": 1607,
+    "end_line": 1608,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "X < Y && Y == 0  -->  false; returns `getFalse(UnsignedICmp->getType())`. Guard: `UnsignedPred == ICmpInst::ICMP_ULT && EqPred == ICmpInst::ICMP_EQ && IsAnd`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1608
+    ]
+  },
+  {
+    "id": "IS1613",
+    "start_line": 1612,
+    "end_line": 1613,
+    "function": "simplifyUnsignedRangeCheck",
+    "description": "X >= Y || Y != 0  -->  true; returns `getTrue(UnsignedICmp->getType())`. Guard: `UnsignedPred == ICmpInst::ICMP_UGE && EqPred == ICmpInst::ICMP_NE && !IsAnd`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1613
+    ]
+  },
+  {
+    "id": "IS1638",
+    "start_line": 1637,
+    "end_line": 1638,
+    "function": "simplifyAndOrOfICmpsWithConstants",
+    "description": "For and-of-compares, check if the intersection is empty: (icmp X, C0) && (icmp X, C1) --> empty set --> false; returns `getFalse(Cmp0->getType())`. Guard: `IsAnd && Range0.intersectWith(Range1).isEmptySet()`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1638
+    ]
+  },
+  {
+    "id": "IS1643",
+    "start_line": 1642,
+    "end_line": 1643,
+    "function": "simplifyAndOrOfICmpsWithConstants",
+    "description": "For or-of-compares, check if the union is full: (icmp X, C0) || (icmp X, C1) --> full set --> true; returns `getTrue(Cmp0->getType())`. Guard: `!IsAnd && Range0.unionWith(Range1).isFullSet()`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1643
+    ]
+  },
+  {
+    "id": "IS1651",
+    "start_line": 1650,
+    "end_line": 1651,
+    "function": "simplifyAndOrOfICmpsWithConstants",
+    "description": "Is one range a superset of the other? If this is and-of-compares, take the smaller set: (icmp sgt X, 4) && (icmp sgt X, 42) --> icmp sgt X, 42 If this is or-of-compares, take the larger set: (icmp sgt X, 4) || (icmp sgt X, 42) --> icmp sgt X, 4; returns `IsAnd ? Cmp1 : Cmp0`. Guard: `Range0.contains(Range1)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1651
+    ]
+  },
+  {
+    "id": "IS1653",
+    "start_line": 1652,
+    "end_line": 1653,
+    "function": "simplifyAndOrOfICmpsWithConstants",
+    "description": "Is one range a superset of the other? If this is and-of-compares, take the smaller set: (icmp sgt X, 4) && (icmp sgt X, 42) --> icmp sgt X, 42 If this is or-of-compares, take the larger set: (icmp sgt X, 4) || (icmp sgt X, 42) --> icmp sgt X, 4; returns `IsAnd ? Cmp0 : Cmp1`. Guard: `Range1.contains(Range0)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1653
+    ]
+  },
+  {
+    "id": "IS1682",
+    "start_line": 1679,
+    "end_line": 1682,
+    "function": "simplifyAndOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) & (icmp V, C0)`, return false when `C0 > 0`, `C1-C0 == 2`, and the predicates are `ult` and `sgt`.",
+    "opcodes": [
+      "and",
+      "icmp",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1682
+    ]
+  },
+  {
+    "id": "IS1684",
+    "start_line": 1681,
+    "end_line": 1684,
+    "function": "simplifyAndOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) & (icmp V, C0)`, return false when `C0 > 0`, `C1-C0 == 2`, and the predicates are `slt` and `sgt` with `nsw` on the add.",
+    "opcodes": [
+      "and",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nsw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1684
+    ]
+  },
+  {
+    "id": "IS1688",
+    "start_line": 1685,
+    "end_line": 1688,
+    "function": "simplifyAndOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) & (icmp V, C0)`, return false when `C0 > 0`, `C1-C0 == 1`, and the predicates are `ule` and `sgt`.",
+    "opcodes": [
+      "and",
+      "icmp",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1688
+    ]
+  },
+  {
+    "id": "IS1690",
+    "start_line": 1687,
+    "end_line": 1690,
+    "function": "simplifyAndOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) & (icmp V, C0)`, return false when `C0 > 0`, `C1-C0 == 1`, and the predicates are `sle` and `sgt` with `nsw` on the add.",
+    "opcodes": [
+      "and",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nsw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1690
+    ]
+  },
+  {
+    "id": "IS1696",
+    "start_line": 1693,
+    "end_line": 1696,
+    "function": "simplifyAndOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) & (icmp V, C0)`, return false when `C0 == 1`, the add is `nuw`, `C1-C0 == 2`, and the predicates are `ult` and `ugt`.",
+    "opcodes": [
+      "and",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1696
+    ]
+  },
+  {
+    "id": "IS1699",
+    "start_line": 1696,
+    "end_line": 1699,
+    "function": "simplifyAndOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) & (icmp V, C0)`, return false when `C0 == 1`, the add is `nuw`, `C1-C0 == 1`, and the predicates are `ule` and `ugt`.",
+    "opcodes": [
+      "and",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1699
+    ]
+  },
+  {
+    "id": "IS1717",
+    "start_line": 1716,
+    "end_line": 1717,
+    "function": "simplifyAndOrOfICmpsWithCtpop",
+    "description": "(ctpop(X) == C) || (X != 0) --> X != 0 where C > 0; returns `Cmp1`. Guard: `!IsAnd && Pred0 == ICmpInst::ICMP_EQ && Pred1 == ICmpInst::ICMP_NE`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "ctpop"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1717
+    ]
+  },
+  {
+    "id": "IS1720",
+    "start_line": 1719,
+    "end_line": 1720,
+    "function": "simplifyAndOrOfICmpsWithCtpop",
+    "description": "(ctpop(X) != C) && (X == 0) --> X == 0 where C > 0; returns `Cmp1`. Guard: `IsAnd && Pred0 == ICmpInst::ICMP_NE && Pred1 == ICmpInst::ICMP_EQ`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "ctpop"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1720
+    ]
+  },
+  {
+    "id": "IS1728",
+    "start_line": 1727,
+    "end_line": 1728,
+    "function": "simplifyAndOfICmps",
+    "description": "(ctpop(X) != C) && (X == 0) --> X == 0 where C > 0; returns `X`. Guard: `Value *X = simplifyUnsignedRangeCheck(Op0, Op1, /*IsAnd=*/true, Q)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1728
+    ]
+  },
+  {
+    "id": "IS1730",
+    "start_line": 1729,
+    "end_line": 1730,
+    "function": "simplifyAndOfICmps",
+    "description": "(ctpop(X) != C) && (X == 0) --> X == 0 where C > 0; returns `X`. Guard: `Value *X = simplifyUnsignedRangeCheck(Op1, Op0, /*IsAnd=*/true, Q)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1730
+    ]
+  },
+  {
+    "id": "IS1733",
+    "start_line": 1732,
+    "end_line": 1733,
+    "function": "simplifyAndOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOrOfICmpsWithConstants(Op0, Op1, true)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1733
+    ]
+  },
+  {
+    "id": "IS1736",
+    "start_line": 1735,
+    "end_line": 1736,
+    "function": "simplifyAndOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOrOfICmpsWithCtpop(Op0, Op1, true)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1736
+    ]
+  },
+  {
+    "id": "IS1738",
+    "start_line": 1737,
+    "end_line": 1738,
+    "function": "simplifyAndOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOrOfICmpsWithCtpop(Op1, Op0, true)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1738
+    ]
+  },
+  {
+    "id": "IS1741",
+    "start_line": 1740,
+    "end_line": 1741,
+    "function": "simplifyAndOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOfICmpsWithAdd(Op0, Op1, Q.IIQ)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1741
+    ]
+  },
+  {
+    "id": "IS1743",
+    "start_line": 1742,
+    "end_line": 1743,
+    "function": "simplifyAndOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOfICmpsWithAdd(Op1, Op0, Q.IIQ)`.",
+    "opcodes": [
+      "and",
+      "icmp"
+    ],
+    "extra": [
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1743
+    ]
+  },
+  {
+    "id": "IS1772",
+    "start_line": 1769,
+    "end_line": 1772,
+    "function": "simplifyOrOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) | (icmp V, C0)`, return true when `C0 > 0`, `C1-C0 == 2`, and the predicates are `uge` and `sle`.",
+    "opcodes": [
+      "or",
+      "icmp",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1772
+    ]
+  },
+  {
+    "id": "IS1774",
+    "start_line": 1771,
+    "end_line": 1774,
+    "function": "simplifyOrOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) | (icmp V, C0)`, return true when `C0 > 0`, `C1-C0 == 2`, and the predicates are `sge` and `sle` with `nsw` on the add.",
+    "opcodes": [
+      "or",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nsw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1774
+    ]
+  },
+  {
+    "id": "IS1778",
+    "start_line": 1775,
+    "end_line": 1778,
+    "function": "simplifyOrOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) | (icmp V, C0)`, return true when `C0 > 0`, `C1-C0 == 1`, and the predicates are `ugt` and `sle`.",
+    "opcodes": [
+      "or",
+      "icmp",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1778
+    ]
+  },
+  {
+    "id": "IS1780",
+    "start_line": 1777,
+    "end_line": 1780,
+    "function": "simplifyOrOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) | (icmp V, C0)`, return true when `C0 > 0`, `C1-C0 == 1`, and the predicates are `sgt` and `sle` with `nsw` on the add.",
+    "opcodes": [
+      "or",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nsw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1780
+    ]
+  },
+  {
+    "id": "IS1786",
+    "start_line": 1783,
+    "end_line": 1786,
+    "function": "simplifyOrOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) | (icmp V, C0)`, return true when `C0 == 1`, the add is `nuw`, `C1-C0 == 2`, and the predicates are `uge` and `ule`.",
+    "opcodes": [
+      "or",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1786
+    ]
+  },
+  {
+    "id": "IS1789",
+    "start_line": 1786,
+    "end_line": 1789,
+    "function": "simplifyOrOfICmpsWithAdd",
+    "description": "For `(icmp (add V, C0), C1) | (icmp V, C0)`, return true when `C0 == 1`, the add is `nuw`, `C1-C0 == 1`, and the predicates are `ugt` and `ule`.",
+    "opcodes": [
+      "or",
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "instruction property required: nuw flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1789
+    ]
+  },
+  {
+    "id": "IS1798",
+    "start_line": 1797,
+    "end_line": 1798,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyUnsignedRangeCheck(Op0, Op1, /*IsAnd=*/false, Q)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1798
+    ]
+  },
+  {
+    "id": "IS1800",
+    "start_line": 1799,
+    "end_line": 1800,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyUnsignedRangeCheck(Op1, Op0, /*IsAnd=*/false, Q)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1800
+    ]
+  },
+  {
+    "id": "IS1803",
+    "start_line": 1802,
+    "end_line": 1803,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOrOfICmpsWithConstants(Op0, Op1, false)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1803
+    ]
+  },
+  {
+    "id": "IS1806",
+    "start_line": 1805,
+    "end_line": 1806,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOrOfICmpsWithCtpop(Op0, Op1, false)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1806
+    ]
+  },
+  {
+    "id": "IS1808",
+    "start_line": 1807,
+    "end_line": 1808,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyAndOrOfICmpsWithCtpop(Op1, Op0, false)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1808
+    ]
+  },
+  {
+    "id": "IS1811",
+    "start_line": 1810,
+    "end_line": 1811,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyOrOfICmpsWithAdd(Op0, Op1, Q.IIQ)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1811
+    ]
+  },
+  {
+    "id": "IS1813",
+    "start_line": 1812,
+    "end_line": 1813,
+    "function": "simplifyOrOfICmps",
+    "description": "returns `X`. Guard: `Value *X = simplifyOrOfICmpsWithAdd(Op1, Op0, Q.IIQ)`.",
+    "opcodes": [
+      "or",
+      "icmp"
+    ],
+    "extra": [
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1813
+    ]
+  },
+  {
+    "id": "IS1843",
+    "start_line": 1842,
+    "end_line": 1843,
+    "function": "simplifyAndOrOfFCmpsWithConstants",
+    "description": "For and-of-compares, check if the intersection is empty: (fcmp X, C0) && (fcmp X, C1) --> empty set --> false; returns `ConstantInt::getBool(Cmp0->getType(), !IsAnd)`. Guard: `Range0->intersectWith(*Range1).isEmptySet()`.",
+    "opcodes": [
+      "and",
+      "or",
+      "fcmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1843
+    ]
+  },
+  {
+    "id": "IS1851",
+    "start_line": 1850,
+    "end_line": 1851,
+    "function": "simplifyAndOrOfFCmpsWithConstants",
+    "description": "Is one range a superset of the other? If this is and-of-compares, take the smaller set: (fcmp ogt X, 4) && (fcmp ogt X, 42) --> fcmp ogt X, 42 If this is or-of-compares, take the larger set: (fcmp ogt X, 4) || (fcmp ogt X, 42) --> fcmp ogt X, 4; returns `Cmp1`. Guard: `Range0->contains(*Range1)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "fcmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1851
+    ]
+  },
+  {
+    "id": "IS1853",
+    "start_line": 1852,
+    "end_line": 1853,
+    "function": "simplifyAndOrOfFCmpsWithConstants",
+    "description": "Is one range a superset of the other? If this is and-of-compares, take the smaller set: (fcmp ogt X, 4) && (fcmp ogt X, 42) --> fcmp ogt X, 42 If this is or-of-compares, take the larger set: (fcmp ogt X, 4) || (fcmp ogt X, 42) --> fcmp ogt X, 4; returns `Cmp0`. Guard: `Range1->contains(*Range0)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "fcmp"
+    ],
+    "extra": [
+      "analysis required: integer or floating-point range-set analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1853
+    ]
+  },
+  {
+    "id": "IS1876",
+    "start_line": 1876,
+    "end_line": 1876,
+    "function": "simplifyAndOrOfFCmps",
+    "description": "For `(fcmp ord/uno X, +0) {and/or} (fcmp ordered/unordered X-or-fabs(X), Y)`, return the other `fcmp` when order classes agree; otherwise return false for AND or true for OR. Guard: `PredL` is ORD/UNO; `PredR` order class matches AND/OR mode; an RHS operand is X or `fabs(X)`; LHS constant is +0.",
+    "opcodes": [
+      "and",
+      "or",
+      "fcmp",
+      "fabs"
+    ],
+    "extra": [
+      "floating-point predicate ordering and positive-zero semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1876
+    ]
+  },
+  {
+    "id": "IS1891",
+    "start_line": 1891,
+    "end_line": 1891,
+    "function": "simplifyAndOrOfFCmps",
+    "description": "Symmetric ORD/UNO simplification: for `(fcmp ordered/unordered X-or-fabs(X), Y) {and/or} (fcmp ord/uno X, +0)`, return the first `fcmp` when order classes agree; otherwise return false for AND or true for OR. Guard: `PredR` is ORD/UNO; `PredL` order class matches AND/OR mode; an LHS operand is X or `fabs(X)`; RHS constant is +0.",
+    "opcodes": [
+      "and",
+      "or",
+      "fcmp",
+      "fabs"
+    ],
+    "extra": [
+      "floating-point predicate ordering and positive-zero semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      1891
+    ]
+  },
+  {
+    "id": "IS1897",
+    "start_line": 1896,
+    "end_line": 1897,
+    "function": "simplifyAndOrOfFCmps",
+    "description": "(fcmp o** X/abs(X), Y) & (fcmp ord X, 0) --> fcmp o** X/abs(X), Y (fcmp o** X/abs(X), Y) & (fcmp uno X, 0) --> false (fcmp u** X/abs(X), Y) | (fcmp uno X, 0) --> fcmp u** X/abs(X), Y (fcmp u** X/abs(X), Y) | (fcmp ord X, 0) --> true; returns `V`. Guard: `auto *V = simplifyAndOrOfFCmpsWithConstants(LHS, RHS, IsAnd)`. Delegates to `simplifyAndOrOfFCmpsWithConstants`.",
+    "opcodes": [
+      "and",
+      "or",
+      "fcmp"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1897
+    ]
+  },
+  {
+    "id": "IS1928",
+    "start_line": 1927,
+    "end_line": 1928,
+    "function": "simplifyAndOrOfCmps",
+    "description": "returns `V`. Guard: `!Cast0`. Delegates to `simplifyAndOrOfFCmps`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "fcmp",
+      "cast"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1928
+    ]
+  },
+  {
+    "id": "IS1933",
+    "start_line": 1933,
+    "end_line": 1933,
+    "function": "simplifyAndOrOfCmps",
+    "description": "After looking through matching casts on both boolean operands, cast-fold a constant comparison simplification back to the original cast result type. Guard: `V` is constant and `Cast0` exists; the cast opcodes and source types match.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp",
+      "fcmp",
+      "cast"
+    ],
+    "extra": [
+      "constant cast folding and source/result type constraints"
+    ],
+    "kind": "delegation",
+    "returns": [
+      1933
+    ]
+  },
+  {
+    "id": "IS1965",
+    "start_line": 1963,
+    "end_line": 1965,
+    "function": "simplifyAndOrWithICmpEq",
+    "description": "and (icmp eq a, b), x implies (a==b) inside x. or (icmp ne a, b), x implies (a==b) inside x. If x simplifies to true/false, we can simplify the and/or.; returns `Absorber`. Guard: `Pred == (Opcode == Instruction::And ? ICmpInst::ICMP_EQ : ICmpInst::ICMP_NE)` and `Res == Absorber`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1965
+    ]
+  },
+  {
+    "id": "IS1967",
+    "start_line": 1965,
+    "end_line": 1967,
+    "function": "simplifyAndOrWithICmpEq",
+    "description": "and (icmp eq a, b), x implies (a==b) inside x. or (icmp ne a, b), x implies (a==b) inside x. If x simplifies to true/false, we can simplify the and/or.; returns `Op0`. Guard: `Pred == (Opcode == Instruction::And ? ICmpInst::ICMP_EQ : ICmpInst::ICMP_NE)` and `Res == ConstantExpr::getBinOpIdentity(Opcode, Res->getType())`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1967
+    ]
+  },
+  {
+    "id": "IS1975",
+    "start_line": 1974,
+    "end_line": 1975,
+    "function": "simplifyAndOrWithICmpEq",
+    "description": "If we have and (icmp ne a, b), x and for a==b we can simplify x to false, then we can drop the icmp, as x will already be false in the case where the icmp is false. Similar for or and true.; returns `Op1`. Guard: `Res == Absorber`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1975
+    ]
+  },
+  {
+    "id": "IS1985",
+    "start_line": 1984,
+    "end_line": 1985,
+    "function": "simplifyAndOrWithICmpEq",
+    "description": "In the final case (Res == Absorber with inverted predicate), it is safe to refine poison during simplification, but not undef. For simplicity always disable undef-based folds here.; returns `Simplify(Res)`. Guard: `Value *Res = simplifyWithOpReplaced(Op1, A, B, Q.getWithoutUndef(), /* AllowRefinement */ true, /* DropFlags */ nullptr, MaxRecurse)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1985
+    ]
+  },
+  {
+    "id": "IS1989",
+    "start_line": 1988,
+    "end_line": 1989,
+    "function": "simplifyAndOrWithICmpEq",
+    "description": "In the final case (Res == Absorber with inverted predicate), it is safe to refine poison during simplification, but not undef. For simplicity always disable undef-based folds here.; returns `Simplify(Res)`. Guard: `Value *Res = simplifyWithOpReplaced(Op1, B, A, Q.getWithoutUndef(), /* AllowRefinement */ true, /* DropFlags */ nullptr, MaxRecurse)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "icmp"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      1989
+    ]
+  },
+  {
+    "id": "IS2011",
+    "start_line": 2011,
+    "end_line": 2011,
+    "function": "simplifyLogicOfAddSub",
+    "description": "If operands are `(X + C)` and `(~C - X)` in either order, simplify `and` to zero and `or`/`xor` to all ones. Guard: C2 equals bitwise-not C1; same X; result op is And/Or/Xor.",
+    "opcodes": [
+      "add",
+      "sub",
+      "and",
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2011
+    ]
+  },
+  {
+    "id": "IS2024",
+    "start_line": 2023,
+    "end_line": 2024,
+    "function": "simplifyAndCommutative",
+    "description": "~A & A =  0; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Not(m_Specific(Op1)))`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2024
+    ]
+  },
+  {
+    "id": "IS2028",
+    "start_line": 2027,
+    "end_line": 2028,
+    "function": "simplifyAndCommutative",
+    "description": "(A | ?) & A = A; returns `Op1`. Guard: `match(Op0, m_c_Or(m_Specific(Op1), m_Value()))`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2028
+    ]
+  },
+  {
+    "id": "IS2034",
+    "start_line": 2033,
+    "end_line": 2034,
+    "function": "simplifyAndCommutative",
+    "description": "(X | ~Y) & (X | Y) --> X; returns `X`. Guard: `match(Op0, m_c_Or(m_Value(X), m_Not(m_Value(Y)))) && match(Op1, m_c_Or(m_Specific(X), m_Specific(Y)))`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2034
+    ]
+  },
+  {
+    "id": "IS2040",
+    "start_line": 2039,
+    "end_line": 2040,
+    "function": "simplifyAndCommutative",
+    "description": "If we have a multiplication overflow check that is being 'and'ed with a check that one of the multipliers is not zero, we can omit the 'and', and only keep the overflow check.; returns `Op1`. Guard: `isCheckForZeroAndMulWithOverflow(Op0, Op1, true)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [
+      "analysis required: overflow-intrinsic and zero-check pattern analysis",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2040
+    ]
+  },
+  {
+    "id": "IS2045",
+    "start_line": 2044,
+    "end_line": 2045,
+    "function": "simplifyAndCommutative",
+    "description": "-A & A = A if A is a power of two or zero.; returns `Op1`. Guard: `match(Op0, m_Neg(m_Specific(Op1))) && isKnownToBeAPowerOfTwo(Op1, Q.DL, /*OrZero*/ true, Q.AC, Q.CtxI, Q.DT)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [
+      "analysis required: power-of-two value-tracking proof",
+      "analysis required: dominance analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2045
+    ]
+  },
+  {
+    "id": "IS2051",
+    "start_line": 2050,
+    "end_line": 2051,
+    "function": "simplifyAndCommutative",
+    "description": "This is a similar pattern used for checking if a value is a power-of-2: (A - 1) & A --> 0 (if A is a power-of-2 or 0); returns `Constant::getNullValue(Op1->getType())`. Guard: `match(Op0, m_Add(m_Specific(Op1), m_AllOnes())) && isKnownToBeAPowerOfTwo(Op1, Q.DL, /*OrZero*/ true, Q.AC, Q.CtxI, Q.DT)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [
+      "analysis required: power-of-two value-tracking proof",
+      "analysis required: dominance analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2051
+    ]
+  },
+  {
+    "id": "IS2060",
+    "start_line": 2059,
+    "end_line": 2060,
+    "function": "simplifyAndCommutative",
+    "description": "(x << N) & ((x << M) - 1) --> 0, where x is known to be a power of 2 and M <= N.; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Shl(m_Value(X), m_APInt(Shift1))) && match(Op1, m_Add(m_Shl(m_Specific(X), m_APInt(Shift2)), m_AllOnes())) && isKnownToBeAPowerOfTwo(X, Q.DL, /*OrZero*/ true, Q.AC, Q.CtxI) && Shift1->uge(*Shift2)`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [
+      "analysis required: power-of-two value-tracking proof"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2060
+    ]
+  },
+  {
+    "id": "IS2064",
+    "start_line": 2063,
+    "end_line": 2064,
+    "function": "simplifyAndCommutative",
+    "description": "(x << N) & ((x << M) - 1) --> 0, where x is known to be a power of 2 and M <= N.; returns `V`. Guard: `Value *V = simplifyAndOrWithICmpEq(Instruction::And, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAndOrWithICmpEq`.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "mul",
+      "shl",
+      "add"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2064
+    ]
+  },
+  {
+    "id": "IS2074",
+    "start_line": 2073,
+    "end_line": 2074,
+    "function": "simplifyAndInst",
+    "description": "Given operands for an And, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Instruction::And, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2074
+    ]
+  },
+  {
+    "id": "IS2078",
+    "start_line": 2077,
+    "end_line": 2078,
+    "function": "simplifyAndInst",
+    "description": "X & poison -> poison; returns `Op1`. Guard: `isa<PoisonValue>(Op1)`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2078
+    ]
+  },
+  {
+    "id": "IS2082",
+    "start_line": 2081,
+    "end_line": 2082,
+    "function": "simplifyAndInst",
+    "description": "X & undef -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `Q.isUndefValue(Op1)`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2082
+    ]
+  },
+  {
+    "id": "IS2086",
+    "start_line": 2085,
+    "end_line": 2086,
+    "function": "simplifyAndInst",
+    "description": "X & X = X; returns `Op0`. Guard: `Op0 == Op1`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2086
+    ]
+  },
+  {
+    "id": "IS2090",
+    "start_line": 2089,
+    "end_line": 2090,
+    "function": "simplifyAndInst",
+    "description": "X & 0 = 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op1, m_Zero())`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2090
+    ]
+  },
+  {
+    "id": "IS2094",
+    "start_line": 2093,
+    "end_line": 2094,
+    "function": "simplifyAndInst",
+    "description": "X & -1 = X; returns `Op0`. Guard: `match(Op1, m_AllOnes())`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2094
+    ]
+  },
+  {
+    "id": "IS2097",
+    "start_line": 2096,
+    "end_line": 2097,
+    "function": "simplifyAndInst",
+    "description": "X & -1 = X; returns `Res`. Guard: `Value *Res = simplifyAndCommutative(Op0, Op1, Q, MaxRecurse)`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2097
+    ]
+  },
+  {
+    "id": "IS2099",
+    "start_line": 2098,
+    "end_line": 2099,
+    "function": "simplifyAndInst",
+    "description": "X & -1 = X; returns `Res`. Guard: `Value *Res = simplifyAndCommutative(Op1, Op0, Q, MaxRecurse)`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2099
+    ]
+  },
+  {
+    "id": "IS2102",
+    "start_line": 2101,
+    "end_line": 2102,
+    "function": "simplifyAndInst",
+    "description": "X & -1 = X; returns `V`. Guard: `Value *V = simplifyLogicOfAddSub(Op0, Op1, Instruction::And)`. Delegates to `simplifyLogicOfAddSub`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2102
+    ]
+  },
+  {
+    "id": "IS2113",
+    "start_line": 2111,
+    "end_line": 2113,
+    "function": "simplifyAndInst",
+    "description": "If all bits in the inverted and shifted mask are clear: and (shl X, ShAmt), Mask --> shl X, ShAmt; returns `Op0`. Guard: `match(Op1, m_APInt(Mask))` and `match(Op0, m_Shl(m_Value(X), m_APInt(ShAmt))) && (~(*Mask)).lshr(*ShAmt).isZero()`.",
+    "opcodes": [
+      "and",
+      "shl"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2113
+    ]
+  },
+  {
+    "id": "IS2119",
+    "start_line": 2117,
+    "end_line": 2119,
+    "function": "simplifyAndInst",
+    "description": "If all bits in the inverted and shifted mask are clear: and (lshr X, ShAmt), Mask --> lshr X, ShAmt; returns `Op0`. Guard: `match(Op1, m_APInt(Mask))` and `match(Op0, m_LShr(m_Value(X), m_APInt(ShAmt))) && (~(*Mask)).shl(*ShAmt).isZero()`.",
+    "opcodes": [
+      "and",
+      "lshr"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2119
+    ]
+  },
+  {
+    "id": "IS2132",
+    "start_line": 2130,
+    "end_line": 2132,
+    "function": "simplifyAndInst",
+    "description": "Use getActiveBits() to make use of the additional power of two knowledge; returns `ConstantInt::getNullValue(Op1->getType())`. Guard: `match(Op1, m_Power2(PowerC)) && match(Op0, m_Add(m_Value(Shift), m_AllOnes())) && isKnownToBeAPowerOfTwo(Shift, Q.DL, /*OrZero*/ false, Q.AC, Q.CtxI, Q.DT)` and `PowerC->getActiveBits() >= Known.getMaxValue().getActiveBits()`.",
+    "opcodes": [
+      "and",
+      "add"
+    ],
+    "extra": [
+      "analysis required: power-of-two value-tracking proof",
+      "analysis required: dominance analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2132
+    ]
+  },
+  {
+    "id": "IS2136",
+    "start_line": 2135,
+    "end_line": 2136,
+    "function": "simplifyAndInst",
+    "description": "Use getActiveBits() to make use of the additional power of two knowledge; returns `V`. Guard: `Value *V = simplifyAndOrOfCmps(Q, Op0, Op1, true)`. Delegates to `simplifyAndOrOfCmps`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2136
+    ]
+  },
+  {
+    "id": "IS2143",
+    "start_line": 2142,
+    "end_line": 2143,
+    "function": "simplifyAndInst",
+    "description": "zext(X) & sext(X) --> zext(X) sext(X) & zext(X) --> zext(X); returns `Op0`. Guard: `match(Op0, m_ZExt(m_Value(X))) && match(Op1, m_SExt(m_Specific(X)))`.",
+    "opcodes": [
+      "and",
+      "zext",
+      "sext"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2143
+    ]
+  },
+  {
+    "id": "IS2145",
+    "start_line": 2144,
+    "end_line": 2145,
+    "function": "simplifyAndInst",
+    "description": "zext(X) & sext(X) --> zext(X) sext(X) & zext(X) --> zext(X); returns `Op1`. Guard: `match(Op1, m_ZExt(m_Value(X))) && match(Op0, m_SExt(m_Specific(X)))`.",
+    "opcodes": [
+      "and",
+      "zext",
+      "sext"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2145
+    ]
+  },
+  {
+    "id": "IS2151",
+    "start_line": 2150,
+    "end_line": 2151,
+    "function": "simplifyAndInst",
+    "description": "Try some generic simplifications for associative operations.; returns `V`. Guard: `Value *V = simplifyAssociativeBinOp(Instruction::And, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAssociativeBinOp`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2151
+    ]
+  },
+  {
+    "id": "IS2156",
+    "start_line": 2155,
+    "end_line": 2156,
+    "function": "simplifyAndInst",
+    "description": "And distributes over Or.  Try some generic simplifications based on this.; returns `V`. Guard: `Value *V = expandCommutativeBinOp(Instruction::And, Op0, Op1, Instruction::Or, Q, MaxRecurse)`. Delegates to `expandCommutativeBinOp`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2156
+    ]
+  },
+  {
+    "id": "IS2161",
+    "start_line": 2160,
+    "end_line": 2161,
+    "function": "simplifyAndInst",
+    "description": "And distributes over Xor.  Try some generic simplifications based on this.; returns `V`. Guard: `Value *V = expandCommutativeBinOp(Instruction::And, Op0, Op1, Instruction::Xor, Q, MaxRecurse)`. Delegates to `expandCommutativeBinOp`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2161
+    ]
+  },
+  {
+    "id": "IS2167",
+    "start_line": 2164,
+    "end_line": 2167,
+    "function": "simplifyAndInst",
+    "description": "A & (A && B) -> A && B; returns `Op1`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Op0->getType()->isIntOrIntVectorTy(1)` and `match(Op1, m_Select(m_Specific(Op0), m_Value(), m_Zero()))`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2167
+    ]
+  },
+  {
+    "id": "IS2169",
+    "start_line": 2165,
+    "end_line": 2169,
+    "function": "simplifyAndInst",
+    "description": "A & (A && B) -> A && B; returns `Op0`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Op0->getType()->isIntOrIntVectorTy(1)` and `match(Op1, m_Select(m_Specific(Op0), m_Value(), m_Zero()))` and `else if match(Op0, m_Select(m_Specific(Op1), m_Value(), m_Zero()))`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2169
+    ]
+  },
+  {
+    "id": "IS2176",
+    "start_line": 2174,
+    "end_line": 2176,
+    "function": "simplifyAndInst",
+    "description": "If the operation is with the result of a select instruction, check whether operating on either branch of the select always yields the same value.; returns `V`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Value *V = threadBinOpOverSelect(Instruction::And, Op0, Op1, Q, MaxRecurse)`. Delegates to `threadBinOpOverSelect`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2176
+    ]
+  },
+  {
+    "id": "IS2184",
+    "start_line": 2182,
+    "end_line": 2184,
+    "function": "simplifyAndInst",
+    "description": "If the operation is with the result of a phi instruction, check whether operating on all incoming values of the phi always yields the same value.; returns `V`. Guard: `isa<PHINode>(Op0) || isa<PHINode>(Op1)` and `Value *V = threadBinOpOverPHI(Instruction::And, Op0, Op1, Q, MaxRecurse)`. Delegates to `threadBinOpOverPHI`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2184
+    ]
+  },
+  {
+    "id": "IS2213",
+    "start_line": 2210,
+    "end_line": 2213,
+    "function": "simplifyAndInst",
+    "description": "If the mask is extracting all bits from X or Y as is, we can skip this AND op.; returns `Y`. Guard: `Q.IIQ.UseInstrInfo && match(Op1, m_APInt(Mask)) && match(Op0, m_c_Or(m_CombineAnd(m_NUWShl(m_Value(X), m_APInt(ShAmt)), m_Value(XShifted)), m_Value(Y)))` and `EffWidthY <= ShftCnt` and `EffBitsY.isSubsetOf(*Mask) && !EffBitsX.intersects(*Mask)`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2213
+    ]
+  },
+  {
+    "id": "IS2215",
+    "start_line": 2212,
+    "end_line": 2215,
+    "function": "simplifyAndInst",
+    "description": "If the mask is extracting all bits from X or Y as is, we can skip this AND op.; returns `XShifted`. Guard: `Q.IIQ.UseInstrInfo && match(Op1, m_APInt(Mask)) && match(Op0, m_c_Or(m_CombineAnd(m_NUWShl(m_Value(X), m_APInt(ShAmt)), m_Value(XShifted)), m_Value(Y)))` and `EffWidthY <= ShftCnt` and `EffBitsX.isSubsetOf(*Mask) && !EffBitsY.intersects(*Mask)`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "analysis required: known-bits/sign-bit/range facts computed from operands",
+      "instruction property required: no-unsigned-wrap operator flag",
+      "instruction property required: InstrInfoQuery operator flags",
+      "instruction property required: operator flags via InstrInfoQuery"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2215
+    ]
+  },
+  {
+    "id": "IS2226",
+    "start_line": 2225,
+    "end_line": 2226,
+    "function": "simplifyAndInst",
+    "description": "((X | Y) ^ X ) & ((X | Y) ^ Y) --> 0 ((X | Y) ^ Y ) & ((X | Y) ^ X) --> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_c_Xor(m_Value(X), m_CombineAnd(m_BinOp(Or), m_c_Or(m_Deferred(X), m_Value(Y))))) && match(Op1, m_c_Xor(m_Specific(Or), m_Specific(Y)))`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2226
+    ]
+  },
+  {
+    "id": "IS2233",
+    "start_line": 2232,
+    "end_line": 2233,
+    "function": "simplifyAndInst",
+    "description": "(A ^ C) & (A ^ ~C) -> 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `match(Op0, m_Xor(m_Value(A), m_APInt(C1))) && match(Op1, m_Xor(m_Specific(A), m_SpecificInt(~*C1)))`.",
+    "opcodes": [
+      "and",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2233
+    ]
+  },
+  {
+    "id": "IS2239",
+    "start_line": 2236,
+    "end_line": 2239,
+    "function": "simplifyAndInst",
+    "description": "If Op0 is true implies Op1 is true, then Op0 is a subset of Op1.; returns `Op0`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op0, Op1, Q.DL)` and `*Implied == true`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2239
+    ]
+  },
+  {
+    "id": "IS2242",
+    "start_line": 2239,
+    "end_line": 2242,
+    "function": "simplifyAndInst",
+    "description": "If Op0 is true implies Op1 is false, then they are not true together.; returns `ConstantInt::getFalse(Op0->getType())`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op0, Op1, Q.DL)` and `*Implied == false`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2242
+    ]
+  },
+  {
+    "id": "IS2247",
+    "start_line": 2244,
+    "end_line": 2247,
+    "function": "simplifyAndInst",
+    "description": "If Op1 is true implies Op0 is true, then Op1 is a subset of Op0.; returns `Op1`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op1, Op0, Q.DL)` and `*Implied`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2247
+    ]
+  },
+  {
+    "id": "IS2250",
+    "start_line": 2247,
+    "end_line": 2250,
+    "function": "simplifyAndInst",
+    "description": "If Op1 is true implies Op0 is false, then they are not true together.; returns `ConstantInt::getFalse(Op1->getType())`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op1, Op0, Q.DL)` and `!*Implied`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2250
+    ]
+  },
+  {
+    "id": "IS2255",
+    "start_line": 2254,
+    "end_line": 2255,
+    "function": "simplifyAndInst",
+    "description": "If Op1 is true implies Op0 is false, then they are not true together.; returns `V`. Guard: `Value *V = simplifyByDomEq(Instruction::And, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyByDomEq`.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2255
+    ]
+  },
+  {
+    "id": "IS2271",
+    "start_line": 2270,
+    "end_line": 2271,
+    "function": "simplifyOrLogic",
+    "description": "X | ~X --> -1; returns `ConstantInt::getAllOnesValue(Ty)`. Guard: `match(Y, m_Not(m_Specific(X)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2271
+    ]
+  },
+  {
+    "id": "IS2275",
+    "start_line": 2274,
+    "end_line": 2275,
+    "function": "simplifyOrLogic",
+    "description": "X | ~(X & ?) = -1; returns `ConstantInt::getAllOnesValue(Ty)`. Guard: `match(Y, m_Not(m_c_And(m_Specific(X), m_Value())))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2275
+    ]
+  },
+  {
+    "id": "IS2279",
+    "start_line": 2278,
+    "end_line": 2279,
+    "function": "simplifyOrLogic",
+    "description": "X | (X & ?) --> X; returns `X`. Guard: `match(Y, m_c_And(m_Specific(X), m_Value()))`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2279
+    ]
+  },
+  {
+    "id": "IS2287",
+    "start_line": 2286,
+    "end_line": 2287,
+    "function": "simplifyOrLogic",
+    "description": "(A ^ B) | (A | B) --> A | B (A ^ B) | (B | A) --> B | A; returns `Y`. Guard: `match(X, m_Xor(m_Value(A), m_Value(B))) && match(Y, m_c_Or(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2287
+    ]
+  },
+  {
+    "id": "IS2293",
+    "start_line": 2292,
+    "end_line": 2293,
+    "function": "simplifyOrLogic",
+    "description": "~(A ^ B) | (A | B) --> -1 ~(A ^ B) | (B | A) --> -1; returns `ConstantInt::getAllOnesValue(Ty)`. Guard: `match(X, m_Not(m_Xor(m_Value(A), m_Value(B)))) && match(Y, m_c_Or(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2293
+    ]
+  },
+  {
+    "id": "IS2301",
+    "start_line": 2300,
+    "end_line": 2301,
+    "function": "simplifyOrLogic",
+    "description": "(A & ~B) | (A ^ B) --> A ^ B (~B & A) | (A ^ B) --> A ^ B (A & ~B) | (B ^ A) --> B ^ A (~B & A) | (B ^ A) --> B ^ A; returns `Y`. Guard: `match(X, m_c_And(m_Value(A), m_Not(m_Value(B)))) && match(Y, m_c_Xor(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2301
+    ]
+  },
+  {
+    "id": "IS2309",
+    "start_line": 2308,
+    "end_line": 2309,
+    "function": "simplifyOrLogic",
+    "description": "(~A ^ B) | (A & B) --> ~A ^ B (B ^ ~A) | (A & B) --> B ^ ~A (~A ^ B) | (B & A) --> ~A ^ B (B ^ ~A) | (B & A) --> B ^ ~A; returns `X`. Guard: `match(X, m_c_Xor(m_Not(m_Value(A)), m_Value(B))) && match(Y, m_c_And(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2309
+    ]
+  },
+  {
+    "id": "IS2317",
+    "start_line": 2316,
+    "end_line": 2317,
+    "function": "simplifyOrLogic",
+    "description": "(~A | B) | (A ^ B) --> -1 (~A | B) | (B ^ A) --> -1 (B | ~A) | (A ^ B) --> -1 (B | ~A) | (B ^ A) --> -1; returns `ConstantInt::getAllOnesValue(Ty)`. Guard: `match(X, m_c_Or(m_Not(m_Value(A)), m_Value(B))) && match(Y, m_c_Xor(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2317
+    ]
+  },
+  {
+    "id": "IS2327",
+    "start_line": 2326,
+    "end_line": 2327,
+    "function": "simplifyOrLogic",
+    "description": "(~A & B) | ~(A | B) --> ~A (~A & B) | ~(B | A) --> ~A (B & ~A) | ~(A | B) --> ~A (B & ~A) | ~(B | A) --> ~A; returns `NotA`. Guard: `match(X, m_c_And(m_CombineAnd(m_Value(NotA), m_Not(m_Value(A))), m_Value(B))) && match(Y, m_Not(m_c_Or(m_Specific(A), m_Specific(B))))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2327
+    ]
+  },
+  {
+    "id": "IS2334",
+    "start_line": 2333,
+    "end_line": 2334,
+    "function": "simplifyOrLogic",
+    "description": "The same is true of Logical And TODO: This could share the logic of the version above if there was a version of LogicalAnd that allowed more than just i1 types.; returns `NotA`. Guard: `match(X, m_c_LogicalAnd(m_CombineAnd(m_Value(NotA), m_Not(m_Value(A))), m_Value(B))) && match(Y, m_Not(m_c_LogicalOr(m_Specific(A), m_Specific(B))))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2334
+    ]
+  },
+  {
+    "id": "IS2342",
+    "start_line": 2341,
+    "end_line": 2342,
+    "function": "simplifyOrLogic",
+    "description": "~(A ^ B) | (A & B) --> ~(A ^ B) ~(A ^ B) | (B & A) --> ~(A ^ B); returns `NotAB`. Guard: `match(X, m_CombineAnd(m_Not(m_Xor(m_Value(A), m_Value(B))), m_Value(NotAB))) && match(Y, m_c_And(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2342
+    ]
+  },
+  {
+    "id": "IS2349",
+    "start_line": 2348,
+    "end_line": 2349,
+    "function": "simplifyOrLogic",
+    "description": "~(A & B) | (A ^ B) --> ~(A & B) ~(A & B) | (B ^ A) --> ~(A & B); returns `NotAB`. Guard: `match(X, m_CombineAnd(m_Not(m_And(m_Value(A), m_Value(B))), m_Value(NotAB))) && match(Y, m_c_Xor(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "or",
+      "and",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2349
+    ]
+  },
+  {
+    "id": "IS2359",
+    "start_line": 2358,
+    "end_line": 2359,
+    "function": "simplifyOrInst",
+    "description": "Given operands for an Or, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Instruction::Or, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2359
+    ]
+  },
+  {
+    "id": "IS2363",
+    "start_line": 2362,
+    "end_line": 2363,
+    "function": "simplifyOrInst",
+    "description": "X | poison -> poison; returns `Op1`. Guard: `isa<PoisonValue>(Op1)`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2363
+    ]
+  },
+  {
+    "id": "IS2369",
+    "start_line": 2368,
+    "end_line": 2369,
+    "function": "simplifyOrInst",
+    "description": "`or X,all_ones -> all_ones`, with either operand order. LLVM constructs a complete all-ones result instead of reusing possible undef vector lanes. The scalar undef alternative is IS2369u.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2369
+    ]
+  },
+  {
+    "id": "IS2369u",
+    "start_line": 2368,
+    "end_line": 2369,
+    "function": "simplifyOrInst",
+    "description": "`or X,undef -> all_ones`, with either operand order.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2369
+    ]
+  },
+  {
+    "id": "IS2374",
+    "start_line": 2373,
+    "end_line": 2374,
+    "function": "simplifyOrInst",
+    "description": "X | X = X X | 0 = X; returns `Op0`. Guard: `Op0 == Op1 || match(Op1, m_Zero())`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2374
+    ]
+  },
+  {
+    "id": "IS2377",
+    "start_line": 2376,
+    "end_line": 2377,
+    "function": "simplifyOrInst",
+    "description": "X | X = X X | 0 = X; returns `R`. Guard: `Value *R = simplifyOrLogic(Op0, Op1)`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2377
+    ]
+  },
+  {
+    "id": "IS2379",
+    "start_line": 2378,
+    "end_line": 2379,
+    "function": "simplifyOrInst",
+    "description": "X | X = X X | 0 = X; returns `R`. Guard: `Value *R = simplifyOrLogic(Op1, Op0)`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2379
+    ]
+  },
+  {
+    "id": "IS2382",
+    "start_line": 2381,
+    "end_line": 2382,
+    "function": "simplifyOrInst",
+    "description": "X | X = X X | 0 = X; returns `V`. Guard: `Value *V = simplifyLogicOfAddSub(Op0, Op1, Instruction::Or)`. Delegates to `simplifyLogicOfAddSub`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2382
+    ]
+  },
+  {
+    "id": "IS2397",
+    "start_line": 2395,
+    "end_line": 2397,
+    "function": "simplifyOrInst",
+    "description": "Rotated -1 is still -1: (-1 << X) | (-1 >> (C - X)) --> -1 (-1 >> X) | (-1 << (C - X)) --> -1 ...with C <= bitwidth (and commuted variants).; returns `ConstantInt::getAllOnesValue(X->getType())`. Guard: `(match(Op0, m_Shl(m_AllOnes(), m_Value(X))) && match(Op1, m_LShr(m_AllOnes(), m_Value(Y)))) || (match(Op1, m_Shl(m_AllOnes(), m_Value(X))) && match(Op0, m_LShr(m_AllOnes(), m_Value(Y))))` and `(match(X, m_Sub(m_APInt(C), m_Specific(Y))) || match(Y, m_Sub(m_APInt(C), m_Specific(X)))) && C->ule(X->getType()->getScalarSizeInBits())`.",
+    "opcodes": [
+      "or",
+      "sub",
+      "shl",
+      "lshr"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2397
+    ]
+  },
+  {
+    "id": "IS2406",
+    "start_line": 2405,
+    "end_line": 2406,
+    "function": "simplifyOrInst",
+    "description": "zext(X) | sext(X) --> sext(X) sext(X) | zext(X) --> sext(X); returns `Op1`. Guard: `match(Op0, m_ZExt(m_Value(X))) && match(Op1, m_SExt(m_Specific(X)))`.",
+    "opcodes": [
+      "or",
+      "zext",
+      "sext"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2406
+    ]
+  },
+  {
+    "id": "IS2408",
+    "start_line": 2407,
+    "end_line": 2408,
+    "function": "simplifyOrInst",
+    "description": "zext(X) | sext(X) --> sext(X) sext(X) | zext(X) --> sext(X); returns `Op0`. Guard: `match(Op1, m_ZExt(m_Value(X))) && match(Op0, m_SExt(m_Specific(X)))`.",
+    "opcodes": [
+      "or",
+      "zext",
+      "sext"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2408
+    ]
+  },
+  {
+    "id": "IS2419",
+    "start_line": 2418,
+    "end_line": 2419,
+    "function": "simplifyOrInst",
+    "description": "(fshl X, ?, Y) | (shl X, Y) --> fshl X, ?, Y (shl X, Y) | (fshl X, ?, Y) --> fshl X, ?, Y; returns `Op0`. Guard: `match(Op0, m_Intrinsic<Intrinsic::fshl>(m_Value(X), m_Value(), m_Value(Y))) && match(Op1, m_Shl(m_Specific(X), m_Specific(Y)))`.",
+    "opcodes": [
+      "or",
+      "shl"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2419
+    ]
+  },
+  {
+    "id": "IS2423",
+    "start_line": 2422,
+    "end_line": 2423,
+    "function": "simplifyOrInst",
+    "description": "(fshl X, ?, Y) | (shl X, Y) --> fshl X, ?, Y (shl X, Y) | (fshl X, ?, Y) --> fshl X, ?, Y; returns `Op1`. Guard: `match(Op1, m_Intrinsic<Intrinsic::fshl>(m_Value(X), m_Value(), m_Value(Y))) && match(Op0, m_Shl(m_Specific(X), m_Specific(Y)))`.",
+    "opcodes": [
+      "or",
+      "shl"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2423
+    ]
+  },
+  {
+    "id": "IS2430",
+    "start_line": 2429,
+    "end_line": 2430,
+    "function": "simplifyOrInst",
+    "description": "(fshr ?, X, Y) | (lshr X, Y) --> fshr ?, X, Y (lshr X, Y) | (fshr ?, X, Y) --> fshr ?, X, Y; returns `Op0`. Guard: `match(Op0, m_Intrinsic<Intrinsic::fshr>(m_Value(), m_Value(X), m_Value(Y))) && match(Op1, m_LShr(m_Specific(X), m_Specific(Y)))`.",
+    "opcodes": [
+      "or",
+      "lshr"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2430
+    ]
+  },
+  {
+    "id": "IS2434",
+    "start_line": 2433,
+    "end_line": 2434,
+    "function": "simplifyOrInst",
+    "description": "(fshr ?, X, Y) | (lshr X, Y) --> fshr ?, X, Y (lshr X, Y) | (fshr ?, X, Y) --> fshr ?, X, Y; returns `Op1`. Guard: `match(Op1, m_Intrinsic<Intrinsic::fshr>(m_Value(), m_Value(X), m_Value(Y))) && match(Op0, m_LShr(m_Specific(X), m_Specific(Y)))`.",
+    "opcodes": [
+      "or",
+      "lshr"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2434
+    ]
+  },
+  {
+    "id": "IS2438",
+    "start_line": 2437,
+    "end_line": 2438,
+    "function": "simplifyOrInst",
+    "description": "(fshr ?, X, Y) | (lshr X, Y) --> fshr ?, X, Y (lshr X, Y) | (fshr ?, X, Y) --> fshr ?, X, Y; returns `V`. Guard: `Value *V = simplifyAndOrWithICmpEq(Instruction::Or, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAndOrWithICmpEq`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2438
+    ]
+  },
+  {
+    "id": "IS2441",
+    "start_line": 2440,
+    "end_line": 2441,
+    "function": "simplifyOrInst",
+    "description": "returns `V`. Guard: `Value *V = simplifyAndOrWithICmpEq(Instruction::Or, Op1, Op0, Q, MaxRecurse)`. Delegates to `simplifyAndOrWithICmpEq`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2441
+    ]
+  },
+  {
+    "id": "IS2444",
+    "start_line": 2443,
+    "end_line": 2444,
+    "function": "simplifyOrInst",
+    "description": "returns `V`. Guard: `Value *V = simplifyAndOrOfCmps(Q, Op0, Op1, false)`. Delegates to `simplifyAndOrOfCmps`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2444
+    ]
+  },
+  {
+    "id": "IS2450",
+    "start_line": 2449,
+    "end_line": 2450,
+    "function": "simplifyOrInst",
+    "description": "If we have a multiplication overflow check that is being 'and'ed with a check that one of the multipliers is not zero, we can omit the 'and', and only keep the overflow check.; returns `Op1`. Guard: `isCheckForZeroAndMulWithOverflow(Op0, Op1, false)`. Delegates to `simplifyAndOrOfCmps`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "analysis required: overflow-intrinsic and zero-check pattern analysis",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2450
+    ]
+  },
+  {
+    "id": "IS2452",
+    "start_line": 2451,
+    "end_line": 2452,
+    "function": "simplifyOrInst",
+    "description": "If we have a multiplication overflow check that is being 'and'ed with a check that one of the multipliers is not zero, we can omit the 'and', and only keep the overflow check.; returns `Op0`. Guard: `isCheckForZeroAndMulWithOverflow(Op1, Op0, false)`. Delegates to `simplifyAndOrOfCmps`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "analysis required: overflow-intrinsic and zero-check pattern analysis",
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2452
+    ]
+  },
+  {
+    "id": "IS2457",
+    "start_line": 2456,
+    "end_line": 2457,
+    "function": "simplifyOrInst",
+    "description": "Try some generic simplifications for associative operations.; returns `V`. Guard: `Value *V = simplifyAssociativeBinOp(Instruction::Or, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAssociativeBinOp`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2457
+    ]
+  },
+  {
+    "id": "IS2462",
+    "start_line": 2461,
+    "end_line": 2462,
+    "function": "simplifyOrInst",
+    "description": "Or distributes over And.  Try some generic simplifications based on this.; returns `V`. Guard: `Value *V = expandCommutativeBinOp(Instruction::Or, Op0, Op1, Instruction::And, Q, MaxRecurse)`. Delegates to `expandCommutativeBinOp`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2462
+    ]
+  },
+  {
+    "id": "IS2468",
+    "start_line": 2465,
+    "end_line": 2468,
+    "function": "simplifyOrInst",
+    "description": "A | (A || B) -> A || B; returns `Op1`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Op0->getType()->isIntOrIntVectorTy(1)` and `match(Op1, m_Select(m_Specific(Op0), m_One(), m_Value()))`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2468
+    ]
+  },
+  {
+    "id": "IS2470",
+    "start_line": 2466,
+    "end_line": 2470,
+    "function": "simplifyOrInst",
+    "description": "A | (A || B) -> A || B; returns `Op0`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Op0->getType()->isIntOrIntVectorTy(1)` and `match(Op1, m_Select(m_Specific(Op0), m_One(), m_Value()))` and `else if match(Op0, m_Select(m_Specific(Op1), m_One(), m_Value()))`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2470
+    ]
+  },
+  {
+    "id": "IS2477",
+    "start_line": 2475,
+    "end_line": 2477,
+    "function": "simplifyOrInst",
+    "description": "If the operation is with the result of a select instruction, check whether operating on either branch of the select always yields the same value.; returns `V`. Guard: `isa<SelectInst>(Op0) || isa<SelectInst>(Op1)` and `Value *V = threadBinOpOverSelect(Instruction::Or, Op0, Op1, Q, MaxRecurse)`. Delegates to `threadBinOpOverSelect`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2477
+    ]
+  },
+  {
+    "id": "IS2495",
+    "start_line": 2491,
+    "end_line": 2495,
+    "function": "simplifyOrInst",
+    "description": "`((V+N) & ~M) | (V & M) -> V+N` when M is a contiguous low-bit mask and `MaskedValueIsZero(N,M,Q)` proves `N & M == 0`; either order of the add operands is accepted.",
+    "opcodes": [
+      "or",
+      "and"
+    ],
+    "extra": [
+      "analysis required: known-zero mask proof"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2495
+    ]
+  },
+  {
+    "id": "IS2501",
+    "start_line": 2497,
+    "end_line": 2501,
+    "function": "simplifyOrInst",
+    "description": "`(V & M) | ((V+N) & ~M) -> V+N` when M is a contiguous low-bit mask and `MaskedValueIsZero(N,M,Q)` proves `N & M == 0`; either order of the add operands is accepted.",
+    "opcodes": [
+      "or",
+      "and"
+    ],
+    "extra": [
+      "analysis required: known-zero mask proof"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2501
+    ]
+  },
+  {
+    "id": "IS2510",
+    "start_line": 2508,
+    "end_line": 2510,
+    "function": "simplifyOrInst",
+    "description": "If the operation is with the result of a phi instruction, check whether operating on all incoming values of the phi always yields the same value.; returns `V`. Guard: `isa<PHINode>(Op0) || isa<PHINode>(Op1)` and `Value *V = threadBinOpOverPHI(Instruction::Or, Op0, Op1, Q, MaxRecurse)`. Delegates to `threadBinOpOverPHI`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2510
+    ]
+  },
+  {
+    "id": "IS2515",
+    "start_line": 2514,
+    "end_line": 2515,
+    "function": "simplifyOrInst",
+    "description": "(A ^ C) | (A ^ ~C) -> -1, i.e. all bits set to one.; returns `Constant::getAllOnesValue(Op0->getType())`. Guard: `match(Op0, m_Xor(m_Value(A), m_APInt(C1))) && match(Op1, m_Xor(m_Specific(A), m_SpecificInt(~*C1)))`.",
+    "opcodes": [
+      "or",
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2515
+    ]
+  },
+  {
+    "id": "IS2522",
+    "start_line": 2519,
+    "end_line": 2522,
+    "function": "simplifyOrInst",
+    "description": "If Op0 is false implies Op1 is false, then Op1 is a subset of Op0.; returns `Op0`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op0, Op1, Q.DL, false)` and `*Implied == false`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2522
+    ]
+  },
+  {
+    "id": "IS2525",
+    "start_line": 2522,
+    "end_line": 2525,
+    "function": "simplifyOrInst",
+    "description": "If Op0 is false implies Op1 is true, then at least one is always true.; returns `ConstantInt::getTrue(Op0->getType())`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op0, Op1, Q.DL, false)` and `*Implied == true`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2525
+    ]
+  },
+  {
+    "id": "IS2531",
+    "start_line": 2528,
+    "end_line": 2531,
+    "function": "simplifyOrInst",
+    "description": "If Op1 is false implies Op0 is false, then Op0 is a subset of Op1.; returns `Op1`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op1, Op0, Q.DL, false)` and `*Implied == false`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2531
+    ]
+  },
+  {
+    "id": "IS2534",
+    "start_line": 2531,
+    "end_line": 2534,
+    "function": "simplifyOrInst",
+    "description": "If Op1 is false implies Op0 is true, then at least one is always true.; returns `ConstantInt::getTrue(Op1->getType())`. Guard: `Op0->getType()->isIntOrIntVectorTy(1)` and `std::optional<bool> Implied = isImpliedCondition(Op1, Op0, Q.DL, false)` and `*Implied == true`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "analysis required: boolean implication/disjointness or dominating-condition analysis",
+      "type required: integer scalar/vector with the stated bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2534
+    ]
+  },
+  {
+    "id": "IS2539",
+    "start_line": 2538,
+    "end_line": 2539,
+    "function": "simplifyOrInst",
+    "description": "If Op1 is false implies Op0 is true, then at least one is always true.; returns `V`. Guard: `Value *V = simplifyByDomEq(Instruction::Or, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyByDomEq`.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2539
+    ]
+  },
+  {
+    "id": "IS2553",
+    "start_line": 2552,
+    "end_line": 2553,
+    "function": "simplifyXorInst",
+    "description": "Given operands for a Xor, see if we can fold the result. If not, this returns null.; returns `C`. Guard: `Constant *C = foldOrCommuteConstant(Instruction::Xor, Op0, Op1, Q)`. Delegates to `foldOrCommuteConstant`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2553
+    ]
+  },
+  {
+    "id": "IS2557",
+    "start_line": 2556,
+    "end_line": 2557,
+    "function": "simplifyXorInst",
+    "description": "X ^ poison -> poison; returns `Op1`. Guard: `isa<PoisonValue>(Op1)`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "LLVM poison propagation semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2557
+    ]
+  },
+  {
+    "id": "IS2561",
+    "start_line": 2560,
+    "end_line": 2561,
+    "function": "simplifyXorInst",
+    "description": "A ^ undef -> undef; returns `Op1`. Guard: `Q.isUndefValue(Op1)`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "LLVM undef nondeterministic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2561
+    ]
+  },
+  {
+    "id": "IS2565",
+    "start_line": 2564,
+    "end_line": 2565,
+    "function": "simplifyXorInst",
+    "description": "A ^ 0 = A; returns `Op0`. Guard: `match(Op1, m_Zero())`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2565
+    ]
+  },
+  {
+    "id": "IS2569",
+    "start_line": 2568,
+    "end_line": 2569,
+    "function": "simplifyXorInst",
+    "description": "A ^ A = 0; returns `Constant::getNullValue(Op0->getType())`. Guard: `Op0 == Op1`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2569
+    ]
+  },
+  {
+    "id": "IS2573",
+    "start_line": 2572,
+    "end_line": 2573,
+    "function": "simplifyXorInst",
+    "description": "A ^ ~A  =  ~A ^ A  =  -1; returns `Constant::getAllOnesValue(Op0->getType())`. Guard: `match(Op0, m_Not(m_Specific(Op1))) || match(Op1, m_Not(m_Specific(Op0)))`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2573
+    ]
+  },
+  {
+    "id": "IS2580",
+    "start_line": 2579,
+    "end_line": 2580,
+    "function": "simplifyXorInst",
+    "description": "(~A & B) ^ (A | B) --> A -- There are 8 commuted variants.; returns `A`. Guard: `match(X, m_c_And(m_Not(m_Value(A)), m_Value(B))) && match(Y, m_c_Or(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2580
+    ]
+  },
+  {
+    "id": "IS2589",
+    "start_line": 2588,
+    "end_line": 2589,
+    "function": "simplifyXorInst",
+    "description": "(~A | B) ^ (A & B) --> ~A -- There are 8 commuted variants. The 'not' op must contain a complete -1 operand (no undef elements for vector) for the transform to be safe.; returns `NotA`. Guard: `match(X, m_c_Or(m_CombineAnd(m_Not(m_Value(A)), m_Value(NotA)), m_Value(B))) && match(Y, m_c_And(m_Specific(A), m_Specific(B)))`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2589
+    ]
+  },
+  {
+    "id": "IS2594",
+    "start_line": 2593,
+    "end_line": 2594,
+    "function": "simplifyXorInst",
+    "description": "(~A | B) ^ (A & B) --> ~A -- There are 8 commuted variants. The 'not' op must contain a complete -1 operand (no undef elements for vector) for the transform to be safe.; returns `R`. Guard: `Value *R = foldAndOrNot(Op0, Op1)`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2594
+    ]
+  },
+  {
+    "id": "IS2596",
+    "start_line": 2595,
+    "end_line": 2596,
+    "function": "simplifyXorInst",
+    "description": "(~A | B) ^ (A & B) --> ~A -- There are 8 commuted variants. The 'not' op must contain a complete -1 operand (no undef elements for vector) for the transform to be safe.; returns `R`. Guard: `Value *R = foldAndOrNot(Op1, Op0)`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      2596
+    ]
+  },
+  {
+    "id": "IS2599",
+    "start_line": 2598,
+    "end_line": 2599,
+    "function": "simplifyXorInst",
+    "description": "returns `V`. Guard: `Value *V = simplifyLogicOfAddSub(Op0, Op1, Instruction::Xor)`. Delegates to `simplifyLogicOfAddSub`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2599
+    ]
+  },
+  {
+    "id": "IS2604",
+    "start_line": 2603,
+    "end_line": 2604,
+    "function": "simplifyXorInst",
+    "description": "Try some generic simplifications for associative operations.; returns `V`. Guard: `Value *V = simplifyAssociativeBinOp(Instruction::Xor, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyAssociativeBinOp`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2604
+    ]
+  },
+  {
+    "id": "IS2616",
+    "start_line": 2615,
+    "end_line": 2616,
+    "function": "simplifyXorInst",
+    "description": "Threading Xor over selects and phi nodes is pointless, so don't bother. Threading over the select in \"A ^ select(cond, B, C)\" means evaluating \"A^B\" and \"A^C\" and seeing if they are equal; but they are equal if and only if B and C are equal.  If B and C are equal then (since we assume that operands have already been simplified) \"select(cond, B, C)\" should have been simplified to the common value of B and C already.  Analysing \"A^B\" and \"A^C\" thus gains nothing, but costs compile time.  Similarly for threading over phi nodes.; returns `V`. Guard: `Value *V = simplifyByDomEq(Instruction::Xor, Op0, Op1, Q, MaxRecurse)`. Delegates to `simplifyByDomEq`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "recursive/shared helper dispatch; preserve callee and remaining recursion budget"
+    ],
+    "kind": "delegation",
+    "returns": [
+      2616
+    ]
+  },
+  {
+    "id": "IS2623",
+    "start_line": 2622,
+    "end_line": 2623,
+    "function": "simplifyXorInst",
+    "description": "(xor (sub nuw C_Mask, X), C_Mask) -> X; returns `X`. Guard: `match(Op0, m_NUWSub(m_Specific(Op1), m_Value(X))) && match(Op1, m_LowBitMask())`.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "instruction property required: no-unsigned-wrap operator flag"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2623
+    ]
+  }
+]

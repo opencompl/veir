@@ -1,0 +1,4204 @@
+[
+  {
+    "id": "IS2650",
+    "start_line": 2648,
+    "end_line": 2650,
+    "function": "extractEquivalentCondition",
+    "description": "Return the existing CmpInst when predicate, LHS and RHS exactly equal requested predicate and operand order.",
+    "opcodes": [
+      "icmp",
+      "select"
+    ],
+    "extra": [
+      "condition of V is a CmpInst; exact predicate and operand pointer identity"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2650
+    ]
+  },
+  {
+    "id": "IS2653",
+    "start_line": 2651,
+    "end_line": 2653,
+    "function": "extractEquivalentCondition",
+    "description": "Return the existing CmpInst when its predicate is the requested predicate\u2019s swapped form and its operands are exactly reversed.",
+    "opcodes": [
+      "icmp",
+      "select"
+    ],
+    "extra": [
+      "condition of V is a CmpInst; swapped predicate and reversed operand pointer identity"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2653
+    ]
+  },
+  {
+    "id": "IS2803",
+    "start_line": 2777,
+    "end_line": 2803,
+    "function": "computePointerICmp",
+    "description": "For an unsigned/equality pointer comparison only, strip accumulated constant offsets (allowing non-inbounds GEPs only for equality); when both pointers reduce to the identical base, compare the offsets with the signed-converted predicate and return that boolean constant.",
+    "opcodes": [
+      "icmp",
+      "getelementptr"
+    ],
+    "extra": [
+      "DataLayout pointer index size; accumulated constant GEP offsets"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2803
+    ]
+  },
+  {
+    "id": "IS2827",
+    "start_line": 2810,
+    "end_line": 2827,
+    "function": "computePointerICmp",
+    "description": "For an equality comparison between bases proven to have non-overlapping storage, if both bases have known non-null object sizes and the difference between offsets is strictly within either object (not merely one-past), fold to the predicate's unequal-pointer result.",
+    "opcodes": [
+      "icmp",
+      "getelementptr",
+      "alloca"
+    ],
+    "extra": [
+      "non-overlapping storage proof; object-size/dereferenceable bytes and nullability; offset distance"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2827
+    ]
+  },
+  {
+    "id": "IS2855",
+    "start_line": 2833,
+    "end_line": 2855,
+    "function": "computePointerICmp",
+    "description": "For pointer equality, if every underlying object on one side is a noalias allocation call and every underlying object on the other is statically/dispositionally allocation-disjoint (in either operand order), fold to unequal.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "alloca"
+    ],
+    "extra": [
+      "getUnderlyingObjects; noalias call and allocation-disjoint classification"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2855
+    ]
+  },
+  {
+    "id": "IS2895",
+    "start_line": 2858,
+    "end_line": 2895,
+    "function": "computePointerICmp",
+    "description": "For pointer equality, if an operand is an alloc-like call and the other operand is known nonzero, and the allocation pointer is not captured (except comparisons to a pointer loaded from a global), fold to the predicate's false-when-equal result. Upstream marks this rule FIXME/PR54002 because the fold may not be valid for all comparisons to that address.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "load"
+    ],
+    "extra": [
+      "TargetLibraryInfo alloc-like classification; known-nonzero; pointer capture tracking"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2895
+    ]
+  },
+  {
+    "id": "IS2928",
+    "start_line": 2921,
+    "end_line": 2928,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 0, fold `icmp ne X, 0`, `icmp ugt X, 0`, or `icmp slt X, 0` to X.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS and RHS are i1 scalar/vector; RHS is zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2928
+    ]
+  },
+  {
+    "id": "IS2934",
+    "start_line": 2929,
+    "end_line": 2934,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 0, fold `icmp eq|ule|sge (not X), 0` to X when LHS matches bitwise-not of X.",
+    "opcodes": [
+      "icmp",
+      "xor"
+    ],
+    "extra": [
+      "LHS is a recognized bitwise not; RHS is zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2934
+    ]
+  },
+  {
+    "id": "IS2939",
+    "start_line": 2935,
+    "end_line": 2939,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 0, `icmp ult X,0` and `icmp sgt X,0` are false.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS and RHS are i1 scalar/vector; RHS is zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2939
+    ]
+  },
+  {
+    "id": "IS2943",
+    "start_line": 2940,
+    "end_line": 2943,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 0, `icmp uge X,0` and `icmp sle X,0` are true.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS and RHS are i1 scalar/vector; RHS is zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2943
+    ]
+  },
+  {
+    "id": "IS2953",
+    "start_line": 2948,
+    "end_line": 2953,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 1, fold `icmp eq|uge|sle X,1` to X.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS and RHS are i1 scalar/vector; RHS is one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2953
+    ]
+  },
+  {
+    "id": "IS2959",
+    "start_line": 2954,
+    "end_line": 2959,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 1, fold `icmp ne|ult|sgt (not X),1` to X when LHS matches bitwise-not of X.",
+    "opcodes": [
+      "icmp",
+      "xor"
+    ],
+    "extra": [
+      "LHS is a recognized bitwise not; RHS is one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2959
+    ]
+  },
+  {
+    "id": "IS2964",
+    "start_line": 2960,
+    "end_line": 2964,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 1, `icmp ugt X,1` and `icmp slt X,1` are false.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS and RHS are i1 scalar/vector; RHS is one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2964
+    ]
+  },
+  {
+    "id": "IS2968",
+    "start_line": 2965,
+    "end_line": 2968,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands with RHS 1, `icmp ule X,1` and `icmp sge X,1` are true.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS and RHS are i1 scalar/vector; RHS is one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2968
+    ]
+  },
+  {
+    "id": "IS2980",
+    "start_line": 2974,
+    "end_line": 2980,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands and predicate UGE, return true when RHS logically implies LHS.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "isImpliedCondition(RHS,LHS) proves implication; i1 operand type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2980
+    ]
+  },
+  {
+    "id": "IS2991",
+    "start_line": 2982,
+    "end_line": 2991,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands and predicate SGE, return true when LHS logically implies RHS.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "isImpliedCondition(LHS,RHS) proves implication; i1 signed values are 0 and \u22121"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2991
+    ]
+  },
+  {
+    "id": "IS2995",
+    "start_line": 2992,
+    "end_line": 2995,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands and predicate ULE, return true when LHS logically implies RHS.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "isImpliedCondition(LHS,RHS) proves implication; i1 operand type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      2995
+    ]
+  },
+  {
+    "id": "IS3000",
+    "start_line": 2996,
+    "end_line": 3000,
+    "function": "simplifyICmpOfBools",
+    "description": "For i1 operands and predicate SLE, return true when RHS logically implies LHS.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "isImpliedCondition(RHS,LHS) proves implication; i1 signed values are 0 and \u22121"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3000
+    ]
+  },
+  {
+    "id": "IS3074",
+    "start_line": 3060,
+    "end_line": 3074,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp ult X,0` is false.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3074
+    ]
+  },
+  {
+    "id": "IS3076",
+    "start_line": 3075,
+    "end_line": 3076,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp uge X,0` is true.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3076
+    ]
+  },
+  {
+    "id": "IS3080",
+    "start_line": 3077,
+    "end_line": 3080,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp eq|ule X,0` is false when X is known nonzero.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "known-nonzero analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3080
+    ]
+  },
+  {
+    "id": "IS3085",
+    "start_line": 3081,
+    "end_line": 3085,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp ne|ugt X,0` is true when X is known nonzero.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "known-nonzero analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3085
+    ]
+  },
+  {
+    "id": "IS3090",
+    "start_line": 3086,
+    "end_line": 3090,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp slt X,0` is true when KnownBits proves X negative.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits proves sign bit set"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3090
+    ]
+  },
+  {
+    "id": "IS3092",
+    "start_line": 3091,
+    "end_line": 3092,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp slt X,0` is false when KnownBits proves X nonnegative.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits proves sign bit clear"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3092
+    ]
+  },
+  {
+    "id": "IS3098",
+    "start_line": 3093,
+    "end_line": 3098,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp sle X,0` is true when KnownBits proves X negative.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits proves sign bit set"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3098
+    ]
+  },
+  {
+    "id": "IS3100",
+    "start_line": 3099,
+    "end_line": 3100,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp sle X,0` is false when KnownBits proves X nonnegative and X is known nonzero.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits nonnegative; known-nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3100
+    ]
+  },
+  {
+    "id": "IS3106",
+    "start_line": 3101,
+    "end_line": 3106,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp sge X,0` is false when KnownBits proves X negative.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits proves sign bit set"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3106
+    ]
+  },
+  {
+    "id": "IS3108",
+    "start_line": 3107,
+    "end_line": 3108,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp sge X,0` is true when KnownBits proves X nonnegative.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits proves sign bit clear"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3108
+    ]
+  },
+  {
+    "id": "IS3114",
+    "start_line": 3109,
+    "end_line": 3114,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp sgt X,0` is false when KnownBits proves X negative.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits proves sign bit set"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3114
+    ]
+  },
+  {
+    "id": "IS3116",
+    "start_line": 3115,
+    "end_line": 3116,
+    "function": "simplifyICmpWithZero",
+    "description": "`icmp sgt X,0` is true when KnownBits proves X nonnegative and X is known nonzero.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is zero or normalizes equivalently from signed comparison with \u22121 or comparison with 1 via matchEquivZeroRHS",
+      "KnownBits nonnegative; known-nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3116
+    ]
+  },
+  {
+    "id": "IS3140",
+    "start_line": 3133,
+    "end_line": 3140,
+    "function": "simplifyICmpWithConstant",
+    "description": "For `icmp` sign-bit checks on `bitcast(uitofp X)`, return the boolean indicated by `isSignBitCheck(Pred,C,TrueIfSigned)` (the source folds unsigned-to-FP results that cannot be negative).",
+    "opcodes": [
+      "icmp",
+      "uitofp",
+      "bitcast"
+    ],
+    "extra": [
+      "RHS integer constant; LHS elementwise bitcast of uitofp; predicate/constant recognized as sign-bit check"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3140
+    ]
+  },
+  {
+    "id": "IS3146",
+    "start_line": 3143,
+    "end_line": 3146,
+    "function": "simplifyICmpWithConstant",
+    "description": "If the exact ICmp region for constant C is empty, every value fails the comparison, so fold false.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is APInt constant; ConstantRange::makeExactICmpRegion is empty"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3146
+    ]
+  },
+  {
+    "id": "IS3148",
+    "start_line": 3143,
+    "end_line": 3148,
+    "function": "simplifyICmpWithConstant",
+    "description": "If the exact ICmp region for constant C is the full set, every value passes, so fold true.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is APInt constant; ConstantRange::makeExactICmpRegion is full"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3148
+    ]
+  },
+  {
+    "id": "IS3153",
+    "start_line": 3150,
+    "end_line": 3153,
+    "function": "simplifyICmpWithConstant",
+    "description": "If LHS has a non-full computed range wholly contained in the exact true region of comparison with C, fold true.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS APInt constant; computeConstantRange(LHS,signedness) is not full; RHS region contains LHS range"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3153
+    ]
+  },
+  {
+    "id": "IS3155",
+    "start_line": 3154,
+    "end_line": 3155,
+    "function": "simplifyICmpWithConstant",
+    "description": "If LHS has a non-full computed range wholly contained in the inverse region of comparison with C, fold false.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS APInt constant; computeConstantRange(LHS,signedness) is not full; inverse RHS region contains LHS range"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3155
+    ]
+  },
+  {
+    "id": "IS3166",
+    "start_line": 3158,
+    "end_line": 3166,
+    "function": "simplifyICmpWithConstant",
+    "description": "For EQ/NE of a nuw or nsw multiplication by nonzero constant MulC against C, fold when C is not divisible by MulC: NE\u2192true and EQ\u2192false.",
+    "opcodes": [
+      "icmp",
+      "mul"
+    ],
+    "extra": [
+      "UseInstrInfo enabled; multiplication carries NUW with unsigned remainder nonzero or NSW with signed remainder nonzero; EQ/NE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3166
+    ]
+  },
+  {
+    "id": "IS3169",
+    "start_line": 3168,
+    "end_line": 3169,
+    "function": "simplifyICmpWithConstant",
+    "description": "`icmp uge X,1` is true when X is known nonzero.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "Predicate UGE; C exactly one; LHS known nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3169
+    ]
+  },
+  {
+    "id": "IS3242",
+    "start_line": 3232,
+    "end_line": 3242,
+    "function": "simplifyICmpUsingMonotonicValues",
+    "description": "For UGE or ULT, collect depth-at-most-one unsigned lower/upper bounds through OR, saturating add/sub, AND, URem, UDiv, LShr, and nuw multiplication (the latter only when the other factor is known nonzero); if an identical value occurs in both bound sets, fold UGE true or ULT false.",
+    "opcodes": [
+      "icmp",
+      "or",
+      "and",
+      "urem",
+      "udiv",
+      "lshr",
+      "mul",
+      "call"
+    ],
+    "extra": [
+      "depth-limited monotonic-value analysis, saturation intrinsics, nuw flags and known-nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3242
+    ]
+  },
+  {
+    "id": "IS3259",
+    "start_line": 3253,
+    "end_line": 3259,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "For `icmp slt (or X,Y), X`, return true if KnownBits proves X nonnegative and Y negative; for `icmp sge` under the same facts, return false.",
+    "opcodes": [
+      "icmp",
+      "or"
+    ],
+    "extra": [
+      "RHS is identical to one OR operand; KnownBits sign facts"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3259
+    ]
+  },
+  {
+    "id": "IS3261",
+    "start_line": 3253,
+    "end_line": 3261,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "For `icmp slt (or X,Y), X`, return false if X is negative or Y is nonnegative; for `icmp sge` under those facts, return true.",
+    "opcodes": [
+      "icmp",
+      "or"
+    ],
+    "extra": [
+      "RHS is identical to one OR operand; KnownBits sign facts"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3261
+    ]
+  },
+  {
+    "id": "IS3280",
+    "start_line": 3265,
+    "end_line": 3280,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "For `(urem X,Y) == Y`, `(urem X,Y) >u Y`, or `(urem X,Y) >=u Y`, fold false. Also fold signed `>s`/`>=s` false when Y is proven nonnegative.",
+    "opcodes": [
+      "icmp",
+      "urem"
+    ],
+    "extra": [
+      "RHS equals URem divisor; signed predicates additionally require KnownBits nonnegative for Y"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3280
+    ]
+  },
+  {
+    "id": "IS3291",
+    "start_line": 3281,
+    "end_line": 3291,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "For `(urem X,Y) != Y`, `(urem X,Y) <u Y`, or `(urem X,Y) <=u Y`, fold true. Also fold signed `<s`/`<=s` true when Y is proven nonnegative.",
+    "opcodes": [
+      "icmp",
+      "urem"
+    ],
+    "extra": [
+      "RHS equals URem divisor; signed predicates additionally require KnownBits nonnegative for Y"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3291
+    ]
+  },
+  {
+    "id": "IS3315",
+    "start_line": 3295,
+    "end_line": 3315,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "For nonzero X, fold `(X lshr C) == X`, `(X lshr C) >=u X`, `(X lshr C) >u X`, and corresponding `udiv X,C` comparisons false.",
+    "opcodes": [
+      "icmp",
+      "lshr",
+      "udiv"
+    ],
+    "extra": [
+      "Shift amount C\u22600 for lshr or divisor C\u22601 for udiv; RHS X known nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3315
+    ]
+  },
+  {
+    "id": "IS3319",
+    "start_line": 3295,
+    "end_line": 3319,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "For nonzero X, fold `(X lshr C) != X`, `(X lshr C) <u X`, `(X lshr C) <=u X`, and corresponding `udiv X,C` comparisons true.",
+    "opcodes": [
+      "icmp",
+      "lshr",
+      "udiv"
+    ],
+    "extra": [
+      "Shift amount C\u22600 for lshr or divisor C\u22601 for udiv; RHS X known nonzero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3319
+    ]
+  },
+  {
+    "id": "IS3341",
+    "start_line": 3324,
+    "end_line": 3341,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "Fold `icmp ugt E, X` false when E is one of `(X*C1) udiv C2` with C1\u2264uC2, `(X*C1) lshr C2` with C1\u2264u2^C2, or `(X shl C1) udiv C2` with 2^C1\u2264uC2.",
+    "opcodes": [
+      "icmp",
+      "udiv",
+      "mul",
+      "lshr",
+      "shl"
+    ],
+    "extra": [
+      "All constants; APInt unsigned inequalities exactly as stated"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3341
+    ]
+  },
+  {
+    "id": "IS3343",
+    "start_line": 3324,
+    "end_line": 3343,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "Fold `icmp ule E, X` true when E is one of `(X*C1) udiv C2` with C1\u2264uC2, `(X*C1) lshr C2` with C1\u2264u2^C2, or `(X shl C1) udiv C2` with 2^C1\u2264uC2.",
+    "opcodes": [
+      "icmp",
+      "udiv",
+      "mul",
+      "lshr",
+      "shl"
+    ],
+    "extra": [
+      "All constants; APInt unsigned inequalities exactly as stated"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3343
+    ]
+  },
+  {
+    "id": "IS3350",
+    "start_line": 3346,
+    "end_line": 3350,
+    "function": "simplifyICmpWithBinOpOnLHS",
+    "description": "Fold `(sub C,X) == X` false and `(sub C,X) != X` true when C is an odd APInt constant.",
+    "opcodes": [
+      "icmp",
+      "sub"
+    ],
+    "extra": [
+      "RHS is the subtrahend X; C odd; EQ or NE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3350
+    ]
+  },
+  {
+    "id": "IS3350a",
+    "start_line": 3370,
+    "end_line": 3385,
+    "function": "trySimplifyICmpWithAdds",
+    "description": "Schema: signed relational comparison of X+C1 and X+C2 where exactly the RHS add has NSW (after canonicalizing it to RHS); reduce to comparing C1 and C2 if (C1\u2264sC2 and C1\u2265s0) or (C2\u2264sC1 and C1\u2264s0).",
+    "opcodes": [
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "NSW flag on one add and signed APInt comparisons"
+    ],
+    "kind": "schema",
+    "returns": [
+      3385
+    ]
+  },
+  {
+    "id": "IS3428",
+    "start_line": 3397,
+    "end_line": 3428,
+    "function": "simplifyICmpWithBinOp",
+    "description": "Reduce `icmp pred (X+Y), X` to the recursive comparison `icmp pred Y, 0` when the addend X matches either add operand and predicate/add flags make wrapping irrelevant.",
+    "opcodes": [
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "MaxRecurse>0; equality predicate or add has required NUW for unsigned predicate / NSW for signed predicate; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3428
+    ]
+  },
+  {
+    "id": "IS3435",
+    "start_line": 3430,
+    "end_line": 3435,
+    "function": "simplifyICmpWithBinOp",
+    "description": "Reduce `icmp pred X, (X+Y)` to recursive `icmp pred 0,Y` when X matches either RHS add operand and predicate/add flags make wrapping irrelevant.",
+    "opcodes": [
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "MaxRecurse>0; equality predicate or add has required NUW/NSW; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3435
+    ]
+  },
+  {
+    "id": "IS3462",
+    "start_line": 3437,
+    "end_line": 3462,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For `icmp pred (A+B),(C+D)` with any one shared add operand, cancel the common term and recursively compare the two remaining addends.",
+    "opcodes": [
+      "icmp",
+      "add"
+    ],
+    "extra": [
+      "MaxRecurse>0; at least one SSA operand shared; both adds safe for predicate via equality/no-wrap flags or trySimplifyICmpWithAdds; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3462
+    ]
+  },
+  {
+    "id": "IS3468",
+    "start_line": 3466,
+    "end_line": 3468,
+    "function": "simplifyICmpWithBinOp",
+    "description": "If LHS is a BinaryOperator, delegate comparison simplification to simplifyICmpWithBinOpOnLHS and return its first successful result. The concrete binop rules are separate entries.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "MaxRecurse; helper result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3468
+    ]
+  },
+  {
+    "id": "IS3473",
+    "start_line": 3470,
+    "end_line": 3473,
+    "function": "simplifyICmpWithBinOp",
+    "description": "If RHS is a BinaryOperator, swap the ICmp predicate and operands and delegate to simplifyICmpWithBinOpOnLHS; return its first successful result. The concrete binop rules are separate entries.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "MaxRecurse; swapped predicate; helper result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3473
+    ]
+  },
+  {
+    "id": "IS3481",
+    "start_line": 3475,
+    "end_line": 3481,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For signed `icmp slt` or `icmp ne` of `0 - (zext X)` against positive C, return true.",
+    "opcodes": [
+      "icmp",
+      "sub",
+      "zext"
+    ],
+    "extra": [
+      "Predicate signed; C strictly positive"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3481
+    ]
+  },
+  {
+    "id": "IS3483",
+    "start_line": 3475,
+    "end_line": 3483,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For signed `icmp sge` or `icmp eq` of `0 - (zext X)` against positive C, return false.",
+    "opcodes": [
+      "icmp",
+      "sub",
+      "zext"
+    ],
+    "extra": [
+      "Predicate signed; C strictly positive"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3483
+    ]
+  },
+  {
+    "id": "IS3487",
+    "start_line": 3475,
+    "end_line": 3487,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For signed `icmp sle` of `0 - (zext X)` against nonnegative C, return true.",
+    "opcodes": [
+      "icmp",
+      "sub",
+      "zext"
+    ],
+    "extra": [
+      "Predicate signed; C nonnegative"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3487
+    ]
+  },
+  {
+    "id": "IS3489",
+    "start_line": 3475,
+    "end_line": 3489,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For signed `icmp sgt` of `0 - (zext X)` against nonnegative C, return false.",
+    "opcodes": [
+      "icmp",
+      "sub",
+      "zext"
+    ],
+    "extra": [
+      "Predicate signed; C nonnegative"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3489
+    ]
+  },
+  {
+    "id": "IS3512",
+    "start_line": 3494,
+    "end_line": 3512,
+    "function": "simplifyICmpWithBinOp",
+    "description": "Fold `(C2 shl X) == C` false when C2 is a power of two, C is a non-power-of-two constant, and the shift cannot erase the one bit under the safety guard.",
+    "opcodes": [
+      "icmp",
+      "shl"
+    ],
+    "extra": [
+      "NSW or NUW on shift, or C2==1, or C!=0; predicate EQ"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3512
+    ]
+  },
+  {
+    "id": "IS3514",
+    "start_line": 3494,
+    "end_line": 3514,
+    "function": "simplifyICmpWithBinOp",
+    "description": "Fold `(C2 shl X) != C` true when C2 is a power of two, C is a non-power-of-two constant, and the shift cannot erase the one bit under the safety guard.",
+    "opcodes": [
+      "icmp",
+      "shl"
+    ],
+    "extra": [
+      "NSW or NUW on shift, or C2==1, or C!=0; predicate NE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3514
+    ]
+  },
+  {
+    "id": "IS3523",
+    "start_line": 3518,
+    "end_line": 3523,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For power-of-two C, `(C shl X) >u signmask` is false.",
+    "opcodes": [
+      "icmp",
+      "shl"
+    ],
+    "extra": [
+      "RHS is sign-mask constant; predicate UGT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3523
+    ]
+  },
+  {
+    "id": "IS3525",
+    "start_line": 3518,
+    "end_line": 3525,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For power-of-two C, `(C shl X) <=u signmask` is true.",
+    "opcodes": [
+      "icmp",
+      "shl"
+    ],
+    "extra": [
+      "RHS is sign-mask constant; predicate ULE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3525
+    ]
+  },
+  {
+    "id": "IS3543",
+    "start_line": 3531,
+    "end_line": 3543,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For two `shl` results with identical left operand, recursively compare their shift amounts when both shifts have NUW, signed comparisons also have NSW on both, and the common left operand is known nonzero.",
+    "opcodes": [
+      "icmp",
+      "shl"
+    ],
+    "extra": [
+      "MaxRecurse>0; both shifts NUW; signed predicates require both NSW; common input known nonzero; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3543
+    ]
+  },
+  {
+    "id": "IS3563",
+    "start_line": 3546,
+    "end_line": 3563,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For matching `(X and C1)`/`(X and C2)` or `(X or C1)`/`(X or C2)`, fold ULE true when one constant bitmask is a subset of the other after operand/predicate canonicalization.",
+    "opcodes": [
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Same opcode and first operand; relational predicate; constant masks; C1 subset C2"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3563
+    ]
+  },
+  {
+    "id": "IS3565",
+    "start_line": 3546,
+    "end_line": 3565,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For matching `(X and C1)`/`(X and C2)` or `(X or C1)`/`(X or C2)`, fold UGT false when one constant bitmask is a subset of the other after operand/predicate canonicalization.",
+    "opcodes": [
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Same opcode and first operand; relational predicate; constant masks; C1 subset C2"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3565
+    ]
+  },
+  {
+    "id": "IS3568",
+    "start_line": 3546,
+    "end_line": 3568,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For matching AND/OR constant-mask results, fold SLE true when the canonicalized mask constants are subset-related and have the same sign classification.",
+    "opcodes": [
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Same opcode and first operand; relational predicate; constants; subset relation and equal nonnegative/sign-bit status"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3568
+    ]
+  },
+  {
+    "id": "IS3570",
+    "start_line": 3546,
+    "end_line": 3570,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For matching AND/OR constant-mask results, fold SGT false when the canonicalized mask constants are subset-related and have the same sign classification.",
+    "opcodes": [
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Same opcode and first operand; relational predicate; constants; subset relation and equal nonnegative/sign-bit status"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3570
+    ]
+  },
+  {
+    "id": "IS3590",
+    "start_line": 3579,
+    "end_line": 3590,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For exact UDiv or LShr results with the same divisor/shift amount, recursively compare their numerators when the predicate is unsigned.",
+    "opcodes": [
+      "icmp",
+      "udiv",
+      "lshr"
+    ],
+    "extra": [
+      "MaxRecurse>0; same opcode and second operand; both instructions exact; predicate unsigned; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3590
+    ]
+  },
+  {
+    "id": "IS3598",
+    "start_line": 3592,
+    "end_line": 3598,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For exact SDiv results with the same divisor, recursively compare their numerators only for EQ/NE.",
+    "opcodes": [
+      "icmp",
+      "sdiv"
+    ],
+    "extra": [
+      "MaxRecurse>0; same opcode and second operand; both exact; EQ or NE; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3598
+    ]
+  },
+  {
+    "id": "IS3605",
+    "start_line": 3600,
+    "end_line": 3605,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For exact AShr results with the same shift amount, recursively compare their inputs.",
+    "opcodes": [
+      "icmp",
+      "ashr"
+    ],
+    "extra": [
+      "MaxRecurse>0; same opcode and second operand; both exact; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3605
+    ]
+  },
+  {
+    "id": "IS3616",
+    "start_line": 3607,
+    "end_line": 3616,
+    "function": "simplifyICmpWithBinOp",
+    "description": "For Shl results with the same shift amount, recursively compare their inputs when both shifts have NUW or both have NSW; signed predicates require NSW on both.",
+    "opcodes": [
+      "icmp",
+      "shl"
+    ],
+    "extra": [
+      "MaxRecurse>0; same opcode and second operand; NUW or NSW on both; signed predicates require NSW; recursive result non-null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3616
+    ]
+  },
+  {
+    "id": "IS3675",
+    "start_line": 3670,
+    "end_line": 3675,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is EQ/SLE, return the comparison already used as condition by the LHS select if it exactly tests `A EqP B` (EqP is SGE for smax, SLE for smin).",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "LHS is a select with matching predicate/operand orientation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3675
+    ]
+  },
+  {
+    "id": "IS3677",
+    "start_line": 3676,
+    "end_line": 3677,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is EQ/SLE, otherwise reuse a matching `A EqP B` condition from the RHS select.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "RHS is a select with matching predicate/operand orientation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3677
+    ]
+  },
+  {
+    "id": "IS3681",
+    "start_line": 3678,
+    "end_line": 3681,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is EQ/SLE, recursively simplify `icmp EqP A,B` and return it if it folds.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "MaxRecurse>0; recursive result non-null"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3681
+    ]
+  },
+  {
+    "id": "IS3689",
+    "start_line": 3683,
+    "end_line": 3689,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is NE/SGT, return the LHS select condition if it exactly tests `A inverse(EqP) B`.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "LHS is a select with matching inverse-predicate operand orientation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3689
+    ]
+  },
+  {
+    "id": "IS3691",
+    "start_line": 3690,
+    "end_line": 3691,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is NE/SGT, otherwise reuse a matching `A inverse(EqP) B` condition from the RHS select.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "RHS is a select with matching inverse-predicate operand orientation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3691
+    ]
+  },
+  {
+    "id": "IS3695",
+    "start_line": 3692,
+    "end_line": 3695,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is NE/SGT, recursively simplify `icmp inverse(EqP) A,B` and return it if it folds.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "MaxRecurse>0; recursive result non-null"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3695
+    ]
+  },
+  {
+    "id": "IS3700",
+    "start_line": 3698,
+    "end_line": 3700,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when normalized P is SGE, fold true because signed max/min ordering guarantees the selected operand relation.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "P==ICMP_SGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3700
+    ]
+  },
+  {
+    "id": "IS3703",
+    "start_line": 3701,
+    "end_line": 3703,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing a signed smax/smin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when normalized P is SLT, fold false.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "P==ICMP_SLT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3703
+    ]
+  },
+  {
+    "id": "IS3749",
+    "start_line": 3744,
+    "end_line": 3749,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is EQ/ULE, return the LHS select condition if it exactly tests `A EqP B` (EqP is UGE for umax, ULE for umin).",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "LHS select condition predicate and operand orientation exactly match"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3749
+    ]
+  },
+  {
+    "id": "IS3751",
+    "start_line": 3750,
+    "end_line": 3751,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is EQ/ULE, otherwise reuse a matching `A EqP B` condition from the RHS select.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "RHS select condition predicate and operand orientation exactly match"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3751
+    ]
+  },
+  {
+    "id": "IS3755",
+    "start_line": 3752,
+    "end_line": 3755,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is EQ/ULE, recursively simplify `icmp EqP A,B` and return it if it folds.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "MaxRecurse>0; recursive result non-null"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3755
+    ]
+  },
+  {
+    "id": "IS3763",
+    "start_line": 3757,
+    "end_line": 3763,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is NE/UGT, return the LHS select condition if it exactly tests `A inverse(EqP) B`.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "LHS select condition predicate and operand orientation exactly match"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3763
+    ]
+  },
+  {
+    "id": "IS3765",
+    "start_line": 3764,
+    "end_line": 3765,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is NE/UGT, otherwise reuse a matching `A inverse(EqP) B` condition from the RHS select.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "RHS select condition predicate and operand orientation exactly match"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3765
+    ]
+  },
+  {
+    "id": "IS3769",
+    "start_line": 3766,
+    "end_line": 3769,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when P is NE/UGT, recursively simplify `icmp inverse(EqP) A,B` and return it if it folds.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "MaxRecurse>0; recursive result non-null"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3769
+    ]
+  },
+  {
+    "id": "IS3773",
+    "start_line": 3772,
+    "end_line": 3773,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when normalized P is UGE, fold true because unsigned max/min ordering guarantees the relation.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "P==ICMP_UGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3773
+    ]
+  },
+  {
+    "id": "IS3775",
+    "start_line": 3774,
+    "end_line": 3775,
+    "function": "simplifyICmpWithMinMax",
+    "description": "After canonicalizing an unsigned umax/umin comparison against one of its own operands to `max(A,B) pred A` or its swapped-predicate equivalent for min, when normalized P is ULT, fold false.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "P==ICMP_ULT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3775
+    ]
+  },
+  {
+    "id": "IS3793",
+    "start_line": 3788,
+    "end_line": 3793,
+    "function": "simplifyICmpWithMinMax",
+    "description": "For signed `smax(A,B)` versus `smin(C,D)` sharing any operand, `smax(A,B) sge smin(C,D)` is true.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "At least one operand SSA-identical across min and max; predicate SGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3793
+    ]
+  },
+  {
+    "id": "IS3796",
+    "start_line": 3794,
+    "end_line": 3796,
+    "function": "simplifyICmpWithMinMax",
+    "description": "For signed `smax(A,B)` versus `smin(C,D)` sharing any operand, `smax(A,B) slt smin(C,D)` is false.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "At least one operand SSA-identical across min and max; predicate SLT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3796
+    ]
+  },
+  {
+    "id": "IS3802",
+    "start_line": 3797,
+    "end_line": 3802,
+    "function": "simplifyICmpWithMinMax",
+    "description": "For unsigned `umax(A,B)` versus `umin(C,D)` sharing any operand, `umax(A,B) uge umin(C,D)` is true.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "At least one operand SSA-identical across min and max; predicate UGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3802
+    ]
+  },
+  {
+    "id": "IS3805",
+    "start_line": 3803,
+    "end_line": 3805,
+    "function": "simplifyICmpWithMinMax",
+    "description": "For unsigned `umax(A,B)` versus `umin(C,D)` sharing any operand, `umax(A,B) ult umin(C,D)` is false.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "select"
+    ],
+    "extra": [
+      "At least one operand SSA-identical across min and max; predicate ULT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3805
+    ]
+  },
+  {
+    "id": "IS3827",
+    "start_line": 3810,
+    "end_line": 3831,
+    "function": "simplifyICmpWithDominatingAssume",
+    "description": "If a dominating, context-valid llvm.assume implies the queried comparison, replace it with the implied boolean result; the compare operands must be among the assumption bases and the assumption must validate for the current context.",
+    "opcodes": [
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "AssumptionCache and dominance/context-validity analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3827
+    ]
+  },
+  {
+    "id": "IS3846",
+    "start_line": 3841,
+    "end_line": 3846,
+    "function": "simplifyICmpWithIntrinsicOnLHS",
+    "description": "`uadd.sat(X,Y) uge X+Y` folds true.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "add"
+    ],
+    "extra": [
+      "LHS uadd.sat; RHS add of the exact intrinsic arguments; predicate UGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3846
+    ]
+  },
+  {
+    "id": "IS3848",
+    "start_line": 3841,
+    "end_line": 3848,
+    "function": "simplifyICmpWithIntrinsicOnLHS",
+    "description": "`uadd.sat(X,Y) ult X+Y` folds false.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "add"
+    ],
+    "extra": [
+      "LHS uadd.sat; RHS add of the exact intrinsic arguments; predicate ULT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3848
+    ]
+  },
+  {
+    "id": "IS3856",
+    "start_line": 3851,
+    "end_line": 3856,
+    "function": "simplifyICmpWithIntrinsicOnLHS",
+    "description": "`usub.sat(X,Y) ule X\u2212Y` folds true.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "sub"
+    ],
+    "extra": [
+      "LHS usub.sat; RHS sub of exact intrinsic arguments; predicate ULE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3856
+    ]
+  },
+  {
+    "id": "IS3858",
+    "start_line": 3851,
+    "end_line": 3858,
+    "function": "simplifyICmpWithIntrinsicOnLHS",
+    "description": "`usub.sat(X,Y) ugt X\u2212Y` folds false.",
+    "opcodes": [
+      "icmp",
+      "call",
+      "sub"
+    ],
+    "extra": [
+      "LHS usub.sat; RHS sub of exact intrinsic arguments; predicate UGT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3858
+    ]
+  },
+  {
+    "id": "IS3891",
+    "start_line": 3882,
+    "end_line": 3891,
+    "function": "simplifyICmpInst",
+    "description": "Constant-fold an ICmp when both operands are constants; if the constant folder cannot decide, continue into the remaining ICmp rules.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LLVM constant-folding semantics and DataLayout/TargetLibraryInfo"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3891
+    ]
+  },
+  {
+    "id": "IS3907",
+    "start_line": 3903,
+    "end_line": 3907,
+    "function": "simplifyICmpInst",
+    "description": "A poison operand makes any ICmp result poison.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "poison semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3907
+    ]
+  },
+  {
+    "id": "IS3913",
+    "start_line": 3909,
+    "end_line": 3913,
+    "function": "simplifyICmpInst",
+    "description": "For EQ or NE with an undef RHS, return undef because it can be chosen to make either outcome hold.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "RHS is undef; predicate equality"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3913
+    ]
+  },
+  {
+    "id": "IS3918",
+    "start_line": 3915,
+    "end_line": 3918,
+    "function": "simplifyICmpInst",
+    "description": "`icmp pred X,X` folds to the predicate's truth value on equal operands. The distinct undef operand alternative is IS3918u.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS equals RHS or RHS is undef"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3918
+    ]
+  },
+  {
+    "id": "IS3918u",
+    "start_line": 3915,
+    "end_line": 3918,
+    "function": "simplifyICmpInst",
+    "description": "`icmp pred X,undef` folds to the predicate's truth value on equal operands for non-equality predicates. EQ/NE with undef are handled earlier by IS3913.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "LHS equals RHS or RHS is undef"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3918
+    ]
+  },
+  {
+    "id": "IS3921",
+    "start_line": 3919,
+    "end_line": 3921,
+    "function": "simplifyICmpOfBools",
+    "description": "Delegate to simplifyICmpOfBools and forward its non-null result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3921
+    ]
+  },
+  {
+    "id": "IS3926",
+    "start_line": 3924,
+    "end_line": 3926,
+    "function": "simplifyICmpWithZero",
+    "description": "Delegate to simplifyICmpWithZero and forward its non-null result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3926
+    ]
+  },
+  {
+    "id": "IS3929",
+    "start_line": 3927,
+    "end_line": 3929,
+    "function": "simplifyICmpWithConstant",
+    "description": "Delegate to simplifyICmpWithConstant and forward its non-null result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      3929
+    ]
+  },
+  {
+    "id": "IS3959",
+    "start_line": 3949,
+    "end_line": 3959,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `ptrtoint/ptrtoaddr(P)` compared with integer constant C, if cast result type equals pointer address type, recursively compare P with `inttoptr(C)` using same predicate and return the folded result.",
+    "opcodes": [
+      "icmp",
+      "ptrtoint",
+      "ptrtoaddr",
+      "inttoptr"
+    ],
+    "extra": [
+      "MaxRecurse>0; DataLayout address type matches integer destination; RHS constant; recursive fold succeeds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3959
+    ]
+  },
+  {
+    "id": "IS3966",
+    "start_line": 3949,
+    "end_line": 3966,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For same-address-width `ptrtoint/ptrtoaddr(P)` and `ptrtoint/ptrtoaddr(Q)` with equal source pointer types, recursively compare P and Q with same predicate.",
+    "opcodes": [
+      "icmp",
+      "ptrtoint",
+      "ptrtoaddr"
+    ],
+    "extra": [
+      "MaxRecurse>0; LHS address type matches destination; RHS same ptr cast family and source type exactly matches; recursive fold succeeds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3966
+    ]
+  },
+  {
+    "id": "IS3979",
+    "start_line": 3970,
+    "end_line": 3979,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `icmp pred (zext X),(zext Y)` with equal source types, recursively compare X and Y using the unsigned form of pred.",
+    "opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "extra": [
+      "MaxRecurse>0; both operands zext; source types equal; recursive fold succeeds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3979
+    ]
+  },
+  {
+    "id": "IS3985",
+    "start_line": 3981,
+    "end_line": 3985,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For same-source `(zext X) ule (sext X)` or `(zext X) sge (sext X)`, fold true.",
+    "opcodes": [
+      "icmp",
+      "zext",
+      "sext"
+    ],
+    "extra": [
+      "Source SSA value identical; predicate ULE or SGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3985
+    ]
+  },
+  {
+    "id": "IS3987",
+    "start_line": 3981,
+    "end_line": 3987,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For same-source `(zext X) ugt (sext X)` or `(zext X) slt (sext X)`, fold false.",
+    "opcodes": [
+      "icmp",
+      "zext",
+      "sext"
+    ],
+    "extra": [
+      "Source SSA value identical; predicate UGT or SLT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      3987
+    ]
+  },
+  {
+    "id": "IS4014",
+    "start_line": 3990,
+    "end_line": 4014,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(zext X) pred C`, if truncating and re-extending C to the LHS width leaves C unchanged, recursively compare X with truncated C using unsigned pred.",
+    "opcodes": [
+      "icmp",
+      "zext",
+      "trunc"
+    ],
+    "extra": [
+      "RHS integer constant; re-extension equals C in all lanes; MaxRecurse>0; recursive fold succeeds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4014
+    ]
+  },
+  {
+    "id": "IS4026",
+    "start_line": 4016,
+    "end_line": 4026,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(zext X) pred C` when truncation followed by zext changes C (so RHS has nonzero upper bits), predicates EQ, UGT and UGE are false.",
+    "opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "extra": [
+      "RHS integer constant; truncated/reextended constant differs; predicate EQ/UGT/UGE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4026
+    ]
+  },
+  {
+    "id": "IS4031",
+    "start_line": 4028,
+    "end_line": 4031,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(zext X) pred C` when truncation followed by zext changes C, predicates NE, ULT and ULE are true.",
+    "opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "extra": [
+      "RHS integer constant; truncated/reextended constant differs; predicate NE/ULT/ULE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4031
+    ]
+  },
+  {
+    "id": "IS4037",
+    "start_line": 4033,
+    "end_line": 4037,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(zext X) sgt|sge C` when C does not fit in source width, return the constant result of `C slt 0` (negative C means true, nonnegative C false).",
+    "opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "extra": [
+      "RHS integer constant; truncated/reextended constant differs; predicate SGT or SGE; constant-fold signed C<0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4037
+    ]
+  },
+  {
+    "id": "IS4042",
+    "start_line": 4040,
+    "end_line": 4042,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(zext X) slt|sle C` when C does not fit in source width, return the constant result of `C sge 0` (nonnegative C means true, negative C false).",
+    "opcodes": [
+      "icmp",
+      "zext"
+    ],
+    "extra": [
+      "RHS integer constant; truncated/reextended constant differs; predicate SLT or SLE; constant-fold signed C>=0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4042
+    ]
+  },
+  {
+    "id": "IS4058",
+    "start_line": 4050,
+    "end_line": 4058,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `icmp pred (sext X),(sext Y)` with equal source types, recursively compare X and Y using the same predicate.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "MaxRecurse>0; both operands sext; source types equal; recursive fold succeeds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4058
+    ]
+  },
+  {
+    "id": "IS4064",
+    "start_line": 4060,
+    "end_line": 4064,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For same-source `(sext X) uge (zext X)` or `(sext X) sle (zext X)`, fold true.",
+    "opcodes": [
+      "icmp",
+      "sext",
+      "zext"
+    ],
+    "extra": [
+      "Source SSA value identical; predicate UGE or SLE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4064
+    ]
+  },
+  {
+    "id": "IS4066",
+    "start_line": 4060,
+    "end_line": 4066,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For same-source `(sext X) ult (zext X)` or `(sext X) sgt (zext X)`, fold false.",
+    "opcodes": [
+      "icmp",
+      "sext",
+      "zext"
+    ],
+    "extra": [
+      "Source SSA value identical; predicate ULT or SGT"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4066
+    ]
+  },
+  {
+    "id": "IS4091",
+    "start_line": 4069,
+    "end_line": 4091,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(sext X) pred C`, if truncating and re-extending C to LHS width leaves it unchanged, recursively compare X and truncated C with the same predicate.",
+    "opcodes": [
+      "icmp",
+      "sext",
+      "trunc"
+    ],
+    "extra": [
+      "RHS integer constant; re-extension equals C; MaxRecurse>0; recursive fold succeeds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4091
+    ]
+  },
+  {
+    "id": "IS4100",
+    "start_line": 4093,
+    "end_line": 4100,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(sext X) eq C` when truncation and re-extension changes C, fold false.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "RHS integer constant; truncated/reextended constant differs; preferred predicate EQ"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4100
+    ]
+  },
+  {
+    "id": "IS4102",
+    "start_line": 4093,
+    "end_line": 4102,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(sext X) ne C` when truncation and re-extension changes C, fold true.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "RHS integer constant; truncated/reextended constant differs; preferred predicate NE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4102
+    ]
+  },
+  {
+    "id": "IS4108",
+    "start_line": 4104,
+    "end_line": 4108,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(sext X) sgt|sge C` when C does not fit source width, return the constant result of `C slt 0`.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "RHS integer constant; re-extension differs; preferred signed predicate SGT or SGE; constant-fold C<0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4108
+    ]
+  },
+  {
+    "id": "IS4113",
+    "start_line": 4111,
+    "end_line": 4113,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For `(sext X) slt|sle C` when C does not fit source width, return the constant result of `C sge 0`.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "RHS integer constant; re-extension differs; preferred signed predicate SLT or SLE; constant-fold C>=0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4113
+    ]
+  },
+  {
+    "id": "IS4126",
+    "start_line": 4117,
+    "end_line": 4126,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For unsigned `(sext X) ugt|uge C` when C does not fit source width, recursively test whether X is signed-negative; that result is the original comparison result.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "RHS integer constant; re-extension differs; predicate UGT or UGE; MaxRecurse>0; recursive `icmp slt X,0` succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4126
+    ]
+  },
+  {
+    "id": "IS4135",
+    "start_line": 4128,
+    "end_line": 4135,
+    "function": "simplifyICmpInst cast handling",
+    "description": "For unsigned `(sext X) ult|ule C` when C does not fit source width, recursively test whether X is signed-nonnegative; that result is the original comparison result.",
+    "opcodes": [
+      "icmp",
+      "sext"
+    ],
+    "extra": [
+      "RHS integer constant; re-extension differs; predicate ULT or ULE; MaxRecurse>0; recursive `icmp sge X,0` succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4135
+    ]
+  },
+  {
+    "id": "IS4148",
+    "start_line": 4143,
+    "end_line": 4148,
+    "function": "simplifyICmpInst",
+    "description": "For EQ/NE comparisons other than against zero, if value tracking proves operands non-equal, return false for EQ and true for NE.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "isKnownNonEqual value analysis; deliberately skips zero RHS"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4148
+    ]
+  },
+  {
+    "id": "IS4152",
+    "start_line": 4150,
+    "end_line": 4152,
+    "function": "simplifyICmpWithBinOp",
+    "description": "Delegate to simplifyICmpWithBinOp and forward its non-null result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4152
+    ]
+  },
+  {
+    "id": "IS4155",
+    "start_line": 4153,
+    "end_line": 4155,
+    "function": "simplifyICmpWithMinMax",
+    "description": "Delegate to simplifyICmpWithMinMax and forward its non-null result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4155
+    ]
+  },
+  {
+    "id": "IS4158",
+    "start_line": 4156,
+    "end_line": 4158,
+    "function": "simplifyICmpWithIntrinsicOnLHS",
+    "description": "Delegate with original predicate and operand order to simplifyICmpWithIntrinsicOnLHS; forward its result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4158
+    ]
+  },
+  {
+    "id": "IS4161",
+    "start_line": 4159,
+    "end_line": 4161,
+    "function": "simplifyICmpWithIntrinsicOnLHS",
+    "description": "Delegate with swapped predicate and operands to simplifyICmpWithIntrinsicOnLHS; forward its result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4161
+    ]
+  },
+  {
+    "id": "IS4164",
+    "start_line": 4162,
+    "end_line": 4164,
+    "function": "simplifyICmpUsingMonotonicValues",
+    "description": "Delegate with original predicate and operands to simplifyICmpUsingMonotonicValues; forward its result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4164
+    ]
+  },
+  {
+    "id": "IS4167",
+    "start_line": 4165,
+    "end_line": 4167,
+    "function": "simplifyICmpUsingMonotonicValues",
+    "description": "Delegate with swapped predicate and operands to simplifyICmpUsingMonotonicValues; forward its result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4167
+    ]
+  },
+  {
+    "id": "IS4170",
+    "start_line": 4168,
+    "end_line": 4170,
+    "function": "simplifyICmpWithDominatingAssume",
+    "description": "Delegate to simplifyICmpWithDominatingAssume and forward its non-null result.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4170
+    ]
+  },
+  {
+    "id": "IS4174",
+    "start_line": 4172,
+    "end_line": 4174,
+    "function": "isImpliedByDomCondition",
+    "description": "If context dominance analysis proves the ICmp result, return that boolean as an i1 constant.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "This return only forwards a non-null helper or analysis result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4174
+    ]
+  },
+  {
+    "id": "IS4180",
+    "start_line": 4176,
+    "end_line": 4180,
+    "function": "simplifyICmpInst pointer comparison delegation",
+    "description": "For pointer-typed operands, delegate related-pointer comparison reasoning to computePointerICmp and return its constant result; concrete pointer rewrite branches are inventoried under IS2803, IS2827, IS2855 and IS2895.",
+    "opcodes": [
+      "icmp",
+      "getelementptr"
+    ],
+    "extra": [
+      "DataLayout and computePointerICmp"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4180
+    ]
+  },
+  {
+    "id": "IS4186",
+    "start_line": 4182,
+    "end_line": 4186,
+    "function": "simplifyICmpInst",
+    "description": "If either ICmp operand is a select and threadCmpOverSelect proves both select paths yield the same comparison result, forward that value.",
+    "opcodes": [
+      "icmp",
+      "select"
+    ],
+    "extra": [
+      "MaxRecurse; select threading helper proves common result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4186
+    ]
+  },
+  {
+    "id": "IS4192",
+    "start_line": 4188,
+    "end_line": 4192,
+    "function": "simplifyICmpInst",
+    "description": "If either ICmp operand is a PHI and threadCmpOverPHI proves all incoming comparisons yield a common result, forward that value.",
+    "opcodes": [
+      "icmp",
+      "phi"
+    ],
+    "extra": [
+      "MaxRecurse; PHI threading helper proves common result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4192
+    ]
+  },
+  {
+    "id": "IS4214",
+    "start_line": 4209,
+    "end_line": 4214,
+    "function": "simplifyFCmpInst",
+    "description": "When both FCmp operands are constants, return the result of ConstantFoldCompareInstOperands if the constant folder can decide it.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "ConstantFoldCompareInstOperands with DataLayout, TLI and optional Function"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4214
+    ]
+  },
+  {
+    "id": "IS4225",
+    "start_line": 4222,
+    "end_line": 4225,
+    "function": "simplifyFCmpInst",
+    "description": "`fcmp false, X, Y` folds to false.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "Predicate FCMP_FALSE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4225
+    ]
+  },
+  {
+    "id": "IS4227",
+    "start_line": 4222,
+    "end_line": 4227,
+    "function": "simplifyFCmpInst",
+    "description": "`fcmp true, X, Y` folds to true.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "Predicate FCMP_TRUE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4227
+    ]
+  },
+  {
+    "id": "IS4232",
+    "start_line": 4229,
+    "end_line": 4232,
+    "function": "simplifyFCmpInst",
+    "description": "Any FCmp with either operand poison folds to poison.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "Either operand is PoisonValue"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4232
+    ]
+  },
+  {
+    "id": "IS4239",
+    "start_line": 4234,
+    "end_line": 4239,
+    "function": "simplifyFCmpInst",
+    "description": "Any FCmp with an undef operand folds to the predicate\u2019s unordered truth value: true for unordered predicates, false for ordered predicates.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "At least one operand undef; may choose NaN"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4239
+    ]
+  },
+  {
+    "id": "IS4245",
+    "start_line": 4242,
+    "end_line": 4245,
+    "function": "simplifyFCmpInst",
+    "description": "When comparing a value with itself, fold to true if the FCmp predicate is true when operands are equal.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "LHS==RHS; predicate true-when-equal classification"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4245
+    ]
+  },
+  {
+    "id": "IS4247",
+    "start_line": 4242,
+    "end_line": 4247,
+    "function": "simplifyFCmpInst",
+    "description": "When comparing a value with itself, fold to false if the FCmp predicate is false when operands are equal.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "LHS==RHS; predicate false-when-equal classification"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4247
+    ]
+  },
+  {
+    "id": "IS4260",
+    "start_line": 4250,
+    "end_line": 4260,
+    "function": "simplifyFCmpInst",
+    "description": "For ORD/UNO comparison, fold to true for ORD or false for UNO when FMF says noNaNs, or both operands are known never NaN.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "Predicate ORD or UNO; noNaNs FMF or KnownFPClass never-NaN facts"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4260
+    ]
+  },
+  {
+    "id": "IS4263",
+    "start_line": 4250,
+    "end_line": 4263,
+    "function": "simplifyFCmpInst",
+    "description": "For ORD/UNO comparison, fold to false for ORD or true for UNO when either operand is known always NaN.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "Predicate ORD or UNO; KnownFPClass always-NaN"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4263
+    ]
+  },
+  {
+    "id": "IS4268",
+    "start_line": 4266,
+    "end_line": 4268,
+    "function": "simplifyFCmpInst",
+    "description": "If a dominating condition implies the FCmp predicate for these operands, return its implied boolean result.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "isImpliedByDomCondition succeeds for current context"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4268
+    ]
+  },
+  {
+    "id": "IS4290",
+    "start_line": 4283,
+    "end_line": 4290,
+    "function": "simplifyFCmpInst",
+    "description": "When function context lets fcmpToClassTest recognize the comparison as an FP-class test, fold false if known LHS classes are disjoint from the tested class.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "RHS FP constant; function context; class-test recognized; KnownFPClass intersection is empty"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4290
+    ]
+  },
+  {
+    "id": "IS4292",
+    "start_line": 4283,
+    "end_line": 4292,
+    "function": "simplifyFCmpInst",
+    "description": "When function context lets fcmpToClassTest recognize the comparison as an FP-class test, fold true if every known LHS class belongs to the tested class.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "RHS FP constant; function context; class-test recognized; no known classes outside ClassTest"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4292
+    ]
+  },
+  {
+    "id": "IS4301",
+    "start_line": 4296,
+    "end_line": 4301,
+    "function": "simplifyFCmpInst",
+    "description": "For a NaN constant RHS, fold to whether the FCmp predicate is unordered.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "RHS is a NaN APFloat constant"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4301
+    ]
+  },
+  {
+    "id": "IS4319",
+    "start_line": 4306,
+    "end_line": 4319,
+    "function": "simplifyFCmpInst",
+    "description": "For negative nonzero constant C and predicate UGE, UGT or UNE, fold `X pred C` true when X cannot be an ordered negative value (i.e. is nonnegative or NaN).",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "C negative and not \u22120; KnownFPClass cannotBeOrderedLessThanZero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4319
+    ]
+  },
+  {
+    "id": "IS4329",
+    "start_line": 4322,
+    "end_line": 4329,
+    "function": "simplifyFCmpInst",
+    "description": "For negative nonzero constant C and predicate OEQ, OLE or OLT, fold `X pred C` false when X cannot be an ordered negative value.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "C negative and not \u22120; KnownFPClass cannotBeOrderedLessThanZero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4329
+    ]
+  },
+  {
+    "id": "IS4349",
+    "start_line": 4340,
+    "end_line": 4349,
+    "function": "simplifyFCmpInst",
+    "description": "For `fmaxnum/fmaximum(X,C2)` with C2>C, or `fminnum/fminimum(X,C2)` with C2<C, OEQ and UEQ against C fold false.",
+    "opcodes": [
+      "fcmp",
+      "call"
+    ],
+    "extra": [
+      "LHS matches relevant min/max intrinsic with fixed constant C2; strict ordered relation C2>C for max or C2<C for min"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4349
+    ]
+  },
+  {
+    "id": "IS4354",
+    "start_line": 4340,
+    "end_line": 4354,
+    "function": "simplifyFCmpInst",
+    "description": "Under the same fixed-constant min/max ordering, ONE and UNE against C fold true.",
+    "opcodes": [
+      "fcmp",
+      "call"
+    ],
+    "extra": [
+      "LHS matches relevant min/max intrinsic with fixed constant C2; strict ordered relation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4354
+    ]
+  },
+  {
+    "id": "IS4363",
+    "start_line": 4340,
+    "end_line": 4363,
+    "function": "simplifyFCmpInst",
+    "description": "Under the same fixed-constant min/max ordering, OGE/UGE/OGT/UGT against C fold to IsMax: true for max, false for min.",
+    "opcodes": [
+      "fcmp",
+      "call"
+    ],
+    "extra": [
+      "LHS matches relevant min/max intrinsic with fixed constant C2; strict ordered relation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4363
+    ]
+  },
+  {
+    "id": "IS4372",
+    "start_line": 4340,
+    "end_line": 4372,
+    "function": "simplifyFCmpInst",
+    "description": "Under the same fixed-constant min/max ordering, OLE/ULE/OLT/ULT against C fold to !IsMax: false for max, true for min.",
+    "opcodes": [
+      "fcmp",
+      "call"
+    ],
+    "extra": [
+      "LHS matches relevant min/max intrinsic with fixed constant C2; strict ordered relation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4372
+    ]
+  },
+  {
+    "id": "IS4396",
+    "start_line": 4382,
+    "end_line": 4396,
+    "function": "simplifyFCmpInst",
+    "description": "For RHS either signed zero, OGE X,0 folds true and ULT X,0 folds false when X has no ordered-negative values and is known never NaN or FMF noNaNs.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "RHS is any zero FP constant; KnownFPClass cannotBeOrderedLessThanZero; FMF noNaNs or never-NaN"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4396
+    ]
+  },
+  {
+    "id": "IS4407",
+    "start_line": 4399,
+    "end_line": 4407,
+    "function": "simplifyFCmpInst",
+    "description": "For RHS either signed zero, UGE X,0 folds true and OLT X,0 folds false when X has no ordered-negative values; NaNs are permitted by these unordered predicates.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "RHS is any zero FP constant; KnownFPClass cannotBeOrderedLessThanZero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4407
+    ]
+  },
+  {
+    "id": "IS4419",
+    "start_line": 4415,
+    "end_line": 4419,
+    "function": "simplifyFCmpInst",
+    "description": "If either FCmp operand is a select and threadCmpOverSelect proves both select paths yield the same comparison result, forward that value.",
+    "opcodes": [
+      "fcmp",
+      "select"
+    ],
+    "extra": [
+      "FastMathFlags; MaxRecurse; select threading helper proves common result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4419
+    ]
+  },
+  {
+    "id": "IS4425",
+    "start_line": 4421,
+    "end_line": 4425,
+    "function": "simplifyFCmpInst",
+    "description": "If either FCmp operand is a PHI and threadCmpOverPHI proves all incoming comparisons yield a common result, forward that value.",
+    "opcodes": [
+      "fcmp",
+      "phi"
+    ],
+    "extra": [
+      "FastMathFlags; MaxRecurse; PHI threading helper proves common result"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4425
+    ]
+  },
+  {
+    "id": "IS4450",
+    "start_line": 4443,
+    "end_line": 4450,
+    "function": "simplifyWithOpsReplaced",
+    "description": "When the current value V is exactly a nonconstant replacement key Op, return its replacement RepOp.",
+    "opcodes": [
+      "any instruction or SSA value"
+    ],
+    "extra": [
+      "Op is not a Constant; exact SSA identity"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4450
+    ]
+  },
+  {
+    "id": "IS4513",
+    "start_line": 4507,
+    "end_line": 4513,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, fold a non-FP binary operation `identity op X` to X after operand substitution.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl"
+    ],
+    "extra": [
+      "BinaryOperator result is not FP; substituted left operand equals opcode identity; no refinement"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4513
+    ]
+  },
+  {
+    "id": "IS4516",
+    "start_line": 4514,
+    "end_line": 4516,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, fold a non-FP binary operation `X op identity_rhs` to X after operand substitution.",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl"
+    ],
+    "extra": [
+      "BinaryOperator result is not FP; substituted right operand equals opcode RHS identity; no refinement"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4516
+    ]
+  },
+  {
+    "id": "IS4530",
+    "start_line": 4519,
+    "end_line": 4530,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, fold `X and X` or `X or X` to X after substitution; if the operation is disjoint-flagged OR, only do so when DropFlags is provided and the flag is queued for removal.",
+    "opcodes": [
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Both substituted operands identical; disjoint OR requires DropFlags and queues BO"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4530
+    ]
+  },
+  {
+    "id": "IS4539",
+    "start_line": 4533,
+    "end_line": 4539,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, fold `X\u2212X` or `X xor X` to zero after substitution when X is a replacement value.",
+    "opcodes": [
+      "sub",
+      "xor"
+    ],
+    "extra": [
+      "Both substituted operands identical and equal a replacement RepOp; no refinement; expression never wraps for Sub"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4539
+    ]
+  },
+  {
+    "id": "IS4552",
+    "start_line": 4541,
+    "end_line": 4552,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, replace a binary operation by its absorber constant after substitution when one operand is the absorber and some replaced operand implies poison for the original operation (so removing the select cannot expose extra poison).",
+    "opcodes": [
+      "and",
+      "or",
+      "xor",
+      "add",
+      "sub",
+      "mul",
+      "udiv",
+      "sdiv",
+      "urem",
+      "srem",
+      "shl"
+    ],
+    "extra": [
+      "One substituted operand is getBinOpAbsorber; impliesPoison(BO, original replacement key) for some Ops entry"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4552
+    ]
+  },
+  {
+    "id": "IS4568",
+    "start_line": 4555,
+    "end_line": 4568,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, `scmp(X,X)` or `ucmp(X,X)` after substitution folds to zero; if the intrinsic has poison-generating annotations, require DropFlags and queue the intrinsic for flag removal.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "Intrinsic is scmp or ucmp; substituted args equal; poison annotations handled by DropFlags"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4568
+    ]
+  },
+  {
+    "id": "IS4588",
+    "start_line": 4571,
+    "end_line": 4588,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, an integer min/max intrinsic with one substituted argument equal to its identity returns the other argument; poison annotations require and record DropFlags.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "MinMaxIntrinsic identity; substituted operand matches identity; poison annotations handled by DropFlags"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4588
+    ]
+  },
+  {
+    "id": "IS4597",
+    "start_line": 4593,
+    "end_line": 4597,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled, `getelementptr X, 0` folds to X, including inbounds GEP because zero offset is non-poison.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "Instruction is GEP; exactly two operands; substituted index is zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4597
+    ]
+  },
+  {
+    "id": "IS4613",
+    "start_line": 4599,
+    "end_line": 4613,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement enabled, simplify the instruction with substituted operands and return the result unless it is the original value itself.",
+    "opcodes": [
+      "any instruction"
+    ],
+    "extra": [
+      "AllowRefinement=true; recursive simplifyInstructionWithOperands; result differs from V"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4613
+    ]
+  },
+  {
+    "id": "IS4666",
+    "start_line": 4636,
+    "end_line": 4666,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement disabled and all substituted operands constant, constant-fold the instruction only if it cannot produce poison, except abs is allowed when its argument is not signed minimum; if DropFlags applies, poison-generating annotations are queued for removal.",
+    "opcodes": [
+      "any constant-foldable instruction"
+    ],
+    "extra": [
+      "All operands constant; canCreatePoison constraints; abs signed-min guard; ConstantFoldInstOperands; optional DropFlags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4666
+    ]
+  },
+  {
+    "id": "IS4669",
+    "start_line": 4667,
+    "end_line": 4669,
+    "function": "simplifyWithOpsReplaced",
+    "description": "With refinement enabled and all substituted operands constant, return ConstantFoldInstOperands result with nondeterministic folding disabled.",
+    "opcodes": [
+      "any constant-foldable instruction"
+    ],
+    "extra": [
+      "All operands constant; ConstantFoldInstOperands allow nondeterministic=false"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4669
+    ]
+  },
+  {
+    "id": "IS4705",
+    "start_line": 4701,
+    "end_line": 4705,
+    "function": "simplifySelectBitTest",
+    "description": "For a bit test `(X & Y)==0` or `!=0`, if false arm is X and true arm is `X & C` with `Y == ~C`, choose X when the tested condition is true-when-unset, otherwise choose `X & C`.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and"
+    ],
+    "extra": [
+      "exact X SSA match; APInt mask complement; TrueWhenUnset derived from EQ/NE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4705
+    ]
+  },
+  {
+    "id": "IS4711",
+    "start_line": 4707,
+    "end_line": 4711,
+    "function": "simplifySelectBitTest",
+    "description": "For a bit test `(X & Y)==0` or `!=0`, if true arm is X and false arm is `X & C` with `Y == ~C`, choose `X & C` when the tested condition is true-when-unset, otherwise choose X.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and"
+    ],
+    "extra": [
+      "exact X SSA match; APInt mask complement; TrueWhenUnset derived from EQ/NE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4711
+    ]
+  },
+  {
+    "id": "IS4721",
+    "start_line": 4713,
+    "end_line": 4721,
+    "function": "simplifySelectBitTest",
+    "description": "For power-of-two mask Y, false arm X and true arm `X|Y`, choose the OR when true means the tested bit is unset, otherwise choose X.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Y is power of two; exact X match; Y equals OR constant; reject disjoint OR when returning it for TrueWhenUnset"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4721
+    ]
+  },
+  {
+    "id": "IS4731",
+    "start_line": 4724,
+    "end_line": 4731,
+    "function": "simplifySelectBitTest",
+    "description": "For power-of-two mask Y, true arm X and false arm `X|Y`, choose X when true means the tested bit is unset, otherwise choose the OR.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "Y is power of two; exact X match; Y equals OR constant; reject disjoint OR when returning it for !TrueWhenUnset"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4731
+    ]
+  },
+  {
+    "id": "IS4785",
+    "start_line": 4768,
+    "end_line": 4785,
+    "function": "simplifyCmpSelOfMaxMin",
+    "description": "For `(X pred Y) ? X : max/min(X,Y)`, return the min/max intrinsic when its predicate equals `getStrictPredicate(pred)`; this also allows the recognized select-shuffle case.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call",
+      "shufflevector"
+    ],
+    "extra": [
+      "true arm canonicalized to X; false arm min/max(X,Y); MMI predicate equals strict predicate"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4785
+    ]
+  },
+  {
+    "id": "IS4793",
+    "start_line": 4791,
+    "end_line": 4793,
+    "function": "simplifyCmpSelOfMaxMin",
+    "description": "For `(X == Y) ? X : max/min(X,Y)`, return the min/max intrinsic.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "Canonicalized X/Y arms; no select-shuffle peek-through"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4793
+    ]
+  },
+  {
+    "id": "IS4797",
+    "start_line": 4795,
+    "end_line": 4797,
+    "function": "simplifyCmpSelOfMaxMin",
+    "description": "For `(X != Y) ? X : max/min(X,Y)`, return X.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "Canonicalized X/Y arms; no select-shuffle peek-through"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4797
+    ]
+  },
+  {
+    "id": "IS4805",
+    "start_line": 4799,
+    "end_line": 4805,
+    "function": "simplifyCmpSelOfMaxMin",
+    "description": "For `(X pred Y) ? X : max/min(X,Y)`, return X when the min/max predicate equals the strict predicate of the inverse compare predicate.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "Canonicalized X/Y arms; no select-shuffle peek-through"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4805
+    ]
+  },
+  {
+    "id": "IS4815",
+    "start_line": 4810,
+    "end_line": 4818,
+    "function": "simplifySelectWithBitTest",
+    "description": "If decomposeBitTest recognizes the condition as a bit test, delegate to simplifySelectBitTest with the decomposed X, mask, and equality polarity; the concrete select equations and disjoint-OR guards are inventoried separately under IS4705.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and",
+      "or"
+    ],
+    "extra": [
+      "decomposeBitTest analysis"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4815
+    ]
+  },
+  {
+    "id": "IS4841",
+    "start_line": 4835,
+    "end_line": 4843,
+    "function": "simplifySelectWithEquivalence",
+    "description": "Given condition-derived operand replacements, simplify both select arms after replacement; return the original false arm if the resulting arms are identical. False arm uses no-undef and no-refinement simplification; true arm permits refinement; only exact pointer-equality replacements allowed by caller.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "recursive operand substitution, refinement/undef semantics, pointer equality legality"
+    ],
+    "kind": "schema",
+    "returns": [
+      4841
+    ]
+  },
+  {
+    "id": "IS4858",
+    "start_line": 4857,
+    "end_line": 4858,
+    "function": "simplifySelectWithICmpCond",
+    "description": "Delegate the condition/arms to simplifyCmpSelOfMaxMin; return its value if its min/max relationship patterns match.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "MinMaxIntrinsic pattern helper succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4858
+    ]
+  },
+  {
+    "id": "IS4879",
+    "start_line": 4866,
+    "end_line": 4879,
+    "function": "simplifySelectWithICmpCond",
+    "description": "Fold a min/max-limit select to X: after decomposing the select pattern, if its flavor is a min or max, the condition predicate is the pattern\u2019s canonical min/max predicate, and the other arm equals the inverse-flavor limit constant, return X.",
+    "opcodes": [
+      "select",
+      "icmp"
+    ],
+    "extra": [
+      "integer or integer-vector arms; matchDecomposedSelectPattern; select pattern/min-max predicate and scalar bit width"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4879
+    ]
+  },
+  {
+    "id": "IS4889",
+    "start_line": 4883,
+    "end_line": 4889,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For equality-to-zero condition `(X & Y)==0`, delegate the select arms to the bit-test select simplifier with X, mask Y and TrueWhenUnset=true.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and"
+    ],
+    "extra": [
+      "Predicate EQ; RHS zero; LHS matches and(X,Y); bit-test helper succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4889
+    ]
+  },
+  {
+    "id": "IS4898",
+    "start_line": 4891,
+    "end_line": 4898,
+    "function": "simplifySelectWithICmpCond",
+    "description": "`(ShAmt==0) ? fshl(X,*,ShAmt) : X` and `(ShAmt==0) ? fshr(*,X,ShAmt) : X` fold to X.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "Predicate EQ and compare RHS zero; true arm has matching fshl/fshr shift operand; false arm exactly X; compare LHS exactly ShAmt"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4898
+    ]
+  },
+  {
+    "id": "IS4912",
+    "start_line": 4900,
+    "end_line": 4912,
+    "function": "simplifySelectWithICmpCond",
+    "description": "`(ShAmt==0) ? X : fshl(X,X,ShAmt)` and the corresponding fshr form fold to the rotate intrinsic.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call"
+    ],
+    "extra": [
+      "Predicate EQ and RHS zero; false arm is fshl/fshr with both data operands X; true arm exactly X; compare LHS exactly ShAmt"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4912
+    ]
+  },
+  {
+    "id": "IS4923",
+    "start_line": 4913,
+    "end_line": 4923,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For a zero-guarded fshl/fshr rotate, remove the guard when compare expression is `(ShAmt & (BW\u22121))` and BW is a power of two.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call",
+      "and"
+    ],
+    "extra": [
+      "Predicate EQ, RHS zero; false arm rotate fshl/fshr(X,X,ShAmt); true arm X; BW power-of-two; compare LHS matches exact ShAmt and BW\u22121 mask"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4923
+    ]
+  },
+  {
+    "id": "IS4927",
+    "start_line": 4924,
+    "end_line": 4927,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For a zero-guarded fshl/fshr rotate, remove the guard when compare expression is `ShAmt urem BW`.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call",
+      "urem"
+    ],
+    "extra": [
+      "Predicate EQ, RHS zero; false arm rotate fshl/fshr(X,X,ShAmt); true arm X; compare LHS matches exact ShAmt and scalar bitwidth BW"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4927
+    ]
+  },
+  {
+    "id": "IS4934",
+    "start_line": 4930,
+    "end_line": 4934,
+    "function": "simplifySelectWithICmpCond",
+    "description": "`(X==0) ? abs(X) : -abs(X)` folds to `-abs(X)`.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call",
+      "sub"
+    ],
+    "extra": [
+      "Predicate EQ and RHS zero; abs operand exactly compare LHS; false arm is negation of matching abs"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4934
+    ]
+  },
+  {
+    "id": "IS4938",
+    "start_line": 4935,
+    "end_line": 4938,
+    "function": "simplifySelectWithICmpCond",
+    "description": "`(X==0) ? -abs(X) : abs(X)` folds to `abs(X)`.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "call",
+      "sub"
+    ],
+    "extra": [
+      "Predicate EQ and RHS zero; abs operand exactly compare LHS; true arm negation and false arm matching abs"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      4938
+    ]
+  },
+  {
+    "id": "IS4949",
+    "start_line": 4941,
+    "end_line": 4949,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For scalar equality `CmpLHS==CmpRHS`, replace CmpLHS by CmpRHS in both select arms and fold when safe simplification makes the arms identical.",
+    "opcodes": [
+      "select",
+      "icmp"
+    ],
+    "extra": [
+      "Predicate EQ; integer operands or canReplacePointersIfEqual(CmpLHS,CmpRHS); recursive substitution result identical"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4949
+    ]
+  },
+  {
+    "id": "IS4954",
+    "start_line": 4950,
+    "end_line": 4954,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For scalar equality `CmpLHS==CmpRHS`, replace CmpRHS by CmpLHS in both select arms and fold when safe simplification makes the arms identical.",
+    "opcodes": [
+      "select",
+      "icmp"
+    ],
+    "extra": [
+      "Predicate EQ; integer operands or canReplacePointersIfEqual(CmpRHS,CmpLHS); recursive substitution result identical"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4954
+    ]
+  },
+  {
+    "id": "IS4964",
+    "start_line": 4956,
+    "end_line": 4964,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For condition `(X|Y)==0`, use the implication that both X and Y equal zero; substitute both into the arms and fold if safe simplification makes the arms identical.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "or"
+    ],
+    "extra": [
+      "Predicate EQ; compare RHS zero; LHS is OR; recursive substitutions of X and Y both equal zero yield identical arms"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4964
+    ]
+  },
+  {
+    "id": "IS4973",
+    "start_line": 4967,
+    "end_line": 4973,
+    "function": "simplifySelectWithICmpCond",
+    "description": "For condition `(X&Y)==allones`, use the implication that both X and Y equal allones; substitute both into the arms and fold if safe simplification makes the arms identical.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and"
+    ],
+    "extra": [
+      "Predicate EQ; compare RHS all-ones; LHS is AND; recursive substitutions of X and Y both all-ones yield identical arms"
+    ],
+    "kind": "delegation",
+    "returns": [
+      4973
+    ]
+  },
+  {
+    "id": "IS5003",
+    "start_line": 4998,
+    "end_line": 5003,
+    "function": "simplifySelectWithFCmp",
+    "description": "For an FCmp equivalence condition, substitute CmpLHS with CmpRHS in the select arms and fold if recursive safe simplification makes them identical.",
+    "opcodes": [
+      "select",
+      "fcmp"
+    ],
+    "extra": [
+      "FCmp is equivalence (including inverted equivalence after arm swap); substitution helper proves arms identical"
+    ],
+    "kind": "delegation",
+    "returns": [
+      5003
+    ]
+  },
+  {
+    "id": "IS5006",
+    "start_line": 4998,
+    "end_line": 5006,
+    "function": "simplifySelectWithFCmp",
+    "description": "For an FCmp equivalence condition, substitute CmpRHS with CmpLHS in the select arms and fold if recursive safe simplification makes them identical.",
+    "opcodes": [
+      "select",
+      "fcmp"
+    ],
+    "extra": [
+      "FCmp is equivalence (including inverted equivalence after arm swap); substitution helper proves arms identical"
+    ],
+    "kind": "delegation",
+    "returns": [
+      5006
+    ]
+  },
+  {
+    "id": "IS5020",
+    "start_line": 5016,
+    "end_line": 5020,
+    "function": "simplifySelectWithFCmp",
+    "description": "With noSignedZeros, `(T == F) ? T : F` folds to F when compare operands are exactly T and F.",
+    "opcodes": [
+      "select",
+      "fcmp"
+    ],
+    "extra": [
+      "CmpLHS=T, CmpRHS=F after optional swap; FMF noSignedZeros; predicate OEQ"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5020
+    ]
+  },
+  {
+    "id": "IS5024",
+    "start_line": 5022,
+    "end_line": 5024,
+    "function": "simplifySelectWithFCmp",
+    "description": "With noSignedZeros, `(T != F) ? T : F` folds to T when compare operands are exactly T and F.",
+    "opcodes": [
+      "select",
+      "fcmp"
+    ],
+    "extra": [
+      "CmpLHS=T, CmpRHS=F after optional swap; FMF noSignedZeros; predicate UNE"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5024
+    ]
+  },
+  {
+    "id": "IS5122",
+    "start_line": 5114,
+    "end_line": 5122,
+    "function": "simplifySelectInst",
+    "description": "When condition, true arm, and false arm are constants, fold the select with ConstantFoldSelectInstruction if it can produce a constant result.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "all three operands Constant; LLVM constant-folding semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5122
+    ]
+  },
+  {
+    "id": "IS5126",
+    "start_line": 5124,
+    "end_line": 5126,
+    "function": "simplifySelectInst",
+    "description": "`select poison, T, F` folds to poison.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition is poison"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5126
+    ]
+  },
+  {
+    "id": "IS5130",
+    "start_line": 5128,
+    "end_line": 5130,
+    "function": "simplifySelectInst",
+    "description": "`select undef, T, F` chooses F when F is any Constant; otherwise chooses T.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition is undef; this is a permitted undef choice"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5130
+    ]
+  },
+  {
+    "id": "IS5137",
+    "start_line": 5133,
+    "end_line": 5137,
+    "function": "simplifySelectInst",
+    "description": "`select true, T, F` folds to T, including vector condition constants matching defined lanes.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition matches all-ones constant"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5137
+    ]
+  },
+  {
+    "id": "IS5139",
+    "start_line": 5133,
+    "end_line": 5139,
+    "function": "simplifySelectInst",
+    "description": "`select false, T, F` folds to F, including vector condition constants matching defined lanes.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition matches zero constant"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5139
+    ]
+  },
+  {
+    "id": "IS5150",
+    "start_line": 5144,
+    "end_line": 5150,
+    "function": "simplifySelectInst",
+    "description": "For i1 select values, `select Cond, true, false` folds to Cond.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition and arm types are equal i1"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5150
+    ]
+  },
+  {
+    "id": "IS5154",
+    "start_line": 5152,
+    "end_line": 5154,
+    "function": "simplifySelectInst",
+    "description": "For i1 logical values, `(X && Y) ? X : Y` folds to Y, with either commutative ordering.",
+    "opcodes": [
+      "select",
+      "and"
+    ],
+    "extra": [
+      "condition matches logical-and of the exact true and false arms"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5154
+    ]
+  },
+  {
+    "id": "IS5158",
+    "start_line": 5156,
+    "end_line": 5158,
+    "function": "simplifySelectInst",
+    "description": "For i1 logical values, `(X || Y) ? X : Y` folds to X, with either commutative ordering.",
+    "opcodes": [
+      "select",
+      "or"
+    ],
+    "extra": [
+      "condition matches logical-or of the exact true and false arms"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5158
+    ]
+  },
+  {
+    "id": "IS5163",
+    "start_line": 5161,
+    "end_line": 5163,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `(X || Y) ? false : X` folds to false, with either commutative OR ordering.",
+    "opcodes": [
+      "select",
+      "or"
+    ],
+    "extra": [
+      "true arm zero; condition OR contains false arm"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5163
+    ]
+  },
+  {
+    "id": "IS5169",
+    "start_line": 5166,
+    "end_line": 5169,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `!(X || Y) ? false : X` folds to false.",
+    "opcodes": [
+      "select",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "false arm zero; condition is logical not of OR containing true arm"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5169
+    ]
+  },
+  {
+    "id": "IS5172",
+    "start_line": 5170,
+    "end_line": 5172,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `X ? !(X || Y) : false` folds to false.",
+    "opcodes": [
+      "select",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "false arm zero; true arm logical not of OR containing condition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5172
+    ]
+  },
+  {
+    "id": "IS5176",
+    "start_line": 5174,
+    "end_line": 5176,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `(X || Y) ? X : false` folds to X, with either OR operand ordering.",
+    "opcodes": [
+      "select",
+      "or"
+    ],
+    "extra": [
+      "false arm zero; condition OR contains true arm"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5176
+    ]
+  },
+  {
+    "id": "IS5179",
+    "start_line": 5178,
+    "end_line": 5179,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `Y ? (X || Y) : false` folds to Y.",
+    "opcodes": [
+      "select",
+      "or"
+    ],
+    "extra": [
+      "false arm zero; true arm logical OR contains condition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5179
+    ]
+  },
+  {
+    "id": "IS5185",
+    "start_line": 5182,
+    "end_line": 5185,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `(X || !Y) ? (X || Y) : false` folds to X.",
+    "opcodes": [
+      "select",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "false arm zero; both ORs share exact X and Y operands"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5185
+    ]
+  },
+  {
+    "id": "IS5188",
+    "start_line": 5186,
+    "end_line": 5188,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `(X || Y) ? (X || !Y) : false` folds to X.",
+    "opcodes": [
+      "select",
+      "or",
+      "xor"
+    ],
+    "extra": [
+      "false arm zero; both ORs share exact X and Y operands"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5188
+    ]
+  },
+  {
+    "id": "IS5195",
+    "start_line": 5192,
+    "end_line": 5195,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `!(F && Y) ? true : F` folds to true.",
+    "opcodes": [
+      "select",
+      "and",
+      "xor"
+    ],
+    "extra": [
+      "true arm one; condition logical not of AND containing false arm"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5195
+    ]
+  },
+  {
+    "id": "IS5198",
+    "start_line": 5196,
+    "end_line": 5198,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `Cond ? true : !(Cond && Y)` folds to true.",
+    "opcodes": [
+      "select",
+      "and",
+      "xor"
+    ],
+    "extra": [
+      "true arm one; false arm logical not of AND containing condition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5198
+    ]
+  },
+  {
+    "id": "IS5202",
+    "start_line": 5200,
+    "end_line": 5202,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `(F && Y) ? true : F` folds to F, with either AND operand ordering.",
+    "opcodes": [
+      "select",
+      "and"
+    ],
+    "extra": [
+      "true arm one; condition logical AND contains false arm"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5202
+    ]
+  },
+  {
+    "id": "IS5205",
+    "start_line": 5204,
+    "end_line": 5205,
+    "function": "simplifySelectInst",
+    "description": "For i1 values, `Cond ? true : (Cond && Y)` folds to Cond.",
+    "opcodes": [
+      "select",
+      "and"
+    ],
+    "extra": [
+      "true arm one; false arm logical AND contains condition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5205
+    ]
+  },
+  {
+    "id": "IS5211",
+    "start_line": 5209,
+    "end_line": 5211,
+    "function": "simplifySelectInst",
+    "description": "`select Cond, X, X` folds to X for any condition and any result type.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "TrueVal and FalseVal are the identical SSA value"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5211
+    ]
+  },
+  {
+    "id": "IS5216",
+    "start_line": 5214,
+    "end_line": 5216,
+    "function": "simplifySelectInst",
+    "description": "For i1, `select X, X, false` folds to X.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition equals true arm; false arm zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5216
+    ]
+  },
+  {
+    "id": "IS5219",
+    "start_line": 5217,
+    "end_line": 5219,
+    "function": "simplifySelectInst",
+    "description": "For i1, `select X, X, true` folds to true.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition equals true arm; false arm one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5219
+    ]
+  },
+  {
+    "id": "IS5224",
+    "start_line": 5222,
+    "end_line": 5224,
+    "function": "simplifySelectInst",
+    "description": "For i1, `select X, true, X` folds to X.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition equals false arm; true arm one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5224
+    ]
+  },
+  {
+    "id": "IS5227",
+    "start_line": 5225,
+    "end_line": 5227,
+    "function": "simplifySelectInst",
+    "description": "For i1, `select X, false, X` folds to false.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "condition equals false arm; true arm zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5227
+    ]
+  },
+  {
+    "id": "IS5237a",
+    "start_line": 5234,
+    "end_line": 5237,
+    "function": "simplifySelectInst",
+    "description": "`select Cond, poison, F` folds to F.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "TrueVal is PoisonValue"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5237
+    ]
+  },
+  {
+    "id": "IS5237b",
+    "start_line": 5235,
+    "end_line": 5237,
+    "function": "simplifySelectInst",
+    "description": "`select Cond, undef, F` folds to F when F is poison whenever Cond is true, so selecting the undef arm cannot make the result more defined.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "TrueVal is undef; impliesPoison(FalseVal,Cond) holds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5237
+    ]
+  },
+  {
+    "id": "IS5242a",
+    "start_line": 5239,
+    "end_line": 5242,
+    "function": "simplifySelectInst",
+    "description": "`select Cond, T, poison` folds to T.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "FalseVal is PoisonValue"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5242
+    ]
+  },
+  {
+    "id": "IS5242b",
+    "start_line": 5240,
+    "end_line": 5242,
+    "function": "simplifySelectInst",
+    "description": "`select Cond, T, undef` folds to T when T is poison whenever Cond is false, so selecting the undef arm cannot make the result more defined.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "FalseVal is undef; impliesPoison(TrueVal,Cond) holds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5242
+    ]
+  },
+  {
+    "id": "IS5278",
+    "start_line": 5275,
+    "end_line": 5278,
+    "function": "simplifySelectInst",
+    "description": "Delegate a select with ICmp condition to simplifySelectWithICmpCond and return its result when successful.",
+    "opcodes": [
+      "select",
+      "icmp"
+    ],
+    "extra": [
+      "ICmp condition; helper succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      5278
+    ]
+  },
+  {
+    "id": "IS5281",
+    "start_line": 5279,
+    "end_line": 5281,
+    "function": "simplifySelectInst",
+    "description": "Delegate a select to simplifySelectWithBitTest and return its result when bit-test analysis succeeds.",
+    "opcodes": [
+      "select",
+      "icmp",
+      "and"
+    ],
+    "extra": [
+      "bit-test condition decomposition succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      5281
+    ]
+  },
+  {
+    "id": "IS5285",
+    "start_line": 5282,
+    "end_line": 5285,
+    "function": "simplifySelectInst",
+    "description": "Delegate a select with FCmp condition to simplifySelectWithFCmp and return its result when successful.",
+    "opcodes": [
+      "select",
+      "fcmp"
+    ],
+    "extra": [
+      "FCmp condition; FastMathFlags; helper succeeds"
+    ],
+    "kind": "delegation",
+    "returns": [
+      5285
+    ]
+  },
+  {
+    "id": "IS5289",
+    "start_line": 5287,
+    "end_line": 5289,
+    "function": "simplifySelectInst",
+    "description": "If current condition is implied true/false by a dominating condition, choose the true/false arm accordingly.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "isImpliedByDomCondition succeeds in current context"
+    ],
+    "kind": "delegation",
+    "returns": [
+      5289
+    ]
+  },
+  {
+    "id": "IS5294",
+    "start_line": 5290,
+    "end_line": 5294,
+    "function": "simplifySelectInst",
+    "description": "For two PHIs in the same block, if isSelectWithIdenticalPHI proves the true PHI is inductively identical to the false PHI, replace the select with the false PHI.",
+    "opcodes": [
+      "select",
+      "phi"
+    ],
+    "extra": [
+      "Both arms PHI; 2 incoming values; identical entry edge; backedge select conditions same and one arm matches; induction shape recognized"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5294
+    ]
+  },
+  {
+    "id": "IS5296",
+    "start_line": 5295,
+    "end_line": 5296,
+    "function": "simplifySelectInst",
+    "description": "Symmetric case: if isSelectWithIdenticalPHI proves the false PHI is inductively identical to the true PHI, replace the select with the true PHI.",
+    "opcodes": [
+      "select",
+      "phi"
+    ],
+    "extra": [
+      "Both arms PHI; same strict induction-shape guards as the symmetric helper check"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5296
+    ]
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "repository": "llvm/llvm-project",
+  "ref": "main",
+  "sha": "fb3ef86994775a17f4e9f1576d17590e79a8e198",
+  "commit_date": "2026-10-22T06:34:40Z",
+  "message": "[LoongArch] Implement `computeKnownBitsForTargetNode()` cases for `V{ALL,ANY}_{,NON}ZERO` (#230799)",
+  "source_path": "llvm/lib/Analysis/InstructionSimplify.cpp",
+  "blob_sha": "78071ae171950b1b8b1e38f0f323106e1c7e9005",
+  "veir_base_commit": "3d6e01bdbdf871f8ce65f54ab27f854d4831d7d9",
+  "sources": {
+    "InstructionSimplify.cpp": {
+      "sha256": "111ddea8b122e2cbfe5259fa0338bc299bc487d4d8e41dc63d56bdf340dd8694",
+      "lines": 8039,
+      "git_blob_sha": "78071ae171950b1b8b1e38f0f323106e1c7e9005"
+    },
+    "InstructionSimplify.h": {
+      "sha256": "5a51410a8db2c050dbf66dac5fc6b618eb4695a924d6d82eeea019e907bb49c3",
+      "lines": 312,
+      "git_blob_sha": "3568422c8348b3a76ba18c0d150f0235db69d5b8"
+    },
+    "InstSimplifyPass.cpp": {
+      "sha256": "663a0511b5668b5201174c717e7f702d2136f5bb5328e835e0795afb1ce362ca",
+      "lines": 137,
+      "git_blob_sha": "326849a4eb3953df37aaa14c717eba1dc5e993c3"
+    }
+  }
+}

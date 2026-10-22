@@ -1,0 +1,600 @@
+[
+  {
+    "id": "IS7789",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS0597",
+      "IS0601",
+      "IS0605",
+      "IS0609",
+      "IS0613",
+      "IS0621",
+      "IS0626",
+      "IS0633",
+      "IS0637",
+      "IS0642",
+      "IS0647"
+    ],
+    "reason": "This is dispatch to `simplifyAddInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7793",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS6105",
+      "IS6108",
+      "IS6115",
+      "IS6121",
+      "IS6128",
+      "IS6136",
+      "IS6144",
+      "IS6148",
+      "IS6152",
+      "IS6160"
+    ],
+    "reason": "This is dispatch to `simplifyFSubInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7796",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS0749",
+      "IS0754",
+      "IS0759",
+      "IS0763",
+      "IS0767",
+      "IS0773",
+      "IS0780",
+      "IS0783",
+      "IS0797",
+      "IS0805",
+      "IS0819",
+      "IS0827",
+      "IS0841",
+      "IS0854",
+      "IS0860",
+      "IS0867",
+      "IS0879",
+      "IS0886"
+    ],
+    "reason": "This is dispatch to `simplifySubInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7800",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS6222"
+    ],
+    "reason": "This is dispatch to `simplifyFMulInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7803",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS0902",
+      "IS0906",
+      "IS0911",
+      "IS0915",
+      "IS0923",
+      "IS0929",
+      "IS0934",
+      "IS0940",
+      "IS0945",
+      "IS0952",
+      "IS0959"
+    ],
+    "reason": "This is dispatch to `simplifyMulInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7807",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1216",
+      "IS1218"
+    ],
+    "reason": "This is dispatch to `simplifySDivInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7811",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1230"
+    ],
+    "reason": "This is dispatch to `simplifyUDivInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7815",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS6267",
+      "IS6270",
+      "IS6277",
+      "IS6283",
+      "IS6289",
+      "IS6294",
+      "IS6301",
+      "IS6305"
+    ],
+    "reason": "This is dispatch to `simplifyFDivInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7818",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1246",
+      "IS1250",
+      "IS1252"
+    ],
+    "reason": "This is dispatch to `simplifySRemInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7820",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1263"
+    ],
+    "reason": "This is dispatch to `simplifyURemInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7822",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS6326",
+      "IS6329",
+      "IS6340",
+      "IS6343"
+    ],
+    "reason": "This is dispatch to `simplifyFRemInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7825",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1405",
+      "IS1411",
+      "IS1417",
+      "IS1421",
+      "IS1430"
+    ],
+    "reason": "This is dispatch to `simplifyShlInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7829",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1446",
+      "IS1451",
+      "IS1466"
+    ],
+    "reason": "This is dispatch to `simplifyLShrInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7833",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS1483",
+      "IS1490",
+      "IS1495",
+      "IS1500"
+    ],
+    "reason": "This is dispatch to `simplifyAShrInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7837",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS2074",
+      "IS2078",
+      "IS2082",
+      "IS2086",
+      "IS2090",
+      "IS2094",
+      "IS2097",
+      "IS2099",
+      "IS2102",
+      "IS2113",
+      "IS2119",
+      "IS2132",
+      "IS2136",
+      "IS2143",
+      "IS2145",
+      "IS2151",
+      "IS2156",
+      "IS2161",
+      "IS2167",
+      "IS2169",
+      "IS2176",
+      "IS2184",
+      "IS2213",
+      "IS2215",
+      "IS2226",
+      "IS2233",
+      "IS2239",
+      "IS2242",
+      "IS2247",
+      "IS2250",
+      "IS2255"
+    ],
+    "reason": "This is dispatch to `simplifyAndInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7839",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS2359",
+      "IS2363",
+      "IS2369",
+      "IS2374",
+      "IS2377",
+      "IS2379",
+      "IS2382",
+      "IS2397",
+      "IS2406",
+      "IS2408",
+      "IS2419",
+      "IS2423",
+      "IS2430",
+      "IS2434",
+      "IS2438",
+      "IS2441",
+      "IS2444",
+      "IS2450",
+      "IS2452",
+      "IS2457",
+      "IS2462",
+      "IS2468",
+      "IS2470",
+      "IS2477",
+      "IS2495",
+      "IS2501",
+      "IS2510",
+      "IS2515",
+      "IS2522",
+      "IS2525",
+      "IS2531",
+      "IS2534",
+      "IS2539"
+    ],
+    "reason": "This is dispatch to `simplifyOrInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7841",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS2553",
+      "IS2557",
+      "IS2561",
+      "IS2565",
+      "IS2569",
+      "IS2573",
+      "IS2580",
+      "IS2589",
+      "IS2594",
+      "IS2596",
+      "IS2599",
+      "IS2604",
+      "IS2616",
+      "IS2623"
+    ],
+    "reason": "This is dispatch to `simplifyXorInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7843",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS3891",
+      "IS3907",
+      "IS3913",
+      "IS3918",
+      "IS3959",
+      "IS3966",
+      "IS3979",
+      "IS3985",
+      "IS3987",
+      "IS4014",
+      "IS4026",
+      "IS4031",
+      "IS4037",
+      "IS4042",
+      "IS4058",
+      "IS4064",
+      "IS4066",
+      "IS4091",
+      "IS4100",
+      "IS4102",
+      "IS4108",
+      "IS4113",
+      "IS4126",
+      "IS4135",
+      "IS4148",
+      "IS4180",
+      "IS4186",
+      "IS4192"
+    ],
+    "reason": "This is dispatch to `simplifyICmpInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7846",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS4214",
+      "IS4225",
+      "IS4227",
+      "IS4232",
+      "IS4239",
+      "IS4245",
+      "IS4247",
+      "IS4260",
+      "IS4263",
+      "IS4268",
+      "IS4290",
+      "IS4292",
+      "IS4301",
+      "IS4319",
+      "IS4329",
+      "IS4349",
+      "IS4354",
+      "IS4363",
+      "IS4372",
+      "IS4396",
+      "IS4407",
+      "IS4419",
+      "IS4425"
+    ],
+    "reason": "This is dispatch to `simplifyFCmpInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7852",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5122",
+      "IS5126",
+      "IS5130",
+      "IS5137",
+      "IS5139",
+      "IS5150",
+      "IS5154",
+      "IS5158",
+      "IS5163",
+      "IS5169",
+      "IS5172",
+      "IS5176",
+      "IS5179",
+      "IS5185",
+      "IS5188",
+      "IS5195",
+      "IS5198",
+      "IS5202",
+      "IS5205",
+      "IS5211",
+      "IS5216",
+      "IS5219",
+      "IS5224",
+      "IS5227",
+      "IS5237a",
+      "IS5237b",
+      "IS5242a",
+      "IS5242b",
+      "IS5278",
+      "IS5281",
+      "IS5285",
+      "IS5289",
+      "IS5294",
+      "IS5296"
+    ],
+    "reason": "This is dispatch to `simplifySelectInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7857",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5317",
+      "IS5335",
+      "IS5340",
+      "IS5344",
+      "IS5359",
+      "IS5375",
+      "IS5383",
+      "IS5391",
+      "IS5414",
+      "IS5421",
+      "IS5435",
+      "IS5438"
+    ],
+    "reason": "This is dispatch to `simplifyGEPInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7863",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5453",
+      "IS5459",
+      "IS5470",
+      "IS5474"
+    ],
+    "reason": "This is dispatch to `simplifyInsertValueInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7867",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5493",
+      "IS5499",
+      "IS5504",
+      "IS5510",
+      "IS5514",
+      "IS5520"
+    ],
+    "reason": "This is dispatch to `simplifyInsertElementInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7870",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5530",
+      "IS5547",
+      "IS5560",
+      "IS5562"
+    ],
+    "reason": "This is dispatch to `simplifyExtractValueInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7874",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5580",
+      "IS5583",
+      "IS5589",
+      "IS5597",
+      "IS5601",
+      "IS5603",
+      "IS5611",
+      "IS5615"
+    ],
+    "reason": "This is dispatch to `simplifyExtractElementInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7877",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5803",
+      "IS5840",
+      "IS5873",
+      "IS5882",
+      "IS5910"
+    ],
+    "reason": "This is dispatch to `simplifyShuffleVectorInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7882",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5658",
+      "IS5672",
+      "IS5675"
+    ],
+    "reason": "This is dispatch to `simplifyPHINode`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7884",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS7689",
+      "IS7692",
+      "IS7697"
+    ],
+    "reason": "This is dispatch to `simplifyCall`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7888",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS7716"
+    ],
+    "reason": "This is dispatch to `simplifyFreezeInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7893",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5740"
+    ],
+    "reason": "This is dispatch to `simplifyAddrSpaceCastInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7899",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS5681",
+      "IS5693",
+      "IS5700",
+      "IS5713",
+      "IS5722"
+    ],
+    "reason": "This is dispatch to `simplifyCastInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7905",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS7731",
+      "IS7743"
+    ],
+    "reason": "This is dispatch to `simplifyLoadInst`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  },
+  {
+    "id": "IS7914",
+    "kind": "delegation",
+    "status": "unsupported",
+    "covered_by": [
+      "IS7780",
+      "IS7784",
+      "IS7786",
+      "IS7789",
+      "IS7793",
+      "IS7796",
+      "IS7800",
+      "IS7803",
+      "IS7807",
+      "IS7811",
+      "IS7815",
+      "IS7818",
+      "IS7820",
+      "IS7822",
+      "IS7825",
+      "IS7829",
+      "IS7833",
+      "IS7837",
+      "IS7839",
+      "IS7841",
+      "IS7843",
+      "IS7846",
+      "IS7852",
+      "IS7857",
+      "IS7863",
+      "IS7867",
+      "IS7870",
+      "IS7874",
+      "IS7877",
+      "IS7882",
+      "IS7884",
+      "IS7888",
+      "IS7893",
+      "IS7899",
+      "IS7905"
+    ],
+    "reason": "This is dispatch to `simplifyInstructionWithOperands`, not an additional peephole equation. Its source branches and their individual port/proof outcomes are linked here. A complete replacement for this dispatcher would need all callee facilities, including the unsupported domains and analysis-dependent or recursive branches documented there; there is no separate complete Puddle dispatcher implementation."
+  }
+]

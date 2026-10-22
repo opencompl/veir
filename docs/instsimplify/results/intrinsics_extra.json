@@ -1,0 +1,150 @@
+[
+  {
+    "id": "IS1717",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1717.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1717_valid"
+    ],
+    "domain": "All modeled scalar integer widths, all three operand-order commutations (both equality comparisons and outer and/or); all disjoint flags; every normalized nonzero APInt C.",
+    "reason": "Pinned source checks C->isZero(), not signed positivity; own LLVM ctpop/icmp/and-or patterns with exact retained comparison result and kernel-checked validity.",
+    "description": "Absorb ctpop(X) comparison against any nonzero APInt C with the indicated X-zero comparison; C may have a negative signed interpretation."
+  },
+  {
+    "id": "IS1720",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1720.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1720_valid"
+    ],
+    "domain": "All modeled scalar integer widths, all three operand-order commutations (both equality comparisons and outer and/or); all disjoint flags; every normalized nonzero APInt C.",
+    "reason": "Pinned source checks C->isZero(), not signed positivity; own LLVM ctpop/icmp/and-or patterns with exact retained comparison result and kernel-checked validity.",
+    "description": "Absorb ctpop(X) comparison against any nonzero APInt C with the indicated X-zero comparison; C may have a negative signed interpretation."
+  },
+  {
+    "id": "IS2419",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2419.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2419_valid"
+    ],
+    "domain": "All modeled scalar integer widths and signedness, all source shift and OR flags; parameterized root OR commutation.",
+    "reason": "Own LLVM funnel/shift/OR pattern and kernel-checked validity, returning the exact matched funnel result."
+  },
+  {
+    "id": "IS2423",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2423.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2423_valid"
+    ],
+    "domain": "All modeled scalar integer widths and signedness, all source shift and OR flags; parameterized root OR commutation.",
+    "reason": "Own LLVM funnel/shift/OR pattern and kernel-checked validity, returning the exact matched funnel result.",
+    "covered_by": "IS2419"
+  },
+  {
+    "id": "IS2430",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2430.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2430_valid"
+    ],
+    "domain": "All modeled scalar integer widths and signedness, all source shift and OR flags; parameterized root OR commutation.",
+    "reason": "Own LLVM funnel/shift/OR pattern and kernel-checked validity, returning the exact matched funnel result."
+  },
+  {
+    "id": "IS2434",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2434.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2434_valid"
+    ],
+    "domain": "All modeled scalar integer widths and signedness, all source shift and OR flags; parameterized root OR commutation.",
+    "reason": "Own LLVM funnel/shift/OR pattern and kernel-checked validity, returning the exact matched funnel result.",
+    "covered_by": "IS2430"
+  },
+  {
+    "id": "IS4898",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4898.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4898_valid"
+    ],
+    "domain": "All modeled scalar integer widths (positive width for abs guards), all relevant intrinsic/negation flags, both equality operand orders and both funnel directions where applicable; normalized zero APInts.",
+    "reason": "Own actual LLVM patterns with exact retained false-arm/source operand and kernel-checked validity. Independent abs occurrences retain independent INT_MIN flags."
+  },
+  {
+    "id": "IS4912",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4912.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4912_valid"
+    ],
+    "domain": "All modeled scalar integer widths (positive width for abs guards), all relevant intrinsic/negation flags, both equality operand orders and both funnel directions where applicable; normalized zero APInts.",
+    "reason": "Own actual LLVM patterns with exact retained false-arm/source operand and kernel-checked validity. Independent abs occurrences retain independent INT_MIN flags."
+  },
+  {
+    "id": "IS4923",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4923.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4923_valid"
+    ],
+    "domain": "All positive scalar integer widths equal to 2^k for arbitrary k, both funnel directions, both comparison orders and both AND orders; every normalized APInt width-minus-one mask.",
+    "reason": "Own LLVM select/icmp/and-or-urem/funnel pattern; kernel-checked exact retained rotate result, including poison operands."
+  },
+  {
+    "id": "IS4927",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4927.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4927_valid"
+    ],
+    "domain": "All modeled scalar integer widths via width parameter, both funnel directions and equality operand orders; every normalized APInt width constant; operational urem division-by-zero excluded by successful interpretation.",
+    "reason": "Own LLVM select/icmp/and-or-urem/funnel pattern; kernel-checked exact retained rotate result, including poison operands."
+  },
+  {
+    "id": "IS4934",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4934.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4934_valid"
+    ],
+    "domain": "All modeled scalar integer widths (positive width for abs guards), all relevant intrinsic/negation flags, both equality operand orders and both funnel directions where applicable; normalized zero APInts.",
+    "reason": "Own actual LLVM patterns with exact retained false-arm/source operand and kernel-checked validity. Independent abs occurrences retain independent INT_MIN flags."
+  },
+  {
+    "id": "IS4938",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS4938.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4938_valid"
+    ],
+    "domain": "All modeled scalar integer widths (positive width for abs guards), all relevant intrinsic/negation flags, both equality operand orders and both funnel directions where applicable; normalized zero APInts.",
+    "reason": "Own actual LLVM patterns with exact retained false-arm/source operand and kernel-checked validity. Independent abs occurrences retain independent INT_MIN flags."
+  }
+]

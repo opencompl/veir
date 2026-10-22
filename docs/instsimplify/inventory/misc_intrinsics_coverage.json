@@ -1,0 +1,1707 @@
+[
+  {
+    "line": 5317,
+    "entry_id": "IS5317"
+  },
+  {
+    "line": 5335,
+    "entry_id": "IS5335"
+  },
+  {
+    "line": 5340,
+    "entry_id": "IS5340"
+  },
+  {
+    "line": 5344,
+    "entry_id": "IS5344"
+  },
+  {
+    "line": 5348,
+    "non_rewrite": "non-rewrite: internal match/type predicate used by another rewrite."
+  },
+  {
+    "line": 5359,
+    "entry_id": "IS5359"
+  },
+  {
+    "line": 5367,
+    "non_rewrite": "non-rewrite: utility/helper return value, not an independent InstSimplify rewrite branch."
+  },
+  {
+    "line": 5375,
+    "entry_id": "IS5375"
+  },
+  {
+    "line": 5383,
+    "entry_id": "IS5383"
+  },
+  {
+    "line": 5391,
+    "entry_id": "IS5391"
+  },
+  {
+    "line": 5414,
+    "entry_id": "IS5414"
+  },
+  {
+    "line": 5421,
+    "entry_id": "IS5421"
+  },
+  {
+    "line": 5428,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5435,
+    "entry_id": "IS5435"
+  },
+  {
+    "line": 5438,
+    "entry_id": "IS5438"
+  },
+  {
+    "line": 5443,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5453,
+    "entry_id": "IS5453"
+  },
+  {
+    "line": 5459,
+    "entry_id": "IS5459"
+  },
+  {
+    "line": 5470,
+    "entry_id": "IS5470"
+  },
+  {
+    "line": 5474,
+    "entry_id": "IS5474"
+  },
+  {
+    "line": 5477,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5483,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5493,
+    "entry_id": "IS5493"
+  },
+  {
+    "line": 5499,
+    "entry_id": "IS5499"
+  },
+  {
+    "line": 5504,
+    "entry_id": "IS5504"
+  },
+  {
+    "line": 5510,
+    "entry_id": "IS5510"
+  },
+  {
+    "line": 5514,
+    "entry_id": "IS5514"
+  },
+  {
+    "line": 5520,
+    "entry_id": "IS5520"
+  },
+  {
+    "line": 5522,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5530,
+    "entry_id": "IS5530"
+  },
+  {
+    "line": 5547,
+    "entry_id": "IS5547"
+  },
+  {
+    "line": 5560,
+    "entry_id": "IS5560"
+  },
+  {
+    "line": 5562,
+    "entry_id": "IS5562"
+  },
+  {
+    "line": 5565,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5570,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5580,
+    "entry_id": "IS5580"
+  },
+  {
+    "line": 5583,
+    "entry_id": "IS5583"
+  },
+  {
+    "line": 5589,
+    "entry_id": "IS5589"
+  },
+  {
+    "line": 5597,
+    "entry_id": "IS5597"
+  },
+  {
+    "line": 5601,
+    "entry_id": "IS5601"
+  },
+  {
+    "line": 5603,
+    "entry_id": "IS5603"
+  },
+  {
+    "line": 5611,
+    "entry_id": "IS5611"
+  },
+  {
+    "line": 5615,
+    "entry_id": "IS5615"
+  },
+  {
+    "line": 5617,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5622,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5651,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5658,
+    "entry_id": "IS5658"
+  },
+  {
+    "line": 5666,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5671,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5672,
+    "entry_id": "IS5672"
+  },
+  {
+    "line": 5675,
+    "entry_id": "IS5675"
+  },
+  {
+    "line": 5681,
+    "entry_id": "IS5681",
+    "additional_entry_ids": [
+      "IS5681p"
+    ]
+  },
+  {
+    "line": 5693,
+    "entry_id": "IS5693",
+    "additional_entry_ids": [
+      "IS5693p"
+    ]
+  },
+  {
+    "line": 5700,
+    "entry_id": "IS5700"
+  },
+  {
+    "line": 5713,
+    "entry_id": "IS5713"
+  },
+  {
+    "line": 5722,
+    "entry_id": "IS5722"
+  },
+  {
+    "line": 5726,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5731,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5740,
+    "entry_id": "IS5740"
+  },
+  {
+    "line": 5742,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5747,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5757,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5762,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5776,
+    "entry_id": "IS5776"
+  },
+  {
+    "line": 5788,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5793,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5795,
+    "entry_id": "IS5795"
+  },
+  {
+    "line": 5803,
+    "entry_id": "IS5803"
+  },
+  {
+    "line": 5840,
+    "entry_id": "IS5840"
+  },
+  {
+    "line": 5864,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 5873,
+    "entry_id": "IS5873"
+  },
+  {
+    "line": 5882,
+    "entry_id": "IS5882"
+  },
+  {
+    "line": 5887,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5893,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5908,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5910,
+    "entry_id": "IS5910"
+  },
+  {
+    "line": 5917,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5923,
+    "entry_id": "IS5923"
+  },
+  {
+    "line": 5924,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5932,
+    "entry_id": "IS5932"
+  },
+  {
+    "line": 5937,
+    "entry_id": "IS5937"
+  },
+  {
+    "line": 5939,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 5944,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 5966,
+    "entry_id": "IS5966"
+  },
+  {
+    "line": 5972,
+    "entry_id": "IS5972"
+  },
+  {
+    "line": 5985,
+    "entry_id": "IS5985"
+  },
+  {
+    "line": 5998,
+    "entry_id": "IS5998"
+  },
+  {
+    "line": 6009,
+    "entry_id": "IS6009"
+  },
+  {
+    "line": 6011,
+    "entry_id": "IS6011"
+  },
+  {
+    "line": 6019,
+    "entry_id": "IS6019"
+  },
+  {
+    "line": 6021,
+    "entry_id": "IS6021"
+  },
+  {
+    "line": 6024,
+    "entry_id": "IS6024"
+  },
+  {
+    "line": 6027,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6039,
+    "entry_id": "IS6039"
+  },
+  {
+    "line": 6042,
+    "entry_id": "IS6042"
+  },
+  {
+    "line": 6053,
+    "entry_id": "IS6053"
+  },
+  {
+    "line": 6059,
+    "entry_id": "IS6059"
+  },
+  {
+    "line": 6062,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6067,
+    "entry_id": "IS6067"
+  },
+  {
+    "line": 6078,
+    "entry_id": "IS6078"
+  },
+  {
+    "line": 6082,
+    "entry_id": "IS6082"
+  },
+  {
+    "line": 6091,
+    "entry_id": "IS6091"
+  },
+  {
+    "line": 6093,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6105,
+    "entry_id": "IS6105"
+  },
+  {
+    "line": 6108,
+    "entry_id": "IS6108"
+  },
+  {
+    "line": 6115,
+    "entry_id": "IS6115"
+  },
+  {
+    "line": 6121,
+    "entry_id": "IS6121"
+  },
+  {
+    "line": 6128,
+    "entry_id": "IS6128"
+  },
+  {
+    "line": 6136,
+    "entry_id": "IS6136"
+  },
+  {
+    "line": 6139,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6144,
+    "entry_id": "IS6144"
+  },
+  {
+    "line": 6148,
+    "entry_id": "IS6148"
+  },
+  {
+    "line": 6152,
+    "entry_id": "IS6152"
+  },
+  {
+    "line": 6160,
+    "entry_id": "IS6160"
+  },
+  {
+    "line": 6162,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6170,
+    "entry_id": "IS6170"
+  },
+  {
+    "line": 6173,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6181,
+    "entry_id": "IS6181"
+  },
+  {
+    "line": 6186,
+    "entry_id": "IS6186"
+  },
+  {
+    "line": 6192,
+    "entry_id": "IS6192"
+  },
+  {
+    "line": 6195,
+    "entry_id": "IS6195"
+  },
+  {
+    "line": 6198,
+    "entry_id": "IS6198"
+  },
+  {
+    "line": 6209,
+    "entry_id": "IS6209"
+  },
+  {
+    "line": 6211,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6222,
+    "entry_id": "IS6222"
+  },
+  {
+    "line": 6225,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6232,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6240,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6248,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6256,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6267,
+    "entry_id": "IS6267"
+  },
+  {
+    "line": 6270,
+    "entry_id": "IS6270"
+  },
+  {
+    "line": 6273,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6277,
+    "entry_id": "IS6277"
+  },
+  {
+    "line": 6283,
+    "entry_id": "IS6283"
+  },
+  {
+    "line": 6289,
+    "entry_id": "IS6289"
+  },
+  {
+    "line": 6294,
+    "entry_id": "IS6294"
+  },
+  {
+    "line": 6301,
+    "entry_id": "IS6301"
+  },
+  {
+    "line": 6305,
+    "entry_id": "IS6305"
+  },
+  {
+    "line": 6308,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6315,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6326,
+    "entry_id": "IS6326"
+  },
+  {
+    "line": 6329,
+    "entry_id": "IS6329"
+  },
+  {
+    "line": 6332,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6340,
+    "entry_id": "IS6340"
+  },
+  {
+    "line": 6343,
+    "entry_id": "IS6343"
+  },
+  {
+    "line": 6346,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6353,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6365,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6379,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6381,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6386,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6391,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6400,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6403,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6406,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6409,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6411,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6413,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6415,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6417,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6420,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6422,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6424,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6426,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6428,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6430,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6432,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6434,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6436,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6438,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6452,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6454,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6456,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6458,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6460,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6462,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6468,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6473,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6480,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6481,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6486,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 6492,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 6505,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 6514,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 6523,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 6532,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6538,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6543,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6548,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6552,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6557,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6561,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6565,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6574,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6576,
+    "entry_id": "IS6576"
+  },
+  {
+    "line": 6585,
+    "entry_id": "IS6585"
+  },
+  {
+    "line": 6589,
+    "entry_id": "IS6589"
+  },
+  {
+    "line": 6596,
+    "entry_id": "IS6596"
+  },
+  {
+    "line": 6608,
+    "entry_id": "IS6608"
+  },
+  {
+    "line": 6613,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6617,
+    "entry_id": "IS6617"
+  },
+  {
+    "line": 6624,
+    "entry_id": "IS6624"
+  },
+  {
+    "line": 6626,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6636,
+    "entry_id": "IS6636"
+  },
+  {
+    "line": 6647,
+    "entry_id": "IS6647"
+  },
+  {
+    "line": 6655,
+    "entry_id": "IS6655"
+  },
+  {
+    "line": 6659,
+    "entry_id": "IS6659"
+  },
+  {
+    "line": 6666,
+    "entry_id": "IS6666"
+  },
+  {
+    "line": 6671,
+    "entry_id": "IS6671"
+  },
+  {
+    "line": 6676,
+    "entry_id": "IS6676"
+  },
+  {
+    "line": 6682,
+    "entry_id": "IS6682"
+  },
+  {
+    "line": 6689,
+    "entry_id": "IS6689"
+  },
+  {
+    "line": 6695,
+    "entry_id": "IS6695"
+  },
+  {
+    "line": 6701,
+    "entry_id": "IS6701"
+  },
+  {
+    "line": 6707,
+    "entry_id": "IS6707"
+  },
+  {
+    "line": 6715,
+    "entry_id": "IS6715"
+  },
+  {
+    "line": 6724,
+    "entry_id": "IS6724"
+  },
+  {
+    "line": 6729,
+    "entry_id": "IS6729"
+  },
+  {
+    "line": 6732,
+    "entry_id": "IS6732"
+  },
+  {
+    "line": 6735,
+    "entry_id": "IS6735"
+  },
+  {
+    "line": 6740,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6749,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6753,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6760,
+    "entry_id": "IS6760"
+  },
+  {
+    "line": 6763,
+    "entry_id": "IS6763"
+  },
+  {
+    "line": 6765,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6781,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 6783,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 6794,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6804,
+    "entry_id": "IS6804"
+  },
+  {
+    "line": 6808,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6820,
+    "entry_id": "IS6820"
+  },
+  {
+    "line": 6822,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6851,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6856,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6870,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6872,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6884,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6894,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6896,
+    "non_rewrite": "non-rewrite: helper analysis classification consumed by caller; it is not an IR replacement."
+  },
+  {
+    "line": 6913,
+    "entry_id": "IS6913"
+  },
+  {
+    "line": 6918,
+    "entry_id": "IS6918"
+  },
+  {
+    "line": 6922,
+    "entry_id": "IS6922"
+  },
+  {
+    "line": 6926,
+    "entry_id": "IS6926"
+  },
+  {
+    "line": 6941,
+    "entry_id": "IS6941"
+  },
+  {
+    "line": 6949,
+    "entry_id": "IS6949"
+  },
+  {
+    "line": 6953,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 6963,
+    "entry_id": "IS6963"
+  },
+  {
+    "line": 6981,
+    "entry_id": "IS6981"
+  },
+  {
+    "line": 6990,
+    "entry_id": "IS6990"
+  },
+  {
+    "line": 6996,
+    "entry_id": "IS6996"
+  },
+  {
+    "line": 7002,
+    "entry_id": "IS7002"
+  },
+  {
+    "line": 7004,
+    "entry_id": "IS7004"
+  },
+  {
+    "line": 7009,
+    "entry_id": "IS7009"
+  },
+  {
+    "line": 7011,
+    "entry_id": "IS7011"
+  },
+  {
+    "line": 7013,
+    "entry_id": "IS7013"
+  },
+  {
+    "line": 7018,
+    "entry_id": "IS7018"
+  },
+  {
+    "line": 7020,
+    "entry_id": "IS7020"
+  },
+  {
+    "line": 7022,
+    "entry_id": "IS7022"
+  },
+  {
+    "line": 7029,
+    "entry_id": "IS7029"
+  },
+  {
+    "line": 7037,
+    "entry_id": "IS7037"
+  },
+  {
+    "line": 7043,
+    "entry_id": "IS7043"
+  },
+  {
+    "line": 7056,
+    "entry_id": "IS7056"
+  },
+  {
+    "line": 7066,
+    "entry_id": "IS7066"
+  },
+  {
+    "line": 7074,
+    "entry_id": "IS7074"
+  },
+  {
+    "line": 7082,
+    "entry_id": "IS7082"
+  },
+  {
+    "line": 7089,
+    "entry_id": "IS7089"
+  },
+  {
+    "line": 7102,
+    "entry_id": "IS7102"
+  },
+  {
+    "line": 7107,
+    "entry_id": "IS7107"
+  },
+  {
+    "line": 7109,
+    "entry_id": "IS7109"
+  },
+  {
+    "line": 7114,
+    "entry_id": "IS7114"
+  },
+  {
+    "line": 7116,
+    "entry_id": "IS7116"
+  },
+  {
+    "line": 7125,
+    "entry_id": "IS7125"
+  },
+  {
+    "line": 7130,
+    "entry_id": "IS7130"
+  },
+  {
+    "line": 7135,
+    "entry_id": "IS7135"
+  },
+  {
+    "line": 7144,
+    "entry_id": "IS7144"
+  },
+  {
+    "line": 7148,
+    "entry_id": "IS7148"
+  },
+  {
+    "line": 7152,
+    "entry_id": "IS7152"
+  },
+  {
+    "line": 7160,
+    "entry_id": "IS7160"
+  },
+  {
+    "line": 7167,
+    "entry_id": "IS7167"
+  },
+  {
+    "line": 7178,
+    "entry_id": "IS7178"
+  },
+  {
+    "line": 7182,
+    "entry_id": "IS7182"
+  },
+  {
+    "line": 7188,
+    "entry_id": "IS7188"
+  },
+  {
+    "line": 7196,
+    "entry_id": "IS7196"
+  },
+  {
+    "line": 7200,
+    "entry_id": "IS7200"
+  },
+  {
+    "line": 7203,
+    "entry_id": "IS7203"
+  },
+  {
+    "line": 7208,
+    "entry_id": "IS7208"
+  },
+  {
+    "line": 7213,
+    "entry_id": "IS7213",
+    "additional_entry_ids": [
+      "IS7213u"
+    ]
+  },
+  {
+    "line": 7216,
+    "entry_id": "IS7216"
+  },
+  {
+    "line": 7221,
+    "entry_id": "IS7221"
+  },
+  {
+    "line": 7227,
+    "entry_id": "IS7227"
+  },
+  {
+    "line": 7230,
+    "entry_id": "IS7230"
+  },
+  {
+    "line": 7234,
+    "entry_id": "IS7234"
+  },
+  {
+    "line": 7238,
+    "entry_id": "IS7238"
+  },
+  {
+    "line": 7243,
+    "entry_id": "IS7243"
+  },
+  {
+    "line": 7249,
+    "entry_id": "IS7249"
+  },
+  {
+    "line": 7251,
+    "entry_id": "IS7251"
+  },
+  {
+    "line": 7253,
+    "entry_id": "IS7253"
+  },
+  {
+    "line": 7271,
+    "entry_id": "IS7271"
+  },
+  {
+    "line": 7327,
+    "entry_id": "IS7327"
+  },
+  {
+    "line": 7329,
+    "entry_id": "IS7329"
+  },
+  {
+    "line": 7335,
+    "entry_id": "IS7335"
+  },
+  {
+    "line": 7337,
+    "entry_id": "IS7337"
+  },
+  {
+    "line": 7348,
+    "entry_id": "IS7348"
+  },
+  {
+    "line": 7362,
+    "entry_id": "IS7362"
+  },
+  {
+    "line": 7367,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7376,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7383,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7387,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7392,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7395,
+    "entry_id": "IS7395"
+  },
+  {
+    "line": 7406,
+    "entry_id": "IS7406"
+  },
+  {
+    "line": 7413,
+    "entry_id": "IS7413"
+  },
+  {
+    "line": 7421,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7424,
+    "entry_id": "IS7424"
+  },
+  {
+    "line": 7425,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7428,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7433,
+    "entry_id": "IS7433"
+  },
+  {
+    "line": 7436,
+    "entry_id": "IS7436"
+  },
+  {
+    "line": 7439,
+    "entry_id": "IS7439"
+  },
+  {
+    "line": 7450,
+    "entry_id": "IS7450"
+  },
+  {
+    "line": 7451,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7459,
+    "entry_id": "IS7459"
+  },
+  {
+    "line": 7463,
+    "entry_id": "IS7463"
+  },
+  {
+    "line": 7471,
+    "entry_id": "IS7471"
+  },
+  {
+    "line": 7480,
+    "entry_id": "IS7480"
+  },
+  {
+    "line": 7485,
+    "entry_id": "IS7485"
+  },
+  {
+    "line": 7489,
+    "entry_id": "IS7489"
+  },
+  {
+    "line": 7491,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7494,
+    "entry_id": "IS7494"
+  },
+  {
+    "line": 7497,
+    "entry_id": "IS7497"
+  },
+  {
+    "line": 7513,
+    "entry_id": "IS7513"
+  },
+  {
+    "line": 7517,
+    "entry_id": "IS7517"
+  },
+  {
+    "line": 7524,
+    "entry_id": "IS7524"
+  },
+  {
+    "line": 7526,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7541,
+    "entry_id": "IS7541"
+  },
+  {
+    "line": 7543,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7551,
+    "entry_id": "IS7551"
+  },
+  {
+    "line": 7558,
+    "entry_id": "IS7558"
+  },
+  {
+    "line": 7571,
+    "entry_id": "IS7571"
+  },
+  {
+    "line": 7575,
+    "entry_id": "IS7575"
+  },
+  {
+    "line": 7577,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7580,
+    "entry_id": "IS7580"
+  },
+  {
+    "line": 7582,
+    "entry_id": "IS7582"
+  },
+  {
+    "line": 7584,
+    "entry_id": "IS7584"
+  },
+  {
+    "line": 7586,
+    "entry_id": "IS7586"
+  },
+  {
+    "line": 7588,
+    "entry_id": "IS7588"
+  },
+  {
+    "line": 7590,
+    "entry_id": "IS7590"
+  },
+  {
+    "line": 7599,
+    "entry_id": "IS7599"
+  },
+  {
+    "line": 7603,
+    "entry_id": "IS7603"
+  },
+  {
+    "line": 7604,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7607,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7626,
+    "entry_id": "IS7626"
+  },
+  {
+    "line": 7635,
+    "entry_id": "IS7635"
+  },
+  {
+    "line": 7638,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7648,
+    "entry_id": "IS7648"
+  },
+  {
+    "line": 7659,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7668,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7673,
+    "entry_id": "IS7673"
+  },
+  {
+    "line": 7684,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7689,
+    "entry_id": "IS7689"
+  },
+  {
+    "line": 7692,
+    "entry_id": "IS7692"
+  },
+  {
+    "line": 7697,
+    "entry_id": "IS7697"
+  },
+  {
+    "line": 7699,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7706,
+    "entry_id": "IS7706"
+  },
+  {
+    "line": 7708,
+    "entry_id": "IS7708"
+  },
+  {
+    "line": 7709,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7716,
+    "entry_id": "IS7716"
+  },
+  {
+    "line": 7718,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7722,
+    "non_rewrite": "non-rewrite: wrapper/dispatch forwards operands and context to a simplifier; concrete fold conditions are inventoried at that simplifier."
+  },
+  {
+    "line": 7728,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7731,
+    "entry_id": "IS7731"
+  },
+  {
+    "line": 7737,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7743,
+    "entry_id": "IS7743"
+  },
+  {
+    "line": 7754,
+    "entry_id": "IS7754"
+  },
+  {
+    "line": 7758,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7779,
+    "non_rewrite": "non-rewrite: lambda transforms an operand to Constant for a later constant-fold operation."
+  },
+  {
+    "line": 7780,
+    "entry_id": "IS7780"
+  },
+  {
+    "line": 7782,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7784,
+    "entry_id": "IS7784"
+  },
+  {
+    "line": 7786,
+    "entry_id": "IS7786"
+  },
+  {
+    "line": 7789,
+    "entry_id": "IS7789"
+  },
+  {
+    "line": 7793,
+    "entry_id": "IS7793"
+  },
+  {
+    "line": 7796,
+    "entry_id": "IS7796"
+  },
+  {
+    "line": 7800,
+    "entry_id": "IS7800"
+  },
+  {
+    "line": 7803,
+    "entry_id": "IS7803"
+  },
+  {
+    "line": 7807,
+    "entry_id": "IS7807"
+  },
+  {
+    "line": 7811,
+    "entry_id": "IS7811"
+  },
+  {
+    "line": 7815,
+    "entry_id": "IS7815"
+  },
+  {
+    "line": 7818,
+    "entry_id": "IS7818"
+  },
+  {
+    "line": 7820,
+    "entry_id": "IS7820"
+  },
+  {
+    "line": 7822,
+    "entry_id": "IS7822"
+  },
+  {
+    "line": 7825,
+    "entry_id": "IS7825"
+  },
+  {
+    "line": 7829,
+    "entry_id": "IS7829"
+  },
+  {
+    "line": 7833,
+    "entry_id": "IS7833"
+  },
+  {
+    "line": 7837,
+    "entry_id": "IS7837"
+  },
+  {
+    "line": 7839,
+    "entry_id": "IS7839"
+  },
+  {
+    "line": 7841,
+    "entry_id": "IS7841"
+  },
+  {
+    "line": 7843,
+    "entry_id": "IS7843"
+  },
+  {
+    "line": 7846,
+    "entry_id": "IS7846"
+  },
+  {
+    "line": 7852,
+    "entry_id": "IS7852"
+  },
+  {
+    "line": 7857,
+    "entry_id": "IS7857"
+  },
+  {
+    "line": 7863,
+    "entry_id": "IS7863"
+  },
+  {
+    "line": 7867,
+    "entry_id": "IS7867"
+  },
+  {
+    "line": 7870,
+    "entry_id": "IS7870"
+  },
+  {
+    "line": 7874,
+    "entry_id": "IS7874"
+  },
+  {
+    "line": 7877,
+    "entry_id": "IS7877"
+  },
+  {
+    "line": 7882,
+    "entry_id": "IS7882"
+  },
+  {
+    "line": 7884,
+    "entry_id": "IS7884"
+  },
+  {
+    "line": 7888,
+    "entry_id": "IS7888"
+  },
+  {
+    "line": 7893,
+    "entry_id": "IS7893"
+  },
+  {
+    "line": 7899,
+    "entry_id": "IS7899"
+  },
+  {
+    "line": 7903,
+    "non_rewrite": "non-rewrite: nullptr is the no-fold/no-match sentinel on this path."
+  },
+  {
+    "line": 7905,
+    "entry_id": "IS7905"
+  },
+  {
+    "line": 7914,
+    "entry_id": "IS7914"
+  },
+  {
+    "line": 7924,
+    "entry_id": "IS7924"
+  },
+  {
+    "line": 7990,
+    "non_rewrite": "non-rewrite: pass-level mutation helper reports whether any instruction was simplified."
+  },
+  {
+    "line": 7999,
+    "non_rewrite": "non-rewrite: utility/helper return value, not an independent InstSimplify rewrite branch."
+  },
+  {
+    "line": 8011,
+    "non_rewrite": "non-rewrite: constructs SimplifyQuery analysis context; not an instruction fold."
+  },
+  {
+    "line": 8016,
+    "non_rewrite": "non-rewrite: constructs SimplifyQuery analysis context; not an instruction fold."
+  },
+  {
+    "line": 8025,
+    "non_rewrite": "non-rewrite: constructs SimplifyQuery analysis context; not an instruction fold."
+  },
+  {
+    "line": 8032,
+    "non_rewrite": "non-rewrite: helper predicate result used to classify a pattern; it is not a replacement value."
+  },
+  {
+    "line": 8034,
+    "non_rewrite": "non-rewrite: internal match/type predicate used by another rewrite."
+  }
+]

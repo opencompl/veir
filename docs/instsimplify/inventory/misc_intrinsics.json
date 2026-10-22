@@ -1,0 +1,5106 @@
+[
+  {
+    "id": "IS5317",
+    "start_line": 5317,
+    "end_line": 5317,
+    "function": "simplifyGEPInst",
+    "description": "An index-free getelementptr returns its pointer operand unchanged, preserving the original pointer value and type.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      5317
+    ]
+  },
+  {
+    "id": "IS5335",
+    "start_line": 5325,
+    "end_line": 5335,
+    "function": "simplifyGEPInst",
+    "description": "Return the base pointer when pointer result type is unchanged and every GEP index is zero (the all-zero GEP no-op).",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "vector result type must equal the pointer type; prevents erasing a vector splat"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5335
+    ]
+  },
+  {
+    "id": "IS5340",
+    "start_line": 5338,
+    "end_line": 5340,
+    "function": "simplifyGEPInst",
+    "description": "A GEP with a poison base pointer or any poison index yields poison of the computed GEP result type.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "poison propagation",
+      "result type computation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5340
+    ]
+  },
+  {
+    "id": "IS5344",
+    "start_line": 5342,
+    "end_line": 5344,
+    "function": "simplifyGEPInst",
+    "description": "If the base pointer is undef, produce undef of the computed GEP result type.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "undef semantics",
+      "result type computation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5344
+    ]
+  },
+  {
+    "id": "IS5359",
+    "start_line": 5351,
+    "end_line": 5359,
+    "function": "simplifyGEPInst",
+    "description": "For a non-scalable, sized source element type with exactly one GEP index, return the pointer when the type's allocation size is zero and the pointer result type is unchanged.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "DataLayout allocation size",
+      "reject scalable source/index vectors"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5359
+    ]
+  },
+  {
+    "id": "IS5375",
+    "start_line": 5363,
+    "end_line": 5375,
+    "function": "simplifyGEPInst",
+    "description": "Fold gep(base, sub(ptrtoint(P), ptrtoint(base))) to P when the source element allocation size is 1, index scalar width is at least address width, P has the GEP result type, and P/base have the same underlying object.",
+    "opcodes": [
+      "getelementptr",
+      "sub",
+      "ptrtoint"
+    ],
+    "extra": [
+      "DataLayout allocation/address widths",
+      "underlying-object/provenance analysis",
+      "pointer casts"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5375
+    ]
+  },
+  {
+    "id": "IS5383",
+    "start_line": 5379,
+    "end_line": 5383,
+    "function": "simplifyGEPInst",
+    "description": "Fold gep(base, ashr(sub(ptrtoint(P), ptrtoint(base)), C)) to P when allocation size equals 2^C, index width covers address width, P's type equals the GEP result type, and P/base have the same underlying object.",
+    "opcodes": [
+      "getelementptr",
+      "ashr",
+      "sub",
+      "ptrtoint"
+    ],
+    "extra": [
+      "DataLayout",
+      "underlying-object/provenance analysis",
+      "shift amount must select exact allocation-size power of two"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5383
+    ]
+  },
+  {
+    "id": "IS5391",
+    "start_line": 5387,
+    "end_line": 5391,
+    "function": "simplifyGEPInst",
+    "description": "Fold gep(base, sdiv(sub(ptrtoint(P), ptrtoint(base)), allocation_size)) to P when there is one index, the element is sized and non-scalable, index width covers address width, P has the result type, and P/base have the same underlying object.",
+    "opcodes": [
+      "getelementptr",
+      "sdiv",
+      "sub",
+      "ptrtoint"
+    ],
+    "extra": [
+      "DataLayout allocation/address widths",
+      "underlying-object/provenance analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5391
+    ]
+  },
+  {
+    "id": "IS5414",
+    "start_line": 5398,
+    "end_line": 5414,
+    "function": "simplifyGEPInst",
+    "description": "For a non-scalable GEP whose final indexed type has allocation size 1, whose preceding indices are zero, and whose last index width equals the pointer index width, fold gep(gep(V,C), sub(0, ptrtoint(strippedBase))) to inttoptr(accumulatedBaseOffset); require nonzero accumulated offset.",
+    "opcodes": [
+      "getelementptr",
+      "sub",
+      "ptrtoint",
+      "inttoptr"
+    ],
+    "extra": [
+      "DataLayout type/index size",
+      "strip and accumulate inbounds constant offsets",
+      "pointer provenance caveat: avoid inttoptr zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5414
+    ]
+  },
+  {
+    "id": "IS5421",
+    "start_line": 5398,
+    "end_line": 5421,
+    "function": "simplifyGEPInst",
+    "description": "Under the same unit-sized final type, zero preceding indices, and matching index width conditions, fold gep(gep(V,C), xor(ptrtoint(strippedBase), -1)) to inttoptr(accumulatedBaseOffset - 1); require accumulated offset not equal to one.",
+    "opcodes": [
+      "getelementptr",
+      "xor",
+      "ptrtoint",
+      "inttoptr"
+    ],
+    "extra": [
+      "DataLayout type/index size",
+      "strip and accumulate inbounds constant offsets",
+      "pointer provenance caveat: avoid inttoptr zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5421
+    ]
+  },
+  {
+    "id": "IS5435",
+    "start_line": 5426,
+    "end_line": 5435,
+    "function": "simplifyGEPInst",
+    "description": "When base pointer and all indices are constants, build a constant GEP and use ConstantFoldGetElementPtr if ConstantExpr construction fails.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "constant folding",
+      "DataLayout",
+      "GEP no-wrap flags"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5435
+    ]
+  },
+  {
+    "id": "IS5438",
+    "start_line": 5426,
+    "end_line": 5438,
+    "function": "simplifyGEPInst",
+    "description": "When base pointer and all indices are constants and ConstantExpr construction succeeds, fold the resulting constant expression with ConstantFoldConstant.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "constant folding",
+      "DataLayout",
+      "GEP no-wrap flags"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5438
+    ]
+  },
+  {
+    "id": "IS5453",
+    "start_line": 5451,
+    "end_line": 5453,
+    "function": "simplifyInsertValueInst",
+    "description": "For constant aggregate and constant inserted value, constant-fold insertvalue at the specified index path.",
+    "opcodes": [
+      "insertvalue"
+    ],
+    "extra": [
+      "aggregate constant folding",
+      "index path"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5453
+    ]
+  },
+  {
+    "id": "IS5459",
+    "start_line": 5455,
+    "end_line": 5459,
+    "function": "simplifyInsertValueInst",
+    "description": "insertvalue(Agg, poison, indices) returns Agg; if inserted value is undef, also return Agg only when Agg is guaranteed non-poison.",
+    "opcodes": [
+      "insertvalue"
+    ],
+    "extra": [
+      "poison/undef semantics",
+      "isGuaranteedNotToBePoison analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5459
+    ]
+  },
+  {
+    "id": "IS5470",
+    "start_line": 5462,
+    "end_line": 5470,
+    "function": "simplifyInsertValueInst",
+    "description": "Cancel insertvalue(Agg, extractvalue(Y, indices), indices) to Y when aggregate operand types and index paths match and Agg is poison, or Agg is undef while Y is guaranteed non-poison.",
+    "opcodes": [
+      "insertvalue",
+      "extractvalue"
+    ],
+    "extra": [
+      "matching aggregate type and full index path",
+      "poison/undef analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5470
+    ]
+  },
+  {
+    "id": "IS5474",
+    "start_line": 5462,
+    "end_line": 5474,
+    "function": "simplifyInsertValueInst",
+    "description": "Cancel insertvalue(Agg, extractvalue(Agg, indices), indices) to Agg when aggregate operand type and index paths match and both use the identical SSA aggregate.",
+    "opcodes": [
+      "insertvalue",
+      "extractvalue"
+    ],
+    "extra": [
+      "matching aggregate type and index path"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5474
+    ]
+  },
+  {
+    "id": "IS5493",
+    "start_line": 5490,
+    "end_line": 5493,
+    "function": "simplifyInsertElementInst",
+    "description": "For constant vector, value, and lane index, fold insertelement as a constant expression.",
+    "opcodes": [
+      "insertelement"
+    ],
+    "extra": [
+      "constant folding",
+      "fixed/scalable vector lane semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5493
+    ]
+  },
+  {
+    "id": "IS5499",
+    "start_line": 5496,
+    "end_line": 5499,
+    "function": "simplifyInsertElementInst",
+    "description": "For a fixed-length vector, a constant lane index greater than or equal to its element count makes insertelement poison.",
+    "opcodes": [
+      "insertelement"
+    ],
+    "extra": [
+      "fixed vector bounds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5499
+    ]
+  },
+  {
+    "id": "IS5504",
+    "start_line": 5502,
+    "end_line": 5504,
+    "function": "simplifyInsertElementInst",
+    "description": "An undef insertelement lane index may choose an out-of-range index, so the result is poison.",
+    "opcodes": [
+      "insertelement"
+    ],
+    "extra": [
+      "undef-index semantics",
+      "fixed vector bounds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5504
+    ]
+  },
+  {
+    "id": "IS5510",
+    "start_line": 5507,
+    "end_line": 5510,
+    "function": "simplifyInsertElementInst",
+    "description": "insertelement(Vec, poison, Idx) returns Vec; undef inserted value also returns Vec only if Vec is guaranteed non-poison.",
+    "opcodes": [
+      "insertelement"
+    ],
+    "extra": [
+      "poison/undef analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5510
+    ]
+  },
+  {
+    "id": "IS5514",
+    "start_line": 5512,
+    "end_line": 5514,
+    "function": "simplifyInsertElementInst",
+    "description": "If the constant input vector is a splat of the constant inserted value, inserting that same value at any lane returns the original vector.",
+    "opcodes": [
+      "insertelement"
+    ],
+    "extra": [
+      "constant splat recognition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5514
+    ]
+  },
+  {
+    "id": "IS5520",
+    "start_line": 5517,
+    "end_line": 5520,
+    "function": "simplifyInsertElementInst",
+    "description": "Cancel insertelement(Vec, extractelement(Vec, Idx), Idx) to Vec when both vector and index operands are the same SSA values.",
+    "opcodes": [
+      "insertelement",
+      "extractelement"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      5520
+    ]
+  },
+  {
+    "id": "IS5530",
+    "start_line": 5528,
+    "end_line": 5530,
+    "function": "simplifyExtractValueInst",
+    "description": "For a constant aggregate, constant-fold extractvalue at the specified index path.",
+    "opcodes": [
+      "extractvalue"
+    ],
+    "extra": [
+      "aggregate constant folding",
+      "index path"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5530
+    ]
+  },
+  {
+    "id": "IS5547",
+    "start_line": 5539,
+    "end_line": 5547,
+    "function": "simplifyExtractValueInst",
+    "description": "For extractvalue of a chain of insertvalue operations, return the inserted value when the extract path exactly matches the inserted path; stop if a common prefix is a proper prefix of either path.",
+    "opcodes": [
+      "extractvalue",
+      "insertvalue"
+    ],
+    "extra": [
+      "index path prefix comparison",
+      "cycle guard for unreachable IR"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5547
+    ]
+  },
+  {
+    "id": "IS5560",
+    "start_line": 5552,
+    "end_line": 5560,
+    "function": "simplifyExtractValueInst",
+    "description": "For extractvalue(umul_with_overflow(X,1), 0), return X; requires a single aggregate index selecting result element zero and either multiplication operand to be one.",
+    "opcodes": [
+      "extractvalue",
+      "call"
+    ],
+    "extra": [
+      "intrinsic identity matching",
+      "index must equal 0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5560
+    ]
+  },
+  {
+    "id": "IS5562",
+    "start_line": 5552,
+    "end_line": 5562,
+    "function": "simplifyExtractValueInst",
+    "description": "For extractvalue(umul_with_overflow(X,1), 1), return false of the comparison result type; requires a single aggregate index selecting overflow result element one and either multiplication operand to be one.",
+    "opcodes": [
+      "extractvalue",
+      "call"
+    ],
+    "extra": [
+      "intrinsic identity matching",
+      "index must equal 1",
+      "comparison result type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5562
+    ]
+  },
+  {
+    "id": "IS5580",
+    "start_line": 5577,
+    "end_line": 5580,
+    "function": "simplifyExtractElementInst",
+    "description": "For constant vector and constant lane index, fold extractelement as a constant expression.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "constant folding",
+      "lane bounds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5580
+    ]
+  },
+  {
+    "id": "IS5583",
+    "start_line": 5577,
+    "end_line": 5583,
+    "function": "simplifyExtractElementInst",
+    "description": "If the vector operand is undef and the index is constant, return undef of the vector element type.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "constant index",
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5583
+    ]
+  },
+  {
+    "id": "IS5589",
+    "start_line": 5587,
+    "end_line": 5589,
+    "function": "simplifyExtractElementInst",
+    "description": "An undef extractelement index may select an out-of-range lane, so the result is poison of the vector element type.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "undef-index semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5589
+    ]
+  },
+  {
+    "id": "IS5597",
+    "start_line": 5593,
+    "end_line": 5597,
+    "function": "simplifyExtractElementInst",
+    "description": "For a fixed-length vector, a constant index out of bounds makes extractelement poison.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "fixed vector bounds"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5597
+    ]
+  },
+  {
+    "id": "IS5601",
+    "start_line": 5599,
+    "end_line": 5601,
+    "function": "simplifyExtractElementInst",
+    "description": "For an in-bounds constant lane index, if the input vector is a splat, return its splat element.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "constant in-bounds lane",
+      "splat recognition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5601
+    ]
+  },
+  {
+    "id": "IS5603",
+    "start_line": 5602,
+    "end_line": 5603,
+    "function": "simplifyExtractElementInst",
+    "description": "For a constant lane index, return the scalar previously inserted at that lane when recursive vector inspection finds it.",
+    "opcodes": [
+      "extractelement",
+      "insertelement"
+    ],
+    "extra": [
+      "findScalarElement vector analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5603
+    ]
+  },
+  {
+    "id": "IS5611",
+    "start_line": 5607,
+    "end_line": 5611,
+    "function": "simplifyExtractElementInst",
+    "description": "Cancel extractelement(insertelement(Vec, Elt, Idx), Idx) to Elt when the index is not a constant and the exact same SSA index operand is used.",
+    "opcodes": [
+      "extractelement",
+      "insertelement"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      5611
+    ]
+  },
+  {
+    "id": "IS5615",
+    "start_line": 5614,
+    "end_line": 5615,
+    "function": "simplifyExtractElementInst",
+    "description": "For a nonconstant index, if the input vector is a splat, return its splat element.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "splat recognition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5615
+    ]
+  },
+  {
+    "id": "IS5658",
+    "start_line": 5630,
+    "end_line": 5658,
+    "function": "simplifyPHINode",
+    "description": "If all non-self PHI inputs are undef, poison, or equal to the PHI itself, return undef when at least one undef input was seen, otherwise poison.",
+    "opcodes": [
+      "phi"
+    ],
+    "extra": [
+      "self-loop inputs ignored",
+      "undef/poison distinction"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5658
+    ]
+  },
+  {
+    "id": "IS5672",
+    "start_line": 5630,
+    "end_line": 5672,
+    "function": "simplifyPHINode",
+    "description": "When all non-self PHI inputs are one common value plus optional poison/undef, return the common value if it dominates the PHI; if undef inputs exist, also require the value is guaranteed non-poison. With only identical non-poison values, return the common value directly.",
+    "opcodes": [
+      "phi"
+    ],
+    "extra": [
+      "dominance tree",
+      "isGuaranteedNotToBePoison analysis",
+      "undef/poison semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5672
+    ]
+  },
+  {
+    "id": "IS5675",
+    "start_line": 5630,
+    "end_line": 5675,
+    "function": "simplifyPHINode",
+    "description": "If all PHI incoming values are the same non-poison, non-undef SSA value (ignoring self references), replace the PHI with that value.",
+    "opcodes": [
+      "phi"
+    ],
+    "extra": [
+      "all incoming values identical or self"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5675
+    ]
+  },
+  {
+    "id": "IS5681",
+    "start_line": 5680,
+    "end_line": 5681,
+    "function": "simplifyCastInst",
+    "description": "For a constant source operand, fold the requested cast to its destination type using LLVM constant cast folding. Pointer-address/memory-dependent alternatives are separated as IS5681p.",
+    "opcodes": [
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "ptrtoint",
+      "inttoptr",
+      "bitcast",
+      "addrspacecast",
+      "ptrtoaddr"
+    ],
+    "extra": [
+      "constant folding",
+      "DataLayout"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5681
+    ]
+  },
+  {
+    "id": "IS5681p",
+    "start_line": 5680,
+    "end_line": 5681,
+    "function": "simplifyCastInst",
+    "description": "Fold a nontrivial integer-to-pointer constant cast to the corresponding LLVM pointer ConstantExpr; this is the pointer-address constant alternative of the generic constant-cast fold.",
+    "opcodes": [
+      "inttoptr"
+    ],
+    "extra": [
+      "LLVM ConstantExpr representation",
+      "DataLayout",
+      "pointer address/provenance semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5681
+    ]
+  },
+  {
+    "id": "IS5693",
+    "start_line": 5684,
+    "end_line": 5693,
+    "function": "simplifyCastInst",
+    "description": "Cancel a two-cast chain to its original source when LLVM's isEliminableCastPair says the pair is equivalent to a bitcast and the original source type equals the requested destination type. Pointer-address/memory-dependent alternatives are separated as IS5693p.",
+    "opcodes": [
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "ptrtoint",
+      "inttoptr",
+      "bitcast",
+      "addrspacecast",
+      "ptrtoaddr"
+    ],
+    "extra": [
+      "LLVM cast-pair legality",
+      "source/mid/destination types",
+      "DataLayout"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5693
+    ]
+  },
+  {
+    "id": "IS5693p",
+    "start_line": 5684,
+    "end_line": 5693,
+    "function": "simplifyCastInst",
+    "description": "Cancel an eliminable integer/pointer round trip when isEliminableCastPair returns BitCast and the original source type equals the destination type; this entry isolates the memory-dependent pointer/integer alternatives.",
+    "opcodes": [
+      "ptrtoint",
+      "inttoptr"
+    ],
+    "extra": [
+      "LLVM cast-pair legality",
+      "pointer/index widths from DataLayout",
+      "memory-dependent pointer provenance"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5693
+    ]
+  },
+  {
+    "id": "IS5700",
+    "start_line": 5697,
+    "end_line": 5700,
+    "function": "simplifyCastInst",
+    "description": "A bitcast from a value to its identical type returns the operand.",
+    "opcodes": [
+      "bitcast"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      5700
+    ]
+  },
+  {
+    "id": "IS5713",
+    "start_line": 5704,
+    "end_line": 5713,
+    "function": "simplifyCastInst",
+    "description": "Cancel ptrtoaddr(ptradd(Ptr, sub(X, ptrtoint-or-ptrtoaddr(Ptr)))) to X when X has the requested type and that type is the pointer's DataLayout index type.",
+    "opcodes": [
+      "ptrtoaddr",
+      "ptradd",
+      "sub",
+      "ptrtoint"
+    ],
+    "extra": [
+      "same pointer SSA operand",
+      "DataLayout index type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5713
+    ]
+  },
+  {
+    "id": "IS5722",
+    "start_line": 5716,
+    "end_line": 5722,
+    "function": "simplifyCastInst",
+    "description": "Cancel zext(trunc(X)) to X when X has the final destination type and trunc has nuw; cancel sext(trunc(X)) under the same type condition when trunc has nsw.",
+    "opcodes": [
+      "zext",
+      "sext",
+      "trunc"
+    ],
+    "extra": [
+      "trunc nuw for zext",
+      "trunc nsw for sext"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5722
+    ]
+  },
+  {
+    "id": "IS5740",
+    "start_line": 5735,
+    "end_line": 5740,
+    "function": "simplifyAddrSpaceCastInst",
+    "description": "An addrspacecast marked nonnull from null becomes poison when function context exists and null pointers are not defined in the source address space.",
+    "opcodes": [
+      "addrspacecast"
+    ],
+    "extra": [
+      "nonnull instruction property",
+      "function context",
+      "NullPointerIsDefined target/function semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5740
+    ]
+  },
+  {
+    "id": "IS5776",
+    "start_line": 5752,
+    "end_line": 5776,
+    "function": "foldIdentityShuffles",
+    "description": "Recursively inspect the selected lane through nested fixed-vector shuffles; return the root source only when every selected root is the same SSA vector and the final lane equals the destination lane. An undef mask lane or recursion exhaustion prevents the fold.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "fixed vector lane masks",
+      "recursive shuffle traversal",
+      "recursion limit"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5776
+    ]
+  },
+  {
+    "id": "IS5795",
+    "start_line": 5752,
+    "end_line": 5795,
+    "function": "foldIdentityShuffles",
+    "description": "Return the common root vector when the selected lane originates from that same vector and retains its lane number through the shuffle chain.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "fixed vector lane masks",
+      "recursive shuffle traversal"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5795
+    ]
+  },
+  {
+    "id": "IS5803",
+    "start_line": 5800,
+    "end_line": 5803,
+    "function": "simplifyShuffleVectorInst",
+    "description": "If every shuffle mask element is poison, the shuffle result is poison of the result vector type.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "poison mask semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5803
+    ]
+  },
+  {
+    "id": "IS5840",
+    "start_line": 5836,
+    "end_line": 5840,
+    "function": "simplifyShuffleVectorInst",
+    "description": "When both input vectors are constants, fold the shuffle constant expression using its mask.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "constant vector shuffle folding",
+      "mask semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5840
+    ]
+  },
+  {
+    "id": "IS5873",
+    "start_line": 5850,
+    "end_line": 5873,
+    "function": "simplifyShuffleVectorInst",
+    "description": "For a non-scalable shuffle where Op0 is insertelement(_, constant C, constant InsertIndex), Op1 is undef, and every mask element is either InsertIndex or undef (-1), build a constant splat of C, replacing output lanes selected by undef mask entries with poison.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "non-scalable vector",
+      "constant inserted value and index",
+      "undef second vector",
+      "mask elements each InsertIndex or -1",
+      "undef mask lanes become poison"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5873
+    ]
+  },
+  {
+    "id": "IS5882",
+    "start_line": 5877,
+    "end_line": 5882,
+    "function": "simplifyShuffleVectorInst",
+    "description": "For shuffle(Op0, undef), return Op0 when Op0 is itself a shuffle, result type equals input vector type, and every inner shuffle mask lane is equal (a splat shuffle).",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "Op0 must be ShuffleVectorInst",
+      "Op1 undef",
+      "RetTy equals input vector type",
+      "inner shuffle mask all equal"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5882
+    ]
+  },
+  {
+    "id": "IS5910",
+    "start_line": 5899,
+    "end_line": 5910,
+    "function": "simplifyShuffleVectorInst",
+    "description": "Return the common vector when every output lane is an identity lane recovered by foldIdentityShuffles across nested shuffle operands.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "recursive lane provenance",
+      "mask analysis",
+      "recursion limit"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      5910
+    ]
+  },
+  {
+    "id": "IS5923",
+    "start_line": 5921,
+    "end_line": 5923,
+    "function": "foldConstant",
+    "description": "Delegate constant unary operation folding to LLVM ConstantFoldUnaryOpOperand; return null for nonconstant or unsupported constants.",
+    "opcodes": [
+      "fneg"
+    ],
+    "extra": [
+      "constant operand",
+      "DataLayout",
+      "external LLVM constant folder"
+    ],
+    "kind": "schema",
+    "returns": [
+      5923
+    ]
+  },
+  {
+    "id": "IS5932",
+    "start_line": 5929,
+    "end_line": 5932,
+    "function": "simplifyFNegInst",
+    "description": "Constant-fold fneg when the operand is constant.",
+    "opcodes": [
+      "fneg"
+    ],
+    "extra": [
+      "constant folding",
+      "DataLayout"
+    ],
+    "kind": "schema",
+    "returns": [
+      5932
+    ]
+  },
+  {
+    "id": "IS5937",
+    "start_line": 5935,
+    "end_line": 5937,
+    "function": "simplifyFNegInst",
+    "description": "Cancel fneg(fneg(X)) to X.",
+    "opcodes": [
+      "fneg"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      5937
+    ]
+  },
+  {
+    "id": "IS5966",
+    "start_line": 5947,
+    "end_line": 5966,
+    "function": "propagateNaN",
+    "description": "For fixed vectors, propagate poison elements; quiet existing NaNs while preserving their payload; replace other or unknown elements by canonical NaN, and return the rebuilt vector.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "call"
+    ],
+    "extra": [
+      "fixed vector constants",
+      "NaN signaling/payload semantics",
+      "elementwise poison handling"
+    ],
+    "kind": "schema",
+    "returns": [
+      5966
+    ]
+  },
+  {
+    "id": "IS5972",
+    "start_line": 5968,
+    "end_line": 5972,
+    "function": "propagateNaN",
+    "description": "For a non-fixed-vector NaN constant that is not itself NaN, return canonical NaN of its type.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "call"
+    ],
+    "extra": [
+      "NaN classification",
+      "scalable vector/splat handling"
+    ],
+    "kind": "schema",
+    "returns": [
+      5972
+    ]
+  },
+  {
+    "id": "IS5985",
+    "start_line": 5975,
+    "end_line": 5985,
+    "function": "propagateNaN",
+    "description": "For scalar or scalable-vector NaN constants, preserve NaN sign/payload and quiet a signaling NaN; scalable input must be a NaN splat.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "call"
+    ],
+    "extra": [
+      "NaN payload/sign",
+      "signaling-to-quiet conversion",
+      "scalable splat"
+    ],
+    "kind": "schema",
+    "returns": [
+      5985
+    ]
+  },
+  {
+    "id": "IS5998",
+    "start_line": 5994,
+    "end_line": 5998,
+    "function": "simplifyFPOp",
+    "description": "If any FP operation operand is poison, return poison of the first operand type.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "fma",
+      "fmuladd"
+    ],
+    "extra": [
+      "poison propagation"
+    ],
+    "kind": "schema",
+    "returns": [
+      5998
+    ]
+  },
+  {
+    "id": "IS6009",
+    "start_line": 6003,
+    "end_line": 6009,
+    "function": "simplifyFPOp",
+    "description": "With nnan, a NaN operand or undef operand yields poison of that operand's type.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "fma",
+      "fmuladd"
+    ],
+    "extra": [
+      "nnan fast-math flag",
+      "undef may choose NaN"
+    ],
+    "kind": "schema",
+    "returns": [
+      6009
+    ]
+  },
+  {
+    "id": "IS6011",
+    "start_line": 6003,
+    "end_line": 6011,
+    "function": "simplifyFPOp",
+    "description": "With ninf, an infinite operand or undef operand yields poison of that operand's type.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "fma",
+      "fmuladd"
+    ],
+    "extra": [
+      "ninf fast-math flag",
+      "undef may choose infinity"
+    ],
+    "kind": "schema",
+    "returns": [
+      6011
+    ]
+  },
+  {
+    "id": "IS6019",
+    "start_line": 6013,
+    "end_line": 6019,
+    "function": "simplifyFPOp",
+    "description": "In the default FP environment, an undef operand yields canonical NaN of its type.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "fma",
+      "fmuladd"
+    ],
+    "extra": [
+      "exception behavior and rounding mode must be default"
+    ],
+    "kind": "schema",
+    "returns": [
+      6019
+    ]
+  },
+  {
+    "id": "IS6021",
+    "start_line": 6020,
+    "end_line": 6021,
+    "function": "simplifyFPOp",
+    "description": "In the default FP environment, propagate an input NaN constant through the operation via propagateNaN.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "fma",
+      "fmuladd"
+    ],
+    "extra": [
+      "exception behavior and rounding mode must be default",
+      "NaN payload/poison vector handling"
+    ],
+    "kind": "schema",
+    "returns": [
+      6021
+    ]
+  },
+  {
+    "id": "IS6024",
+    "start_line": 6022,
+    "end_line": 6024,
+    "function": "simplifyFPOp",
+    "description": "With non-strict constrained FP (exception behavior other than strict), propagate NaN constants via propagateNaN; strict exception behavior prevents this fold.",
+    "opcodes": [
+      "fadd",
+      "fsub",
+      "fmul",
+      "fdiv",
+      "frem",
+      "fma"
+    ],
+    "extra": [
+      "constrained FP exception behavior",
+      "NaN payload/poison vector handling"
+    ],
+    "kind": "schema",
+    "returns": [
+      6024
+    ]
+  },
+  {
+    "id": "IS6039",
+    "start_line": 6037,
+    "end_line": 6039,
+    "function": "simplifyFAddInst",
+    "description": "In the default FP environment, constant-fold/commute fadd operands when the constant folder succeeds.",
+    "opcodes": [
+      "fadd"
+    ],
+    "extra": [
+      "constant folding",
+      "default exception/rounding environment"
+    ],
+    "kind": "schema",
+    "returns": [
+      6039
+    ]
+  },
+  {
+    "id": "IS6042",
+    "start_line": 6041,
+    "end_line": 6042,
+    "function": "simplifyFAddInst",
+    "description": "Apply shared FP poison/undef/NaN simplifications to fadd before algebraic identities.",
+    "opcodes": [
+      "fadd"
+    ],
+    "extra": [
+      "fast-math flags",
+      "FP exception behavior",
+      "rounding mode"
+    ],
+    "kind": "schema",
+    "returns": [
+      6042
+    ]
+  },
+  {
+    "id": "IS6053",
+    "start_line": 6046,
+    "end_line": 6053,
+    "function": "simplifyFAddInst",
+    "description": "Fold fadd(X,-0.0) to X when signaling NaNs may be ignored and either rounding cannot be toward negative or nsz is set.",
+    "opcodes": [
+      "fadd"
+    ],
+    "extra": [
+      "sNaN behavior",
+      "rounding mode",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6053
+    ]
+  },
+  {
+    "id": "IS6059",
+    "start_line": 6055,
+    "end_line": 6059,
+    "function": "simplifyFAddInst",
+    "description": "Fold fadd(X,+0.0) to X when signaling NaNs may be ignored and X cannot be negative zero or nsz is set.",
+    "opcodes": [
+      "fadd"
+    ],
+    "extra": [
+      "sNaN behavior",
+      "known-negative-zero analysis",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6059
+    ]
+  },
+  {
+    "id": "IS6067",
+    "start_line": 6064,
+    "end_line": 6067,
+    "function": "simplifyFAddInst",
+    "description": "With nnan in default FP environment, fadd(X,+/-Inf) returns the infinity operand.",
+    "opcodes": [
+      "fadd"
+    ],
+    "extra": [
+      "nnan",
+      "operand 1 must be infinity"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6067
+    ]
+  },
+  {
+    "id": "IS6078",
+    "start_line": 6072,
+    "end_line": 6078,
+    "function": "simplifyFAddInst",
+    "description": "With nnan, fold (-X)+X or X+(-X) to positive zero when either operand is a subtraction from either signed zero of the other operand.",
+    "opcodes": [
+      "fadd",
+      "fsub"
+    ],
+    "extra": [
+      "nnan",
+      "commuted pattern",
+      "default FP environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6078
+    ]
+  },
+  {
+    "id": "IS6082",
+    "start_line": 6080,
+    "end_line": 6082,
+    "function": "simplifyFAddInst",
+    "description": "With nnan, fold fadd(X,fneg(X)) or fadd(fneg(X),X) to positive zero.",
+    "opcodes": [
+      "fadd",
+      "fneg"
+    ],
+    "extra": [
+      "nnan",
+      "commuted pattern",
+      "default FP environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6082
+    ]
+  },
+  {
+    "id": "IS6091",
+    "start_line": 6087,
+    "end_line": 6091,
+    "function": "simplifyFAddInst",
+    "description": "With nsz and reassociation, fold (X-Y)+Y or Y+(X-Y) to X.",
+    "opcodes": [
+      "fadd",
+      "fsub"
+    ],
+    "extra": [
+      "nsz",
+      "reassoc",
+      "commuted pattern"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6091
+    ]
+  },
+  {
+    "id": "IS6105",
+    "start_line": 6103,
+    "end_line": 6105,
+    "function": "simplifyFSubInst",
+    "description": "In the default FP environment, constant-fold/commute fsub operands when constant folding succeeds.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "constant folding",
+      "default exception/rounding environment"
+    ],
+    "kind": "schema",
+    "returns": [
+      6105
+    ]
+  },
+  {
+    "id": "IS6108",
+    "start_line": 6107,
+    "end_line": 6108,
+    "function": "simplifyFSubInst",
+    "description": "Apply shared FP poison/undef/NaN simplifications to fsub before algebraic identities.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "fast-math flags",
+      "FP exception behavior",
+      "rounding mode"
+    ],
+    "kind": "schema",
+    "returns": [
+      6108
+    ]
+  },
+  {
+    "id": "IS6115",
+    "start_line": 6110,
+    "end_line": 6115,
+    "function": "simplifyFSubInst",
+    "description": "Fold fsub(X,+0.0) to X when signaling NaNs may be ignored and either rounding cannot be toward negative or nsz is set.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "sNaN behavior",
+      "rounding mode",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6115
+    ]
+  },
+  {
+    "id": "IS6121",
+    "start_line": 6117,
+    "end_line": 6121,
+    "function": "simplifyFSubInst",
+    "description": "Fold fsub(X,-0.0) to X when signaling NaNs may be ignored and X cannot be negative zero or nsz is set.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "sNaN behavior",
+      "known-negative-zero analysis",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6121
+    ]
+  },
+  {
+    "id": "IS6128",
+    "start_line": 6124,
+    "end_line": 6128,
+    "function": "simplifyFSubInst",
+    "description": "When signaling NaNs may be ignored, fold -0.0 - fneg(X) to X.",
+    "opcodes": [
+      "fsub",
+      "fneg"
+    ],
+    "extra": [
+      "sNaN behavior"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6128
+    ]
+  },
+  {
+    "id": "IS6136",
+    "start_line": 6131,
+    "end_line": 6136,
+    "function": "simplifyFSubInst",
+    "description": "With nsz and signaling NaNs ignored, fold either signed zero minus (signed zero minus X) or fneg(X) to X.",
+    "opcodes": [
+      "fsub",
+      "fneg"
+    ],
+    "extra": [
+      "nsz",
+      "sNaN behavior",
+      "any-zero pattern"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6136
+    ]
+  },
+  {
+    "id": "IS6144",
+    "start_line": 6142,
+    "end_line": 6144,
+    "function": "simplifyFSubInst",
+    "description": "With nnan in default FP environment, fsub(X,X) is positive zero.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "nnan",
+      "default exception/rounding environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6144
+    ]
+  },
+  {
+    "id": "IS6148",
+    "start_line": 6146,
+    "end_line": 6148,
+    "function": "simplifyFSubInst",
+    "description": "With nnan in default FP environment, fsub(+/-Inf,X) returns the first infinite operand.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "nnan",
+      "operand 0 must be infinity"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6148
+    ]
+  },
+  {
+    "id": "IS6152",
+    "start_line": 6150,
+    "end_line": 6152,
+    "function": "simplifyFSubInst",
+    "description": "With nnan in default FP environment, fsub(X,+/-Inf) returns fneg of the infinite second operand.",
+    "opcodes": [
+      "fsub",
+      "fneg"
+    ],
+    "extra": [
+      "nnan",
+      "operand 1 must be infinity",
+      "constant fold fneg"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6152
+    ]
+  },
+  {
+    "id": "IS6160",
+    "start_line": 6156,
+    "end_line": 6160,
+    "function": "simplifyFSubInst",
+    "description": "With nsz and reassociation, fold Y-(Y-X) or (X+Y)-Y to X.",
+    "opcodes": [
+      "fsub",
+      "fadd"
+    ],
+    "extra": [
+      "nsz",
+      "reassoc",
+      "commuted add pattern"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6160
+    ]
+  },
+  {
+    "id": "IS6170",
+    "start_line": 6168,
+    "end_line": 6170,
+    "function": "simplifyFMAFMul",
+    "description": "Apply shared FP poison/undef/NaN simplifications to fmul before identities.",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "fast-math flags",
+      "FP exception behavior",
+      "rounding mode"
+    ],
+    "kind": "schema",
+    "returns": [
+      6170
+    ]
+  },
+  {
+    "id": "IS6181",
+    "start_line": 6179,
+    "end_line": 6181,
+    "function": "simplifyFMAFMul",
+    "description": "Fold X*1.0 to X in the default FP environment.",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "default exception/rounding environment",
+      "one constant canonicalized to operand 1"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6181
+    ]
+  },
+  {
+    "id": "IS6186",
+    "start_line": 6183,
+    "end_line": 6186,
+    "function": "simplifyFMAFMul",
+    "description": "Fold X*+/-0.0 to positive zero with both nnan and nsz.",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "nnan",
+      "nsz",
+      "default exception/rounding environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6186
+    ]
+  },
+  {
+    "id": "IS6192",
+    "start_line": 6188,
+    "end_line": 6192,
+    "function": "simplifyFMAFMul",
+    "description": "If X is known finite and non-NaN and either nsz is set or sign is known nonnegative, simplify X*(+/-0) to +0 when nsz is set.",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "KnownFPClass excludes inf/nan",
+      "known sign",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6192
+    ]
+  },
+  {
+    "id": "IS6195",
+    "start_line": 6188,
+    "end_line": 6195,
+    "function": "simplifyFMAFMul",
+    "description": "If X is known finite and non-NaN with known nonnegative sign and nsz is absent, simplify X*(+/-0) to the zero operand (preserving its sign).",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "KnownFPClass excludes inf/nan",
+      "known sign is nonnegative"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6195
+    ]
+  },
+  {
+    "id": "IS6198",
+    "start_line": 6188,
+    "end_line": 6198,
+    "function": "simplifyFMAFMul",
+    "description": "If X is known finite and non-NaN with known negative sign and nsz is absent, simplify X*(+/-0) to fneg of the zero operand.",
+    "opcodes": [
+      "fmul",
+      "fneg"
+    ],
+    "extra": [
+      "KnownFPClass excludes inf/nan",
+      "known negative sign"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6198
+    ]
+  },
+  {
+    "id": "IS6209",
+    "start_line": 6202,
+    "end_line": 6209,
+    "function": "simplifyFMAFMul",
+    "description": "With reassoc, nnan, and nsz, fold sqrt(X)*sqrt(X) to X.",
+    "opcodes": [
+      "fmul",
+      "sqrt"
+    ],
+    "extra": [
+      "same SSA sqrt operand",
+      "reassoc",
+      "nnan",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6209
+    ]
+  },
+  {
+    "id": "IS6222",
+    "start_line": 6220,
+    "end_line": 6222,
+    "function": "simplifyFMulInst",
+    "description": "In the default FP environment, constant-fold/commute fmul operands when constant folding succeeds.",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "constant folding",
+      "default exception/rounding environment"
+    ],
+    "kind": "schema",
+    "returns": [
+      6222
+    ]
+  },
+  {
+    "id": "IS6267",
+    "start_line": 6265,
+    "end_line": 6267,
+    "function": "simplifyFDivInst",
+    "description": "In the default FP environment, constant-fold/commute fdiv operands when constant folding succeeds.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "constant folding",
+      "default exception/rounding environment"
+    ],
+    "kind": "schema",
+    "returns": [
+      6267
+    ]
+  },
+  {
+    "id": "IS6270",
+    "start_line": 6269,
+    "end_line": 6270,
+    "function": "simplifyFDivInst",
+    "description": "Apply shared FP poison/undef/NaN simplifications to fdiv before identities.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "fast-math flags",
+      "FP exception behavior",
+      "rounding mode"
+    ],
+    "kind": "schema",
+    "returns": [
+      6270
+    ]
+  },
+  {
+    "id": "IS6277",
+    "start_line": 6275,
+    "end_line": 6277,
+    "function": "simplifyFDivInst",
+    "description": "In the default FP environment, fold X/1.0 to X.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "default exception/rounding environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6277
+    ]
+  },
+  {
+    "id": "IS6283",
+    "start_line": 6279,
+    "end_line": 6283,
+    "function": "simplifyFDivInst",
+    "description": "With nnan and nsz in the default FP environment, fold 0/X to positive zero.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "nnan",
+      "nsz",
+      "default exception/rounding environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6283
+    ]
+  },
+  {
+    "id": "IS6289",
+    "start_line": 6286,
+    "end_line": 6289,
+    "function": "simplifyFDivInst",
+    "description": "With nnan, fold X/X to 1.0.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "same SSA operand",
+      "nnan",
+      "default exception/rounding environment"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6289
+    ]
+  },
+  {
+    "id": "IS6294",
+    "start_line": 6291,
+    "end_line": 6294,
+    "function": "simplifyFDivInst",
+    "description": "With nnan and reassoc, fold (X*Y)/Y to X.",
+    "opcodes": [
+      "fdiv",
+      "fmul"
+    ],
+    "extra": [
+      "reassoc",
+      "nnan",
+      "commutative multiply pattern"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6294
+    ]
+  },
+  {
+    "id": "IS6301",
+    "start_line": 6298,
+    "end_line": 6301,
+    "function": "simplifyFDivInst",
+    "description": "With nnan, fold (-X)/X or X/(-X) to -1.0.",
+    "opcodes": [
+      "fdiv",
+      "fneg"
+    ],
+    "extra": [
+      "nsz negative operand pattern",
+      "nnan",
+      "commuted pattern"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6301
+    ]
+  },
+  {
+    "id": "IS6305",
+    "start_line": 6303,
+    "end_line": 6305,
+    "function": "simplifyFDivInst",
+    "description": "With nnan and ninf, division by either signed zero yields poison.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "nnan",
+      "ninf",
+      "divisor is either signed zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6305
+    ]
+  },
+  {
+    "id": "IS6326",
+    "start_line": 6324,
+    "end_line": 6326,
+    "function": "simplifyFRemInst",
+    "description": "In the default FP environment, constant-fold/commute frem operands when constant folding succeeds.",
+    "opcodes": [
+      "frem"
+    ],
+    "extra": [
+      "constant folding",
+      "default exception/rounding environment"
+    ],
+    "kind": "schema",
+    "returns": [
+      6326
+    ]
+  },
+  {
+    "id": "IS6329",
+    "start_line": 6328,
+    "end_line": 6329,
+    "function": "simplifyFRemInst",
+    "description": "Apply shared FP poison/undef/NaN simplifications to frem before signed-zero identities.",
+    "opcodes": [
+      "frem"
+    ],
+    "extra": [
+      "fast-math flags",
+      "FP exception behavior",
+      "rounding mode"
+    ],
+    "kind": "schema",
+    "returns": [
+      6329
+    ]
+  },
+  {
+    "id": "IS6340",
+    "start_line": 6338,
+    "end_line": 6340,
+    "function": "simplifyFRemInst",
+    "description": "With nnan, +0.0 % X simplifies to a full positive-zero constant, including vector elements.",
+    "opcodes": [
+      "frem"
+    ],
+    "extra": [
+      "nnan",
+      "vector constant handling"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6340
+    ]
+  },
+  {
+    "id": "IS6343",
+    "start_line": 6341,
+    "end_line": 6343,
+    "function": "simplifyFRemInst",
+    "description": "With nnan, -0.0 % X simplifies to a full negative-zero constant, preserving frem dividend sign.",
+    "opcodes": [
+      "frem"
+    ],
+    "extra": [
+      "nnan",
+      "vector constant handling",
+      "signed zero"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6343
+    ]
+  },
+  {
+    "id": "IS6576",
+    "start_line": 6534,
+    "end_line": 6576,
+    "function": "simplifyRelativeLoad",
+    "description": "Resolve llvm.load.relative to the referenced GlobalValue when Ptr is a constant global plus offset, Offset is a constant integer no wider than 64 bits and divisible by four, the constant load decodes as (optionally trunc'd) ptrtoint(global) minus another constant global address, and both global symbol and offset match Ptr's symbol/offset.",
+    "opcodes": [
+      "call",
+      "load",
+      "ptrtoint",
+      "sub",
+      "trunc"
+    ],
+    "extra": [
+      "constant global offset analysis",
+      "constant load folding",
+      "DataLayout",
+      "relative-load intrinsic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6576
+    ]
+  },
+  {
+    "id": "IS6585",
+    "start_line": 6581,
+    "end_line": 6585,
+    "function": "simplifyLdexp",
+    "description": "The helper returns Op0 if either ldexp operand is poison; at the public simplifyIntrinsic entry, the prior intrinsicPropagatesPoison check converts poison in either argument to poison of the return type before reaching this helper.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "ldexp intrinsicPropagatesPoison precheck in simplifyIntrinsic",
+      "poison propagation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6585
+    ]
+  },
+  {
+    "id": "IS6589",
+    "start_line": 6587,
+    "end_line": 6589,
+    "function": "simplifyLdexp",
+    "description": "ldexp(undef, x) yields NaN of the FP operand type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "undef semantics",
+      "ldexp"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6589
+    ]
+  },
+  {
+    "id": "IS6596",
+    "start_line": 6592,
+    "end_line": 6596,
+    "function": "simplifyLdexp",
+    "description": "For non-strict ldexp only, ldexp(x, undef) returns x.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "strictness flag",
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6596
+    ]
+  },
+  {
+    "id": "IS6608",
+    "start_line": 6599,
+    "end_line": 6608,
+    "function": "simplifyLdexp",
+    "description": "For a constant FP first operand that is either signed zero or signed infinity, ldexp returns that operand even in strict mode.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "FP constant classification",
+      "strictness"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6608
+    ]
+  },
+  {
+    "id": "IS6617",
+    "start_line": 6615,
+    "end_line": 6617,
+    "function": "simplifyLdexp",
+    "description": "For non-strict ldexp with NaN first operand, return the same NaN quieted (this branch is after strict mode was rejected).",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "NaN quieting/payload",
+      "strictness"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6617
+    ]
+  },
+  {
+    "id": "IS6624",
+    "start_line": 6621,
+    "end_line": 6624,
+    "function": "simplifyLdexp",
+    "description": "For non-strict ldexp(x, 0), return x.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "integer exponent zero",
+      "strict mode already excluded"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6624
+    ]
+  },
+  {
+    "id": "IS6636",
+    "start_line": 6631,
+    "end_line": 6636,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "For any intrinsic classified idempotent, remove a repeated application when Op0 is an IntrinsicInst with the same intrinsic ID.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "applies to fabs, floor, ceil, trunc, rint, nearbyint, round, roundeven, canonicalize, arithmetic_fence"
+    ],
+    "kind": "schema",
+    "returns": [
+      6636
+    ]
+  },
+  {
+    "id": "IS6647",
+    "start_line": 6640,
+    "end_line": 6647,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "If the outer intrinsic removes fractional FP bits and Op0 is another such intrinsic or an integer-to-FP cast, eliminate the outer rounding operation.",
+    "opcodes": [
+      "call",
+      "sitofp",
+      "uitofp"
+    ],
+    "extra": [
+      "floor, ceil, trunc, rint, nearbyint, round, roundeven",
+      "intrinsic identity classification"
+    ],
+    "kind": "schema",
+    "returns": [
+      6647
+    ]
+  },
+  {
+    "id": "IS6655",
+    "start_line": 6650,
+    "end_line": 6655,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "fabs(X) returns X when value tracking proves X has a nonnegative sign bit.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "KnownFPClass sign-bit analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6655
+    ]
+  },
+  {
+    "id": "IS6659",
+    "start_line": 6657,
+    "end_line": 6659,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "fabs(X) returns X when X cannot be ordered below zero, is known non-NaN, and nsz is set.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "KnownFPClass sign/NaN analysis",
+      "nsz"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6659
+    ]
+  },
+  {
+    "id": "IS6666",
+    "start_line": 6663,
+    "end_line": 6666,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "Cancel bswap(bswap(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      6666
+    ]
+  },
+  {
+    "id": "IS6671",
+    "start_line": 6668,
+    "end_line": 6671,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "Cancel bitreverse(bitreverse(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      6671
+    ]
+  },
+  {
+    "id": "IS6676",
+    "start_line": 6674,
+    "end_line": 6676,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "Fold ctpop(X) to one when known-bits analysis proves X is a nonzero power of two.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "isKnownToBeAPowerOfTwo",
+      "assumption cache",
+      "dominator/context"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6676
+    ]
+  },
+  {
+    "id": "IS6682",
+    "start_line": 6678,
+    "end_line": 6682,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "Fold ctpop(X) to X when masked-value analysis proves every bit except the least significant bit is zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "MaskedValueIsZero analysis",
+      "scalar bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6682
+    ]
+  },
+  {
+    "id": "IS6689",
+    "start_line": 6686,
+    "end_line": 6689,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "With reassoc, fold exp(log(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "reassoc",
+      "intrinsic pattern"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6689
+    ]
+  },
+  {
+    "id": "IS6695",
+    "start_line": 6692,
+    "end_line": 6695,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "With reassoc, fold exp2(log2(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "reassoc"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6695
+    ]
+  },
+  {
+    "id": "IS6701",
+    "start_line": 6698,
+    "end_line": 6701,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "With reassoc, fold exp10(log10(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "reassoc"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6701
+    ]
+  },
+  {
+    "id": "IS6707",
+    "start_line": 6704,
+    "end_line": 6707,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "With reassoc, fold log(exp(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "reassoc"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6707
+    ]
+  },
+  {
+    "id": "IS6715",
+    "start_line": 6710,
+    "end_line": 6715,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "With reassoc, fold log2(exp2(X)) or log2(pow(2.0,X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "reassoc",
+      "pow base exactly 2.0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6715
+    ]
+  },
+  {
+    "id": "IS6724",
+    "start_line": 6718,
+    "end_line": 6724,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "With reassoc, fold log10(exp10(X)) or log10(pow(10.0,X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "reassoc",
+      "pow base exactly 10.0"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6724
+    ]
+  },
+  {
+    "id": "IS6729",
+    "start_line": 6727,
+    "end_line": 6729,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "Cancel vector.reverse(vector.reverse(X)) to X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      6729
+    ]
+  },
+  {
+    "id": "IS6732",
+    "start_line": 6730,
+    "end_line": 6732,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "vector.reverse(X) returns X when X is a vector splat.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "vector splat recognition"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6732
+    ]
+  },
+  {
+    "id": "IS6735",
+    "start_line": 6734,
+    "end_line": 6735,
+    "function": "simplifyUnaryIntrinsic",
+    "description": "llvm.structured.gep(X) returns its sole pointer operand unchanged.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      6735
+    ]
+  },
+  {
+    "id": "IS6760",
+    "start_line": 6757,
+    "end_line": 6760,
+    "function": "foldMinMaxSharedOp",
+    "description": "For max/min nesting with shared X or Y, return the inner min/max call when the inner and outer intrinsic IDs match.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "max/min intrinsic identity",
+      "shared operand matching"
+    ],
+    "kind": "schema",
+    "returns": [
+      6760
+    ]
+  },
+  {
+    "id": "IS6763",
+    "start_line": 6757,
+    "end_line": 6763,
+    "function": "foldMinMaxSharedOp",
+    "description": "For max(min(X,Y),X) or the commuted/shared equivalent, return the shared operand when inner operation is inverse of outer operation.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "max/min intrinsic identity",
+      "shared operands",
+      "inverse operation"
+    ],
+    "kind": "schema",
+    "returns": [
+      6763
+    ]
+  },
+  {
+    "id": "IS6804",
+    "start_line": 6795,
+    "end_line": 6804,
+    "function": "foldMinimumMaximumSharedOp",
+    "description": "For a minimum/maximum/minnum/maxnum/minimumnum/maximumnum call m(M0(X,Y),Z), return M0 when Z equals either inner operand.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "floating min/max intrinsic ID matching",
+      "shared operand"
+    ],
+    "kind": "schema",
+    "returns": [
+      6804
+    ]
+  },
+  {
+    "id": "IS6820",
+    "start_line": 6812,
+    "end_line": 6820,
+    "function": "foldMinimumMaximumSharedOp",
+    "description": "For m(M0(X,Y),M1(X,Y)) with commuted inner operands allowed, return M0 when inner and outer intrinsic IDs match or are inverses.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "floating min/max intrinsic IDs",
+      "shared pair",
+      "commutation",
+      "inverse operation"
+    ],
+    "kind": "schema",
+    "returns": [
+      6820
+    ]
+  },
+  {
+    "id": "IS6913",
+    "start_line": 6909,
+    "end_line": 6913,
+    "function": "simplifySVEIntReduction",
+    "description": "For eorv/orv/saddv/uaddv/umaxv, return zero if predicate operand is all false or reduction operand is zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reduction",
+      "neutral element"
+    ],
+    "kind": "schema",
+    "returns": [
+      6913
+    ]
+  },
+  {
+    "id": "IS6918",
+    "start_line": 6914,
+    "end_line": 6918,
+    "function": "simplifySVEIntReduction",
+    "description": "For andv/uminv, return all ones if predicate is all false or input is all ones.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reduction",
+      "neutral element",
+      "result bit width"
+    ],
+    "kind": "schema",
+    "returns": [
+      6918
+    ]
+  },
+  {
+    "id": "IS6922",
+    "start_line": 6919,
+    "end_line": 6922,
+    "function": "simplifySVEIntReduction",
+    "description": "For smaxv, return signed minimum if predicate is all false or input is signed minimum.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reduction",
+      "neutral element",
+      "result bit width"
+    ],
+    "kind": "schema",
+    "returns": [
+      6922
+    ]
+  },
+  {
+    "id": "IS6926",
+    "start_line": 6923,
+    "end_line": 6926,
+    "function": "simplifySVEIntReduction",
+    "description": "For sminv, return signed maximum if predicate is all false or input is signed maximum.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reduction",
+      "neutral element",
+      "result bit width"
+    ],
+    "kind": "schema",
+    "returns": [
+      6926
+    ]
+  },
+  {
+    "id": "IS6941",
+    "start_line": 6931,
+    "end_line": 6941,
+    "function": "simplifySVEIntReduction",
+    "description": "For andv/orv/smaxv/sminv/umaxv/uminv with all-true predicate, reduce a splat vector to its splat scalar value.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reduction",
+      "splat vector",
+      "result type equality"
+    ],
+    "kind": "schema",
+    "returns": [
+      6941
+    ]
+  },
+  {
+    "id": "IS6949",
+    "start_line": 6944,
+    "end_line": 6949,
+    "function": "simplifySVEIntReduction",
+    "description": "For eorv with all-true predicate, reducing a splat vector yields zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reduction",
+      "splat vector"
+    ],
+    "kind": "schema",
+    "returns": [
+      6949
+    ]
+  },
+  {
+    "id": "IS6963",
+    "start_line": 6959,
+    "end_line": 6963,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.get.active.lane.mask(A,B) is false when B is zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "result predicate type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6963
+    ]
+  },
+  {
+    "id": "IS6981",
+    "start_line": 6972,
+    "end_line": 6981,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "If function has finite vscale maximum and return type is scalable, get.active.lane.mask(0, constant B) is all ones when B is at least min-lanes times maximum vscale.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "function vscale_range attribute",
+      "scalable vector minimum length",
+      "constant threshold"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6981
+    ]
+  },
+  {
+    "id": "IS6990",
+    "start_line": 6986,
+    "end_line": 6990,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Cancel nested llvm.abs(abs(X, flags), flags2) to the inner abs call, irrespective of nsw on the outer call.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "inner intrinsic ID abs"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6990
+    ]
+  },
+  {
+    "id": "IS6996",
+    "start_line": 6993,
+    "end_line": 6996,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Fold cttz(shl(1,X), is_zero_undef) to X.",
+    "opcodes": [
+      "call",
+      "shl"
+    ],
+    "extra": [
+      "shift base must be one"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      6996
+    ]
+  },
+  {
+    "id": "IS7002",
+    "start_line": 6999,
+    "end_line": 7002,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Fold ctlz(lshr(-1,X), is_zero_undef) to X.",
+    "opcodes": [
+      "call",
+      "lshr"
+    ],
+    "extra": [
+      "shift input all ones"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7002
+    ]
+  },
+  {
+    "id": "IS7004",
+    "start_line": 7002,
+    "end_line": 7004,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Fold ctlz(ashr(-1,X), is_zero_undef) to zero.",
+    "opcodes": [
+      "call",
+      "ashr"
+    ],
+    "extra": [
+      "shift input all ones"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7004
+    ]
+  },
+  {
+    "id": "IS7009",
+    "start_line": 7007,
+    "end_line": 7009,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.pdep(X,0) returns zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7009
+    ]
+  },
+  {
+    "id": "IS7011",
+    "start_line": 7010,
+    "end_line": 7011,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.pdep(0,M) returns zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7011
+    ]
+  },
+  {
+    "id": "IS7013",
+    "start_line": 7012,
+    "end_line": 7013,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.pdep(X, all_ones) returns X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7013
+    ]
+  },
+  {
+    "id": "IS7018",
+    "start_line": 7016,
+    "end_line": 7018,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.pext(X,0) returns zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7018
+    ]
+  },
+  {
+    "id": "IS7020",
+    "start_line": 7019,
+    "end_line": 7020,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.pext(0,M) returns zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7020
+    ]
+  },
+  {
+    "id": "IS7022",
+    "start_line": 7021,
+    "end_line": 7022,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.pext(X, all_ones) returns X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7022
+    ]
+  },
+  {
+    "id": "IS7029",
+    "start_line": 7027,
+    "end_line": 7029,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.ptrmask(undef,Mask) or llvm.ptrmask(null,Mask) returns null of pointer type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "pointer type",
+      "provenance note"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7029
+    ]
+  },
+  {
+    "id": "IS7037",
+    "start_line": 7034,
+    "end_line": 7037,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.ptrmask(Ptr,ptrtoint-or-ptrtoaddr(Ptr)) returns Ptr when mask width is exactly pointer index width.",
+    "opcodes": [
+      "call",
+      "ptrtoint",
+      "ptrtoaddr"
+    ],
+    "extra": [
+      "pointer provenance",
+      "DataLayout index width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7037
+    ]
+  },
+  {
+    "id": "IS7043",
+    "start_line": 7040,
+    "end_line": 7043,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "llvm.ptrmask(Ptr,Mask) returns Ptr when Mask is all ones or undef; result attributes may be lost by this fold.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "pointer provenance",
+      "return attributes caveat"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7043
+    ]
+  },
+  {
+    "id": "IS7056",
+    "start_line": 7047,
+    "end_line": 7056,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For an immediate constant ptrmask mask, compute known zero pointer bits and fold to Ptr when all bits cleared by the mask are already known zero from alignment.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "KnownBits/alignment analysis",
+      "immediate constant mask",
+      "pointer width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7056
+    ]
+  },
+  {
+    "id": "IS7066",
+    "start_line": 7063,
+    "end_line": 7066,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For integer smax/smin/umax/umin, identical operands return the common operand.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7066
+    ]
+  },
+  {
+    "id": "IS7074",
+    "start_line": 7070,
+    "end_line": 7074,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "`smax(X,undef) -> signed_max`, `smin(X,undef) -> signed_min`, `umax(X,undef) -> unsigned_max`, and `umin(X,undef) -> 0`, after moving an immediate constant to the right operand.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "integer width",
+      "intrinsic-specific saturation point"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7074
+    ]
+  },
+  {
+    "id": "IS7082",
+    "start_line": 7077,
+    "end_line": 7082,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Clamp integer min/max to its absorbing extremum: `smax(X,signed_max) -> signed_max`, `smin(X,signed_min) -> signed_min`, `umax(X,unsigned_max) -> unsigned_max`, `umin(X,0) -> 0`. Either operand may be the constant; APInt matching permits poison vector lanes.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "poison-allowing constant match",
+      "integer width",
+      "saturation point"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7082
+    ]
+  },
+  {
+    "id": "IS7089",
+    "start_line": 7084,
+    "end_line": 7089,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Remove the identity extremum: `smax(X,signed_min) -> X`, `smin(X,signed_max) -> X`, `umax(X,0) -> X`, `umin(X,unsigned_max) -> X`. Either operand may be the constant; APInt matching permits poison vector lanes.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "poison-allowing constant match",
+      "integer width",
+      "inverse intrinsic"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7089
+    ]
+  },
+  {
+    "id": "IS7102",
+    "start_line": 7092,
+    "end_line": 7102,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For nested calls of the same integer min/max intrinsic, remove the outer call when an inner constant operand compares at least as extreme as the outer constant using the non-strict min/max predicate.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "same intrinsic ID",
+      "constant operands",
+      "predicate comparison",
+      "vector undef/splat limitations"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7102
+    ]
+  },
+  {
+    "id": "IS7107",
+    "start_line": 7105,
+    "end_line": 7107,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Apply foldMinMaxSharedOp in operand order (Op0,Op1) and return its result when non-null.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "nested min/max common operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      7107
+    ]
+  },
+  {
+    "id": "IS7109",
+    "start_line": 7108,
+    "end_line": 7109,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Apply foldMinMaxSharedOp in commuted operand order (Op1,Op0) and return its result when non-null.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "nested min/max common operands",
+      "commuted"
+    ],
+    "kind": "schema",
+    "returns": [
+      7109
+    ]
+  },
+  {
+    "id": "IS7114",
+    "start_line": 7111,
+    "end_line": 7114,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For integer min/max, if value analysis proves Op0 <= Op1 (non-strict operation predicate), return Op0.",
+    "opcodes": [
+      "call",
+      "icmp"
+    ],
+    "extra": [
+      "isICmpTrue",
+      "Q without undef",
+      "recursion limit"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7114
+    ]
+  },
+  {
+    "id": "IS7116",
+    "start_line": 7115,
+    "end_line": 7116,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For integer min/max, if value analysis proves Op1 <= Op0 (non-strict operation predicate), return Op1.",
+    "opcodes": [
+      "call",
+      "icmp"
+    ],
+    "extra": [
+      "isICmpTrue",
+      "Q without undef",
+      "recursion limit"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7116
+    ]
+  },
+  {
+    "id": "IS7125",
+    "start_line": 7122,
+    "end_line": 7125,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For scmp/ucmp, return zero when equality between operands is proven.",
+    "opcodes": [
+      "call",
+      "icmp"
+    ],
+    "extra": [
+      "signed or unsigned comparison proof",
+      "isICmpTrue"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7125
+    ]
+  },
+  {
+    "id": "IS7130",
+    "start_line": 7128,
+    "end_line": 7130,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For scmp/ucmp, return +1 when signed/unsigned greater-than is proven.",
+    "opcodes": [
+      "call",
+      "icmp"
+    ],
+    "extra": [
+      "signed or unsigned comparison proof",
+      "isICmpTrue"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7130
+    ]
+  },
+  {
+    "id": "IS7135",
+    "start_line": 7133,
+    "end_line": 7135,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For scmp/ucmp, return -1 when signed/unsigned less-than is proven.",
+    "opcodes": [
+      "call",
+      "icmp"
+    ],
+    "extra": [
+      "signed or unsigned comparison proof",
+      "isICmpTrue"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7135
+    ]
+  },
+  {
+    "id": "IS7144",
+    "start_line": 7140,
+    "end_line": 7144,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For umulh, or any mul-high operation on a one-bit result, multiplying by one yields zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "umulh or result bit width=1"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7144
+    ]
+  },
+  {
+    "id": "IS7148",
+    "start_line": 7145,
+    "end_line": 7148,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For umulh/smulh, if either operand is undef, choose zero because the other operand may be zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7148
+    ]
+  },
+  {
+    "id": "IS7152",
+    "start_line": 7150,
+    "end_line": 7152,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For umulh/smulh, multiplication by zero yields zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7152
+    ]
+  },
+  {
+    "id": "IS7160",
+    "start_line": 7156,
+    "end_line": 7160,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For usub_with_overflow or ssub_with_overflow, X-X or either operand undef yields {0,false}.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "aggregate result layout",
+      "overflow result=false"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7160
+    ]
+  },
+  {
+    "id": "IS7167",
+    "start_line": 7163,
+    "end_line": 7167,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For uadd_with_overflow or sadd_with_overflow, either operand undef yields {-1,false}.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "aggregate result layout",
+      "overflow result=false"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7167
+    ]
+  },
+  {
+    "id": "IS7178",
+    "start_line": 7174,
+    "end_line": 7178,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For umul_with_overflow or smul_with_overflow, multiplying by zero yields {0,false}.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "aggregate result layout"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7178
+    ]
+  },
+  {
+    "id": "IS7182",
+    "start_line": 7179,
+    "end_line": 7182,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For umul_with_overflow or smul_with_overflow, either undef operand yields {0,false}.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "aggregate result layout",
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7182
+    ]
+  },
+  {
+    "id": "IS7188",
+    "start_line": 7185,
+    "end_line": 7188,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For uadd_sat, adding all-ones to either operand yields all-ones.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "unsigned saturation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7188
+    ]
+  },
+  {
+    "id": "IS7196",
+    "start_line": 7190,
+    "end_line": 7196,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For sadd_sat/uadd_sat, either undef operand yields all-ones; for signed add this chooses undef as bitwise complement of the other operand.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "saturating add",
+      "undef choice"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7196
+    ]
+  },
+  {
+    "id": "IS7200",
+    "start_line": 7198,
+    "end_line": 7200,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For signed or unsigned saturating add, X+0 returns X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "zero is right operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7200
+    ]
+  },
+  {
+    "id": "IS7203",
+    "start_line": 7201,
+    "end_line": 7203,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For signed or unsigned saturating add, 0+X returns X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "zero is left operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7203
+    ]
+  },
+  {
+    "id": "IS7208",
+    "start_line": 7205,
+    "end_line": 7208,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For usub_sat, 0-X or X-all_ones yields zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "unsigned saturation"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7208
+    ]
+  },
+  {
+    "id": "IS7213",
+    "start_line": 7210,
+    "end_line": 7213,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "`ssub.sat X,X` and `usub.sat X,X` fold to zero. The undef alternatives sharing this return are IS7213u.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "same operand or undef"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7213
+    ]
+  },
+  {
+    "id": "IS7213u",
+    "start_line": 7210,
+    "end_line": 7213,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "`ssub.sat` or `usub.sat` with either operand undef folds to zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "same operand or undef"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7213
+    ]
+  },
+  {
+    "id": "IS7216",
+    "start_line": 7215,
+    "end_line": 7216,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For signed/unsigned saturating subtract, X-0 returns X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "zero right operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7216
+    ]
+  },
+  {
+    "id": "IS7221",
+    "start_line": 7218,
+    "end_line": 7221,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For load_relative with two constant operands, return simplifyRelativeLoad's result if its constant relocation/load pattern matches.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant operands",
+      "global relocation/constant memory analysis"
+    ],
+    "kind": "schema",
+    "returns": [
+      7221
+    ]
+  },
+  {
+    "id": "IS7227",
+    "start_line": 7224,
+    "end_line": 7227,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For powi(X, constant zero), return 1.0.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant integer exponent"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7227
+    ]
+  },
+  {
+    "id": "IS7230",
+    "start_line": 7228,
+    "end_line": 7230,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For powi(X, constant one), return X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant integer exponent"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7230
+    ]
+  },
+  {
+    "id": "IS7234",
+    "start_line": 7232,
+    "end_line": 7234,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Delegate ldexp to simplifyLdexp in non-strict mode.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "ldexp-specific rules"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7234
+    ]
+  },
+  {
+    "id": "IS7238",
+    "start_line": 7236,
+    "end_line": 7238,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For copysign(X,X), return X.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7238
+    ]
+  },
+  {
+    "id": "IS7243",
+    "start_line": 7240,
+    "end_line": 7243,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For copysign(-X,X) or copysign(X,-X), return the second operand.",
+    "opcodes": [
+      "call",
+      "fneg"
+    ],
+    "extra": [
+      "same SSA operand under fneg"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7243
+    ]
+  },
+  {
+    "id": "IS7249",
+    "start_line": 7245,
+    "end_line": 7249,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For is_fpclass(X,mask), return true when mask contains every FP class flag.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant mask",
+      "fcAllFlags"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7249
+    ]
+  },
+  {
+    "id": "IS7251",
+    "start_line": 7250,
+    "end_line": 7251,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For is_fpclass(X,mask), return false when mask contains no FP class flags.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant mask"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7251
+    ]
+  },
+  {
+    "id": "IS7253",
+    "start_line": 7252,
+    "end_line": 7253,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For is_fpclass(undef,mask), return undef unless mask already matched the all-classes or no-classes cases.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "undef semantics",
+      "constant mask"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7253
+    ]
+  },
+  {
+    "id": "IS7271",
+    "start_line": 7268,
+    "end_line": 7271,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For minnum/minimum/maxnum/maximum/minimumnum/maximumnum with identical operands, return the operand (ignoring NaN quieting).",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "floating min/max intrinsic identity",
+      "same SSA operands"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7271
+    ]
+  },
+  {
+    "id": "IS7327",
+    "start_line": 7324,
+    "end_line": 7327,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For floating min/max with a constant operand, return the other operand when OptimizeConstMinMax classifies the constant as UseOtherVal or UseEither; this may ignore NaN quieting.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "min/max intrinsic-specific NaN/infinity/saturation cases",
+      "vector constant elementwise restrictions",
+      "fast-math flags"
+    ],
+    "kind": "schema",
+    "returns": [
+      7327
+    ]
+  },
+  {
+    "id": "IS7329",
+    "start_line": 7328,
+    "end_line": 7329,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For floating min/max with a constant operand, return the constructed new constant when OptimizeConstMinMax classifies it UseNewConstVal; quiet NaNs as specified by intrinsic semantics.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "NaN quieting",
+      "constant splat or fixed-vector construction",
+      "fast-math flags"
+    ],
+    "kind": "schema",
+    "returns": [
+      7329
+    ]
+  },
+  {
+    "id": "IS7335",
+    "start_line": 7332,
+    "end_line": 7335,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Apply floating minimum/maximum shared-operand fold in (Op0,Op1) order.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "nested min/max pair",
+      "shared operands"
+    ],
+    "kind": "schema",
+    "returns": [
+      7335
+    ]
+  },
+  {
+    "id": "IS7337",
+    "start_line": 7336,
+    "end_line": 7337,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Apply floating minimum/maximum shared-operand fold in commuted (Op1,Op0) order.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "nested min/max pair",
+      "shared operands",
+      "commuted"
+    ],
+    "kind": "schema",
+    "returns": [
+      7337
+    ]
+  },
+  {
+    "id": "IS7348",
+    "start_line": 7340,
+    "end_line": 7348,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "For vector_extract(vector_insert(Y,X,0),0), return X when constant extract index is zero and X's type equals the intrinsic return type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "vector intrinsic identities",
+      "constant index zero",
+      "type equality"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7348
+    ]
+  },
+  {
+    "id": "IS7362",
+    "start_line": 7351,
+    "end_line": 7362,
+    "function": "simplifyBinaryIntrinsic",
+    "description": "Delegate recognized AArch64 SVE integer reductions to simplifySVEIntReduction.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "AArch64 SVE reductions"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7362
+    ]
+  },
+  {
+    "id": "IS7395",
+    "start_line": 7369,
+    "end_line": 7395,
+    "function": "simplifyIdentityInterleave",
+    "description": "Cancel interleaveN(extractvalue(deinterleaveN(X),0), \u2026, extractvalue(deinterleaveN(X),N-1)) to X when arity equals factor, each single extract index equals its position, and all extracts use the same deinterleave intrinsic call of the matching factor.",
+    "opcodes": [
+      "call",
+      "extractvalue"
+    ],
+    "extra": [
+      "interleave/deinterleave intrinsic factor",
+      "same SSA deinterleave call",
+      "aggregate extraction"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7395
+    ]
+  },
+  {
+    "id": "IS7406",
+    "start_line": 7400,
+    "end_line": 7406,
+    "function": "simplifyIntrinsic",
+    "description": "If the intrinsic is defined to propagate poison and any argument is poison, return poison of the intrinsic return type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "intrinsicPropagatesPoison metadata"
+    ],
+    "kind": "schema",
+    "returns": [
+      7406
+    ]
+  },
+  {
+    "id": "IS7413",
+    "start_line": 7410,
+    "end_line": 7413,
+    "function": "simplifyIntrinsic",
+    "description": "When every intrinsic argument is constant, return the result of LLVM ConstantFoldIntrinsic if it succeeds.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "all-constant args",
+      "intrinsic-specific constant evaluation",
+      "DataLayout/function context"
+    ],
+    "kind": "schema",
+    "returns": [
+      7413
+    ]
+  },
+  {
+    "id": "IS7424",
+    "start_line": 7417,
+    "end_line": 7424,
+    "function": "simplifyIntrinsic",
+    "description": "For zero-operand vscale, return a constant when function context exists and getVScaleRange has a single known element.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "function vscale range analysis",
+      "64-bit range"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7424
+    ]
+  },
+  {
+    "id": "IS7433",
+    "start_line": 7430,
+    "end_line": 7433,
+    "function": "simplifyIntrinsic",
+    "description": "Apply simplifyIdentityInterleave to all-arity interleave/deinterleave argument patterns and return its non-null result.",
+    "opcodes": [
+      "call",
+      "extractvalue"
+    ],
+    "extra": [
+      "factor and shared-call matching"
+    ],
+    "kind": "schema",
+    "returns": [
+      7433
+    ]
+  },
+  {
+    "id": "IS7436",
+    "start_line": 7435,
+    "end_line": 7436,
+    "function": "simplifyIntrinsic",
+    "description": "For one-argument intrinsics, delegate to simplifyUnaryIntrinsic with call fast-math flags and query.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "unary intrinsic rule schema"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7436
+    ]
+  },
+  {
+    "id": "IS7439",
+    "start_line": 7438,
+    "end_line": 7439,
+    "function": "simplifyIntrinsic",
+    "description": "For two-argument intrinsics, delegate to simplifyBinaryIntrinsic with intrinsic ID, return type, operands, flags, and query.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "binary intrinsic rule schema"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7439
+    ]
+  },
+  {
+    "id": "IS7450",
+    "start_line": 7443,
+    "end_line": 7450,
+    "function": "simplifyIntrinsic",
+    "description": "For masked_load or masked_gather with mask all zeros or poison, return passthrough argument Args[2].",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "mask operand Args[1]",
+      "passthrough Args[2]",
+      "masked memory intrinsic semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7450
+    ]
+  },
+  {
+    "id": "IS7459",
+    "start_line": 7453,
+    "end_line": 7459,
+    "function": "simplifyIntrinsic",
+    "description": "For fshl/fshr with both data operands undef, return undef of the result type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7459
+    ]
+  },
+  {
+    "id": "IS7463",
+    "start_line": 7461,
+    "end_line": 7463,
+    "function": "simplifyIntrinsic",
+    "description": "For fshl/fshr with undef shift amount, treat the shift as zero and return operand 0 for fshl or operand 1 for fshr.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "undef shift semantics",
+      "intrinsic ID selects result operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7463
+    ]
+  },
+  {
+    "id": "IS7471",
+    "start_line": 7466,
+    "end_line": 7471,
+    "function": "simplifyIntrinsic",
+    "description": "For constant shift amount, reduce it modulo scalar bit width; if effective shift is zero return operand 0 for fshl or operand 1 for fshr.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "APInt shift width/modulo",
+      "intrinsic ID selects result operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7471
+    ]
+  },
+  {
+    "id": "IS7480",
+    "start_line": 7473,
+    "end_line": 7480,
+    "function": "simplifyIntrinsic",
+    "description": "Fold fshl((lshr X,C1),(shl X,C2),C1) or fshr((lshr X,C1),(shl X,C2),C2) to X when C1+C2 equals bit width and intrinsic shift amount equals C1 for fshl or C2 for fshr.",
+    "opcodes": [
+      "call",
+      "lshr",
+      "shl"
+    ],
+    "extra": [
+      "same SSA X",
+      "constant shifts",
+      "sum equals scalar bit width"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7480
+    ]
+  },
+  {
+    "id": "IS7485",
+    "start_line": 7483,
+    "end_line": 7485,
+    "function": "simplifyIntrinsic",
+    "description": "For fshl/fshr with both data operands zero, return zero for any shift amount.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7485
+    ]
+  },
+  {
+    "id": "IS7489",
+    "start_line": 7487,
+    "end_line": 7489,
+    "function": "simplifyIntrinsic",
+    "description": "For fshl/fshr with both data operands all ones, return all ones for any shift amount.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [],
+    "kind": "rewrite",
+    "returns": [
+      7489
+    ]
+  },
+  {
+    "id": "IS7494",
+    "start_line": 7492,
+    "end_line": 7494,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate experimental_constrained_fma to shared simplifyFPOp using call exception behavior and rounding mode.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constrained FP exception behavior",
+      "rounding mode"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7494
+    ]
+  },
+  {
+    "id": "IS7497",
+    "start_line": 7495,
+    "end_line": 7497,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate fma/fmuladd to shared simplifyFPOp under ignore-exceptions, nearest-ties-to-even environment.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "default FMF",
+      "fixed exception/rounding environment"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7497
+    ]
+  },
+  {
+    "id": "IS7513",
+    "start_line": 7508,
+    "end_line": 7513,
+    "function": "simplifyIntrinsic",
+    "description": "For smul_fix/smul_fix_sat, canonicalize constants to operand 1 then return zero when that operand is zero.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant operand canonicalization",
+      "fixed-point scale operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7513
+    ]
+  },
+  {
+    "id": "IS7517",
+    "start_line": 7515,
+    "end_line": 7517,
+    "function": "simplifyIntrinsic",
+    "description": "For smul_fix/smul_fix_sat, return zero when canonicalized operand 1 is undef.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant operand canonicalization",
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7517
+    ]
+  },
+  {
+    "id": "IS7524",
+    "start_line": 7519,
+    "end_line": 7524,
+    "function": "simplifyIntrinsic",
+    "description": "For smul_fix/smul_fix_sat, return operand 0 when operand 1 equals 1<<Scale, provided the one-bit constant is nonnegative at result width; Scale is the constant third operand.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constant scale operand",
+      "result scalar width",
+      "APInt one-bit construction"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7524
+    ]
+  },
+  {
+    "id": "IS7541",
+    "start_line": 7532,
+    "end_line": 7541,
+    "function": "simplifyIntrinsic",
+    "description": "For vector_insert(Y, vector_extract(X,0),0), return X when Y is undef or the same SSA vector as X, index is constant zero, and X type equals return type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "vector intrinsic identity",
+      "constant index",
+      "type match"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7541
+    ]
+  },
+  {
+    "id": "IS7551",
+    "start_line": 7545,
+    "end_line": 7551,
+    "function": "simplifyIntrinsic",
+    "description": "Fold vector_splice_right(vector_splice_left(poison,X,Offset),poison,Offset) to X when the inner offset is the identical SSA value and the right passthrough is poison.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "matching offset SSA operand",
+      "poison operands"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7551
+    ]
+  },
+  {
+    "id": "IS7558",
+    "start_line": 7556,
+    "end_line": 7558,
+    "function": "simplifyIntrinsic",
+    "description": "For vector_splice_left/right, an undef offset yields poison of the result vector type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "undef offset",
+      "vector result type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7558
+    ]
+  },
+  {
+    "id": "IS7571",
+    "start_line": 7560,
+    "end_line": 7571,
+    "function": "simplifyIntrinsic",
+    "description": "For vector_splice_left/right, return poison when known unsigned minimum offset exceeds the maximum possible vector element count; scalable count uses function vscale range when available, otherwise full range.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "ConstantRange known bits",
+      "vector min element count",
+      "scalable vscale range/function context"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7571
+    ]
+  },
+  {
+    "id": "IS7575",
+    "start_line": 7573,
+    "end_line": 7575,
+    "function": "simplifyIntrinsic",
+    "description": "For a proven zero splice offset, vector_splice_left(A,B,0) returns A and vector_splice_right(A,B,0) returns B.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "ConstantRange proves singleton zero",
+      "intrinsic ID selects operand"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7575
+    ]
+  },
+  {
+    "id": "IS7580",
+    "start_line": 7578,
+    "end_line": 7580,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate constrained fadd to simplifyFAddInst with its FMF, exception behavior, and rounding mode.",
+    "opcodes": [
+      "call",
+      "fadd"
+    ],
+    "extra": [
+      "constrained FP metadata"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7580
+    ]
+  },
+  {
+    "id": "IS7582",
+    "start_line": 7581,
+    "end_line": 7582,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate constrained fsub to simplifyFSubInst with its FMF, exception behavior, and rounding mode.",
+    "opcodes": [
+      "call",
+      "fsub"
+    ],
+    "extra": [
+      "constrained FP metadata"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7582
+    ]
+  },
+  {
+    "id": "IS7584",
+    "start_line": 7583,
+    "end_line": 7584,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate constrained fmul to simplifyFMulInst with its FMF, exception behavior, and rounding mode.",
+    "opcodes": [
+      "call",
+      "fmul"
+    ],
+    "extra": [
+      "constrained FP metadata"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7584
+    ]
+  },
+  {
+    "id": "IS7586",
+    "start_line": 7585,
+    "end_line": 7586,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate constrained fdiv to simplifyFDivInst with its FMF, exception behavior, and rounding mode.",
+    "opcodes": [
+      "call",
+      "fdiv"
+    ],
+    "extra": [
+      "constrained FP metadata"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7586
+    ]
+  },
+  {
+    "id": "IS7588",
+    "start_line": 7587,
+    "end_line": 7588,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate constrained frem to simplifyFRemInst with its FMF, exception behavior, and rounding mode.",
+    "opcodes": [
+      "call",
+      "frem"
+    ],
+    "extra": [
+      "constrained FP metadata"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7588
+    ]
+  },
+  {
+    "id": "IS7590",
+    "start_line": 7589,
+    "end_line": 7590,
+    "function": "simplifyIntrinsic",
+    "description": "Delegate constrained ldexp to simplifyLdexp in strict mode.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "strict flag",
+      "constrained FP environment"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7590
+    ]
+  },
+  {
+    "id": "IS7599",
+    "start_line": 7595,
+    "end_line": 7599,
+    "function": "simplifyIntrinsic",
+    "description": "Cancel vp_reverse(vp_reverse(X, mask1, EVL), mask2, EVL) to X when both use the exact same EVL SSA operand; mask operands may differ.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "same EVL SSA operand",
+      "vector predication intrinsic"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7599
+    ]
+  },
+  {
+    "id": "IS7603",
+    "start_line": 7601,
+    "end_line": 7603,
+    "function": "simplifyIntrinsic",
+    "description": "For vp_reverse(X,mask,EVL), return X unchanged when X is a splat, regardless of mask or EVL.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "splat vector recognition",
+      "mask/EVL are irrelevant after splat proof"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7603
+    ]
+  },
+  {
+    "id": "IS7626",
+    "start_line": 7622,
+    "end_line": 7626,
+    "function": "simplifyIntrinsic(CallBase)",
+    "description": "For gc.relocate, if either derived pointer or base pointer is undef, return undef of the relocation result type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "GC relocation intrinsic",
+      "undef semantics"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7626
+    ]
+  },
+  {
+    "id": "IS7635",
+    "start_line": 7629,
+    "end_line": 7635,
+    "function": "simplifyIntrinsic(CallBase)",
+    "description": "For gc.relocate returning pointer type, a null derived pointer becomes null of the result pointer type; this assumes most collectors preserve null relocation.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "derived ptr null",
+      "collector assumption",
+      "result pointer type"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7635
+    ]
+  },
+  {
+    "id": "IS7648",
+    "start_line": 7643,
+    "end_line": 7648,
+    "function": "simplifyIntrinsic(CallBase)",
+    "description": "For other intrinsic calls, derive FP exception behavior and rounding from constrained call metadata (default ignore/nearest-even), then delegate to simplifyIntrinsic by intrinsic ID and return type.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constrained FP metadata",
+      "function query"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7648
+    ]
+  },
+  {
+    "id": "IS7673",
+    "start_line": 7660,
+    "end_line": 7673,
+    "function": "tryConstantFoldCall",
+    "description": "When target library analysis says a direct callee can constant-fold and every non-metadata argument is a constant, return LLVM ConstantFoldCall result.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "TargetLibraryInfo",
+      "direct function callee",
+      "all constant arguments except metadata",
+      "operand bundles excluded"
+    ],
+    "kind": "schema",
+    "returns": [
+      7673
+    ]
+  },
+  {
+    "id": "IS7689",
+    "start_line": 7686,
+    "end_line": 7689,
+    "function": "simplifyCall",
+    "description": "A call through undef or null callee yields poison of call result type, except musttail calls are rejected before this rule.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "musttail exclusion",
+      "callee is undef or null"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7689
+    ]
+  },
+  {
+    "id": "IS7692",
+    "start_line": 7691,
+    "end_line": 7692,
+    "function": "simplifyCall",
+    "description": "If tryConstantFoldCall succeeds, return its folded result.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "TargetLibraryInfo",
+      "constant args"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7692
+    ]
+  },
+  {
+    "id": "IS7697",
+    "start_line": 7694,
+    "end_line": 7697,
+    "function": "simplifyCall",
+    "description": "For direct intrinsic callee (after call constant folding fails), invoke simplifyIntrinsic(CallBase) and return any non-null simplification.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "direct intrinsic function",
+      "intrinsic-specific simplifier"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7697
+    ]
+  },
+  {
+    "id": "IS7706",
+    "start_line": 7703,
+    "end_line": 7706,
+    "function": "simplifyConstrainedFPCall",
+    "description": "For constrained FP call, first return the constant-folded result if tryConstantFoldCall succeeds.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constrained FP call",
+      "TargetLibraryInfo"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7706
+    ]
+  },
+  {
+    "id": "IS7708",
+    "start_line": 7707,
+    "end_line": 7708,
+    "function": "simplifyConstrainedFPCall",
+    "description": "For constrained FP call, return simplifyIntrinsic(CallBase) result when non-null after constant folding fails.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "constrained FP metadata"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7708
+    ]
+  },
+  {
+    "id": "IS7716",
+    "start_line": 7713,
+    "end_line": 7716,
+    "function": "simplifyFreezeInst",
+    "description": "Remove freeze(X) and return X when value tracking proves X is neither undef nor poison.",
+    "opcodes": [
+      "freeze"
+    ],
+    "extra": [
+      "isGuaranteedNotToBeUndefOrPoison",
+      "assumption/context/dominator analysis"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7716
+    ]
+  },
+  {
+    "id": "IS7731",
+    "start_line": 7725,
+    "end_line": 7731,
+    "function": "simplifyLoadInst",
+    "description": "For nonvolatile load from a constant pointer operand, constant-fold the loaded value from that pointer.",
+    "opcodes": [
+      "load"
+    ],
+    "extra": [
+      "nonvolatile load",
+      "constant pointer",
+      "DataLayout and memory constant folding"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7731
+    ]
+  },
+  {
+    "id": "IS7743",
+    "start_line": 7736,
+    "end_line": 7743,
+    "function": "simplifyLoadInst",
+    "description": "If underlying object is a constant global with definitive initializer and ConstantFoldLoadFromUniformValue proves initializer uniform for requested load type, return that constant regardless of offset.",
+    "opcodes": [
+      "load"
+    ],
+    "extra": [
+      "constant global",
+      "definitive initializer",
+      "uniform initializer analysis",
+      "DataLayout"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7743
+    ]
+  },
+  {
+    "id": "IS7754",
+    "start_line": 7745,
+    "end_line": 7754,
+    "function": "simplifyLoadInst",
+    "description": "Strip constant offsets through invariant.group while allowing inbounds relaxation; if stripped pointer is the constant global, sign-extend/truncate offset to that address space's index width and constant-fold load from the global initializer.",
+    "opcodes": [
+      "load",
+      "getelementptr",
+      "addrspacecast"
+    ],
+    "extra": [
+      "constant offset stripping",
+      "invariant.group",
+      "DataLayout index width",
+      "constant global initializer"
+    ],
+    "kind": "rewrite",
+    "returns": [
+      7754
+    ]
+  },
+  {
+    "id": "IS7780",
+    "start_line": 7772,
+    "end_line": 7780,
+    "function": "simplifyInstructionWithOperands",
+    "description": "For any instruction whose NewOps are all constants and which has no explicit simplifier case, constant-fold the instruction operands; otherwise return null.",
+    "opcodes": [
+      "instruction"
+    ],
+    "extra": [
+      "generic constant instruction folder",
+      "DataLayout",
+      "TargetLibraryInfo"
+    ],
+    "kind": "schema",
+    "returns": [
+      7780
+    ]
+  },
+  {
+    "id": "IS7784",
+    "start_line": 7782,
+    "end_line": 7784,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FNeg instruction to simplifyFNegInst using instruction fast-math flags.",
+    "opcodes": [
+      "fneg"
+    ],
+    "extra": [
+      "instruction dispatch",
+      "fast-math flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7784
+    ]
+  },
+  {
+    "id": "IS7786",
+    "start_line": 7785,
+    "end_line": 7786,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FAdd instruction to simplifyFAddInst with instruction fast-math flags.",
+    "opcodes": [
+      "fadd"
+    ],
+    "extra": [
+      "instruction dispatch",
+      "fast-math flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7786
+    ]
+  },
+  {
+    "id": "IS7789",
+    "start_line": 7787,
+    "end_line": 7789,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Add with nsw/nuw flags from instruction-info query to simplifyAddInst.",
+    "opcodes": [
+      "add"
+    ],
+    "extra": [
+      "IIQ nsw/nuw flags",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7789
+    ]
+  },
+  {
+    "id": "IS7793",
+    "start_line": 7791,
+    "end_line": 7793,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FSub instruction to simplifyFSubInst with instruction fast-math flags.",
+    "opcodes": [
+      "fsub"
+    ],
+    "extra": [
+      "instruction dispatch",
+      "fast-math flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7793
+    ]
+  },
+  {
+    "id": "IS7796",
+    "start_line": 7794,
+    "end_line": 7796,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Sub with nsw/nuw flags from instruction-info query to simplifySubInst.",
+    "opcodes": [
+      "sub"
+    ],
+    "extra": [
+      "IIQ nsw/nuw flags",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7796
+    ]
+  },
+  {
+    "id": "IS7800",
+    "start_line": 7798,
+    "end_line": 7800,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FMul instruction to simplifyFMulInst with instruction fast-math flags.",
+    "opcodes": [
+      "fmul"
+    ],
+    "extra": [
+      "instruction dispatch",
+      "fast-math flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7800
+    ]
+  },
+  {
+    "id": "IS7803",
+    "start_line": 7801,
+    "end_line": 7803,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Mul with nsw/nuw flags from instruction-info query to simplifyMulInst.",
+    "opcodes": [
+      "mul"
+    ],
+    "extra": [
+      "IIQ nsw/nuw flags",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7803
+    ]
+  },
+  {
+    "id": "IS7807",
+    "start_line": 7805,
+    "end_line": 7807,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch SDiv with exact flag from instruction-info query to simplifySDivInst.",
+    "opcodes": [
+      "sdiv"
+    ],
+    "extra": [
+      "IIQ exact flag",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7807
+    ]
+  },
+  {
+    "id": "IS7811",
+    "start_line": 7809,
+    "end_line": 7811,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch UDiv with exact flag from instruction-info query to simplifyUDivInst.",
+    "opcodes": [
+      "udiv"
+    ],
+    "extra": [
+      "IIQ exact flag",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7811
+    ]
+  },
+  {
+    "id": "IS7815",
+    "start_line": 7813,
+    "end_line": 7815,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FDiv instruction to simplifyFDivInst with instruction fast-math flags.",
+    "opcodes": [
+      "fdiv"
+    ],
+    "extra": [
+      "instruction dispatch",
+      "fast-math flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7815
+    ]
+  },
+  {
+    "id": "IS7818",
+    "start_line": 7816,
+    "end_line": 7818,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch SRem instruction to simplifySRemInst.",
+    "opcodes": [
+      "srem"
+    ],
+    "extra": [
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7818
+    ]
+  },
+  {
+    "id": "IS7820",
+    "start_line": 7819,
+    "end_line": 7820,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch URem instruction to simplifyURemInst.",
+    "opcodes": [
+      "urem"
+    ],
+    "extra": [
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7820
+    ]
+  },
+  {
+    "id": "IS7822",
+    "start_line": 7821,
+    "end_line": 7822,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FRem instruction to simplifyFRemInst with instruction fast-math flags.",
+    "opcodes": [
+      "frem"
+    ],
+    "extra": [
+      "instruction dispatch",
+      "fast-math flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7822
+    ]
+  },
+  {
+    "id": "IS7825",
+    "start_line": 7823,
+    "end_line": 7825,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Shl with nsw/nuw flags from instruction-info query to simplifyShlInst.",
+    "opcodes": [
+      "shl"
+    ],
+    "extra": [
+      "IIQ nsw/nuw flags",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7825
+    ]
+  },
+  {
+    "id": "IS7829",
+    "start_line": 7827,
+    "end_line": 7829,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch LShr with exact flag from instruction-info query to simplifyLShrInst.",
+    "opcodes": [
+      "lshr"
+    ],
+    "extra": [
+      "IIQ exact flag",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7829
+    ]
+  },
+  {
+    "id": "IS7833",
+    "start_line": 7831,
+    "end_line": 7833,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch AShr with exact flag from instruction-info query to simplifyAShrInst.",
+    "opcodes": [
+      "ashr"
+    ],
+    "extra": [
+      "IIQ exact flag",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7833
+    ]
+  },
+  {
+    "id": "IS7837",
+    "start_line": 7835,
+    "end_line": 7837,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch And instruction to simplifyAndInst.",
+    "opcodes": [
+      "and"
+    ],
+    "extra": [
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7837
+    ]
+  },
+  {
+    "id": "IS7839",
+    "start_line": 7838,
+    "end_line": 7839,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Or instruction to simplifyOrInst.",
+    "opcodes": [
+      "or"
+    ],
+    "extra": [
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7839
+    ]
+  },
+  {
+    "id": "IS7841",
+    "start_line": 7840,
+    "end_line": 7841,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Xor instruction to simplifyXorInst.",
+    "opcodes": [
+      "xor"
+    ],
+    "extra": [
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7841
+    ]
+  },
+  {
+    "id": "IS7843",
+    "start_line": 7842,
+    "end_line": 7843,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch ICmp using its predicate and two replacement operands to simplifyICmpInst.",
+    "opcodes": [
+      "icmp"
+    ],
+    "extra": [
+      "comparison predicate",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7843
+    ]
+  },
+  {
+    "id": "IS7846",
+    "start_line": 7844,
+    "end_line": 7846,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch FCmp using its predicate, instruction fast-math flags, and replacement operands to simplifyFCmpInst.",
+    "opcodes": [
+      "fcmp"
+    ],
+    "extra": [
+      "comparison predicate",
+      "fast-math flags",
+      "instruction dispatch"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7846
+    ]
+  },
+  {
+    "id": "IS7852",
+    "start_line": 7848,
+    "end_line": 7852,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Select with condition, true/false replacement values, and fast-math flags (when select is FP math operator) to simplifySelectInst.",
+    "opcodes": [
+      "select"
+    ],
+    "extra": [
+      "conditional selection",
+      "FMF only when FPMathOperator"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7852
+    ]
+  },
+  {
+    "id": "IS7857",
+    "start_line": 7854,
+    "end_line": 7857,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch GetElementPtr using original source element type and no-wrap flags with replacement pointer/index operands to simplifyGEPInst.",
+    "opcodes": [
+      "getelementptr"
+    ],
+    "extra": [
+      "source element type",
+      "GEP no-wrap flags"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7857
+    ]
+  },
+  {
+    "id": "IS7863",
+    "start_line": 7859,
+    "end_line": 7863,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch InsertValue with original index path and replacement aggregate/value operands.",
+    "opcodes": [
+      "insertvalue"
+    ],
+    "extra": [
+      "aggregate index path"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7863
+    ]
+  },
+  {
+    "id": "IS7867",
+    "start_line": 7865,
+    "end_line": 7867,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch InsertElement with replacement vector/value/index operands.",
+    "opcodes": [
+      "insertelement"
+    ],
+    "extra": [
+      "lane index"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7867
+    ]
+  },
+  {
+    "id": "IS7870",
+    "start_line": 7868,
+    "end_line": 7870,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch ExtractValue with original aggregate index path and replacement aggregate operand.",
+    "opcodes": [
+      "extractvalue"
+    ],
+    "extra": [
+      "aggregate index path"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7870
+    ]
+  },
+  {
+    "id": "IS7874",
+    "start_line": 7872,
+    "end_line": 7874,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch ExtractElement with replacement vector and index operands.",
+    "opcodes": [
+      "extractelement"
+    ],
+    "extra": [
+      "lane index"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7874
+    ]
+  },
+  {
+    "id": "IS7877",
+    "start_line": 7875,
+    "end_line": 7877,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch ShuffleVector with original mask, result type, and replacement source vectors.",
+    "opcodes": [
+      "shufflevector"
+    ],
+    "extra": [
+      "mask",
+      "result type"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7877
+    ]
+  },
+  {
+    "id": "IS7882",
+    "start_line": 7881,
+    "end_line": 7882,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch PHI using replacement incoming values and original PHI node for dominance checks.",
+    "opcodes": [
+      "phi"
+    ],
+    "extra": [
+      "incoming value list",
+      "dominance analysis"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7882
+    ]
+  },
+  {
+    "id": "IS7884",
+    "start_line": 7883,
+    "end_line": 7884,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Call with the replacement callee and replacement arguments after excluding operand bundle operands.",
+    "opcodes": [
+      "call"
+    ],
+    "extra": [
+      "operand bundle slicing",
+      "call/intrinsic simplifier"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7884
+    ]
+  },
+  {
+    "id": "IS7888",
+    "start_line": 7887,
+    "end_line": 7888,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Freeze to simplifyFreezeInst on the replacement operand.",
+    "opcodes": [
+      "freeze"
+    ],
+    "extra": [
+      "undef/poison guarantee analysis"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7888
+    ]
+  },
+  {
+    "id": "IS7893",
+    "start_line": 7890,
+    "end_line": 7893,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch AddrSpaceCast with replacement operand, original result type, and nonnull property only when instruction info is enabled.",
+    "opcodes": [
+      "addrspacecast"
+    ],
+    "extra": [
+      "IIQ UseInstrInfo",
+      "nonnull property",
+      "function context"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7893
+    ]
+  },
+  {
+    "id": "IS7899",
+    "start_line": 7896,
+    "end_line": 7899,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch every remaining cast opcode using replacement source operand and original destination type.",
+    "opcodes": [
+      "trunc",
+      "zext",
+      "sext",
+      "fptrunc",
+      "fpext",
+      "fptoui",
+      "fptosi",
+      "uitofp",
+      "sitofp",
+      "ptrtoint",
+      "inttoptr",
+      "bitcast",
+      "ptrtoaddr"
+    ],
+    "extra": [
+      "Instruction.def cast dispatch",
+      "AddrSpaceCast handled separately"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7899
+    ]
+  },
+  {
+    "id": "IS7905",
+    "start_line": 7904,
+    "end_line": 7905,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Dispatch Load using the original load instruction attributes and replacement pointer operand.",
+    "opcodes": [
+      "load"
+    ],
+    "extra": [
+      "load alignment/volatile/atomic attributes",
+      "constant global analysis"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7905
+    ]
+  },
+  {
+    "id": "IS7914",
+    "start_line": 7911,
+    "end_line": 7914,
+    "function": "simplifyInstructionWithOperands",
+    "description": "Public wrapper invokes internal instruction simplification with recursion limit after asserting replacement operand count matches instruction operand count.",
+    "opcodes": [
+      "instruction"
+    ],
+    "extra": [
+      "recursion limit",
+      "operand arity assertion"
+    ],
+    "kind": "delegation",
+    "returns": [
+      7914
+    ]
+  },
+  {
+    "id": "IS7924",
+    "start_line": 7917,
+    "end_line": 7924,
+    "function": "simplifyInstruction",
+    "description": "Call simplifyInstructionWithOperands on the instruction's current operands; if unreachable-code simplification returns the instruction itself, return poison of its type.",
+    "opcodes": [
+      "instruction"
+    ],
+    "extra": [
+      "unreachable-code self-result guard",
+      "result type"
+    ],
+    "kind": "schema",
+    "returns": [
+      7924
+    ]
+  }
+]

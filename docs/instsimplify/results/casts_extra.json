@@ -1,0 +1,50 @@
+[
+  {
+    "id": "IS3985",
+    "status": "proved",
+    "reason": "Compiled full mixed zero/sign-extension comparison family; source scalar comparison variants and reversed operands are parameterized.",
+    "files": [
+      "Veir/InstSimplify/IS3985.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3985.valid"
+    ],
+    "domain": "Scalar LLVM integers with arbitrary strict extension widths and signedness; all zext.nneg flags and signed/unsigned source predicates; vector extension unmodeled."
+  },
+  {
+    "id": "IS3987",
+    "status": "proved",
+    "reason": "Compiled full mixed zero/sign-extension comparison family; source scalar comparison variants and reversed operands are parameterized.",
+    "files": [
+      "Veir/InstSimplify/IS3987.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3987.valid"
+    ],
+    "domain": "Scalar LLVM integers with arbitrary strict extension widths and signedness; all zext.nneg flags and signed/unsigned source predicates; vector extension unmodeled."
+  },
+  {
+    "id": "IS4064",
+    "status": "proved",
+    "reason": "Compiled full mixed zero/sign-extension comparison family; source scalar comparison variants and reversed operands are parameterized.",
+    "files": [
+      "Veir/InstSimplify/IS4064.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4064.valid"
+    ],
+    "domain": "Scalar LLVM integers with arbitrary strict extension widths and signedness; all zext.nneg flags and signed/unsigned source predicates; vector extension unmodeled."
+  },
+  {
+    "id": "IS4066",
+    "status": "proved",
+    "reason": "Compiled full mixed zero/sign-extension comparison family; source scalar comparison variants and reversed operands are parameterized.",
+    "files": [
+      "Veir/InstSimplify/IS4066.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4066.valid"
+    ],
+    "domain": "Scalar LLVM integers with arbitrary strict extension widths and signedness; all zext.nneg flags and signed/unsigned source predicates; vector extension unmodeled."
+  }
+]

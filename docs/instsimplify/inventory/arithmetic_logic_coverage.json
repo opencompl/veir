@@ -1,0 +1,1622 @@
+{
+  "101": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "105": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "121": {
+    "entry_id": "IS0121",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "125": {
+    "entry_id": "IS0125",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "127": {
+    "entry_id": "IS0127",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "160": {
+    "entry_id": "IS0160",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "165": {
+    "entry_id": "IS0165",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "171": {
+    "entry_id": "IS0171",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "172": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "180": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "184": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "190": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "192": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "203": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "208": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "212": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "218": {
+    "entry_id": "IS0218",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "224": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "227": {
+    "entry_id": "IS0227",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "239": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "242": {
+    "entry_id": "IS0242",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "244": {
+    "entry_id": "IS0244",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "245": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "258": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "274": {
+    "entry_id": "IS0274",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "278": {
+    "entry_id": "IS0278",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "294": {
+    "entry_id": "IS0294",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "298": {
+    "entry_id": "IS0298",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "305": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "318": {
+    "entry_id": "IS0318",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "322": {
+    "entry_id": "IS0322",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "338": {
+    "entry_id": "IS0338",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "342": {
+    "entry_id": "IS0342",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "347": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "359": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "383": {
+    "entry_id": "IS0383",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "387": {
+    "entry_id": "IS0387",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "389": {
+    "entry_id": "IS0389",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "394": {
+    "entry_id": "IS0394",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "413": {
+    "entry_id": "IS0413",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "417": {
+    "entry_id": "IS0417",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "421": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "437": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "454": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "459": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "464": {
+    "entry_id": "IS0464",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "469": {
+    "entry_id": "IS0469",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "471": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "483": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "490": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "496": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "514": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "518": {
+    "entry_id": "IS0518",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "529": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "541": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "559": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "563": {
+    "entry_id": "IS0563",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "580": {
+    "entry_id": "IS0580",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "582": {
+    "entry_id": "IS0582",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "589": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "597": {
+    "entry_id": "IS0597",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "601": {
+    "entry_id": "IS0601",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "605": {
+    "entry_id": "IS0605",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "609": {
+    "entry_id": "IS0609",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "613": {
+    "entry_id": "IS0613",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "621": {
+    "entry_id": "IS0621",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "626": {
+    "entry_id": "IS0626",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "633": {
+    "entry_id": "IS0633",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "642": {
+    "entry_id": "IS0642",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "647": {
+    "entry_id": "IS0647",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "658": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "663": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "683": {
+    "entry_id": null,
+    "explanation": "helper computes an APInt pointer offset; it does not return a rewritten LLVM value"
+  },
+  "696": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "705": {
+    "entry_id": null,
+    "explanation": "helper computes a pointer difference constant for the Sub caller; it does not itself rewrite an instruction"
+  },
+  "716": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "727": {
+    "entry_id": "IS0727",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "731": {
+    "entry_id": "IS0731",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "736": {
+    "entry_id": "IS0736",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "741": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "749": {
+    "entry_id": "IS0749",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "754": {
+    "entry_id": "IS0754",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "759": {
+    "entry_id": "IS0759",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "763": {
+    "entry_id": "IS0763",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "767": {
+    "entry_id": "IS0767",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "773": {
+    "entry_id": "IS0773",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "780": {
+    "entry_id": "IS0780",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "783": {
+    "entry_id": "IS0783",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "797": {
+    "entry_id": "IS0797",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "805": {
+    "entry_id": "IS0805",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "819": {
+    "entry_id": "IS0819",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "827": {
+    "entry_id": "IS0827",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "841": {
+    "entry_id": "IS0841",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "854": {
+    "entry_id": "IS0854",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "867": {
+    "entry_id": "IS0867",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "879": {
+    "entry_id": "IS0879",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "886": {
+    "entry_id": "IS0886",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "889": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "894": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "902": {
+    "entry_id": "IS0902",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "906": {
+    "entry_id": "IS0906",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "911": {
+    "entry_id": "IS0911",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch",
+    "additional_entry_ids": [
+      "IS0911u"
+    ]
+  },
+  "915": {
+    "entry_id": "IS0915",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "923": {
+    "entry_id": "IS0923",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "929": {
+    "entry_id": "IS0929",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "934": {
+    "entry_id": "IS0934",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "940": {
+    "entry_id": "IS0940",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "945": {
+    "entry_id": "IS0945",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "952": {
+    "entry_id": "IS0952",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "959": {
+    "entry_id": "IS0959",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "961": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "966": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "976": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "985": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "990": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1009": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1016": {
+    "entry_id": "IS1016",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1025": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1027": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1037": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1041": {
+    "entry_id": null,
+    "explanation": "isDivZero returns a proof predicate (`X < Y`) used by div/rem callers; it is not an LLVM value rewrite"
+  },
+  "1057": {
+    "entry_id": "IS1057",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch",
+    "additional_entry_ids": [
+      "IS1057u"
+    ]
+  },
+  "1063": {
+    "entry_id": "IS1063",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1068": {
+    "entry_id": "IS1068",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1073": {
+    "entry_id": "IS1073",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1078": {
+    "entry_id": "IS1078",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1083": {
+    "entry_id": "IS1083",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1092": {
+    "entry_id": "IS1092",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1100": {
+    "entry_id": "IS1100",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1114": {
+    "entry_id": "IS1114",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1119": {
+    "entry_id": "IS1119",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1122": {
+    "entry_id": "IS1122",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1128": {
+    "entry_id": "IS1128",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1134": {
+    "entry_id": "IS1134",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1136": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1144": {
+    "entry_id": "IS1144",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1147": {
+    "entry_id": "IS1147",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1157": {
+    "entry_id": "IS1157",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1168": {
+    "entry_id": "IS1168",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1171": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1178": {
+    "entry_id": "IS1178",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1181": {
+    "entry_id": "IS1181",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1189": {
+    "entry_id": "IS1189",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1198": {
+    "entry_id": "IS1198",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1202": {
+    "entry_id": "IS1202",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1204": {
+    "entry_id": "IS1204",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1207": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1216": {
+    "entry_id": "IS1216",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1218": {
+    "entry_id": "IS1218",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1223": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1230": {
+    "entry_id": "IS1230",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1235": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1246": {
+    "entry_id": "IS1246",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1250": {
+    "entry_id": "IS1250",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1252": {
+    "entry_id": "IS1252",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1256": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1263": {
+    "entry_id": "IS1263",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1267": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1274": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1278": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1284": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1293": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1294": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1297": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "1306": {
+    "entry_id": "IS1306",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1310": {
+    "entry_id": "IS1310",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1314": {
+    "entry_id": "IS1314",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1322": {
+    "entry_id": "IS1322",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1326": {
+    "entry_id": "IS1326",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch",
+    "additional_entry_ids": [
+      "IS1326u"
+    ]
+  },
+  "1332": {
+    "entry_id": "IS1332",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1338": {
+    "entry_id": "IS1338",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1344": {
+    "entry_id": "IS1344",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1350": {
+    "entry_id": "IS1350",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1364": {
+    "entry_id": "IS1364",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1367": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1377": {
+    "entry_id": "IS1377",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1381": {
+    "entry_id": "IS1381",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1386": {
+    "entry_id": "IS1386",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1393": {
+    "entry_id": "IS1393",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1396": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1405": {
+    "entry_id": "IS1405",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1411": {
+    "entry_id": "IS1411",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1417": {
+    "entry_id": "IS1417",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1421": {
+    "entry_id": "IS1421",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1430": {
+    "entry_id": "IS1430",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1432": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1437": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1446": {
+    "entry_id": "IS1446",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1451": {
+    "entry_id": "IS1451",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1466": {
+    "entry_id": "IS1466",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1469": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1474": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1483": {
+    "entry_id": "IS1483",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1490": {
+    "entry_id": "IS1490",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1495": {
+    "entry_id": "IS1495",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1500": {
+    "entry_id": "IS1500",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1502": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1507": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "1520": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1534": {
+    "entry_id": "IS1534",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1539": {
+    "entry_id": "IS1539",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1545": {
+    "entry_id": "IS1545",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1551": {
+    "entry_id": "IS1551",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1561": {
+    "entry_id": "IS1561",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1564": {
+    "entry_id": "IS1564",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1576": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1582": {
+    "entry_id": "IS1582",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1588": {
+    "entry_id": "IS1588",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1598": {
+    "entry_id": "IS1598",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1603": {
+    "entry_id": "IS1603",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1608": {
+    "entry_id": "IS1608",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1613": {
+    "entry_id": "IS1613",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1615": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1625": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1630": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1638": {
+    "entry_id": "IS1638",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1643": {
+    "entry_id": "IS1643",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1651": {
+    "entry_id": "IS1651",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1653": {
+    "entry_id": "IS1653",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1655": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1665": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1668": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1672": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1682": {
+    "entry_id": "IS1682",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1684": {
+    "entry_id": "IS1684",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1688": {
+    "entry_id": "IS1688",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1690": {
+    "entry_id": "IS1690",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1696": {
+    "entry_id": "IS1696",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1699": {
+    "entry_id": "IS1699",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1702": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1713": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1717": {
+    "entry_id": "IS1717",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1720": {
+    "entry_id": "IS1720",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1722": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1728": {
+    "entry_id": "IS1728",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1730": {
+    "entry_id": "IS1730",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1733": {
+    "entry_id": "IS1733",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1736": {
+    "entry_id": "IS1736",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1738": {
+    "entry_id": "IS1738",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1741": {
+    "entry_id": "IS1741",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1743": {
+    "entry_id": "IS1743",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1745": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1755": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1758": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1762": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1772": {
+    "entry_id": "IS1772",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1774": {
+    "entry_id": "IS1774",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1778": {
+    "entry_id": "IS1778",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1780": {
+    "entry_id": "IS1780",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1786": {
+    "entry_id": "IS1786",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1789": {
+    "entry_id": "IS1789",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1792": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1798": {
+    "entry_id": "IS1798",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1800": {
+    "entry_id": "IS1800",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1803": {
+    "entry_id": "IS1803",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1806": {
+    "entry_id": "IS1806",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1808": {
+    "entry_id": "IS1808",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1811": {
+    "entry_id": "IS1811",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1813": {
+    "entry_id": "IS1813",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1815": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1825": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1830": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1838": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1843": {
+    "entry_id": "IS1843",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1851": {
+    "entry_id": "IS1851",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1853": {
+    "entry_id": "IS1853",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1855": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1863": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1897": {
+    "entry_id": "IS1897",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1899": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1926": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1928": {
+    "entry_id": "IS1928",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1936": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1954": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1965": {
+    "entry_id": "IS1965",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1967": {
+    "entry_id": "IS1967",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1968": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1975": {
+    "entry_id": "IS1975",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1976": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "1985": {
+    "entry_id": "IS1985",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1989": {
+    "entry_id": "IS1989",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1991": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2015": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2024": {
+    "entry_id": "IS2024",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2028": {
+    "entry_id": "IS2028",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2034": {
+    "entry_id": "IS2034",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2040": {
+    "entry_id": "IS2040",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2045": {
+    "entry_id": "IS2045",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2051": {
+    "entry_id": "IS2051",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2060": {
+    "entry_id": "IS2060",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2064": {
+    "entry_id": "IS2064",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2066": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2074": {
+    "entry_id": "IS2074",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2078": {
+    "entry_id": "IS2078",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2082": {
+    "entry_id": "IS2082",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2086": {
+    "entry_id": "IS2086",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2090": {
+    "entry_id": "IS2090",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2094": {
+    "entry_id": "IS2094",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2097": {
+    "entry_id": "IS2097",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2099": {
+    "entry_id": "IS2099",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2102": {
+    "entry_id": "IS2102",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2113": {
+    "entry_id": "IS2113",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2119": {
+    "entry_id": "IS2119",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2132": {
+    "entry_id": "IS2132",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2136": {
+    "entry_id": "IS2136",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2143": {
+    "entry_id": "IS2143",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2145": {
+    "entry_id": "IS2145",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2151": {
+    "entry_id": "IS2151",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2156": {
+    "entry_id": "IS2156",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2161": {
+    "entry_id": "IS2161",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2167": {
+    "entry_id": "IS2167",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2169": {
+    "entry_id": "IS2169",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2176": {
+    "entry_id": "IS2176",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2184": {
+    "entry_id": "IS2184",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2213": {
+    "entry_id": "IS2213",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2215": {
+    "entry_id": "IS2215",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2226": {
+    "entry_id": "IS2226",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2233": {
+    "entry_id": "IS2233",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2239": {
+    "entry_id": "IS2239",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2242": {
+    "entry_id": "IS2242",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2247": {
+    "entry_id": "IS2247",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2250": {
+    "entry_id": "IS2250",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2255": {
+    "entry_id": "IS2255",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2257": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2261": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "2271": {
+    "entry_id": "IS2271",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2275": {
+    "entry_id": "IS2275",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2279": {
+    "entry_id": "IS2279",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2287": {
+    "entry_id": "IS2287",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2293": {
+    "entry_id": "IS2293",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2301": {
+    "entry_id": "IS2301",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2309": {
+    "entry_id": "IS2309",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2317": {
+    "entry_id": "IS2317",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2327": {
+    "entry_id": "IS2327",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2334": {
+    "entry_id": "IS2334",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2342": {
+    "entry_id": "IS2342",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2349": {
+    "entry_id": "IS2349",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2351": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2359": {
+    "entry_id": "IS2359",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2363": {
+    "entry_id": "IS2363",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2369": {
+    "entry_id": "IS2369",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch",
+    "additional_entry_ids": [
+      "IS2369u"
+    ]
+  },
+  "2374": {
+    "entry_id": "IS2374",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2377": {
+    "entry_id": "IS2377",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2379": {
+    "entry_id": "IS2379",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2382": {
+    "entry_id": "IS2382",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2397": {
+    "entry_id": "IS2397",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2406": {
+    "entry_id": "IS2406",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2408": {
+    "entry_id": "IS2408",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2419": {
+    "entry_id": "IS2419",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2423": {
+    "entry_id": "IS2423",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2430": {
+    "entry_id": "IS2430",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2434": {
+    "entry_id": "IS2434",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2438": {
+    "entry_id": "IS2438",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2441": {
+    "entry_id": "IS2441",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2444": {
+    "entry_id": "IS2444",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2450": {
+    "entry_id": "IS2450",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2452": {
+    "entry_id": "IS2452",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2457": {
+    "entry_id": "IS2457",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2462": {
+    "entry_id": "IS2462",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2468": {
+    "entry_id": "IS2468",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2470": {
+    "entry_id": "IS2470",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2477": {
+    "entry_id": "IS2477",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2495": {
+    "entry_id": "IS2495",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2501": {
+    "entry_id": "IS2501",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2510": {
+    "entry_id": "IS2510",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2515": {
+    "entry_id": "IS2515",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2522": {
+    "entry_id": "IS2522",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2525": {
+    "entry_id": "IS2525",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2531": {
+    "entry_id": "IS2531",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2534": {
+    "entry_id": "IS2534",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2539": {
+    "entry_id": "IS2539",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2541": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2545": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "2553": {
+    "entry_id": "IS2553",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2557": {
+    "entry_id": "IS2557",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2561": {
+    "entry_id": "IS2561",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2565": {
+    "entry_id": "IS2565",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2569": {
+    "entry_id": "IS2569",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2573": {
+    "entry_id": "IS2573",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2580": {
+    "entry_id": "IS2580",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2589": {
+    "entry_id": "IS2589",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2591": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2594": {
+    "entry_id": "IS2594",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2596": {
+    "entry_id": "IS2596",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2599": {
+    "entry_id": "IS2599",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2604": {
+    "entry_id": "IS2604",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2616": {
+    "entry_id": "IS2616",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2623": {
+    "entry_id": "IS2623",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2626": {
+    "entry_id": null,
+    "explanation": "failure/no rewrite (returns null)"
+  },
+  "2630": {
+    "entry_id": null,
+    "explanation": "public API wrapper forwards to the private simplifier; no independent rewrite"
+  },
+  "2634": {
+    "entry_id": null,
+    "explanation": "helper predicate/value or public forwarding return; the underlying rule is inventoried at its implementation"
+  },
+  "91": {
+    "entry_id": null,
+    "explanation": "getFalse constructs the typed false constant; no rewrite rule"
+  },
+  "95": {
+    "entry_id": null,
+    "explanation": "getTrue constructs the typed true constant; no rewrite rule"
+  },
+  "106": {
+    "entry_id": null,
+    "explanation": "isSameCompare returns a predicate result used by select comparison simplification; no rewrite rule"
+  },
+  "134": {
+    "entry_id": "IS0134",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "142": {
+    "entry_id": "IS0142",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "637": {
+    "entry_id": "IS0637",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "860": {
+    "entry_id": "IS0860",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1876": {
+    "entry_id": "IS1876",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1891": {
+    "entry_id": "IS1891",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "1933": {
+    "entry_id": "IS1933",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  },
+  "2011": {
+    "entry_id": "IS2011",
+    "explanation": "inventoried rewrite, helper schema, or delegation branch"
+  }
+}

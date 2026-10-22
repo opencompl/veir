@@ -1,0 +1,1350 @@
+[
+  {
+    "id": "IS0121",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0125",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "This fallback recognizes the same comparison syntactically after recursive simplification failed. Its result relies on the enclosing select-arm condition; it needs a contextual substitution soundness argument, not a correctness certificate for a successful recursive result."
+  },
+  {
+    "id": "IS0127",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS0134",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS0142",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS0160",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "impliesPoison analysis result is not represented in Models; inspectOperation facts are erased."
+  },
+  {
+    "id": "IS0165",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "impliesPoison analysis result is not represented in Models; inspectOperation facts are erased."
+  },
+  {
+    "id": "IS0171",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0218",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0227",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0242",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0244",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0274",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0278",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0294",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0298",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0318",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0322",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0338",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0342",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0383",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0387",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS0389",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS0394",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0413",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0417",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0464",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0469",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0518",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM PHI opcode/incoming-edge semantics and dominating-edge ValueTracking facts are not represented by Puddle Models."
+  },
+  {
+    "id": "IS0563",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM PHI opcode/incoming-edge semantics and dominating-edge ValueTracking facts are not represented by Puddle Models."
+  },
+  {
+    "id": "IS0580",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Floating-point constant folding requires LLVM FP opcode evaluation and IEEE/fast-math/rounding semantics not provided by interpretOp'; float RuntimeValues alone do not supply those opcode semantics."
+  },
+  {
+    "id": "IS0582",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_add_valid",
+      "Veir.InstSimplify.IS0582.pattern_sub_valid",
+      "Veir.InstSimplify.IS0582.pattern_mul_valid",
+      "Veir.InstSimplify.IS0582.pattern_shl_valid",
+      "Veir.InstSimplify.IS0582.pattern_lshr_valid",
+      "Veir.InstSimplify.IS0582.pattern_ashr_valid",
+      "Veir.InstSimplify.IS0582.pattern_and_valid",
+      "Veir.InstSimplify.IS0582.pattern_or_valid",
+      "Veir.InstSimplify.IS0582.pattern_xor_valid",
+      "Veir.InstSimplify.IS0582.pattern_udiv_valid",
+      "Veir.InstSimplify.IS0582.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS0582.pattern_urem_valid",
+      "Veir.InstSimplify.IS0582.pattern_srem_valid",
+      "Veir.InstSimplify.IS0582.pattern_shl_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_lshr_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_ashr_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_udiv_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_sdiv_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_urem_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_srem_poison_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "20 faithful scalar constant-fold patterns:13 numerical folds plus7 poison-output branches for overshifts and zero/signed-overflow div/rem, matching LLVM ConstantFold.cpp. Numeric branches exclude those poison cases; source overflow/exact flags ignored by upstream constant folder remain arbitrary and refine correctly. Div/rem poison source evaluates UB, not interpreter failure. Exact upstream output policy: https://github.com/llvm/llvm-project/blob/fb3ef86994775a17f4e9f1576d17590e79a8e198/llvm/lib/IR/ConstantFold.cpp#L767-L876"
+  },
+  {
+    "id": "IS0597",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_add_valid"
+    ],
+    "domain": "Scalar integer constants only, arbitrary widths and source flags.",
+    "reason": "Dispatch covered by numerical and poison-output scalar constant-folding patterns in IS0582, matching LLVM outputs. Not counted as an independent rewrite; other constant classes lack interpreter support.",
+    "covered_by": "IS0582"
+  },
+  {
+    "id": "IS0601",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0601.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0601.pattern_valid",
+      "Veir.InstSimplify.IS0601.pattern_left_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0605",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS0609",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0609.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0609.valid",
+      "Veir.InstSimplify.IS0609.valid_left"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0613",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "isKnownNegation is an external ValueTracking analysis; no semantic specification or proof-producing bridge is available for its full accepted operand language.",
+    "description": "X + (-X) -> 0 when isKnownNegation proves the operands are additive inverses; this is not a test that both operands are negative."
+  },
+  {
+    "id": "IS0621",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0621.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0621.valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0626",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0626.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0626.pattern_00_valid",
+      "Veir.InstSimplify.IS0626.pattern_01_valid",
+      "Veir.InstSimplify.IS0626.pattern_10_valid",
+      "Veir.InstSimplify.IS0626.pattern_11_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0633",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0633.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0633.valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Checked by Lean; APInt-bit matching admits all equivalent signed/unsigned/i1 integer attribute spellings."
+  },
+  {
+    "id": "IS0637",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0637.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0637.pattern_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0642",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0647",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0727",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Dominating icmp-equality analysis at the top recursion level has no Models assumption relating operand values."
+  },
+  {
+    "id": "IS0731",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Dominating icmp-equality analysis at the top recursion level has no Models assumption relating operand values."
+  },
+  {
+    "id": "IS0736",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Dominating icmp-equality analysis at the top recursion level has no Models assumption relating operand values."
+  },
+  {
+    "id": "IS0749",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_sub_valid"
+    ],
+    "domain": "Scalar integer constants only, arbitrary widths and source flags.",
+    "reason": "Dispatch covered by numerical and poison-output scalar constant-folding patterns in IS0582, matching LLVM outputs. Not counted as an independent rewrite; other constant classes lack interpreter support.",
+    "covered_by": "IS0582"
+  },
+  {
+    "id": "IS0754",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0754.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0754.pattern_sub_right_valid",
+      "Veir.InstSimplify.IS0754.pattern_sub_left_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0759",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS0763",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0763.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0763.pattern_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0767",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0767.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0767.valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0773",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0773.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0773.pattern_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0780",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits must establish that every bit of X except the sign bit is zero. Puddle Models has no proof-bearing bridge for this ValueTracking result on arbitrary operands; the nsw flag alone does not establish the rewrite. The source comment about undefined signed negation is not an LLVM undef value."
+  },
+  {
+    "id": "IS0783",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits has no proof-producing bridge into Models; metadata native guards cannot inspect dynamic operand bits."
+  },
+  {
+    "id": "IS0797",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0805",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0819",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0827",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0841",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0854",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0860",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Requires DataLayout pointer stripping/common-base and constant-offset analysis; no proof-producing bridge relates GEP chains and ptrtoint in Models."
+  },
+  {
+    "id": "IS0867",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0879",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation. Calls simplifyByDomEq, which checks a dominating equality certificate and does not recurse."
+  },
+  {
+    "id": "IS0886",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0886.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0886.valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Checked by Lean; APInt-bit matching admits all equivalent signed/unsigned/i1 integer attribute spellings."
+  },
+  {
+    "id": "IS0902",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_mul_valid"
+    ],
+    "domain": "Scalar integer constants only, arbitrary widths and source flags.",
+    "reason": "Dispatch covered by numerical and poison-output scalar constant-folding patterns in IS0582, matching LLVM outputs. Not counted as an independent rewrite; other constant classes lack interpreter support.",
+    "covered_by": "IS0582"
+  },
+  {
+    "id": "IS0906",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0906.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0906.pattern_valid",
+      "Veir.InstSimplify.IS0906.pattern_left_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0911",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0911.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0911.pattern_valid",
+      "Veir.InstSimplify.IS0911.pattern_left_valid"
+    ],
+    "domain": "Both operand orders, all scalar widths and flags for zero multiplication; undef scalar alternative has no interpreter semantics.",
+    "reason": "Both scalar zero-multiply branches compiled; the separate IS0911u catalog entry records the unsupported undef alternative."
+  },
+  {
+    "id": "IS0915",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0915.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0915.pattern_valid",
+      "Veir.InstSimplify.IS0915.pattern_left_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0923",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0923.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0923.pattern_udiv_valid",
+      "Veir.InstSimplify.IS0923.pattern_udiv_left_valid",
+      "Veir.InstSimplify.IS0923.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS0923.pattern_sdiv_left_valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Checked by Lean; APInt-bit matching admits all equivalent signed/unsigned/i1 integer attribute spellings."
+  },
+  {
+    "id": "IS0929",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0929.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0929.valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS0934",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0940",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0945",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0952",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive simplifier schema/dispatch: Puddle has no recursive engine whose successful result is accompanied by a refinement proof and recursion-budget invariant. A single fixed instance cannot establish this schema."
+  },
+  {
+    "id": "IS0959",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM PHI opcode/incoming-edge semantics and dominating-edge ValueTracking facts are not represented by Puddle Models."
+  },
+  {
+    "id": "IS1016",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Calls recursively simplified icmp and requires its semantic correctness plus path-sensitive magnitude analysis; no recursive simplifier composition interface."
+  },
+  {
+    "id": "IS1057",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1057.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1057.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS1057.sdiv_source_ub",
+      "Veir.InstSimplify.IS1057.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1057.udiv_source_ub",
+      "Veir.InstSimplify.IS1057.pattern_srem_valid",
+      "Veir.InstSimplify.IS1057.srem_source_ub",
+      "Veir.InstSimplify.IS1057.pattern_urem_valid",
+      "Veir.InstSimplify.IS1057.urem_source_ub"
+    ],
+    "domain": "All four scalar div/rem opcodes with poison divisor; undef divisor has no interpreter semantics.",
+    "reason": "Explicit source_ub lemmas prove immediate UB for poison divisor, not interpreter failure. Valid follows because no source .ok execution exists. Separate IS1057u records the unsupported undef divisor."
+  },
+  {
+    "id": "IS1063",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1063.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1063.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS1063.sdiv_source_ub",
+      "Veir.InstSimplify.IS1063.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1063.udiv_source_ub",
+      "Veir.InstSimplify.IS1063.pattern_srem_valid",
+      "Veir.InstSimplify.IS1063.srem_source_ub",
+      "Veir.InstSimplify.IS1063.pattern_urem_valid",
+      "Veir.InstSimplify.IS1063.urem_source_ub"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Explicit source_ub operational lemmas prove actual immediate UB for all four opcodes. Pattern.Valid follows because there is no defined source .ok execution; this is not an unsupported-opcode failure."
+  },
+  {
+    "id": "IS1068",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1068.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1068.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS1068.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1068.pattern_srem_valid",
+      "Veir.InstSimplify.IS1068.pattern_urem_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1073",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS1078",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1078.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1078.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS1078.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1078.pattern_srem_valid",
+      "Veir.InstSimplify.IS1078.pattern_urem_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1083",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1083.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1083.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS1083.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1083.pattern_srem_valid",
+      "Veir.InstSimplify.IS1083.pattern_urem_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1092",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits divisor-is-zero result has no semantic bridge into Models."
+  },
+  {
+    "id": "IS1100",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits zero-or-one result has no semantic bridge into Models; literal-one specialization remains representable."
+  },
+  {
+    "id": "IS1114",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1114.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1114.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS1114.pattern_sdiv_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1114.pattern_udiv_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_srem_valid",
+      "Veir.InstSimplify.IS1114.pattern_srem_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_urem_valid",
+      "Veir.InstSimplify.IS1114.pattern_urem_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_sdiv_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_sdiv_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_udiv_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_udiv_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_srem_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_srem_commute_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_urem_valid",
+      "Veir.InstSimplify.IS1114.pattern_quotient_urem_commute_valid"
+    ],
+    "domain": "Arbitrary scalar integer widths/signedness, poison included; source NSW/NUW conditions preserved and all other flags arbitrary.",
+    "reason": "All4 div/rem opcodes, both multiplier orders, both source no-wrap flags and recognized same-divisor quotient alternative proved. Arbitrary exact flags and all remaining multiply flags preserved."
+  },
+  {
+    "id": "IS1119",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "isDivZero depends on recursive icmp simplification and computeKnownBits; no semantic composition/analysis bridge."
+  },
+  {
+    "id": "IS1122",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation. Calls simplifyByDomEq, which checks a dominating equality certificate and does not recurse."
+  },
+  {
+    "id": "IS1128",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive threadBinOpOverSelect schema requires semantic certificates for both recursively simplified arms and their recursion budget; Puddle has no engine/composition contract for this schema."
+  },
+  {
+    "id": "IS1134",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM PHI opcode/incoming-edge semantics and dominating-edge ValueTracking facts are not represented by Puddle Models."
+  },
+  {
+    "id": "IS1144",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_sdiv_valid",
+      "Veir.InstSimplify.IS0582.pattern_udiv_valid",
+      "Veir.InstSimplify.IS0582.pattern_sdiv_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_udiv_poison_valid"
+    ],
+    "domain": "Scalar integer constants only, arbitrary widths and source flags.",
+    "reason": "Dispatch covered by numerical and poison-output scalar constant-folding patterns in IS0582, matching LLVM outputs. Not counted as an independent rewrite; other constant classes lack interpreter support.",
+    "covered_by": "IS0582"
+  },
+  {
+    "id": "IS1147",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1157",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits maximum trailing-zero analysis has no semantic bridge into Models."
+  },
+  {
+    "id": "IS1168",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1168.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1168.guard_equivalent_to_source",
+      "Veir.InstSimplify.IS1168.pattern_udiv_valid",
+      "Veir.InstSimplify.IS1168.pattern_sdiv_valid"
+    ],
+    "domain": "Both scalar rules: udiv exact after nsw multiplication, sdiv exact after nuw multiplication; arbitrary integer widths/signedness, all other flags arbitrary; nonzero/non-power-of-two divisor.",
+    "reason": "Both cross-wrap bridge theorems and power-of-two-divisor characterization proved without axioms. Native non-divisor-of2^width guard is proved equivalent to the source non-power-of-two test after the earlier zero-divisor case, via guard_equivalent_to_source. Compiled by Lean."
+  },
+  {
+    "id": "IS1178",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_srem_valid",
+      "Veir.InstSimplify.IS0582.pattern_urem_valid",
+      "Veir.InstSimplify.IS0582.pattern_srem_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_urem_poison_valid"
+    ],
+    "domain": "Scalar integer constants only, arbitrary widths and source flags.",
+    "reason": "Dispatch covered by numerical and poison-output scalar constant-folding patterns in IS0582, matching LLVM outputs. Not counted as an independent rewrite; other constant classes lack interpreter support.",
+    "covered_by": "IS0582"
+  },
+  {
+    "id": "IS1181",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1189",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1189.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1189.pattern_srem_valid",
+      "Veir.InstSimplify.IS1189.pattern_urem_valid"
+    ],
+    "domain": "Arbitrary scalar integer widths/signedness, poison included; source NSW/NUW conditions preserved and all other flags arbitrary.",
+    "reason": "Checked by Lean, all scalar syntactic branches represented."
+  },
+  {
+    "id": "IS1198",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1204.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1204.pattern_srem_valid"
+    ],
+    "domain": "Native metadata predicate inside IS1204 scalar constant-multiple remainder rule.",
+    "reason": "Not an independent rewrite: callback C1 srem/urem C0 ==0 is implemented as the bitvector metadata guard in IS1204.",
+    "covered_by": "IS1204"
+  },
+  {
+    "id": "IS1202",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1204.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1204.pattern_urem_valid"
+    ],
+    "domain": "Native metadata predicate inside IS1204 scalar constant-multiple remainder rule.",
+    "reason": "Not an independent rewrite: callback C1 srem/urem C0 ==0 is implemented as the bitvector metadata guard in IS1204.",
+    "covered_by": "IS1204"
+  },
+  {
+    "id": "IS1204",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1204.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1204.pattern_srem_valid",
+      "Veir.InstSimplify.IS1204.pattern_urem_valid"
+    ],
+    "domain": "Arbitrary scalar integer widths/signedness, poison included; source NSW/NUW conditions preserved and all other flags arbitrary.",
+    "reason": "Checked by Lean, all scalar syntactic branches represented."
+  },
+  {
+    "id": "IS1216",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "External isKnownNegation NeedNSW analysis has no semantic specification or bridge for its full operand language.",
+    "description": "sdiv X,Y -> -1 when isKnownNegation(X,Y,NeedNSW=true) proves opposite operands without signed negation overflow."
+  },
+  {
+    "id": "IS1218",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1230",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1246",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1246.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1246.valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Checked by Lean; APInt-bit matching admits all equivalent signed/unsigned/i1 integer attribute spellings."
+  },
+  {
+    "id": "IS1250",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "External isKnownNegation analysis has no semantic specification or bridge for its full operand language."
+  },
+  {
+    "id": "IS1252",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1263",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1306",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_shl_valid",
+      "Veir.InstSimplify.IS0582.pattern_lshr_valid",
+      "Veir.InstSimplify.IS0582.pattern_ashr_valid",
+      "Veir.InstSimplify.IS0582.pattern_shl_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_lshr_poison_valid",
+      "Veir.InstSimplify.IS0582.pattern_ashr_poison_valid"
+    ],
+    "domain": "Scalar integer constants only, arbitrary widths and source flags.",
+    "reason": "Dispatch covered by numerical and poison-output scalar constant-folding patterns in IS0582, matching LLVM outputs. Not counted as an independent rewrite; other constant classes lack interpreter support.",
+    "covered_by": "IS0582"
+  },
+  {
+    "id": "IS1310",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1310.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1310.pattern_shl_left_valid",
+      "Veir.InstSimplify.IS1310.pattern_lshr_left_valid",
+      "Veir.InstSimplify.IS1310.pattern_ashr_left_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1314",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1314.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1314.pattern_shl_left_valid",
+      "Veir.InstSimplify.IS1314.pattern_lshr_left_valid",
+      "Veir.InstSimplify.IS1314.pattern_ashr_left_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1322",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1322.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1322.pattern_shl_right_valid",
+      "Veir.InstSimplify.IS1322.pattern_lshr_right_valid",
+      "Veir.InstSimplify.IS1322.pattern_ashr_right_valid",
+      "Veir.InstSimplify.IS1322.pattern_sext_shl_valid",
+      "Veir.InstSimplify.IS1322.pattern_sext_lshr_valid",
+      "Veir.InstSimplify.IS1322.pattern_sext_ashr_valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Both literal-zero and sign-extended i1 shift-count branches proved for shl/lshr/ashr, arbitrary target width satisfying the modeled sext width constraint."
+  },
+  {
+    "id": "IS1326",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1326.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1326.pattern_shl_valid",
+      "Veir.InstSimplify.IS1326.pattern_lshr_valid",
+      "Veir.InstSimplify.IS1326.pattern_ashr_valid"
+    ],
+    "domain": "All three scalar shift opcodes, arbitrary constant count n:Int and all widths, under metadata guard width≤count.toNat. LLVM undef/vector shift-count alternatives unsupported.",
+    "reason": "All scalar constant overshift branches compiled. Separate IS1326u records unsupported undef shift amounts; vector-lane variants lack interpreter types/semantics."
+  },
+  {
+    "id": "IS1332",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Generic recursive threadBinOpOverSelect schema requires semantic certificates for both recursively simplified arms and their recursion budget; Puddle has no engine/composition contract for this schema."
+  },
+  {
+    "id": "IS1338",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM PHI opcode/incoming-edge semantics and dominating-edge ValueTracking facts are not represented by Puddle Models."
+  },
+  {
+    "id": "IS1344",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "KnownBits proves the minimum shift amount is at least the bit width, so the operation returns poison. Scalar poison is modeled, but the KnownBits fact has no semantic certificate in Puddle Models. This branch does not involve an LLVM undef value."
+  },
+  {
+    "id": "IS1350",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits minimum trailing-zero analysis has no semantic bridge into Models."
+  },
+  {
+    "id": "IS1364",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "KnownBits::shl conflict analysis has no semantic bridge into Models."
+  },
+  {
+    "id": "IS1377",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1381",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1381.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1381.pattern_lshr_valid",
+      "Veir.InstSimplify.IS1381.pattern_ashr_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1386",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS1393",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "computeKnownBits low-bit-one analysis has no semantic bridge into Models."
+  },
+  {
+    "id": "IS1405",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1411",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "LLVM undef has no interpretOp' semantics: .mlir__undef falls through to failure. This branch cannot be proved by a vacuous successful-interpretation assumption."
+  },
+  {
+    "id": "IS1417",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1417.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1417.pattern_lshr_valid",
+      "Veir.InstSimplify.IS1417.pattern_ashr_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1421",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1421.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1421.valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Checked by Lean; APInt-bit matching admits all equivalent signed/unsigned/i1 integer attribute spellings."
+  },
+  {
+    "id": "IS1430",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1430.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1430.valid"
+    ],
+    "domain": "Arbitrary scalar integer widths and signedness attributes; every source no-wrap/exact requirement preserved, all other flags arbitrary, poison refinement included.",
+    "reason": "Both flags preserved, amount=width-1. Requires width>1 because the source earlier shift-by-zero case returns the operand at width1, so this branch is unreachable there."
+  },
+  {
+    "id": "IS1446",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1451",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1451.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1451.valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1466",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Requires computeKnownBits maximum-active-bits analysis of Y; no semantic bridge into Models."
+  },
+  {
+    "id": "IS1483",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "Simple internal forwarding to already inventoried helper cases; this return adds no distinct rewrite equation."
+  },
+  {
+    "id": "IS1490",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1490.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1490.pattern_valid",
+      "Veir.InstSimplify.IS1490.pattern_nested_valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1495",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1495.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1495.valid"
+    ],
+    "domain": "All scalar integer widths, all signedness attributes, all source flags except those explicitly required by the source rule. Poison included; vector/FP types absent from this interpreter.",
+    "reason": "Lean compilation successful. Constant matching compares APInt bits and admits signed/unsigned/i1 metadata spellings."
+  },
+  {
+    "id": "IS1500",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integer operations; vector/FP variants excluded by absent interpreter semantics.",
+    "reason": "ComputeNumSignBits analysis has no semantic bridge into Models."
+  }
+]

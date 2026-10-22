@@ -1,0 +1,38 @@
+[
+  {
+    "id": "IS3918u",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "reason": "LLVM undef is not represented by LLVM.Int and mlir__undef has no successful interpretation in Llvm.interpretOp'. Poison is a distinct value and cannot substitute for undef. No vacuous Pattern.Valid proof from the missing interpreter case is claimed."
+  },
+  {
+    "id": "IS0911u",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "reason": "LLVM undef is not represented by LLVM.Int and mlir__undef has no successful interpretation in Llvm.interpretOp'. Poison is a distinct value and cannot substitute for undef. No vacuous Pattern.Valid proof from the missing interpreter case is claimed."
+  },
+  {
+    "id": "IS1057u",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "reason": "LLVM undef is not represented by LLVM.Int and mlir__undef has no successful interpretation in Llvm.interpretOp'. Poison is a distinct value and cannot substitute for undef. No vacuous Pattern.Valid proof from the missing interpreter case is claimed."
+  },
+  {
+    "id": "IS1326u",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "reason": "LLVM undef is not represented by LLVM.Int and mlir__undef has no successful interpretation in Llvm.interpretOp'. Poison is a distinct value and cannot substitute for undef. No vacuous Pattern.Valid proof from the missing interpreter case is claimed."
+  },
+  {
+    "id": "IS2369u",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "reason": "LLVM undef is not represented by LLVM.Int and mlir__undef has no successful interpretation in Llvm.interpretOp'. Poison is a distinct value and cannot substitute for undef. No vacuous Pattern.Valid proof from the missing interpreter case is claimed."
+  },
+  {
+    "id": "IS7213u",
+    "status": "unsupported",
+    "kind": "rewrite",
+    "reason": "LLVM undef is not represented by LLVM.Int and mlir__undef has no successful interpretation in Llvm.interpretOp'. Poison is a distinct value and cannot substitute for undef. No vacuous Pattern.Valid proof from the missing interpreter case is claimed."
+  }
+]

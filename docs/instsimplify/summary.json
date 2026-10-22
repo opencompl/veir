@@ -1,0 +1,39 @@
+{
+  "llvm_commit": "fb3ef86994775a17f4e9f1576d17590e79a8e198",
+  "entries": 800,
+  "implemented": 238,
+  "proved": 272,
+  "counterexample": 0,
+  "unsupported": 528,
+  "pending": 0,
+  "independent_ports": {
+    "implemented": 238,
+    "proved": 238,
+    "counterexample": 0,
+    "unsupported": 482,
+    "pending": 0
+  },
+  "by_kind": {
+    "rewrite": {
+      "implemented": 219,
+      "proved": 221,
+      "counterexample": 0,
+      "unsupported": 265,
+      "pending": 0
+    },
+    "schema": {
+      "implemented": 18,
+      "proved": 22,
+      "counterexample": 0,
+      "unsupported": 100,
+      "pending": 0
+    },
+    "delegation": {
+      "implemented": 1,
+      "proved": 29,
+      "counterexample": 0,
+      "unsupported": 163,
+      "pending": 0
+    }
+  }
+}

@@ -1,0 +1,158 @@
+[
+  {
+    "id": "IS3481",
+    "status": "proved",
+    "reason": "Negated zero extension has a nonpositive signed value; matched constant has the exact source strict-positive/nonnegative condition.",
+    "files": [
+      "Veir/InstSimplify/IS3481.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3481_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer types of every width and signedness; actual extension semantics, all nneg/nsw/nuw flag combinations and poison behavior."
+  },
+  {
+    "id": "IS3483",
+    "status": "proved",
+    "reason": "Negated zero extension has a nonpositive signed value; matched constant has the exact source strict-positive/nonnegative condition.",
+    "files": [
+      "Veir/InstSimplify/IS3483.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3483_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer types of every width and signedness; actual extension semantics, all nneg/nsw/nuw flag combinations and poison behavior."
+  },
+  {
+    "id": "IS3487",
+    "status": "proved",
+    "reason": "Negated zero extension has a nonpositive signed value; matched constant has the exact source strict-positive/nonnegative condition.",
+    "files": [
+      "Veir/InstSimplify/IS3487.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3487_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer types of every width and signedness; actual extension semantics, all nneg/nsw/nuw flag combinations and poison behavior."
+  },
+  {
+    "id": "IS3489",
+    "status": "proved",
+    "reason": "Negated zero extension has a nonpositive signed value; matched constant has the exact source strict-positive/nonnegative condition.",
+    "files": [
+      "Veir/InstSimplify/IS3489.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS3489_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer types of every width and signedness; actual extension semantics, all nneg/nsw/nuw flag combinations and poison behavior."
+  },
+  {
+    "id": "IS4026",
+    "status": "proved",
+    "reason": "Exact native truncation/zero-reextension inequality certifies that every extended input is unsigned-less than the constant.",
+    "files": [
+      "Veir/InstSimplify/IS4026.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4026_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer types of every width and signedness; actual extension semantics, all nneg/nsw/nuw flag combinations and poison behavior."
+  },
+  {
+    "id": "IS4031",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes the corresponding signed/unsigned range separation and folds every predicate in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4031.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4031_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  },
+  {
+    "id": "IS4037",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes signed range separation and folds both strict/non-strict predicates in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4037.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4037_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  },
+  {
+    "id": "IS4042",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes signed range separation and folds both strict/non-strict predicates in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4042.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4042_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  },
+  {
+    "id": "IS4100",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes the corresponding signed/unsigned range separation and folds every predicate in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4100.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4100_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  },
+  {
+    "id": "IS4102",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes the corresponding signed/unsigned range separation and folds every predicate in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4102.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4102_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  },
+  {
+    "id": "IS4108",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes signed range separation and folds both strict/non-strict predicates in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4108.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4108_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  },
+  {
+    "id": "IS4113",
+    "status": "proved",
+    "reason": "The native metadata guard exactly checks truncation followed by zero/sign reextension differs from the constant. The proof establishes signed range separation and folds both strict/non-strict predicates in this branch.",
+    "files": [
+      "Veir/InstSimplify/IS4113.lean",
+      "Veir/InstSimplify/CmpCastSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS4113_valid"
+    ],
+    "domain": "Scalar positive-width LLVM integer source types of every width and signedness; actual zext/sext semantics and all modeled flags/poison behavior."
+  }
+]

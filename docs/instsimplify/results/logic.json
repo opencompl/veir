@@ -1,0 +1,2442 @@
+[
+  {
+    "id": "IS1534",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS1539",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1539.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1539.valid_and"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions."
+  },
+  {
+    "id": "IS1545",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1545.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions."
+  },
+  {
+    "id": "IS1551",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1551.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions."
+  },
+  {
+    "id": "IS1561",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS1564",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS1582",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS1588",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS1598",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1598.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS1603",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1603.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS1608",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1608.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1608.valid_and"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS1613",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1613.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1613.valid_or"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS1638",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1638.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1638.valid"
+    ],
+    "domain": "Scalar LLVM comparison sets of arbitrary width/predicates/constants; source set guard represented extensionally. Both root orders are covered by independently quantified predicate/constant pairs; vectors unmodeled.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags. ConstantRange integer regions represented extensionally as comparison sets; metadata guard exhaustively checks 2^w values (exponential runtime cost)."
+  },
+  {
+    "id": "IS1643",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1643.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1643.valid"
+    ],
+    "domain": "Scalar LLVM comparison sets of arbitrary width/predicates/constants; source set guard represented extensionally. Both root orders are covered by independently quantified predicate/constant pairs; vectors unmodeled.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags. ConstantRange integer regions represented extensionally as comparison sets; metadata guard exhaustively checks 2^w values (exponential runtime cost)."
+  },
+  {
+    "id": "IS1651",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1651.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or"
+    ],
+    "domain": "Scalar LLVM comparison sets of arbitrary width/predicates/constants; source set guard represented extensionally. Both root orders are covered by independently quantified predicate/constant pairs; vectors unmodeled.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags. ConstantRange integer regions represented extensionally as comparison sets; metadata guard exhaustively checks 2^w values (exponential runtime cost)."
+  },
+  {
+    "id": "IS1653",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1653.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or"
+    ],
+    "domain": "Scalar LLVM comparison sets of arbitrary width/predicates/constants; source set guard represented extensionally. Both root orders are covered by independently quantified predicate/constant pairs; vectors unmodeled.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags. ConstantRange integer regions represented extensionally as comparison sets; metadata guard exhaustively checks 2^w values (exponential runtime cost)."
+  },
+  {
+    "id": "IS1682",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1682.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1682.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp ult (add V,C0),C1) AND (icmp sgt V,C0) -> false; C1-C0=2 in APInt modular arithmetic; C0 signed-positive."
+  },
+  {
+    "id": "IS1684",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1684.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1684.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp slt (add V,C0),C1) AND (icmp sgt V,C0) -> false; C1-C0=2 in APInt modular arithmetic; C0 signed-positive and add nsw."
+  },
+  {
+    "id": "IS1688",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1688.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1688.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp ule (add V,C0),C1) AND (icmp sgt V,C0) -> false; C1-C0=1 in APInt modular arithmetic; C0 signed-positive."
+  },
+  {
+    "id": "IS1690",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1690.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1690.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp sle (add V,C0),C1) AND (icmp sgt V,C0) -> false; C1-C0=1 in APInt modular arithmetic; C0 signed-positive and add nsw."
+  },
+  {
+    "id": "IS1696",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1696.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1696.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp ult (add V,C0),C1) AND (icmp ugt V,C0) -> false; C1-C0=2 in APInt modular arithmetic; C0 nonzero and add nuw."
+  },
+  {
+    "id": "IS1699",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1699.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1699.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp ule (add V,C0),C1) AND (icmp ugt V,C0) -> false; C1-C0=1 in APInt modular arithmetic; C0 nonzero and add nuw."
+  },
+  {
+    "id": "IS1728",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial dispatcher coverage: cited syntactic subtraction and unsigned-zero comparison families are proved. Remaining source branches IS1561/1564/1582/1588 require sound isKnownNonZero/ValueTracking facts; Puddle inspectOperation analysis facts are erased from validity and no certificate interface supplies those facts. The complete helper contract therefore cannot be represented.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyUnsignedRangeCheck for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613"
+    ]
+  },
+  {
+    "id": "IS1730",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial dispatcher coverage: cited syntactic subtraction and unsigned-zero comparison families are proved. Remaining source branches IS1561/1564/1582/1588 require sound isKnownNonZero/ValueTracking facts; Puddle inspectOperation analysis facts are erased from validity and no certificate interface supplies those facts. The complete helper contract therefore cannot be represented.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyUnsignedRangeCheck (commuted) for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613"
+    ]
+  },
+  {
+    "id": "IS1733",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1638.lean",
+      "Veir/InstSimplify/IS1643.lean",
+      "Veir/InstSimplify/IS1651.lean",
+      "Veir/InstSimplify/IS1653.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1638.valid",
+      "Veir.InstSimplify.IS1643.valid",
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or",
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or"
+    ],
+    "domain": "Scalar integer comparisons with constant operands; arbitrary width/predicates/constants; no FP/vector.",
+    "reason": "Scalar integer ConstantRange comparison-set helper dispatch covered by the four callee rules. Extensional native set checks enumerate 2^w inputs and may be impractical for large widths.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS1638",
+      "IS1643",
+      "IS1651",
+      "IS1653"
+    ],
+    "description": "Return the successful result of simplifyAndOrOfICmpsWithConstants for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ]
+  },
+  {
+    "id": "IS1736",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1720.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1720_valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; the complete scalar ctpop AND family including both operand orders is implemented by the cited callee. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndOrOfICmpsWithCtpop for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS1720"
+    ]
+  },
+  {
+    "id": "IS1738",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1720.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1720_valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; the complete scalar ctpop AND family including both operand orders is implemented by the cited callee. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndOrOfICmpsWithCtpop (commuted) for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS1720"
+    ]
+  },
+  {
+    "id": "IS1741",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1682.lean",
+      "Veir/InstSimplify/IS1684.lean",
+      "Veir/InstSimplify/IS1688.lean",
+      "Veir/InstSimplify/IS1690.lean",
+      "Veir/InstSimplify/IS1696.lean",
+      "Veir/InstSimplify/IS1699.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1682.valid",
+      "Veir.InstSimplify.IS1684.valid",
+      "Veir.InstSimplify.IS1688.valid",
+      "Veir.InstSimplify.IS1690.valid",
+      "Veir.InstSimplify.IS1696.valid",
+      "Veir.InstSimplify.IS1699.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; all six scalar add/comparison AND branches, including both root operand orders, are implemented by the cited callees. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndOfICmpsWithAdd for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS1682",
+      "IS1684",
+      "IS1688",
+      "IS1690",
+      "IS1696",
+      "IS1699"
+    ]
+  },
+  {
+    "id": "IS1743",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1682.lean",
+      "Veir/InstSimplify/IS1684.lean",
+      "Veir/InstSimplify/IS1688.lean",
+      "Veir/InstSimplify/IS1690.lean",
+      "Veir/InstSimplify/IS1696.lean",
+      "Veir/InstSimplify/IS1699.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1682.valid",
+      "Veir.InstSimplify.IS1684.valid",
+      "Veir.InstSimplify.IS1688.valid",
+      "Veir.InstSimplify.IS1690.valid",
+      "Veir.InstSimplify.IS1696.valid",
+      "Veir.InstSimplify.IS1699.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; all six scalar add/comparison AND branches, including both root operand orders, are implemented by the cited callees. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndOfICmpsWithAdd (commuted) for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS1682",
+      "IS1684",
+      "IS1688",
+      "IS1690",
+      "IS1696",
+      "IS1699"
+    ]
+  },
+  {
+    "id": "IS1772",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1772.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1772.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp uge (add V,C0),C1) OR (icmp sle V,C0) -> true; C1-C0=2 in APInt modular arithmetic; C0 signed-positive."
+  },
+  {
+    "id": "IS1774",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1774.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1774.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp sge (add V,C0),C1) OR (icmp sle V,C0) -> true; C1-C0=2 in APInt modular arithmetic; C0 signed-positive and add nsw."
+  },
+  {
+    "id": "IS1778",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1778.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1778.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp ugt (add V,C0),C1) OR (icmp sle V,C0) -> true; C1-C0=1 in APInt modular arithmetic; C0 signed-positive."
+  },
+  {
+    "id": "IS1780",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1780.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1780.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp sgt (add V,C0),C1) OR (icmp sle V,C0) -> true; C1-C0=1 in APInt modular arithmetic; C0 signed-positive and add nsw."
+  },
+  {
+    "id": "IS1786",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1786.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1786.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp uge (add V,C0),C1) OR (icmp ule V,C0) -> true; C1-C0=2 in APInt modular arithmetic; C0 nonzero and add nuw."
+  },
+  {
+    "id": "IS1789",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Complete scalar source family compiled with kernel proofs and LLVM poison refinement; native guards implement the exact source conditions.",
+    "description": "(icmp ugt (add V,C0),C1) OR (icmp ule V,C0) -> true; C1-C0=1 in APInt modular arithmetic; C0 nonzero and add nuw."
+  },
+  {
+    "id": "IS1798",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial dispatcher coverage: cited syntactic subtraction and unsigned-zero comparison families are proved. Remaining source branches IS1561/1564/1582/1588 require sound isKnownNonZero/ValueTracking facts; Puddle inspectOperation analysis facts are erased from validity and no certificate interface supplies those facts. The complete helper contract therefore cannot be represented.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyUnsignedRangeCheck for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613"
+    ]
+  },
+  {
+    "id": "IS1800",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial dispatcher coverage: cited syntactic subtraction and unsigned-zero comparison families are proved. Remaining source branches IS1561/1564/1582/1588 require sound isKnownNonZero/ValueTracking facts; Puddle inspectOperation analysis facts are erased from validity and no certificate interface supplies those facts. The complete helper contract therefore cannot be represented.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyUnsignedRangeCheck (commuted) for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613"
+    ]
+  },
+  {
+    "id": "IS1803",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1638.lean",
+      "Veir/InstSimplify/IS1643.lean",
+      "Veir/InstSimplify/IS1651.lean",
+      "Veir/InstSimplify/IS1653.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1638.valid",
+      "Veir.InstSimplify.IS1643.valid",
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or",
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or"
+    ],
+    "domain": "Scalar integer comparisons with constant operands; arbitrary width/predicates/constants; no FP/vector.",
+    "reason": "Scalar integer ConstantRange comparison-set helper dispatch covered by the four callee rules. Extensional native set checks enumerate 2^w inputs and may be impractical for large widths.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS1638",
+      "IS1643",
+      "IS1651",
+      "IS1653"
+    ],
+    "description": "Return the successful result of simplifyAndOrOfICmpsWithConstants for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ]
+  },
+  {
+    "id": "IS1806",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1717.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1717_valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; the complete scalar ctpop OR family including both operand orders is implemented by the cited callee. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndOrOfICmpsWithCtpop for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS1717"
+    ]
+  },
+  {
+    "id": "IS1808",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1717.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1717_valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; the complete scalar ctpop OR family including both operand orders is implemented by the cited callee. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndOrOfICmpsWithCtpop (commuted) for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS1717"
+    ]
+  },
+  {
+    "id": "IS1811",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1772.lean",
+      "Veir/InstSimplify/IS1774.lean",
+      "Veir/InstSimplify/IS1778.lean",
+      "Veir/InstSimplify/IS1780.lean",
+      "Veir/InstSimplify/IS1786.lean",
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1772.valid",
+      "Veir.InstSimplify.IS1774.valid",
+      "Veir.InstSimplify.IS1778.valid",
+      "Veir.InstSimplify.IS1780.valid",
+      "Veir.InstSimplify.IS1786.valid",
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; all six scalar add/comparison OR branches, including both root operand orders, are implemented by the cited callees. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyOrOfICmpsWithAdd for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS1772",
+      "IS1774",
+      "IS1778",
+      "IS1780",
+      "IS1786",
+      "IS1789"
+    ]
+  },
+  {
+    "id": "IS1813",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS1772.lean",
+      "Veir/InstSimplify/IS1774.lean",
+      "Veir/InstSimplify/IS1778.lean",
+      "Veir/InstSimplify/IS1780.lean",
+      "Veir/InstSimplify/IS1786.lean",
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1772.valid",
+      "Veir.InstSimplify.IS1774.valid",
+      "Veir.InstSimplify.IS1778.valid",
+      "Veir.InstSimplify.IS1780.valid",
+      "Veir.InstSimplify.IS1786.valid",
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Pure helper dispatch; all six scalar add/comparison OR branches, including both root operand orders, are implemented by the cited callees. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyOrOfICmpsWithAdd (commuted) for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS1772",
+      "IS1774",
+      "IS1778",
+      "IS1780",
+      "IS1786",
+      "IS1789"
+    ]
+  },
+  {
+    "id": "IS1843",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM floating point fcmp/fabs operations have no case in Llvm.interpretOp'; cannot prove via missing semantics."
+  },
+  {
+    "id": "IS1851",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM floating point fcmp/fabs operations have no case in Llvm.interpretOp'; cannot prove via missing semantics."
+  },
+  {
+    "id": "IS1853",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM floating point fcmp/fabs operations have no case in Llvm.interpretOp'; cannot prove via missing semantics."
+  },
+  {
+    "id": "IS1876",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM floating point fcmp/fabs operations have no case in Llvm.interpretOp'; cannot prove via missing semantics."
+  },
+  {
+    "id": "IS1891",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM floating point fcmp/fabs operations have no case in Llvm.interpretOp'; cannot prove via missing semantics."
+  },
+  {
+    "id": "IS1897",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Delegates to floating-point comparison range combination. Llvm.interpretOp' has no floating-point comparison/value semantics, so the FCmp constant regions and returned comparison/Boolean result cannot be interpreted.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS1928",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean",
+      "Veir/InstSimplify/IS1638.lean",
+      "Veir/InstSimplify/IS1643.lean",
+      "Veir/InstSimplify/IS1651.lean",
+      "Veir/InstSimplify/IS1653.lean",
+      "Veir/InstSimplify/IS1682.lean",
+      "Veir/InstSimplify/IS1684.lean",
+      "Veir/InstSimplify/IS1688.lean",
+      "Veir/InstSimplify/IS1690.lean",
+      "Veir/InstSimplify/IS1696.lean",
+      "Veir/InstSimplify/IS1699.lean",
+      "Veir/InstSimplify/IS1717.lean",
+      "Veir/InstSimplify/IS1720.lean",
+      "Veir/InstSimplify/IS1772.lean",
+      "Veir/InstSimplify/IS1774.lean",
+      "Veir/InstSimplify/IS1778.lean",
+      "Veir/InstSimplify/IS1780.lean",
+      "Veir/InstSimplify/IS1786.lean",
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or",
+      "Veir.InstSimplify.IS1638.valid",
+      "Veir.InstSimplify.IS1643.valid",
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or",
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or",
+      "Veir.InstSimplify.IS1682.valid",
+      "Veir.InstSimplify.IS1684.valid",
+      "Veir.InstSimplify.IS1688.valid",
+      "Veir.InstSimplify.IS1690.valid",
+      "Veir.InstSimplify.IS1696.valid",
+      "Veir.InstSimplify.IS1699.valid",
+      "Veir.InstSimplify.IS1717_valid",
+      "Veir.InstSimplify.IS1720_valid",
+      "Veir.InstSimplify.IS1772.valid",
+      "Veir.InstSimplify.IS1774.valid",
+      "Veir.InstSimplify.IS1778.valid",
+      "Veir.InstSimplify.IS1780.valid",
+      "Veir.InstSimplify.IS1786.valid",
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial comparison-helper dispatch coverage: cited scalar integer syntactic, constant-range, ctpop, and add/comparison branches are proved. The complete source helper also invokes isKnownNonZero/ValueTracking branches lacking sound analysis certificates and FP comparison branches lacking interpreter semantics. IS1933 additionally folds the returned constant through the stripped cast; no complete contract is claimed for these dispatchers.",
+    "kind": "delegation",
+    "description": "After successful ICmp or FCmp combination simplification, return its result directly when no cast was stripped; this dispatch includes both integer and floating point comparisons.",
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613",
+      "IS1638",
+      "IS1643",
+      "IS1651",
+      "IS1653",
+      "IS1717",
+      "IS1720",
+      "IS1682",
+      "IS1684",
+      "IS1688",
+      "IS1690",
+      "IS1696",
+      "IS1699",
+      "IS1772",
+      "IS1774",
+      "IS1778",
+      "IS1780",
+      "IS1786",
+      "IS1789"
+    ]
+  },
+  {
+    "id": "IS1933",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean",
+      "Veir/InstSimplify/IS1638.lean",
+      "Veir/InstSimplify/IS1643.lean",
+      "Veir/InstSimplify/IS1651.lean",
+      "Veir/InstSimplify/IS1653.lean",
+      "Veir/InstSimplify/IS1682.lean",
+      "Veir/InstSimplify/IS1684.lean",
+      "Veir/InstSimplify/IS1688.lean",
+      "Veir/InstSimplify/IS1690.lean",
+      "Veir/InstSimplify/IS1696.lean",
+      "Veir/InstSimplify/IS1699.lean",
+      "Veir/InstSimplify/IS1717.lean",
+      "Veir/InstSimplify/IS1720.lean",
+      "Veir/InstSimplify/IS1772.lean",
+      "Veir/InstSimplify/IS1774.lean",
+      "Veir/InstSimplify/IS1778.lean",
+      "Veir/InstSimplify/IS1780.lean",
+      "Veir/InstSimplify/IS1786.lean",
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or",
+      "Veir.InstSimplify.IS1638.valid",
+      "Veir.InstSimplify.IS1643.valid",
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or",
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or",
+      "Veir.InstSimplify.IS1682.valid",
+      "Veir.InstSimplify.IS1684.valid",
+      "Veir.InstSimplify.IS1688.valid",
+      "Veir.InstSimplify.IS1690.valid",
+      "Veir.InstSimplify.IS1696.valid",
+      "Veir.InstSimplify.IS1699.valid",
+      "Veir.InstSimplify.IS1717_valid",
+      "Veir.InstSimplify.IS1720_valid",
+      "Veir.InstSimplify.IS1772.valid",
+      "Veir.InstSimplify.IS1774.valid",
+      "Veir.InstSimplify.IS1778.valid",
+      "Veir.InstSimplify.IS1780.valid",
+      "Veir.InstSimplify.IS1786.valid",
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial comparison-helper dispatch coverage: cited scalar integer syntactic, constant-range, ctpop, and add/comparison branches are proved. The complete source helper also invokes isKnownNonZero/ValueTracking branches lacking sound analysis certificates and FP comparison branches lacking interpreter semantics. IS1933 additionally folds the returned constant through the stripped cast; no complete contract is claimed for these dispatchers.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613",
+      "IS1638",
+      "IS1643",
+      "IS1651",
+      "IS1653",
+      "IS1717",
+      "IS1720",
+      "IS1682",
+      "IS1684",
+      "IS1688",
+      "IS1690",
+      "IS1696",
+      "IS1699",
+      "IS1772",
+      "IS1774",
+      "IS1778",
+      "IS1780",
+      "IS1786",
+      "IS1789"
+    ],
+    "description": "After stripping matching casts and successfully simplifying the enclosed ICmp or FCmp combination to a constant, return ConstantFoldCastOperand of that constant through the original cast."
+  },
+  {
+    "id": "IS1965",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires recursive simplifyWithOpReplaced with contextual equality and poison-refinement contract; Puddle has no reusable certified recursive replacement facility."
+  },
+  {
+    "id": "IS1967",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires recursive simplifyWithOpReplaced with contextual equality and poison-refinement contract; Puddle has no reusable certified recursive replacement facility."
+  },
+  {
+    "id": "IS1975",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires recursive simplifyWithOpReplaced with contextual equality and poison-refinement contract; Puddle has no reusable certified recursive replacement facility."
+  },
+  {
+    "id": "IS1985",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires recursive simplifyWithOpReplaced with contextual equality and poison-refinement contract; Puddle has no reusable certified recursive replacement facility."
+  },
+  {
+    "id": "IS1989",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires recursive simplifyWithOpReplaced with contextual equality and poison-refinement contract; Puddle has no reusable certified recursive replacement facility."
+  },
+  {
+    "id": "IS2011",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2011.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2011.valid_and",
+      "Veir.InstSimplify.IS2011.valid_or",
+      "Veir.InstSimplify.IS2011.valid_xor"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and instruction flags; no vectors.",
+    "reason": "Compiled width-parametric LLVM scalar refinement proof, preserving poison and all source instruction flags."
+  },
+  {
+    "id": "IS2024",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2024.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2024.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2028",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2028.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2028.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2034",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2034.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2034.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2040",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires isCheckForZeroAndMulWithOverflow recognition and semantics for the multiplication-with-overflow aggregate result and extractvalue projections. Llvm.interpretOp' does not interpret the required overflow intrinsic aggregate/extractvalue operations, so this scalar helper cannot currently be represented.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2045",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2051",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2060",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2064",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Delegates to contextual equality replacement helper (IS1965\u2013IS1989): missing proof-bearing recursive simplifyWithOpReplaced and contextual poison-refinement composition contract.",
+    "covered_by": [
+      "IS1965",
+      "IS1967",
+      "IS1975",
+      "IS1985",
+      "IS1989"
+    ]
+  },
+  {
+    "id": "IS2074",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_and_valid"
+    ],
+    "domain": "Scalar LLVM integer constant operands, arbitrary width and instruction properties; no FP/vector/undef.",
+    "reason": "Successful constant-fold delegation covered by the certified scalar LLVM constant-fold pattern IS0582 for this opcode. Commutation itself returns no rewrite.",
+    "covered_by": [
+      "IS0582"
+    ]
+  },
+  {
+    "id": "IS2078",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2078.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2078.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2082",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM undef nondeterminism is absent from LLVM.Int and Llvm.interpretOp'."
+  },
+  {
+    "id": "IS2086",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2086.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2086.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2090",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2090.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2090.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2094",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2094.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2094.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2097",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS2024.lean",
+      "Veir/InstSimplify/IS2028.lean",
+      "Veir/InstSimplify/IS2034.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2024.valid",
+      "Veir.InstSimplify.IS2028.valid",
+      "Veir.InstSimplify.IS2034.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial dispatcher coverage: cited structural absorption branches are proved with commutations. Other source branches require overflow aggregate/extractvalue semantics, sound power-of-two/known-bits certificates, or recursive simplifyWithOpReplaced composition, which the present LLVM/Puddle interfaces do not supply.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndCommutative for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS2024",
+      "IS2028",
+      "IS2034"
+    ]
+  },
+  {
+    "id": "IS2099",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS2024.lean",
+      "Veir/InstSimplify/IS2028.lean",
+      "Veir/InstSimplify/IS2034.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2024.valid",
+      "Veir.InstSimplify.IS2028.valid",
+      "Veir.InstSimplify.IS2034.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial dispatcher coverage: cited structural absorption branches are proved with commutations. Other source branches require overflow aggregate/extractvalue semantics, sound power-of-two/known-bits certificates, or recursive simplifyWithOpReplaced composition, which the present LLVM/Puddle interfaces do not supply.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyAndCommutative (commuted) for the enclosing and operation.",
+    "opcodes": [
+      "and"
+    ],
+    "covered_by": [
+      "IS2024",
+      "IS2028",
+      "IS2034"
+    ]
+  },
+  {
+    "id": "IS2102",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2011.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2011.valid_and"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths and constant payload spellings; no vectors.",
+    "reason": "Shared add/sub logic helper dispatch covered by the corresponding opcode pattern, including root commutation and all nsw/nuw/disjoint flags.",
+    "covered_by": [
+      "IS2011"
+    ]
+  },
+  {
+    "id": "IS2113",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2113.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2113.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and instruction flags; no vectors.",
+    "reason": "Compiled width-parametric LLVM scalar refinement proof, preserving poison and all source instruction flags."
+  },
+  {
+    "id": "IS2119",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2119.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2119.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and instruction flags; no vectors.",
+    "reason": "Compiled width-parametric LLVM scalar refinement proof, preserving poison and all source instruction flags."
+  },
+  {
+    "id": "IS2132",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2136",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean",
+      "Veir/InstSimplify/IS1638.lean",
+      "Veir/InstSimplify/IS1643.lean",
+      "Veir/InstSimplify/IS1651.lean",
+      "Veir/InstSimplify/IS1653.lean",
+      "Veir/InstSimplify/IS1682.lean",
+      "Veir/InstSimplify/IS1684.lean",
+      "Veir/InstSimplify/IS1688.lean",
+      "Veir/InstSimplify/IS1690.lean",
+      "Veir/InstSimplify/IS1696.lean",
+      "Veir/InstSimplify/IS1699.lean",
+      "Veir/InstSimplify/IS1717.lean",
+      "Veir/InstSimplify/IS1720.lean",
+      "Veir/InstSimplify/IS1772.lean",
+      "Veir/InstSimplify/IS1774.lean",
+      "Veir/InstSimplify/IS1778.lean",
+      "Veir/InstSimplify/IS1780.lean",
+      "Veir/InstSimplify/IS1786.lean",
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or",
+      "Veir.InstSimplify.IS1638.valid",
+      "Veir.InstSimplify.IS1643.valid",
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or",
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or",
+      "Veir.InstSimplify.IS1682.valid",
+      "Veir.InstSimplify.IS1684.valid",
+      "Veir.InstSimplify.IS1688.valid",
+      "Veir.InstSimplify.IS1690.valid",
+      "Veir.InstSimplify.IS1696.valid",
+      "Veir.InstSimplify.IS1699.valid",
+      "Veir.InstSimplify.IS1717_valid",
+      "Veir.InstSimplify.IS1720_valid",
+      "Veir.InstSimplify.IS1772.valid",
+      "Veir.InstSimplify.IS1774.valid",
+      "Veir.InstSimplify.IS1778.valid",
+      "Veir.InstSimplify.IS1780.valid",
+      "Veir.InstSimplify.IS1786.valid",
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial comparison-helper dispatch coverage: cited scalar integer syntactic, constant-range, ctpop, and add/comparison branches are proved. The complete source helper also invokes isKnownNonZero/ValueTracking branches lacking sound analysis certificates and FP comparison branches lacking interpreter semantics. IS1933 additionally folds the returned constant through the stripped cast; no complete contract is claimed for these dispatchers.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613",
+      "IS1638",
+      "IS1643",
+      "IS1651",
+      "IS1653",
+      "IS1717",
+      "IS1720",
+      "IS1682",
+      "IS1684",
+      "IS1688",
+      "IS1690",
+      "IS1696",
+      "IS1699",
+      "IS1772",
+      "IS1774",
+      "IS1778",
+      "IS1780",
+      "IS1786",
+      "IS1789"
+    ]
+  },
+  {
+    "id": "IS2143",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2143.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2143.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2145",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2145.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2145.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2151",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2156",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2161",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2167",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2167.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2167.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2169",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2169.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2169.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2176",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2184",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2213",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2215",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2226",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2226.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2226.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2233",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2233.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2233.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and instruction flags; no vectors.",
+    "reason": "Compiled width-parametric LLVM scalar refinement proof, preserving poison and all source instruction flags."
+  },
+  {
+    "id": "IS2239",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2242",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2247",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2250",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2255",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires a proof-bearing certificate for isImpliedByDomCondition(ICMP_EQ, Op0, Op1, Q.CtxI, Q.DL). Current Puddle validity has no control-flow/dominating-equality certificate interface; inspectOperation facts are erased. The scalar result under a certified equality is elementary; the missing facility is the contextual equality evidence.",
+    "description": "At the top recursion level, return Op1 for and when a dominating condition implies Op0 == Op1.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2271",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2271.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2271.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2275",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2275.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2275.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2279",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2279.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2279.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2287",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2287.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2287.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2293",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2293.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2293.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2301",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2301.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2301.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2309",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2309.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2309.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2317",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2317.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2317.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2327",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2327.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2327.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2334",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2334.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2334.valid"
+    ],
+    "domain": "Scalar LLVM i1 integers; each logical operation may be bitwise or select, independently; all source operand commutations, root disjoint flags, and normalized zero/allones constants. Arbitrary-width bitwise form is covered by IS2327; vectors unmodeled.",
+    "reason": "Compiled complete scalar logical source family with kernel int1_cases proof, including mixed select/bitwise forms and all128 graph variants. No extra zero constant is required when logical AND is bitwise."
+  },
+  {
+    "id": "IS2342",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2342.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2342.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2349",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2349.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2349.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2359",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_or_valid"
+    ],
+    "domain": "Scalar LLVM integer constant operands, arbitrary width and instruction properties; no FP/vector/undef.",
+    "reason": "Successful constant-fold delegation covered by the certified scalar LLVM constant-fold pattern IS0582 for this opcode. Commutation itself returns no rewrite.",
+    "covered_by": [
+      "IS0582"
+    ]
+  },
+  {
+    "id": "IS2363",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2363.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2363.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2369",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2369.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2369.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary width/signedness and or.disjoint flag, all-ones constant branch with every operand orientation. Undef branch unmodeled; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2374",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2374.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2374.valid",
+      "Veir.InstSimplify.IS2374.Zero.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2377",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2271.lean",
+      "Veir/InstSimplify/IS2275.lean",
+      "Veir/InstSimplify/IS2279.lean",
+      "Veir/InstSimplify/IS2287.lean",
+      "Veir/InstSimplify/IS2293.lean",
+      "Veir/InstSimplify/IS2301.lean",
+      "Veir/InstSimplify/IS2309.lean",
+      "Veir/InstSimplify/IS2317.lean",
+      "Veir/InstSimplify/IS2327.lean",
+      "Veir/InstSimplify/IS2334.lean",
+      "Veir/InstSimplify/IS2342.lean",
+      "Veir/InstSimplify/IS2349.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2271.valid",
+      "Veir.InstSimplify.IS2275.valid",
+      "Veir.InstSimplify.IS2279.valid",
+      "Veir.InstSimplify.IS2287.valid",
+      "Veir.InstSimplify.IS2293.valid",
+      "Veir.InstSimplify.IS2301.valid",
+      "Veir.InstSimplify.IS2309.valid",
+      "Veir.InstSimplify.IS2317.valid",
+      "Veir.InstSimplify.IS2327.valid",
+      "Veir.InstSimplify.IS2334.valid",
+      "Veir.InstSimplify.IS2342.valid",
+      "Veir.InstSimplify.IS2349.valid"
+    ],
+    "domain": "Scalar LLVM integers with arbitrary widths and flags; logical-select cases require i1 as in the source; every inner and outer source commutation is parameterized by the callee patterns. Vectors unmodeled.",
+    "reason": "Pure simplifyOrLogic dispatch: all12 scalar callee families are proved, including logical selects and both root operand orders. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyOrLogic for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS2271",
+      "IS2275",
+      "IS2279",
+      "IS2287",
+      "IS2293",
+      "IS2301",
+      "IS2309",
+      "IS2317",
+      "IS2327",
+      "IS2334",
+      "IS2342",
+      "IS2349"
+    ]
+  },
+  {
+    "id": "IS2379",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2271.lean",
+      "Veir/InstSimplify/IS2275.lean",
+      "Veir/InstSimplify/IS2279.lean",
+      "Veir/InstSimplify/IS2287.lean",
+      "Veir/InstSimplify/IS2293.lean",
+      "Veir/InstSimplify/IS2301.lean",
+      "Veir/InstSimplify/IS2309.lean",
+      "Veir/InstSimplify/IS2317.lean",
+      "Veir/InstSimplify/IS2327.lean",
+      "Veir/InstSimplify/IS2334.lean",
+      "Veir/InstSimplify/IS2342.lean",
+      "Veir/InstSimplify/IS2349.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2271.valid",
+      "Veir.InstSimplify.IS2275.valid",
+      "Veir.InstSimplify.IS2279.valid",
+      "Veir.InstSimplify.IS2287.valid",
+      "Veir.InstSimplify.IS2293.valid",
+      "Veir.InstSimplify.IS2301.valid",
+      "Veir.InstSimplify.IS2309.valid",
+      "Veir.InstSimplify.IS2317.valid",
+      "Veir.InstSimplify.IS2327.valid",
+      "Veir.InstSimplify.IS2334.valid",
+      "Veir.InstSimplify.IS2342.valid",
+      "Veir.InstSimplify.IS2349.valid"
+    ],
+    "domain": "Scalar LLVM integers with arbitrary widths and flags; logical-select cases require i1 as in the source; every inner and outer source commutation is parameterized by the callee patterns. Vectors unmodeled.",
+    "reason": "Pure simplifyOrLogic dispatch: all12 scalar callee families are proved, including logical selects and both root operand orders. No independent rewrite theorem is counted.",
+    "kind": "delegation",
+    "description": "Return the successful result of simplifyOrLogic (commuted) for the enclosing or operation.",
+    "opcodes": [
+      "or"
+    ],
+    "covered_by": [
+      "IS2271",
+      "IS2275",
+      "IS2279",
+      "IS2287",
+      "IS2293",
+      "IS2301",
+      "IS2309",
+      "IS2317",
+      "IS2327",
+      "IS2334",
+      "IS2342",
+      "IS2349"
+    ]
+  },
+  {
+    "id": "IS2382",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2011.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2011.valid_or"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths and constant payload spellings; no vectors.",
+    "reason": "Shared add/sub logic helper dispatch covered by the corresponding opcode pattern, including root commutation and all nsw/nuw/disjoint flags.",
+    "covered_by": [
+      "IS2011"
+    ]
+  },
+  {
+    "id": "IS2397",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2397.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2397.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and signedness; all source flags, normalized APInt constant spellings, and source operand orientations. Vector extension unmodeled.",
+    "reason": "Both subtraction locations and both root operand orders proved for arbitrary shift/subtraction/disjoint flags. Kernel per-bit proof derives X+Y <= width from the defined shift bounds and modular C-X relation; poison branches refine the allones result."
+  },
+  {
+    "id": "IS2406",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2406.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2406.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2408",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2408.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2408.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2438",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Delegates to contextual equality replacement helper (IS1965\u2013IS1989): missing proof-bearing recursive simplifyWithOpReplaced and contextual poison-refinement composition contract.",
+    "covered_by": [
+      "IS1965",
+      "IS1967",
+      "IS1975",
+      "IS1985",
+      "IS1989"
+    ],
+    "description": "Return a successful simplifyAndOrWithICmpEq result for OR: simplify the other operand under the equality represented by the ICmp, then choose the absorber, original ICmp, or other operand according to the predicate and result.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2441",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Delegates to contextual equality replacement helper (IS1965\u2013IS1989): missing proof-bearing recursive simplifyWithOpReplaced and contextual poison-refinement composition contract.",
+    "covered_by": [
+      "IS1965",
+      "IS1967",
+      "IS1975",
+      "IS1985",
+      "IS1989"
+    ],
+    "description": "Return a successful simplifyAndOrWithICmpEq result for OR with operands commuted: simplify the other operand under the equality represented by the ICmp, then choose the absorber, original ICmp, or other operand according to the predicate and result.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2444",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS1534.lean",
+      "Veir/InstSimplify/IS1539.lean",
+      "Veir/InstSimplify/IS1545.lean",
+      "Veir/InstSimplify/IS1551.lean",
+      "Veir/InstSimplify/IS1598.lean",
+      "Veir/InstSimplify/IS1603.lean",
+      "Veir/InstSimplify/IS1608.lean",
+      "Veir/InstSimplify/IS1613.lean",
+      "Veir/InstSimplify/IS1638.lean",
+      "Veir/InstSimplify/IS1643.lean",
+      "Veir/InstSimplify/IS1651.lean",
+      "Veir/InstSimplify/IS1653.lean",
+      "Veir/InstSimplify/IS1682.lean",
+      "Veir/InstSimplify/IS1684.lean",
+      "Veir/InstSimplify/IS1688.lean",
+      "Veir/InstSimplify/IS1690.lean",
+      "Veir/InstSimplify/IS1696.lean",
+      "Veir/InstSimplify/IS1699.lean",
+      "Veir/InstSimplify/IS1717.lean",
+      "Veir/InstSimplify/IS1720.lean",
+      "Veir/InstSimplify/IS1772.lean",
+      "Veir/InstSimplify/IS1774.lean",
+      "Veir/InstSimplify/IS1778.lean",
+      "Veir/InstSimplify/IS1780.lean",
+      "Veir/InstSimplify/IS1786.lean",
+      "Veir/InstSimplify/IS1789.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS1534.valid_or",
+      "Veir.InstSimplify.IS1539.valid_and",
+      "Veir.InstSimplify.IS1545.valid_and",
+      "Veir.InstSimplify.IS1545.valid_or",
+      "Veir.InstSimplify.IS1551.valid_and",
+      "Veir.InstSimplify.IS1551.valid_or",
+      "Veir.InstSimplify.IS1598.valid_and",
+      "Veir.InstSimplify.IS1598.valid_or",
+      "Veir.InstSimplify.IS1603.valid_and",
+      "Veir.InstSimplify.IS1603.valid_or",
+      "Veir.InstSimplify.IS1608.valid_and",
+      "Veir.InstSimplify.IS1613.valid_or",
+      "Veir.InstSimplify.IS1638.valid",
+      "Veir.InstSimplify.IS1643.valid",
+      "Veir.InstSimplify.IS1651.valid_and",
+      "Veir.InstSimplify.IS1651.valid_or",
+      "Veir.InstSimplify.IS1653.valid_and",
+      "Veir.InstSimplify.IS1653.valid_or",
+      "Veir.InstSimplify.IS1682.valid",
+      "Veir.InstSimplify.IS1684.valid",
+      "Veir.InstSimplify.IS1688.valid",
+      "Veir.InstSimplify.IS1690.valid",
+      "Veir.InstSimplify.IS1696.valid",
+      "Veir.InstSimplify.IS1699.valid",
+      "Veir.InstSimplify.IS1717_valid",
+      "Veir.InstSimplify.IS1720_valid",
+      "Veir.InstSimplify.IS1772.valid",
+      "Veir.InstSimplify.IS1774.valid",
+      "Veir.InstSimplify.IS1778.valid",
+      "Veir.InstSimplify.IS1780.valid",
+      "Veir.InstSimplify.IS1786.valid",
+      "Veir.InstSimplify.IS1789.valid"
+    ],
+    "domain": "Scalar LLVM integer callee patterns, arbitrary widths and source flags; see each callee domain for exact predicates and operand variants.",
+    "reason": "Partial comparison-helper dispatch coverage: cited scalar integer syntactic, constant-range, ctpop, and add/comparison branches are proved. The complete source helper also invokes isKnownNonZero/ValueTracking branches lacking sound analysis certificates and FP comparison branches lacking interpreter semantics. IS1933 additionally folds the returned constant through the stripped cast; no complete contract is claimed for these dispatchers.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS1534",
+      "IS1539",
+      "IS1545",
+      "IS1551",
+      "IS1598",
+      "IS1603",
+      "IS1608",
+      "IS1613",
+      "IS1638",
+      "IS1643",
+      "IS1651",
+      "IS1653",
+      "IS1717",
+      "IS1720",
+      "IS1682",
+      "IS1684",
+      "IS1688",
+      "IS1690",
+      "IS1696",
+      "IS1699",
+      "IS1772",
+      "IS1774",
+      "IS1778",
+      "IS1780",
+      "IS1786",
+      "IS1789"
+    ]
+  },
+  {
+    "id": "IS2450",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires isCheckForZeroAndMulWithOverflow recognition and semantics for the multiplication-with-overflow aggregate result and extractvalue projections. Llvm.interpretOp' does not interpret the required overflow intrinsic aggregate/extractvalue operations, so this scalar helper cannot currently be represented.",
+    "extra": [
+      "isCheckForZeroAndMulWithOverflow, not simplifyAndOrOfCmps; draft metadata corrected against source."
+    ],
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2452",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires isCheckForZeroAndMulWithOverflow recognition and semantics for the multiplication-with-overflow aggregate result and extractvalue projections. Llvm.interpretOp' does not interpret the required overflow intrinsic aggregate/extractvalue operations, so this scalar helper cannot currently be represented.",
+    "extra": [
+      "isCheckForZeroAndMulWithOverflow, not simplifyAndOrOfCmps; draft metadata corrected against source."
+    ],
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2457",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2462",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2468",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2468.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2468.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2470",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2470.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2470.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  },
+  {
+    "id": "IS2477",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2495",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2501",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2510",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2515",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2515.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2515.valid"
+    ],
+    "domain": "Scalar LLVM integers of arbitrary width and instruction flags; no vectors.",
+    "reason": "Compiled width-parametric LLVM scalar refinement proof, preserving poison and all source instruction flags."
+  },
+  {
+    "id": "IS2522",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2525",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2531",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2534",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Source requires semantic ValueTracking analysis (nonzero, power-of-two, known bits, masked-zero, or implied condition) on arbitrary values. Puddle inspectOperation facts are erased from validity; no proof-bearing analysis guard is available."
+  },
+  {
+    "id": "IS2539",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires a proof-bearing certificate for isImpliedByDomCondition(ICMP_EQ, Op0, Op1, Q.CtxI, Q.DL). Current Puddle validity has no control-flow/dominating-equality certificate interface; inspectOperation facts are erased. The scalar result under a certified equality is elementary; the missing facility is the contextual equality evidence.",
+    "description": "At the top recursion level, return Op1 for or when a dominating condition implies Op0 == Op1.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2553",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS0582.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS0582.pattern_xor_valid"
+    ],
+    "domain": "Scalar LLVM integer constant operands, arbitrary width and instruction properties; no FP/vector/undef.",
+    "reason": "Successful constant-fold delegation covered by the certified scalar LLVM constant-fold pattern IS0582 for this opcode. Commutation itself returns no rewrite.",
+    "covered_by": [
+      "IS0582"
+    ]
+  },
+  {
+    "id": "IS2557",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2557.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2557.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2561",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "LLVM undef nondeterminism is absent from LLVM.Int and Llvm.interpretOp'."
+  },
+  {
+    "id": "IS2565",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2565.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2565.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2569",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2569.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2569.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2573",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2573.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2573.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2580",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2580.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2580.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2589",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2589.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2589.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary bitwidth and signedness; all matched operation commutations where parameterized; no vectors.",
+    "reason": "Compiled LLVM scalar refinement proof; arbitrary widths and instruction flags."
+  },
+  {
+    "id": "IS2594",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2580.lean",
+      "Veir/InstSimplify/IS2589.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2580.valid",
+      "Veir.InstSimplify.IS2589.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary width, all source operand orientations; no vectors.",
+    "reason": "Helper dispatch in either root operand order is fully covered by both bitwise callee patterns and their parameterized operand commutations.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS2580",
+      "IS2589"
+    ],
+    "description": "Return the successful result of foldAndOrNot for the enclosing xor operation.",
+    "opcodes": [
+      "xor"
+    ]
+  },
+  {
+    "id": "IS2596",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2580.lean",
+      "Veir/InstSimplify/IS2589.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2580.valid",
+      "Veir.InstSimplify.IS2589.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary width, all source operand orientations; no vectors.",
+    "reason": "Helper dispatch in either root operand order is fully covered by both bitwise callee patterns and their parameterized operand commutations.",
+    "kind": "delegation",
+    "covered_by": [
+      "IS2580",
+      "IS2589"
+    ],
+    "description": "Return the successful result of foldAndOrNot (commuted) for the enclosing xor operation.",
+    "opcodes": [
+      "xor"
+    ]
+  },
+  {
+    "id": "IS2599",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2011.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2011.valid_xor"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary widths and constant payload spellings; no vectors.",
+    "reason": "Shared add/sub logic helper dispatch covered by the corresponding opcode pattern, including root commutation and all nsw/nuw/disjoint flags.",
+    "covered_by": [
+      "IS2011"
+    ]
+  },
+  {
+    "id": "IS2604",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Generic recursive dispatch requires certified recursive simplifyBinOp results, source recursion-budget composition, and/or control-flow-sensitive threading. Current Puddle has no reusable proof-bearing recursive simplifier facility; PHI interpretation is additionally absent where applicable."
+  },
+  {
+    "id": "IS2616",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Scalar LLVM integers of arbitrary width; vectors unmodeled.",
+    "reason": "Requires a proof-bearing certificate for isImpliedByDomCondition(ICMP_EQ, Op0, Op1, Q.CtxI, Q.DL). Current Puddle validity has no control-flow/dominating-equality certificate interface; inspectOperation facts are erased. The scalar result under a certified equality is elementary; the missing facility is the contextual equality evidence.",
+    "description": "At the top recursion level, return zero for xor when a dominating condition implies Op0 == Op1.",
+    "kind": "delegation"
+  },
+  {
+    "id": "IS2623",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS2623.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS2623.valid"
+    ],
+    "domain": "Scalar LLVM integers, arbitrary source/destination widths and signedness, all source flags and operand orientations; vectors unmodeled.",
+    "reason": "Complete scalar source family compiled with poison refinement and kernel proofs; Boolean cases use the kernel int1_cases theorem."
+  }
+]

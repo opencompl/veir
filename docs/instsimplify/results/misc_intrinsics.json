@@ -1,0 +1,2224 @@
+[
+  {
+    "id": "IS5317",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5317.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5317_valid"
+    ],
+    "domain": "Modeled LLVM scalar pointers with 64-bit addresses and object identity; empty decoded GEP indices. Any elem_type is permitted because empty gepOffsets performs no DataLayout queries. GEP flags are interpreted according to current VeIR semantics; vector pointers absent.",
+    "reason": "Own llvm.getelementptr pattern and exact pointer-identity operational theorem; no layout/type failure or fallback is used."
+  },
+  {
+    "id": "IS5344",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "The mlir__undef opcode exists, but Llvm.interpretOp' has no nondeterministic undef semantics (poison is distinct)."
+  },
+  {
+    "id": "IS5375",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Underlying-object and pointer provenance analysis plus target DataLayout"
+  },
+  {
+    "id": "IS5383",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "DataLayout, power-of-two reasoning, and underlying-object/provenance analysis"
+  },
+  {
+    "id": "IS5391",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "DataLayout and underlying-object/provenance analysis"
+  },
+  {
+    "id": "IS5414",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Pointer-offset accumulation and provenance-aware pointer/integer conversion"
+  },
+  {
+    "id": "IS5421",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Pointer-offset accumulation and provenance-aware pointer/integer conversion"
+  },
+  {
+    "id": "IS5435",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Constant GEP evaluator and LLVM DataLayout/GEP flag semantics"
+  },
+  {
+    "id": "IS5438",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM constant-expression evaluator and GEP flag semantics"
+  },
+  {
+    "id": "IS5453",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5459",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5470",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertvalue, extractvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5474",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertvalue, extractvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5493",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5499",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5504",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5510",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5514",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5520",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5530",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM extractvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5547",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM extractvalue, insertvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5560",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM extractvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5562",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM extractvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5580",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "extractelement is absent from the current LLVM opcode model"
+  },
+  {
+    "id": "IS5583",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "extractelement is absent from the current LLVM opcode model"
+  },
+  {
+    "id": "IS5589",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "extractelement is absent from the current LLVM opcode model"
+  },
+  {
+    "id": "IS5597",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "extractelement is absent from the current LLVM opcode model"
+  },
+  {
+    "id": "IS5601",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "extractelement and vector splat reasoning are absent"
+  },
+  {
+    "id": "IS5603",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5611",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM insertelement enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS5615",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "extractelement and vector splat reasoning are absent"
+  },
+  {
+    "id": "IS5658",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "PHI is not part of the current LLVM opcode model"
+  },
+  {
+    "id": "IS5672",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "PHI support and dominator/poison analysis are missing"
+  },
+  {
+    "id": "IS5675",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "PHI is not part of the current LLVM opcode model"
+  },
+  {
+    "id": "IS5681",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5681.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5681.trunc_valid",
+      "Veir.InstSimplify.IS5681.zext_valid",
+      "Veir.InstSimplify.IS5681.sext_valid",
+      "Veir.InstSimplify.IS5681.bitcast_valid",
+      "Veir.InstSimplify.IS5681.ptrtoint_null_valid",
+      "Veir.InstSimplify.IS5681.trunc_zero_valid",
+      "Veir.InstSimplify.IS5681.trunc_poison_valid",
+      "Veir.InstSimplify.IS5681.zext_zero_valid",
+      "Veir.InstSimplify.IS5681.zext_poison_valid",
+      "Veir.InstSimplify.IS5681.sext_zero_valid",
+      "Veir.InstSimplify.IS5681.sext_poison_valid",
+      "Veir.InstSimplify.IS5681.bitcast_int_zero_valid",
+      "Veir.InstSimplify.IS5681.bitcast_int_poison_valid",
+      "Veir.InstSimplify.IS5681.bitcast_ptr_zero_valid",
+      "Veir.InstSimplify.IS5681.bitcast_ptr_poison_valid",
+      "Veir.InstSimplify.IS5681.inttoptr_poison_valid",
+      "Veir.InstSimplify.IS5681.ptrtoint_poison_valid",
+      "Veir.InstSimplify.IS5681.bitcast_integer_valid",
+      "Veir.InstSimplify.IS5681.bitcast_integer_zero_valid",
+      "Veir.InstSimplify.IS5681.bitcast_integer_poison_valid"
+    ],
+    "domain": "Scalar integer trunc/zext/sext for every legal source/destination width and signedness, all relevant flags, normalized APInt payloads plus mlir__zero/mlir__poison encodings; equal-width integer bitcast constants with arbitrary source/destination signedness, and same-type pointer bitcast constants; 64-bit null/poison pointer-to-integer and poison integer-to-pointer. FP/vector and ConstantExpr/global pointer variants are excluded and pointer limitations separately recorded as IS5681p.",
+    "reason": "Own LLVM cast/constant patterns with kernel-checked validity and exact source numeric-versus-poison output choice. ConstantFoldCastOperand receives no instruction flags; numeric integer constant folds therefore preserve its raw cast result even if source flags produce operational poison."
+  },
+  {
+    "id": "IS5693",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5693.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5693_extend_trunc_valid",
+      "Veir.InstSimplify.IS5693_bitcast_int_valid",
+      "Veir.InstSimplify.IS5693_bitcast_ptr_valid",
+      "Veir.InstSimplify.IS5693_bitcast_byte_valid"
+    ],
+    "domain": "Scalar integer zext/sext followed by trunc back to the exact original type, every strict width pair and all source flags; integer bitcast pairs through any equal-width intermediate signedness and same-type pointer bitcast pairs, plus identity in VeIR byte representation. Pointer/integer cast pairs separately unsupported in IS5693p; FP/vector cast pairs have no corresponding interpreter semantics.",
+    "reason": "Own LLVM cast-pair patterns return the exact original SSA input; kernel-checked validity, including source flag poison. No proof from missing semantics or memory-uniformity vacuity is included."
+  },
+  {
+    "id": "IS5700",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5700.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5700_int_valid",
+      "Veir.InstSimplify.IS5700_byte_valid",
+      "Veir.InstSimplify.IS5700_ptr_valid"
+    ],
+    "domain": "All modeled same-type integer, byte and pointer bitcasts. Floating/vector bitcasts lack interpreter semantics.",
+    "reason": "Own actual LLVM patterns with kernel-checked validity; generic call_intrinsic fallback is never used."
+  },
+  {
+    "id": "IS5713",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ptrtoaddr and ptradd are not represented in the current LLVM opcode model"
+  },
+  {
+    "id": "IS5722",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5722.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5722_valid"
+    ],
+    "domain": "All modeled scalar integer source/destination widths with strict narrowing then extension; trunc nuw for zext or nsw for sext. Remaining trunc flag and zext nneg arbitrary.",
+    "reason": "Own LLVM trunc/zext/sext pattern with exact source result x and kernel-checked validity; no unsupported-opcode fallback."
+  },
+  {
+    "id": "IS5740",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Address-space cast and per-function null-pointer-defined semantics are missing"
+  },
+  {
+    "id": "IS5776",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "shufflevector is absent from the current LLVM opcode model"
+  },
+  {
+    "id": "IS5795",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "shufflevector is absent from the current LLVM opcode model"
+  },
+  {
+    "id": "IS5803",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "shufflevector and poison mask semantics are absent"
+  },
+  {
+    "id": "IS5840",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM vector constant shuffle evaluator is missing"
+  },
+  {
+    "id": "IS5873",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "shufflevector mask analysis and vector constant construction are missing"
+  },
+  {
+    "id": "IS5882",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "shufflevector mask and scalable-vector semantics are absent"
+  },
+  {
+    "id": "IS5910",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "shufflevector lane provenance analysis is missing"
+  },
+  {
+    "id": "IS5923",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Only upstream unary operation is fneg; fneg lacks a Llvm.interpretOp′ branch."
+  },
+  {
+    "id": "IS5932",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple return from foldConstant(FNeg); the same constant-evaluation boundary is independently inventoried at IS5923."
+  },
+  {
+    "id": "IS5937",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS5966",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS5972",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS5985",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS5998",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6009",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6011",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6019",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6021",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6024",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6039",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple FP constant-fold forwarding through foldOrCommuteConstant; its FP evaluator boundary is inventoried at IS0580."
+  },
+  {
+    "id": "IS6042",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of simplifyFPOp results; the shared poison/undef/NaN rules are independently inventoried at IS5998-IS6024."
+  },
+  {
+    "id": "IS6053",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6059",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6067",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6078",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6082",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6091",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6105",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple FP constant-fold forwarding through foldOrCommuteConstant; its FP evaluator boundary is inventoried at IS0580."
+  },
+  {
+    "id": "IS6108",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of simplifyFPOp results; the shared poison/undef/NaN rules are independently inventoried at IS5998-IS6024."
+  },
+  {
+    "id": "IS6115",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6121",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6128",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6136",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6144",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6148",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6152",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6160",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6170",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of simplifyFPOp results; the shared poison/undef/NaN rules are independently inventoried at IS5998-IS6024."
+  },
+  {
+    "id": "IS6181",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6186",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6192",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6195",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6198",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6209",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6222",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple FP constant-fold forwarding through foldOrCommuteConstant; its FP evaluator boundary is inventoried at IS0580."
+  },
+  {
+    "id": "IS6267",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple FP constant-fold forwarding through foldOrCommuteConstant; its FP evaluator boundary is inventoried at IS0580."
+  },
+  {
+    "id": "IS6270",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of simplifyFPOp results; the shared poison/undef/NaN rules are independently inventoried at IS5998-IS6024."
+  },
+  {
+    "id": "IS6277",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6283",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6289",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6294",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6301",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6305",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6326",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple FP constant-fold forwarding through foldOrCommuteConstant; its FP evaluator boundary is inventoried at IS0580."
+  },
+  {
+    "id": "IS6329",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of simplifyFPOp results; the shared poison/undef/NaN rules are independently inventoried at IS5998-IS6024."
+  },
+  {
+    "id": "IS6340",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6343",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Llvm.interpretOp′ in Veir/Dialects/LLVM/OpInfo.lean has no floating-point operation semantics, so a rewrite proof has no modeled source semantics"
+  },
+  {
+    "id": "IS6576",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Constant memory/global relocation analysis is not modeled by the LLVM operation interpreter"
+  },
+  {
+    "id": "IS6585",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "The ldexp helper returns Op0 on either poison operand, but the public simplifyIntrinsic poison precheck runs first and returns poison. This helper return is not an independently reachable public fold; missing FP semantics is also relevant."
+  },
+  {
+    "id": "IS6589",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ldexp and FP semantics are not modeled"
+  },
+  {
+    "id": "IS6596",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ldexp is not modeled and strict FP mode is absent"
+  },
+  {
+    "id": "IS6608",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ldexp and FP constant semantics are not modeled"
+  },
+  {
+    "id": "IS6617",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ldexp and signaling NaN semantics are not modeled"
+  },
+  {
+    "id": "IS6624",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ldexp is not modeled"
+  },
+  {
+    "id": "IS6636",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Pinned source classifier isIdempotent (6489–6507) contains only fabs,floor,ceil,trunc,rint,nearbyint,round,roundeven,canonicalize,arithmetic_fence; their FP intrinsic semantics are absent from Llvm.interpretOp′."
+  },
+  {
+    "id": "IS6647",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "FP rounding intrinsics and float semantics are not modeled"
+  },
+  {
+    "id": "IS6655",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "fabs and KnownFPClass are not modeled"
+  },
+  {
+    "id": "IS6659",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "fabs and KnownFPClass are not modeled"
+  },
+  {
+    "id": "IS6666",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6666.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6666_valid"
+    ],
+    "domain": "Modeled scalar LLVM bswap widths16,32,64; other LLVM widths such as128 lack genuine byte-reversal semantics in this interpreter and are excluded. Both applications use actual .intr__bswap.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS6671",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6671.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6671_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS6676",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Requires proof-bearing value-tracking facts (known bits / guaranteed non-poison). MatchProg.inspectOperation facts are erased by Models; no such analysis semantics exist."
+  },
+  {
+    "id": "IS6682",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Requires proof-bearing value-tracking facts (known bits / guaranteed non-poison). MatchProg.inspectOperation facts are erased by Models; no such analysis semantics exist."
+  },
+  {
+    "id": "IS6689",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "exp/log semantics are not modeled"
+  },
+  {
+    "id": "IS6695",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "exp2/log2 semantics are not modeled"
+  },
+  {
+    "id": "IS6701",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "exp10/log10 semantics are not modeled"
+  },
+  {
+    "id": "IS6707",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "log/exp semantics are not modeled"
+  },
+  {
+    "id": "IS6715",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "log2, exp2, and pow semantics are not modeled"
+  },
+  {
+    "id": "IS6724",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "log10, exp10, and pow semantics are not modeled"
+  },
+  {
+    "id": "IS6729",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector.reverse semantics are not modeled"
+  },
+  {
+    "id": "IS6732",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector.reverse and vector splat reasoning are not modeled"
+  },
+  {
+    "id": "IS6735",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "structured_gep intrinsic is not in the LLVM operation model"
+  },
+  {
+    "id": "IS6760",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6760.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6760_valid"
+    ],
+    "domain": "All modeled scalar types/widths and instruction flags; all applicable operand commutations; constants compare normalized APInt bits.",
+    "reason": "Actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem."
+  },
+  {
+    "id": "IS6763",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6763.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6763_valid"
+    ],
+    "domain": "All modeled scalar types/widths and instruction flags; all applicable operand commutations; constants compare normalized APInt bits.",
+    "reason": "Actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem."
+  },
+  {
+    "id": "IS6804",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM floating min/max intrinsic semantics are not modeled"
+  },
+  {
+    "id": "IS6820",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM floating min/max intrinsic semantics are not modeled"
+  },
+  {
+    "id": "IS6913",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "AArch64 SVE intrinsics are not modeled"
+  },
+  {
+    "id": "IS6918",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "AArch64 SVE intrinsics are not modeled"
+  },
+  {
+    "id": "IS6922",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "AArch64 SVE intrinsics are not modeled"
+  },
+  {
+    "id": "IS6926",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "AArch64 SVE intrinsics are not modeled"
+  },
+  {
+    "id": "IS6941",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "AArch64 SVE intrinsics are not modeled"
+  },
+  {
+    "id": "IS6949",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "AArch64 SVE intrinsics are not modeled"
+  },
+  {
+    "id": "IS6963",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "get_active_lane_mask intrinsic is not modeled"
+  },
+  {
+    "id": "IS6981",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "get_active_lane_mask and function vscale range analysis are not modeled"
+  },
+  {
+    "id": "IS6990",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6990.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6990_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS6996",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6996.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6996_valid"
+    ],
+    "domain": "All modeled scalar integer widths, all shift no-wrap/exact flags and all count intrinsic zero-poison flags; normalized APInt constants.",
+    "reason": "Own actual LLVM shift/count pattern with exact returned source operand (or zero for7004) and kernel-checked validity."
+  },
+  {
+    "id": "IS7002",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7002.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7002_valid"
+    ],
+    "domain": "All modeled scalar integer widths, all shift no-wrap/exact flags and all count intrinsic zero-poison flags; normalized APInt constants.",
+    "reason": "Own actual LLVM shift/count pattern with exact returned source operand (or zero for7004) and kernel-checked validity.",
+    "description": "The source m_Negative() guard admits every signed-negative constant APInt, not just all-ones; native MSB guard matches this exactly."
+  },
+  {
+    "id": "IS7004",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7004.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7004_valid"
+    ],
+    "domain": "All modeled scalar integer widths, all shift no-wrap/exact flags and all count intrinsic zero-poison flags; normalized APInt constants.",
+    "reason": "Own actual LLVM shift/count pattern with exact returned source operand (or zero for7004) and kernel-checked validity.",
+    "description": "The source m_Negative() guard admits every signed-negative constant APInt, not just all-ones; native MSB guard matches this exactly."
+  },
+  {
+    "id": "IS7009",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "pdep is not represented by an LLVM operation opcode or interpreted intrinsic in the current model"
+  },
+  {
+    "id": "IS7011",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "pdep is not represented by an LLVM operation opcode or interpreted intrinsic in the current model"
+  },
+  {
+    "id": "IS7013",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "pdep is not represented by an LLVM operation opcode or interpreted intrinsic in the current model"
+  },
+  {
+    "id": "IS7018",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "pext is not represented by a named LLVM operation and the generic intrinsic interpreter does not model it"
+  },
+  {
+    "id": "IS7020",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "pext is not modeled by the Llvm.interpretOp'"
+  },
+  {
+    "id": "IS7022",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "pext is not modeled by the Llvm.interpretOp'"
+  },
+  {
+    "id": "IS7029",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ptrmask intrinsic semantics are not modeled"
+  },
+  {
+    "id": "IS7037",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ptrmask/ptrtoaddr provenance semantics are not modeled"
+  },
+  {
+    "id": "IS7043",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ptrmask semantics and call attribute preservation are not modeled"
+  },
+  {
+    "id": "IS7056",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ptrmask plus KnownBits/alignment pointer analysis"
+  },
+  {
+    "id": "IS7066",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7066.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7066_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7074",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "The mlir__undef opcode exists, but Llvm.interpretOp' has no nondeterministic undef semantics (poison is distinct)."
+  },
+  {
+    "id": "IS7082",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7082.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7082_valid"
+    ],
+    "domain": "All modeled scalar types/widths and instruction flags; all applicable operand commutations; constants compare normalized APInt bits.",
+    "reason": "Actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem."
+  },
+  {
+    "id": "IS7089",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7089.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7089_valid"
+    ],
+    "domain": "All modeled scalar types/widths and instruction flags; all applicable operand commutations; constants compare normalized APInt bits.",
+    "reason": "Actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem."
+  },
+  {
+    "id": "IS7102",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7102.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7102_valid"
+    ],
+    "domain": "All four modeled scalar integer min/max operations, all widths, both inner/outer commutations and all normalized constant APInt spellings. Outer constants at either saturation boundary excluded to preserve earlier branch choice.",
+    "reason": "Own LLVM pattern with native constant-order guard and syntactic inspection of first-inner-constant priority. The proof does not rely on erased inspection facts."
+  },
+  {
+    "id": "IS7107",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6760.lean",
+      "Veir/InstSimplify/IS6763.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6760_valid",
+      "Veir.InstSimplify.IS6763_valid"
+    ],
+    "domain": "All four modeled scalar integer min/max intrinsic operations; both inner and outer commutations.",
+    "reason": "Dispatch to foldMinMaxSharedOp, implemented by shared idempotence/absorption patterns parameterized over both operand orders.",
+    "covered_by": [
+      "IS6760",
+      "IS6763"
+    ]
+  },
+  {
+    "id": "IS7109",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6760.lean",
+      "Veir/InstSimplify/IS6763.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6760_valid",
+      "Veir.InstSimplify.IS6763_valid"
+    ],
+    "domain": "All four modeled scalar integer min/max intrinsic operations; both inner and outer commutations.",
+    "reason": "Dispatch to foldMinMaxSharedOp, implemented by shared idempotence/absorption patterns parameterized over both operand orders.",
+    "covered_by": [
+      "IS6760",
+      "IS6763"
+    ]
+  },
+  {
+    "id": "IS7114",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Requires proof-bearing value-tracking ordering facts; inspectOperation facts are erased by MatchProg.Models."
+  },
+  {
+    "id": "IS7116",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Requires proof-bearing value-tracking ordering facts; inspectOperation facts are erased by MatchProg.Models."
+  },
+  {
+    "id": "IS7125",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "scmp/ucmp are not modeled and comparison proof needs analysis"
+  },
+  {
+    "id": "IS7130",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "scmp/ucmp are not modeled and comparison proof needs analysis"
+  },
+  {
+    "id": "IS7135",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "scmp/ucmp are not modeled and comparison proof needs analysis"
+  },
+  {
+    "id": "IS7144",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "umulh/smulh are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7148",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "umulh/smulh are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7152",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "umulh/smulh are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7160",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "overflow aggregate intrinsics are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7167",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "overflow aggregate intrinsics are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7178",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "overflow aggregate intrinsics are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7182",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "overflow aggregate intrinsics are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7188",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7188.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7188_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7196",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "The mlir__undef opcode exists, but Llvm.interpretOp' has no nondeterministic undef semantics (poison is distinct)."
+  },
+  {
+    "id": "IS7200",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7200.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7200_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7203",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7203.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7203_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7208",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7208.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7208_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7213",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7213.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7213_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings. X-X branch; undef branch excluded because undef has no interpreter/runtime semantics.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7216",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7216.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7216_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7221",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple constant-argument adapter to simplifyRelativeLoad, whose relative-memory evaluation rule is inventoried at IS6576."
+  },
+  {
+    "id": "IS7227",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "powi/FP semantics are not modeled"
+  },
+  {
+    "id": "IS7230",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "powi/FP semantics are not modeled"
+  },
+  {
+    "id": "IS7234",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple non-strict ldexp forwarding; concrete helper rules are inventoried at IS6585-IS6624."
+  },
+  {
+    "id": "IS7238",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "copysign/FP semantics are not modeled"
+  },
+  {
+    "id": "IS7243",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "copysign/FP semantics are not modeled"
+  },
+  {
+    "id": "IS7249",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "is_fpclass and FP class model are not modeled"
+  },
+  {
+    "id": "IS7251",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "is_fpclass is not modeled"
+  },
+  {
+    "id": "IS7253",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "is_fpclass/FP class semantics are not modeled"
+  },
+  {
+    "id": "IS7271",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Floating min/max intrinsics are not modeled"
+  },
+  {
+    "id": "IS7327",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Floating min/max and IEEE NaN semantics are not modeled"
+  },
+  {
+    "id": "IS7329",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Floating min/max and IEEE NaN semantics are not modeled"
+  },
+  {
+    "id": "IS7335",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of foldMinimumMaximumSharedOp, whose concrete min/max rewrites are inventoried at IS6804/IS6820."
+  },
+  {
+    "id": "IS7337",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple commuted forwarding of foldMinimumMaximumSharedOp, whose concrete min/max rewrites are inventoried at IS6804/IS6820."
+  },
+  {
+    "id": "IS7348",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector_extract/vector_insert intrinsics are not modeled"
+  },
+  {
+    "id": "IS7362",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple SVE reduction forwarding; concrete helper rules are inventoried at IS6913-IS6949."
+  },
+  {
+    "id": "IS7395",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM extractvalue enum/verifier declarations exist, but Llvm.interpretOp′ has no semantics for these aggregate/vector operations. Interpreter failure is not counted as a proof."
+  },
+  {
+    "id": "IS7406",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7406.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7406.bswap_0_valid",
+      "Veir.InstSimplify.IS7406.bitreverse_0_valid",
+      "Veir.InstSimplify.IS7406.ctpop_0_valid",
+      "Veir.InstSimplify.IS7406.ctlz_0_valid",
+      "Veir.InstSimplify.IS7406.cttz_0_valid",
+      "Veir.InstSimplify.IS7406.abs_0_valid",
+      "Veir.InstSimplify.IS7406.smax_0_valid",
+      "Veir.InstSimplify.IS7406.smax_1_valid",
+      "Veir.InstSimplify.IS7406.smin_0_valid",
+      "Veir.InstSimplify.IS7406.smin_1_valid",
+      "Veir.InstSimplify.IS7406.umax_0_valid",
+      "Veir.InstSimplify.IS7406.umax_1_valid",
+      "Veir.InstSimplify.IS7406.umin_0_valid",
+      "Veir.InstSimplify.IS7406.umin_1_valid",
+      "Veir.InstSimplify.IS7406.saddSat_0_valid",
+      "Veir.InstSimplify.IS7406.saddSat_1_valid",
+      "Veir.InstSimplify.IS7406.uaddSat_0_valid",
+      "Veir.InstSimplify.IS7406.uaddSat_1_valid",
+      "Veir.InstSimplify.IS7406.ssubSat_0_valid",
+      "Veir.InstSimplify.IS7406.ssubSat_1_valid",
+      "Veir.InstSimplify.IS7406.usubSat_0_valid",
+      "Veir.InstSimplify.IS7406.usubSat_1_valid",
+      "Veir.InstSimplify.IS7406.sshlSat_0_valid",
+      "Veir.InstSimplify.IS7406.sshlSat_1_valid",
+      "Veir.InstSimplify.IS7406.ushlSat_0_valid",
+      "Veir.InstSimplify.IS7406.ushlSat_1_valid",
+      "Veir.InstSimplify.IS7406.fshl_0_valid",
+      "Veir.InstSimplify.IS7406.fshl_1_valid",
+      "Veir.InstSimplify.IS7406.fshl_2_valid",
+      "Veir.InstSimplify.IS7406.fshr_0_valid",
+      "Veir.InstSimplify.IS7406.fshr_1_valid",
+      "Veir.InstSimplify.IS7406.fshr_2_valid"
+    ],
+    "domain": "All modeled scalar integer widths and all intrinsic flags; poison positions or constant argument combinations covered as applicable. Bswap only16/32/64; no claim is made for the identity fallback on other bswap widths.",
+    "reason": "Own actual LLVM patterns with kernel-checked validity; generic call_intrinsic fallback is never used."
+  },
+  {
+    "id": "IS7413",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7413.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7413.bswap_valid",
+      "Veir.InstSimplify.IS7413.bswap_poison_valid",
+      "Veir.InstSimplify.IS7413.bitreverse_valid",
+      "Veir.InstSimplify.IS7413.bitreverse_poison_valid",
+      "Veir.InstSimplify.IS7413.ctpop_valid",
+      "Veir.InstSimplify.IS7413.ctpop_poison_valid",
+      "Veir.InstSimplify.IS7413.ctlz_valid",
+      "Veir.InstSimplify.IS7413.ctlz_poison_valid",
+      "Veir.InstSimplify.IS7413.cttz_valid",
+      "Veir.InstSimplify.IS7413.cttz_poison_valid",
+      "Veir.InstSimplify.IS7413.abs_valid",
+      "Veir.InstSimplify.IS7413.abs_poison_valid",
+      "Veir.InstSimplify.IS7413.smax_valid",
+      "Veir.InstSimplify.IS7413.smax_poison_valid",
+      "Veir.InstSimplify.IS7413.smin_valid",
+      "Veir.InstSimplify.IS7413.smin_poison_valid",
+      "Veir.InstSimplify.IS7413.umax_valid",
+      "Veir.InstSimplify.IS7413.umax_poison_valid",
+      "Veir.InstSimplify.IS7413.umin_valid",
+      "Veir.InstSimplify.IS7413.umin_poison_valid",
+      "Veir.InstSimplify.IS7413.saddSat_valid",
+      "Veir.InstSimplify.IS7413.saddSat_poison_valid",
+      "Veir.InstSimplify.IS7413.uaddSat_valid",
+      "Veir.InstSimplify.IS7413.uaddSat_poison_valid",
+      "Veir.InstSimplify.IS7413.ssubSat_valid",
+      "Veir.InstSimplify.IS7413.ssubSat_poison_valid",
+      "Veir.InstSimplify.IS7413.usubSat_valid",
+      "Veir.InstSimplify.IS7413.usubSat_poison_valid",
+      "Veir.InstSimplify.IS7413.sshlSat_valid",
+      "Veir.InstSimplify.IS7413.sshlSat_poison_valid",
+      "Veir.InstSimplify.IS7413.ushlSat_valid",
+      "Veir.InstSimplify.IS7413.ushlSat_poison_valid",
+      "Veir.InstSimplify.IS7413.fshl_valid",
+      "Veir.InstSimplify.IS7413.fshl_poison_valid",
+      "Veir.InstSimplify.IS7413.fshr_valid",
+      "Veir.InstSimplify.IS7413.fshr_poison_valid"
+    ],
+    "domain": "18 actual interpreted scalar integer intrinsics, all legal modeled widths and properties; bswap restricted to16/32/64 because wider LLVM bswap is unmodeled. LLVM ConstantInt operands use mlir__constant encoding with arbitrary normalized APInt payloads; alternate VeIR mlir__zero encoding is not required for this source port.",
+    "reason": "Exact actual LLVM constant-fold outputs:36 patterns split numeric versus poison result class. All constant APInt spellings normalize before evaluation; poison outputs emit mlir__poison."
+  },
+  {
+    "id": "IS7424",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vscale intrinsic and function range analysis are not modeled"
+  },
+  {
+    "id": "IS7433",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of simplifyIdentityInterleave; its concrete rewrite is inventoried at IS7395."
+  },
+  {
+    "id": "IS7436",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6666.lean",
+      "Veir/InstSimplify/IS6671.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6666_valid",
+      "Veir.InstSimplify.IS6671_valid"
+    ],
+    "domain": "Source unary-intrinsic delegation: bswap and bitreverse scalar syntax rewrites. CTPOP analysis-only branches unsupported as documented in6676/6682; other source unary operations unmodeled.",
+    "reason": "Dispatcher shares the concrete unary implementation, with unsupported source forms explicitly excluded.",
+    "covered_by": [
+      "IS6666",
+      "IS6671"
+    ]
+  },
+  {
+    "id": "IS7439",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS6760.lean",
+      "Veir/InstSimplify/IS6763.lean",
+      "Veir/InstSimplify/IS6990.lean",
+      "Veir/InstSimplify/IS6996.lean",
+      "Veir/InstSimplify/IS7002.lean",
+      "Veir/InstSimplify/IS7004.lean",
+      "Veir/InstSimplify/IS7066.lean",
+      "Veir/InstSimplify/IS7082.lean",
+      "Veir/InstSimplify/IS7089.lean",
+      "Veir/InstSimplify/IS7102.lean",
+      "Veir/InstSimplify/IS7188.lean",
+      "Veir/InstSimplify/IS7200.lean",
+      "Veir/InstSimplify/IS7203.lean",
+      "Veir/InstSimplify/IS7208.lean",
+      "Veir/InstSimplify/IS7213.lean",
+      "Veir/InstSimplify/IS7216.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS6760_valid",
+      "Veir.InstSimplify.IS6763_valid",
+      "Veir.InstSimplify.IS6990_valid",
+      "Veir.InstSimplify.IS6996_valid",
+      "Veir.InstSimplify.IS7002_valid",
+      "Veir.InstSimplify.IS7004_valid",
+      "Veir.InstSimplify.IS7066_valid",
+      "Veir.InstSimplify.IS7082_valid",
+      "Veir.InstSimplify.IS7089_valid",
+      "Veir.InstSimplify.IS7102_valid",
+      "Veir.InstSimplify.IS7188_valid",
+      "Veir.InstSimplify.IS7200_valid",
+      "Veir.InstSimplify.IS7203_valid",
+      "Veir.InstSimplify.IS7208_valid",
+      "Veir.InstSimplify.IS7213_valid",
+      "Veir.InstSimplify.IS7216_valid"
+    ],
+    "domain": "Dispatcher for represented scalar integer binary intrinsic rules: abs, ctlz/cttz, signed/unsigned minmax, signed/unsigned saturating add/sub. Floating point/vector/undef branches remain explicitly unsupported in their individual records.",
+    "reason": "Source dispatch only; all represented scalar local rewrites are linked to their own proven implementation records.",
+    "covered_by": [
+      "IS6990",
+      "IS6996",
+      "IS7002",
+      "IS7004",
+      "IS7066",
+      "IS7082",
+      "IS7089",
+      "IS7102",
+      "IS6760",
+      "IS6763",
+      "IS7188",
+      "IS7200",
+      "IS7203",
+      "IS7208",
+      "IS7213",
+      "IS7216"
+    ]
+  },
+  {
+    "id": "IS7450",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "masked memory intrinsics are not modeled by the Llvm.interpretOp'"
+  },
+  {
+    "id": "IS7459",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "The mlir__undef opcode exists, but Llvm.interpretOp' has no nondeterministic undef semantics (poison is distinct)."
+  },
+  {
+    "id": "IS7463",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "The mlir__undef opcode exists, but Llvm.interpretOp' has no nondeterministic undef semantics (poison is distinct)."
+  },
+  {
+    "id": "IS7471",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7471.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7471_valid"
+    ],
+    "domain": "All modeled scalar types/widths and instruction flags; all applicable operand commutations; constants compare normalized APInt bits.",
+    "reason": "Actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem."
+  },
+  {
+    "id": "IS7480",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7480.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7480_valid"
+    ],
+    "domain": "All modeled scalar integer widths and signedness, both funnel directions, every normalized APInt shift spelling and all lshr exact/shl nsw/nuw flags; effective shift nonzero preserves the earlier return branch.",
+    "reason": "Own LLVM lshr/shl/funnel pattern returns the exact matched shared input; native guard checks source APInt sum and effective selected shift; kernel proof reconstructs bits or refines from operational poison flags."
+  },
+  {
+    "id": "IS7485",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7485.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7485_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7489",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS7489.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS7489_valid"
+    ],
+    "domain": "All modeled scalar integer widths and intrinsic flags; all applicable operand commutations and normalized APInt constant spellings.",
+    "reason": "Own actual LLVM Pattern OpCode and kernel-checked Pattern.Valid theorem; no fallback interpreter failure."
+  },
+  {
+    "id": "IS7494",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Floating-point operations and constrained environment are not modeled by Llvm.interpretOp′"
+  },
+  {
+    "id": "IS7497",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of unconstrained fma/fmuladd to shared simplifyFPOp under its default FP environment; shared rules are independently inventoried at IS5998-IS6024."
+  },
+  {
+    "id": "IS7513",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "smul_fix and smul_fix_sat are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7517",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "smul_fix and smul_fix_sat are not modeled by the LLVM interpreter"
+  },
+  {
+    "id": "IS7524",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "smul_fix/smul_fix_sat are not modeled"
+  },
+  {
+    "id": "IS7541",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector_insert/vector_extract intrinsics are not modeled"
+  },
+  {
+    "id": "IS7551",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector_splice_left/right intrinsics are not modeled"
+  },
+  {
+    "id": "IS7558",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector_splice_left/right intrinsics are not modeled"
+  },
+  {
+    "id": "IS7571",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector_splice and ConstantRange/vscale analysis are not modeled"
+  },
+  {
+    "id": "IS7575",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vector_splice and ConstantRange analysis are not modeled"
+  },
+  {
+    "id": "IS7580",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Float semantics and constrained FP environment are absent from Llvm.interpretOp′"
+  },
+  {
+    "id": "IS7582",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Float semantics and constrained FP environment are absent from Llvm.interpretOp′"
+  },
+  {
+    "id": "IS7584",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Float semantics and constrained FP environment are absent from Llvm.interpretOp′"
+  },
+  {
+    "id": "IS7586",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Float semantics and constrained FP environment are absent from Llvm.interpretOp′"
+  },
+  {
+    "id": "IS7588",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Float semantics and constrained FP environment are absent from Llvm.interpretOp′"
+  },
+  {
+    "id": "IS7590",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "ldexp and constrained FP semantics are not modeled"
+  },
+  {
+    "id": "IS7599",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vp_reverse intrinsic semantics are not modeled"
+  },
+  {
+    "id": "IS7603",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "vp_reverse and vector splat semantics are not modeled"
+  },
+  {
+    "id": "IS7626",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "GC relocation semantics are not modeled"
+  },
+  {
+    "id": "IS7635",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "GC strategy/relocation semantics are not modeled"
+  },
+  {
+    "id": "IS7648",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Generic metadata/context adapter and forwarder to the intrinsic-ID simplifier, whose concrete semantic cases are separately inventoried. It has no single additional intrinsic semantics blocker of its own."
+  },
+  {
+    "id": "IS7673",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM call constant folder and TargetLibraryInfo semantics are not modeled"
+  },
+  {
+    "id": "IS7689",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Call semantics and musttail constraints are not modeled by current rewrite proof semantics"
+  },
+  {
+    "id": "IS7692",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple forwarding of tryConstantFoldCall result; the call-evaluation boundary is inventoried at IS7673."
+  },
+  {
+    "id": "IS7697",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Generic forwarding return from simplifyCall to simplifyIntrinsic(CallBase); concrete intrinsic cases are separately inventoried and some are modeled. The broad unsupported label does not identify an independent algebraic rule."
+  },
+  {
+    "id": "IS7706",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM call constant folder and constrained FP semantics are not modeled"
+  },
+  {
+    "id": "IS7708",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Floating semantics and constrained FP metadata are not modeled"
+  },
+  {
+    "id": "IS7716",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Requires proof-bearing value-tracking facts (known bits / guaranteed non-poison). MatchProg.inspectOperation facts are erased by Models; no such analysis semantics exist."
+  },
+  {
+    "id": "IS7731",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM constant-memory load folder is not modeled"
+  },
+  {
+    "id": "IS7743",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Global initializer/uniform memory analysis is not modeled"
+  },
+  {
+    "id": "IS7754",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Pointer offset/provenance and global constant memory analysis are not modeled"
+  },
+  {
+    "id": "IS7780",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "LLVM generic ConstantFoldInstOperands is not modeled"
+  },
+  {
+    "id": "IS7784",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple opcode dispatch to simplifyFNegInst; its concrete constant and double-negation cases are inventoried at IS5932/IS5937."
+  },
+  {
+    "id": "IS7786",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Simple opcode dispatch to simplifyFAddInst; its concrete cases are inventoried at IS6039-IS6091."
+  },
+  {
+    "id": "IS7924",
+    "status": "unsupported",
+    "files": [],
+    "theorems": [],
+    "domain": "Pinned LLVM source rule; scalar modeled domain where stated.",
+    "reason": "Outer wrapper substitutes poison if a simplifier returns the input instruction itself in unreachable IR. This is a self-result handling policy requiring reachability/context, not a standalone local scalar algebraic rule; scalar poison itself is modeled."
+  },
+  {
+    "id": "IS5681p",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS5693p.lean"
+    ],
+    "theorems": [],
+    "domain": "64-bit scalar integer-to-pointer constant-expression casts, including zero and nonzero; global-address pointer constants. FP/vector casts separately excluded from scalar scope.",
+    "reason": "Integer-to-pointer constant folding produces a ConstantExpr/pointer-address constant, whose syntax is absent from VeIR. For nonpoison input the operational inttoptr result is memory-dependent through objectOfAddress, whereas Puddle InterpretsTo requires one memory-uniform result; even integer-zero does not uniformly encode the distinguished null pointer for arbitrary MemoryState. Global-address constant folding also has no local memory/symbol certificate. No identity re-creation or vacuous pure proof is counted.",
+    "implemented": false
+  },
+  {
+    "id": "IS5693p",
+    "status": "unsupported",
+    "files": [
+      "Veir/InstSimplify/IS5693p.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5693p.pointer_to_integer",
+      "Veir.InstSimplify.IS5693p.integer_to_pointer_empty",
+      "Veir.InstSimplify.IS5693p.integer_to_pointer_allocated",
+      "Veir.InstSimplify.IS5693p.operational_roundtrip_differs",
+      "Veir.InstSimplify.IS5693p.no_memory_uniform_result"
+    ],
+    "domain": "64-bit pointer-to-integer-to-pointer and integer-to-pointer-to-integer cast-pair variants; pointer provenance/object identity and memory-dependent decoding.",
+    "reason": "Pointer/integer cast-pair cancellation cannot be faithfully expressed using the current pure local InterpretsTo judgment: inttoptr depends on memory.decode/objectOfAddress, but InterpretsTo demands the same intermediate result for every memory. Checked operational witnesses show integer1 decodes to pointer object0/address1 in empty memory and object1/address1 in witnessMemory; ptrtoint of object1/address1 loses its object identifier. This is a model correspondence limitation, not an LLVM bug or a false Pattern.Valid witness. Neither direction is counted using vacuity.",
+    "implemented": false
+  }
+]

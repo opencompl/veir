@@ -1,0 +1,1386 @@
+{
+  "source": "docs/instsimplify/upstream/InstructionSimplify.cpp",
+  "range": [
+    2637,
+    5307
+  ],
+  "returns": [
+    {
+      "line": 2644,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2647,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2650,
+      "entry_id": "IS2650"
+    },
+    {
+      "line": 2653,
+      "entry_id": "IS2653"
+    },
+    {
+      "line": 2654,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2659,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2664,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2676,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2678,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2686,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2728,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2731,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2736,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 2738,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2779,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2803,
+      "entry_id": "IS2803"
+    },
+    {
+      "line": 2820,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2827,
+      "entry_id": "IS2827"
+    },
+    {
+      "line": 2843,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2850,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2855,
+      "entry_id": "IS2855"
+    },
+    {
+      "line": 2885,
+      "non_rewrite": "Non-rewrite capture-tracker callback result controlling traversal."
+    },
+    {
+      "line": 2889,
+      "non_rewrite": "Non-rewrite capture-tracker callback result controlling traversal."
+    },
+    {
+      "line": 2895,
+      "entry_id": "IS2895"
+    },
+    {
+      "line": 2901,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2910,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2919,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 2920,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 2928,
+      "entry_id": "IS2928"
+    },
+    {
+      "line": 2934,
+      "entry_id": "IS2934"
+    },
+    {
+      "line": 2939,
+      "entry_id": "IS2939"
+    },
+    {
+      "line": 2943,
+      "entry_id": "IS2943"
+    },
+    {
+      "line": 2953,
+      "entry_id": "IS2953"
+    },
+    {
+      "line": 2959,
+      "entry_id": "IS2959"
+    },
+    {
+      "line": 2964,
+      "entry_id": "IS2964"
+    },
+    {
+      "line": 2968,
+      "entry_id": "IS2968"
+    },
+    {
+      "line": 2980,
+      "entry_id": "IS2980"
+    },
+    {
+      "line": 2991,
+      "entry_id": "IS2991"
+    },
+    {
+      "line": 2995,
+      "entry_id": "IS2995"
+    },
+    {
+      "line": 3000,
+      "entry_id": "IS3000"
+    },
+    {
+      "line": 3004,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3012,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3020,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3024,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3029,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3039,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3043,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3047,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3051,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3053,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3057,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3067,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3074,
+      "entry_id": "IS3074"
+    },
+    {
+      "line": 3076,
+      "entry_id": "IS3076"
+    },
+    {
+      "line": 3080,
+      "entry_id": "IS3080"
+    },
+    {
+      "line": 3085,
+      "entry_id": "IS3085"
+    },
+    {
+      "line": 3090,
+      "entry_id": "IS3090"
+    },
+    {
+      "line": 3092,
+      "entry_id": "IS3092"
+    },
+    {
+      "line": 3098,
+      "entry_id": "IS3098"
+    },
+    {
+      "line": 3100,
+      "entry_id": "IS3100"
+    },
+    {
+      "line": 3106,
+      "entry_id": "IS3106"
+    },
+    {
+      "line": 3108,
+      "entry_id": "IS3108"
+    },
+    {
+      "line": 3114,
+      "entry_id": "IS3114"
+    },
+    {
+      "line": 3116,
+      "entry_id": "IS3116"
+    },
+    {
+      "line": 3121,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3131,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3140,
+      "entry_id": "IS3140"
+    },
+    {
+      "line": 3146,
+      "entry_id": "IS3146"
+    },
+    {
+      "line": 3148,
+      "entry_id": "IS3148"
+    },
+    {
+      "line": 3153,
+      "entry_id": "IS3153"
+    },
+    {
+      "line": 3155,
+      "entry_id": "IS3155"
+    },
+    {
+      "line": 3166,
+      "entry_id": "IS3166"
+    },
+    {
+      "line": 3169,
+      "entry_id": "IS3169"
+    },
+    {
+      "line": 3171,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3182,
+      "non_rewrite": "Non-rewrite control-flow exit from the monotonic-value collector."
+    },
+    {
+      "line": 3186,
+      "non_rewrite": "Non-rewrite control-flow exit from the monotonic-value collector."
+    },
+    {
+      "line": 3190,
+      "non_rewrite": "Non-rewrite control-flow exit from the monotonic-value collector."
+    },
+    {
+      "line": 3232,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3242,
+      "entry_id": "IS3242"
+    },
+    {
+      "line": 3244,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3259,
+      "entry_id": "IS3259"
+    },
+    {
+      "line": 3261,
+      "entry_id": "IS3261"
+    },
+    {
+      "line": 3280,
+      "entry_id": "IS3280"
+    },
+    {
+      "line": 3291,
+      "entry_id": "IS3291"
+    },
+    {
+      "line": 3315,
+      "entry_id": "IS3315"
+    },
+    {
+      "line": 3319,
+      "entry_id": "IS3319"
+    },
+    {
+      "line": 3341,
+      "entry_id": "IS3341"
+    },
+    {
+      "line": 3343,
+      "entry_id": "IS3343"
+    },
+    {
+      "line": 3350,
+      "entry_id": "IS3350"
+    },
+    {
+      "line": 3352,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3371,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3377,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3383,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 3385,
+      "entry_id": "IS3350a"
+    },
+    {
+      "line": 3428,
+      "entry_id": "IS3428"
+    },
+    {
+      "line": 3435,
+      "entry_id": "IS3435"
+    },
+    {
+      "line": 3462,
+      "entry_id": "IS3462"
+    },
+    {
+      "line": 3468,
+      "entry_id": "IS3468"
+    },
+    {
+      "line": 3473,
+      "entry_id": "IS3473"
+    },
+    {
+      "line": 3481,
+      "entry_id": "IS3481"
+    },
+    {
+      "line": 3483,
+      "entry_id": "IS3483"
+    },
+    {
+      "line": 3487,
+      "entry_id": "IS3487"
+    },
+    {
+      "line": 3489,
+      "entry_id": "IS3489"
+    },
+    {
+      "line": 3512,
+      "entry_id": "IS3512"
+    },
+    {
+      "line": 3514,
+      "entry_id": "IS3514"
+    },
+    {
+      "line": 3523,
+      "entry_id": "IS3523"
+    },
+    {
+      "line": 3525,
+      "entry_id": "IS3525"
+    },
+    {
+      "line": 3529,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3543,
+      "entry_id": "IS3543"
+    },
+    {
+      "line": 3563,
+      "entry_id": "IS3563"
+    },
+    {
+      "line": 3565,
+      "entry_id": "IS3565"
+    },
+    {
+      "line": 3568,
+      "entry_id": "IS3568"
+    },
+    {
+      "line": 3570,
+      "entry_id": "IS3570"
+    },
+    {
+      "line": 3590,
+      "entry_id": "IS3590"
+    },
+    {
+      "line": 3598,
+      "entry_id": "IS3598"
+    },
+    {
+      "line": 3605,
+      "entry_id": "IS3605"
+    },
+    {
+      "line": 3616,
+      "entry_id": "IS3616"
+    },
+    {
+      "line": 3621,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3675,
+      "entry_id": "IS3675"
+    },
+    {
+      "line": 3677,
+      "entry_id": "IS3677"
+    },
+    {
+      "line": 3681,
+      "entry_id": "IS3681"
+    },
+    {
+      "line": 3689,
+      "entry_id": "IS3689"
+    },
+    {
+      "line": 3691,
+      "entry_id": "IS3691"
+    },
+    {
+      "line": 3695,
+      "entry_id": "IS3695"
+    },
+    {
+      "line": 3700,
+      "entry_id": "IS3700"
+    },
+    {
+      "line": 3703,
+      "entry_id": "IS3703"
+    },
+    {
+      "line": 3749,
+      "entry_id": "IS3749"
+    },
+    {
+      "line": 3751,
+      "entry_id": "IS3751"
+    },
+    {
+      "line": 3755,
+      "entry_id": "IS3755"
+    },
+    {
+      "line": 3763,
+      "entry_id": "IS3763"
+    },
+    {
+      "line": 3765,
+      "entry_id": "IS3765"
+    },
+    {
+      "line": 3769,
+      "entry_id": "IS3769"
+    },
+    {
+      "line": 3773,
+      "entry_id": "IS3773"
+    },
+    {
+      "line": 3775,
+      "entry_id": "IS3775"
+    },
+    {
+      "line": 3793,
+      "entry_id": "IS3793"
+    },
+    {
+      "line": 3796,
+      "entry_id": "IS3796"
+    },
+    {
+      "line": 3802,
+      "entry_id": "IS3802"
+    },
+    {
+      "line": 3805,
+      "entry_id": "IS3805"
+    },
+    {
+      "line": 3808,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3816,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3827,
+      "entry_id": "IS3827"
+    },
+    {
+      "line": 3831,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3838,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3846,
+      "entry_id": "IS3846"
+    },
+    {
+      "line": 3848,
+      "entry_id": "IS3848"
+    },
+    {
+      "line": 3850,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3856,
+      "entry_id": "IS3856"
+    },
+    {
+      "line": 3858,
+      "entry_id": "IS3858"
+    },
+    {
+      "line": 3860,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3862,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 3871,
+      "non_rewrite": "Non-rewrite metadata/attribute range lookup consumed by ICmp range reasoning."
+    },
+    {
+      "line": 3874,
+      "non_rewrite": "Non-rewrite metadata/attribute range lookup consumed by ICmp range reasoning."
+    },
+    {
+      "line": 3876,
+      "non_rewrite": "Non-rewrite metadata/attribute range lookup consumed by ICmp range reasoning."
+    },
+    {
+      "line": 3878,
+      "non_rewrite": "Non-rewrite metadata/attribute range lookup consumed by ICmp range reasoning."
+    },
+    {
+      "line": 3891,
+      "entry_id": "IS3891"
+    },
+    {
+      "line": 3907,
+      "entry_id": "IS3907"
+    },
+    {
+      "line": 3913,
+      "entry_id": "IS3913"
+    },
+    {
+      "line": 3918,
+      "entry_id": "IS3918",
+      "additional_entry_ids": [
+        "IS3918u"
+      ]
+    },
+    {
+      "line": 3921,
+      "entry_id": "IS3921"
+    },
+    {
+      "line": 3926,
+      "entry_id": "IS3926"
+    },
+    {
+      "line": 3929,
+      "entry_id": "IS3929"
+    },
+    {
+      "line": 3936,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 3939,
+      "non_rewrite": "Non-rewrite helper return: returns a matched subvalue or analysis result used by a separately inventoried rule."
+    },
+    {
+      "line": 3959,
+      "entry_id": "IS3959"
+    },
+    {
+      "line": 3966,
+      "entry_id": "IS3966"
+    },
+    {
+      "line": 3979,
+      "entry_id": "IS3979"
+    },
+    {
+      "line": 3985,
+      "entry_id": "IS3985"
+    },
+    {
+      "line": 3987,
+      "entry_id": "IS3987"
+    },
+    {
+      "line": 4014,
+      "entry_id": "IS4014"
+    },
+    {
+      "line": 4026,
+      "entry_id": "IS4026"
+    },
+    {
+      "line": 4031,
+      "entry_id": "IS4031"
+    },
+    {
+      "line": 4037,
+      "entry_id": "IS4037"
+    },
+    {
+      "line": 4042,
+      "entry_id": "IS4042"
+    },
+    {
+      "line": 4058,
+      "entry_id": "IS4058"
+    },
+    {
+      "line": 4064,
+      "entry_id": "IS4064"
+    },
+    {
+      "line": 4066,
+      "entry_id": "IS4066"
+    },
+    {
+      "line": 4091,
+      "entry_id": "IS4091"
+    },
+    {
+      "line": 4100,
+      "entry_id": "IS4100"
+    },
+    {
+      "line": 4102,
+      "entry_id": "IS4102"
+    },
+    {
+      "line": 4108,
+      "entry_id": "IS4108"
+    },
+    {
+      "line": 4113,
+      "entry_id": "IS4113"
+    },
+    {
+      "line": 4126,
+      "entry_id": "IS4126"
+    },
+    {
+      "line": 4135,
+      "entry_id": "IS4135"
+    },
+    {
+      "line": 4148,
+      "entry_id": "IS4148"
+    },
+    {
+      "line": 4152,
+      "entry_id": "IS4152"
+    },
+    {
+      "line": 4155,
+      "entry_id": "IS4155"
+    },
+    {
+      "line": 4158,
+      "entry_id": "IS4158"
+    },
+    {
+      "line": 4161,
+      "entry_id": "IS4161"
+    },
+    {
+      "line": 4164,
+      "entry_id": "IS4164"
+    },
+    {
+      "line": 4167,
+      "entry_id": "IS4167"
+    },
+    {
+      "line": 4170,
+      "entry_id": "IS4170"
+    },
+    {
+      "line": 4174,
+      "entry_id": "IS4174"
+    },
+    {
+      "line": 4180,
+      "entry_id": "IS4180"
+    },
+    {
+      "line": 4186,
+      "entry_id": "IS4186"
+    },
+    {
+      "line": 4192,
+      "entry_id": "IS4192"
+    },
+    {
+      "line": 4194,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4199,
+      "non_rewrite": "Wrapper forwards an internal simplifier result; no separate rule is defined at this API boundary."
+    },
+    {
+      "line": 4214,
+      "entry_id": "IS4214"
+    },
+    {
+      "line": 4225,
+      "entry_id": "IS4225"
+    },
+    {
+      "line": 4227,
+      "entry_id": "IS4227"
+    },
+    {
+      "line": 4232,
+      "entry_id": "IS4232"
+    },
+    {
+      "line": 4239,
+      "entry_id": "IS4239"
+    },
+    {
+      "line": 4245,
+      "entry_id": "IS4245"
+    },
+    {
+      "line": 4247,
+      "entry_id": "IS4247"
+    },
+    {
+      "line": 4260,
+      "entry_id": "IS4260"
+    },
+    {
+      "line": 4263,
+      "entry_id": "IS4263"
+    },
+    {
+      "line": 4268,
+      "entry_id": "IS4268"
+    },
+    {
+      "line": 4279,
+      "non_rewrite": "Non-rewrite lazy KnownFPClass computation consumed by FCmp simplification."
+    },
+    {
+      "line": 4280,
+      "non_rewrite": "Non-rewrite lazy KnownFPClass computation consumed by FCmp simplification."
+    },
+    {
+      "line": 4290,
+      "entry_id": "IS4290"
+    },
+    {
+      "line": 4292,
+      "entry_id": "IS4292"
+    },
+    {
+      "line": 4301,
+      "entry_id": "IS4301"
+    },
+    {
+      "line": 4319,
+      "entry_id": "IS4319"
+    },
+    {
+      "line": 4329,
+      "entry_id": "IS4329"
+    },
+    {
+      "line": 4349,
+      "entry_id": "IS4349"
+    },
+    {
+      "line": 4354,
+      "entry_id": "IS4354"
+    },
+    {
+      "line": 4363,
+      "entry_id": "IS4363"
+    },
+    {
+      "line": 4372,
+      "entry_id": "IS4372"
+    },
+    {
+      "line": 4396,
+      "entry_id": "IS4396"
+    },
+    {
+      "line": 4407,
+      "entry_id": "IS4407"
+    },
+    {
+      "line": 4419,
+      "entry_id": "IS4419"
+    },
+    {
+      "line": 4425,
+      "entry_id": "IS4425"
+    },
+    {
+      "line": 4427,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4432,
+      "non_rewrite": "Wrapper forwards an internal simplifier result; no separate rule is defined at this API boundary."
+    },
+    {
+      "line": 4446,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4450,
+      "entry_id": "IS4450"
+    },
+    {
+      "line": 4454,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4458,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4463,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4467,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4471,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4478,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4496,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4500,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4513,
+      "entry_id": "IS4513"
+    },
+    {
+      "line": 4516,
+      "entry_id": "IS4516"
+    },
+    {
+      "line": 4526,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4530,
+      "entry_id": "IS4530"
+    },
+    {
+      "line": 4538,
+      "entry_id": "IS4539"
+    },
+    {
+      "line": 4539,
+      "entry_id": "IS4539"
+    },
+    {
+      "line": 4551,
+      "entry_id": "IS4552"
+    },
+    {
+      "line": 4552,
+      "entry_id": "IS4552"
+    },
+    {
+      "line": 4563,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4568,
+      "entry_id": "IS4568"
+    },
+    {
+      "line": 4583,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4588,
+      "entry_id": "IS4588"
+    },
+    {
+      "line": 4597,
+      "entry_id": "IS4597"
+    },
+    {
+      "line": 4610,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4613,
+      "entry_id": "IS4613"
+    },
+    {
+      "line": 4624,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4642,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4644,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4666,
+      "entry_id": "IS4666"
+    },
+    {
+      "line": 4669,
+      "entry_id": "IS4669"
+    },
+    {
+      "line": 4678,
+      "non_rewrite": "Wrapper forwards an internal simplifier result; no separate rule is defined at this API boundary."
+    },
+    {
+      "line": 4689,
+      "non_rewrite": "Wrapper forwards an internal simplifier result; no separate rule is defined at this API boundary."
+    },
+    {
+      "line": 4691,
+      "non_rewrite": "Wrapper forwards an internal simplifier result; no separate rule is defined at this API boundary."
+    },
+    {
+      "line": 4705,
+      "entry_id": "IS4705"
+    },
+    {
+      "line": 4711,
+      "entry_id": "IS4711"
+    },
+    {
+      "line": 4720,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4721,
+      "entry_id": "IS4721"
+    },
+    {
+      "line": 4730,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4731,
+      "entry_id": "IS4731"
+    },
+    {
+      "line": 4735,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4764,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4772,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4785,
+      "entry_id": "IS4785"
+    },
+    {
+      "line": 4789,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4793,
+      "entry_id": "IS4793"
+    },
+    {
+      "line": 4797,
+      "entry_id": "IS4797"
+    },
+    {
+      "line": 4805,
+      "entry_id": "IS4805"
+    },
+    {
+      "line": 4807,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4815,
+      "entry_id": "IS4815"
+    },
+    {
+      "line": 4818,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4841,
+      "entry_id": "IS4841"
+    },
+    {
+      "line": 4843,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4855,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4858,
+      "entry_id": "IS4858"
+    },
+    {
+      "line": 4879,
+      "entry_id": "IS4879"
+    },
+    {
+      "line": 4889,
+      "entry_id": "IS4889"
+    },
+    {
+      "line": 4898,
+      "entry_id": "IS4898"
+    },
+    {
+      "line": 4912,
+      "entry_id": "IS4912"
+    },
+    {
+      "line": 4923,
+      "entry_id": "IS4923"
+    },
+    {
+      "line": 4927,
+      "entry_id": "IS4927"
+    },
+    {
+      "line": 4934,
+      "entry_id": "IS4934"
+    },
+    {
+      "line": 4938,
+      "entry_id": "IS4938"
+    },
+    {
+      "line": 4949,
+      "entry_id": "IS4949"
+    },
+    {
+      "line": 4954,
+      "entry_id": "IS4954"
+    },
+    {
+      "line": 4964,
+      "entry_id": "IS4964"
+    },
+    {
+      "line": 4973,
+      "entry_id": "IS4973"
+    },
+    {
+      "line": 4977,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 4988,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 5003,
+      "entry_id": "IS5003"
+    },
+    {
+      "line": 5006,
+      "entry_id": "IS5006"
+    },
+    {
+      "line": 5014,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 5020,
+      "entry_id": "IS5020"
+    },
+    {
+      "line": 5024,
+      "entry_id": "IS5024"
+    },
+    {
+      "line": 5027,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 5061,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5063,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5077,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5085,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5087,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5098,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5104,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5109,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5110,
+      "non_rewrite": "Non-rewrite helper result: boolean predicate/guard used by a surrounding rewrite; this does not produce a replacement LLVM value."
+    },
+    {
+      "line": 5122,
+      "entry_id": "IS5122"
+    },
+    {
+      "line": 5126,
+      "entry_id": "IS5126"
+    },
+    {
+      "line": 5130,
+      "entry_id": "IS5130"
+    },
+    {
+      "line": 5137,
+      "entry_id": "IS5137"
+    },
+    {
+      "line": 5139,
+      "entry_id": "IS5139"
+    },
+    {
+      "line": 5150,
+      "entry_id": "IS5150"
+    },
+    {
+      "line": 5154,
+      "entry_id": "IS5154"
+    },
+    {
+      "line": 5158,
+      "entry_id": "IS5158"
+    },
+    {
+      "line": 5163,
+      "entry_id": "IS5163"
+    },
+    {
+      "line": 5169,
+      "entry_id": "IS5169"
+    },
+    {
+      "line": 5172,
+      "entry_id": "IS5172"
+    },
+    {
+      "line": 5176,
+      "entry_id": "IS5176"
+    },
+    {
+      "line": 5179,
+      "entry_id": "IS5179"
+    },
+    {
+      "line": 5185,
+      "entry_id": "IS5185"
+    },
+    {
+      "line": 5188,
+      "entry_id": "IS5188"
+    },
+    {
+      "line": 5195,
+      "entry_id": "IS5195"
+    },
+    {
+      "line": 5198,
+      "entry_id": "IS5198"
+    },
+    {
+      "line": 5202,
+      "entry_id": "IS5202"
+    },
+    {
+      "line": 5205,
+      "entry_id": "IS5205"
+    },
+    {
+      "line": 5211,
+      "entry_id": "IS5211"
+    },
+    {
+      "line": 5216,
+      "entry_id": "IS5216"
+    },
+    {
+      "line": 5219,
+      "entry_id": "IS5219"
+    },
+    {
+      "line": 5224,
+      "entry_id": "IS5224"
+    },
+    {
+      "line": 5227,
+      "entry_id": "IS5227"
+    },
+    {
+      "line": 5237,
+      "entry_id": "IS5237b",
+      "additional_entry_ids": [
+        "IS5237a"
+      ]
+    },
+    {
+      "line": 5242,
+      "entry_id": "IS5242b",
+      "additional_entry_ids": [
+        "IS5242a"
+      ]
+    },
+    {
+      "line": 5273,
+      "entry_id": "IS5122"
+    },
+    {
+      "line": 5278,
+      "entry_id": "IS5278"
+    },
+    {
+      "line": 5281,
+      "entry_id": "IS5281"
+    },
+    {
+      "line": 5285,
+      "entry_id": "IS5285"
+    },
+    {
+      "line": 5289,
+      "entry_id": "IS5289"
+    },
+    {
+      "line": 5294,
+      "entry_id": "IS5294"
+    },
+    {
+      "line": 5296,
+      "entry_id": "IS5296"
+    },
+    {
+      "line": 5298,
+      "non_rewrite": "Non-rewrite exit: this helper or simplifier reports that no applicable fold was found."
+    },
+    {
+      "line": 5303,
+      "non_rewrite": "Wrapper forwards an internal simplifier result; no separate rule is defined at this API boundary."
+    }
+  ]
+}

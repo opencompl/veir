@@ -1,0 +1,51 @@
+[
+  {
+    "id": "IS5335",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5335.lean",
+      "Veir/InstSimplify/GEPZeroSchema.lean",
+      "Veir/InstSimplify/GEPZeroInterp.lean",
+      "Veir/InstSimplify/GEPZeroSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5335_valid",
+      "Veir.InstSimplify.IS5335_static_valid"
+    ],
+    "domain": "All modeled scalar pointer GEPs with zero ConstantInt indices: every finite static/dynamic index count, arbitrary independent integer widths/signedness and zero-bit payload encodings, arbitrary array/struct nesting, and all modeled no-wrap flags; actual RV64 data-layout interpreter.",
+    "reason": "Full list-parameterized Puddle builder and structural/semantic induction proved; raw static indices are zero, dynamic slots match normalized llvm.mlir__constant integer encoding whose interpreted bits are zero. Generic decoder/layout/address-loop proofs establish pointer preservation. The empty raw-index case also overlaps the earlier source5317 identity branch, with identical replacement; no branch-priority equivalence is claimed."
+  },
+  {
+    "id": "IS5340",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5340.lean",
+      "Veir/InstSimplify/GEPDynamicSchema.lean",
+      "Veir/InstSimplify/GEPPoisonSchema.lean",
+      "Veir/InstSimplify/GEPPoisonIndexSupport.lean",
+      "Veir/InstSimplify/GEPSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5340_valid",
+      "Veir.InstSimplify.gepPoisonBaseFamily_valid",
+      "Veir.InstSimplify.gepPoisonIndexFamily_valid",
+      "Veir.InstSimplify.IS5340_static_valid"
+    ],
+    "domain": "All modeled scalar pointer GEPs with a syntactic poison base or any syntactic poison integer index: every finite dynamic arity and position, independent integer widths/signedness, arbitrary interspersed static indices and valid layout nesting, and all modeled no-wrap flags; actual RV64 data-layout interpreter.",
+    "reason": "Complete arity-parameterized Puddle patterns cover both source causes. A Nat parameter captures every poison-base dynamic arity; arbitrary before/after Nat parameters cover every poison-index position. Generic binder/handle proofs establish Pattern.Valid, and decoder/layout/address-loop proofs establish poison propagation without extra layout narrowing. The reused poison-base value is the same modeled pointer poison; the zero-index poison-base case may overlap the earlier5317 identity with identical value."
+  },
+  {
+    "id": "IS5359",
+    "status": "proved",
+    "files": [
+      "Veir/InstSimplify/IS5359.lean",
+      "Veir/InstSimplify/GEPSupport.lean"
+    ],
+    "theorems": [
+      "Veir.InstSimplify.IS5359_static_valid",
+      "Veir.InstSimplify.IS5359_dynamic_valid"
+    ],
+    "domain": "All modeled scalar LLVM pointer GEPs with exactly one index; both raw static indices and dynamic scalar integers of arbitrary width, every no-wrap flag, including poison.",
+    "reason": "Exact source allocation-size-zero metadata guard; both possible index encodings proved using actual DataLayout.riscv64 GEP offset calculation and LLVM pointer interpretation. The dynamic semantic theorem includes runtime-poison SSA indices by refinement; the proof pattern may also overlap syntactic poison constants that the upstream pass handles earlier at5340. It does not claim identical branch-priority choices for that overlap."
+  }
+]
