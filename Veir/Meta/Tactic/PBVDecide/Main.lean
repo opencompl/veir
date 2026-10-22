@@ -26,24 +26,28 @@ meta def dropNatReferences (g : MVarId) (infos : WidthInfos) : MetaM MVarId := g
     let g ← g.clear info.widthMaskHypFvar
     return g
 
+meta def collect (g : MVarId) : WidthEnvM (WidthTms × BitVecFVarsToRevert × WidthProps) := g.withContext do
+  -- Find `BitVec`s and reify their widths
+  let (widthTms, bvsToRevert) ← visitExprRec {} {} (← g.getType)
+  -- Find `BitVec`s in the hypotheses that will be reverted along with them
+  let (widthTms, bvsToRevert) ← visitDependentHyps widthTms bvsToRevert
+  -- Traverse the context to find props on widths (preconditions)
+  let widthProps ← reifyPreconditions bvsToRevert
+
+  return (widthTms, bvsToRevert, widthProps)
+
 /--
 Translate the provided parametric `BitVec` goal into a concrete width goal using
 the provided context. Returns the modified goal and any generate side-goals.
 -/
 meta def pbvTranslate (g : MVarId) (ctx : PbvDecideContext) : MetaM (MVarId × List MVarId × WidthInfos × BitVecInfos)
   := g.withContext do
-  -- Construct the width environment
-  let widthEnv ← createWidthEnv g
-  -- Find `BitVec`s and reify their widths
-  let (widthTms, bvsToRevert) ← visitExprRec { env := widthEnv } {} (← g.getType)
-  -- Find `BitVec`s in the hypotheses that will be reverted along with them
-  let (widthTms, bvsToRevert) ← visitDependentHyps widthTms bvsToRevert
-  -- Traverse the context to find props on widths (preconditions)
-  let widthProps ← reifyPreconditions widthEnv
+  let ((widthTms, bvsToRevert, widthProps), env) ← (collect g).run {}
   -- Compute the blast width
-  let blastWidth := (widthTms.getWidthUpperBound ctx).max <| widthProps.getWidthUpperBound ctx
+  let blastWidth := (widthTms.getWidthUpperBound ctx).max
+                    <| widthProps.getWidthUpperBound ctx
   -- Introduce the width masks, bounded by the blast width
-  let (g, widthInfos) ← introMaskWidths g widthTms blastWidth
+  let (g, widthInfos) ← introMaskWidths g widthTms env blastWidth
   -- Translate props on the width vars into props on the masks
   let (g, widthInfos) ← widthProps.translateToMask g widthInfos
   -- Intro the `BitVec`s

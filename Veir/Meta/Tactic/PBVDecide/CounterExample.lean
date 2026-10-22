@@ -58,7 +58,7 @@ meta def getWidthCounterExamples (widthInfos : WidthInfos) (counterExample : Cou
   let mut widthMaskCexs : WidthMaskCexs := {}
 
   for (widthTm, winfo) in widthInfos.infos do
-    let name := widthTm.toName
+    let name ← widthTm.toName
     let originalNatWidth := widthTm.toExpr widthInfos.env
     match findFVarIdInCounterExample? counterExample winfo.widthMaskFVar with
     | some (eq, bv) => do
@@ -89,7 +89,7 @@ meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskC
     match findFVarIdInCounterExample? counterExample bvinfo.bvVar with
     | some (eq, bv) => do
       let some widthCex := widthCexs[bvinfo.bvWidthTm]?
-        | throwError m!"Width ({bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
+        | throwError m!"Width ({← bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
       return {counterExample := (eq, bv), width := widthCex, name}
     | none =>
       throwError m!"No counterexample generated for BitVec {name}"
@@ -98,7 +98,8 @@ meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskC
 /--
 Convert a bv_decide counterexample into a string, mapping concrete mask `BitVec`
 values to concrete width `Nat` values, and keeping track if any counterexamples
-belong to expressions which have been abstracted as opaque variables.
+belong to expressions which have been abstracted as opaque variables, or if any
+widths were abstracted as atoms independent of the other widths.
 -/
 meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos : WidthInfos)
     (bvInfos : BitVecInfos) : MetaM MessageData := do
@@ -116,13 +117,23 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos
         return none
     )
 
+  -- Widths that are neither variables, literals nor sums are atoms whose masks
+  -- are unrelated to the masks of the other widths.
+  let opaqueWidths : Array Expr :=
+    widthInfos.infos.keys.filterMap (fun | .widthAtom id => some id | _ => none)
+      |>.toArray.qsort (· < ·) |>.map (widthInfos.env.width2expr[·]!)
+
   let mut err := m!""
-  if opaqueVariables.isEmpty then
+  if opaqueVariables.isEmpty && opaqueWidths.isEmpty then
     err := err ++ "`pbv_decide` found a counterexample, consider the following assignment:\n"
   else
     err := err ++ "`pbv_decide` found a potentially spurious counterexample.\n"
-    err := err ++ "  The following expressions were abstracted as opaque variables:\n"
-    err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
+    unless opaqueWidths.isEmpty do
+      err := err ++ "  The following widths were abstracted as independent variables:\n"
+      err := opaqueWidths.foldl (init := err) (fun acc e => acc ++ m!"    - {e}\n")
+    unless opaqueVariables.isEmpty do
+      err := err ++ "  The following expressions were abstracted as opaque variables:\n"
+      err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
     err := err ++ "Consider the following assignment:\n"
 
   -- Sort the counterexamples by name

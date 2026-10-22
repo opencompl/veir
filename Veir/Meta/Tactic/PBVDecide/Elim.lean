@@ -22,7 +22,7 @@ meta def introMaskWidth (g : MVarId) (widthTm : WidthTm) (infos : WidthInfos)
         #[mkNatLit infos.blastWidth, widthTm.toExpr infos.env, ← g.getType]
       | throwError m!"{``width_elim} should generate a goal"
     -- Intros
-    let name := widthTm.toName
+    let name ← widthTm.toName
     let maskName := Name.mkSimple s!"m_{name}"
     let (#[mask, maskHyp], g) ← g.introN 2 [maskName, Name.mkSimple s!"h_{maskName}"]
       | throwError m!"Failed to intro {``width_elim}"
@@ -56,17 +56,17 @@ meta def introMaskLit (g : MVarId) (widthLit : WidthTm) (infos : WidthInfos) : M
   let lit ← mkAppM ``BitVec.ofNat #[o, mkNatLit (2 ^ val - 1)]
   let maskTy ← mkAppM ``BitVec #[o]
   -- Define the mask
-  let maskName := Name.mkSimple s!"m_{widthLit.toName}"
+  let maskName := Name.mkSimple s!"m_{← widthLit.toName}"
   let g ← g.assertExt maskName maskTy lit
   let (mask, g) ← g.intro1P
   let (_maskValue, g) ← g.introN 1 [Name.mkSimple s!"{maskName}_val"]
   -- Prove that the mask is indeed a maskOfWidth
   let applyMask ← mkAppM ``maskOfWidth #[o, n]
   let proof ← g.withContext do mkExpectedTypeHint (← mkEqRefl (mkFVar mask)) (← mkEq (mkFVar mask) applyMask)
-  let (maskHyp, g) ← g.note (Name.mkSimple s!"h_m_{widthLit.toName}") proof
+  let (maskHyp, g) ← g.note (Name.mkSimple s!"h_{maskName}") proof
   -- Prove that the lit respects the bound
   let (hypWidthLeBound, g) ←
-    g.note (Name.mkSimple s!"h_m_{widthLit.toName}_le_blast") <| ← mkDecideProof (mkNatLE n o)
+    g.note (Name.mkSimple s!"h_{maskName}_le_blast") <| ← mkDecideProof (mkNatLE n o)
 
   let info : WidthInfo := {
     widthMaskFVar := mask,
@@ -88,7 +88,7 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) (infos : WidthInf
     return (g, info, infos)
   -- Otherwise, recurse through the term to create it
   match widthTm with
-  | .widthAtom _ => introMaskWidth g widthTm infos
+  | .widthAtom _ | .widthFVar _ _ => introMaskWidth g widthTm infos
   | .widthLit _ => introMaskLit g widthTm infos
   | .widthAdd v w => do
     -- Get or create masks of the children
@@ -98,7 +98,7 @@ meta def getOrCreateWidthMask (g : MVarId) (widthTm : WidthTm) (infos : WidthInf
     let (g, thisInfo, infos) ← introMaskWidth g widthTm infos
     -- Rewrite the mask of a sum of widths in terms of the underlying masks.
     let (_hyp, g) ← g.withContext do
-      g.note (Name.mkSimple s!"bv_{widthTm.toName}") <| ← mkAppM ``add_eq_shift_sum_of_maskOfWidth #[
+      g.note (Name.mkSimple s!"bv_{← widthTm.toName}") <| ← mkAppM ``add_eq_shift_sum_of_maskOfWidth #[
         .fvar vInfo.hypWidthLeBoundNote,
         .fvar wInfo.hypWidthLeBoundNote,
         .fvar thisInfo.hypWidthLeBoundNote,
@@ -149,19 +149,19 @@ public meta def WidthProps.translateToMask (this : WidthProps) (g : MVarId) (wid
     -- Obtain the `Expr` of the prop in terms of the mask.
     let (g, infos, expr) ← getMaskedExprFromProp g widthProp proof infos
     -- State the prop in terms of the masks.
-    let (_, g) ← g.note (Name.mkSimple s!"bv_{widthProp.toName}") expr
+    let (_, g) ← g.note (Name.mkSimple s!"bv_{← widthProp.toName}") expr
     return (g, infos)
 
 /--
 Given the width terms in the formula, translate all `Nat` widths into `BitVec`
 masks and introduce the hypotheses that model the masks.
 -/
-public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (blastWidth : Nat)
+public meta def introMaskWidths (g : MVarId) (widthTms : WidthTms) (env : TmWidthEnv) (blastWidth : Nat)
   : MetaM (MVarId × WidthInfos)
   := g.withContext do
   -- Intro all the masks
   widthTms.terms.foldM
-    (init := (g, { env := widthTms.env, blastWidth }))
+    (init := (g, { env, blastWidth }))
     fun (g, widthInfos) widthTm => do
       let (g, _, infos) ← getOrCreateWidthMask g widthTm widthInfos
       return (g, infos)
@@ -193,7 +193,7 @@ meta def introBitvecFVarUnchecked (widthInfos : WidthInfos) (g : MVarId)
 
   let name ← oldVar.getUserName
   let (#[bvVar, bvHyp], g) ← g.withContext <| g.introN 2
-    [name, Name.mkSimple s!"h_{name}_maskOfWidth_{widthTm.toName}"]
+    [name, Name.mkSimple s!"h_{name}_maskOfWidth_{← widthTm.toName}"]
     | throwError m!"Expecting two intros from {g}"
 
   return (g, bvInfos.push { bvVar, bvHyp, bvWidthTm := widthTm })
