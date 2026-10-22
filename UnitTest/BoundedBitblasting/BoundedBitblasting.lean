@@ -674,8 +674,16 @@ example {w : Nat} (hw : w ≤ 8) (x : BitVec w) :
     x <<< BitVec.ofNat w (w - 1) = x <<< (BitVec.ofNat w w - 1#w) := by
   pbv_decide 8
 
-/-- The `bit_ceil` fold, for widths that are a power of two up to 64 -/
+/-- The `bit_ceil` fold, for widths that are a power of two up to 128 -/
 theorem foldBitCeil_correct (k : Nat) (hk : k ≤ 7) (x : BitVec (2 ^ k)) (h : NoOverflow x) :
     bitCeilSrc x = bitCeilTgt x := by
   unfold bitCeilSrc bitCeilTgt NoOverflow at *
+  pbv_decide 7
+
+/-- The `bit_ceil` fold: `if x ≤ 1 then 1 else 1 <<< (W - clz (x - 1))` becomes
+`1 <<< (-clz (x - 1) &&& (W - 1))`, for the width `W` -/
+example (k : Nat) (hk : k ≤ 7) (x W : BitVec (2 ^ k)) (hW : W = BitVec.ofNat _ (2 ^ k))
+    (h : x ≤ 1 ∨ (x - 1).msb = false) :
+    (if x ≤ 1 then 1 else 1#(2 ^ k) <<< (W - (x - 1).clz))
+      = 1#(2 ^ k) <<< (-(x - 1).clz &&& (W - 1)) := by
   pbv_decide 7
