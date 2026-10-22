@@ -14,9 +14,9 @@ example (p q r : Nat) (x : BitVec p) (hr : r ≤ 8) (h_qp : q < p) (h_pr : p < r
 
 /--
 error: The prover found a counterexample, consider the following assignment:
-m_w1 = 255#8
 m_w2 = 0#8
 m_w0 = 127#8
+m_w1 = 255#8
 m_lit8 = 255#8
 x = 127#8
 -/
@@ -35,10 +35,6 @@ x : BitVec p
 hr : r ≤ 8
 h_qp : p < q
 h_pr : p < r
-m_w1 : BitVec 8
-h_m_w1 : m_w1 = Veir.Data.PBV.maskOfWidth 8 r
-h_m_w1_le_blast : r ≤ 8
-h_m_w1_bv_mask : m_w1 &&& m_w1 + 1#8 = 0#8
 m_w2 : BitVec 8
 h_m_w2 : m_w2 = Veir.Data.PBV.maskOfWidth 8 q
 ⊢ q ≤ 8
@@ -100,9 +96,9 @@ example (v w : Nat) (x : BitVec w) (hw : w ≤ 4) (hv : v = w + 1) :
 
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
-  p = 7  	(m_w0 = 0x7f#8)
+  p = 1  	(m_w0 = 0x01#8)
   r = 8  	(m_w1 = 0xff#8)
-  x = 0x7f#7
+  x = 0x1#1
 -/
 #guard_msgs in
 example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) (h : p < r) :
@@ -113,8 +109,8 @@ example (p r : Nat) (x : BitVec p) (hr : r ≤ 8) (h : p < r) :
 /--
 error: `pbv_decide` found a counterexample, consider the following assignment:
   p = 8  	(m_w0 = 0xff#8)
-  w = 0  	(m_w1 = 0x00#8)
-  x = 0xff#8
+  w = 7  	(m_w1 = 0x7f#8)
+  x = 0x7f#8
 -/
 #guard_msgs in
 example (p w : Nat) (x : BitVec p) (hp : p ≤ 8) (hwp : w < p) :
@@ -123,12 +119,9 @@ example (p w : Nat) (x : BitVec p) (hp : p ≤ 8) (hwp : w < p) :
 
 -- A "potentially spurious" counterexample can still be genuine: at `w = 0`, `1#0 = 0#0`
 /--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofBool (BitVec.setWidth w x + 1#w == BitVec.setWidth w x) = 0x1#1
-Consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  x = 0xf#4
+error: `pbv_decide` found a counterexample, consider the following assignment:
+  w = 0  	(m_w0 = 0x0#4)
+  x = 0x0#0
 -/
 #guard_msgs in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
@@ -199,3 +192,31 @@ example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
     (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8 -bv_decide
 
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - BitVec.ofNatClamp 4 (w - 1) = 0xf#4
+Consider the following assignment:
+  w = 4  	(m_w0 = 0xf#4)
+  a = 0xf#4
+-/
+#guard_msgs in
+example (a : BitVec w) (h : w ≤ 4) :
+    (a.extractLsb' (w - 1) 1 == 1) = a.msb := by
+  pbv_decide 4
+
+-- `w + w` treated as an atom and hence differs from `w`
+/--
+error: `pbv_decide` found a counterexample, consider the following assignment:
+  w = 8  	(m_w0 = 0xff#8)
+  w + (w + w) = 8  	(m_w0_add_w1 = 0xff#8)
+  w + w = 4  	(m_w1 = 0x0f#8)
+  w + w + w = 8  	(m_w1_add_w0 = 0xff#8)
+  a = 0xf#4
+  b = 0x7f#8
+-/
+#guard_msgs in
+example (a : BitVec (w + w)) (b : BitVec w) (hw4 : w + w ≤ 4):
+  a ++ b = (b ++ a).cast (by grind)
+  := by
+  pbv_decide 4

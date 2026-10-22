@@ -427,3 +427,203 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     (x.shiftLeftZeroExtend 1).setWidth w = x <<< 1 := by
   pbv_decide 4
+
+/-- And absorbs or -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x &&& (x ||| y) = x := by
+  pbv_decide 4
+
+/-- And with the complement is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x &&& ~~~x = 0 := by
+  pbv_decide 4
+
+/-- Or with the complement is all ones -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x ||| ~~~x = -1 := by
+  pbv_decide 4
+
+/-- Xoring twice with the same value is identity -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x ^^^ y ^^^ y = x := by
+  pbv_decide 4
+
+/-- De Morgan's law -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    ~~~(x &&& y) = ~~~x ||| ~~~y := by
+  pbv_decide 4
+
+/-- Complement is negation minus one -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    ~~~x = -x - 1 := by
+  pbv_decide 4
+
+/-- Addition is xor plus the shifted carries -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x + y = (x ^^^ y) + ((x &&& y) <<< 1) := by
+  pbv_decide 4
+
+/-- And commutes with zero extension -/
+example {w v : Nat} (x y : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x &&& y).zeroExtend v = x.zeroExtend v &&& y.zeroExtend v := by
+  pbv_decide 4
+
+/-- Complementing flips the sign bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (hw0 : 0 < w) :
+    (~~~x).msb = !x.msb := by
+  pbv_decide 4
+
+/-- Extracting is masking -/
+example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w):
+    x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight' 0#w = x := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right preserves the sign bit -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    (x.sshiftRight' y).msb = x.msb := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right a non-negative value is logical shifting right -/
+example {w : Nat} (x y : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
+    x.sshiftRight' y = x >>> y := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right `-1` is `-1` -/
+example {w : Nat} (y : BitVec w) (hw : w ≤ 4) :
+    (-1#w).sshiftRight' y = -1#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right a negative value by the width is `-1` -/
+example {w : Nat} (x : BitVec w) (hx : x.msb = true) (hw : w ≤ 4) :
+    x.sshiftRight' (BitVec.ofNat w w) = -1#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right a non-negative value by the width is zero -/
+example {w : Nat} (x : BitVec w) (hx : x.msb = false) (hw : w ≤ 4) :
+    x.sshiftRight' (BitVec.ofNat w w) = 0#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by `Nat` zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight 0 = x := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by a `Nat` agrees with shifting by the same `BitVec` amount -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sshiftRight 1 = x.sshiftRight' 1#w := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by two `Nat` variables commutes -/
+example {w : Nat} (n m : Nat) (x : BitVec w) (hw : w ≤ 4) :
+    (x.sshiftRight n).sshiftRight m = (x.sshiftRight m).sshiftRight n := by
+  pbv_decide 4
+
+/-- Arithmetic shifting right by a `Nat` variable commutes with sign extension -/
+example {w v : Nat} (n : Nat) (x : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.sshiftRight n).signExtend v = (x.signExtend v).sshiftRight n := by
+  pbv_decide 4
+
+/-- SshiftRight by `w - 1` (encoded as v) equals negation of normal shift right -/
+example {w v : Nat} (a : BitVec w) (h : v + 1 = w) (hw : w ≤ 4):
+  (a.sshiftRight v) = -(a >>> v) := by pbv_decide 8
+
+/-- Signed dividing by zero is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sdiv 0#w = 0#w := by
+  pbv_decide 4
+
+/-- Signed dividing by `-1` is negation -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.sdiv (-1#w) = -x := by
+  pbv_decide 4
+
+/-- Signed dividing a non-zero value by itself is one -/
+example {w : Nat} (x : BitVec w) (hx : x ≠ 0#w) (hw : w ≤ 4) :
+    x.sdiv x = 1#w := by
+  pbv_decide 4
+
+/-- Signed dividing non-negative values is unsigned dividing -/
+example {w : Nat} (x y : BitVec w) (hx : x.msb = false) (hy : y.msb = false) (hw : w ≤ 4) :
+    x.sdiv y = x / y := by
+  pbv_decide 4
+
+/-- Signed dividing non-negative values commutes with sign extension -/
+example {w v : Nat} (x y : BitVec w) (hx : x.msb = false) (hy : y.msb = false)
+    (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.sdiv y).signExtend v = (x.signExtend v).sdiv (y.signExtend v) := by
+  pbv_decide 4
+
+/-- Signed remainder by zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.srem 0#w = x := by
+  pbv_decide 4
+
+/-- Signed remainder by one is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.srem 1#w = 0#w := by
+  pbv_decide 4
+
+/-- Signed remainder ignores the sign of the divisor -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.srem (-y) = x.srem y := by
+  pbv_decide 4
+
+/-- Signed remainder of non-negative values is unsigned remainder -/
+example {w : Nat} (x y : BitVec w) (hx : x.msb = false) (hy : y.msb = false) (hw : w ≤ 4) :
+    x.srem y = x % y := by
+  pbv_decide 4
+
+/-- Signed quotient and remainder reconstruct the dividend -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.sdiv y * y + x.srem y = x := by
+  pbv_decide 4
+
+/-- Signed remainder commutes with sign extension -/
+example {w v : Nat} (x y : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.srem y).signExtend v = (x.signExtend v).srem (y.signExtend v) := by
+  pbv_decide 4
+
+/-- Signed modulo by zero is identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.smod 0#w = x := by
+  pbv_decide 4
+
+/-- Signed modulo by one is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.smod 1#w = 0#w := by
+  pbv_decide 4
+
+/-- Signed modulo by self is zero -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.smod x = 0#w := by
+  pbv_decide 4
+
+/-- Signed modulo of non-negative values is unsigned remainder -/
+example {w : Nat} (x y : BitVec w) (hx : x.msb = false) (hy : y.msb = false) (hw : w ≤ 4) :
+    x.smod y = x % y := by
+  pbv_decide 4
+
+/-- Signed modulo agrees with signed remainder when the signs match -/
+example {w : Nat} (x y : BitVec w) (hxy : x.msb = y.msb) (hw : w ≤ 4) :
+    x.smod y = x.srem y := by
+  pbv_decide 4
+
+/-- Signed modulo commutes with sign extension -/
+example {w v : Nat} (x y : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.smod y).signExtend v = (x.signExtend v).smod (y.signExtend v) := by
+  pbv_decide 4
+
+/-- smtUDiv of zero is allones -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
+    x.smtUDiv y = -1 := by
+  pbv_decide 4
+
+/-- smtSDiv of zero is one or minus one -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
+    x.smtSDiv y = bif x.msb then 1 else -1 := by
+  pbv_decide 4

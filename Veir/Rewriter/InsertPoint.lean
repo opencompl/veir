@@ -42,6 +42,13 @@ def InsertPoint.atStart! (block : BlockPtr) (ctx : IRContext OpInfo) : InsertPoi
   | some firstOp => .before firstOp
   | none => .atEnd block
 
+/-- The block start is before its first operation, or at its end when it is empty. -/
+theorem InsertPoint.atStart!_eq (block : BlockPtr) (ctx : IRContext OpInfo) :
+    InsertPoint.atStart! block ctx =
+      match block.getFirstOp! ctx with
+      | some firstOp => .before firstOp
+      | none => .atEnd block := by rfl
+
 def InsertPoint.atStart (block : BlockPtr) (ctx : IRContext OpInfo)
     (hIn : block.InBounds ctx := by grind) : InsertPoint :=
   match (block.getFirstOp ctx (by grind)) with

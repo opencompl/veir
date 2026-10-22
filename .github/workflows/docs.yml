@@ -1,0 +1,57 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Only installs elan; docgen-action builds the docs itself. lean-action
+      # saves its cache before docgen-action runs, so its own cache would be
+      # empty.
+      - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
+        with:
+          auto-config: false
+          use-github-cache: false
+
+      # Start from the build that `Lean Action CI` saved for `main`, so Lake
+      # only rebuilds the modules that changed. The key and paths mirror the
+      # release cache in lean_action_ci.yml. CI usually has not saved this
+      # commit yet, so the restore key picks the previous one.
+      # Restore only: the cache is already at its size limit.
+      - name: Restore the Lake build from main CI
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .lake
+            ExArray/.lake
+            lean-ctrees/.lake
+          key: lake-v2-${{ runner.os }}-${{ runner.arch }}-release-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-${{ github.sha }}
+          restore-keys: lake-v2-${{ runner.os }}-${{ runner.arch }}-release-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-
+
+      # docgen-action builds `<target>:docs` for every default target, and
+      # executables have no `docs` facet. The `grep` fails the job if the
+      # field is ever reworded and the substitution silently matches nothing.
+      - name: Restrict default targets to the library
+        run: |
+          sed -i 's/^defaultTargets = .*$/defaultTargets = ["Veir"]/' lakefile.toml
+          grep -qx 'defaultTargets = \["Veir"\]' lakefile.toml
+
+      - uses: leanprover-community/docgen-action@dacc1acc2a3f532cc577266979ba9c36c7593f7c # main, 2026-10-05
+        with:
+          build-page: false

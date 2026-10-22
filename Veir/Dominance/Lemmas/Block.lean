@@ -4,6 +4,8 @@ public import Veir.Dominance.Lemmas.Path
 public import Veir.Interfaces.RegionKindInterfaces
 
 import all Veir.Dominance.Basic
+import Veir.IR.WellFormed
+import Veir.Rewriter.InsertPoint
 
 /-!
 # Block Dominance Lemmas
@@ -103,6 +105,15 @@ theorem parent_dominated :
   · grind [ProperlyDominatesInSSACFGRegion]
   · grind [ProperlyDominatesInGraphRegion]
 
+/-- Blocks related by same-region dominance share a root. -/
+theorem rootedAt_iff
+    (dominance : dominator.ProperlyDominatesInRegion dominated region ctx) :
+    dominator.RootedAt root ctx ↔ dominated.RootedAt root ctx := by
+  have dominatorParent := dominance.parent_dominator
+  have dominatedParent := dominance.parent_dominated
+  exact IRNode.Ancestor.rootedAt_iff_of_common_ancestor
+    (ancestor := .region region) (.of_parent (by grind)) (.of_parent (by grind))
+
 /--
 If a `source` block properly dominates a distinct `target`, then it properly dominates
 a distinct predecessor of that successor edge.
@@ -120,11 +131,13 @@ theorem predecessor_of_dominates_successor
     grind [ProperlyDominatesInGraphRegion]
   | Ssa ssaDominance =>
     apply Ssa
-    obtain ⟨_, _, _, _, h⟩ := ssaDominance
-    unfold ProperlyDominatesInSSACFGRegion
-    refine ⟨by grind, by grind, by grind [ProperlyDominatesInSSACFGRegion], by grind, ?_⟩
+    refine ⟨ssaDominance.1, targetParent, ssaDominance.2.2.1, sourceNeTarget, ?_⟩
     intro entry blocks hfirstBlock hPath
-    grind [hPath.append (RegionPtr.Path.of_successor successorEdge targetParent (by grind))]
+    have extendedPath := hPath.append
+      (RegionPtr.Path.of_successor successorEdge targetParent ssaDominance.2.1)
+    have inExtendedPath := ssaDominance.mem_of_path hfirstBlock extendedPath
+    have sourceNeSuccessor := ssaDominance.2.2.2.1
+    simpa [sourceNeSuccessor] using inExtendedPath
 
 end BlockPtr.ProperlyDominatesInRegion
 
@@ -213,7 +226,98 @@ theorem BlockPtr.ProperlyDominatesInSSACFGRegion.hierarchicallyReachable_dominat
     (dominance.locallyReachable_dominator_of_locallyReachable_dominated localReachable)
     dominance.2.1
 
+/-- A regional dominator of a hierarchically reachable block is hierarchically reachable. -/
+@[grind →]
+theorem BlockPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+    {dominator dominated : BlockPtr}
+    (dominance : dominator.ProperlyDominatesInRegion dominated region ctx)
+    (reachable : dominated.HierarchicallyReachable ctx) :
+    dominator.HierarchicallyReachable ctx := by
+  cases dominance with
+  | Ssa dominance =>
+    exact dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+      reachable
+  | Graph dominance =>
+    obtain ⟨dominatorParent, dominatedParent, noSSA⟩ := dominance
+    grind
+
 /-! ## Dominance at block insertion points -/
+
+/-- Properly dominating an SSA block's first operation, excluding enclosing operations,
+properly dominates the block. -/
+theorem OperationPtr.ProperlyDominates.properlyDominatesBlock_of_firstOp {firstOp : OperationPtr}
+    (blockParent : block.getParent! ctx.raw = some region)
+    (regionSSA : region.hasSSADominance ctx)
+    (first : block.getFirstOp! ctx.raw = some firstOp)
+    (dominance : op.ProperlyDominates firstOp ctx false) :
+    op.ProperlyDominatesBlock block ctx false := by
+  have blockInBounds : block.InBounds ctx.raw := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  have firstParent : firstOp.getParent! ctx.raw = some block := by grind
+  cases dominance with
+  | @AncestorDominatedInRegion ancestor localRegion ancestry localDominance _ =>
+    by_cases same : ancestor = firstOp
+    · subst ancestor
+      cases localDominance with
+      | SameBlock localDominance =>
+        have firstIndex := OperationPtr.idxInParent_eq_zero_of_getFirstOp!
+          (by grind) blockInBounds first
+        cases localDominance <;>
+          grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+            OperationPtr.ProperlyDominatesInGraphBlock]
+      | @BlockDominance dominatorBlock dominatedBlock dominatorParent dominatedParent blockDominance =>
+        have sameBlock : dominatedBlock = block := by grind
+        subst dominatedBlock
+        exact .SameRegion dominatorParent blockDominance
+    · have properAncestry := ancestry.toProperAncestor (by simpa using same)
+      have ancestorOfBlock := properAncestry.ancestor_of_parent_descendant
+        (show (IRNode.operation firstOp).parent! ctx = some (.block block) by grind)
+      exact .AncestorOpDominated ancestorOfBlock
+        (.AncestorDominatedInRegion .refl localDominance false)
+
+/-- An operation properly dominating a successor block dominates its predecessor's exit. -/
+theorem OperationPtr.ProperlyDominatesBlock.dominatesIp_predecessor_exit
+    (dominance : op.ProperlyDominatesBlock succ ctx enclosingOk)
+    (blockParent : block.getParent! ctx.raw = some region)
+    (succParent : succ.getParent! ctx.raw = some region)
+    (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
+    op.DominatesIp (.atEnd block) ctx enclosingOk := by
+  have ancestorOfPredecessor {ancestor : OperationPtr}
+      (ancestry : ancestor.Ancestor succ ctx) : ancestor.Ancestor block ctx := by
+    apply IRNode.Ancestor.of_same_parent_of_properAncestor
+      (ancestry.toProperAncestor (by simp)) (parent := .region region) <;> grind
+  cases dominance with
+  | Ancestor ancestry =>
+    exact .AtEndOtherBlock (.Ancestor (ancestorOfPredecessor ancestry))
+  | SameRegion dominatorParent dominance =>
+    by_cases sameBlock : op.getParent! ctx.raw = some block
+    · exact .AtEndSameBlock sameBlock
+    · exact .AtEndOtherBlock (.SameRegion dominatorParent
+        (dominance.predecessor_of_dominates_successor (by grind) hsucc (by grind)))
+  | AncestorOpDominated ancestry dominance =>
+    exact .AtEndOtherBlock (.AncestorOpDominated (ancestorOfPredecessor ancestry) dominance)
+
+/-- Dominating an SSA block's start, excluding enclosing operations, properly dominates the block. -/
+theorem OperationPtr.DominatesIp.properlyDominatesBlock_of_atStart
+    (blockParent : block.getParent! ctx.raw = some region)
+    (regionSSA : region.hasSSADominance ctx)
+    (dominance : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx) :
+    op.ProperlyDominatesBlock block ctx false := by
+  have blockInBounds : block.InBounds ctx.raw := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  cases first : block.getFirstOp! ctx.raw with
+  | none =>
+    simp only [InsertPoint.atStart!_eq, first] at dominance
+    cases dominance with
+    | AtEndSameBlock opParent =>
+      obtain ⟨array, chain⟩ := ctx.wellFormed.opChain block blockInBounds
+      grind
+    | AtEndOtherBlock dominance => exact dominance
+  | some firstOp =>
+    simp only [InsertPoint.atStart!_eq, first] at dominance
+    cases dominance with
+    | Before dominance =>
+      exact dominance.properlyDominatesBlock_of_firstOp blockParent regionSSA first
 
 /-- In an SSA region, a value dominating a successor block's entry dominates the
 predecessor's exit or is an argument of the successor. -/
@@ -227,19 +331,33 @@ axiom ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr
 
 /-- In an SSA region, an operation dominating a successor block's entry also dominates
 the predecessor's exit. No CFG reachability is required. -/
-axiom OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
+theorem OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
     (blockParent : block.getParent! ctx.raw = some region)
     (succParent : succ.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (hsucc : succ ∈ block.getSuccessors! ctx.raw) :
     op.DominatesIp (InsertPoint.atStart! succ ctx.raw) ctx →
-    op.DominatesIp (.atEnd block) ctx
+    op.DominatesIp (.atEnd block) ctx := by
+  intro dominance
+  have blockDominance := dominance.properlyDominatesBlock_of_atStart succParent regionSSA
+  exact blockDominance.dominatesIp_predecessor_exit blockParent succParent hsucc
+
+/-- An argument of a block dominates any insertion point belonging to that block. -/
+theorem BlockPtr.argument_dominatesIp {ip : InsertPoint}
+    (ipParent : ip.block! ctx.raw = some block)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    value.DominatesIp ip ctx := by
+  obtain ⟨index, _, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
+  exact .BlockArg ipParent (Or.inl BlockPtr.getArgument_block)
 
 /-- An argument of an in-bounds block dominates the entry of that block. -/
-axiom BlockPtr.argument_dominatesIp_atStart
+theorem BlockPtr.argument_dominatesIp_atStart
     (blockInBounds : block.InBounds ctx.raw)
     (hMem : value ∈ block.getArguments! ctx.raw) :
-    value.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx
+    value.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx := by
+  exact BlockPtr.argument_dominatesIp
+    (InsertPoint.block!_atStart!_eq (by grind) blockInBounds) hMem
+
 /-- An argument of a rooted, locally reachable block in an SSA region cannot dominate
 the point before an operation that dominates the block entry. Reachability in enclosing
 regions is not required. -/
