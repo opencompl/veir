@@ -27,6 +27,24 @@ example (x : Byte 8) :
 example (x y : Byte 8) : (x ||| y).trunc 4 = x.trunc 4 ||| y.trunc 4 := by
   veir_bv_decide
 
+-- The `nsw` and `nuw` flags of `trunc` and `shl` either keep the result or make all of it poison.
+example (x : Byte 8) (nsw nuw : Bool) :
+    x.trunc 4 nsw nuw = x.trunc 4 ∨ x.trunc 4 nsw nuw = allPoison := by
+  veir_bv_decide
+
+example (x : Byte 8) (y : Int 8) (nsw nuw : Bool) :
+    x.shl y nsw nuw = x.shl y ∨ x.shl y nsw nuw = allPoison := by
+  veir_bv_decide
+
+-- `trunc nuw` keeps the poison of the remaining bits, but a poison bit it drops makes all of it
+-- poison.
+example (x : Byte 8) :
+    x.val >>> 4 = 0 → x.poison >>> 4 = 0 → x.trunc 4 (nuw := true) = x.trunc 4 := by
+  veir_bv_decide
+
+example (x : Byte 8) : x.poison >>> 4 ≠ 0 → x.trunc 4 (nuw := true) = allPoison := by
+  veir_bv_decide
+
 example (x : Byte 8) : x.lshr .poison = allPoison := by
   veir_bv_decide
 

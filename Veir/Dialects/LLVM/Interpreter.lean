@@ -105,9 +105,8 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
       return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
     | .byte bw lhs =>
       if h: bw' ≠ bw then fail else
-      if properties.nsw then fail else
       let rhs := rhs.cast (by simp at h; exact h)
-      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nuw)], mem, none)
+      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nsw properties.nuw)], mem, none)
     | _ => fail
   | .lshr => do
     let [lhs, .int bw' rhs] := operands.toList | fail
@@ -234,7 +233,7 @@ def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType
     | .byte w val =>
         let .byteType resBw := resType.val | fail
         if h: resBw.bitwidth >= w then fail else
-        return (#[.byte resBw.bitwidth (LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
+        return (#[.byte resBw.bitwidth (LLVM.Byte.trunc val resBw.bitwidth properties.nsw properties.nuw)], mem, none)
     | _ => fail
   | .zext => do
     let [.int w val] := operands.toList | fail

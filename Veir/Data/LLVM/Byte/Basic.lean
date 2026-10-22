@@ -52,16 +52,53 @@ def xor (x y : Byte w) : Byte w :=
 
 instance {w : Nat} : XorOp (Byte w) := ⟨xor⟩
 
-@[veir_bv_normalize]
-def trunc (x : Byte w) (w' : Nat) : Byte w' :=
-  ⟨x.val.truncate w', x.poison.truncate w', by (
-    simp [←BitVec.setWidth_and, x.h]
-  )⟩
+/--
+The low `w'` bits of `x`, same as `LLVM.Int.trunc` but keeping the poison of each bit.
 
-def shl {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool := false) : Byte w := Id.run do
+`nsw` and `nuw` make the whole result poison if the dropped bits are not a sign or zero extension of
+the result. As the flags depend on those bits, they also make it poison if one of them is poison.
+The poison of all other bits is kept.
+
+LLVM's LangRef does not yet define `trunc` on bytes. The treatment of poison in the flags is our
+choice.
+-/
+@[veir_bv_normalize]
+def trunc (x : Byte w) (w' : Nat) (nsw : Bool := false) (nuw : Bool := false) : Byte w' :=
+  -- The flags are checked on the value, then on the poison bits they depend on.
+  if nsw ∧ (x.val.truncate w').signExtend w ≠ x.val then
+    allPoison
+  else if nsw ∧ ((x.poison.truncate w').msb ∨ (x.poison.truncate w').zeroExtend w ≠ x.poison) then
+    allPoison
+  else if nuw ∧ (x.val.truncate w').zeroExtend w ≠ x.val then
+    allPoison
+  else if nuw ∧ (x.poison.truncate w').zeroExtend w ≠ x.poison then
+    allPoison
+  else
+    ⟨x.val.truncate w', x.poison.truncate w', by (
+      simp [←BitVec.setWidth_and, x.h]
+    )⟩
+
+/--
+`x` shifted left by `y`, same as `LLVM.Int.shl` but shifting the poison along with the bits.
+
+`nsw` and `nuw` make the whole result poison if the shifted out bits are not zero or do not agree
+with the sign bit of the result. As the flags depend on those bits, they also make it poison if one
+of them is poison. The poison of all other bits is kept.
+
+LLVM's LangRef does not yet define `shl` on bytes. The treatment of poison in the flags is our
+choice.
+-/
+def shl {w : Nat} (x : Byte w) (y : Int w) (nsw : Bool := false) (nuw : Bool := false) :
+    Byte w := Id.run do
   let .val y' := y | allPoison
 
   if y' ≥ w then
+    return allPoison
+
+  if nsw ∧ (x.val <<< y').sshiftRight' y' ≠ x.val then
+    return allPoison
+
+  if nsw ∧ ((x.poison <<< y').msb ∨ (x.poison <<< y') >>> y' ≠ x.poison) then
     return allPoison
 
   if nuw ∧ (x.val <<< y') >>> y' ≠ x.val then

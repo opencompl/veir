@@ -1444,9 +1444,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       return (#[.int bw (LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
     | .byte bw lhs =>
       if h: bw' ≠ bw then none else
-      if properties.nsw then none else
       let rhs := rhs.cast (by simp at h; exact h)
-      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nuw)], mem, none)
+      return (#[.byte bw (LLVM.Byte.shl lhs rhs properties.nsw properties.nuw)], mem, none)
     | _ => none
   | .lshr => do
     let [lhs, .int bw' rhs] := operands.toList | none
@@ -1573,7 +1572,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .byte w val =>
         let .byteType resBw := resType.val | none
         if h: resBw.bitwidth >= w then none else
-        return (#[.byte resBw.bitwidth (LLVM.Byte.trunc val resBw.bitwidth)], mem, none)
+        return (#[.byte resBw.bitwidth (LLVM.Byte.trunc val resBw.bitwidth properties.nsw properties.nuw)], mem, none)
     | _ => none
   | .zext => do
     let [.int w val] := operands.toList | none

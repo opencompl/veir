@@ -93,9 +93,12 @@ theorem val_xor {w : Nat} (x y : Byte w) :
 which `bv_decide` cannot see through; this restates it in the same shape as `Byte.lshr` so that the
 normalization set can unfold it. -/
 @[veir_bv_normalize]
-theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
-    x.shl y nuw =
+theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nsw nuw : Bool) :
+    x.shl y nsw nuw =
       if y.isPoison || y.getValueD ≥ w then allPoison
+      else if nsw ∧ (x.val <<< y.getValueD).sshiftRight' y.getValueD ≠ x.val then allPoison
+      else if nsw ∧ ((x.poison <<< y.getValueD).msb ∨
+          (x.poison <<< y.getValueD) >>> y.getValueD ≠ x.poison) then allPoison
       else if nuw ∧ (x.val <<< y.getValueD) >>> y.getValueD ≠ x.val then allPoison
       else if nuw ∧ (x.poison <<< y.getValueD) >>> y.getValueD ≠ x.poison then allPoison
       else ⟨x.val <<< y.getValueD, x.poison <<< y.getValueD, by
