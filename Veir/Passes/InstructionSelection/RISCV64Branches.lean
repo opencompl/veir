@@ -52,6 +52,27 @@ def isConvertible (ctx : WfIRContext OpCode) (block : BlockPtr) : Bool :=
     fitsRegister ((ValuePtr.blockArgument { block := block, index := i }).getType! ctx.raw)
 
 /--
+  Remove from `convertible` the targets of every `llvm.br` and `llvm.cond_br`
+  among `ops` that has a target outside of it. Such a branch is left alone and
+  keeps passing values of their original types, so none of its targets may be
+  converted. Removing a block can leave another branch alone, so this repeats
+  until nothing changes, at most `fuel` times.
+-/
+def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) :
+    Nat → List BlockPtr → List BlockPtr
+  | 0, convertible => convertible
+  | fuel + 1, convertible =>
+    let dropped := ops.flatMap fun op =>
+      let opType := op.getOpType! ctx
+      let targets := (op.getSuccessors! ctx.raw).toList
+      if (opType = OpCode.llvm .br || opType = OpCode.llvm .cond_br) &&
+          !targets.all convertible.contains then targets else []
+    if dropped.any convertible.contains then
+      dropTargetsOfUnlowered ctx ops fuel (convertible.filter (!dropped.contains ·))
+    else
+      convertible
+
+/--
   Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`,
   an `llvm.cond_br` or an `llvm.unreachable`, and leave any other operation
   alone. The operands are cast to registers in front of the new branch. A
@@ -136,7 +157,9 @@ def convertBlock (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (b
 def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
   let ops := ctx.raw.operations.keys
   let blocks := ctx.raw.blocks.keys
-  let convertible := blocks.filter (isConvertible ctx)
+  -- Each round that changes something removes a block, so this many suffice.
+  let convertible :=
+    dropTargetsOfUnlowered ctx ops (blocks.length + 1) (blocks.filter (isConvertible ctx))
   let ctx ← ops.foldlM (convertBranch convertible.contains) ctx
   blocks.foldlM (convertBlock convertible.contains) ctx
 
