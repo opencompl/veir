@@ -1783,8 +1783,11 @@ def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
 def sextInReg_local : LocalRewritePattern OpCode := fun ctx op => do
   let some (operands, properties) := matchOp op ctx.raw GMIR.g_sext_inreg 1
     | return (ctx, none)
-  let .integerType type := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if type.bitwidth ≠ 64 then return (ctx, none)
+  let resType := (op.getResult 0).getType! ctx.raw
+  let .integerType type := resType.val | return (ctx, none)
+  if type.bitwidth ≠ 64 ||
+      !riscv64LegalizerInfo.isLegal .g_sext_inreg #[resType] properties then
+    return (ctx, none)
   let (ctx, castOp) ← castToRegLocal ctx operands[0]!
   let src := castOp.getResult 0
   let (ctx, extOps) ← match properties.sz.toNat with
