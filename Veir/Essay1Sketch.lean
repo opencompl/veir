@@ -104,10 +104,39 @@ inductive digitsNum : String → Nat →  Type where
   | digits : digitsNum c n → digitNum d m → digitsNum (String.append c d.toString) (10 * n + m)
 
 private def nameStart (c : Char) : Type :=
-  asciiAlpha c ⊕ Member c ['-', '$', '.', '_']
+  asciiAlpha c ⊕ Member c "-$._".toList
 
 private def nameChar (c : Char) : Type :=
   nameStart c ⊕ isDigit c
+
+def decides (T : Type) : Type := T ⊕ (T → Empty)
+
+
+def toListDecide (x : α) (xs : List α) [DecidableEq α]: decides (Member x xs)  :=
+  match xs with
+  | [] => .inr (fun m => by cases m)
+  | y :: ys =>  if h : x = y then
+    .inl (h ▸ .head)
+  else
+    match toListDecide x ys with
+    | .inl m => .inl (.tail m)
+    | .inr nm => .inr (fun m => match m with
+      | .head => by simp only [not_true_eq_false] at h
+      | .tail m' => nm m')
+
+def plusDecide (x : decides A) (y : decides B) : decides (A ⊕ B) :=
+  match x with
+  | .inl xa => .inl (.inl xa)
+  | .inr xna => match y with
+    | .inl yb => .inl $ .inr yb
+    | .inr ynb => .inr (Sum.elim xna ynb)
+
+def nameStartDecide (c : Char) : decides (nameStart c) :=
+  plusDecide (toListDecide c "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".toList) (toListDecide c "-$._".toList)
+
+
+def nameCharDecide (c : Char) : decides (nameChar c) :=
+  plusDecide (nameStartDecide c) (toListDecide c "0123456789".toList)
 
 private def bareName (s : String) : Type :=
   match s.toList with
@@ -131,11 +160,17 @@ inductive WordToken : String → Token → Type where
   | keyword (k : Keyword) : WordToken k.spelling (.kw k)
   | intType {s : String} {n : Nat} : digitsNum s n → n ≠ 0 → WordToken ("i" ++ s) (.intType n)
 
+def isWs (c : Char) : Type :=
+  Member c " \t\n\r".toList
+
+def decideWS (c : Char) : decides (isWs c) :=
+  toListDecide c " \t\n\r".toList
+
 /-- Spellings of the tokens in the example; boundaries belong to `Lexes`. -/
 inductive TokenRepresentation : String → Token → Type where
   | eof : TokenRepresentation "" .Eof
   | ws {s : String} : PLift (s ≠ "") →
-      All (Member · " \t\n\r".toList) s.toList →
+      All isWs s.toList →
       TokenRepresentation s .ws
   | comment {line : String} {endChar : Char}
      :  noLinebreaks line → Member endChar "\n\r".toList →
@@ -154,17 +189,17 @@ inductive TokenRepresentation : String → Token → Type where
   | integer {s : String} {value : Int} : decimalInteger s value →
       TokenRepresentation s (.APSInt value)
 
-private def nameStartBool (c : Char) : Bool :=
-  c.isAlpha || c == '-' || c == '$' || c == '.' || c == '_'
+private def lineCharDecide (c : Char) :
+    decides ((PLift (c = '\n') ⊕ PLift (c = '\r')) → Empty) :=
+  if hn : c = '\n' then
+    .inr (fun h => h (.inl ⟨hn⟩))
+  else if hr : c = '\r' then
+    .inr (fun h => h (.inr ⟨hr⟩))
+  else
+    .inl (fun h => match h with
+      | .inl h => (hn h.down).elim
+      | .inr h => (hr h.down).elim)
 
-private def nameCharBool (c : Char) : Bool :=
-  nameStartBool c || c.isDigit
-
-private def lineCharBool (c : Char) : Bool :=
-  c != '\n' && c != '\r'
-
-private def wsBool (c : Char) : Bool :=
-  " \t\n\r".toList.contains c
 
 /-- The chosen lexeme cannot be extended to another token at this position. -/
 private def MaximalToken (piece rest : String) : Type :=
@@ -176,9 +211,10 @@ private def MaximalToken (piece rest : String) : Type :=
 private def WordBoundary' (tok : Token) (rest : List Char) : Type :=
   match tok, rest with
   | .kw _, (c :: _)
-  | .intType _, (c :: _)  => PLift (!nameCharBool c)
+  | .intType _, (c :: _)  => nameChar c → Empty
   | _, _ => Unit
 
+-- nameChar
 private def WordBoundary (tok : Token) (rest : String) : Type :=
   WordBoundary' tok rest.toList
 
@@ -215,46 +251,75 @@ private def classifyWord (w : String) : Option Token :=
       else none
   | none, _ => none
 
-/-- Scan one non-EOF token, returning its spelling, token, and remaining input.
-Empty input is rejected with `noProgress`; the tokenizer handles EOF separately.
-Only valid labels take priority over integer prefixes: `12:` scans as integer
-`12` with `:` remaining, whereas `1ret:` scans as a single label. -/
+-- def hasSpan (p : A → Type) (l : List A) : Type :=
+--   Σ (pre suf : List A), PLift (l = pre ++ suf) × All p pre
+inductive HasSpan (p : A → Type) : List A → List A → List A →  Type where
+  | nonempty (x : A) (pre suf : List A) : All p pre → (p x → Empty) → HasSpan p pre (x :: suf) (pre ++ x :: suf)
+  | all (pre : List A) : All p pre → HasSpan p pre [] pre
+
+/-- Compute a maximal prefix, retaining the witnesses for every accepted element. -/
+def decideSpan {p : α → Type} (dp : (x : α) → decides (p x))
+    (as : List α) : Σ (pre suf : List α), HasSpan p pre suf as :=
+  loop as
+where
+  loop : (xs : List α) → Σ (pre suf : List α), HasSpan p pre suf xs
+    | [] => ⟨[], [], .all [] .nil⟩
+    | a :: xs =>
+        match dp a with
+        | .inr hn => ⟨[], a :: xs, .nonempty a [] xs .nil hn⟩
+        | .inl ha =>
+            match xs, loop xs with
+            | _, ⟨_, _, .all pre hp⟩ =>
+                ⟨a :: pre, [], .all (a :: pre) (.cons ha hp)⟩
+            | _, ⟨_, _, .nonempty x pre suf hp hn⟩ =>
+                ⟨a :: pre, x :: suf, .nonempty x (a :: pre) suf (.cons ha hp) hn⟩
+
+/-- Scan one non-EOF token, returning its spelling, token, and remaining input.. -/
 def scanOne : List Char → Except TokenizationError (List Char × Token × List Char)
   | [] => .error .noProgress
   | c :: cs => do
       let (tok, rest) ←
-        if wsBool c then
-          .ok (.ws, cs.dropWhile wsBool)
-        else if c == ';' then
-          .ok (.comment, (cs.dropWhile lineCharBool).drop 1)
-        else if c == '@' || c == '%' then
-          if cs.head?.any nameStartBool then
-            let (name, rest) := cs.span nameCharBool
-            let name := String.ofList name
-            .ok (if c == '@' then .GlobalVar name else .LocalVar name, rest)
-          else .error (.expectedNameAfter c)
-        else if nameCharBool c then
-          let (word, after) := (c :: cs).span nameCharBool
-          let word := String.ofList word
-          -- Only valid labels take priority. A purely numeric word falls through
-          -- to integer scanning, leaving any following colon unconsumed.
-          if after.head? == some ':' && !word.all Char.isDigit then
-            .ok (.LabelStr word, after.drop 1)
-          else if c.isDigit || (c == '-' && cs.head?.any Char.isDigit) then
-            let (sign, body) := if c == '-' then ("-", cs) else ("", c :: cs)
-            let (ds, rest) := body.span Char.isDigit
-            let spelling := sign ++ String.ofList ds
-            match spelling.toInt? with
-            | some n => .ok (.APSInt n, rest)
-            | none => .error (.invalidInteger spelling)
-          else
-            match classifyWord word with
-            | some tok => .ok (tok, after)
-            | none => .error (.unsupportedWord word)
-        else
-          match Punct.all.find? (·.char == c) with
-          | some p => .ok (.punct p, cs)
-          | none => .error (.unexpectedChar c)
+        match decideWS c with
+        | .inl _ =>
+            let ⟨_, rest, _⟩ := decideSpan decideWS cs
+            .ok (.ws, rest)
+        | .inr _ =>
+            if c == ';' then
+              let ⟨_, rest, _⟩ := decideSpan lineCharDecide cs
+              .ok (.comment, rest.drop 1)
+            else if c == '@' || c == '%' then
+              match cs with
+              | [] => .error (.expectedNameAfter c)
+              | first :: _ =>
+                  match nameStartDecide first with
+                  | .inr _ => .error (.expectedNameAfter c)
+                  | .inl _ =>
+                      let ⟨name, rest, _⟩ := decideSpan nameCharDecide cs
+                      let name := String.ofList name
+                      .ok (if c == '@' then .GlobalVar name else .LocalVar name, rest)
+            else
+              match nameCharDecide c with
+              | .inl _ =>
+                  let ⟨word, after, _⟩ := decideSpan nameCharDecide (c :: cs)
+                  let word := String.ofList word
+                  if after.head? == some ':' && !word.all Char.isDigit then
+                    .ok (.LabelStr word, after.drop 1)
+                  else if c.isDigit || (c == '-' && cs.head?.any Char.isDigit) then
+                    let (sign, body) := if c == '-' then ("-", cs) else ("", c :: cs)
+                    let ⟨ds, rest, _⟩ := decideSpan
+                      (fun c => toListDecide c "0123456789".toList) body
+                    let spelling := sign ++ String.ofList ds
+                    match spelling.toInt? with
+                    | some n => .ok (.APSInt n, rest)
+                    | none => .error (.invalidInteger spelling)
+                  else
+                    match classifyWord word with
+                    | some tok => .ok (tok, after)
+                    | none => .error (.unsupportedWord word)
+              | .inr _ =>
+                  match Punct.all.find? (·.char == c) with
+                  | some p => .ok (.punct p, cs)
+                  | none => .error (.unexpectedChar c)
       let piece := (c :: cs).take ((c :: cs).length - rest.length)
       return (piece, tok, rest)
 
@@ -267,11 +332,6 @@ theorem scanOne_success {piece rest : String} {tok : Token} :
 
 #reduce scanOne_success (piece := "12") (tok := .APSInt 12) (rest := ":")
 #eval  scanOne ("12" ++ ":").toList
-example : False := by
-  have := scanOne_success (piece := "12") (tok := .APSInt 12) (rest := ":")
-  simp at this
-
-  sorry
 
 /-- The executable lexer for the token subset above. -/
 private def tokenizerChars : List Char → Except TokenizationError (List (String × Token))
@@ -314,6 +374,7 @@ entry:
 
 #eval (tokenizer deMorganExample)
 #eval tokenizer "  \n\t%foo = -12; comment\n"
+#eval tokenizer "  \n\t12:\n"
 
 theorem tokenizer_success : Lexes s ts → tokenizer s = .ok ts := sorry
 
