@@ -5,6 +5,10 @@ import Std.Internal.Order.Basic
 
 public section
 
+/-!
+Results around order theory useful for tower induction
+-/
+
 open Lean.Order
 
 instance : PartialOrder Prop where
@@ -25,7 +29,7 @@ instance : CompleteLattice Prop where
       rcases h' with ⟨x, hx, hcx⟩
       apply (h x hcx hx)⟩
 
-theorem inf_binary_rel (P : (α → β → Prop) → Prop) : forall x y, inf P x y ↔ forall R, P R → R x y := by
+theorem inf_iff_binary_rel (P : (α → β → Prop) → Prop) : ∀ x y, inf P x y ↔ ∀ R, P R → R x y := by
   intros x y
   constructor
   · intros hinf R h
@@ -35,7 +39,7 @@ theorem inf_binary_rel (P : (α → β → Prop) → Prop) : forall x y, inf P x
     apply hle
     apply hinf
   · intros h
-    have hle : Lean.Order.PartialOrder.rel (fun x y => forall R, P R → R x y) (inf P) := by
+    have hle : Lean.Order.PartialOrder.rel (fun x y => ∀ R, P R → R x y) (inf P) := by
       apply le_inf
       intros R h
       simp only [PartialOrder.rel]
