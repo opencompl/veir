@@ -16,10 +16,13 @@
     // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i8) -> i64
     %trunc = "gmir.g_trunc"(%x_i128) : (i128) -> i8
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i128) -> i8
+    %frame_index = "gmir.g_frame_index"() <{size = 16 : i64, alignment = 8 : i64}> : () -> !llvm.ptr
+    // CHECK-NEXT: "gmir.g_frame_index"() <{"alignment" = 8 : i64, "size" = 16 : i64}> : () -> !llvm.ptr
     %llvm_add = "llvm.add"(%x_i8, %x_i8) : (i8, i8) -> i8
     // Non gMIR instructions are all legal for now!
     // CHECK-NEXT: "llvm.add"({{.*}}) : (i8, i8) -> i8
     "test.test"(%add, %cmp, %ptr_cmp, %sext, %trunc, %llvm_add) : (i64, i64, i64, i64, i8, i8) -> ()
+    "test.test"(%frame_index) : (!llvm.ptr) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -1,6 +1,9 @@
 module
 
 public import Veir.Pass
+import Veir.DataLayout.RISCV64
+import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -22,6 +25,8 @@ namespace Veir
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
+  - Upstream records a static alloca's size and alignment in `MachineFrameInfo`; we have no frame
+    info, so `gmir.g_frame_index` carries them as properties. The layout is always RISC-V 64's.
 -/
 
 /-! ## Lowering Patterns -/
@@ -191,6 +196,38 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
   | .integerType i, .byteType b => i.bitwidth = b.bitwidth && 0 < i.bitwidth
   | _, _ => false
 
+/--
+  Static `llvm.alloca` -> `gmir.g_frame_index` (see `translateAlloca`).
+  An allocation is static if its count is a constant, it is in the entry block of a function and
+  it is not `inalloca`. The count is read here, at its original width, so it never needs to be
+  legalized. Dynamic allocations, which upstream translates to `G_DYN_STACKALLOC`, are left as is.
+-/
+def frameIndexLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
+  if properties.inalloca then return (ctx, none)
+  let resultType := (op.getResult 0).getType! ctx.raw
+  let .llvmPointerType _ := resultType.val | return (ctx, none)
+  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
+  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
+  let some entry := funcOp.getEntryBlock? | return (ctx, none)
+  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
+  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
+  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
+  let size := count.toNat * layout.allocSize
+  /- Do not silently wrap the object's size to a signed 64-bit value. -/
+  if size >= 2 ^ 63 then return (ctx, none)
+  let alignment : Int := if properties.alignment.value = 0 then layout.abiAlignment
+    else properties.alignment.value
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
+    return (ctx, none)
+  let props : GMIRFrameIndexProperties :=
+    { size := BitVec.ofNat 64 size
+      alignment := BitVec.ofInt 64 alignment }
+  let (ctx, frameIndexOp) ← WfRewriter.createOp! ctx GMIR.g_frame_index #[resultType]
+      #[] #[] #[] props none
+  some (ctx, some (#[frameIndexOp], #[frameIndexOp.getResult 0]))
+
 /-! ## Pass implementation -/
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
@@ -200,6 +237,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_and.run, g_or.run, g_xor.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_constant.run, g_truncByte.run, byteIntBitcast.run,
+    .fromLocalRewrite frameIndexLocal,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with

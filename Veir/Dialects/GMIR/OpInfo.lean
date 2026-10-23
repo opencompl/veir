@@ -37,6 +37,7 @@ inductive GMIR where
 | g_trunc
 | g_sext_inreg
 | g_constant
+| g_frame_index
 | g_inttoptr
 | g_ptrtoint
 | g_bswap
@@ -66,6 +67,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_zext => NnegProperties
   | .g_sext_inreg => SextInRegProperties
   | .g_constant => GMIRConstantProperties
+  | .g_frame_index => GMIRFrameIndexProperties
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
@@ -84,6 +86,7 @@ def GMIR.fromAttrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
   case g_sext_inreg => exact SextInRegProperties.fromAttrDict attrDict
   case g_constant => exact GMIRConstantProperties.fromAttrDict attrDict
+  case g_frame_index => exact GMIRFrameIndexProperties.fromAttrDict attrDict
   case g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
@@ -119,6 +122,10 @@ def GMIR.toAttrDict
   | .g_zext => props.toAttrDict
   | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
   | .g_constant => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (.integerAttr props.value)
+  | .g_frame_index => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 2
+    dict := dict.insert "size".toUTF8 (i64Attr props.size)
+    dict.insert "alignment".toUTF8 (i64Attr props.alignment)
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
@@ -175,7 +182,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_bswap | .g_bitreverse | .g_abs | .g_sext_inreg =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
-  | .g_constant =>
+  | .g_constant | .g_frame_index =>
     { outOperandList := #[.type 0]
       inOperandList := #[] }
 
@@ -271,6 +278,9 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val | none
     return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth properties.value.value))], mem, none)
+  | .g_frame_index => do
+    let (mem, addr) ← mem.alloc properties.size.toNat.toUInt64
+    return (#[.addr (.val addr)], mem, none)
   | .g_mul => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -500,6 +510,14 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if props.value.type ≠ ((opPtr.getResult 0).getType! ctx.raw).val then
       throw "gmir.g_constant: Expected result type to be equal to the constant's type"
     opPtr.verifyNormalizedIntegerAttr ctx opIn props.value
+  | .g_frame_index =>
+    ((opPtr.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "gmir.g_frame_index: Expected result to have !llvm.ptr type"
+    let props := opPtr.getProperties! ctx.raw GMIR.g_frame_index
+    if props.size.toInt < 0 then
+      throw "gmir.g_frame_index: size must be nonnegative"
+    if props.alignment.toInt ≤ 0 || props.alignment &&& (props.alignment - 1) ≠ 0 then
+      throw "gmir.g_frame_index: alignment must be a positive power of two"
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
@@ -509,10 +527,12 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg => true
-  | .g_constant => false
+  | .g_constant | .g_frame_index => false
 
-def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
-  .none
+def GMIR.getEffects (op : GMIR) (_props : GMIR.propertiesOf op) : MemoryEffects :=
+  match op with
+  | .g_frame_index => .allocate
+  | _ => .none
 
 def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
