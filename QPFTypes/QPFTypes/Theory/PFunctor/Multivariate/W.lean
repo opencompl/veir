@@ -235,12 +235,11 @@ abbrev objAppend1 {α : TypeVec n} {β : Type u} (a : P.A) (f' : P.drop.B a ⟹ 
     (f : P.last.B a → β) : P (α ::: β) :=
   ⟨a, splitFun f' f⟩
 
-set_option backward.isDefEq.respectTransparency false in
 theorem map_objAppend1 {α γ : TypeVec n} (g : α ⟹ γ) (a : P.A) (f' : P.drop.B a ⟹ α)
     (f : P.last.B a → P.W α) :
     P.map (appendFun g (P.wMap g)) (P.objAppend1 a f' f) =
       P.objAppend1 a (g ⊚ f') fun x => P.wMap g (f x) := by
-  rw [objAppend1, objAppend1, map_eq, appendFun, ← splitFun_comp]; rfl
+  erw [objAppend1, objAppend1, map_eq, appendFun, ← splitFun_comp]; rfl
 
 /-!
 Yet another view of the W type: as a fixed point for a multivariate polynomial functor.

@@ -11,7 +11,7 @@
     "llvm.call"() <{callee = @ghc}> : () -> ()
     "llvm.call"(%p) <{callee = @discardable}> : (!llvm.ptr) -> ()
     "llvm.call"(%p) <{callee = @"nonutf8\FF"}> : (!llvm.ptr) -> ()
-    // Supported declarations, unresolved external symbols, and indirect calls
+    // Supported declarations, including external ones, and indirect calls
     // remain eligible. An unsupported symbol in a nested module is unrelated.
     "llvm.call"(%p) <{callee = @ordinary}> : (!llvm.ptr) -> ()
     "llvm.call"() <{callee = @external}> : () -> ()
@@ -37,6 +37,7 @@
   "llvm.func"() <{sym_name = "nonutf8\FF", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.byval = i64}], sym_visibility = "private"}> ({}) : () -> ()
   "llvm.func"() <{sym_name = "ordinary", function_type = !llvm.func<void (ptr)>, arg_attrs = [{llvm.noundef}], sym_visibility = "private"}> ({}) : () -> ()
   "llvm.func"() <{sym_name = "shadow", function_type = !llvm.func<void (ptr)>, sym_visibility = "private"}> ({}) : () -> ()
+  "llvm.func"() <{sym_name = "external", function_type = !llvm.func<void ()>}> ({}) : () -> ()
 
   "builtin.module"() ({
     "llvm.func"() <{sym_name = "nested_caller", function_type = !llvm.func<void (ptr)>}> ({

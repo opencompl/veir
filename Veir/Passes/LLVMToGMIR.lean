@@ -48,7 +48,7 @@ def lowerBinop (lOp : Llvm) (gOp : GMIR)
     (fun (resultType, lhs, rhs, root) => do
       let props ← Puddle.CreateProg.applyNative root.properties
                     (fun p => some (cast h p))
-      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[lhs, rhs] #[resultType] props
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[lhs, rhs] #[resultType] (.inr props)
       return newOp)
     (fun newOp => newOp)
 
@@ -96,7 +96,7 @@ def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
     (fun (resultType, operand, root) => do
       let props ← Puddle.CreateProg.applyNative root.properties
                     (fun p => some (cast h p))
-      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] props
+      let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] (.inr props)
       return newOp)
     (fun newOp => newOp)
 
@@ -156,7 +156,7 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
         match props.value with
         | .integer value => some (GMIRConstantProperties.mk value)
         | _ => none
-      Puddle.CreateProg.operation (.gmir .g_constant) #[] #[resultType] props)
+      Puddle.CreateProg.operation (.gmir .g_constant) #[] #[resultType] (.inr props))
     (fun newOp => newOp)
 
 def g_constant := lowerIntegerConstant.compile
@@ -189,14 +189,13 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
           operandType TypeAttr.intOfByte?
       let intResultType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
           resultType TypeAttr.intOfByte?
-      let castProps ← Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[operand] #[intOperandType] castProps
+          #[operand] #[intOperandType]
       let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
       let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!]
-          #[intResultType] props
+          #[intResultType] (.inr props)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
-          #[resultType] castProps)
+          #[resultType])
     (fun castBackOp => castBackOp)
 
 def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
@@ -219,14 +218,13 @@ def lowerByteShift (lOp : Llvm) (gOp : GMIR)
     (fun (byteType, value, amount, root) => do
       let intType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
           byteType TypeAttr.intOfByte?
-      let castProps ← Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[value] #[intType] castProps
+          #[value] #[intType]
       let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
       let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!, amount]
-          #[intType] props
+          #[intType] (.inr props)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
-          #[byteType] castProps)
+          #[byteType])
     (fun castBackOp => castBackOp)
 
 def g_shlByte := (lowerByteShift .shl .g_shl).compile
@@ -254,9 +252,7 @@ def lowerByteIntBitcast : Puddle.Pattern OpCode :=
           fun (operandType, resultType) => isByteIntBitcast operandType resultType
       return (resultType, operand))
     (fun (resultType, operand) => do
-      let castProps ← Puddle.CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[operand] #[resultType]
-          castProps)
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[operand] #[resultType])
     (fun castOp => castOp)
 
 def byteIntBitcast := lowerByteIntBitcast.compile

@@ -37,16 +37,14 @@ def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] castProps
+          #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+          #[rhs] #[regType]
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvProps
       CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castProps)
+          #[riscvResOp.res[0]!] #[opType])
     (fun castBackOp => castBackOp)
 
 end
