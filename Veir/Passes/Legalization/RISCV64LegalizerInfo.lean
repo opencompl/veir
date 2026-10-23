@@ -114,6 +114,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_frame_index => [
+      .legalFor [p0],
+    ]
     | _ => []
   legalizeCustom
     | .g_add => customLegalizeWord .g_add .addw ()

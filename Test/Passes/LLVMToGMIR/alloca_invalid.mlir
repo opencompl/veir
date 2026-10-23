@@ -1,9 +1,9 @@
-// RUN: veir-opt %s -p=isel-riscv64 > %t
+// RUN: veir-opt %s -p=llvm-to-gmir > %t
 // RUN: filecheck %s --input-file=%t
 // RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
 
 // ABSENT: "builtin.module"
-// ABSENT-NOT: riscv_stack.alloca
+// ABSENT-NOT: gmir.g_frame_index
 
 // Unsupported allocations remain LLVM operations. Keep their results live so
 // the greedy driver's ordinary dead-code elimination does not erase them.
@@ -29,7 +29,7 @@
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = !llvm.struct<"unresolved_t">}>
 
     // The byte size must fit a signed 64-bit value without wrapping, even for a
-    // wide count: `riscv_stack.alloca` stores it as a nonnegative `BitVec 64`.
+    // wide count: `gmir.g_frame_index` stores it as a nonnegative `BitVec 64`.
     %overflow = "llvm.alloca"(%large) <{elem_type = i64}> : (i64) -> !llvm.ptr
     // CHECK: "llvm.alloca"({{.*}}) <{"alignment" = 0 : i64, "elem_type" = i64}>
     %signed_overflow = "llvm.alloca"(%large) <{elem_type = i32}> : (i64) -> !llvm.ptr

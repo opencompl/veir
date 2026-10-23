@@ -33,6 +33,7 @@
   %ctpop = "gmir.g_ctpop"(%c) : (i64) -> i32
   %sext_inreg = "gmir.g_sext_inreg"(%c) <{sz = 32 : i64}> : (i64) -> i64
   %constant = "gmir.g_constant"() <{value = -1 : i8}> : () -> i8
+  %frame_index = "gmir.g_frame_index"() <{size = 16 : i64, alignment = 8 : i64}> : () -> !llvm.ptr
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -66,3 +67,4 @@
 // CHECK: "gmir.g_ctpop"(%{{.*}}) : (i64) -> i32
 // CHECK: "gmir.g_sext_inreg"(%{{.*}}) <{"sz" = 32 : i64}> : (i64) -> i64
 // CHECK: "gmir.g_constant"() <{"value" = -1 : i8}> : () -> i8
+// CHECK: "gmir.g_frame_index"() <{"alignment" = 8 : i64, "size" = 16 : i64}> : () -> !llvm.ptr

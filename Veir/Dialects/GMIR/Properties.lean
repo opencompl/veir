@@ -27,6 +27,21 @@ def GMIRConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
   return { value := intAttr }
 
 /--
+Properties of `gmir.g_frame_index`: the size and alignment, in bytes, of the stack object.
+Upstream keeps these in `MachineFrameInfo` and only references the object by index.
+-/
+structure GMIRFrameIndexProperties where
+  size : BitVec 64
+  alignment : BitVec 64
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def GMIRFrameIndexProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String GMIRFrameIndexProperties := do
+  let size ← getI64Attr "gmir.g_frame_index" "size" attrDict
+  let alignment ← getI64Attr "gmir.g_frame_index" "alignment" attrDict
+  return { size, alignment }
+
+/--
 Properties of `gmir.g_sext_inreg`. `sz` is the number of low bits that are kept.
 -/
 structure SextInRegProperties where
