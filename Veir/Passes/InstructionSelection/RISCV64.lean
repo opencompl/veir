@@ -121,18 +121,6 @@ def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp :
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.add` (`i64`) -> `riscv.add`. -/
-def add64_pattern : Pattern OpCode := lowerBinary (.llvm .add) (fun t => t.bitwidth = 64) .add ()
-
-/-- `llvm.add` (`i32`) -> `riscv.addw` (keeps the result sign-extended). -/
-def add32_pattern : Pattern OpCode := lowerBinary (.llvm .add) (fun t => t.bitwidth = 32) .addw ()
-
-/-- `llvm.sub` (`i64`) -> `riscv.sub`. -/
-def sub64_pattern : Pattern OpCode := lowerBinary (.llvm .sub) (fun t => t.bitwidth = 64) .sub ()
-
-/-- `llvm.sub` (`i32`) -> `riscv.subw`. -/
-def sub32_pattern : Pattern OpCode := lowerBinary (.llvm .sub) (fun t => t.bitwidth = 32) .subw ()
-
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
 def umax_pattern : Pattern OpCode :=
@@ -360,12 +348,6 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-- llvm.add -> riscv.add -/
-def add64 : Puddle.CompiledPattern OpCode := add64_pattern.compile
-
-/-- llvm.add -> riscv.addw (riscv.addw for i32, keeps the result sign-extended) -/
-def add32 : Puddle.CompiledPattern OpCode := add32_pattern.compile
-
 /-! ### `gmir.icmp` lowering
 
     gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
@@ -478,12 +460,6 @@ def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
   | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, icmpOneImm⟩)
   | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, icmpOneImm⟩)
   | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
-
-/-- llvm.sub -> riscv.sub -/
-def sub64 : Puddle.CompiledPattern OpCode := sub64_pattern.compile
-
-/-- llvm.sub -> riscv.subw -/
-def sub32 : Puddle.CompiledPattern OpCode := sub32_pattern.compile
 
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
@@ -2201,10 +2177,10 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectGeneral.run,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
-    constant.run, addressof, add32.run, add64.run] ++
+    constant.run, addressof] ++
     #[
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run,
-    sub64.run, sub32.run, bitcast.run] ++
+    bitcast.run] ++
     load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
