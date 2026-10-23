@@ -179,6 +179,11 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
     { outOperandList := #[.type 0]
       inOperandList := #[] }
 
+/-- The number of distinct type groups of `opCode`. -/
+def GMIR.numTypeGroups (opCode : GMIR) : Nat :=
+  let info := opCode.genericOpInfo
+  (info.outOperandList ++ info.inOperandList).toList.eraseDups.length
+
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
     (ctx : IRContext OpInfo) : Array (TypeGroup × TypeAttr) :=

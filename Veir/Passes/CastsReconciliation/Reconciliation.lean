@@ -49,7 +49,7 @@ def isCirToIntRoundTrip (inputType interType : TypeAttr) : Bool :=
 
   The parent cast is left in place: it is now dead, and DCE (run at the end of the pass) removes
   it. A `LocalRewritePattern` may only erase the matched operation. -/
-def reconcilePairingCastLocal (legal : TypeAttr → TypeAttr → Bool) (ctx : WfIRContext OpCode)
+public def reconcilePairingCastLocal (legal : TypeAttr → TypeAttr → Bool) (ctx : WfIRContext OpCode)
     (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some input := matchCastOp op ctx.raw | return (ctx, none)

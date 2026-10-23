@@ -49,13 +49,6 @@ def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op
   | some functionInterface => some { functionInterface, functionInterface?_eq := h }
   | none => none
 
-@[simp]
-theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
-    of? op ctx = some funcOp := by
-  rcases funcOp with ⟨⟨⟩⟩; grind [of?]
-
-grind_pattern of?_eq_some => of? op ctx, funcOp.functionInterface
-
 /--
 The `FunctionOp` view of a function-like operation.
 

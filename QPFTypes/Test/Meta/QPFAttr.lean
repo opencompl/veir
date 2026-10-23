@@ -271,17 +271,35 @@ variable (A : Type v)
 #gsynth QPF (@TypeFun.ofCurried 1 (UniversePi A))
 #gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 (UniversePi A))
 
+-- A dead component of a product may live in a lower universe than the QPF
+@[qpf] def ProdDeadLeft (α : liveParam (Type u)) := Nat × α
+
+#gsynth QPF (@TypeFun.ofCurried 1 ProdDeadLeft)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 ProdDeadLeft)
+
+#guard_msgs (drop error) in
+@[qpf] def ProdDeadRight (α : liveParam (Type u)) := α × Nat
+-- FIXME: the above currently fails, but ought to work
+
 end
+
+/-!
+## Point-free
+-/
+
+@[qpf] def AlsoFst : liveParam Type → liveParam Type → Type :=
+  Fst
+
+#gsynth QPF (@TypeFun.ofCurried 2 AlsoFst)
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 AlsoFst)
 
 /-!
 ## Rejected targets
 -/
 
 /--
-error: While deriving a QPF from type expression:
-  α → Nat
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsLiveDomain
 
 the domain of a function type may not mention live variables:
   α
@@ -290,29 +308,10 @@ a function type is not functorial in its domain.
 #guard_msgs in
 @[qpf] def FailsLiveDomain (α : liveParam Type) := α → Nat
 
--- Both components of a product must live in the universe of the QPF, as the
--- `QPF` instance only exists for `Prod.{u, u}`.
-/--
-error: While deriving a QPF from type expression:
-  Nat × α
-With live free variables:
-  [α]
-
-failed to find a QPF in the head of the application:
-  Nat × α
-note that the head, after applying it to zero or more of the arguments, must be a type function with a `QPF` instance
--/
-#guard_msgs in
-@[qpf] def FailsProdUniverse (α : liveParam (Type 1)) := Nat × α
--- FIXME: the `FailsProdUniverse` really ought to work, since the `Nat` is dead.
---        that is, we should have a `QPF` instance for `Prod Nat`
-
 
 /--
-error: While deriving a QPF from type expression:
-  Indexed α α
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsLiveHead
 
 the head of the application still contains live variables:
   Indexed α
@@ -321,10 +320,8 @@ the head of the application still contains live variables:
 @[qpf] def FailsLiveHead (α : liveParam Type) := Indexed α α
 
 /--
-error: While deriving a QPF from type expression:
-  NotAQpf α
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsNotAQpf
 
 failed to find a QPF in the head of the application:
   NotAQpf α
@@ -336,18 +333,19 @@ note that the head, after applying it to zero or more of the arguments, must be 
 -- A target that is not a type at all. The `let` keeps `ofTypeDef` from treating
 -- the lambda's binder as just another (dead) parameter.
 /--
-error: While deriving a QPF from type expression:
-  have f := fun x => α;
-  f
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsNotAType
 
-type expected
-  have f := fun x => α;
-  f
+non-live parameter:
+  a✝ : Nat
+occurs after live parameter:
+  α : liveParam Type
+
+Note that all non-live parameters must precede the live parameters.
 -/
 #guard_msgs in
-@[qpf] def FailsNotAType (α : liveParam Type) : Nat → Type := let f := fun (_ : Nat) => α; f
+@[qpf] def FailsNotAType (α : liveParam Type) : Nat → Type :=
+  let f := fun (_ : Nat) => α; f
 
 /-!
 ## Attribute kinds

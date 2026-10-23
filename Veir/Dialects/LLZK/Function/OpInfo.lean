@@ -111,6 +111,12 @@ def LLZK.Function.functionInterface? (op : LLZK.Function) :
           { props with function_type := functionType } }
   | .return | .call => none
 
+def LLZK.Function.callOpInterface? (op : LLZK.Function) :
+    Option (CallOpInterface (LLZK.Function.propertiesOf op)) :=
+  match op with
+  | .call => some { getCallableForCallee? := fun props _ => some (.symbol props.callee) }
+  | .«def» | .return => none
+
 /-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
 https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L338-L383
 
@@ -275,6 +281,7 @@ instance : HasOpInfo LLZK.Function where
   isConstantLike := LLZK.Function.isConstantLike
   symbolInterface? := LLZK.Function.symbolInterface?
   functionInterface? := LLZK.Function.functionInterface?
+  callOpInterface? := LLZK.Function.callOpInterface?
   hasSSADominance := LLZK.Function.hasSSADominance
   isTerminator := LLZK.Function.isTerminator
   isIsolatedFromAbove := LLZK.Function.isIsolatedFromAbove
