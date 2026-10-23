@@ -71,11 +71,13 @@ meta def elabReducePuddleSupportedHead : Lean.Elab.Tactic.Grind.SymSimprocElab :
 register_sym_simp puddleSupported where
   pre := control
   post := ground >> rewrite [
+    Veir.Puddle.CTree.Pattern.Supported,
     Veir.Puddle.Pattern.Supported, Veir.Puddle.CreateProg.Supported,
     Veir.Puddle.MatchProg.Supported, Veir.Puddle.MatchDecl.Supported,
     Veir.Puddle.CreateDecl.Supported, Veir.Puddle.SupportedOpCode,
     List.forall_mem_cons, List.mem_nil_iff, false_implies, implies_true,
-    true_and, and_true] with self >> puddle_supported_head
+    true_and, and_true, ne_eq, Veir.Puddle.Handle.mk.injEq,
+    not_true_eq_false, not_false_eq_true, forall_const] with self >> puddle_supported_head
 
 /-- Prove opcode support with symbolic simplification. -/
 macro "provePuddleSupported" "sym" : tactic => do
@@ -160,9 +162,10 @@ register_sym_simp puddleProgram where
     List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
     Veir.Puddle.CTree.MatchProg.modelsDecls, Veir.Puddle.CTree.MatchDecl.Models,
     Veir.Puddle.CTree.CreateProg.interpretReplacement, Veir.Puddle.CTree.CreateProg.interpret,
-    Veir.Puddle.CTree.CreateProg.interpretDecls, Veir.Puddle.CTree.CreationM.bind_assoc,
-    Veir.Puddle.CTree.CreationM.pure_bind, Veir.Puddle.CTree.CreationM.bind_pure,
-    Veir.Puddle.CTree.CreationM.invalid_bind, Veir.Puddle.CTree.CreateDecl.interpret,
+    Veir.Puddle.CTree.CreateProg.interpretDecls, Veir.Puddle.CTree.CreateDecl.interpret,
+    Veir.Puddle.CTree.CreateProg.interpretDeclsWith, Veir.Puddle.CTree.CreateDecl.interpretWith,
+    Veir.Puddle.CTree.CreateProg.SafeReplacement, Veir.Puddle.CTree.CreateProg.SafeDeclsWith,
+    Veir.Puddle.CTree.CreateDecl.SafeWith, Veir.Puddle.CTree.MatchProg.interpretRoot,
     Veir.Interp.ok.injEq, Veir.Interp.ub.injEq, Veir.Interp.fail.injEq,
     Veir.Puddle.SemanticAssignment.getValues, Veir.Puddle.SemanticAssignment.getTypes,
     Veir.Puddle.SemanticAssignment.getValue, Veir.Puddle.SemanticAssignment.getType,
@@ -190,7 +193,7 @@ register_sym_simp puddleProgram where
     exists_false, false_or, exists_eq_left, exists_eq_right, forall_exists_index,
     forall_apply_eq_imp_iff, forall_eq_apply_imp_iff, true_and,
     Veir.RuntimeValue.arrayIsRefinedBy_cons, Veir.RuntimeValue.arrayIsRefinedBy_refl,
-    Veir.Puddle.Handle.mk.injEq, Veir.Puddle.CTree.CreationM.checked_bind_check] with self >> puddle_head
+    Veir.Puddle.Handle.mk.injEq] with self >> puddle_head
   maxSteps := 1000000
 
 /- Simplify a peeled outcome without expanding the remaining operation choices. -/
@@ -211,7 +214,7 @@ register_sym_simp puddleStep where
 /- Native metadata callbacks carry dependent tuple types and comparison instances.
 Unfold their deterministic plumbing before symbolic rule matching, which uses
 syntactic matching rather than the ordinary simplifier's definitional equality.
-The creation outcome relations remain opaque for the symbolic models_* rules. -/
+Operation interpreters remain opaque: this phase only eliminates handle bookkeeping. -/
 open Lean Elab Tactic in
 elab "unfoldPuddleSemanticsForSym" : tactic => withMainContext do
   let target ← getMainTarget
@@ -220,27 +223,92 @@ elab "unfoldPuddleSemanticsForSym" : tactic => withMainContext do
       e.isAppOf `Veir.Puddle.MatchDecl.inspectOperation).isSome then
     evalTactic (← `(tactic| simpPuddleCore []))
   else
-    evalTactic (← `(tactic| unfold Pattern.PreservesSemantics MatchProg.Models MatchProg.bindingDecls))
+    evalTactic (← `(tactic| simp only [Pattern.PreservesSemantics, Pattern.ConstructionSafe,
+      MatchProg.Models, MatchProg.bindingDecls]))
 
-/-- Normalize the creation program symbolically, preserving binds for explicit peeling. -/
-macro "simpPuddleProgramSym" "=>" body:tacticSeq : tactic => do
-  let variant := Lean.mkIdent `puddleProgram
+open Lean Elab Tactic in
+/-- Enforce the proof interface on expressions, including implicit type arguments.
+Assignments are an elaboration detail and must not reach the user's proof body. -/
+elab "puddleNoAssignments" : tactic => do
+  for goal in ← getGoals do
+    goal.withContext do
+      let check (e : Expr) : MetaM Unit := do
+        let e ← instantiateMVars e
+        if (e.find? fun
+          | .const name _ =>
+            (``SemanticAssignment).isPrefixOf name || (``SemanticBinding).isPrefixOf name
+          | _ => false).isSome then
+          throwError "Puddle normalization left a semantic assignment in the proof state"
+      check (← goal.getType)
+      for decl in ← getLCtx do
+        unless decl.isImplementationDetail do
+          check decl.type
+          if let some value := decl.value? then check value
+
+open Lean Elab Tactic in
+/-- Run symbolic program normalization without requiring the semantic proof to close. -/
+elab "normalizePuddleProgram" : tactic => withMainContext do
+  let params ← Meta.Grind.mkDefaultParams {}
+  let (_, state) ← Grind.GrindTacticM.runAtGoal (← getMainGoal) params («sym» := true) do
+    unless (← Grind.getGoals).isEmpty do
+      let (methods, config) ← Grind.elabSimpVariant `puddleProgram #[]
+      let goal ← Grind.getMainGoal
+      let result ← Grind.liftGrindM <|
+        Meta.Sym.simpGoalIgnoringNoProgress goal.mvarId methods config
+      match result with
+      | .closed => Grind.replaceMainGoal []
+      | .goal mvarId => Grind.replaceMainGoal [{ goal with mvarId }]
+      | .noProgress => pure ()
+  replaceMainGoal (state.goals.map (·.mvarId))
+  unless state.goals.isEmpty do
+    evalTactic (← `(tactic| simp only [Option.isSome_some, implies_true,
+      CTree.CTree.ret_pure, true_and]))
+
+/-- Normalize handle bookkeeping while leaving operation CTrees opaque. -/
+macro "simpPuddleProgramSym" "=>" body:tacticSeq : tactic =>
   `(tactic| (
     unfoldPuddleSemanticsForSym
-    sym =>
-      -- Native metadata callbacks can leave the plumbing normalized already.
-      try simp $variant:ident
-      tactic => $body))
+    normalizePuddleProgram
+    puddleNoAssignments
+    ($body:tacticSeq)))
 
-/-- Prove structural obligations symbolically, then peel the folded creation program. -/
-macro "provePuddleValid" "program" "sym" "=>" body:tacticSeq : tactic =>
-  `(tactic| (
+open Lean Elab Tactic in
+/-- Normalize CTree validity, leaving only assignment-free semantic obligations. -/
+elab "provePuddleCTreeValid" : tactic => withMainContext do
+  unless (← getMainTarget).isAppOf ``Pattern.Valid do
+    throwError "expected a CTree pattern validity goal"
+  evalTactic (← `(tactic| (
     unfoldPuddleBuilderForSym
     constructor
     · provePuddleSupported sym
     · cbv
     · open scoped Veir.Puddle.PuddleCbv in cbv
-    simpPuddleProgramSym => $body))
+    all_goals (
+      unfoldPuddleSemanticsForSym
+      all_goals normalizePuddleProgram)
+    puddleNoAssignments)))
+
+/-- Discharge structural obligations and erase assignments before the proof body. -/
+macro "provePuddleValid" "program" "sym" "=>" body:tacticSeq : tactic =>
+  `(tactic| (provePuddleCTreeValid; ($body:tacticSeq)))
+
+open Lean Elab Tactic in
+/-- Select the validity semantics from the goal, without hiding normalization failures. -/
+elab "provePuddleValidAuto" : tactic => withMainContext do
+  if (← getMainTarget).isAppOf ``Pattern.Valid then
+    evalTactic (← `(tactic| provePuddleCTreeValid))
+  else
+    evalTactic (← `(tactic| (
+      unfoldPuddleBuilder
+      constructor
+      · provePuddleSupported
+      · cbv
+      · open scoped Veir.Puddle.PuddleCbv in cbv
+      simpPuddleSemantics)))
+
+-- Keep the ordinary entry point usable for both validity definitions.
+macro_rules
+  | `(tactic| provePuddleValid) => `(tactic| provePuddleValidAuto)
 
 open Lean Elab Tactic in
 /-- Consume one operation choice, keeping later choices folded.

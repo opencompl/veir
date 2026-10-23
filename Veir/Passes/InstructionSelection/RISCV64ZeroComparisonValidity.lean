@@ -20,7 +20,7 @@ import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.LLVM.Properties
 import all Veir.IR.Attribute
 import all Init.Data.Array.Basic
-import all Veir.Passes.InstructionSelection.RISCV64ComparisonValidity
+import all Veir.Passes.InstructionSelection.RISCV64CastValidity
 import Veir.Passes.InstructionSelection.Proofs
 import all Veir.Data.Casting
 import all Veir.Data.Refinement
@@ -36,34 +36,9 @@ set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 section
 
-@[simp] private theorem CanInterpretTo.constant_int (ty : IntegerType) (attr : IntegerAttr)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.llvm .mlir__constant) { value := .integer attr }
-      #[TypeAttr.of IntegerType ty] #[] results ↔
-    results = .ok #[.int ty.bitwidth (.val (match attr.type.bitwidth with
-      | 1 => (BitVec.ofInt attr.type.bitwidth attr.value).zeroExtend ty.bitwidth
-      | _ => (BitVec.ofInt attr.type.bitwidth attr.value).signExtend ty.bitwidth))] := by
-  unfold CanInterpretTo
-  change (∀ memory : MemoryState, PureOrErr.CanInterpretTo (E := ErrorE ⊕ₑ UBE) (C := FreezeC)
-    (pure (#[.int ty.bitwidth (.val (match attr.type.bitwidth with
-      | 1 => (BitVec.ofInt attr.type.bitwidth attr.value).zeroExtend ty.bitwidth
-      | _ => (BitVec.ofInt attr.type.bitwidth attr.value).signExtend ty.bitwidth))], memory, none))
-    (results.map (·, memory, none))) ↔ _
-  cases results <;> simp
-
-private theorem constant_ctree_bits_eq_decode (w : Nat) (attr : IntegerAttr) :
-    (match attr.type.bitwidth with
-    | 1 => (BitVec.ofInt attr.type.bitwidth attr.value).zeroExtend w
-    | _ => (BitVec.ofInt attr.type.bitwidth attr.value).signExtend w) =
-      BitVec.ofInt w (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr) := by
-  unfold Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant
-  split
-  · rename_i h
-    simp only [h, ↓reduceIte, BitVec.zeroExtend]
-    rw [h, BitVec.ofInt_natCast, BitVec.ofNat_toNat]
-  · rename_i h
-    simp only [BitVec.signExtend]
-    rw [ite_eq_right h]
+attribute [local simp] monadLift MonadLift.monadLift interpretOpCTree Llvm.interpretOpCTree Llvm.interpretOp'
+  Tree.refines_pure OperationResult.isRefinedBy ControlFlowAction.optionIsRefinedBy_refl
+  RuntimeValue.arrayIsRefinedBy_cons
 
 private theorem icmp64_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.icmp_pattern 64 .eq true) := by
   conv => arg 1; cbv
@@ -88,10 +63,8 @@ private theorem icmp64_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Ins
           Interp.ok.injEq, Array.mk.injEq, List.cons.injEq, and_true] at hconst
         subst rhs
         obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        puddleSteps sym [
-          CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.sltiu_reg
-        ]
-        cases x <;> simp [CanInterpretTo.icmp_int (⟨64, hint⟩) (⟨1, resHint⟩), hprop]
+        simpRiscvTrees
+        cases x <;> simp [hprop]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
             Data.LLVM.Int.constant, Data.RISCV.li] using
@@ -124,11 +97,8 @@ private theorem icmp64_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Ins
           Interp.ok.injEq, Array.mk.injEq, List.cons.injEq, and_true] at hconst
         subst rhs
         obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        puddleSteps sym [
-          CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.li_reg,
-          CanInterpretTo.sltu_reg
-        ]
-        cases x <;> simp [CanInterpretTo.icmp_int (⟨64, hint⟩) (⟨1, resHint⟩), hprop]
+        simpRiscvTrees
+        cases x <;> simp [hprop]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
             Data.LLVM.Int.constant, Data.RISCV.li] using
@@ -160,11 +130,8 @@ private theorem icmp32_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Ins
           Interp.ok.injEq, Array.mk.injEq, List.cons.injEq, and_true] at hconst
         subst rhs
         obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        puddleSteps sym [
-          CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.sextw_reg,
-          CanInterpretTo.sltiu_reg
-        ]
-        cases x <;> simp [CanInterpretTo.icmp_int (⟨32, hint⟩) (⟨1, resHint⟩), hprop]
+        simpRiscvTrees
+        cases x <;> simp [hprop]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
             Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
@@ -196,11 +163,8 @@ private theorem icmp32_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Ins
           Interp.ok.injEq, Array.mk.injEq, List.cons.injEq, and_true] at hconst
         subst rhs
         obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        puddleSteps sym [
-          CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.sextw_reg,
-          CanInterpretTo.li_reg, CanInterpretTo.sltu_reg
-        ]
-        cases x <;> simp [CanInterpretTo.icmp_int (⟨32, hint⟩) (⟨1, resHint⟩), hprop]
+        simpRiscvTrees
+        cases x <;> simp [hprop]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
             Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
@@ -232,11 +196,8 @@ private theorem icmp8_eq_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Inst
           Interp.ok.injEq, Array.mk.injEq, List.cons.injEq, and_true] at hconst
         subst rhs
         obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        puddleSteps sym [
-          CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.sextb_reg,
-          CanInterpretTo.sltiu_reg
-        ]
-        cases x <;> simp [CanInterpretTo.icmp_int (⟨8, hint⟩) (⟨1, resHint⟩), hprop]
+        simpRiscvTrees
+        cases x <;> simp [hprop]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
             Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using
@@ -268,11 +229,8 @@ private theorem icmp8_ne_zero_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Inst
           Interp.ok.injEq, Array.mk.injEq, List.cons.injEq, and_true] at hconst
         subst rhs
         obtain ⟨x, rfl⟩ := RuntimeValue.Conforms.integerType.mp hleft
-        puddleSteps sym [
-          CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.sextb_reg,
-          CanInterpretTo.li_reg, CanInterpretTo.sltu_reg
-        ]
-        cases x <;> simp [CanInterpretTo.icmp_int (⟨8, hint⟩) (⟨1, resHint⟩), hprop]
+        simpRiscvTrees
+        cases x <;> simp [hprop]
         · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
             RuntimeValue.isRefinedBy, LLVM.Int.toReg, RISCVImmediateProperties.immField,
             Data.LLVM.Int.constant, Data.RISCV.li, Data.RISCV.xor, Data.RISCV.sextb, Data.RISCV.sextw, Data.RISCV.addiw] using

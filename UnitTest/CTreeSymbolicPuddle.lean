@@ -124,4 +124,119 @@ example (inspect rewrite) :
       throwError "symbolic builder normalization left unexpanded metadata allocation"
   all_goals simp [← Array.toList_inj]
 
+-- Probe the tactic boundary with opaque native callbacks. This checks normalization
+-- without assuming that an arbitrary metadata rewrite is semantically valid.
+example (_inspect : IRContext OpCode → OperationPtr → Option (MetadataValues OpCode Metadata))
+    (_rewrite : MetadataValues OpCode Metadata → Option (MetadataValues OpCode Metadata)) : True := by
+  run_tac
+    let saved ← Lean.Elab.Tactic.getGoals
+    let type ← Lean.Elab.Term.elabTerm
+      (← `(CTree.Pattern.Valid (rebuildWithMetadata $(Lean.mkIdent `_inspect) $(Lean.mkIdent `_rewrite)))) none
+    let probe ← Lean.Meta.mkFreshExprMVar type
+    Lean.Elab.Tactic.setGoals [probe.mvarId!]
+    Lean.Elab.Tactic.evalTactic (← `(tactic| (
+      unfold rebuildWithMetadata
+      provePuddleValid program sym =>
+        puddleNoAssignments)))
+    unless (← Lean.Elab.Tactic.getGoals).length == 2 do
+      throwError "opaque native construction must retain its separate success obligation"
+    Lean.Elab.Tactic.setGoals saved
+  trivial
+
 end PuddleSymbolicBuilderTest
+
+namespace CTreeExecutionTest
+
+-- Ordinary CTree bind does not execute a continuation after an abort.
+example (next : Nat → Tree Unit) :
+    Tree.interp_ub_and_error (CTree.bind (ub : Tree Nat) next) = pure (.ub none) := by
+  simp
+
+example (next : Nat → Tree Unit) :
+    Tree.interp_ub_and_error (CTree.bind (fail : Tree Nat) next) = pure (.fail none) := by
+  simp
+
+-- The adapter preserves each choice rather than selecting an outcome early.
+example (next : BitVec 8 → Tree Nat) :
+    Tree.interp_ub_and_error (do
+      let bits ← CTree.CTree.choose (E := ErrorE ⊕ₑ UBE) (C := FreezeC) (SubC := FreezeC) (FreezeCIn.mk 8)
+      next bits) =
+    CTree.CTree.tauG (.inr (FreezeCIn.mk 8)) (fun bits => Tree.interp_ub_and_error (next bits)) := by
+  simp [CTree.CTree.choose_def, CTree.CTree.tau_def, Bind.bind]
+
+-- A source abort permits a successful target, as in Interp.isRefinedBy.
+example (value : Nat) : Tree.Refines Eq (ub : Tree Nat) (pure value) := by
+  simp only [Tree.Refines, Tree.interp_ub_and_error_ub, Tree.interp_ub_and_error_pure]
+  exact (CTree.Sim.ret _ _ _).mpr trivial
+
+example (value : Nat) : Tree.Refines Eq (fail : Tree Nat) (pure value) := by
+  simp only [Tree.Refines, Tree.interp_ub_and_error_fail, Tree.interp_ub_and_error_pure]
+  exact (CTree.Sim.ret _ _ _).mpr trivial
+
+-- Failure of the target cannot refine a successful source outcome.
+example (value : Nat) : ¬ Interp.isRefinedBy Eq (.ok value) (.fail none) := by
+  simp [Interp.isRefinedBy]
+
+-- Simulation's bind rule remains available for compositional proofs.
+example (left right : Tree Nat) (next next' : Nat → Tree Nat)
+    (head : CTree.Sim Eq left right)
+    (tail : ∀ value, CTree.Sim Eq (next value) (next' value)) :
+    CTree.Sim Eq (left >>= next) (right >>= next') := by
+  apply CTree.Sim.bind _ _ _ _ head
+  rintro x y rfl
+  exact tail x
+
+end CTreeExecutionTest
+
+namespace CTreeRefinesPrintingTest
+
+open Lean Elab Tactic
+
+private meta def checkDoNotation (sourceLength targetLength : Nat) : TacticM Unit :=
+  withMainContext do
+    let target ← getMainTarget
+    let stx ← PrettyPrinter.delab target
+    let `(term| $_ $_ $source $dest) := stx
+      | throwError "expected a refinement application, got {stx}"
+    let `(term| do $source:doSeqItem*) := source
+      | throwError "expected do notation in the source argument, got {stx}"
+    let `(term| do $dest:doSeqItem*) := dest
+      | throwError "expected do notation in both refinement arguments, got {stx}"
+    unless source.size == sourceLength && dest.size == targetLength do
+      throwError "expected flattened do sequences, got {stx}"
+    let recovered ← Term.elabTerm stx (some (mkSort .zero))
+    unless ← Meta.isDefEq recovered target do
+      throwError "displayed refinement does not elaborate to the original expression"
+    for (option, value) in [( `pp.explicit, true), (`pp.notation, false)] do
+      let raw ← withOptions (·.setBool option value) (PrettyPrinter.delab target)
+      if raw == stx then
+        throwError "refinement printer ignored {option}"
+
+-- Both concrete CTree.bind and ordinary monadic bind flatten; unused values and
+-- local lets must survive printing and elaboration without changing the program.
+example (source target : Tree Nat) :
+    Tree.Refines Eq
+      (CTree.bind source fun value => do
+        let doubled := value + value
+        let _ ← target
+        pure doubled)
+      target →
+    Tree.Refines Eq
+      (CTree.bind source fun value => do
+        let doubled := value + value
+        let _ ← target
+        pure doubled)
+      target := by
+  intro h
+  run_tac checkDoNotation 4 1
+  exact h
+
+-- A named continuation is displayed as a bind followed by its application.
+example (source : Tree Nat) (next : Nat → Tree Nat) :
+    Tree.Refines Eq (pure 0) (CTree.bind source next) →
+    Tree.Refines Eq (pure 0) (CTree.bind source next) := by
+  intro h
+  run_tac checkDoNotation 1 2
+  exact h
+
+end CTreeRefinesPrintingTest

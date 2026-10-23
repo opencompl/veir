@@ -30,6 +30,7 @@ import all Veir.Data.Casting
 
 
 namespace Veir
+set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 open Puddle Puddle.CTree
 
@@ -40,16 +41,16 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .add) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.add x y p.nsw p.nuw)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 @[simp] theorem CanInterpretTo.llvm_sub (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .sub)) (x y : Data.LLVM.Int w)
     (r : Interp (Array RuntimeValue)) :
     CanInterpretTo (.llvm .sub) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.sub x y p.nsw p.nuw)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_mul (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .mul)) (x y : Data.LLVM.Int w)
@@ -57,8 +58,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .mul) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.mul x y p.nsw p.nuw)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_and (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .and)) (x y : Data.LLVM.Int w)
@@ -66,8 +67,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .and) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.and x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_or (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .or)) (x y : Data.LLVM.Int w)
@@ -75,8 +76,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .or) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.or x y p.disjoint)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_xor (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .xor)) (x y : Data.LLVM.Int w)
@@ -84,8 +85,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .xor) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.xor x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_intr__smax (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .intr__smax)) (x y : Data.LLVM.Int w)
@@ -93,8 +94,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .intr__smax) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.smax x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_intr__smin (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .intr__smin)) (x y : Data.LLVM.Int w)
@@ -102,8 +103,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .intr__smin) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.smin x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_intr__umax (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .intr__umax)) (x y : Data.LLVM.Int w)
@@ -111,8 +112,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .intr__umax) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.umax x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_intr__umin (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .intr__umin)) (x y : Data.LLVM.Int w)
@@ -120,8 +121,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .intr__umin) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.umin x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.riscv_add (x y : Data.RISCV.Reg)
     (r : Interp (Array RuntimeValue)) :
@@ -376,8 +377,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .intr__fshl) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.fshl x x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 @[simp] theorem CanInterpretTo.llvm_intr__fshr (w : Nat) (ty : IntegerType)
     (p : propertiesOf (OpCode.llvm .intr__fshr)) (x y : Data.LLVM.Int w)
@@ -385,66 +386,8 @@ namespace Puddle.CTree
     CanInterpretTo (.llvm .intr__fshr) p #[TypeAttr.of IntegerType ty]
       #[.int w x, .int w x, .int w y] r ↔
     r = .ok #[.int w (Data.LLVM.Int.fshr x x y)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases r <;> simp
-
-theorem CanInterpretTo.llvm_sdiv_source (w : Nat) (ty : IntegerType)
-    (p : propertiesOf (OpCode.llvm .sdiv)) (x y : Data.LLVM.Int w) :
-    CanInterpretTo (.llvm .sdiv) p #[TypeAttr.of IntegerType ty] #[.int w x, .int w y]
-      (if Data.LLVM.Int.isSignedDivisionUB x y then .ub none
-       else .ok #[.int w (Data.LLVM.Int.sdiv x y p.exact)]) := by
-  cases h : Data.LLVM.Int.isSignedDivisionUB x y <;>
-    simp [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, h]
-  intro memory
-  simp only [Functor.map, bind, Veir.ub, CTree.CTree.trigger, CTree.CTree.bind_vis]
-  exact .ub
-
-theorem CanInterpretTo.llvm_udiv_source (w : Nat) (ty : IntegerType)
-    (p : propertiesOf (OpCode.llvm .udiv)) (x y : Data.LLVM.Int w) :
-    CanInterpretTo (.llvm .udiv) p #[TypeAttr.of IntegerType ty] #[.int w x, .int w y]
-      (if Data.LLVM.Int.isUnsignedDivisionUB y then .ub none
-       else .ok #[.int w (Data.LLVM.Int.udiv x y p.exact)]) := by
-  cases h : Data.LLVM.Int.isUnsignedDivisionUB y <;>
-    simp [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, h]
-  intro memory
-  simp only [Functor.map, bind, Veir.ub, CTree.CTree.trigger, CTree.CTree.bind_vis]
-  exact .ub
-
-theorem CanInterpretTo.llvm_srem_source (w : Nat) (ty : IntegerType)
-    (p : propertiesOf (OpCode.llvm .srem)) (x y : Data.LLVM.Int w) :
-    CanInterpretTo (.llvm .srem) p #[TypeAttr.of IntegerType ty] #[.int w x, .int w y]
-      (if Data.LLVM.Int.isSignedDivisionUB x y then .ub none
-       else .ok #[.int w (Data.LLVM.Int.srem x y)]) := by
-  cases h : Data.LLVM.Int.isSignedDivisionUB x y <;>
-    simp [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, h]
-  intro memory
-  simp only [Functor.map, bind, Veir.ub, CTree.CTree.trigger, CTree.CTree.bind_vis]
-  exact .ub
-
-theorem CanInterpretTo.llvm_urem_source (w : Nat) (ty : IntegerType)
-    (p : propertiesOf (OpCode.llvm .urem)) (x y : Data.LLVM.Int w) :
-    CanInterpretTo (.llvm .urem) p #[TypeAttr.of IntegerType ty] #[.int w x, .int w y]
-      (if Data.LLVM.Int.isUnsignedDivisionUB y then .ub none
-       else .ok #[.int w (Data.LLVM.Int.urem x y)]) := by
-  cases h : Data.LLVM.Int.isUnsignedDivisionUB y <;>
-    simp [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, h]
-  intro memory
-  simp only [Functor.map, bind, Veir.ub, CTree.CTree.trigger, CTree.CTree.bind_vis]
-  exact .ub
-
-theorem CanInterpretTo.refines_int_result {op : OpCode} {p : propertiesOf op}
-    {types : Array TypeAttr} {args : Array RuntimeValue} {w : Nat}
-    {isUB : Bool} {value target : Data.LLVM.Int w}
-    (hsource : CanInterpretTo op p types args
-      (if isUB then .ub none else .ok #[.int w value]))
-    (hvalue : value ⊒ target) :
-    ∃ source, CanInterpretTo op p types args source ∧
-      Interp.isRefinedBy RuntimeValue.arrayIsRefinedBy source (.ok #[.int w target]) := by
-  refine ⟨_, hsource, ?_⟩
-  cases isUB
-  · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
-      RuntimeValue.isRefinedBy] using hvalue
-  · simp [Interp.isRefinedBy]
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [monadLift, MonadLift.monadLift]
 
 end Puddle.CTree
 
@@ -458,21 +401,20 @@ theorem add64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      intro xChoice
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      intro yChoice
-      puddleStep sym [CanInterpretTo.riscv_add]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      refine ⟨_, (CanInterpretTo.llvm_add 64 ⟨64, sign⟩ p x y _).mpr rfl, ?_⟩
-      simp
-      cases x <;> cases y <;> simp [Data.LLVM.Int.add, Id.run, pure, RISCV.Reg.toInt,
-        Data.RISCV.add]
-      · simp [RuntimeValue.isRefinedBy, isRefinedBy]
-        grind
-      · simp [RuntimeValue.isRefinedBy, isRefinedBy]
-      · simp [RuntimeValue.isRefinedBy, isRefinedBy]
-      · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+      simp only [Tree.Refines.target_bind_cast_int]
+      cases x <;> cases y <;>
+        simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp',
+          Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift,
+          Tree.Refines, OperationResult.isRefinedBy, Attribute.of,
+          -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+          Interp.isRefinedBy, RuntimeValue.isRefinedBy]
+      · rename_i a b
+        have hplain := Data.RISCV.add_refinement (x := .val a) (y := .val b)
+        simp [Data.LLVM.Int.add, Id.run, pure, Pure.pure, isRefinedBy,
+          RISCV.Reg.toInt, Data.RISCV.add, LLVM.Int.toReg,
+          RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy] at hplain ⊢
+        grind only [isRefinedBy]
+      all_goals intros; simp [Data.LLVM.Int.add, isRefinedBy, Id.run]
 
 theorem add32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelection.ProofPatterns.add32_pattern := by
   unfold Veir.InstructionSelection.ProofPatterns.add32_pattern Veir.InstructionSelection.ProofPatterns.lowerBinary
@@ -483,12 +425,9 @@ theorem add32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_addw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.addw_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.add, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.addw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -507,20 +446,20 @@ theorem sub64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_sub]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      have hplain := Data.RISCV.sub_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
-        RuntimeValue.isRefinedBy]
-      all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.sub, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.sub,
-        RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
-      all_goals
-        intros
-        subst_vars
-        try simp [hplain, RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, isRefinedBy]
-      all_goals grind only [isRefinedBy]
+      simp only [Tree.Refines.target_bind_cast_int]
+      cases x <;> cases y <;>
+        simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp',
+          Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift,
+          Tree.Refines, OperationResult.isRefinedBy, Attribute.of,
+          -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+          Interp.isRefinedBy, RuntimeValue.isRefinedBy]
+      · rename_i a b
+        have hplain := Data.RISCV.sub_refinement (x := .val a) (y := .val b)
+        simp [Data.LLVM.Int.sub, Id.run, pure, Pure.pure, isRefinedBy,
+          RISCV.Reg.toInt, Data.RISCV.sub, LLVM.Int.toReg,
+          RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy] at hplain ⊢
+        grind only [isRefinedBy]
+      all_goals intros; simp [Data.LLVM.Int.sub, isRefinedBy, Id.run]
 
 theorem sub32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelection.ProofPatterns.sub32_pattern := by
   unfold Veir.InstructionSelection.ProofPatterns.sub32_pattern Veir.InstructionSelection.ProofPatterns.lowerBinary
@@ -531,12 +470,9 @@ theorem sub32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_subw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.subw_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.sub, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.subw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -555,12 +491,9 @@ theorem mul64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_mul]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.mul_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.mul, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.mul,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -579,12 +512,9 @@ theorem mul32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_mulw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.mul_refinement_32 (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.mul, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.mulw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -603,12 +533,9 @@ theorem xor64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_xor]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.xor_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.xor, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.xor,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -627,12 +554,9 @@ theorem xor32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_xor]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.xor_refinement_32 (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.xor, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.xor,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -651,12 +575,9 @@ theorem smax64_pattern_valid : Puddle.CTree.Pattern.Valid smax64_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_max]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.smax_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.smax, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.max,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -675,12 +596,9 @@ theorem smin64_pattern_valid : Puddle.CTree.Pattern.Valid smin64_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_min]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.smin_refinement (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.smin, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.min,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -699,14 +617,9 @@ theorem smax32_pattern_valid : Puddle.CTree.Pattern.Valid smax32_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_sextw]
-      puddleStep sym [CanInterpretTo.riscv_sextw]
-      puddleStep sym [CanInterpretTo.riscv_max]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.smax_refinement_32 (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.smax, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.max,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -726,14 +639,9 @@ theorem smin32_pattern_valid : Puddle.CTree.Pattern.Valid smin32_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_sextw]
-      puddleStep sym [CanInterpretTo.riscv_sextw]
-      puddleStep sym [CanInterpretTo.riscv_min]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.smin_refinement_32 (x := x) (y := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.smin, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.min,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -754,16 +662,13 @@ theorem and_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelection
       all_goals
         simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
         intro x y p
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_and]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         first
         | have hplain := Data.RISCV.and_refinement (x := x) (y := y)
         | have hplain := Data.RISCV.and_refinement_32 (x := x) (y := y)
         | have hplain := Data.RISCV.and_refinement_8 (x := x) (y := y)
         | have hplain := Data.RISCV.and_refinement_1 (x := x) (y := y)
-        cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
         all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.and, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.and,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -784,16 +689,13 @@ theorem or_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelection.
       all_goals
         simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
         intro x y p
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_or]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         first
         | have hplain := Data.RISCV.or_refinement (x := x) (y := y)
         | have hplain := Data.RISCV.or_refinement_32 (x := x) (y := y)
         | have hplain := Data.RISCV.or_refinement_8 (x := x) (y := y)
         | have hplain := Data.RISCV.or_refinement_1 (x := x) (y := y)
-        cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
         all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.or, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.or,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -814,14 +716,11 @@ theorem umax_pattern_valid : Puddle.CTree.Pattern.Valid umax_pattern := by
       all_goals
         simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
         intro x y p
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_maxu]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         first
         | have hplain := Data.RISCV.umax_refinement (x := x) (y := y)
         | have hplain := Data.RISCV.umax_refinement_32 (x := x) (y := y)
-        cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
         all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.umax, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.maxu,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -842,14 +741,11 @@ theorem umin_pattern_valid : Puddle.CTree.Pattern.Valid umin_pattern := by
       all_goals
         simp only [RuntimeValue.Conforms.integerType, forall_exists_index, forall_eq_apply_imp_iff]
         intro x y p
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_minu]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         first
         | have hplain := Data.RISCV.umin_refinement (x := x) (y := y)
         | have hplain := Data.RISCV.umin_refinement_32 (x := x) (y := y)
-        cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
         all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.umin, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.minu,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -869,12 +765,9 @@ theorem fshl64_pattern_valid : Puddle.CTree.Pattern.Valid fshl64_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_rol]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.fshl_rol_refinement (a := x) (c := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.fshl, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.rol,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -894,12 +787,9 @@ theorem fshl32_pattern_valid : Puddle.CTree.Pattern.Valid fshl32_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_rolw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.fshl_rol_refinement_32 (a := x) (c := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.fshl, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.rolw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -919,12 +809,9 @@ theorem fshr64_pattern_valid : Puddle.CTree.Pattern.Valid fshr64_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_ror]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.fshr_ror_refinement (a := x) (c := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.fshr, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.ror,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -944,12 +831,9 @@ theorem fshr32_pattern_valid : Puddle.CTree.Pattern.Valid fshr32_pattern := by
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_rorw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.fshr_ror_refinement_32 (a := x) (c := y)
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      cases x <;> cases y <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.fshr, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.rorw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
@@ -969,18 +853,12 @@ theorem sdiv64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_div]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.sdiv_refinement (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_sdiv_source 64 { bitwidth := 64, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isSignedDivisionUB x y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.sdiv, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.div,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -999,18 +877,12 @@ theorem sdiv32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_divw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.sdiv_refinement_32 (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_sdiv_source 32 { bitwidth := 32, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isSignedDivisionUB x y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.sdiv, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.divw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1029,18 +901,12 @@ theorem udiv64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_divu]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.udiv_refinement (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_udiv_source 64 { bitwidth := 64, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isUnsignedDivisionUB y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.udiv, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.divu,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1059,18 +925,12 @@ theorem udiv32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_divuw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.udiv_refinement_32 (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_udiv_source 32 { bitwidth := 32, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isUnsignedDivisionUB y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.udiv, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.divuw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1089,18 +949,12 @@ theorem srem64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_rem]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.srem_refinement (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_srem_source 64 { bitwidth := 64, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isSignedDivisionUB x y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.srem, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.rem,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1119,18 +973,12 @@ theorem srem32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_remw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.srem_refinement_32 (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_srem_source 32 { bitwidth := 32, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isSignedDivisionUB x y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.srem, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.remw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1149,18 +997,12 @@ theorem urem64_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_remu]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.urem_refinement (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_urem_source 64 { bitwidth := 64, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isUnsignedDivisionUB y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.urem, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.remu,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1179,18 +1021,12 @@ theorem urem32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
     cases ty with | mk bw sign =>
       dsimp at hwidth
       subst bw
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.riscv_remuw]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
+      simp only [Tree.Refines.target_bind_cast_int]
       have hplain := Data.RISCV.urem_refinement_32 (x := x) (y := y)
-      have hsource := CanInterpretTo.llvm_urem_source 32 { bitwidth := 32, signedness := sign } p x y
-      cases x <;> cases y <;> simp [RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+      by_cases hUB : Data.LLVM.Int.isUnsignedDivisionUB y = true
+      all_goals cases x <;> cases y <;> simp [hUB, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
         RuntimeValue.isRefinedBy]
-      all_goals
-        intros
-        subst_vars
-        apply CanInterpretTo.refines_int_result hsource
+      all_goals simp [Data.LLVM.Int.isSignedDivisionUB, Data.LLVM.Int.isUnsignedDivisionUB] at hUB
       all_goals simp [Id.run, pure, Pure.pure, Data.LLVM.Int.urem, isRefinedBy, RISCV.Reg.toInt, Data.RISCV.remuw,
         RuntimeValue.arrayIsRefinedBy_cons, RuntimeValue.isRefinedBy, LLVM.Int.toReg] at hplain ⊢
       all_goals
@@ -1206,12 +1042,8 @@ namespace Puddle.CTree
     (r : Interp (Array RuntimeValue)) :
     CanInterpretTo (.llvm .sext) p #[TypeAttr.of IntegerType ty] #[.int w x] r ↔
       r = .ok #[.int ty.bitwidth (Data.LLVM.Int.sext x ty.bitwidth h)] := by
-  unfold CanInterpretTo
-  change (∀ memory, PureOrErr.CanInterpretTo
-    (if h' : ty.bitwidth ≤ w then fail else
-      pure (#[.int ty.bitwidth (Data.LLVM.Int.sext x ty.bitwidth (Nat.lt_of_not_ge h'))], memory, none))
-    (r.map (·, memory, none))) ↔ _
-  cases r <;> simp [Nat.not_le.mpr h]
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [Nat.not_le.mpr h, monadLift, MonadLift.monadLift, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of]
 end Puddle.CTree
 
 private theorem sextb_refinement_generic (w : Nat) (h : 8 < w) (hw : w ≤ 64)
@@ -1261,12 +1093,8 @@ namespace Puddle.CTree
     (r : Interp (Array RuntimeValue)) :
     CanInterpretTo (.llvm .zext) p #[TypeAttr.of IntegerType ty] #[.int w x] r ↔
       r = .ok #[.int ty.bitwidth (Data.LLVM.Int.zext x ty.bitwidth p.nneg h)] := by
-  unfold CanInterpretTo
-  change (∀ memory, PureOrErr.CanInterpretTo
-    (if h' : ty.bitwidth ≤ w then fail else
-      pure (#[.int ty.bitwidth (Data.LLVM.Int.zext x ty.bitwidth p.nneg (Nat.lt_of_not_ge h'))], memory, none))
-    (r.map (·, memory, none))) ↔ _
-  cases r <;> simp [Nat.not_le.mpr h]
+  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp']
+  cases r <;> simp [Nat.not_le.mpr h, monadLift, MonadLift.monadLift, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of]
 end Puddle.CTree
 
 
@@ -1337,11 +1165,9 @@ theorem sext8_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
       subst obw
       cases resType with | mk resw sign2 =>
         dsimp at hlo hhi
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_sextb]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         have hplain := sextb_refinement_generic resw hlo hhi x
-        cases x <;> simp [hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, hlo, Nat.not_le.mpr hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
           RuntimeValue.isRefinedBy]
         all_goals
           intros
@@ -1363,11 +1189,9 @@ theorem sext16_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
       subst obw
       cases resType with | mk resw sign2 =>
         dsimp at hlo hhi
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_sexth]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         have hplain := sexth_refinement_generic resw hlo hhi x
-        cases x <;> simp [hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, hlo, Nat.not_le.mpr hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
           RuntimeValue.isRefinedBy]
         all_goals
           intros
@@ -1389,11 +1213,9 @@ theorem sext32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
       subst obw
       cases resType with | mk resw sign2 =>
         dsimp at hlo hhi
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_sextw]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         have hplain := sextw_refinement_generic resw hlo hhi x
-        cases x <;> simp [hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, hlo, Nat.not_le.mpr hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
           RuntimeValue.isRefinedBy]
         all_goals
           intros
@@ -1415,11 +1237,9 @@ theorem zext8_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelecti
       subst obw
       cases resType with | mk resw sign2 =>
         dsimp at hlo hhi
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_zextb]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         have hplain := zextb_refinement_generic resw hlo hhi p.nneg x
-        cases x <;> simp [hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, hlo, Nat.not_le.mpr hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
           RuntimeValue.isRefinedBy]
         all_goals
           intros
@@ -1441,11 +1261,9 @@ theorem zext16_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
       subst obw
       cases resType with | mk resw sign2 =>
         dsimp at hlo hhi
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_zexth]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         have hplain := zexth_refinement_generic resw hlo hhi p.nneg x
-        cases x <;> simp [hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, hlo, Nat.not_le.mpr hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
           RuntimeValue.isRefinedBy]
         all_goals
           intros
@@ -1467,11 +1285,9 @@ theorem zext32_pattern_valid : Puddle.CTree.Pattern.Valid Veir.InstructionSelect
       subst obw
       cases resType with | mk resw sign2 =>
         dsimp at hlo hhi
-        puddleStep sym [CanInterpretTo.cast_int_val']
-        puddleStep sym [CanInterpretTo.riscv_zextw]
-        puddleStep sym [CanInterpretTo.cast_reg_int]
+        simp only [Tree.Refines.target_bind_cast_int]
         have hplain := zextw_refinement_generic resw hlo hhi p.nneg x
-        cases x <;> simp [hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
+        cases x <;> simp [interpretOpCTree, Llvm.interpretOpCTree, Llvm.interpretOp', Veir.interpretOp', Riscv.interpretOp', monadLift, MonadLift.monadLift, Tree.Refines, OperationResult.isRefinedBy, Attribute.of, -Attribute.integerType_eq_of, -Attribute.registerType_eq_of, hlo, Nat.not_le.mpr hlo, RuntimeValue.arrayIsRefinedBy_cons, Interp.isRefinedBy,
           RuntimeValue.isRefinedBy]
         all_goals
           intros

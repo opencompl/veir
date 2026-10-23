@@ -23,40 +23,16 @@ import all Veir.Data.LLVM.Int.Basic
 public meta import Veir.PatternRewriter.Puddle.Definitions
 public meta import Veir.PatternRewriter.Puddle.Validity
 
+set_option backward.isDefEq.respectTransparency false
+
 open Veir Veir.Puddle Veir.Puddle.CTree
 
 namespace Veir.InstructionSelection.CTreeProofs
 section
 
-@[simp]
-private theorem CanInterpretTo.ctlz_int (ty : IntegerType)
-    (property : propertiesOf (OpCode.llvm .intr__ctlz)) (x : Data.LLVM.Int ty.bitwidth)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.llvm .intr__ctlz) property #[TypeAttr.of IntegerType ty]
-      #[.int ty.bitwidth x] results ↔
-      results = .ok #[.int ty.bitwidth (Data.LLVM.Int.ctlz x property.is_zero_poison)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases results <;> simp
-
-@[simp]
-private theorem CanInterpretTo.cttz_int (ty : IntegerType)
-    (property : propertiesOf (OpCode.llvm .intr__cttz)) (x : Data.LLVM.Int ty.bitwidth)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.llvm .intr__cttz) property #[TypeAttr.of IntegerType ty]
-      #[.int ty.bitwidth x] results ↔
-      results = .ok #[.int ty.bitwidth (Data.LLVM.Int.cttz x property.is_zero_poison)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases results <;> simp
-
-@[simp]
-private theorem CanInterpretTo.ctpop_int (ty : IntegerType)
-    (property : propertiesOf (OpCode.llvm .intr__ctpop)) (x : Data.LLVM.Int ty.bitwidth)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.llvm .intr__ctpop) property #[TypeAttr.of IntegerType ty]
-      #[.int ty.bitwidth x] results ↔
-      results = .ok #[.int ty.bitwidth (Data.LLVM.Int.ctpop x)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases results <;> simp
+attribute [local simp] monadLift MonadLift.monadLift interpretOpCTree Llvm.interpretOpCTree Llvm.interpretOp'
+  Tree.refines_pure OperationResult.isRefinedBy ControlFlowAction.optionIsRefinedBy_refl
+  RuntimeValue.arrayIsRefinedBy_cons
 
 private theorem ctlz64_valid : Veir.Puddle.CTree.Pattern.Valid ctlz64_pattern := by
   unfold ctlz64_pattern lowerUnary
@@ -68,10 +44,8 @@ private theorem ctlz64_valid : Veir.Puddle.CTree.Pattern.Valid ctlz64_pattern :=
       subst bw
       simp only [RuntimeValue.Conforms.integerType] at hvalue
       obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.clz_reg]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      cases x <;> simp [CanInterpretTo.ctlz_int (⟨64, hint⟩)]
+      simpRiscvTrees
+      cases x <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
           (Data.RISCV.ctlz_refinement (x := .val _) (is_zero_poison := property.is_zero_poison))
@@ -88,10 +62,8 @@ private theorem ctlz32_valid : Veir.Puddle.CTree.Pattern.Valid ctlz32_pattern :=
       subst bw
       simp only [RuntimeValue.Conforms.integerType] at hvalue
       obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.clzw_reg]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      cases x <;> simp [CanInterpretTo.ctlz_int (⟨32, hint⟩)]
+      simpRiscvTrees
+      cases x <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
           (Data.RISCV.ctlz_refinement_32 (x := .val _) (is_zero_poison := property.is_zero_poison))
@@ -107,10 +79,8 @@ private theorem cttz64_valid : Veir.Puddle.CTree.Pattern.Valid cttz64_pattern :=
       subst bw
       simp only [RuntimeValue.Conforms.integerType] at hvalue
       obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.ctz_reg]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      cases x <;> simp [CanInterpretTo.cttz_int (⟨64, hint⟩)]
+      simpRiscvTrees
+      cases x <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
           (Data.RISCV.cttz_refinement (x := .val _) (is_zero_poison := property.is_zero_poison))
@@ -126,10 +96,8 @@ private theorem cttz32_valid : Veir.Puddle.CTree.Pattern.Valid cttz32_pattern :=
       subst bw
       simp only [RuntimeValue.Conforms.integerType] at hvalue
       obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.ctzw_reg]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      cases x <;> simp [CanInterpretTo.cttz_int (⟨32, hint⟩)]
+      simpRiscvTrees
+      cases x <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
           (Data.RISCV.cttz_refinement_32 (x := .val _) (is_zero_poison := property.is_zero_poison))
@@ -145,10 +113,8 @@ private theorem ctpop64_valid : Veir.Puddle.CTree.Pattern.Valid ctpop64_pattern 
       subst bw
       simp only [RuntimeValue.Conforms.integerType] at hvalue
       obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cpop_reg]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      cases x <;> simp [CanInterpretTo.ctpop_int (⟨64, hint⟩)]
+      simpRiscvTrees
+      cases x <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
           (Data.RISCV.ctpop_refinement (x := .val _))
@@ -164,10 +130,8 @@ private theorem ctpop32_valid : Veir.Puddle.CTree.Pattern.Valid ctpop32_pattern 
       subst bw
       simp only [RuntimeValue.Conforms.integerType] at hvalue
       obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      puddleStep sym [CanInterpretTo.cpopw_reg]
-      puddleStep sym [CanInterpretTo.cast_reg_int]
-      cases x <;> simp [CanInterpretTo.ctpop_int (⟨32, hint⟩)]
+      simpRiscvTrees
+      cases x <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using
           (Data.RISCV.ctpop_refinement_32 (x := .val _))

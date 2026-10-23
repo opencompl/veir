@@ -38,39 +38,9 @@ set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 section
 
-@[simp]
-private theorem CanInterpretTo.ashr_int (ty : IntegerType)
-    (property : propertiesOf (OpCode.llvm .ashr)) (x y : Data.LLVM.Int ty.bitwidth)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.llvm .ashr) property #[TypeAttr.of IntegerType ty]
-      #[.int ty.bitwidth x, .int ty.bitwidth y] results ↔
-      results = .ok #[.int ty.bitwidth (Data.LLVM.Int.ashr x y property.exact)] := by
-  simp only [CanInterpretTo, interpretOpCTree, Llvm.interpretOpCTree]
-  cases results <;> simp
-
-@[simp]
-private theorem CanInterpretTo.sra_reg (ty : RegisterType) (x y : Data.RISCV.Reg)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.riscv .sra) () #[TypeAttr.of RegisterType ty] #[.reg x, .reg y] results ↔
-      results = .ok #[.reg (Data.RISCV.sra y x)] := by
-  exact CanInterpretTo.riscv_pure .sra () #[TypeAttr.of RegisterType ty] #[.reg x, .reg y] _
-    (by intro memory; rfl) results
-
-@[simp]
-private theorem CanInterpretTo.sraw_reg (ty : RegisterType) (x y : Data.RISCV.Reg)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.riscv .sraw) () #[TypeAttr.of RegisterType ty] #[.reg x, .reg y] results ↔
-      results = .ok #[.reg (Data.RISCV.sraw y x)] := by
-  exact CanInterpretTo.riscv_pure .sraw () #[TypeAttr.of RegisterType ty] #[.reg x, .reg y] _
-    (by intro memory; rfl) results
-
-@[simp]
-private theorem CanInterpretTo.sextb_reg (ty : RegisterType) (x : Data.RISCV.Reg)
-    (results : Interp (Array RuntimeValue)) :
-    CanInterpretTo (.riscv .sextb) () #[TypeAttr.of RegisterType ty] #[.reg x] results ↔
-      results = .ok #[.reg (Data.RISCV.sextb x)] := by
-  exact CanInterpretTo.riscv_pure .sextb () #[TypeAttr.of RegisterType ty] #[.reg x] _
-    (by intro memory; rfl) results
+attribute [local simp] monadLift MonadLift.monadLift interpretOpCTree Llvm.interpretOpCTree Llvm.interpretOp'
+  Tree.refines_pure OperationResult.isRefinedBy ControlFlowAction.optionIsRefinedBy_refl
+  RuntimeValue.arrayIsRefinedBy_cons
 
 private theorem ashr8_refines (x y : Data.LLVM.Int 8) (exact : Bool) :
     Data.LLVM.Int.ashr x y exact ⊒ RISCV.Reg.toInt (Data.RISCV.sra (LLVM.Int.toReg y) (Data.RISCV.sextb (LLVM.Int.toReg x))) 8 := by
@@ -87,9 +57,8 @@ private theorem ashr8_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.InstructionS
       simp only [RuntimeValue.Conforms.integerType] at hleft hright
       obtain ⟨x, rfl⟩ := hleft
       obtain ⟨y, rfl⟩ := hright
-      puddleSteps sym [CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int,
-        CanInterpretTo.sra_reg, CanInterpretTo.sraw_reg, CanInterpretTo.sextb_reg]
-      cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨8, hint⟩)]
+      simpRiscvTrees
+      cases x <;> cases y <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr8_refines (.val _) (.val _) property.exact)
       all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
@@ -110,9 +79,8 @@ private theorem ashr32_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Instruction
       simp only [RuntimeValue.Conforms.integerType] at hleft hright
       obtain ⟨x, rfl⟩ := hleft
       obtain ⟨y, rfl⟩ := hright
-      puddleSteps sym [CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int,
-        CanInterpretTo.sra_reg, CanInterpretTo.sraw_reg, CanInterpretTo.sextb_reg]
-      cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨32, hint⟩)]
+      simpRiscvTrees
+      cases x <;> cases y <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr32_refines (.val _) (.val _) property.exact)
       all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
@@ -133,9 +101,8 @@ private theorem ashr64_valid : Veir.Puddle.CTree.Pattern.Valid (Veir.Instruction
       simp only [RuntimeValue.Conforms.integerType] at hleft hright
       obtain ⟨x, rfl⟩ := hleft
       obtain ⟨y, rfl⟩ := hright
-      puddleSteps sym [CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int,
-        CanInterpretTo.sra_reg, CanInterpretTo.sraw_reg, CanInterpretTo.sextb_reg]
-      cases x <;> cases y <;> simp [CanInterpretTo.ashr_int (⟨64, hint⟩)]
+      simpRiscvTrees
+      cases x <;> cases y <;> simp
       · simpa [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,
           RuntimeValue.isRefinedBy, LLVM.Int.toReg] using (ashr64_refines (.val _) (.val _) property.exact)
       all_goals intros <;> subst_vars <;> simp [Interp.isRefinedBy, RuntimeValue.arrayIsRefinedBy_cons,

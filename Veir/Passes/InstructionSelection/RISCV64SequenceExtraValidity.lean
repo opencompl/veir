@@ -4,6 +4,7 @@ meta import Std.Tactic.BVDecide
 public meta import Veir.OpCode
 public meta import Veir.PatternRewriter.Puddle.Definitions
 public meta import Veir.PatternRewriter.Puddle.Validity
+import all Veir.IR.Attribute
 import all Init.Data.Array.Basic
 import all Veir.PatternRewriter.Puddle.Builders
 import all Veir.PatternRewriter.Puddle.Definitions
@@ -34,6 +35,9 @@ set_option maxHeartbeats 5000000
 set_option maxRecDepth 100000
 set_option backward.isDefEq.respectTransparency false
 open Puddle Puddle.CTree
+attribute [local simp] monadLift MonadLift.monadLift interpretOpCTree
+  Llvm.interpretOpCTree Llvm.interpretOp' Tree.refines_pure OperationResult.isRefinedBy
+  ControlFlowAction.optionIsRefinedBy_refl RuntimeValue.arrayIsRefinedBy_cons
 set_option maxHeartbeats 5000000 in
  theorem selectZeroFalse_pattern_valid : Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.select_pattern false true) := by
   conv => arg 1; cbv
@@ -60,10 +64,7 @@ set_option maxHeartbeats 5000000 in
         dsimp [IntegerType.bitwidth] at hty
         rcases hty with hty | hty <;> subst bw
         all_goals
-          puddleSteps sym [
-            CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.czeroeqz_reg,
-            CanInterpretTo.czeronez_reg, CanInterpretTo.li_reg
-          ]
+          simpRiscvTrees
           cases c with
           | val cbits =>
             rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
@@ -113,10 +114,7 @@ set_option maxHeartbeats 5000000 in
         dsimp [IntegerType.bitwidth] at hty
         rcases hty with hty | hty <;> subst bw
         all_goals
-          puddleSteps sym [
-            CanInterpretTo.cast_int_val', CanInterpretTo.cast_reg_int, CanInterpretTo.czeroeqz_reg,
-            CanInterpretTo.czeronez_reg, CanInterpretTo.li_reg
-          ]
+          simpRiscvTrees
           cases c with
           | val cbits =>
             rcases BitVec.eq_zero_or_eq_one cbits with rfl | rfl
@@ -219,10 +217,6 @@ private theorem rotate_left_imm5 (x : BitVec 32) :
   CanInterpretTo.riscv_pure .rori props #[TypeAttr.of RegisterType ty] #[.reg x] _
     (by intro memory; rfl) results
 
-@[simp] private theorem choose_rori_reg (ty : RegisterType) (props : RISCVImmediateProperties) (x : Data.RISCV.Reg) :
-    CreationM.choose (CanInterpretTo (.riscv .rori) props #[TypeAttr.of RegisterType ty] #[.reg x]) =
-    CreationM.pure #[.reg (Data.RISCV.rori (props.immField 6) x)] :=
-  choose_eq_pure _ _ (CanInterpretTo.rori_reg ty props x)
 
 @[simp] theorem CanInterpretTo.roriw_reg (ty : RegisterType) (props : RISCVImmediateProperties) (x : Data.RISCV.Reg)
     (results : Interp (Array RuntimeValue)) :
@@ -231,35 +225,31 @@ private theorem rotate_left_imm5 (x : BitVec 32) :
   CanInterpretTo.riscv_pure .roriw props #[TypeAttr.of RegisterType ty] #[.reg x] _
     (by intro memory; rfl) results
 
-@[simp] private theorem choose_roriw_reg (ty : RegisterType) (props : RISCVImmediateProperties) (x : Data.RISCV.Reg) :
-    CreationM.choose (CanInterpretTo (.riscv .roriw) props #[TypeAttr.of RegisterType ty] #[.reg x]) =
-    CreationM.pure #[.reg (Data.RISCV.roriw (props.immField 5) x)] :=
-  choose_eq_pure _ _ (CanInterpretTo.roriw_reg ty props x)
 
 set_option maxHeartbeats 5000000 in
  theorem fshl64Const_pattern_valid : Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.lowerConstRotate true 64) := by
   conv => arg 1; cbv
   provePuddleValid program sym =>
-    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-    rcases props with ⟨prop⟩
-    cases prop <;> simp only [Bool.false_eq_true] at hprops
-    rename_i attr
-    have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-        some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
-    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-    subst cvalue
-    cases ty with
-    | mk bw hint =>
-      dsimp [IntegerType.bitwidth] at hty
-      subst bw
-      simp only [RuntimeValue.Conforms.integerType] at hvalue
-      obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      simp only [decode, Option.bind_some]
-      sym =>
-        simp puddleProgram
-        tactic =>
-          puddleSteps sym [CanInterpretTo.cast_reg_int, CanInterpretTo.rori_reg]
+    all_goals
+      rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+      rcases props with ⟨prop⟩
+      cases prop <;> simp only [Bool.false_eq_true] at hprops
+      rename_i attr
+      have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+          some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
+      simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+      subst cvalue
+      cases ty with
+      | mk bw hint =>
+        dsimp [IntegerType.bitwidth] at hty
+        subst bw
+        simp only [RuntimeValue.Conforms.integerType] at hvalue
+        obtain ⟨x, rfl⟩ := hvalue
+        simp only [decode, Option.bind_some]
+        first
+        | exact fun _ _ _ _ => True.intro
+        |
+          simpRiscvTrees
           cases x
           all_goals simp [CanInterpretTo.fshl_int (⟨64, hint⟩)]
           · have immediate := rotate_left_imm6 (BitVec.ofInt 64 (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr))
@@ -275,26 +265,26 @@ set_option maxHeartbeats 5000000 in
  theorem fshl32Const_pattern_valid : Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.lowerConstRotate true 32) := by
   conv => arg 1; cbv
   provePuddleValid program sym =>
-    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-    rcases props with ⟨prop⟩
-    cases prop <;> simp only [Bool.false_eq_true] at hprops
-    rename_i attr
-    have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-        some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
-    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-    subst cvalue
-    cases ty with
-    | mk bw hint =>
-      dsimp [IntegerType.bitwidth] at hty
-      subst bw
-      simp only [RuntimeValue.Conforms.integerType] at hvalue
-      obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      simp only [decode, Option.bind_some]
-      sym =>
-        simp puddleProgram
-        tactic =>
-          puddleSteps sym [CanInterpretTo.cast_reg_int, CanInterpretTo.roriw_reg]
+    all_goals
+      rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+      rcases props with ⟨prop⟩
+      cases prop <;> simp only [Bool.false_eq_true] at hprops
+      rename_i attr
+      have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+          some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
+      simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+      subst cvalue
+      cases ty with
+      | mk bw hint =>
+        dsimp [IntegerType.bitwidth] at hty
+        subst bw
+        simp only [RuntimeValue.Conforms.integerType] at hvalue
+        obtain ⟨x, rfl⟩ := hvalue
+        simp only [decode, Option.bind_some]
+        first
+        | exact fun _ _ _ _ => True.intro
+        |
+          simpRiscvTrees
           cases x
           all_goals simp [CanInterpretTo.fshl_int (⟨32, hint⟩)]
           · have immediate := rotate_left_imm5 (BitVec.ofInt 32 (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr))
@@ -310,26 +300,26 @@ set_option maxHeartbeats 5000000 in
  theorem fshr64Const_pattern_valid : Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.lowerConstRotate false 64) := by
   conv => arg 1; cbv
   provePuddleValid program sym =>
-    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-    rcases props with ⟨prop⟩
-    cases prop <;> simp only [Bool.false_eq_true] at hprops
-    rename_i attr
-    have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-        some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
-    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-    subst cvalue
-    cases ty with
-    | mk bw hint =>
-      dsimp [IntegerType.bitwidth] at hty
-      subst bw
-      simp only [RuntimeValue.Conforms.integerType] at hvalue
-      obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      simp only [decode, Option.bind_some]
-      sym =>
-        simp puddleProgram
-        tactic =>
-          puddleSteps sym [CanInterpretTo.cast_reg_int, CanInterpretTo.rori_reg]
+    all_goals
+      rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+      rcases props with ⟨prop⟩
+      cases prop <;> simp only [Bool.false_eq_true] at hprops
+      rename_i attr
+      have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+          some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
+      simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+      subst cvalue
+      cases ty with
+      | mk bw hint =>
+        dsimp [IntegerType.bitwidth] at hty
+        subst bw
+        simp only [RuntimeValue.Conforms.integerType] at hvalue
+        obtain ⟨x, rfl⟩ := hvalue
+        simp only [decode, Option.bind_some]
+        first
+        | exact fun _ _ _ _ => True.intro
+        |
+          simpRiscvTrees
           cases x
           all_goals simp [CanInterpretTo.fshr_int (⟨64, hint⟩)]
           · have immediate := rotate_right_imm6 (BitVec.ofInt 64 (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr))
@@ -345,26 +335,26 @@ set_option maxHeartbeats 5000000 in
  theorem fshr32Const_pattern_valid : Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.lowerConstRotate false 32) := by
   conv => arg 1; cbv
   provePuddleValid program sym =>
-    rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
-    rcases props with ⟨prop⟩
-    cases prop <;> simp only [Bool.false_eq_true] at hprops
-    rename_i attr
-    have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
-        some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
-    simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
-    subst cvalue
-    cases ty with
-    | mk bw hint =>
-      dsimp [IntegerType.bitwidth] at hty
-      subst bw
-      simp only [RuntimeValue.Conforms.integerType] at hvalue
-      obtain ⟨x, rfl⟩ := hvalue
-      puddleStep sym [CanInterpretTo.cast_int_val']
-      simp only [decode, Option.bind_some]
-      sym =>
-        simp puddleProgram
-        tactic =>
-          puddleSteps sym [CanInterpretTo.cast_reg_int, CanInterpretTo.roriw_reg]
+    all_goals
+      rintro _ ty rfl hty value hvalue props hprops cvalue hsem property
+      rcases props with ⟨prop⟩
+      cases prop <;> simp only [Bool.false_eq_true] at hprops
+      rename_i attr
+      have decode : Veir.InstructionSelection.ProofPatterns.constantIntValue (TypeAttr.of IntegerType ty) { value := .integer attr } =
+          some ((BitVec.ofInt ty.bitwidth (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr)).toInt) := rfl
+      simp [Puddle.CTree.CanInterpretTo.constant_int ty attr, constant_ctree_bits_eq_decode] at hsem
+      subst cvalue
+      cases ty with
+      | mk bw hint =>
+        dsimp [IntegerType.bitwidth] at hty
+        subst bw
+        simp only [RuntimeValue.Conforms.integerType] at hvalue
+        obtain ⟨x, rfl⟩ := hvalue
+        simp only [decode, Option.bind_some]
+        first
+        | exact fun _ _ _ _ => True.intro
+        |
+          simpRiscvTrees
           cases x
           all_goals simp [CanInterpretTo.fshr_int (⟨32, hint⟩)]
           · have immediate := rotate_right_imm5 (BitVec.ofInt 32 (Veir.InstructionSelection.ProofPatterns.decodeLLVMIntegerConstant attr))
@@ -376,4 +366,4 @@ set_option maxHeartbeats 5000000 in
           · intro bits
             simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.fshr, isRefinedBy, Id.run]
 
-end Veir
+    end Veir

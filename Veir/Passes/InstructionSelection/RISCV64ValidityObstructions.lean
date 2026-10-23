@@ -16,9 +16,10 @@ import all Veir.Data.LLVM.Ptr.Basic
 import all Veir.Data.Pointer.Basic
 
 /-!
-The current CTree Puddle validity predicate only supports operations without
-memory effects. These theorems record why the memory instruction-selection
-patterns require a stateful validity predicate before they can be certified.
+The legacy Puddle validity predicate only supports operations without memory
+effects. The first theorems record its limitations; they do not apply to the
+stateful CTree validity predicate. The pointer examples below describe genuine
+provenance issues that remain relevant to stateful instruction selection.
 -/
 
 namespace Veir
@@ -49,7 +50,7 @@ theorem alloca_pattern_not_supported : ¬ alloca_pattern.Supported := by
   simp [Pattern.Supported, MatchProg.Supported, MatchDecl.Supported,
     llvm_alloca_not_supported]
 
-theorem alloca_pattern_not_valid : ¬ Puddle.CTree.Pattern.Valid alloca_pattern := by
+theorem alloca_pattern_not_valid_legacy : ¬ Puddle.Pattern.Valid alloca_pattern := by
   exact fun h => alloca_pattern_not_supported h.Supported
 
 theorem load_pattern_not_supported (bw : Nat) (rop : Riscv)
@@ -61,9 +62,9 @@ theorem load_pattern_not_supported (bw : Nat) (rop : Riscv)
     simp [Pattern.Supported, MatchProg.Supported, MatchDecl.Supported,
       llvm_load_not_supported]
 
-theorem load_pattern_not_valid (bw : Nat) (rop : Riscv)
+theorem load_pattern_not_valid_legacy (bw : Nat) (rop : Riscv)
     (h : Riscv.propertiesOf rop = RISCVMemProperties) (foldAddr : Bool) :
-    ¬ Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.load_pattern bw rop h foldAddr) := by
+    ¬ Puddle.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.load_pattern bw rop h foldAddr) := by
   exact fun valid => load_pattern_not_supported bw rop h foldAddr valid.Supported
 
 theorem store_pattern_not_supported (bw : Nat) (rop : Riscv)
@@ -75,9 +76,9 @@ theorem store_pattern_not_supported (bw : Nat) (rop : Riscv)
     simp [Pattern.Supported, MatchProg.Supported, MatchDecl.Supported,
       llvm_store_not_supported]
 
-theorem store_pattern_not_valid (bw : Nat) (rop : Riscv)
+theorem store_pattern_not_valid_legacy (bw : Nat) (rop : Riscv)
     (h : Riscv.propertiesOf rop = RISCVMemProperties) (foldAddr : Bool) :
-    ¬ Puddle.CTree.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.store_pattern bw rop h foldAddr) := by
+    ¬ Puddle.Pattern.Valid (Veir.InstructionSelection.ProofPatterns.store_pattern bw rop h foldAddr) := by
   exact fun valid => store_pattern_not_supported bw rop h foldAddr valid.Supported
 
 /-- Decoding a register as a pointer depends on memory's object boundaries, so there may

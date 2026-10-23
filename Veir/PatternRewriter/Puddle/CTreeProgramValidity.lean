@@ -2,10 +2,25 @@ module
 
 public meta import Lean
 public import Veir.PatternRewriter.Puddle.CTreeValidity
+-- Legacy outcome-monad proof helpers, retained until downstream proofs migrate.
+public import Veir.PatternRewriter.Puddle.CreationM
 
 namespace Veir.Puddle.CTree
 
 public section
+
+/-- Continuation passing only eliminates assignment plumbing; operation execution
+still has exactly the ordinary CTree bind semantics. -/
+theorem CreateDecl.interpretWith_eq_bind (decl : CreateDecl OpCode)
+    (assignment : SemanticAssignment) (memory : MemoryState)
+    (next : SemanticAssignment → MemoryState → Tree α) :
+    CreateDecl.interpretWith decl assignment memory next =
+      (CreateDecl.interpret decl assignment memory >>= fun (assignment, memory) =>
+        next assignment memory) := by
+  cases decl <;> simp only [CreateDecl.interpret, CreateDecl.interpretWith]
+  all_goals try simp only [pure_bind]
+  all_goals split <;> try simp only [bind_assoc, pure_bind]
+  all_goals simp [Bind.bind]
 
 namespace CreationM
 
