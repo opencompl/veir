@@ -23,7 +23,8 @@ open Puddle in
   Custom legalization of `i32` binary operations into their RISC-V word variant
   (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
   For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
-  later. For `g_sdiv`/`g_udiv`/`g_urem`, LLVM custom-legalizes into `RISCV::G_DIVW` etc.
+  later. For `g_sdiv`/`g_udiv`/`g_urem` and the shifts, LLVM custom-legalizes into `RISCV::G_DIVW`,
+  `RISCV::G_SLLW` etc.
 -/
 def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
@@ -36,16 +37,14 @@ def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] castProps
+          #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+          #[rhs] #[regType]
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
+          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvProps
       CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castProps)
+          #[riscvResOp.res[0]!] #[opType])
     (fun castBackOp => castBackOp)
 
 end
@@ -62,6 +61,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_add | .g_sub => [
       .legalFor [s64],
       .customFor [s32],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_shl | .g_lshr | .g_ashr => [
+      .legalForTypePairs [(s64, s64)],
+      -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
+      .customForTypePairs [(s32, s32)],
+      .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
     | .g_icmp => [
@@ -116,6 +122,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
     | .g_udiv => customLegalizeWord .g_udiv .divuw ()
     | .g_urem => customLegalizeWord .g_urem .remuw ()
+    | .g_shl => customLegalizeWord .g_shl .sllw ()
+    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
+    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

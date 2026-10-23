@@ -156,9 +156,8 @@ private def nativeApply : Pattern OpCode :=
         (fun (type, properties) =>
           some (type, { properties with
             value := { properties.value with value := properties.value.value + 1 } }))
-      let constant ← CreateProg.operation (.arith .constant) #[] #[newType] newProperties
-      let addProperties ← CreateProg.property (.arith .addi) default
-      let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType] addProperties
+      let constant ← CreateProg.operation (.arith .constant) #[] #[newType] (.inr newProperties)
+      let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType]
       return add)
     (fun result => result)
 

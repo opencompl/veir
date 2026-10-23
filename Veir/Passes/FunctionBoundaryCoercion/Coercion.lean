@@ -75,16 +75,23 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       let ip := InsertPoint.atStart entry ctx.raw sorry
       let some (ctx', cast) := WfRewriter.createOp ctx
         Builtin.unrealized_conversion_cast #[origType] #[] #[] #[] default (some ip)
-        sorry sorry sorry sorry | return ctx
+        sorry sorry sorry sorry | throw "cannot create a cast for a function argument"
       let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
       ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
       inputs := inputs.push newType.val
     | none =>
       inputs := inputs.push origType.val
   -- (2) Coerce the operands of every return terminator in this function.
-  let returnOps := ctx.raw.operations.keys.filter fun o =>
-    o.getOpType! ctx.raw == returnCode &&
-      o.getParentOp! ctx.raw == some op
+  let mut returnOps : Array OperationPtr := #[]
+  for region in op.getRegions! ctx.raw do
+    let mut block? := region.getFirstBlock! ctx.raw
+    while let some block := block? do
+      let mut inner? := block.getFirstOp! ctx.raw
+      while let some inner := inner? do
+        if inner.getOpType! ctx.raw == returnCode then
+          returnOps := returnOps.push inner
+        inner? := inner.getNextOp! ctx.raw
+      block? := block.getNextBlock! ctx.raw
   for retOp in returnOps do
     for j in List.range (retOp.getNumOperands! ctx.raw) do
       let opVal := retOp.getOperand! ctx.raw j
@@ -93,7 +100,8 @@ def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
       | some newType =>
         let some (ctx', cast) := WfRewriter.createOp ctx
           Builtin.unrealized_conversion_cast #[newType] #[opVal] #[] #[] default
-          (some (InsertPoint.before retOp)) sorry sorry sorry sorry | return ctx
+          (some (InsertPoint.before retOp)) sorry sorry sorry sorry
+          | throw "cannot create a cast for a return operand"
         ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
         -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
         -- a return's operand count equals the function's declared result count.
