@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import re
 import shutil
 import struct
@@ -21,6 +22,10 @@ BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-fomit-frame-pointer"]
+# On Linux clang finds the riscv64 cross sysroot by itself; elsewhere (macOS)
+# RISCV_SYSROOT names a copy of it.
+if "RISCV_SYSROOT" in os.environ:
+    CLANG_TARGET_FLAGS.append(f"--sysroot={os.environ['RISCV_SYSROOT']}")
 
 def check_tools(tools: tuple[str, ...]) -> None:
     missing = [t for t in tools if shutil.which(t) is None]
@@ -99,6 +104,8 @@ def finish_llvm_ir(llvm_ir: bytes, dst: Path | None, emit: str, debug: bool = Fa
             cmd.append("-c")
         elif emit == "assembly":
             cmd.append("-S")
+        else:
+            cmd.append("-fuse-ld=lld")
         cmd.extend([str(path), "-o", "-" if dst is None else str(dst)])
         output = run(cmd, debug=debug)
         if dst is None:
@@ -179,7 +186,7 @@ def main() -> None:
     if not args.source.is_file():
         sys.exit(f"vcc: source file not found: {args.source}")
 
-    check_tools(BASE_TOOLS + VEIR_TOOLS)
+    check_tools(BASE_TOOLS + VEIR_TOOLS + (("ld.lld",) if args.emit == "executable" else ()))
 
     if args.output == "-":
         if args.emit == "executable":

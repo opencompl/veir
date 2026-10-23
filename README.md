@@ -90,7 +90,9 @@ Tools/vcc demorgan.c --emit-mlir -O -o -
 ```
 
 Without an explicit emit mode, `vcc` translates VeIR's output back to
-LLVM IR and asks `clang` to produce an executable:
+LLVM IR and asks `clang` to produce an executable. `vcc` targets 64-bit RISC-V
+Linux, so this needs the environment described in
+[Setting up a RISC-V user-mode environment](#setting-up-a-risc-v-user-mode-environment):
 ```bash
 cat << _end_ > hello.c
 #include <stdio.h>
@@ -136,20 +138,43 @@ brew install lima
 limactl start --name=rv64 --vm-type=vz --mount-writable template:ubuntu-24.04
 ```
 
-Then install the packages from the Linux section inside the VM and set
-`QEMU_LD_PREFIX` in the VM's shell profile:
+Then install the packages from the Linux section inside the VM. Set
+`QEMU_LD_PREFIX` in the VM's `/etc/environment` rather than a shell profile, so
+that commands run with `limactl shell rv64 <command>` see it too. Lima reuses its
+SSH connection, so `--reconnect` is needed once for the setting to take effect:
 ```bash
 limactl shell rv64 sudo apt-get update
 limactl shell rv64 sudo apt-get install -y \
   gcc-riscv64-linux-gnu g++-riscv64-linux-gnu libc6-dev-riscv64-cross \
   qemu-user qemu-user-binfmt gdb-multiarch clang lld
 limactl shell rv64 sh -c \
-  "echo 'export QEMU_LD_PREFIX=/usr/riscv64-linux-gnu' >> ~/.bashrc"
+  "echo QEMU_LD_PREFIX=/usr/riscv64-linux-gnu | sudo tee -a /etc/environment"
+limactl shell --reconnect rv64 true
 ```
 
 Use `limactl shell rv64` to open a shell in the VM, or `limactl shell rv64
 <command>` to run a single command. `limactl stop rv64` and `limactl start
-rv64` stop and restart it.
+rv64` stop and restart it. Inside the VM, your macOS home directory is at the
+same path (for example `/Users/<you>`), but the VM's own `~` is a different
+directory.
+
+To compile for riscv64 Linux on the Mac itself, as `Tools/vcc` does, clang
+needs a copy of the VM's riscv64 headers and libraries. Copy them out of the VM
+and point `RISCV_SYSROOT` at the copy (add the `export` to your shell profile):
+```bash
+mkdir -p ~/.local/riscv64-linux-gnu-sysroot
+limactl shell rv64 tar -C / -cf - usr/riscv64-linux-gnu usr/lib/gcc-cross/riscv64-linux-gnu \
+  | tar -C ~/.local/riscv64-linux-gnu-sysroot -xf -
+export RISCV_SYSROOT=~/.local/riscv64-linux-gnu-sysroot
+```
+
+Then link with `lld`, and run the result in the VM:
+```bash
+clang --target=riscv64-linux-gnu --sysroot=$RISCV_SYSROOT -fuse-ld=lld -O2 hello.c -o hello-rv
+limactl shell rv64 $PWD/hello-rv
+```
+
+The program must be under your home directory for the VM to see it.
 
 ### Checking the setup
 
