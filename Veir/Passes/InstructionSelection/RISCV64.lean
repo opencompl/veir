@@ -348,28 +348,6 @@ def constant_pattern : Pattern OpCode :=
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
 
-/-! ### `gmir.icmp` lowering
-
-    gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
-    gmir.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
-    gmir.icmp slt lhs rhs -> riscv.slt lhs rhs
-    gmir.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
-    gmir.icmp sgt lhs rhs -> riscv.slt rhs lhs
-    gmir.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
-    gmir.icmp ult lhs rhs -> riscv.sltu lhs rhs
-    gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
-    gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
-    gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
--/
-
-/-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
-def icmpOneImm : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk 1#64
-
-/-- The immediate `0`, materialized by the `li` feeding the `sltu` of the `≠` arms. -/
-def icmpZeroImm : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk 0#64
-
 /-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
     width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
 def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
@@ -381,85 +359,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
 /-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
 def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
   BitVec.ofInt props.value.type.bitwidth props.value.value = 0
-
-/--
-  Shared prologue of every `llvm.icmp` arm: cast both operands into registers and, when `ext` is
-  `some e`, sign-extend each register with `e` (`riscv.sextw` for `i32`, `riscv.sextb` for `i8`).
-  The cast zero-extends into the register, so without the fixup a negative narrow operand
-  would look positive to the 64-bit signed comparison; sign-extension also preserves the unsigned
-  order, so the unsigned comparisons stay correct too.
-
-  Returns the two registers to compare.
--/
-def icmpCastExt (regType : Handle OpCode .type)
-    (lhs rhs : Handle OpCode .value) :
-    CreateProg.Builder
-      (Handle OpCode .value × Handle OpCode .value) := do
-  let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-  let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-      #[lhs] #[regType] lcastProps
-  let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-  let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-      #[rhs] #[regType] rcastProps
-  pure (lcastOp.res[0]!, rcastOp.res[0]!)
-
-
-/--
-  `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
-  are the two comparison registers, swapped when `swap` is set, optionally followed by the
-  immediate op `ropImm` applied to its result with the immediate `1`.
-  - `slt`/`sgt`/`ult`/`ugt`: just the comparison.
-  - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
-  - the generic `eq`: `xor` then `sltiu _ 1`.
--/
-def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
-    (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
-    (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
-    CreateProg.Builder CreatedOpHandle := do
-  let (u, v) := if swap then (b, a) else (a, b)
-  let cmpProps ← CreateProg.property (.riscv rop) ropProps
-  let cmpOp ← CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
-  match ropImm with
-  | none => pure cmpOp
-  | some ⟨immOp, immProps'⟩ => do
-    let immProps ← CreateProg.property (.riscv immOp) immProps'
-    CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
-
-/-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
-    `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
-def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
-    (zeroRhs : Bool) (a b : Handle OpCode .value) :
-    CreateProg.Builder CreatedOpHandle :=
-  match pred, zeroRhs with
-  /- `seqz`: `sltiu a 1`, the `eq`-against-zero peephole. -/
-  | .eq, true => do
-    let sltiuProps ← CreateProg.property (.riscv .sltiu) icmpOneImm
-    CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
-  | .eq, false => icmpEmitCmp regType a b .xor () true (some ⟨.sltiu, icmpOneImm⟩)
-  /- `snez`: `sltu 0 a`, the `ne`-against-zero peephole. The `riscv.li 0` becomes `x0` under
-     `riscv-combine` (see `li_zero_to_x0`). -/
-  | .ne, true => do
-    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
-    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-    let sltuProps ← CreateProg.property (.riscv .sltu) ()
-    CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
-  /- `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
-  | .ne, false => do
-    let xorProps ← CreateProg.property (.riscv .xor) ()
-    let xorOp ← CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
-    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
-    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-    let sltuProps ← CreateProg.property (.riscv .sltu) ()
-    CreateProg.operation (.riscv .sltu)
-        #[liOp.res[0]!, xorOp.res[0]!] #[regType] sltuProps
-  | .slt, _ => icmpEmitCmp regType a b .slt () false
-  | .sgt, _ => icmpEmitCmp regType a b .slt () true
-  | .ult, _ => icmpEmitCmp regType a b .sltu () false
-  | .ugt, _ => icmpEmitCmp regType a b .sltu () true
-  | .sge, _ => icmpEmitCmp regType a b .slt () false (some ⟨.xori, icmpOneImm⟩)
-  | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, icmpOneImm⟩)
-  | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, icmpOneImm⟩)
-  | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
 
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
@@ -2118,8 +2017,79 @@ def gmirConstant_pattern : Pattern OpCode :=
 
 def gmirConstant : Puddle.CompiledPattern OpCode := gmirConstant_pattern.compile
 
+/-! ### `gmir.icmp` lowering
+
+    gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
+    gmir.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
+    gmir.icmp slt lhs rhs -> riscv.slt lhs rhs
+    gmir.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
+    gmir.icmp sgt lhs rhs -> riscv.slt rhs lhs
+    gmir.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
+    gmir.icmp ult lhs rhs -> riscv.sltu lhs rhs
+    gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
+    gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
+    gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
+-/
+
 /--
-  `gmir.g_icmp pred` -> the comparison sequence of the `llvm.icmp` arm for `pred` (see
+  `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
+  are the two comparison registers, swapped when `swap` is set, optionally followed by the
+  immediate op `ropImm` applied to its result with the immediate `1`.
+  - `slt`/`sgt`/`ult`/`ugt`: just the comparison.
+  - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
+  - the generic `eq`: `xor` then `sltiu _ 1`.
+-/
+def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
+    (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
+    (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
+    CreateProg.Builder CreatedOpHandle := do
+  let (u, v) := if swap then (b, a) else (a, b)
+  let cmpProps ← CreateProg.property (.riscv rop) ropProps
+  let cmpOp ← CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
+  match ropImm with
+  | none => pure cmpOp
+  | some ⟨immOp, immProps'⟩ => do
+    let immProps ← CreateProg.property (.riscv immOp) immProps'
+    CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
+
+/-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
+    `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
+def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
+    (zeroRhs : Bool) (a b : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle :=
+  match pred, zeroRhs with
+  /- `seqz`: `sltiu a 1`, the `eq`-against-zero peephole. -/
+  | .eq, true => do
+    let sltiuProps ← CreateProg.property (.riscv .sltiu) (mkRISCVImm 1)
+    CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
+  | .eq, false => icmpEmitCmp regType a b .xor () true (some ⟨.sltiu, mkRISCVImm 1⟩)
+  /- `snez`: `sltu 0 a`, the `ne`-against-zero peephole. The `riscv.li 0` becomes `x0` under
+     `riscv-combine` (see `li_zero_to_x0`). -/
+  | .ne, true => do
+    let liProps ← CreateProg.property (.riscv .li) (mkRISCVImm 0)
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
+  /- `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
+  | .ne, false => do
+    let xorProps ← CreateProg.property (.riscv .xor) ()
+    let xorOp ← CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
+    let liProps ← CreateProg.property (.riscv .li) (mkRISCVImm 0)
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu)
+        #[liOp.res[0]!, xorOp.res[0]!] #[regType] sltuProps
+  | .slt, _ => icmpEmitCmp regType a b .slt () false
+  | .sgt, _ => icmpEmitCmp regType a b .slt () true
+  | .ult, _ => icmpEmitCmp regType a b .sltu () false
+  | .ugt, _ => icmpEmitCmp regType a b .sltu () true
+  | .sge, _ => icmpEmitCmp regType a b .slt () false (some ⟨.xori, mkRISCVImm 1⟩)
+  | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, mkRISCVImm 1⟩)
+  | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, mkRISCVImm 1⟩)
+  | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, mkRISCVImm 1⟩)
+
+/--
+  `gmir.g_icmp pred` -> the comparison sequence of the `gmir.icmp` arm for `pred` (see
   `icmpEmit`). Legal operands are `i64` or `!llvm.ptr`, so they fill a register and need no
   sign-extension. When `zeroRhs` is set, the rhs must be the `gmir.g_constant` `0`.
 -/
@@ -2141,8 +2111,13 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let (a, b) ← icmpCastExt regType lhs rhs
-      let cmpOp ← icmpEmit regType pred zeroRhs a b
+      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType] lcastProps
+      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType] rcastProps
+      let cmpOp ← icmpEmit regType pred zeroRhs lcastOp.res[0]! rcastOp.res[0]!
       let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[cmpOp.res[0]!] #[resType] castBackProps
@@ -2150,7 +2125,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
     (fun castBackOp => castBackOp)
 
 /--
-  `gmir.g_icmp` -> riscv comparison sequence. As for `llvm.icmp`, the `eq`/`ne`-against-zero
+  `gmir.g_icmp` -> riscv comparison sequence. The `eq`/`ne`-against-zero
   peepholes come first so they take priority over the generic arms.
 -/
 def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
