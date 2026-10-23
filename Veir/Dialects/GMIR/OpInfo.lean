@@ -229,6 +229,27 @@ private def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.In
   | .val v => .val (BitVec.ofNat w v.toNat)
   | .poison => .poison
 
+/--
+The `2 * w`-bit value whose low half is `lo` and whose high half is `hi`, as produced by gMIR's
+`g_merge_values`. If either half is poison, the result is poison.
+-/
+-- TODO: A poison half should not make the other half poison, so that a half padded with
+-- `g_implicit_def` (as LLVM does when narrowing `g_anyext`) keeps the defined half.
+private def mergeValues {w : Nat} (lo hi : Data.LLVM.Int w) : Data.LLVM.Int (w + w) :=
+  match lo, hi with
+  | .val lo, .val hi => .val (hi ++ lo)
+  | _, _ => .poison
+
+/--
+The low and the high half of the `2 * w`-bit `x`, as produced by gMIR's `g_unmerge_values`.
+If `x` is poison, both halves are poison.
+-/
+private def unmergeValues {w : Nat} (x : Data.LLVM.Int (w + w)) :
+    Data.LLVM.Int w × Data.LLVM.Int w :=
+  match x with
+  | .val x => (.val (x.truncate w), .val (x.extractLsb' w w))
+  | .poison => (.poison, .poison)
+
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     (mem : MemoryState)
@@ -429,12 +450,12 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int w lo, .int w' hi] := operands.toList | none
     if h : w' ≠ w then none else
     let hi := hi.cast (by simp at h; exact h)
-    return (#[.int (w + w) (Data.LLVM.Int.mergeValues lo hi)], mem, none)
+    return (#[.int (w + w) (mergeValues lo hi)], mem, none)
   | .g_unmerge_values => do
     let [.int w x] := operands.toList | none
     let half := w / 2
     if h : w ≠ half + half then none else
-    let (lo, hi) := Data.LLVM.Int.unmergeValues (w := half) (x.cast (by simp at h; exact h))
+    let (lo, hi) := unmergeValues (w := half) (x.cast (by simp at h; exact h))
     return (#[.int half lo, .int half hi], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]

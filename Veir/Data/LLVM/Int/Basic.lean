@@ -327,25 +327,6 @@ def smulHigh {w : Nat} (x y : Int w) : Int w := Id.run do
   val (wide.extractLsb' w w)
 
 /--
-The `2 * w`-bit value whose low half is `lo` and whose high half is `hi`, as produced by gMIR's
-`g_merge_values`. If either half is poison, the result is poison.
--/
--- TODO: A poison half should not make the other half poison, so that a half padded with
--- `g_implicit_def` (as LLVM does when narrowing `g_anyext`) keeps the defined half.
-def mergeValues {w : Nat} (lo hi : Int w) : Int (w + w) := Id.run do
-  let val lo' := lo | poison
-  let val hi' := hi | poison
-  val (hi' ++ lo')
-
-/--
-The low and the high half of the `2 * w`-bit `x`, as produced by gMIR's `g_unmerge_values`.
-If `x` is poison, both halves are poison.
--/
-def unmergeValues {w : Nat} (x : Int (w + w)) : Int w × Int w := Id.run do
-  let val x' := x | (poison, poison)
-  (val (x'.truncate w), val (x'.extractLsb' w w))
-
-/--
 Returns `true` if the unsigned division of a number by `y` triggers undefined behavior.
 This returns `true` if either:
 - `y` is zero
