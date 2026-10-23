@@ -3,7 +3,8 @@ module
 public meta import Lean
 public meta import Std
 public import Lean.Meta.Tactic.BVDecide.Main
-public meta import Veir.Meta.Tactic.PBVDecide.Basic
+public meta import Veir.Meta.Tactic.PBVDecide.Reify
+public meta import Veir.Meta.Tactic.PBVDecide.Info
 
 open Lean Elab Tactic Meta Std Tactic.BVDecide
 
@@ -53,12 +54,12 @@ meta def findFVarIdInCounterExample? (cex : CounterExample) (id : FVarId) : Opti
 Find masks in the counterexamples and convert them into `Nat` widths to display
 in the error message. Warn if any masks were not assigned a value.
 -/
-meta def getWidthCounterExamples (translated : Translated) (counterExample : CounterExample) : MetaM WidthMaskCexs := do
+meta def getWidthCounterExamples (widthInfos : WidthInfos) (counterExample : CounterExample) : MetaM WidthMaskCexs := do
   let mut widthMaskCexs : WidthMaskCexs := {}
 
-  for (widthTm, winfo) in translated.widthInfos do
-    let name ← widthTm.toName
-    let originalNatWidth := widthTm.toExpr translated.env
+  for (widthTm, winfo) in widthInfos.infos do
+    let name := widthTm.toName
+    let originalNatWidth := widthTm.toExpr widthInfos.env
     match findFVarIdInCounterExample? counterExample winfo.widthMaskFVar with
     | some (eq, bv) => do
       -- Check that the mask is a mask.
@@ -83,26 +84,26 @@ Find bitvecs in the counterexamples and convert them to their corresponding widt
 -/
 meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskCexs)
     (counterExample : CounterExample) : MetaM BitVecCexs := do
-  bvInfos.mapM (fun bvinfo => counterExample.goal.withContext do
+  bvInfos.infos.mapM (fun bvinfo => counterExample.goal.withContext do
     let name ← bvinfo.bvVar.getUserName
     match findFVarIdInCounterExample? counterExample bvinfo.bvVar with
     | some (eq, bv) => do
       let some widthCex := widthCexs[bvinfo.bvWidthTm]?
-        | throwError m!"Width ({← bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
+        | throwError m!"Width ({bvinfo.bvWidthTm.toName}) of BitVec {name} is missing from the generated counterexamples."
       return {counterExample := (eq, bv), width := widthCex, name}
     | none =>
       throwError m!"No counterexample generated for BitVec {name}"
   )
 
 /--
-Convert a `bv_decide` counterexample into a message, mapping concrete mask `BitVec`
+Convert a bv_decide counterexample into a string, mapping concrete mask `BitVec`
 values to concrete width `Nat` values, and keeping track if any counterexamples
-belong to expressions which have been abstracted as opaque variables, or if any
-widths were abstracted as atoms independent of the other widths.
+belong to expressions which have been abstracted as opaque variables.
 -/
-meta def prettyPrintCounterExample (counterExample : CounterExample) (translated : Translated) : MetaM MessageData := do
-  let widthCexs ← getWidthCounterExamples translated counterExample
-  let bitvecCexs ← getBitVecCounterExamples translated.bitvecInfos widthCexs counterExample
+meta def prettyPrintCounterExample (counterExample : CounterExample) (widthInfos : WidthInfos)
+    (bvInfos : BitVecInfos) : MetaM MessageData := do
+  let widthCexs ← getWidthCounterExamples widthInfos counterExample
+  let bitvecCexs ← getBitVecCounterExamples bvInfos widthCexs counterExample
 
   let visitedExamples : HashSet Expr := widthCexs.fold (fun acc _ cex => acc.insert cex.counterExample.fst)
                                      <| bitvecCexs.foldl (fun acc cex => acc.insert cex.counterExample.fst) {}
@@ -115,23 +116,13 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
         return none
     )
 
-  -- Widths that are neither variables, literals nor sums are atoms whose masks
-  -- are unrelated to the masks of the other widths.
-  let opaqueWidths : Array Expr :=
-    translated.widthInfos.keys.filterMap (fun | .widthAtom id => some id | _ => none)
-      |>.toArray.qsort (· < ·) |>.map (translated.env[·]!)
-
   let mut err := m!""
-  if opaqueVariables.isEmpty && opaqueWidths.isEmpty then
+  if opaqueVariables.isEmpty then
     err := err ++ "`pbv_decide` found a counterexample, consider the following assignment:\n"
   else
     err := err ++ "`pbv_decide` found a potentially spurious counterexample.\n"
-    unless opaqueWidths.isEmpty do
-      err := err ++ "  The following widths were abstracted as independent variables:\n"
-      err := opaqueWidths.foldl (init := err) (fun acc e => acc ++ m!"    - {e}\n")
-    unless opaqueVariables.isEmpty do
-      err := err ++ "  The following expressions were abstracted as opaque variables:\n"
-      err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
+    err := err ++ "  The following expressions were abstracted as opaque variables:\n"
+    err := opaqueVariables.foldl (init := err) (fun acc e => acc ++ m!"    - " ++ e ++ "\n")
     err := err ++ "Consider the following assignment:\n"
 
   -- Sort the counterexamples by name
@@ -148,7 +139,7 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
 Run `bv_decide` on a goal, throws with a pretty printed message if a
 counterexample was found.
 -/
-public meta def closeWithBvDecide (goal : MVarId) (translated : Translated) : TacticM Unit :=
+public meta def closeWithBvDecide (goal : MVarId) (widthInfos : WidthInfos) (bvInfos : BitVecInfos) : TacticM Unit :=
   IO.FS.withTempFile fun _ lratFile => do
     let ctx ← TacticContext.new lratFile {}
     let params ← Grind.mkDefaultParams {}
@@ -157,7 +148,7 @@ public meta def closeWithBvDecide (goal : MVarId) (translated : Translated) : Ta
             <| bvDecide' (.mvarIdTarget goal) ctx with
     | .ok _ => return
     | .error counterExample => counterExample.goal.withContext do
-        let error ← prettyPrintCounterExample counterExample translated
+        let error ← prettyPrintCounterExample counterExample widthInfos bvInfos
         throwError (← addMessageContextFull error)
 
 end Veir.Meta.Tactic.PBVDecide
