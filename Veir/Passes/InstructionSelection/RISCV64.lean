@@ -565,16 +565,14 @@ def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValueP
   | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
   | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
 
-/-- The properties of the `getelementptr` an address is folded from by `matchAddr`, and of its
-  constant index, if it has one. -/
-abbrev GepHandles :=
+abbrev FoldedGEPProperties :=
   Handle OpCode (.prop (.llvm .getelementptr)) ×
     Option (Handle OpCode (.prop (.gmir .g_constant)))
 
 /-- Match the address of a load or store of `base`, split into a base register and a signed
   12-bit offset as `mode` says (see `AddrMode`). -/
 def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
-    MatchProg.Builder (Handle OpCode .value × Option GepHandles) :=
+    MatchProg.Builder (Handle OpCode .value × Option FoldedGEPProperties) :=
   match mode with
   | .reg => pure (base, none)
   | .gepIndex => do
@@ -596,7 +594,7 @@ def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
   over since, although the riscv op encodes the same access, the flag keeps later passes
   from deleting or duplicating it. -/
 def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties)
-    {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool) (gep? : Option GepHandles)
+    {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool) (gep? : Option FoldedGEPProperties)
     (access : Handle OpCode (.prop accessOp)) :
     CreateProg.Builder (Handle OpCode (.prop (.riscv riscvOp))) :=
   let memProps (offset? : Option Int) (props : propertiesOf accessOp) :=
