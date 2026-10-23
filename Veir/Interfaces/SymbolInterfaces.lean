@@ -56,17 +56,6 @@ def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (SymbolOp ctx op) 
   | none => none
 
 /--
-An operation implements `SymbolOpInterface` in at most one way, so any `SymbolOp` for `op` is the
-one `of?` returns.
--/
-@[simp]
-theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (symbolOp : SymbolOp ctx op) :
-    of? op ctx = some symbolOp := by
-  cases symbolOp; grind [of?]
-
-grind_pattern of?_eq_some => of? op ctx, symbolOp.symbolInterface
-
-/--
 The `SymbolOp` view of a symbol operation.
 
 This is equivalent to `mlir::cast<SymbolOpInterface>(op)` in MLIR.
@@ -106,11 +95,6 @@ This is equivalent to `op->hasTrait<OpTrait::SymbolTable>()` in MLIR.
 @[inline]
 def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (SymbolTableOp ctx op) :=
   if h : HasOpInfo.isSymbolTable (op.getOpType! ctx) then some ⟨h⟩ else none
-
-@[simp]
-theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode}
-    (symbolTableOp : SymbolTableOp ctx op) : of? op ctx = some symbolTableOp := by
-  cases symbolTableOp; grind [of?]
 
 /-- The `SymbolTableOp` view of an operation with the `SymbolTable` trait. -/
 @[inline]

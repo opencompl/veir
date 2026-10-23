@@ -100,6 +100,12 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
       return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
     | .llvmPointerType _, [.reg val] =>
       return (#[.addr (mem.ptrFromInt (.val val.val))], mem, none)
+    | .integerType resBw, [.byte bw val] =>
+      if resBw.bitwidth ≠ bw then none
+      return (#[.int bw (LLVM.Byte.toFrozenInt val)], mem, none)
+    | .byteType resBw, [.int bw val] =>
+      if resBw.bitwidth ≠ bw then none
+      return (#[.byte bw (LLVM.Byte.fromInt val)], mem, none)
     | _ , _ => none
   | _ => none
 

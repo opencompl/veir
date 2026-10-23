@@ -502,6 +502,34 @@ def OpCode.branchOpInterface?
   | .function op => HasOpInfo.branchOpInterface? op
   | .seq op => HasOpInfo.branchOpInterface? op
 
+/-- Call-interface information assembled from the registered dialects. -/
+def OpCode.callOpInterface?
+    (opCode : OpCode) : Option (CallOpInterface (_propertiesOf opCode)) :=
+  match opCode with
+  | .arith op => HasOpInfo.callOpInterface? op
+  | .llvm op => HasOpInfo.callOpInterface? op
+  | .riscv op => HasOpInfo.callOpInterface? op
+  | .riscv_cf op => HasOpInfo.callOpInterface? op
+  | .riscv_stack op => HasOpInfo.callOpInterface? op
+  | .rv64 op => HasOpInfo.callOpInterface? op
+  | .mod_arith op => HasOpInfo.callOpInterface? op
+  | .cf op => HasOpInfo.callOpInterface? op
+  | .comb op => HasOpInfo.callOpInterface? op
+  | .hw op => HasOpInfo.callOpInterface? op
+  | .verif op => HasOpInfo.callOpInterface? op
+  | .builtin op => HasOpInfo.callOpInterface? op
+  | .func op => HasOpInfo.callOpInterface? op
+  | .datapath op => HasOpInfo.callOpInterface? op
+  | .pdl op => HasOpInfo.callOpInterface? op
+  | .io op => HasOpInfo.callOpInterface? op
+  | .gmir op => HasOpInfo.callOpInterface? op
+  | .test op => HasOpInfo.callOpInterface? op
+  | .felt op => HasOpInfo.callOpInterface? op
+  | .cir op => HasOpInfo.callOpInterface? op
+  | .include op => HasOpInfo.callOpInterface? op
+  | .function op => HasOpInfo.callOpInterface? op
+  | .seq op => HasOpInfo.callOpInterface? op
+
 #generate_has_dialect_instances OpCode
 
 @[expose]
@@ -543,6 +571,7 @@ instance : HasOpInfo OpCode where
   functionInterface? := OpCode.functionInterface?
   functionInterface_requires_symbol := OpCode.functionInterface_requires_symbol
   functionInterface_getSymName_isSome := OpCode.functionInterface_getSymName_isSome
+  callOpInterface? := OpCode.callOpInterface?
   branchOpInterface? := OpCode.branchOpInterface?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance

@@ -46,6 +46,7 @@
     %result = "llvm.call"(%p, %implicit) <{CConv = #llvm.cconv<ccc>}> : (!llvm.ptr, i64) -> i64
     "llvm.return"(%result) : (i64) -> ()
   }) : () -> ()
+  "llvm.func"() <{sym_name = "implicit", function_type = !llvm.func<i64 (i64)>, sym_visibility = "private"}> ({}) : () -> ()
 }) : () -> ()
 
 // CHECK-LABEL: "sym_name" = "caller"

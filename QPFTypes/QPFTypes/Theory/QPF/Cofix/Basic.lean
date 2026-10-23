@@ -131,7 +131,6 @@ instance Cofix.mvfunctor : MvFunctor (Cofix F) where map := @Cofix.map _ _ _
 def Cofix.corec {α : TypeVec n} {β : Type u} (g : β → F (α ::: β)) : β → Cofix F α := fun x =>
   Quot.mk _ (corecF g x)
 
-set_option backward.isDefEq.respectTransparency false in
 /-- Destructor for `Cofix F α` -/
 def Cofix.dest {α : TypeVec n} : Cofix F α → F (α ::: (Cofix F α)) :=
   Quot.lift ((id ::: (Quot.mk Mcongr)) <$$> abs ·.dest) <| by
@@ -140,7 +139,7 @@ def Cofix.dest {α : TypeVec n} : Cofix F α → F (α ::: (Cofix F α)) :=
       intro x y h
       exact ⟨r, pr, h⟩
     dsimp only [← Quot.factor_mk_eq _ _ this]
-    rw [appendFun_comp_id, comp_map, ← abs_map, pr rxy, abs_map, ← comp_map,
+    erw [appendFun_comp_id, comp_map, ← abs_map, pr rxy, abs_map, ← comp_map,
       ← appendFun_comp_id]
 
 /-- Constructor for `Cofix F` -/
@@ -298,14 +297,14 @@ checking that `Cofix.repr ∘ Quot.mk Mcongr` commutes with `M.dest`, and appeal
 to finality of the M-type.
 -/
 
-set_option backward.isDefEq.respectTransparency false in
 /-- `Cofix.repr ∘ Cofix.abs` is a coalgebra morphism when `F` is polynomial. -/
 theorem Cofix.dest_repr_abs [IsPolynomial F] {α : TypeVec n} (m : q.P.M α) :
     M.dest q.P (Cofix.repr (Cofix.abs (F := F) m))
       = (id ::: fun m => Cofix.repr (Cofix.abs (F := F) m)) <$$> M.dest q.P m := by
   rw [Cofix.repr, M.dest_corec]
   show (id ::: _) <$$> QPF.repr ((id ::: Quot.mk Mcongr) <$$> QPF.abs (M.dest q.P m)) = _
-  rw [← abs_map, IsPolynomial.repr_abs, MvFunctor.map_map, ← appendFun_comp, id_comp]
+  rw [← abs_map, IsPolynomial.repr_abs, MvFunctor.map_map]
+  erw [← appendFun_comp, id_comp]
   rfl
 
 /-- When `F` is polynomial, `Cofix.repr` picks every tree as its own representative. -/

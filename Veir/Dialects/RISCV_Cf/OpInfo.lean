@@ -128,6 +128,17 @@ def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
         setFunctionType := fun props functionType => { props with function_type := functionType } }
   | _ => none
 
+def Riscv_Cf.callOpInterface? (op : Riscv_Cf) :
+    Option (CallOpInterface (Riscv_Cf.propertiesOf op)) :=
+  match op with
+  | .call =>
+    some
+      { getCallableForCallee? := fun props operands =>
+          match props.callee with
+          | some callee => some (.symbol callee)
+          | none => operands[0]?.map .value }
+  | _ => none
+
 def Riscv_Cf.branchOpInterface?
     (op : Riscv_Cf) : Option (BranchOpInterface (Riscv_Cf.propertiesOf op)) :=
   match op with
@@ -439,6 +450,7 @@ instance : HasOpInfo Riscv_Cf where
   branchOpInterface? := Riscv_Cf.branchOpInterface?
   symbolInterface? := Riscv_Cf.symbolInterface?
   functionInterface? := Riscv_Cf.functionInterface?
+  callOpInterface? := Riscv_Cf.callOpInterface?
   hasSSADominance := Riscv_Cf.hasSSADominance
   isTerminator := Riscv_Cf.isTerminator
   isIsolatedFromAbove := Riscv_Cf.isIsolatedFromAbove
