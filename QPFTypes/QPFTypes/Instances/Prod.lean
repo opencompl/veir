@@ -40,4 +40,72 @@ instance instIsPolynomial : QPF.IsPolynomial (TypeFun.ofCurried (n := 2) Prod.{u
     match i with
     | 0 | 1 => rfl
 
+/-! ## Products with a dead left argument -/
+
+section DeadLeft
+universe v
+variable (γ : Type v)
+
+/-!
+The unary type function `γ × ·`, where `γ` is a dead argument, in a possibly
+different type universe.
+-/
+
+instance instMvFunctorDeadLeft :
+    MvFunctor (TypeFun.ofCurried (n := 1) fun α : Type (max v u) => γ × α) where
+  map := fun f (r, b) => (r, f 0 b)
+
+instance instQPFDeadLeft : QPF (TypeFun.ofCurried (n := 1) fun α : Type (max v u) => γ × α) where
+  P := { A := ULift.{max v u} γ, B _ _ := PUnit.{max v u + 1} }
+  abs := fun ⟨⟨r⟩, f⟩ => (r, f 0 ⟨⟩)
+  repr := fun (r, b) => ⟨⟨r⟩, fun | 0, _ => b⟩
+  abs_repr := by rintro α ⟨r, b⟩; rfl
+  abs_map := by rintro α β f ⟨⟨r⟩, g⟩; rfl
+
+instance instIsPolynomialDeadLeft :
+    QPF.IsPolynomial (TypeFun.ofCurried (n := 1) fun α : Type (max v u) => γ × α) where
+  repr_abs := by
+    rintro β ⟨⟨r⟩, f⟩
+    simp only [QPF.repr, QPF.abs]
+    congr 1
+    funext i ⟨⟩
+    match i with
+    | 0 => rfl
+
+end DeadLeft
+
+/-! ## Products with a dead right argument -/
+
+section DeadRight
+universe v
+variable (γ : Type v)
+
+/-!
+The unary type function `· × γ`, where `γ` is a dead argument, in a possibly
+different type universe.
+-/
+
+instance instMvFunctorDeadRight :
+    MvFunctor (TypeFun.ofCurried (n := 1) fun α : Type (max v u) => α × γ) where
+  map := fun f (a, r) => (f 0 a, r)
+
+instance instQPFDeadRight : QPF (TypeFun.ofCurried (n := 1) fun α : Type (max v u) => α × γ) where
+  P := { A := ULift.{max v u} γ, B _ _ := PUnit.{max v u + 1} }
+  abs := fun ⟨⟨r⟩, f⟩ => (f 0 ⟨⟩, r)
+  repr := fun (a, r) => ⟨⟨r⟩, fun | 0, _ => a⟩
+  abs_repr := by rintro α ⟨a, r⟩; rfl
+  abs_map := by rintro α β f ⟨⟨r⟩, g⟩; rfl
+
+instance instIsPolynomialDeadRight :
+    QPF.IsPolynomial (TypeFun.ofCurried (n := 1) fun α : Type (max v u) => α × γ) where
+  repr_abs := by
+    rintro β ⟨⟨r⟩, f⟩
+    simp only [QPF.repr, QPF.abs]
+    congr 1
+    funext i ⟨⟩
+    match i with
+    | 0 => rfl
+
+end DeadRight
+
 end QPFTypes.Prod

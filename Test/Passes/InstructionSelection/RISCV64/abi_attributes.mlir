@@ -64,4 +64,6 @@
   // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%{{.*}}, %[[ISX]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
   // CHECK: "riscv_cf.call"(%{{.*}}) <{"callee" = @ordinary}> : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: "riscv_cf.return"() : () -> ()
+
+  "llvm.func"() <{sym_name = "ordinary", function_type = !llvm.func<i64 (i64)>, sym_visibility = "private"}> ({}) : () -> ()
 }) : () -> ()

@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize,riscv-combine,isel-abi-riscv64,reconcile-cast,dce > %t && veir-interpret %t | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,riscv > %t && veir-interpret %t | filecheck %s
 
 // `i32` analogue of sdiv_pow2_exec.mlir (`sdivwPow2`, general non-`exact` form).
 // The Func test harness keeps its i32 result types after LLVM instruction selection.

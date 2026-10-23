@@ -15,11 +15,29 @@ concurrency:
 
 jobs:
   docs:
-    runs-on: ubuntu-latest
+    # `doc-gen4` needs several GB per module and Lake runs one job per core, so
+    # the profile's 32 cores would start 32 of them and run out of memory.
+    runs-on: namespace-profile-veir
+    env:
+      LEAN_NUM_THREADS: 4
     environment:
       name: github-pages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The cache action skips paths that do not exist, and still passes.
+      - name: Create the build directories
+        run: mkdir -p .lake ExArray/.lake lean-ctrees/.lake
+
+      # The profile's cache volume, which `buildns` fills with a release build.
+      - name: Set up caches
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
+        with:
+          path: |
+            ~/.elan
+            ${{ github.workspace }}/.lake
+            ${{ github.workspace }}/ExArray/.lake
+            ${{ github.workspace }}/lean-ctrees/.lake
 
       # Only installs elan; docgen-action builds the docs itself. lean-action
       # saves its cache before docgen-action runs, so its own cache would be
@@ -28,21 +46,6 @@ jobs:
         with:
           auto-config: false
           use-github-cache: false
-
-      # Start from the build that `Lean Action CI` saved for `main`, so Lake
-      # only rebuilds the modules that changed. The key and paths mirror the
-      # release cache in lean_action_ci.yml. CI usually has not saved this
-      # commit yet, so the restore key picks the previous one.
-      # Restore only: the cache is already at its size limit.
-      - name: Restore the Lake build from main CI
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            .lake
-            ExArray/.lake
-            lean-ctrees/.lake
-          key: lake-v2-${{ runner.os }}-${{ runner.arch }}-release-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-${{ github.sha }}
-          restore-keys: lake-v2-${{ runner.os }}-${{ runner.arch }}-release-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json', 'ExArray/lakefile.lean', 'ExArray/lake-manifest.json', 'lean-ctrees/lean-toolchain', 'lean-ctrees/lakefile.toml', 'lean-ctrees/lake-manifest.json', 'flake.nix', 'flake.lock') }}-
 
       # docgen-action builds `<target>:docs` for every default target, and
       # executables have no `docs` facet. The `grep` fails the job if the

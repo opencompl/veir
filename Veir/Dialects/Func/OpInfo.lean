@@ -94,6 +94,11 @@ def Func.functionInterface? (op : Func) : Option (FunctionOpInterface (Func.prop
           { props with function_type := functionType } }
   | _ => none
 
+def Func.callOpInterface? (op : Func) : Option (CallOpInterface (Func.propertiesOf op)) :=
+  match op with
+  | .call => some { getCallableForCallee? := fun props _ => some (.symbol props.callee) }
+  | _ => none
+
 /--
 Check that a `func.return` returns the declared result types of its enclosing
 `func.func`.
@@ -148,6 +153,7 @@ instance : HasOpInfo Func where
   isConstantLike := Func.isConstantLike
   symbolInterface? := Func.symbolInterface?
   functionInterface? := Func.functionInterface?
+  callOpInterface? := Func.callOpInterface?
   hasSSADominance := Func.hasSSADominance
   isTerminator := Func.isTerminator
   isIsolatedFromAbove := Func.isIsolatedFromAbove
