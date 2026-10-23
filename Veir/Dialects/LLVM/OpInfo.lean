@@ -1147,6 +1147,12 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
+    let condType := (op.getOperandTypes! ctx.raw)[0]!
+    if let .integerType intType := condType.val then
+      if intType.bitwidth ≠ 1 then
+        throw s!"'llvm.cond_br' op operand #0 must be of type i1, but got '{intType}'"
+    else
+      throw "'llvm.cond_br' op operand #0 must be of type i1"
     let weights := (op.getProperties! ctx.raw Llvm.cond_br).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
