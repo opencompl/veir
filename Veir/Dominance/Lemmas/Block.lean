@@ -89,6 +89,22 @@ namespace BlockPtr.ProperlyDominatesInRegion
 
 variable {dominator dominated source predecessor successor : BlockPtr} {region : RegionPtr}
 
+/-- Regional proper dominance is transitive when the final block is locally reachable. -/
+theorem trans_of_reachable {middle : BlockPtr}
+    (first : dominator.ProperlyDominatesInRegion middle region ctx)
+    (second : middle.ProperlyDominatesInRegion dominated region ctx)
+    (reachable : dominated.LocallyReachable region ctx) :
+    dominator.ProperlyDominatesInRegion dominated region ctx := by
+  cases first with
+  | Ssa first =>
+    cases second with
+    | Ssa second => exact .Ssa (first.trans_of_reachable second reachable)
+    | Graph second => grind [ProperlyDominatesInSSACFGRegion, ProperlyDominatesInGraphRegion]
+  | Graph first =>
+    cases second with
+    | Ssa second => grind [ProperlyDominatesInSSACFGRegion, ProperlyDominatesInGraphRegion]
+    | Graph second => exact .Graph (by grind [ProperlyDominatesInGraphRegion])
+
 @[grind →]
 theorem parent_dominator :
     dominator.ProperlyDominatesInRegion dominated region ctx →

@@ -13,6 +13,8 @@
     %i9 = "llvm.call"(%p, %i8, %a, %a, %a, %a, %a, %a, %a, %a) : (!llvm.ptr, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64
     "llvm.return"(%i9) : (i64) -> ()
   }) : () -> ()
+  "llvm.func"() <{sym_name = "llvm_eight", function_type = !llvm.func<i64 (i64, i64, i64, i64, i64, i64, i64, i64)>, sym_visibility = "private"}> ({}) : () -> ()
+  "llvm.func"() <{sym_name = "llvm_nine", function_type = !llvm.func<i64 (i64, i64, i64, i64, i64, i64, i64, i64, i64)>, sym_visibility = "private"}> ({}) : () -> ()
 }) : () -> ()
 
 // CHECK-LABEL: "sym_name" = "caller"

@@ -30,10 +30,8 @@ run_elab deriveQPF ``Proj
 def FailsLiveDomain (α : liveParam Type) := α → Nat
 
 /--
-error: While deriving a QPF from type expression:
-  α → Nat
-With live free variables:
-  [α]
+error: While deriving a QPF from definition:
+  FailsLiveDomain
 
 the domain of a function type may not mention live variables:
   α

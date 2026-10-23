@@ -187,35 +187,34 @@ theorem M.dest_corec' {α : TypeVec.{u} n} {β : Type u} (g₀ : β → P.A)
     M.dest P (M.corec' P g₀ g₁ g₂ x) = ⟨g₀ x, splitFun (g₁ x) (M.corec' P g₀ g₁ g₂ ∘ g₂ x)⟩ := by
   rfl
 
-set_option backward.isDefEq.respectTransparency false in
 theorem M.dest_corec {α : TypeVec n} {β : Type u} (g : β → P (α.append1 β)) (x : β) :
     M.dest P (M.corec P g x) = (TypeVec.id ::: M.corec P g) <$$> g x := by
-  rw [M.corec, M.dest_corec']
+  erw [M.corec, M.dest_corec']
   obtain ⟨a, f⟩ := g x
   simp only [MvPFunctor.map_eq]
   congr 1
-  rw [← split_dropFun_lastFun f, appendFun_comp_splitFun]
+  erw [← split_dropFun_lastFun f, appendFun_comp_splitFun]
   rfl
 
-set_option backward.isDefEq.respectTransparency false in
 @[simp, grind =]
 theorem M.dest_map {α β : TypeVec n} (g : α ⟹ β) (x : P.M α) :
     M.dest P (g <$$> x) = (g ::: fun x => g <$$> x) <$$> M.dest P x := by
   obtain ⟨a, f⟩ := x
   simp only [MvFunctor.map, M.dest]
   rcases PFunctor.M.dest a with ⟨a', f'⟩
+  set_option backward.isDefEq.respectTransparency false in
   simp only [M.dest', MvPFunctor.map_eq, appendFun_comp_splitFun]
   rfl
 
-set_option backward.isDefEq.respectTransparency false in
 @[simp, grind =]
 theorem M.map_dest {α β : TypeVec n} (g : (α ::: P.M α) ⟹ (β ::: P.M β)) (x : P.M α)
     (h : ∀ x : P.M α, lastFun g x = (dropFun g <$$> x : P.M β)) :
     g <$$> M.dest P x = M.dest P (dropFun g <$$> x) := by
-  rw [M.dest_map]; congr
-  apply eq_of_drop_last_eq (by simp)
-  simp only [lastFun_appendFun]
-  ext1; apply h
+  erw [M.dest_map]; congr
+  apply eq_of_drop_last_eq
+  · erw [dropFun_appendFun]
+  · erw [lastFun_appendFun]
+    exact funext h
 
 end DestLemmas
 
@@ -240,7 +239,6 @@ theorem IsBisim.destruct {α : TypeVec n} {x y : M P α} (h : IsBisim P x y) :
   cases h with
   | step e₁ e₂ h' => exact ⟨_, _, _, _, e₁, e₂, h'⟩
 
-set_option backward.isDefEq.respectTransparency false in
 /-- Helper lemma for bisimulation proof -/
 private theorem M.bisim_lemma {α : TypeVec n} {a₁ : (mp P).A} {f₁ : (mp P).B a₁ ⟹ α} {a' : P.A}
     {f' : (P.B a').drop ⟹ α} {f₁' : (P.B a').last → M P α}
@@ -251,7 +249,7 @@ private theorem M.bisim_lemma {α : TypeVec n} {a₁ : (mp P).A} {f₁ : (mp P).
   generalize ef : @splitFun n _ (append1 α (M P α)) f' f₁' = ff at e₁
   let he₁' := PFunctor.M.dest a₁
   rcases e₁' : he₁' with ⟨a₁', g₁'⟩
-  rw [M.dest_eq_dest' _ e₁'] at e₁
+  erw [M.dest_eq_dest' _ e₁'] at e₁
   cases e₁; exact ⟨_, e₁', splitFun_inj ef⟩
 
 /-- Bisimulation principle: bisimilar M-type elements are equal. -/
@@ -285,7 +283,6 @@ theorem M.bisim {α : TypeVec n} {x y : M P α} (h : IsBisim P x y) : x = y := b
   | child x a f h' j i c IH =>
     exact IH _ _ (h'' _)
 
-set_option backward.isDefEq.respectTransparency false in
 /--
 `P.M α` is the final coalgebra of `X ↦ P (α ::: X)`: any endomorphism of `P.M α`
 that commutes with `M.dest` is the identity.
@@ -301,7 +298,53 @@ theorem M.eq_id_of_dest_comm {α : TypeVec n} (g : P.M α → P.M α)
     ⟨dropFun fn, lastFun fn, (split_dropFun_lastFun fn).symm⟩
   refine ⟨a, f, g ∘ f', f', ?_, rfl, fun _ => rfl⟩
   rw [h, hy]
+  set_option backward.isDefEq.respectTransparency false in
   simp
 
+
+/-! ## The `mk`/`dest` isomorphism -/
+
+section MkDest
+
+/--
+Auxiliary lemma for `mk_dest` and `dest_mk`
+
+Is superseded by `dest_mk` further down, which is why this lemma is private.
+-/
+private theorem M.dest_mk' {α : TypeVec n} (y : P (α ::: P.M α)) :
+    M.dest P (M.mk P y) = (TypeVec.id ::: fun v => M.mk P (M.dest P v)) <$$> y := by
+  rw [M.mk, M.dest_corec, ← MvFunctor.comp_map, ← appendFun_comp, id_comp]
+  rfl
+
+/-- Auxiliary lemma for `mk_dest` -/
+theorem M.dest_mk_split {α : TypeVec n} (a : P.A) (f : P.drop.B a ⟹ α)
+    (g : P.last.B a → P.M α) :
+    M.dest P (M.mk P ⟨a, splitFun f g⟩) =
+      ⟨a, splitFun f fun i => M.mk P (M.dest P (g i))⟩ := by
+  erw [M.dest_mk']
+  set_option backward.isDefEq.respectTransparency false in
+  simp only [MvPFunctor.map_eq, appendFun_comp_splitFun, id_comp, Function.comp_def]
+
+@[simp, grind =]
+theorem M.mk_dest {α : TypeVec n} (x : P.M α) : M.mk P (M.dest P x) = x := by
+  apply M.bisim
+  apply IsBisim.coinduct P (fun u v => u = M.mk P (M.dest P v)) _ _ _ rfl
+  rintro u v rfl
+  rcases h : M.dest P v with ⟨a, hf⟩
+  obtain ⟨f, g, rfl⟩ : ∃ f g, hf = splitFun f g :=
+    ⟨dropFun hf, lastFun hf, (split_dropFun_lastFun hf).symm⟩
+  exact ⟨a, f, (fun i => M.mk P (M.dest P (g i))), g,
+    M.dest_mk_split P a f g, rfl, fun _ => rfl⟩
+
+@[simp, grind =]
+theorem M.dest_mk {α : TypeVec n} (y : P (α ::: P.M α)) : M.dest P (M.mk P y) = y := by
+  have : (TypeVec.id ::: _root_.id) <$$> y = y := by simp
+  simpa only [M.dest_mk', mk_dest]
+
+@[ext, grind ext]
+theorem M.ext {α : TypeVec n} (x y : P.M α) (h : M.dest P x = M.dest P y) : x = y := by
+  rw [← M.mk_dest P x, h, M.mk_dest]
+
+end MkDest
 end MvPFunctor
 end QPFTypes

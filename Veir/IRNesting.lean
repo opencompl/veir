@@ -414,6 +414,9 @@ theorem Ancestor.antisymm_of_rooted {node ancestor root : IRNode}
     have empty : _ = [] := (List.append_eq_nil_iff.mp (List.cons.inj cycle).2).1
     exact False.elim (tail.ne_nil empty)
 
+grind_pattern Ancestor.antisymm_of_rooted =>
+  ancestor.Ancestor node ctx, node.Ancestor ancestor ctx, node.RootedAt root ctx
+
 /-- An ancestor and its descendant share a root. -/
 theorem Ancestor.rootedAt_iff {ancestor node : IRNode}
     (ancestry : ancestor.Ancestor node ctx) :
