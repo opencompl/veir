@@ -102,3 +102,95 @@ _end_
 
 Tools/vcc hello.c -o hello
 ```
+
+## Setting up a RISC-V user-mode environment
+
+VeIR's RISC-V backend is tested by running 64-bit RISC-V Linux executables
+under QEMU's user-mode emulator, `qemu-riscv64`. The setup below also gives
+you a riscv64 cross toolchain for compiling and debugging your own programs.
+
+### Linux
+
+On Debian or Ubuntu, install the cross toolchain and user-mode QEMU:
+```bash
+sudo apt-get install -y \
+  gcc-riscv64-linux-gnu g++-riscv64-linux-gnu libc6-dev-riscv64-cross \
+  qemu-user qemu-user-binfmt gdb-multiarch clang lld
+```
+
+`qemu-user-binfmt` registers QEMU with the kernel so that riscv64 executables
+can be run directly. Dynamically linked executables also need to find the
+riscv64 C library:
+```bash
+export QEMU_LD_PREFIX=/usr/riscv64-linux-gnu
+```
+
+### macOS
+
+`qemu-riscv64` only runs on Linux hosts, so on macOS the emulator runs inside a
+small Linux VM managed by [Lima](https://lima-vm.io). Create a VM named `rv64`
+(this is the name `vsmith` looks for). Your home directory is mounted in the VM
+at the same path:
+```bash
+brew install lima
+limactl start --name=rv64 --vm-type=vz --mount-writable template:ubuntu-24.04
+```
+
+Then install the packages from the Linux section inside the VM and set
+`QEMU_LD_PREFIX` in the VM's shell profile:
+```bash
+limactl shell rv64 sudo apt-get update
+limactl shell rv64 sudo apt-get install -y \
+  gcc-riscv64-linux-gnu g++-riscv64-linux-gnu libc6-dev-riscv64-cross \
+  qemu-user qemu-user-binfmt gdb-multiarch clang lld
+limactl shell rv64 sh -c \
+  "echo 'export QEMU_LD_PREFIX=/usr/riscv64-linux-gnu' >> ~/.bashrc"
+```
+
+Use `limactl shell rv64` to open a shell in the VM, or `limactl shell rv64
+<command>` to run a single command. `limactl stop rv64` and `limactl start
+rv64` stop and restart it.
+
+### Checking the setup
+
+On Linux, or in a shell inside the VM on macOS:
+```bash
+riscv64-linux-gnu-gcc -O2 hello.c -o hello-rv && ./hello-rv
+riscv64-linux-gnu-gcc -O2 -static hello.c -o hello-rv-static && ./hello-rv-static
+clang --target=riscv64-linux-gnu -O2 hello.c -o hello-clang && ./hello-clang
+```
+
+To debug a program, start it under QEMU's GDB stub and attach `gdb-multiarch`:
+```bash
+qemu-riscv64 -g 1234 ./hello-rv-static &
+gdb-multiarch -ex 'set architecture riscv:rv64' -ex 'target remote :1234' ./hello-rv-static
+```
+
+## Running vsmith in RISC-V mode
+
+[`Tools/vsmith`](Tools/vsmith) is a differential fuzzer: it generates random
+programs and checks that `veir-interpret` gives the same result before and after
+optimization. With `--riscv` it runs the RISC-V pipeline instead, and it also
+lowers each optimized program to LLVM MIR, compiles it into a static riscv64
+Linux executable, runs it under `qemu-riscv64`, and checks that the value it
+returns matches the interpreter's:
+```bash
+lake build
+Tools/vsmith --riscv --iterations 1000
+```
+
+This needs, in your PATH:
+
+- `llc`, `clang`, and `ld.lld` from an LLVM build with the RISC-V target
+  enabled. LLVM must be from October 2026 or later, which is when the machine
+  passes vsmith runs got their current names.
+- Either `qemu-riscv64` (Linux), or `limactl` with a running Lima VM named `rv64`
+  (macOS). When `qemu-riscv64` is not in PATH, vsmith runs each executable in
+  the VM with `limactl shell rv64`.
+
+Pass `--no-mir-exec` to skip compiling and running, and only compare interpreter
+results. Other useful options are `--seed` to reproduce a run, `--workers` to
+limit parallelism, and `--keep` to keep the work directory after a successful
+run. It is always kept when a mismatch is found. The executable for a failing
+case is left there as `<case>.elf`, so you can rerun it with `qemu-riscv64` and
+debug it as described above.
