@@ -233,10 +233,11 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
   | _, _ => false
 
 /--
-  Static `llvm.alloca` -> `gmir.g_frame_index` (see `translateAlloca`).
+  Static `llvm.alloca` -> `gmir.g_frame_index` (see `translateAlloca` in LLVM's IRTranslator).
   An allocation is static if its count is a constant, it is in the entry block of a function and
   it is not `inalloca`. The count is read here, at its original width, so it never needs to be
-  legalized. Dynamic allocations, which upstream translates to `G_DYN_STACKALLOC`, are left as is.
+  legalized.
+  We currently do not support dynamic allocations.
 -/
 def frameIndexLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
