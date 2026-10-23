@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64,isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // Negative tests: these cases are not lowered, we leave them for future work.
 

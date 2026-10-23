@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=EXEC
-// RUN: veir-opt %s --print-op-generic -p=llvm-to-gmir,legalize-riscv64,isel-riscv64,reconcile-cast,dce > %t
+// RUN: veir-opt %s --print-op-generic -p=riscv > %t
 // RUN: veir-interpret %t | filecheck %s --check-prefix=EXEC
 // RUN: filecheck %s --input-file=%t
 

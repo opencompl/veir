@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64,isel-riscv64,reconcile-cast,dce | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // {i8, [3 x [5 x i64]], i64}: array at offset 8, final field at 128.
 "builtin.module"() ({
