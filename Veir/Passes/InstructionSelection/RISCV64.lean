@@ -33,32 +33,6 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
-/--
-  RISC-V lowerings with Puddle for unary operations.
-  TODO: Add a `guard` to check for legality once needed, just like for `lowerBinary`.
--/
-def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let returnType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let x ← MatchProg.value returnType
-      let _ ← MatchProg.root srcOp #[x] #[returnType]
-      return (returnType, x))
-    (fun (returnType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[returnType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
 /-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
 def ctlz32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctlz) 32 .clzw ()
 
@@ -76,50 +50,6 @@ def ctpop32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 32 .cpop
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
 def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop ()
-
-/--
-  RISC-V for binary operations that share a single integer type between both operands and the
-  result: cast both operands to registers, optionally apply `extend` to each register first (e.g.
-  `riscv.sextw` for the signed min/max `i32` arms, since `castToRegLocal`'s zero-extension does not
-  preserve signed order), apply `riscvOp`, and cast the result back to the source type.
-  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
--/
-def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
-    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none)
-    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
-      fun _ _ => pure ()) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) typeMatcher
-      let lhs ← MatchProg.value opType
-      let rhs ← MatchProg.value opType
-      let root ← MatchProg.root srcOp #[lhs, rhs] #[opType]
-      guard opType root.properties
-      return (opType, lhs, rhs))
-    (fun (opType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
-      let (lval, rval) ← match extend with
-        | some ⟨extOp, extProps'⟩ => do
-          let extProps ← CreateProg.property (.riscv extOp) extProps'
-          let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
-          let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
-          pure (lextOp.res[0]!, rextOp.res[0]!)
-        | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lval, rval] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
@@ -1887,28 +1817,10 @@ def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 -/
 def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
-      let x ← MatchProg.value opType
-      let root ← MatchProg.root (.gmir srcOp) #[x] #[resType]
-      matchLegal srcOp resType root.properties (type₁ := opType)
-      return (resType, x))
-    (fun (resType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
+  lowerUnary (.gmir srcOp) opBw riscvOp riscvProps fun opType resType properties => do
+    -- A 64-bit register cannot hold a wider result.
+    MatchProg.matchNative resType fun t => (t.val.bitwidthOfType).any (· ≤ 64)
+    matchLegal srcOp resType properties (type₁ := opType)
 
 /-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
 def sext8_pattern : Pattern OpCode := lowerExt .g_sext 8 .sextb ()
