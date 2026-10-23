@@ -470,8 +470,16 @@ namespace LLVM
 structure VoidType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-structure PointerType
+structure PointerType where
+  mkImpl ::
+  addressSpace : Nat := 0
 deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  Construct an LLVM pointer, defaulting to address space zero.
+-/
+def PointerType.mk (addressSpace : Nat := 0) : PointerType :=
+  ⟨addressSpace⟩
 
 /--
  A byte type with a given bitwidth.
@@ -1072,7 +1080,9 @@ instance : ToString LLVM.VoidType where
   toString _ := "!llvm.void"
 
 instance : ToString LLVM.PointerType where
-  toString _ := "!llvm.ptr"
+  toString type :=
+    if type.addressSpace == 0 then "!llvm.ptr"
+    else s!"!llvm.ptr<{type.addressSpace}>"
 
 instance : ToString CudaTile.PointerType where
   toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"

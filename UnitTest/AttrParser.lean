@@ -543,6 +543,8 @@ macro "#assert " e:term : command =>
 
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
+#assert expectSuccessType "!llvm.ptr<1>" (LLVM.PointerType.mk 1)
+#assert expectSuccessType "!llvm.ptr<200>" (LLVM.PointerType.mk 200)
 
 /-! ## LLVM Void type -/
 #assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
@@ -599,16 +601,16 @@ macro "#assert " e:term : command =>
   (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
     UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
 -- Fields unsupported by the type parser retain the entire struct as text.
-#assert expectSuccessType "!llvm.struct<(ptr<1>, i32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(ptr<1>, i32)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.struct<(foo<1>, i32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(foo<1>, i32)>" true none, by grind⟩
 #assert expectSuccessType "!llvm.struct<(vector<[4]xi32>)>"
   ⟨UnregisteredAttr.mk "!llvm.struct<(vector<[4]xi32>)>" true none, by grind⟩
-#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, ptr<1>)>>"
+#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, foo<1>)>>"
   (LLVM.ArrayType.mk 2
-    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, ptr<1>)>" true none : Attribute))
+    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, foo<1>)>" true none : Attribute))
 -- The opaque fallback still requires balanced delimiters.
-#assert !(testType "!llvm.struct<(ptr<1>, i32]>").isOk
-#assert !(testType "!llvm.struct<(ptr<1>, i32)").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32]>").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32)").isOk
 
 
 /-! ## LLVM parameterless types -/

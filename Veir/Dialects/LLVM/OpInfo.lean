@@ -655,7 +655,7 @@ def Llvm.accessAlignment (layout : DataLayout) (alignment : IntegerAttr) (type :
 def RuntimeValue.storedType : RuntimeValue → Option Attribute
   | .int bw _ => some (.integerType (IntegerType.signless bw))
   | .byte bw _ => some (.byteType ⟨bw⟩)
-  | .addr _ => some (.llvmPointerType ⟨⟩)
+  | .addr _ => some (.llvmPointerType .mk)
   | _ => none
 
 /-- Whether `n` is a valid LLVM alignment: a strictly positive power of two. -/

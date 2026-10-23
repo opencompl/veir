@@ -766,18 +766,6 @@ partial def parseOptionalPDLTypeType : AttrParserM (Option TypeAttr) := do
   return some PDL.TypeType.mk
 
 /--
-  Parse an LLVM pointer type `!llvm.ptr`, if present.
--/
-partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.ptr".toByteArray then return none
-  let _ ← consumeToken
-  return some LLVM.PointerType.mk
-
-/--
   Parse cuda-tile's pointer type, if present
   Its syntax is `!cuda_tile.ptr<type>`, where type will be a CudaTileNumberType
   At present, this is just integer types.
@@ -1067,6 +1055,19 @@ partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
   return some (VectorType.mk shape elementType)
 
 /--
+  Parse an LLVM pointer type, if present.
+  Its syntax is `!llvm.ptr` or `!llvm.ptr<addressSpace>`.
+  At present, this is just natural numbers.
+-/
+partial def parseOptionalLLVMPointerType (short := false) : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalTypeName "llvm.ptr" short) then return none
+  let mut addressSpace := 0
+  if ← parseOptionalPunctuation "<" then
+    addressSpace := (← parseInteger false false).toNat
+    parsePunctuation ">"
+  return some (LLVM.PointerType.mk addressSpace)
+
+/--
   Parse an LLVM array type, if present.
   Its syntax is `!llvm.array<size x type>`,
   or (exclusively) the shorter form `array<size x type>` if the corresponding argument is set.
@@ -1183,8 +1184,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   if ← parseOptionalKeyword "void".toByteArray then
     return LLVM.VoidType.mk
-  if ← parseOptionalKeyword "ptr".toByteArray then
-    return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalLLVMPointerType true then
+    return type
   if let some type ← parseOptionalByteType true then
     return type
   if let some type ← parseOptionalLLVMArrayType true then
