@@ -28,6 +28,7 @@ meta inductive Tm : TmKind → Type
 | widthAtom (id : Nat) : Tm .width
 | widthFVar (id : Nat) (fid : FVarId) : Tm .width
 | widthAdd (v w : Tm .width) : Tm .width
+| widthSub (v w : Tm .width) : Tm .width
 | widthLt (v w : Tm .width) : Tm .prop
 | widthLe (v w : Tm .width) : Tm .prop
 | widthEq (v w : Tm .width) : Tm .prop
@@ -44,6 +45,7 @@ meta def Tm.toExpr {k : TmKind} (this : Tm k) (env : TmWidthEnv) : Expr :=
   | .widthLit val => mkNatLit val
   | .widthAtom id | .widthFVar id _ => env[id]!
   | .widthAdd v w => mkNatAdd (v.toExpr env) (w.toExpr env)
+  | .widthSub v w => mkNatSub (v.toExpr env) (w.toExpr env)
   | .widthLt  v w => mkNatLT (v.toExpr env) (w.toExpr env)
   | .widthLe  v w => mkNatLE (v.toExpr env) (w.toExpr env)
   | .widthEq  v w => mkNatEq (v.toExpr env) (w.toExpr env)
@@ -61,6 +63,7 @@ meta def Tm.toName {k : TmKind} (tm : Tm k) : MetaM Name :=
     if name.hasMacroScopes then return Name.mkSimple s!"w{id}" else return name
   | .widthAtom id => return Name.mkSimple s!"a{id}"
   | .widthAdd v w => return Name.mkSimple s!"{← v.toName}_add_{← w.toName}"
+  | .widthSub v w => return Name.mkSimple s!"{← v.toName}_sub_{← w.toName}"
   | .widthLt  v w => return Name.mkSimple s!"{← v.toName}_lt_{← w.toName}"
   | .widthLe  v w => return Name.mkSimple s!"{← v.toName}_le_{← w.toName}"
   | .widthEq  v w => return Name.mkSimple s!"{← v.toName}_eq_{← w.toName}"
@@ -78,6 +81,7 @@ meta def Tm.getUpperBound {k : TmKind} (tm : Tm k) (bound : Nat) : Nat :=
   | .widthLit val => val
   | .widthAtom _ | .widthFVar _ _ => bound
   | .widthAdd wa wb => (wa.getUpperBound bound) + (wb.getUpperBound bound)
+  | .widthSub wa wb => wa.getUpperBound bound
   | .widthLt  v w
   | .widthLe  v w
   | .widthEq  v w
