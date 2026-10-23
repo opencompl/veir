@@ -285,48 +285,49 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       for i in [0:ft.inputs.size] do
         if ((entry.getArgument i).getType! ctx.raw).val ≠ ft.inputs[i]! then
           throw s!"riscv_cf.func: Entry block argument {i} type does not match function signature"
-  | .branch =>
+  | .branch => do
     op.verifyUnconditionalBranch ctx opIn
+    op.verifyRISCVRegisterTypes ctx opIn
   | .beq => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.beq).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bne => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bne).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .blt => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.blt).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bge => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bge).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bltu => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bltu).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bgeu => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bgeu).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 2
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .beqz => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.beqz).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .bnez => do
     op.verifyTerminatorCounts ctx opIn 2
     let sizes := (op.getProperties! ctx.raw Riscv_Cf.bnez).operandSegmentSizes
     op.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-    pure ()
+    op.verifyRISCVRegisterTypes ctx opIn
   | .unreachable =>
     op.verifyPlainOpCounts ctx opIn 0 0
   -- Calls are variadic in their register arguments and results; control
