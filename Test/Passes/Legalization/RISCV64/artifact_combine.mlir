@@ -27,7 +27,19 @@
     // CHECK-NEXT: %[[X_I32:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
     // CHECK-NEXT: "gmir.g_anyext"(%[[X_I32]]) : (i32) -> i64
 
-    "test.test"(%ext, %and, %narrower, %wider) : (i64, i8, i32, i64) -> ()
+    // Once the `g_trunc`s cancel, the high bits of the wide `g_or` operands overlap, so it must not
+    // keep `isDisjoint`.
+    %a = "llvm.mlir.constant"() <{value = 257 : i64}> : () -> i64
+    %b = "llvm.mlir.constant"() <{value = 258 : i64}> : () -> i64
+    %a8 = "gmir.g_trunc"(%a) : (i64) -> i8
+    %b8 = "gmir.g_trunc"(%b) : (i64) -> i8
+    %or = "gmir.g_or"(%a8, %b8) <{isDisjoint}> : (i8, i8) -> i8
+    // CHECK-NEXT: %[[A:.*]] = "llvm.mlir.constant"() <{"value" = 257 : i64}> : () -> i64
+    // CHECK-NEXT: %[[B:.*]] = "llvm.mlir.constant"() <{"value" = 258 : i64}> : () -> i64
+    // CHECK-NEXT: %[[OR:.*]] = "gmir.g_or"(%[[A]], %[[B]]) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"(%[[OR]]) : (i64) -> i8
+
+    "test.test"(%ext, %and, %narrower, %wider, %or) : (i64, i8, i32, i64, i8) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
