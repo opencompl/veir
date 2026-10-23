@@ -1,13 +1,10 @@
 module
 
 public import Veir.Pass
-<<<<<<< HEAD
 import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
-=======
 import Veir.Passes.Legalization.LegalizerInfo
->>>>>>> origin
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
