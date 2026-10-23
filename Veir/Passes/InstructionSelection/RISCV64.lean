@@ -1916,10 +1916,9 @@ def gmirFrameIndex_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let allocaProps ← CreateProg.applyNative frameProps fun ⟨size, alignment⟩ =>
         some (RISCVStackAllocaProperties.mk size alignment)
-      let allocaOp ← CreateProg.operation (.riscv_stack .alloca) #[] #[regType] allocaProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let allocaOp ← CreateProg.operation (.riscv_stack .alloca) #[] #[regType] (.inr allocaProps)
       CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[allocaOp.res[0]!] #[type] castBackProps)
+          #[allocaOp.res[0]!] #[type])
     (fun castBackOp => castBackOp)
 
 def gmirFrameIndex : Puddle.CompiledPattern OpCode := gmirFrameIndex_pattern.compile
