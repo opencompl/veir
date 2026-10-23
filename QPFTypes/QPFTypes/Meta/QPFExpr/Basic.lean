@@ -301,10 +301,13 @@ Create a dependent sum or product of a family of `n`-ary QPFs, depending on
 which triple of `QPF.Sigma`/`QPF.Sigma.qpf`/`QPF.Sigma.instIsPolynomial` or
 `QPF.Pi`/`QPF.Pi.qpf`/`QPF.Pi.instIsPolynomial` is passed in.
 
+The index type `A` lives in universe `w`, which is assumed to be at most `u`,
+i.e., `max w u` is assumed to be def-eq to `u`.
+
 Private auxiliary definition for `mkSigma` and `mkPi`.
 -/
 private meta def mkDepFamily (typefunConst qpfConst isPolyConst : Name)
-    (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
+    (u : Level) (n : Nat) (w : Level) (A : Expr /- : Type $w -/)
     (family : Expr → MetaM (QPFExpr n)) : MetaM (QPFExpr n) :=
   Meta.withLocalDeclD `a A fun a => do
     let Fa ← family a
@@ -317,45 +320,49 @@ private meta def mkDepFamily (typefunConst qpfConst isPolyConst : Name)
     return {
       domLevel := u
       codLevel := u
-      typefun := mkApp3 (mkConst typefunConst [u]) (toExpr n) A Ftypefun
-      qpf := mkApp4 (mkConst qpfConst [u]) (toExpr n) A Ftypefun Fqpf
+      typefun := mkApp3 (mkConst typefunConst [w, u]) (toExpr n) A Ftypefun
+      qpf := mkApp4 (mkConst qpfConst [w, u]) (toExpr n) A Ftypefun Fqpf
       isPolynomial? := ← Fa.isPolynomial?.mapM fun FisPoly => do
         let FisPoly ← Meta.mkLambdaFVars #[a] FisPoly
-        return mkApp5 (mkConst isPolyConst [u]) (toExpr n) A Ftypefun Fqpf FisPoly
+        return mkApp5 (mkConst isPolyConst [w, u]) (toExpr n) A Ftypefun Fqpf FisPoly
     }
 
 /--
 Create the dependent sum of a family of `n`-ary QPFs,
 i.e., an application of `QPF.Sigma`.
 
-The family is described by `A`, an expression of type `Type $u`, together with
+The family is described by `A`, an expression of type `Type $w`, together with
 the monadic function `family`, which is given a free variable `a : $A` and is
 expected to return the `n`-ary QPF `$F a` as a QPFExpr in universe `u`
 (an error is thrown otherwise).
 
-Note that the index type `$A` must live in the *same* universe `$u` as the
-QPFs in the family.
+Note that the index type `$A` may live in a lower universe than the QPFs in the
+family; the caller is responsible for ensuring that `max $w $u` is def-eq to `$u`.
 -/
-public meta def mkSigma (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
+public meta def mkSigma (u : Level) (n : Nat) (w : Level) (A : Expr /- : Type $w -/)
     (family : Expr → MetaM (QPFExpr n)) : MetaM (QPFExpr n) :=
-  mkDepFamily ``QPF.Sigma ``QPF.Sigma.qpf ``QPF.Sigma.instIsPolynomial u n A family
+  mkDepFamily ``QPF.Sigma ``QPF.Sigma.qpf ``QPF.Sigma.instIsPolynomial u n w A family
 
 /--
 Create the dependent product of a family of `n`-ary QPFs,
 i.e., an application of `QPF.Pi`.
 
-The family is described by `A`, an expression of type `Type $u`, together with
+The family is described by `A`, an expression of type `Type $w`, together with
 the monadic function `family`, which is given a free variable `a : $A` and is
 expected to return the `n`-ary QPF `$F a` as a QPFExpr in universe `u`
 (an error is thrown otherwise).
+
+As with `mkSigma`, the domain `$A` may live in a lower universe than the QPFs in
+the family; the caller is responsible for ensuring that `max $w $u` is def-eq to
+`$u`.
 
 Since a non-dependent function type `$A → $B` is just a trivial/degenerate
 dependent product, this is also how function types (which are functorial in
 their codomain, but not in their domain) are represented.
 -/
-public meta def mkPi (u : Level) (n : Nat) (A : Expr /- : Type $u -/)
+public meta def mkPi (u : Level) (n : Nat) (w : Level) (A : Expr /- : Type $w -/)
     (family : Expr → MetaM (QPFExpr n)) : MetaM (QPFExpr n) :=
-  mkDepFamily ``QPF.Pi ``QPF.Pi.qpf ``QPF.Pi.instIsPolynomial u n A family
+  mkDepFamily ``QPF.Pi ``QPF.Pi.qpf ``QPF.Pi.instIsPolynomial u n w A family
 
 /--
 Compose an `n`-ary QPF `F` with `n` `m`-ary QPFs `Gs`, i.e.,

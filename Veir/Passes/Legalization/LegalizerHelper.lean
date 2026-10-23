@@ -35,19 +35,17 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
       return (operands, resultTypes, root.properties))
     (fun (operands, resultTypes, props) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
-      let extProps ← CreateProg.property (.gmir extOpcode) default
       let wideOperands ← (info.inOperandList.zip operands).mapM fun (group, operand) => do
         if group ≠ typeIdx then return operand
-        let ext ← CreateProg.operation (.gmir extOpcode) #[operand] #[wideType] extProps
+        let ext ← CreateProg.operation (.gmir extOpcode) #[operand] #[wideType]
         return ext.res[0]!
       let wideResultTypes := (info.outOperandList.zip resultTypes).map fun (group, type) =>
         if group = typeIdx then wideType else type
       let wideProps ← CreateProg.applyNative props (some <| updateProps ·)
-      let wide ← CreateProg.operation (.gmir opcode) wideOperands wideResultTypes wideProps
-      let truncProps ← CreateProg.property (.gmir .g_trunc) default
+      let wide ← CreateProg.operation (.gmir opcode) wideOperands wideResultTypes (.inr wideProps)
       (info.outOperandList.zip (resultTypes.zip wide.res)).mapM fun (group, type, result) => do
         if group ≠ typeIdx then return result
-        let trunc ← CreateProg.operation (.gmir .g_trunc) #[result] #[type] truncProps
+        let trunc ← CreateProg.operation (.gmir .g_trunc) #[result] #[type]
         return trunc.res[0]!)
     (fun results => results)
 
@@ -55,6 +53,10 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
 -- NOTE: (for reviewers) we could also default construct to clear.
 def clearNswNuwProperties (props : NswNuwProperties) : NswNuwProperties :=
   { props with nsw := false, nuw := false }
+
+/-- Clears the disjoint flag, which no longer holds once the high bits are unconstrained. -/
+def clearDisjointProperties (props : DisjointProperties) : DisjointProperties :=
+  { props with disjoint := false }
 
 /-- Widens `g_constant` to `width` bits and then truncates it back, extending the value as LLVM's
 `LegalizerInfo::getExtOpcodeForWideningConstant` does. -/
@@ -69,9 +71,8 @@ def widenConstant (width : Nat) : Pattern OpCode :=
       let props ← CreateProg.applyNative root.properties fun ⟨⟨value, ⟨w, _⟩⟩⟩ =>
         let value := if w % 8 = 0 then value else (BitVec.ofInt w value).toNat
         some (GMIRConstantProperties.mk (.ofInt value (.signless width)))
-      let wide ← CreateProg.operation (.gmir .g_constant) #[] #[wideType] props
-      let truncProps ← CreateProg.property (.gmir .g_trunc) default
-      CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type] truncProps)
+      let wide ← CreateProg.operation (.gmir .g_constant) #[] #[wideType] (.inr props)
+      CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type])
     (fun trunc => trunc)
 
 public section
@@ -102,7 +103,7 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_ashr, .type 1, width => widenTypeGroup .g_ashr (.type 1) .g_zext width
   | .g_lshr, .type 1, width => widenTypeGroup .g_lshr (.type 1) .g_zext width
   | .g_and, .type 0, width => widenTypeGroup .g_and (.type 0) .g_anyext width
-  | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width
+  | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width clearDisjointProperties
   | .g_xor, .type 0, width => widenTypeGroup .g_xor (.type 0) .g_anyext width
   | .g_mul, .type 0, width => widenTypeGroup .g_mul (.type 0) .g_anyext width clearNswNuwProperties
   -- The high bits matter for division and remainder, so the operands are extended according to

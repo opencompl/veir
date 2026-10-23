@@ -78,15 +78,12 @@ def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
       return (resType, x))
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+          #[x] #[regType]
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[castOp.res[0]!] #[regType] riscvProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
+          #[riscvResOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -112,25 +109,20 @@ def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp :
       return (opType, lhs, rhs))
     (fun (opType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
+          #[rhs] #[regType]
       let (lval, rval) ← match extend with
-        | some ⟨extOp, extProps'⟩ => do
-          let extProps ← CreateProg.property (.riscv extOp) extProps'
+        | some ⟨extOp, extProps⟩ => do
           let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
           let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
           pure (lextOp.res[0]!, rextOp.res[0]!)
         | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
       let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lval, rval] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lval, rval] #[regType] riscvProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castBackProps
+          #[riscvResOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
