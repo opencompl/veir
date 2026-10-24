@@ -89,9 +89,13 @@ compiler driver and emit the optimized MLIR to stdout:
 Tools/vcc demorgan.c --emit-mlir -O -o -
 ```
 
-Without an explicit emit mode, `vcc` translates VeIR's output back to
-LLVM IR and asks `clang` to produce an executable. `vcc` targets 64-bit RISC-V
-Linux, so this needs the environment described in
+Without an explicit emit mode, `vcc` produces a 64-bit RISC-V Linux
+executable using VeIR's own RISC-V backend. VeIR selects instructions, and
+`llc` allocates registers and prints the assembly, which `clang` then assembles
+and links. Pass `--llvm-backend` to instead translate VeIR's output back to
+LLVM IR and let `clang` generate the code. This is useful for programs that use
+constructs VeIR's backend can't handle yet, such as `switch` statements and
+some stack allocations. Either way, this needs the environment described in
 [Setting up a RISC-V user-mode environment](#setting-up-a-risc-v-user-mode-environment):
 ```bash
 cat << _end_ > hello.c

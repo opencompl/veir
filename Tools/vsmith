@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
+from mir_llc import emit_asm_cmd, regalloc_cmd
 from vsmith_generate import generate
 
 
@@ -655,27 +656,14 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return False, (f"veir2mir could not lower some ops\n"
                        f"optimized: {opt}\nmir: {mir}\n" + "\n".join(unhandled))
 
-    # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR. Rather than a
-    # canned -O0/-O2 pipeline we drive an explicit minimal machine pipeline via
-    # -run-pass so VeIR's instruction selection passes through unmodified while we
-    # still get the greedy allocator: PHI elimination, two-address lowering,
-    # register coalescing (deletes isel-generated copies), greedy allocation +
-    # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
-    # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
-    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
-                        "-run-pass=phi-node-elimination,two-address-instruction,"
-                        "register-coalescer,greedy,virt-reg-rewriter,prolog-epilog,"
-                        "post-ra-pseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
+    # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR (see mir_llc)
+    rc, out = _mir_run(regalloc_cmd(tools["llc"], str(mir), str(lowered)))
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
-    # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
-    # -start-after=riscv-expand-pseudo-pre-emit skips straight to the asm printer (the few
-    # remaining passes are no-ops here) without re-running regalloc or prologue
-    # insertion, which would corrupt the already-lowered MIR.
-    rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
-                        "-start-after=riscv-expand-pseudo-pre-emit", "-o", str(asm)])
+    # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly (see mir_llc)
+    rc, out = _mir_run(emit_asm_cmd(tools["llc"], str(lowered), str(asm)))
     if rc != 0:
         return False, (f"llc failed to emit assembly from lowered MIR\n"
                        f"optimized: {opt}\nlowered: {lowered}\n{out}")
