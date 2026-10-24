@@ -178,15 +178,9 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   let ctx := WfRewriter.replaceValue! ctx bap (cast.getResult 0)
   return WfRewriter.pushOperand! ctx cast bap
 
-/--
-  Turn the arguments of `block` into registers, unless nothing branches to it
-  or it cannot be converted.
--/
+/-- Turn the arguments of `block` into registers, unless it cannot be converted. -/
 def convertBlock (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) := do
-  -- If nothing branches to the block (e.g., the entry block) we can skip it.
-  if !block.hasPredecessor! ctx.raw then
-    return ctx
   if !convertible block then
     return ctx
   -- Add casts in order of block arguments
@@ -203,7 +197,10 @@ def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode
   let blocked := blockedTargets ctx
   -- Each round that changes something removes a block, so this many suffice.
   let convertible := dropTargetsOfUnlowered ctx ops (blocks.length + 1)
-    (blocks.filter fun block => !blocked.contains block && isConvertible ctx block)
+    -- A block that nothing branches to keeps its arguments: an entry block's
+    -- are the parameters of its function.
+    (blocks.filter fun block => !blocked.contains block && isConvertible ctx block &&
+      block.hasPredecessor! ctx.raw)
   let ctx ← ops.foldlM (convertBranch convertible.contains) ctx
   blocks.foldlM (convertBlock convertible.contains) ctx
 
