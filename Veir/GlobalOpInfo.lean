@@ -532,6 +532,11 @@ def OpCode.callOpInterface?
 
 #generate_has_dialect_instances OpCode
 
+def OpCode.operationDefinition? : OpCode → Option OperationDefinition
+  | .arith op => Arith.operationDefinition? op
+  | .pdl op => PDL.operationDefinition? op
+  | _ => none
+
 @[expose]
 def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String Unit :=
@@ -562,6 +567,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .seq opType => Seq.verifyLocalInvariants opType op ctx opIn
 
 instance : HasOpInfo OpCode where
+  operationDefinition? := OpCode.operationDefinition?
   verifyLocalInvariants := OpCode.verifyLocalInvariants
   tryFold := OpCode.tryFold
   getEffects := OpCode.getEffects
