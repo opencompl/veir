@@ -1,0 +1,60 @@
+name: Rebuild the LLVM latest image
+
+# Rebuilds the runner image that floats to the newest LLVM release, so that
+# `lean_action_ci_llvm_latest.yml` has something current to run against. That
+# workflow is what tests the image: `nsc github profile rebuild-base-image`
+# only triggers a build and returns, so a job here could not wait for the image
+# it asked for, and testing the image is per-commit work anyway.
+#
+# It runs on a GitHub-hosted runner, since it cannot run on the profile it is
+# rebuilding.
+
+on:
+  schedule:
+    # Clear of the 06:00 `nightly-veir-tests.yml` run.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  # `nscloud-setup` exchanges a GitHub OIDC token for a short-lived Namespace
+  # one, so there is no pre-shared key to keep.
+  id-token: write
+  contents: read
+
+env:
+  # The tag of the runner profile, which is also the half of `runs-on` that
+  # follows `namespace-profile-`. The commands below want the profile's id
+  # instead, and look it up from this, so there is no id to keep anywhere.
+  PROFILE_TAG: veir-llvm-latest
+
+jobs:
+  rebuild-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: namespacelabs/nscloud-setup@df198f982fcecfb8264bea3f1274b56a61b6dfdc # v0.0.12
+
+      - name: Find the profile
+        run: |
+          profile_id=$(nsc github profile list -o json \
+            | jq -r --arg tag "$PROFILE_TAG" '.[] | select(.tag == $tag) | .profile_id')
+          test -n "$profile_id" || { echo "no runner profile tagged $PROFILE_TAG"; exit 1; }
+          echo "PROFILE_ID=$profile_id" >> "$GITHUB_ENV"
+
+      # The Dockerfile in the repository is the profile's, rather than a copy
+      # to paste into the dashboard. Applying it every night keeps the two from
+      # drifting apart, and is a no-op when the file has not changed.
+      - name: Apply the Dockerfile to the profile
+        run: |
+          nsc github profile update \
+            --profile_id "$PROFILE_ID" \
+            --dockerfile .github/docker/namespace-llvm-latest-image.Dockerfile
+
+      # An unchanged Dockerfile does not rebuild on its own, and an unchanged
+      # Dockerfile is the normal case here: what moves is the LLVM release that
+      # the build resolves. So the rebuild is asked for explicitly.
+      - name: Rebuild the base image
+        run: |
+          nsc github profile rebuild-base-image --profile_id "$PROFILE_ID"
+
