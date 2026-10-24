@@ -1,0 +1,263 @@
+# Opens a pull request moving VeIR to the newest Lean release. If the bumped
+# toolchain breaks the checks, Claude Code fixes it following
+# `.github/lean-update-prompt.md`.
+
+name: Lean release update
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Lean version to move to, e.g. v4.36.0 (default: the newest release)"
+        required: false
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: lean-release-update
+  cancel-in-progress: false
+
+env:
+  MODEL: claude-opus-5-5
+  AGENT_MINUTES: 60
+  MAX_TURNS: 300
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      current: ${{ steps.version.outputs.current }}
+      target: ${{ steps.version.outputs.target }}
+      branch: bump-to-${{ steps.version.outputs.target }}
+      run: ${{ steps.existing.outputs.run }}
+    # Any pull request or branch for the target, even a failed one, stops
+    # further attempts: a human takes over from there.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: lean-toolchain
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Find the newest Lean release
+        id: version
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          current=$(sed 's|^leanprover/lean4:||' lean-toolchain)
+          if [ -z "$TARGET" ]; then
+            TARGET=$(curl -fsSL --retry 3 https://release.lean-lang.org/ |
+              jq -r --arg current "$current" '
+                def key: capture("^v(?<x>[0-9]+)\\.(?<y>[0-9]+)\\.(?<z>[0-9]+)(-rc(?<r>[0-9]+))?$")
+                  | [.x, .y, .z, .r // "999999"] | map(tonumber);
+                [(.stable + .beta)[].name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+(-rc[0-9]+)?$"))]
+                | max_by(key) | select(key > ($current | key)) // empty')
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this release was already attempted
+        id: existing
+        if: steps.version.outputs.target != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: bump-to-${{ steps.version.outputs.target }}
+        run: |
+          prs=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state all --json number --jq length)
+          if [ "$prs" = 0 ] && ! gh api "repos/$GITHUB_REPOSITORY/branches/$BRANCH" --silent 2>/dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  update:
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    runs-on: namespace-profile-veir
+    timeout-minutes: 150
+    outputs:
+      passed: ${{ steps.agent.outputs.passed || steps.bump.outputs.passed }}
+    # Read-only: the agent runs here with every command allowed.
+    permissions:
+      contents: read
+    env:
+      CURRENT: ${{ needs.check.outputs.current }}
+      TARGET: ${{ needs.check.outputs.target }}
+      BRANCH: ${{ needs.check.outputs.branch }}
+      OUT: /tmp/lean-update
+      GIT_AUTHOR_NAME: veir-lean-bot
+      GIT_AUTHOR_EMAIL: veir-lean-bot@users.noreply.github.com
+      GIT_COMMITTER_NAME: veir-lean-bot
+      GIT_COMMITTER_EMAIL: veir-lean-bot@users.noreply.github.com
+      # CI's checks; writes checks.md and checks.log to $1.
+      CHECKS: |
+        out=${1:?output directory}
+        mkdir -p "$out"
+        : >"$out/checks.md"
+        : >"$out/checks.log"
+        checks=(
+          "lake build --iofail"
+          "lake test --iofail"
+          "lit Test/ -v"
+          "cd ExArray && lake build && lake exe test"
+          "cd QPFTypes && lake build && lake test"
+          "./Tools/check-orphan-modules"
+          "./Tools/check-interpreter-cross-checks"
+          "rm -rf /tmp/debug && mkdir /tmp/debug && tar -c --exclude=.lake --exclude=.git . | tar -x -C /tmp/debug && cd /tmp/debug && sed -i 's/^buildType = \"release\"$/buildType = \"debug\"/' lakefile.toml && lake build --iofail && lake test --iofail"
+        )
+        failed=0
+        for c in "${checks[@]}"; do
+          echo "=== $c" >>"$out/checks.log"
+          if bash -c "$c" >>"$out/checks.log" 2>&1; then mark=x; else mark=' '; failed=1; fi
+          echo "- [$mark] \`$c\`" | tee -a "$out/checks.md"
+        done
+        exit "$failed"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+        with:
+          github_access_token: ${{ github.token }}
+
+      - name: Activate the Nix development environment
+        uses: nicknovitski/nix-develop@9be7cfb4b10451d3390a75dc18ad0465bed4932a # v1.2.1
+        with:
+          arguments: --no-write-lock-file
+
+      # Nix's elan would patch the toolchain to use Nix's gcc, as in CI.
+      - name: Put elan first on PATH
+        run: |
+          curl -fsSL https://elan.lean-lang.org/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Bump the toolchain and run the checks
+        id: bump
+        run: |
+          git switch --quiet -c "$BRANCH"
+          # Regular files only; ExArray's is a symlink.
+          git ls-files -s | awk '$1 == "100644" && $4 ~ /(^|\/)lean-toolchain$/ { print $4 }' |
+            xargs sed -i "s|^leanprover/lean4:.*|leanprover/lean4:$TARGET|"
+          git commit --quiet -am "chore: bump toolchain to ${TARGET#v}"
+          if bash -c "$CHECKS" checks "$OUT/bump"; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Never fails on the agent's account: whatever it got done becomes a pull
+      # request, so a human can take over.
+      - name: Run the agent
+        id: agent
+        if: steps.bump.outputs.passed == 'false'
+        timeout-minutes: 100
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 1
+          DISABLE_AUTOUPDATER: 1
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s stable
+          printf '%s\n' "$CHECKS" > "$OUT/checks.sh"
+          prompt=$(sed -e "s/@CURRENT@/$CURRENT/g" -e "s/@TARGET@/$TARGET/g" \
+            -e "s|@OUT@|$OUT|g" .github/lean-update-prompt.md)
+          prompt+="
+
+          ## Where you start
+
+          The workflow has bumped the toolchain files (\`git show HEAD\`) and
+          run the checks once; \`.lake\` holds that build. The results were:
+
+          $(cat "$OUT/bump/checks.md")
+
+          The output is in \`$OUT/bump/checks.log\`; each check starts with a \`===\` line."
+          timeout -s INT -k 2m "${AGENT_MINUTES}m" \
+            "$HOME/.local/bin/claude" -p "$prompt" \
+              --model "$MODEL" \
+              --max-turns "$MAX_TURNS" \
+              --permission-mode bypassPermissions \
+              --output-format stream-json --verbose \
+              > "$OUT/agent.jsonl" || true
+          mv LEAN_UPDATE_SUMMARY.md "$OUT/summary.md" || true
+          git commit --quiet -am "chore: uncommitted changes left by the Lean update agent" || true
+          if bash -c "$CHECKS" checks "$OUT/final"; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack the result
+        if: ${{ !cancelled() }}
+        run: |
+          git bundle create "$OUT/update.bundle" "$GITHUB_SHA..HEAD"
+          rm "$OUT/checks.sh" || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: lean-update-${{ env.TARGET }}
+          path: ${{ env.OUT }}
+          retention-days: 30
+
+  pull-request:
+    needs: [check, update]
+    # Also after a failed update job, so that the attempt is not repeated.
+    if: ${{ !cancelled() && needs.check.outputs.run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      CURRENT: ${{ needs.check.outputs.current }}
+      TARGET: ${{ needs.check.outputs.target }}
+      BRANCH: ${{ needs.check.outputs.branch }}
+      PASSED: ${{ needs.update.outputs.passed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lean-update-${{ env.TARGET }}
+          path: ${{ runner.temp }}/out
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          out=$RUNNER_TEMP/out
+          body=$RUNNER_TEMP/body.md
+          if [ -f "$out/summary.md" ]; then
+            cp "$out/summary.md" "$body"
+          elif [ "$PASSED" = true ]; then
+            echo "Bumps Lean from \`$CURRENT\` to \`$TARGET\`; no code changes were needed." > "$body"
+          else
+            echo "Bumps Lean from \`$CURRENT\` to \`$TARGET\`. The Lean update agent left no summary." > "$body"
+          fi
+          git fetch --quiet "$out/update.bundle" "HEAD:refs/heads/$BRANCH"
+          git push --quiet origin "$BRANCH"
+          draft=()
+          [ "$PASSED" = true ] || draft=(--draft)
+          url=$(gh pr create --base "$GITHUB_REF_NAME" --head "$BRANCH" "${draft[@]}" \
+            --title "chore: bump toolchain to ${TARGET#v}" --body-file "$body")
+          if [ "$PASSED" != true ]; then
+            {
+              echo "**Needs a human to take over.** The checks still fail after the Lean update agent's attempt, and the nightly workflow will not try \`$TARGET\` again."
+              echo
+              cat "$out/final/checks.md" 2>/dev/null || echo "The update job failed before the final checks ran; see the workflow run."
+              echo
+              echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            } > "$RUNNER_TEMP/comment.md"
+            gh pr comment "$url" --body-file "$RUNNER_TEMP/comment.md"
+          fi
