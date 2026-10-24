@@ -1039,6 +1039,26 @@ def parseOptionalSeqClockType : AttrParserM (Option Seq.ClockType) := do
   let _ ← consumeToken
   return some {}
 
+/--
+  Parse CIRCT's `seq` dialect's `FirMemType` type.
+  Its syntax is `!seq.firmem<depth x width>`, with an optional `, mask maskWidth` for a
+  masked memory.
+-/
+def parseOptionalSeqFirMemType : AttrParserM (Option Seq.FirMemType) := do
+  if !(← parseOptionalTypeName "seq.firmem" false) then return none
+  parsePunctuation "<"
+  let depth ← parseInteger false false "memory depth expected"
+  parseShapeSeparator
+  let width ← parseInteger false false "memory word width expected"
+  let maskWidth ←
+    if ← parseOptionalPunctuation "," then
+      parseKeyword "mask".toByteArray
+      pure (some (← parseInteger false false "mask width expected").toNat)
+    else
+      pure none
+  parsePunctuation ">"
+  return some { depth := depth.toNat, width := width.toNat, maskWidth }
+
 /-- A parsed entry in an LLVM function type's parameter list. -/
 inductive LLVMFuncParam
   | type (ty : TypeAttr)
@@ -1326,6 +1346,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some hwModuleType
   if let some seqClockType ← parseOptionalSeqClockType then
     return some seqClockType
+  if let some seqFirMemType ← parseOptionalSeqFirMemType then
+    return some seqFirMemType
   if let some pdlRangeType ← parseOptionalPDLRangeType then
     return some pdlRangeType
   if let some pdlAttributeType ← parseOptionalPDLAttributeType then
