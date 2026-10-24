@@ -101,7 +101,7 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   let some parent := block.getParent ctx.raw blockIn | return
   if parent.getFirstBlock! ctx.raw ≠ some block then return
-  if (block.getFirstUse ctx.raw blockIn).isSome then
+  if block.hasPredecessor ctx.raw blockIn then
     throw "entry block of region may not have predecessors"
 
 /-- Check that a `block` terminates and that, in case it is the entry block,
@@ -433,8 +433,8 @@ theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
     block.getFirstUse! ctx.raw = none := by
   have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
   have hParent' : block.getParent ctx.raw blockIn = some region := by grind
-  simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
-    not_true_eq_false, ↓reduceIte] at hCheck
+  simp only [BlockPtr.verifyNoEntryBlockPredecessors, BlockPtr.hasPredecessor_def blockIn,
+    hParent', hFirstBlock, ne_eq, not_true_eq_false, ↓reduceIte] at hCheck
   split at hCheck
   · cases hCheck
   · rename_i hUse

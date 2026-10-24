@@ -157,8 +157,8 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
 -/
 def convertBlock (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) := do
-  -- If the block has no uses (e.g., the entry block) we can skip it.
-  if block.getFirstUse! ctx.raw == none then
+  -- If nothing branches to the block (e.g., the entry block) we can skip it.
+  if !block.hasPredecessor! ctx.raw then
     return ctx
   if !convertible block then
     return ctx
