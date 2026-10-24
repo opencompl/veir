@@ -51,18 +51,22 @@ real code into and out of VeIR. The
 [C to VeIR](#from-c-to-veir) workflow, `Tools/vcc`, and `Tools/vsmith --riscv`
 all use `clang`, `opt`, `llc`, `ld.lld`, `mlir-translate`, and `mlir-opt`.
 
-These tools need LLVM 24 or later, with the RISC-V target enabled, since VeIR's
-RISC-V backend relies on machine pass names that LLVM 23 doesn't have. Until
-LLVM 24 is released, the distributions don't package it, but on Debian or
-Ubuntu [apt.llvm.org](https://apt.llvm.org) has nightly snapshots. Its
+VeIR works with either LLVM 23 or a recent nightly snapshot of LLVM 24, with
+the RISC-V target enabled. Our tests assume LLVM 23.1.3, the version CI uses
+(see [`.github/docker/namespace-base-image.Dockerfile`](.github/docker/namespace-base-image.Dockerfile)).
+On Debian or Ubuntu, [apt.llvm.org](https://apt.llvm.org) packages both. Its
 `llvm.sh` script adds the repository and installs clang and lld; `llc`, `opt`,
-and the MLIR tools are separate packages:
+and the MLIR tools are separate packages. For LLVM 23:
 ```bash
 wget https://apt.llvm.org/llvm.sh
-sudo bash llvm.sh 24
-sudo apt-get install -y llvm-24 mlir-24-tools
-export PATH=/usr/lib/llvm-24/bin:$PATH
+sudo bash llvm.sh 23
+sudo apt-get install -y llvm-23 mlir-23-tools
+export PATH=/usr/lib/llvm-23/bin:$PATH
 ```
+
+For the LLVM 24 snapshot, use `24` in place of `23` throughout. apt.llvm.org
+installs the latest LLVM 23 point release, which may be newer than 23.1.3; to
+match CI exactly, build the `llvmorg-23.1.3` tag from source.
 
 Elsewhere, including macOS, build LLVM from source with the `mlir` and `lld`
 projects enabled, and put the build's `bin` directory first in `PATH`.
@@ -235,8 +239,8 @@ Tools/vsmith --riscv --iterations 1000
 
 This needs, in your PATH:
 
-- `llc`, `clang`, and `ld.lld` from LLVM 24 or later, with the RISC-V target
-  enabled (see [Installing LLVM and MLIR](#installing-llvm-and-mlir)).
+- `llc`, `clang`, and `ld.lld` from LLVM 23 or a recent LLVM 24 snapshot,
+  with the RISC-V target enabled (see [Installing LLVM and MLIR](#installing-llvm-and-mlir)).
 - Either `qemu-riscv64` (Linux), or `limactl` with a running Lima VM named `rv64`
   (macOS). When `qemu-riscv64` is not in PATH, vsmith runs each executable in
   the VM with `limactl shell rv64`.
