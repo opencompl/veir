@@ -594,11 +594,39 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
   | .seq opType => Seq.verifyLocalInvariants opType op ctx opIn
 
+/-- Delegate commutativity to the operation's dialect-local `HasOpInfo` instance. -/
+def OpCode.isCommutative (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isCommutative op
+  | .llvm op => HasOpInfo.isCommutative op
+  | .riscv op => HasOpInfo.isCommutative op
+  | .riscv_cf op => HasOpInfo.isCommutative op
+  | .riscv_stack op => HasOpInfo.isCommutative op
+  | .rv64 op => HasOpInfo.isCommutative op
+  | .mod_arith op => HasOpInfo.isCommutative op
+  | .cf op => HasOpInfo.isCommutative op
+  | .comb op => HasOpInfo.isCommutative op
+  | .hw op => HasOpInfo.isCommutative op
+  | .verif op => HasOpInfo.isCommutative op
+  | .builtin op => HasOpInfo.isCommutative op
+  | .func op => HasOpInfo.isCommutative op
+  | .datapath op => HasOpInfo.isCommutative op
+  | .pdl op => HasOpInfo.isCommutative op
+  | .io op => HasOpInfo.isCommutative op
+  | .gmir op => HasOpInfo.isCommutative op
+  | .test op => HasOpInfo.isCommutative op
+  | .felt op => HasOpInfo.isCommutative op
+  | .cir op => HasOpInfo.isCommutative op
+  | .include op => HasOpInfo.isCommutative op
+  | .function op => HasOpInfo.isCommutative op
+  | .seq op => HasOpInfo.isCommutative op
+
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
   tryFold := OpCode.tryFold
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
+  isCommutative := OpCode.isCommutative
   propagatesPoison := OpCode.propagatesPoison
   symbolInterface? := OpCode.symbolInterface?
   functionInterface? := OpCode.functionInterface?
@@ -638,32 +666,6 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .function _ | .seq _ | .gmir _ => none
   guard materialized.fst.isConstantLike
   return materialized
-
-/--
-  Is this `OpCode` commutative in its operands, i.e. `op x y` always
-  computes the same value as `op y x`?
--/
-def OpCode.isCommutative (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith .addi | .arith .muli
-  | .arith .andi | .arith .ori | .arith .xori
-  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
-  | .arith .addui_extended
-  | .arith .mulsi_extended | .arith .mului_extended
-  | .llvm .add | .llvm .mul
-  | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-  | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
-  | .llvm .fadd | .llvm .fmul
-  | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
-  | .riscv .mul | .riscv .mulh | .riscv .mulhu
-  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-  | .riscv .addw | .riscv .mulw
-  | .mod_arith .add | .mod_arith .mul
-  | .felt .add | .felt .mul
-  | .felt .bit_and | .felt .bit_or | .felt .bit_xor
-  | .cir .add | .cir .mul | .cir .and | .cir .or | .cir .xor | .cir .min | .cir .max => true
-  | _ => false
 
 instance : HasCustomPrinting OpCode OpCode where
   customPrinter?
