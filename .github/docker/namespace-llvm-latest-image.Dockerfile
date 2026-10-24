@@ -48,7 +48,7 @@ RUN apt-get update \
 # while building `llubi` from a tag would put two different LLVMs in one image.
 RUN git ls-remote --tags --refs https://github.com/llvm/llvm-project 'llvmorg-*' \
       | sed 's|.*/||' \
-      | grep -E '^llvmorg-[0-9]+\\.[0-9]+\\.[0-9]+$' \
+      | grep -E '^llvmorg-[0-9]+\.[0-9]+\.[0-9]+$' \
       | sort -V | tail -1 > /tmp/llvm-release \
  && test -s /tmp/llvm-release \
  && echo "LLVM release $(cat /tmp/llvm-release)"
