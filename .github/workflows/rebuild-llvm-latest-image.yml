@@ -43,18 +43,25 @@ jobs:
           echo "PROFILE_ID=$profile_id" >> "$GITHUB_ENV"
 
       # The Dockerfile in the repository is the profile's, rather than a copy
-      # to paste into the dashboard. Applying it every night keeps the two from
-      # drifting apart, and is a no-op when the file has not changed.
+      # to paste into the dashboard. Applying it on every run keeps the two
+      # from drifting apart.
       - name: Apply the Dockerfile to the profile
         run: |
           nsc github profile update \
             --profile_id "$PROFILE_ID" \
             --dockerfile .github/docker/namespace-llvm-latest-image.Dockerfile
 
-      # An unchanged Dockerfile does not rebuild on its own, and an unchanged
-      # Dockerfile is the normal case here: what moves is the LLVM release that
-      # the build resolves. So the rebuild is asked for explicitly.
+      # Applying a Dockerfile that differs from the profile's rebuilds the
+      # image by itself, so asking again would build it twice, and each build
+      # here compiles LLVM. On the schedule the file is the same as yesterday's
+      # and nothing would rebuild on its own, which is exactly when the rebuild
+      # has to be asked for: what moves is the release the build resolves, not
+      # the Dockerfile.
+      #
+      # `describe` does not report the Dockerfile the profile holds, so there
+      # is nothing to compare against to decide this per run.
       - name: Rebuild the base image
+        if: github.event_name == 'schedule'
         run: |
           nsc github profile rebuild-base-image --profile_id "$PROFILE_ID"
 
