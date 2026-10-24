@@ -48,15 +48,16 @@ structure SourceInfo where
 def SourceInfo.formatAt (info : SourceInfo) (op : OperationPtr) (severity msg : String) : String :=
   ParserError.formatLabel info.sourceName info.content severity info.opLocations[op]? msg
 
-/-- Parse program bytes into a well-formed IR context and its top-level
+/-- Parse program bytes starting at `start` into a well-formed IR context and its top-level
     operation, formatting parse errors caret-style against `sourceName`.
     Unless `verifyAfterParse` is false, the program is also verified. -/
 def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
-    (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true) :
+    (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true)
+    (start : Parser.Location := { byteOffset := 0 }) :
     Except String (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
-  match ParserState.fromInput content with
+  match ParserState.fromInput content start with
   | .ok parser =>
     let state := MlirParserState.fromContext ctx allowUnregisteredDialect
     match parseTopLevelOp.run state parser with
@@ -97,6 +98,26 @@ def inputSourceOfArgs (positional : List String) : Except String (Option String)
   | [] => .ok none
   | [filename] => .ok (some filename)
   | _ => .error "Expected at most one positional argument for the input filename."
+
+/-- The marker separating the chunks of a split input by default. -/
+def defaultSplitMarker : String := "// -----"
+
+/-- Run `process` on each chunk of `content` separated by `splitMarker`, printing
+    `defaultSplitMarker` between their outputs, and return whether all of them succeeded.
+    Without `splitMarker`, all of `content` is one chunk. -/
+def splitAndProcessBuffer (content : ByteArray) (splitMarker : Option String)
+    (process : ByteArray → Parser.Location → ExceptT String IO Unit) : IO Bool := do
+  let chunks := match splitMarker, String.fromUTF8? content with
+    | some marker, some text => (text.split marker).toArray.map fun (chunk : String.Slice) =>
+      (chunk.startInclusive.offset.byteIdx, chunk.endExclusive.offset.byteIdx)
+    | _, _ => #[(0, content.size)]
+  let mut succeeded := true
+  for ((start, stop), i) in chunks.zipIdx do
+    if i > 0 then IO.println defaultSplitMarker
+    if let .error err ← (process (content.extract 0 stop) { byteOffset := start }).run then
+      IO.eprintln err
+      succeeded := false
+  return succeeded
 
 end Veir.Input
 
