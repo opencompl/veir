@@ -62,6 +62,23 @@ RUN git ls-remote --tags --refs https://github.com/llvm/llvm-project 'llvmorg-*'
  && test -s /tmp/llvm-release \
  && echo "LLVM release $(cat /tmp/llvm-release)"
 
+# How many compile jobs the LLVM build may run at once. Ninja defaults to one
+# per core plus two, and an LLVM or MLIR translation unit can take a couple of
+# gigabytes, so on a wide builder that asks for more memory than any of them
+# has and the build is killed rather than slowed. `LLVM_PARALLEL_LINK_JOBS`
+# does not help with this: it is the compile phase that is wide.
+#
+# The budget is read from the cgroup the build runs in, falling back to the
+# machine's memory when it is unlimited, so this follows the builder rather
+# than guessing at it.
+RUN mem=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true); \
+    case "${mem}" in ''|max) mem=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo) ;; esac; \
+    jobs=$((mem / 2500000000)); \
+    if [ "${jobs}" -lt 1 ]; then jobs=1; fi; \
+    if [ "${jobs}" -gt "$(nproc)" ]; then jobs=$(nproc); fi; \
+    echo "${jobs}" > /tmp/llvm-jobs; \
+    echo "memory ${mem}, $(nproc) cpus, ${jobs} compile jobs"
+
 # The one LLVM this image carries, built from the release resolved above and
 # installed: `clang`, `llvm-config` and `mlir-opt` for the build and the MLIR
 # compatibility tests, and `llubi` for the interpreter cross-checks. Alive2's
@@ -86,6 +103,7 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       # Ninja runs one job per core, and an LLVM link step takes gigabytes, so
       # on a builder with many cores the links are what exhausts the memory.
       # Serialising them is what keeps this build inside the builder's RAM.
+      -DLLVM_PARALLEL_COMPILE_JOBS="$(cat /tmp/llvm-jobs)" \
       -DLLVM_PARALLEL_LINK_JOBS=1 \
       # None of these is installed or run here, and MLIR's and clang's test
       # libraries are a large part of what the unrestricted build compiles.
