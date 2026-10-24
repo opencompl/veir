@@ -319,6 +319,18 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       throwAt valueStartPos "integer constant out of range for attribute"
     return IntegerAttr.ofInt literal integerType
 
+  -- Build the index attribute from the parsed literal. MLIR stores index
+  -- attributes as 64-bit integers, so the literal must lie in [-2^63, 2^63).
+  let indexAttr : AttrParserM Attribute := do
+    if isFloatLit then
+      throwAtCurrentPos "integer literal expected in index attribute"
+    let some n := numericValueToNat? value
+      | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
+    let literal := if isNegative then Int.negOfNat n else Int.ofNat n
+    if (isNegative && n == 0) ∨ literal < -2 ^ 63 ∨ literal ≥ 2 ^ 63 then
+      throwAt valueStartPos "integer constant out of range for attribute"
+    return IndexAttr.mk literal
+
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
       AttrParserM (Data.Float.FloatValue floatType.format) := do
@@ -345,6 +357,8 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   -- Determine the type after ':'.
   if let some integerType ← parseOptionalIntegerType then
     return some (← integerAttr integerType)
+  else if (← parseOptionalIndexType).isSome then
+    return some (← indexAttr)
   else if let some floatType ← parseOptionalFloatType then
     return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
@@ -352,6 +366,8 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
     if let some integerType := typeAttr.cast? IntegerType then
       return some (← integerAttr integerType)
+    else if (typeAttr.cast? IndexType).isSome then
+      return some (← indexAttr)
     else if let some floatType := typeAttr.cast? FloatType then
       return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else

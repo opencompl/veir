@@ -90,8 +90,10 @@ def Arith.toAttrDict
     Std.HashMap ByteArray Attribute :=
   match op with
   | .constant =>
-    (Std.HashMap.emptyWithCapacity 2).insert
-      "value".toUTF8 (Attribute.integerAttr props.value)
+    let value : Attribute := match props with
+      | .mk attr => .integerAttr attr
+      | .index attr => .indexAttr attr
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 value
   | .addi | .subi | .muli | .shli | .trunci => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.attr.nsw || props.attr.nuw then
@@ -235,10 +237,14 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
   | .constant => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    let props := op.getProperties! ctx.raw Arith.constant
-    if props.value.type ≠ ((op.getResult 0).getType! ctx.raw).val then
-      throw "Expected result type to be equal to the constant's type"
-    op.verifyNormalizedIntegerAttr ctx opIn props.value
+    match op.getProperties! ctx.raw Arith.constant with
+    | .mk value =>
+      if value.type ≠ ((op.getResult 0).getType! ctx.raw).val then
+        throw "Expected result type to be equal to the constant's type"
+      op.verifyNormalizedIntegerAttr ctx opIn value
+    | .index _ =>
+      if ((op.getResult 0).getType! ctx.raw).val ≠ Attribute.indexType IndexType.mk then
+        throw "Expected result type to be index"
     pure ()
   | .extui | .extsi => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -261,8 +267,10 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val
       | none
+    let .mk attr := properties
+      | none
     return (#[.int bw.bitwidth
-      (.val (BitVec.ofInt bw.bitwidth properties.value.value))], none)
+      (.val (BitVec.ofInt bw.bitwidth attr.value))], none)
   | .addi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else

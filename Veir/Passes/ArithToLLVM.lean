@@ -87,8 +87,14 @@ def flagsToNswNuw (p : ArithIntegerOverflowFlagsProperties) : NswNuwProperties :
 
 /-! ### The 1:1 patterns -/
 
-def lowerConstant := lower1to1 .constant .mlir__constant
-  (fun ⟨attr⟩ => LLVMConstantProperties.mk (.integer attr)) 0
+/-- Index constants are left alone, as lowering them needs an index → i64 conversion. -/
+def lowerConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (_, .mk _) := matchOp op rewriter.ctx.raw Arith.constant 0
+    | return rewriter
+  lower1to1 .constant .mlir__constant
+    (fun props => LLVMConstantProperties.mk (.integer (props.intAttr?.getD default))) 0
+    rewriter op opInBounds
 
 def lowerAddI := lower1to1 .addi .add flagsToNswNuw 2
 def lowerSubI := lower1to1 .subi .sub flagsToNswNuw 2

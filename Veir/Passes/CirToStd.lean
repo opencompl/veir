@@ -64,7 +64,7 @@ def castToCir (rewriter : PatternRewriter OpCode) (x : ValuePtr) (ty : TypeAttr)
 def emitStdConstant (rewriter : PatternRewriter OpCode) (c : Int) (width : Nat)
     (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let ty : TypeAttr := IntegerType.signless width
-  let props : ArithConstantProperties := { value := IntegerAttr.ofInt c (IntegerType.signless width) }
+  let props : ArithConstantProperties := .mk (IntegerAttr.ofInt c (IntegerType.signless width))
   let (rewriter, c) ← rewriter.createOp! (.arith .constant) #[ty] #[] #[] #[] props (some ip)
   return (rewriter, (c.getResult 0 : ValuePtr))
 
