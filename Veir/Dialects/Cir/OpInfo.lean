@@ -131,6 +131,11 @@ def Cir.functionInterface? (op : Cir) : Option (FunctionOpInterface (Cir.propert
           { props with function_type := { functionType } } }
   | _ => none
 
+def Cir.unconditionalBranch? (op : Cir) (_props : Cir.propertiesOf op) : Option (OpKind Cir) :=
+  match op with
+  | .br | .brcond => some ⟨.br, ()⟩
+  | _ => none
+
 def Cir.branchOpInterface? (op : Cir) : Option (BranchOpInterface (Cir.propertiesOf op)) :=
   match op with
   | .br =>
@@ -360,6 +365,7 @@ instance : HasOpInfo Cir where
   symbolInterface? := Cir.symbolInterface?
   functionInterface? := Cir.functionInterface?
   branchOpInterface? := Cir.branchOpInterface?
+  unconditionalBranch? := Cir.unconditionalBranch?
   hasSSADominance := Cir.hasSSADominance
   isTerminator := Cir.isTerminator
   isIsolatedFromAbove := Cir.isIsolatedFromAbove

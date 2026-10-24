@@ -616,6 +616,14 @@ private def Llvm.getSwitchSuccessorIndexForOperands?
         return i + 1
     some 0
 
+def Llvm.unconditionalBranch? (op : Llvm) (props : Llvm.propertiesOf op) :
+    Option (OpKind Llvm) :=
+  match op with
+  | .br => some ⟨.br, props⟩
+  -- Removing a successor can change loop structure; conservatively drop loop annotations.
+  | .cond_br | .switch => some ⟨.br, { loop_annotation := none }⟩
+  | _ => none
+
 def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
   match op with
   | .br =>
@@ -1758,6 +1766,7 @@ instance : HasOpInfo Llvm where
   functionInterface? := Llvm.functionInterface?
   callOpInterface? := Llvm.callOpInterface?
   branchOpInterface? := Llvm.branchOpInterface?
+  unconditionalBranch? := Llvm.unconditionalBranch?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove
