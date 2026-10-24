@@ -4,8 +4,6 @@ public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
-import Veir.Interfaces.ConstantLikeInterfaces
-import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.GMIR.Basic
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
@@ -381,42 +379,6 @@ def lifetimeStart : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifet
 
 /-- Erase `llvm.intr.lifetime.end`. -/
 def lifetimeEnd : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__end).compile
-
-/--
-  Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
-  Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
-  Run before constant selection so the count still has an integer runtime value.
--/
-def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
-  if properties.inalloca then return (ctx, none)
-  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
-  let some entry := funcOp.getEntryBlock? | return (ctx, none)
-  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
-  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
-  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
-  let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
-  if size >= 2 ^ 63 then return (ctx, none)
-  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
-    else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
-    return (ctx, none)
-  let props : RISCVStackAllocaProperties :=
-    { size := BitVec.ofNat 64 size
-      alignment := BitVec.ofInt 64 alignment }
-  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
-      #[] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
-  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `llvm.alloca` -> `riscv_stack.alloca` and a cast back to the pointer type. -/
-def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
 
 /-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
 private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
@@ -1938,10 +1900,10 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  /- Early loop: address folding, fixed stack allocations and memory intrinsic
+  /- Early loop: address folding and memory intrinsic
      expansion must inspect constants before the per-op lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, alloca, memIntrinsic] ++ load.map (·.run) ++
+    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run]
   let ctx ← match RewritePattern.applyInContext early ctx with

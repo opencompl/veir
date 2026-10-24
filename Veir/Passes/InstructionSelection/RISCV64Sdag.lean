@@ -2,6 +2,9 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+import Veir.DataLayout.RISCV64
+import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.InstructionSelection.Common
 
@@ -20,6 +23,42 @@ def singleSetBit (x : BitVec 64) : Option Int :=
   if u == 0 || (u &&& (u - 1)) != 0 then none else some (Nat.log2 u)
 
 /-! # SelectionDAG Lowering Patterns  -/
+
+/--
+  Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
+  Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
+  Run before legalization, which can hide a narrow constant count behind `g_trunc`.
+-/
+def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
+  if properties.inalloca then return (ctx, none)
+  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
+  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
+  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
+  let some entry := funcOp.getEntryBlock? | return (ctx, none)
+  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
+  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
+  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
+  let size := count.toNat * layout.allocSize
+  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
+  if size >= 2 ^ 63 then return (ctx, none)
+  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
+    else properties.alignment.value
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
+    return (ctx, none)
+  let props : RISCVStackAllocaProperties :=
+    { size := BitVec.ofNat 64 size
+      alignment := BitVec.ofInt 64 alignment }
+  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
+      #[] #[] #[] props none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
+  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `llvm.alloca` -> `riscv_stack.alloca` and a cast back to the pointer type. -/
+def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
 
 /--
   Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary LLVM
@@ -653,7 +692,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      `sdivPow2Exact`/`sdivwPow2Exact` are listed before `sdivPow2`/`sdivwPow2` to
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
-  let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb,
+  let pattern := RewritePattern.GreedyRewritePattern #[alloca, andn, orn, xnor, orcb,
     bexti, bseti, bclri, binvi, slliuw,
     addi, ori, andi, xori, slli, srli, srai, slti,
     addiw, slliw, srliw, sraiw, roriw, roliw, zext_1, sext_1,
