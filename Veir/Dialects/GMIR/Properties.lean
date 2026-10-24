@@ -26,6 +26,15 @@ def GMIRConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw s!"gmir.g_constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+/-- The negation of the constant, wrapped to its type. -/
+def GMIRConstantProperties.neg (props : GMIRConstantProperties) : GMIRConstantProperties :=
+  { value := IntegerAttr.ofInt (-props.value.value) props.value.type }
+
+/-- Whether the constant is the minimum signed value of its type. -/
+def GMIRConstantProperties.isMinSigned (props : GMIRConstantProperties) : Bool :=
+  let bitwidth := props.value.type.bitwidth
+  BitVec.ofInt bitwidth props.value.value = BitVec.intMin bitwidth
+
 /--
 Properties of `gmir.g_sext_inreg`. `sz` is the number of low bits that are kept.
 -/
