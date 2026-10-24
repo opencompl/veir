@@ -532,6 +532,39 @@ def OpCode.callOpInterface?
 
 #generate_has_dialect_instances OpCode
 
+/-- Unconditional-branch replacements assembled from the registered dialects. -/
+def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) :
+    Option (OpKind OpCode) :=
+  match opCode, props with
+  | .arith op, props => lift op props
+  | .llvm op, props => lift op props
+  | .riscv op, props => lift op props
+  | .riscv_cf op, props => lift op props
+  | .riscv_stack op, props => lift op props
+  | .rv64 op, props => lift op props
+  | .mod_arith op, props => lift op props
+  | .cf op, props => lift op props
+  | .comb op, props => lift op props
+  | .hw op, props => lift op props
+  | .verif op, props => lift op props
+  | .builtin op, props => lift op props
+  | .func op, props => lift op props
+  | .datapath op, props => lift op props
+  | .pdl op, props => lift op props
+  | .io op, props => lift op props
+  | .gmir op, props => lift op props
+  | .test op, props => lift op props
+  | .felt op, props => lift op props
+  | .cir op, props => lift op props
+  | .include op, props => lift op props
+  | .function op, props => lift op props
+  | .seq op, props => lift op props
+where
+  lift {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
+      (op : Dialect) (props : propertiesOf op) : Option (OpKind OpCode) := do
+    let ⟨branch, branchProps⟩ ← HasOpInfo.unconditionalBranch? op props
+    return Materialized.of branch branchProps
+
 @[expose]
 def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String Unit :=
@@ -601,6 +634,7 @@ instance : HasOpInfo OpCode where
   functionInterface_getSymName_isSome := OpCode.functionInterface_getSymName_isSome
   callOpInterface? := OpCode.callOpInterface?
   branchOpInterface? := OpCode.branchOpInterface?
+  unconditionalBranch? := OpCode.unconditionalBranch?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
@@ -632,22 +666,6 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .function _ | .seq _ | .gmir _ => none
   guard materialized.fst.isConstantLike
   return materialized
-
-/--
-  The unconditional branch that replaces a branch of `opCode`'s dialect once
-  its successor is known, preserving applicable properties such as LLVM loop
-  annotations.
--/
-def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) :
-    Option (Σ op : OpCode, propertiesOf op) :=
-  match opCode, props with
-  | .cf _, _ => some (Materialized.of Cf.br ())
-  | .llvm .br, props => some (Materialized.of Llvm.br props)
-  | .llvm .cond_br, props =>
-    some (Materialized.of Llvm.br ({ loop_annotation := props.loop_annotation } : LLVMBrProperties))
-  | .llvm _, _ => some (Materialized.of Llvm.br ({ loop_annotation := none } : LLVMBrProperties))
-  | .riscv_cf _, _ => some (Materialized.of Riscv_Cf.branch ())
-  | _, _ => none
 
 instance : HasCustomPrinting OpCode OpCode where
   customPrinter?

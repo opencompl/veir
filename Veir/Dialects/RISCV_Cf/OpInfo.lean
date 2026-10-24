@@ -139,6 +139,13 @@ def Riscv_Cf.callOpInterface? (op : Riscv_Cf) :
           | none => operands[0]?.map .value }
   | _ => none
 
+def Riscv_Cf.unconditionalBranch? (op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf op) :
+    Option (OpKind Riscv_Cf) :=
+  match op with
+  | .branch | .beqz | .bnez | .beq | .bne | .blt | .bge | .bltu | .bgeu =>
+    some ⟨.branch, ()⟩
+  | _ => none
+
 def Riscv_Cf.branchOpInterface?
     (op : Riscv_Cf) : Option (BranchOpInterface (Riscv_Cf.propertiesOf op)) :=
   match op with
@@ -449,6 +456,7 @@ instance : HasOpInfo Riscv_Cf where
   getEffects := Riscv_Cf.getEffects
   isConstantLike := Riscv_Cf.isConstantLike
   branchOpInterface? := Riscv_Cf.branchOpInterface?
+  unconditionalBranch? := Riscv_Cf.unconditionalBranch?
   symbolInterface? := Riscv_Cf.symbolInterface?
   functionInterface? := Riscv_Cf.functionInterface?
   callOpInterface? := Riscv_Cf.callOpInterface?

@@ -293,7 +293,7 @@ def lowerUnreachable (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : WfIRContext OpCode := Id.run do
   let mut ctx := ctx
-  if block.getFirstUse! ctx.raw == none then return ctx
+  if !block.hasPredecessor! ctx.raw then return ctx
   let coercible := (List.range (block.getNumArguments! ctx.raw)).any fun i =>
     (cirTypeToStd ((ValuePtr.blockArgument { block, index := i }).getType! ctx.raw)).isSome
   if !coercible then return ctx

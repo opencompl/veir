@@ -178,6 +178,14 @@ class HasOpInfo (opCode: Type)
   branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
   /--
+  The unconditional branch and properties to use when a branch's selected
+  successor is known. The caller supplies that successor and its forwarded
+  operands. Preserve properties that still apply to the unconditional branch;
+  return `none` for non-branches or unsupported conversions.
+  -/
+  unconditionalBranch? : (op : opCode) → propertiesOf op → Option (OpKind opCode) :=
+    fun _ _ => none
+  /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless
   the operation is known to define graph regions.
