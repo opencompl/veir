@@ -16,7 +16,9 @@
 # Unlike its sibling, this file is applied to the profile with
 # `nsc github profile update --dockerfile`, so it is the source of truth rather
 # than a copy to paste into the dashboard. A profile build still has no build
-# context: nothing can be `COPY`ed from the repository.
+# context: nothing can be `COPY`ed from the repository. `COPY --from=<stage>`
+# is a different thing and does work, which is what the staged build below
+# relies on.
 
 ARG NAMESPACE_BASE_IMAGE_REF=""
 
@@ -37,6 +39,13 @@ RUN apt-get update \
       libgmp-dev pkg-config build-essential \
  && rm -rf /var/lib/apt/lists/*
 
+# The LLVM build happens in a stage of its own. Only the install tree is
+# copied forward, so the sources and the object files cannot reach the final
+# image even for the length of one layer. The sibling image drops them with
+# `rm -rf` at the end of the same `RUN`, which keeps them out of the image too
+# but still needs the space while the layer is being built.
+FROM base AS llvm-builder
+
 # The newest LLVM release, as the highest `llvmorg-<major>.<minor>.<patch>` tag
 # the repository carries. Candidates are tagged `-rc<n>` and the pattern leaves
 # them out, so this is the newest release and not the next one. Asking git
@@ -52,6 +61,23 @@ RUN git ls-remote --tags --refs https://github.com/llvm/llvm-project 'llvmorg-*'
       | sort -V | tail -1 > /tmp/llvm-release \
  && test -s /tmp/llvm-release \
  && echo "LLVM release $(cat /tmp/llvm-release)"
+
+# How many compile jobs the LLVM build may run at once. Ninja defaults to one
+# per core plus two, and an LLVM or MLIR translation unit can take a couple of
+# gigabytes, so on a wide builder that asks for more memory than any of them
+# has and the build is killed rather than slowed. `LLVM_PARALLEL_LINK_JOBS`
+# does not help with this: it is the compile phase that is wide.
+#
+# The budget is read from the cgroup the build runs in, falling back to the
+# machine's memory when it is unlimited, so this follows the builder rather
+# than guessing at it.
+RUN mem=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true); \
+    case "${mem}" in ''|max) mem=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo) ;; esac; \
+    jobs=$((mem / 2500000000)); \
+    if [ "${jobs}" -lt 1 ]; then jobs=1; fi; \
+    if [ "${jobs}" -gt "$(nproc)" ]; then jobs=$(nproc); fi; \
+    echo "${jobs}" > /tmp/llvm-jobs; \
+    echo "memory ${mem}, $(nproc) cpus, ${jobs} compile jobs"
 
 # The one LLVM this image carries, built from the release resolved above and
 # installed: `clang`, `llvm-config` and `mlir-opt` for the build and the MLIR
@@ -74,6 +100,20 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       -DLLVM_ENABLE_PROJECTS="clang;mlir" \
       -DLLVM_ENABLE_RTTI=ON \
       -DLLVM_ENABLE_EH=ON \
+      # Ninja runs one job per core, and an LLVM link step takes gigabytes, so
+      # on a builder with many cores the links are what exhausts the memory.
+      # Serialising them is what keeps this build inside the builder's RAM.
+      -DLLVM_PARALLEL_COMPILE_JOBS="$(cat /tmp/llvm-jobs)" \
+      -DLLVM_PARALLEL_LINK_JOBS=1 \
+      # None of these is installed or run here, and MLIR's and clang's test
+      # libraries are a large part of what the unrestricted build compiles.
+      # `llubi` is an ordinary `add_llvm_tool` in `llvm/tools/llubi`, so it is
+      # not one of the targets this drops.
+      -DLLVM_INCLUDE_TESTS=OFF \
+      -DCLANG_INCLUDE_TESTS=OFF \
+      -DMLIR_INCLUDE_TESTS=OFF \
+      -DLLVM_INCLUDE_EXAMPLES=OFF \
+      -DLLVM_INCLUDE_BENCHMARKS=OFF \
  && cmake --build /tmp/llvm/build \
  && git clone --depth 1 https://github.com/AliveToolkit/alive2 /tmp/alive2 \
  # Alive2 only looks for LLVM, and only offers `alive-exec`, once it is
@@ -87,10 +127,19 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
  # Installing, rather than copying out the two interpreters and discarding the
  # rest, is what lets `clang` keep its resource headers and gives `mlir-opt`
  # and `llvm-config` the same provenance as `llubi`.
- && cmake --install /tmp/llvm/build \
- && install -m 0755 /tmp/llvm/build/bin/llubi /usr/local/bin/llubi \
- && install -m 0755 /tmp/alive2/build/alive-exec /usr/local/bin/alive-exec \
- && rm -rf /tmp/llvm /tmp/alive2
+ && DESTDIR=/stage cmake --install /tmp/llvm/build \
+ && install -D -m 0755 /tmp/llvm/build/bin/llubi /stage/usr/local/bin/llubi \
+ && install -D -m 0755 /tmp/alive2/build/alive-exec /stage/usr/local/bin/alive-exec \
+ # Which release this is was readable from `/tmp/llvm-release` when the build
+ # and the image were one stage. Carry it over, so the image can still say.
+ && install -D -m 0644 /tmp/llvm-release /stage/usr/local/share/veir/llvm-release
+
+# The image itself, which never sees a compiler input. `/stage` holds exactly
+# what `cmake --install` and the two `install` calls above put there, so this
+# is the same `/usr/local` the single-stage build produced.
+FROM base AS final
+
+COPY --from=llvm-builder /stage/usr/local /usr/local
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
 # separate Python install is needed.

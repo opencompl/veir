@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 > %t
+// RUN: veir-opt %s -p=isel-sdag-riscv64 > %t
 // RUN: filecheck %s --input-file=%t
 // RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
 
