@@ -121,6 +121,12 @@ def Arith.getEffects
     (_op : Arith) (_props : Arith.propertiesOf _op) : MemoryEffects :=
   .none
 
+def Arith.isCommutative : Arith → Bool
+  | .addi | .muli | .andi | .ori | .xori
+  | .maxsi | .maxui | .minsi | .minui
+  | .addui_extended | .mulsi_extended | .mului_extended => true
+  | _ => false
+
 def Arith.isConstantLike (op : Arith) : Bool :=
   match op with
   | .constant => true
@@ -458,6 +464,7 @@ instance : HasOpInfo Arith where
   propagatesPoison := Arith.propagatesPoison
   getEffects := Arith.getEffects
   isConstantLike := Arith.isConstantLike
+  isCommutative := Arith.isCommutative
   hasSSADominance := Arith.hasSSADominance
 
 end

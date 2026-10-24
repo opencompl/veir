@@ -585,6 +585,12 @@ def GMIR.propagatesPoison : GMIR → Bool
 def GMIR.getEffects (_op : GMIR) (_props : GMIR.propertiesOf _op) : MemoryEffects :=
   .none
 
+def GMIR.isCommutative : GMIR → Bool
+  | .g_add | .g_mul | .g_and | .g_or | .g_xor
+  | .g_smin | .g_smax | .g_umin | .g_umax
+  | .g_uaddsat | .g_saddsat => true
+  | _ => false
+
 def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
   | _ => false
@@ -600,6 +606,7 @@ instance : HasOpInfo GMIR where
   propagatesPoison := GMIR.propagatesPoison
   getEffects := GMIR.getEffects
   isConstantLike := GMIR.isConstantLike
+  isCommutative := GMIR.isCommutative
   hasSSADominance := GMIR.hasSSADominance
   isTerminator := GMIR.isTerminator
 

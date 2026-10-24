@@ -127,6 +127,13 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether permuting an operation's operands preserves all its results with
+  its properties unchanged. For binary operations this means `op x y` and
+  `op y x` compute the same results, including poison behavior. Defaults to
+  `false` for opcodes whose commutativity has not been declared.
+  -/
+  isCommutative : opCode → Bool := fun _ => false
+  /--
   Whether an operation with this opcode produces a wholly poisoned result
   whenever any one of its operands is wholly poison, mirroring LLVM's
   `propagatesPoison`. Defaults to `false` for every opcode, which
