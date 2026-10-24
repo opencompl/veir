@@ -62,6 +62,14 @@ public theorem fitsRegister_iff {type : TypeAttr} : fitsRegister type = true ↔
   cases attr <;> simp only [fitsRegister, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
     grind
 
+/-- `op` is one of the two LLVM branches that the pass replaces. -/
+def OperationPtr.IsLlvmBranch (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
+  op.getOpType! ctx = .llvm .br ∨ op.getOpType! ctx = .llvm .cond_br
+
+instance {op : OperationPtr} {ctx : IRContext OpCode} :
+    Decidable (op.IsLlvmBranch ctx) := by
+  unfold OperationPtr.IsLlvmBranch; infer_instance
+
 /--
   Cast `operand` to a register with a cast inserted at `ip`, and append the
   cast to `casts`.
@@ -117,45 +125,37 @@ def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) 
 /--
   Replace the terminator `op` by its RISC-V counterpart if it is an `llvm.br`,
   an `llvm.cond_br` or an `llvm.unreachable`, and leave any other operation
-  alone. The operands are cast to registers in front of the new branch. A
-  branch to a block that cannot be converted is left alone as well.
+  alone. A branch to a block that cannot be converted is left alone as well.
 -/
-def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
-    : Except String (WfIRContext OpCode) := do
-  let opType := op.getOpType! ctx
-  if opType = OpCode.llvm .unreachable then
-    let some (ctx, _) := WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[]
-      #[] #[] () (InsertPoint.before op)
-      | throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
-    return WfRewriter.eraseOp! ctx op
-  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then
-    return ctx
-  if !(op.getSuccessors! ctx.raw).all convertible then
-    return ctx
-
-  let ip := InsertPoint.before op
-  let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
-  let successors := op.getSuccessors! ctx.raw
-  let (ctx', casts) ← operands.foldlM (castToReg ip) (ctx, #[])
-  let regs := casts.map (fun cast => cast.getResult 0)
-
-  let ctx' ←
-    if opType = OpCode.llvm .br then do
-      let some (ctx', _) := WfRewriter.createOp! ctx' Riscv_Cf.branch #[] regs
-        #[op.getSuccessor! ctx.raw 0] #[] default ip
-        | throw "isel-br-riscv64: cannot create riscv_cf.branch"
-      pure ctx'
-    else do
-      let condProps : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
-      let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
-      let some (ctx', _) := WfRewriter.createOp! ctx' Riscv_Cf.bnez #[] regs
-        successors #[] props ip
-        | throw "isel-br-riscv64: cannot create riscv_cf.bnez"
-      pure ctx'
-
-  if op.getNumRegions! ctx'.raw = 0 && !op.hasUses! ctx'.raw then
+def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) : Except String (WfIRContext OpCode) :=
+  if op.getOpType! ctx = OpCode.llvm .unreachable then
+    match WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[] #[] #[] ()
+        (InsertPoint.before op) with
+    | none => throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
+    | some (ctx, _) => pure (WfRewriter.eraseOp! ctx op)
+  else if ¬ op.IsLlvmBranch ctx.raw then
+    pure ctx
+  else if !(op.getSuccessors! ctx.raw).all convertible then
+    pure ctx
+  else do
+    let ip := InsertPoint.before op
+    let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
+    let successors := op.getSuccessors! ctx.raw
+    let (ctx', casts) ← operands.foldlM (castToReg ip) (ctx, #[])
+    let regs := casts.map (fun cast => (cast.getResult 0 : ValuePtr))
+    let ctx' ←
+      if op.getOpType! ctx.raw = OpCode.llvm .br then
+        match WfRewriter.createOp! ctx' Riscv_Cf.branch #[] regs successors #[] default ip with
+        | some (ctx', _) => pure ctx'
+        | none => throw "isel-br-riscv64: cannot create riscv_cf.branch"
+      else
+        let condProps : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
+        let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
+        match WfRewriter.createOp! ctx' Riscv_Cf.bnez #[] regs successors #[] props ip with
+        | some (ctx', _) => pure ctx'
+        | none => throw "isel-br-riscv64: cannot create riscv_cf.bnez"
     return WfRewriter.eraseOp! ctx' op
-  return ctx'
 
 /--
   Turn argument `i` of `block` into a register. A cast at the start of the
@@ -178,18 +178,16 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   let ctx := WfRewriter.replaceValue! ctx bap (cast.getResult 0)
   return WfRewriter.pushOperand! ctx cast bap
 
-/-- Turn the arguments of `block` into registers, unless it cannot be converted. -/
-def convertBlock (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (block : BlockPtr)
-    : Except String (WfIRContext OpCode) := do
-  if !convertible block then
-    return ctx
+/-- Turn the arguments of `block` into registers. -/
+def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
+    : Except String (WfIRContext OpCode) :=
   -- Add casts in order of block arguments
   (List.range (block.getNumArguments! ctx.raw)).reverse.foldlM (convertBlockArgument block) ctx
 
 /--
-  The pure core of the pass. The operations and blocks to visit, and the blocks
-  that can be converted, are fixed up front, so the operations the pass creates
-  are not visited again.
+  The pure core of the pass. The operations to visit and the blocks that can
+  be converted are fixed up front, so the operations the pass creates are not
+  visited.
 -/
 def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
   let ops := ctx.raw.operations.keys
@@ -201,8 +199,8 @@ def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode
     -- are the parameters of its function.
     (blocks.filter fun block => !blocked.contains block && isConvertible ctx block &&
       block.hasPredecessor! ctx.raw)
-  let ctx ← ops.foldlM (convertBranch convertible.contains) ctx
-  blocks.foldlM (convertBlock convertible.contains) ctx
+  let lowered ← ops.foldlM (convertBranch convertible.contains) ctx
+  convertible.foldlM convertBlock lowered
 
 /-! # Pass implementation -/
 
