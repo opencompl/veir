@@ -477,6 +477,27 @@ abbrev BlockPtr.RootedAt (block : BlockPtr) (root : IRNode) (ctx : WfIRContext O
 abbrev RegionPtr.RootedAt (region : RegionPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
   IRNode.RootedAt (.region region) root ctx
 
+/-- A block ancestor in its rooted descendant's region is the descendant itself. -/
+theorem BlockPtr.Ancestor.eq_of_same_parent_region
+    {ancestor descendant : BlockPtr} {region : RegionPtr} {root : IRNode}
+    (ancestry : ancestor.Ancestor descendant ctx)
+    (rooted : descendant.RootedAt root ctx)
+    (ancestorParent : ancestor.getParent! ctx.raw = some region)
+    (descendantParent : descendant.getParent! ctx.raw = some region) : ancestor = descendant := by
+  apply Classical.byContradiction
+  intro distinct
+  have ancestorOfRegion :=
+    (ancestry.toProperAncestor (by simpa using distinct)).ancestor_of_parent_descendant
+      (show (IRNode.block descendant).parent! ctx = some (.region region) by grind)
+  have regionOfAncestor : region.Ancestor ancestor ctx := .of_parent (by grind)
+  cases (regionOfAncestor.antisymm_of_rooted ancestorOfRegion (rooted.of_ancestor ancestry))
+
+grind_pattern BlockPtr.Ancestor.eq_of_same_parent_region =>
+  (IRNode.block ancestor).Ancestor (.block descendant) ctx, descendant.RootedAt root ctx,
+  ancestor.getParent! ctx.raw, descendant.getParent! ctx.raw, some region where
+  guard ancestor.getParent! ctx.raw = some region
+  guard descendant.getParent! ctx.raw = some region
+
 /-- An operation ancestor inside the descendant's immediate parent region is the descendant. -/
 theorem OperationPtr.Ancestor.eq_of_parentRegion_ancestor
     {ancestor descendant : OperationPtr} {region : RegionPtr} {root : IRNode}
