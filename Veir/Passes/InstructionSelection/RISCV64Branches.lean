@@ -162,7 +162,8 @@ def convertBlock (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (b
     return ctx
   if !convertible block then
     return ctx
-  (List.range (block.getNumArguments! ctx.raw)).foldlM (convertBlockArgument block) ctx
+  -- Add casts in order of block arguments
+  (List.range (block.getNumArguments! ctx.raw)).reverse.foldlM (convertBlockArgument block) ctx
 
 /--
   The pure core of the pass. The operations and blocks to visit, and the blocks

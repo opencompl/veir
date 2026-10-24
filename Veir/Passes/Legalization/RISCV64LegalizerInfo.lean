@@ -3,7 +3,7 @@ module
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
-import Veir.PatternRewriter.Puddle.Builders
+import Veir.Passes.InstructionSelection.Common
 
 /-!
 # RISC-V 64 Legalization
@@ -16,9 +16,6 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 
 namespace Veir
 
-section
-open Puddle in
-
 /--
   Custom legalization of `i32` binary operations into their RISC-V word variant
   (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
@@ -27,27 +24,8 @@ open Puddle in
   `RISCV::G_SLLW` etc.
 -/
 def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
-      let lhs ← MatchProg.value opType
-      let rhs ← MatchProg.value opType
-      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[opType]
-      return (opType, lhs, rhs))
-    (fun (opType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType]
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType]
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvProps
-      CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType])
-    (fun castBackOp => castBackOp)
-
-end
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
+  lowerBinary (.gmir opcode) (·.bitwidth = 32) riscvOp riscvProps
 
 private def s16 : LLT := .scalar 16
 private def s32 : LLT := .scalar 32

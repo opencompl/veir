@@ -50,6 +50,10 @@ def Mod_Arith.getEffects
     (_op : Mod_Arith) (_props : Mod_Arith.propertiesOf _op) : MemoryEffects :=
   .none
 
+def Mod_Arith.isCommutative : Mod_Arith → Bool
+  | .add | .mul => true
+  | _ => false
+
 def Mod_Arith.isConstantLike (op : Mod_Arith) : Bool :=
   match op with
   | .constant => true
@@ -182,4 +186,5 @@ instance : HasOpInfo Mod_Arith where
   verifyLocalInvariants := Mod_Arith.verifyLocalInvariants
   getEffects := Mod_Arith.getEffects
   isConstantLike := Mod_Arith.isConstantLike
+  isCommutative := Mod_Arith.isCommutative
   hasSSADominance := Mod_Arith.hasSSADominance

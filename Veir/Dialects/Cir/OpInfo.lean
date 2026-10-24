@@ -89,6 +89,10 @@ def Cir.getEffects
     (_op : Cir) (_props : Cir.propertiesOf _op) : MemoryEffects :=
   .none
 
+def Cir.isCommutative : Cir → Bool
+  | .add | .mul | .and | .or | .xor | .min | .max => true
+  | _ => false
+
 def Cir.isConstantLike (op : Cir) : Bool :=
   match op with
   | .const => true
@@ -357,6 +361,7 @@ instance : HasOpInfo Cir where
   verifyLocalInvariants := Cir.verifyLocalInvariants
   getEffects := Cir.getEffects
   isConstantLike := Cir.isConstantLike
+  isCommutative := Cir.isCommutative
   symbolInterface? := Cir.symbolInterface?
   functionInterface? := Cir.functionInterface?
   branchOpInterface? := Cir.branchOpInterface?

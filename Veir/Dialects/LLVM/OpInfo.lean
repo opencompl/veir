@@ -485,6 +485,13 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   -- For everything else: be conservative!
   | _, _ => .unknown
 
+def Llvm.isCommutative : Llvm → Bool
+  | .add | .mul | .and | .or | .xor
+  | .intr__smax | .intr__smin | .intr__umax | .intr__umin
+  | .intr__sadd__sat | .intr__uadd__sat
+  | .fadd | .fmul => true
+  | _ => false
+
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__addressof => true
@@ -1754,6 +1761,7 @@ instance : HasOpInfo Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  isCommutative := Llvm.isCommutative
   symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
   callOpInterface? := Llvm.callOpInterface?
