@@ -96,17 +96,12 @@ and links. Pass `--llvm-backend` to instead translate VeIR's output back to
 LLVM IR and let `clang` generate the code. This is useful for programs that use
 constructs VeIR's backend can't handle yet, such as `switch` statements and
 some stack allocations. Either way, this needs the environment described in
-[Setting up a RISC-V user-mode environment](#setting-up-a-risc-v-user-mode-environment):
+[Setting up a RISC-V user-mode environment](#setting-up-a-risc-v-user-mode-environment).
+For example, [`Test/Vcc/primes.c`](Test/Vcc/primes.c) returns the 10th prime
+number, 29, as its exit status:
 ```bash
-cat << _end_ > hello.c
-#include <stdio.h>
-
-int main(void) {
-  printf("hello, world\n");
-}
-_end_
-
-Tools/vcc hello.c -o hello
+Tools/vcc Test/Vcc/primes.c -o primes
+./primes; echo $?
 ```
 
 ## Setting up a RISC-V user-mode environment
@@ -190,25 +185,26 @@ export RISCV_SYSROOT=~/.local/riscv64-linux-gnu-sysroot
 
 Then link with `lld`, and run the result in the VM:
 ```bash
-clang --target=riscv64-linux-gnu --sysroot=$RISCV_SYSROOT -fuse-ld=lld -O2 hello.c -o hello-rv
-limactl shell rv64 $PWD/hello-rv
+clang --target=riscv64-linux-gnu --sysroot=$RISCV_SYSROOT -fuse-ld=lld -O2 Test/Vcc/primes.c -o primes-rv
+limactl shell rv64 $PWD/primes-rv
 ```
 
 The program must be under your home directory for the VM to see it.
 
 ### Checking the setup
 
-On Linux, or in a shell inside the VM on macOS:
+On Linux, or in a shell inside the VM on macOS, from the root of this repository
+(each program should exit with status 29):
 ```bash
-riscv64-linux-gnu-gcc -O2 hello.c -o hello-rv && ./hello-rv
-riscv64-linux-gnu-gcc -O2 -static hello.c -o hello-rv-static && ./hello-rv-static
-clang --target=riscv64-linux-gnu -O2 hello.c -o hello-clang && ./hello-clang
+riscv64-linux-gnu-gcc -O2 Test/Vcc/primes.c -o primes-rv; ./primes-rv; echo $?
+riscv64-linux-gnu-gcc -O2 -static Test/Vcc/primes.c -o primes-rv-static; ./primes-rv-static; echo $?
+clang --target=riscv64-linux-gnu -O2 Test/Vcc/primes.c -o primes-clang; ./primes-clang; echo $?
 ```
 
 To debug a program, start it under QEMU's GDB stub and attach `gdb-multiarch`:
 ```bash
-qemu-riscv64 -g 1234 ./hello-rv-static &
-gdb-multiarch -ex 'set architecture riscv:rv64' -ex 'target remote :1234' ./hello-rv-static
+qemu-riscv64 -g 1234 ./primes-rv-static &
+gdb-multiarch -ex 'set architecture riscv:rv64' -ex 'target remote :1234' ./primes-rv-static
 ```
 
 ## Running vsmith in RISC-V mode
