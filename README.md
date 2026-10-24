@@ -121,7 +121,7 @@ On Debian or Ubuntu, install the cross toolchain and user-mode QEMU:
 ```bash
 sudo apt-get install -y \
   gcc-riscv64-linux-gnu g++-riscv64-linux-gnu libc6-dev-riscv64-cross \
-  qemu-user qemu-user-binfmt gdb-multiarch clang lld
+  qemu-user qemu-user-binfmt gdb-multiarch
 ```
 
 `qemu-user-binfmt` registers QEMU with the kernel so that riscv64 executables
@@ -130,6 +130,20 @@ riscv64 C library:
 ```bash
 export QEMU_LD_PREFIX=/usr/riscv64-linux-gnu
 ```
+
+`Tools/vcc` and `Tools/vsmith` also need LLVM 24 or later, since VeIR's backend
+relies on machine pass names that LLVM 23 doesn't have. Until LLVM 24 is
+released, the distributions don't package it, but [apt.llvm.org](https://apt.llvm.org)
+has nightly snapshots. Its `llvm.sh` script adds the repository and installs
+clang and lld; `llc`, `opt`, and the MLIR tools are separate packages:
+```bash
+wget https://apt.llvm.org/llvm.sh
+sudo bash llvm.sh 24
+sudo apt-get install -y llvm-24 mlir-24-tools
+export PATH=/usr/lib/llvm-24/bin:$PATH
+```
+
+Alternatively, put the `bin` directory of your own LLVM build first in `PATH`.
 
 ### macOS
 
@@ -162,8 +176,10 @@ rv64` stop and restart it. Inside the VM, your macOS home directory is at the
 same path (for example `/Users/<you>`), but the VM's own `~` is a different
 directory.
 
-To compile for riscv64 Linux on the Mac itself, as `Tools/vcc` does, clang
-needs a copy of the VM's riscv64 headers and libraries. Copy them out of the VM
+To compile for riscv64 Linux on the Mac itself, as `Tools/vcc` does, you need
+LLVM 24 or later in `PATH` (until it is released, build LLVM from source with
+the `mlir` and `lld` projects enabled). clang also needs a copy of the VM's
+riscv64 headers and libraries. Copy them out of the VM
 and point `RISCV_SYSROOT` at the copy (add the `export` to your shell profile):
 ```bash
 mkdir -p ~/.local/riscv64-linux-gnu-sysroot
@@ -210,9 +226,8 @@ Tools/vsmith --riscv --iterations 1000
 
 This needs, in your PATH:
 
-- `llc`, `clang`, and `ld.lld` from an LLVM build with the RISC-V target
-  enabled. LLVM must be from October 2026 or later, which is when the machine
-  passes vsmith runs got their current names.
+- `llc`, `clang`, and `ld.lld` from LLVM 24 or later, with the RISC-V target
+  enabled (see [Linux](#linux)).
 - Either `qemu-riscv64` (Linux), or `limactl` with a running Lima VM named `rv64`
   (macOS). When `qemu-riscv64` is not in PATH, vsmith runs each executable in
   the VM with `limactl shell rv64`.

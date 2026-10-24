@@ -44,8 +44,25 @@ def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None, 
     result = subprocess.run(cmd, input=stdin, capture_output=True, cwd=cwd)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
+        if cmd[0] == "clang" and not riscv_sysroot_found():
+            err += MISSING_SYSROOT_HINT
         sys.exit(f"vcc: {cmd[0]} failed:\n{err}")
     return result.stdout
+
+
+MISSING_SYSROOT_HINT = """
+vcc: clang cannot find a riscv64 Linux sysroot, so it falls back to the host's
+headers and libraries. See "Setting up a RISC-V user-mode environment" in
+README.md.
+"""
+
+
+def riscv_sysroot_found() -> bool:
+    # clang prints the bare file name when it can't locate the file in the
+    # target's sysroot.
+    result = subprocess.run(["clang", *CLANG_TARGET_FLAGS, "-print-file-name=crt1.o"],
+                            capture_output=True, stdin=subprocess.DEVNULL)
+    return result.returncode == 0 and os.path.isabs(result.stdout.decode().strip())
 
 
 def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool, debug: bool = False) -> bytes:
@@ -237,6 +254,11 @@ def main() -> None:
     check_tools(BASE_TOOLS + VEIR_TOOLS
                 + (VEIR_BACKEND_TOOLS if not args.llvm_backend and args.emit not in ("mlir", "llvm") else ())
                 + (("ld.lld",) if args.emit == "executable" else ()))
+    # Linking always needs the riscv64 C library, so fail before compiling
+    # rather than after. Other outputs may not need a sysroot at all; run()
+    # adds the hint if clang fails for them.
+    if args.emit == "executable" and not riscv_sysroot_found():
+        sys.exit(MISSING_SYSROOT_HINT.strip())
 
     if args.output == "-":
         if args.emit == "executable":
