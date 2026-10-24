@@ -51,12 +51,12 @@ real code into and out of VeIR. The
 [C to VeIR](#from-c-to-veir) workflow, `Tools/vcc`, and `Tools/vsmith --riscv`
 all use `clang`, `opt`, `llc`, `ld.lld`, `mlir-translate`, and `mlir-opt`.
 
-VeIR works with either LLVM 23 or a recent nightly snapshot of LLVM 24, with
-the RISC-V target enabled. Our tests assume LLVM 23.1.3, the version CI uses
+VeIR works with either LLVM/MLIR 23 or a recent nightly snapshot of LLVM 24, with
+the RISC-V target enabled. Our tests assume LLVM/MLIR 23.1.3, the version CI uses
 (see [`.github/docker/namespace-base-image.Dockerfile`](.github/docker/namespace-base-image.Dockerfile)).
 On Debian or Ubuntu, [apt.llvm.org](https://apt.llvm.org) packages both. Its
 `llvm.sh` script adds the repository and installs clang and lld; `llc`, `opt`,
-and the MLIR tools are separate packages. For LLVM 23:
+and the MLIR tools are separate packages. For LLVM/MLIR 23:
 ```bash
 wget https://apt.llvm.org/llvm.sh
 sudo bash llvm.sh 23
