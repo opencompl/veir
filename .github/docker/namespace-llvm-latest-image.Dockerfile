@@ -1,14 +1,19 @@
-# Custom base image for the Namespace runner profile used by
-# `nightly-llvm-latest.yml`.
+# Custom base image for the Namespace runner profile that
+# `lean_action_ci_llvm_latest.yml` runs on, rebuilt nightly by
+# `rebuild-llvm-latest-image.yml`.
 #
 # It is the sibling of `namespace-base-image.Dockerfile`, which pins its LLVM
 # so that pull-request CI is reproducible and the cross-checks in `Test/lit.cfg`
 # match their pinned versions. This one resolves the newest LLVM release at
-# build time instead, and `nightly-llvm-latest.yml` rebuilds it every night, so
-# the nightly run says whether the next LLVM release breaks us before it reaches
-# the pinned image.
+# build time instead, so that a release which breaks us is found before that
+# pin is next moved forward.
 #
-# Unlike its sibling, this file is applied to the profile by that workflow with
+# It carries the whole toolchain, because the workflow that uses it does not
+# activate the Nix development environment: that environment pins
+# `llvmPackages_23`, and its `clang`, `llvm` and `mlir-opt` would come ahead of
+# these on PATH.
+#
+# Unlike its sibling, this file is applied to the profile with
 # `nsc github profile update --dockerfile`, so it is the source of truth rather
 # than a copy to paste into the dashboard. A profile build still has no build
 # context: nothing can be `COPY`ed from the repository.
@@ -22,81 +27,51 @@ FROM ${NAMESPACE_BASE_IMAGE_REF} AS base
 # GitHub runner software requires.
 USER root
 
+# Everything the build needs that is not LLVM: what `flake.nix` listed besides
+# the toolchain, and what compiling LLVM and Alive2 takes.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl git \
- && rm -rf /var/lib/apt/lists/*
-
-# The newest LLVM release, and the apt suite to match it.
-#
-# Every suite apt.llvm.org publishes is a nightly snapshot build, not a
-# release: the versioned ones track a release branch and the unversioned one
-# tracks main, so `llvm-toolchain-<codename>-23` can read `23.1.5~++<date>+<sha>`
-# while the newest release is still `llvmorg-23.1.4`. The suites are therefore
-# only good for naming the series; the release itself comes from the tags.
-#
-# A series is taken in descending order and the first one that has a release is
-# used. During the qualification of a major, its suite exists while its first
-# release is not yet tagged, and skipping it keeps the build off a series it
-# could not name a release on. Candidates are tagged `-rc<n>` and the pattern
-# leaves them out. Asking git rather than the GitHub API keeps the build off an
-# anonymous rate limit that a shared builder address would exhaust.
-RUN . /etc/os-release \
- && for major in $(curl -fsSL "https://apt.llvm.org/${VERSION_CODENAME}/dists/" \
-      | sed -n "s|.*llvm-toolchain-${VERSION_CODENAME}-\\([0-9][0-9]*\\)/.*|\\1|p" \
-      | sort -rn); do \
-      release=$(git ls-remote --tags --refs https://github.com/llvm/llvm-project \
-          "llvmorg-${major}.*" \
-        | sed 's|.*/||' \
-        | grep -E "^llvmorg-${major}\\.[0-9]+\\.[0-9]+$" \
-        | sort -V | tail -1); \
-      if [ -n "${release}" ]; then \
-        echo "${major}" > /tmp/llvm-major; \
-        echo "${release}" > /tmp/llvm-release; \
-        break; \
-      fi; \
-      echo "no release on LLVM ${major} yet, trying the series below"; \
-    done \
- && test -s /tmp/llvm-major && test -s /tmp/llvm-release \
- && echo "LLVM major $(cat /tmp/llvm-major), release $(cat /tmp/llvm-release)"
-
-# The suite of the series resolved above, so it is known to be published. What
-# it installs is a snapshot of that release branch rather than the release
-# itself, which is close enough for `mlir-opt`: `Test/lit.cfg` selects the MLIR
-# compatibility tests by major alone.
-RUN . /etc/os-release \
- && major=$(cat /tmp/llvm-major) \
- && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
-      -o /etc/apt/trusted.gpg.d/llvm-snapshot.asc \
- && echo "deb http://apt.llvm.org/${VERSION_CODENAME}/ llvm-toolchain-${VERSION_CODENAME}-${major} main" \
-      > /etc/apt/sources.list.d/llvm.list \
- && apt-get update \
  && apt-get install -y --no-install-recommends \
-      "mlir-${major}-tools" \
-      # leanc links through the system toolchain.
-      build-essential \
- && ln -s "/usr/bin/mlir-opt-${major}" /usr/bin/mlir-opt \
+      ca-certificates curl git \
+      cmake ninja-build python3 libz3-dev re2c \
+      # What the flake supplied besides LLVM, and what leanc links against.
+      libgmp-dev pkg-config build-essential \
  && rm -rf /var/lib/apt/lists/*
 
-# The interpreter tests cross-check themselves against two interpreters of
-# LLVM IR that no one packages: `llubi`, which is a tool of the LLVM tree, and
-# Alive2's `alive-exec`. Both are built against the release resolved above, so
-# that the tests see the semantics they were written against. Alive2 needs that
-# LLVM to carry RTTI and exceptions, which the packaged one does not promise.
+# The newest LLVM release, as the highest `llvmorg-<major>.<minor>.<patch>` tag
+# the repository carries. Candidates are tagged `-rc<n>` and the pattern leaves
+# them out, so this is the newest release and not the next one. Asking git
+# rather than the GitHub API keeps the build off an anonymous rate limit that a
+# shared builder address would exhaust.
+#
+# apt.llvm.org is deliberately not used. Every suite it publishes is a nightly
+# snapshot of a branch rather than a release, so taking `mlir-opt` from there
+# while building `llubi` from a tag would put two different LLVMs in one image.
+RUN git ls-remote --tags --refs https://github.com/llvm/llvm-project 'llvmorg-*' \
+      | sed 's|.*/||' \
+      | grep -E '^llvmorg-[0-9]+\.[0-9]+\.[0-9]+$' \
+      | sort -V | tail -1 > /tmp/llvm-release \
+ && test -s /tmp/llvm-release \
+ && echo "LLVM release $(cat /tmp/llvm-release)"
+
+# The one LLVM this image carries, built from the release resolved above and
+# installed: `clang`, `llvm-config` and `mlir-opt` for the build and the MLIR
+# compatibility tests, and `llubi` for the interpreter cross-checks. Alive2's
+# `alive-exec` is the other cross-check and is built against the same LLVM, so
+# the tests see one set of semantics rather than two. Both interpreters are
+# built from source because nothing packages them, and Alive2 needs an LLVM
+# with RTTI and exceptions, which a packaged one does not promise.
 #
 # Alive2 is taken at its default branch rather than at a commit: a commit old
 # enough to be pinned will not compile against an LLVM newer than itself, and
-# for a nightly whose job is to find breakage early, a build failure is the
+# for an image whose job is to find breakage early, a build failure is the
 # signal rather than something to engineer around.
-#
-# Only the two binaries are kept; the sources and the LLVM build go again.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      cmake ninja-build python3 libz3-dev re2c \
- && git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
+RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       https://github.com/llvm/llvm-project /tmp/llvm \
  && cmake -S /tmp/llvm/llvm -B /tmp/llvm/build -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
       -DLLVM_TARGETS_TO_BUILD=host \
+      -DLLVM_ENABLE_PROJECTS="clang;mlir" \
       -DLLVM_ENABLE_RTTI=ON \
       -DLLVM_ENABLE_EH=ON \
  && cmake --build /tmp/llvm/build \
@@ -109,9 +84,13 @@ RUN apt-get update \
       -DBUILD_LLVM_UTILS=1 \
       -DLLVM_DIR=/tmp/llvm/build/lib/cmake/llvm \
  && cmake --build /tmp/alive2/build --target alive-exec \
- && install -m 0755 /tmp/llvm/build/bin/llubi /usr/bin/llubi \
- && install -m 0755 /tmp/alive2/build/alive-exec /usr/bin/alive-exec \
- && rm -rf /tmp/llvm /tmp/alive2 /var/lib/apt/lists/*
+ # Installing, rather than copying out the two interpreters and discarding the
+ # rest, is what lets `clang` keep its resource headers and gives `mlir-opt`
+ # and `llvm-config` the same provenance as `llubi`.
+ && cmake --install /tmp/llvm/build \
+ && install -m 0755 /tmp/llvm/build/bin/llubi /usr/local/bin/llubi \
+ && install -m 0755 /tmp/alive2/build/alive-exec /usr/local/bin/alive-exec \
+ && rm -rf /tmp/llvm /tmp/alive2
 
 # `uv` provides both the Python interpreter and the test dependencies, so no
 # separate Python install is needed.
@@ -147,6 +126,9 @@ RUN curl -fsSL https://elan.lean-lang.org/elan-init.sh \
 # reachable as `runner`. If a run reports `command not found` for one of these,
 # the image did not build and the profile fell back to the stock base image.
 RUN mlir-opt --version \
+ && clang --version \
+ && llvm-config --version \
+ && test -f /usr/include/gmp.h \
  && llubi --version \
  && alive-exec --version \
  && uv --version \
