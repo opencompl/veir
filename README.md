@@ -43,40 +43,12 @@ command line tool `veir-opt`. The FileCheck tests require
 Run a single benchmark with `lake exe run-benchmarks <name>` (see
 [`Veir/Benchmarks.lean`](Veir/Benchmarks.lean) for the available names).
 
-## Installing LLVM and MLIR
-
-LLVM and MLIR are optional: VeIR builds without them, and the tests that need
-them are skipped when they aren't in `PATH`. But they are useful for getting
-real code into and out of VeIR. The
-[C to VeIR](#from-c-to-veir) workflow, `Tools/vcc`, and `Tools/vsmith --riscv`
-all use `clang`, `opt`, `llc`, `ld.lld`, `mlir-translate`, and `mlir-opt`.
-
-VeIR works with either LLVM/MLIR 23 or a recent nightly snapshot of LLVM 24, with
-the RISC-V target enabled. Our tests assume LLVM/MLIR 23.1.3, the version CI uses
-(see [`.github/docker/namespace-base-image.Dockerfile`](.github/docker/namespace-base-image.Dockerfile)).
-On Debian or Ubuntu, [apt.llvm.org](https://apt.llvm.org) packages both. Its
-`llvm.sh` script adds the repository and installs clang and lld; `llc`, `opt`,
-and the MLIR tools are separate packages. For LLVM/MLIR 23:
-```bash
-wget https://apt.llvm.org/llvm.sh
-sudo bash llvm.sh 23
-sudo apt-get install -y llvm-23 mlir-23-tools
-export PATH=/usr/lib/llvm-23/bin:$PATH
-```
-
-For the LLVM 24 snapshot, use `24` in place of `23` throughout. apt.llvm.org
-installs the latest LLVM 23 point release, which may be newer than 23.1.3; to
-match CI exactly, build the `llvmorg-23.1.3` tag from source.
-
-Elsewhere, including macOS, build LLVM from source with the `mlir` and `lld`
-projects enabled, and put the build's `bin` directory first in `PATH`.
-
 ## From C to VeIR
 
 This section gives an example showing how to run code through a VeIR
 pass, starting from C code.
 
-Prerequisite: LLVM and MLIR, as described in
+Prerequisite: LLVM and MLIR, as described below in
 [Installing LLVM and MLIR](#installing-llvm-and-mlir).
 
 Start with a C function:
@@ -132,6 +104,34 @@ number, 29, as its exit status:
 Tools/vcc Test/Vcc/primes.c -o primes
 ./primes; echo $?
 ```
+
+## Installing LLVM and MLIR
+
+LLVM and MLIR are optional: VeIR builds without them, and the tests that need
+them are skipped when they aren't in `PATH`. But they are useful for getting
+real code into and out of VeIR. The
+[C to VeIR](#from-c-to-veir) workflow, `Tools/vcc`, and `Tools/vsmith --riscv`
+all use `clang`, `opt`, `llc`, `ld.lld`, `mlir-translate`, and `mlir-opt`.
+
+VeIR works with either LLVM/MLIR 23 or a recent nightly snapshot of LLVM 24, with
+the RISC-V target enabled. Our tests assume LLVM/MLIR 23.1.3, the version CI uses
+(see [`.github/docker/namespace-base-image.Dockerfile`](.github/docker/namespace-base-image.Dockerfile)).
+On Debian or Ubuntu, [apt.llvm.org](https://apt.llvm.org) packages both. Its
+`llvm.sh` script adds the repository and installs clang and lld; `llc`, `opt`,
+and the MLIR tools are separate packages. For LLVM/MLIR 23:
+```bash
+wget https://apt.llvm.org/llvm.sh
+sudo bash llvm.sh 23
+sudo apt-get install -y llvm-23 mlir-23-tools
+export PATH=/usr/lib/llvm-23/bin:$PATH
+```
+
+For the LLVM 24 snapshot, use `24` in place of `23` throughout. apt.llvm.org
+installs the latest LLVM 23 point release, which may be newer than 23.1.3; to
+match CI exactly, build the `llvmorg-23.1.3` tag from source.
+
+Elsewhere, including macOS, build LLVM from source with the `mlir` and `lld`
+projects enabled, and put the build's `bin` directory first in `PATH`.
 
 ## Setting up a RISC-V user-mode environment
 
