@@ -27,7 +27,7 @@ jobs:
         run: ./Tools/check-interpreter-cross-checks
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       # A debug failure should not cancel the release run, and vice versa:
       # knowing which of the two broke is the point of running both.

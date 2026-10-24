@@ -1,3 +1,4 @@
+-- test OOM
 module
 
 public import Veir.Data.RISCV.Reg.Basic
