@@ -162,6 +162,8 @@ RUN curl -fsSL https://elan.lean-lang.org/elan-init.sh \
 # Fail the image build rather than a CI run if a tool is missing or is not
 # reachable as `runner`. Every tool is tried and the report names each one, so
 # a failure here says which is absent rather than only that one of them is.
+#
+# GMP is checked by compiling against it rather than by looking for its header.
 RUN status=0; \
     for tool in mlir-opt clang llvm-config llubi uv lit filecheck elan; do \
       if out=$("${tool}" --version 2>&1); then \
@@ -171,10 +173,12 @@ RUN status=0; \
         status=1; \
       fi; \
     done; \
-    if [ -f /usr/include/gmp.h ]; then \
+    printf '#include <gmp.h>\nint main(void) { return 0; }\n' > /tmp/gmp-check.c; \
+    if cc -c /tmp/gmp-check.c -o /dev/null 2>&1; then \
       echo "ok   gmp.h"; \
     else \
-      echo "FAIL gmp.h is missing"; \
+      echo "FAIL gmp.h is not usable by the compiler"; \
       status=1; \
     fi; \
+    rm -f /tmp/gmp-check.c; \
     exit "${status}"
