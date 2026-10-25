@@ -555,6 +555,17 @@ namespace Seq
 structure ClockType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/--
+  The `!seq.firmem` type from CIRCT's seq dialect.
+  This represents a FIRRTL-flavored memory of `depth` words, each `width` bits wide.
+  `maskWidth` is the write mask granularity, and is absent when the memory has no masking.
+-/
+structure FirMemType where
+  depth : Nat
+  width : Nat
+  maskWidth : Option Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
 end Seq
 
 mutual
@@ -791,6 +802,8 @@ inductive Attribute
 | matchOptionalType (type : Match.OptionalType)
 /-- CIRCT seq clock type -/
 | seqClockType (type : Seq.ClockType)
+/-- CIRCT seq FIRRTL-flavored memory type -/
+| seqFirMemType (type : Seq.FirMemType)
 deriving Inhabited
 
 end
@@ -1098,6 +1111,13 @@ instance : ToString Seq.ClockType where
   toString _ :=
     s!"!seq.clock"
 
+instance : ToString Seq.FirMemType where
+  toString type :=
+    let mask := match type.maskWidth with
+      | some maskWidth => s!", mask {maskWidth}"
+      | none => ""
+    s!"!seq.firmem<{type.depth} x {type.width}{mask}>"
+
 mutual
 
 partial def VectorType.toString (type : VectorType) : String :=
@@ -1244,6 +1264,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .pdlTypeType type => ToString.toString type
   | .matchOptionalType type => type.toString
   | .seqClockType type => ToString.toString type
+  | .seqFirMemType type => ToString.toString type
 
 end
 
@@ -1785,6 +1806,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (Match.OptionalType.decEq x)
   case seqClockType x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case seqFirMemType x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
 termination_by sizeOf attr1
 decreasing_by
   all_goals exact Nat.lt_add_of_pos_left (by decide)
@@ -1871,6 +1894,7 @@ def isType (attr : Attribute) : Bool :=
   | .pdlTypeType _ => true
   | .matchOptionalType _ => true
   | .seqClockType _ => true
+  | .seqFirMemType _ => true
 
 /--
   Returns the size, in bits, that an LLVM type would use if stored to memory.
@@ -1970,6 +1994,8 @@ theorem isType_pdlValueType type : (Attribute.of PDL.ValueType type).isType = tr
 theorem isType_pdlTypeType type : (Attribute.of PDL.TypeType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_seqFirMemType type : (Attribute.of Seq.FirMemType type).isType = true := by rfl
 
 end Attribute
 
@@ -2194,6 +2220,7 @@ type_attribute_instance PDL.OperationType => Attribute.pdlOperationType
 type_attribute_instance PDL.ValueType => Attribute.pdlValueType
 type_attribute_instance PDL.TypeType => Attribute.pdlTypeType
 type_attribute_instance Seq.ClockType => Attribute.seqClockType
+type_attribute_instance Seq.FirMemType => Attribute.seqFirMemType
 
 instance : CoeDep (Option Nat → RegisterType) RegisterType.mk TypeAttr where
   coe := TypeAttr.of RegisterType (.mk none)

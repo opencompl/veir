@@ -101,7 +101,7 @@ def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContex
     (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
   let some parent := block.getParent ctx.raw blockIn | return
   if parent.getFirstBlock! ctx.raw ≠ some block then return
-  if (block.getFirstUse ctx.raw blockIn).isSome then
+  if block.hasPredecessor ctx.raw blockIn then
     throw "entry block of region may not have predecessors"
 
 /-- Check that a `block` terminates and that, in case it is the entry block,
@@ -425,12 +425,12 @@ private theorem WfIRContext.Verified.verifyNoEntryBlockPredecessors_eq_ok
   exact hEntry
 
 /-- The entry block of a region in a verified context is not branched to. -/
-theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
+theorem WfIRContext.Verified.entryBlock_hasNoPredecessor
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
     {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {region : RegionPtr}
     (hParent : block.getParent! ctx.raw = some region)
     (hFirstBlock : region.getFirstBlock! ctx.raw = some block) :
-    block.getFirstUse! ctx.raw = none := by
+    block.hasPredecessor! ctx.raw = false := by
   have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
   have hParent' : block.getParent ctx.raw blockIn = some region := by grind
   simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
@@ -438,7 +438,8 @@ theorem WfIRContext.Verified.entryBlock_firstUse_eq_none
   split at hCheck
   · cases hCheck
   · rename_i hUse
-    cases hFirstUse : block.getFirstUse ctx.raw blockIn <;> simp_all [BlockPtr.getFirstUse!_eq_getFirstUse blockIn]
+    rw [BlockPtr.hasPredecessor!_eq_hasPredecessor blockIn]
+    simpa using hUse
 
 /--
 Assert that a given operation satisfies its local invariants.

@@ -3,6 +3,7 @@ module
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
 public import Veir.Dialects.LLVM.Interpreter
+public import Veir.Dialects.GMIR.Interpreter
 
 public section
 
@@ -27,6 +28,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .llvm opType =>
     CTree.interp (fun e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
       (Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem)
+  | .gmir opType =>
+    CTree.interp (fun e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
+      (GMIR.interpretOpCTree opType properties resultTypes operands blockOperands mem)
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem

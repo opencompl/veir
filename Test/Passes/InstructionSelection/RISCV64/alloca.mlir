@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 > %t
+// RUN: veir-opt %s -p=isel-sdag-riscv64 > %t
 // RUN: filecheck %s --input-file=%t
 // RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
 
@@ -29,6 +29,13 @@
     %array = "llvm.alloca"(%two) <{elem_type = !llvm.array<3 x i24>}> : (i128) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 4 : i64, "size" = 24 : i64}>
 
+    // Struct allocation includes tail padding and preserves explicit alignment.
+    %struct = "llvm.alloca"(%three) <{elem_type = !llvm.struct<(i64, i8)>, alignment = 1 : i64}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 1 : i64, "size" = 48 : i64}>
+    // Packed structs use their preferred alignment (8), not their ABI alignment (1).
+    %packed = "llvm.alloca"(%three) <{elem_type = !llvm.struct<packed (i8, i32)>}> : (i64) -> !llvm.ptr
+    // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 15 : i64}>
+
     // Both zero counts and zero-sized element types produce zero-sized objects.
     %zero_count = "llvm.alloca"(%zero) <{elem_type = i64}> : (i32) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 0 : i64}>
@@ -38,6 +45,7 @@
     // CHECK: "test.test"(%[[PTR]]) : (!llvm.ptr) -> ()
     "test.test"(%default) : (!llvm.ptr) -> ()
     "test.test"(%explicit, %small_align, %narrow, %padded, %array, %zero_count, %zero_type) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr, !llvm.ptr) -> ()
+    "test.test"(%struct, %packed) : (!llvm.ptr, !llvm.ptr) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 

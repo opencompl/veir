@@ -33,6 +33,8 @@
   %ctpop = "gmir.g_ctpop"(%c) : (i64) -> i32
   %sext_inreg = "gmir.g_sext_inreg"(%c) <{sz = 32 : i64}> : (i64) -> i64
   %constant = "gmir.g_constant"() <{value = -1 : i8}> : () -> i8
+  %merge = "gmir.g_merge_values"(%a, %b) : (i32, i32) -> i64
+  %lo, %hi = "gmir.g_unmerge_values"(%c) : (i64) -> (i32, i32)
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -66,3 +68,5 @@
 // CHECK: "gmir.g_ctpop"(%{{.*}}) : (i64) -> i32
 // CHECK: "gmir.g_sext_inreg"(%{{.*}}) <{"sz" = 32 : i64}> : (i64) -> i64
 // CHECK: "gmir.g_constant"() <{"value" = -1 : i8}> : () -> i8
+// CHECK: "gmir.g_merge_values"(%{{.*}}, %{{.*}}) : (i32, i32) -> i64
+// CHECK: "gmir.g_unmerge_values"(%{{.*}}) : (i64) -> (i32, i32)

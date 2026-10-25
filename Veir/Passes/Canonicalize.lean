@@ -82,7 +82,7 @@ def simplifyConstantBranch (rewriter : PatternRewriter OpCode) (op : OperationPt
 private def replaceKnownConstant (ctx : WfIRContext OpCode)
     (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
     Option (WfIRContext OpCode) := do
-  if (value.getFirstUse! ctx.raw).isNone || value.isConstantLike ctx.raw then
+  if !value.hasUses! ctx.raw || value.isConstantLike ctx.raw then
     return ctx
   let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return ctx
   let .constant constant := fact.payload.latticeElement | return ctx

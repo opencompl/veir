@@ -80,8 +80,21 @@ def HW.isIsolatedFromAbove (op : HW) : Bool :=
   | .module => true
   | _ => false
 
-def HW.hasSSADominance (_op : HW) (_index : Nat) : Bool :=
-  true
+/--
+An `hw.module` body is a graph region, as in CIRCT's `HWModuleOp::getRegionKind`. A module is a
+netlist rather than a schedule, and its registers close feedback loops: a `seq.firreg` takes the
+value its own output feeds into, so no ordering of the body satisfies SSA dominance.
+-/
+def HW.getRegionKind (op : HW) (_index : Nat) : RegionKind :=
+  match op with
+  | .module => .Graph
+  | _ => .SSACFG
+
+/-- The dominance counterpart of `HW.getRegionKind`: an `hw.module` body is unordered. -/
+def HW.hasSSADominance (op : HW) (_index : Nat) : Bool :=
+  match op with
+  | .module => false
+  | _ => true
 
 @[is_terminator]
 def HW.isTerminator (op : HW) : Bool :=
@@ -164,6 +177,7 @@ instance : HasOpInfo HW where
   verifyLocalInvariants := HW.verifyLocalInvariants
   getEffects := HW.getEffects
   isConstantLike := HW.isConstantLike
+  getRegionKind := HW.getRegionKind
   hasSSADominance := HW.hasSSADominance
   isTerminator := HW.isTerminator
   symbolInterface? := HW.symbolInterface?
