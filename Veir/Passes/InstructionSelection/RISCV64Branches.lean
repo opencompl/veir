@@ -24,7 +24,8 @@ namespace Veir
 -/
 
 /-- Whether a value of type `type` fits into a register without losing information. -/
-def fitsRegister (type : TypeAttr) : Bool :=
+@[expose]
+public def fitsRegister (type : TypeAttr) : Bool :=
   match type.val with
   | .integerType intType => 0 < intType.bitwidth && intType.bitwidth ≤ 64
   | .byteType byteType => 0 < byteType.bitwidth && byteType.bitwidth ≤ 64
