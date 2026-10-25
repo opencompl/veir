@@ -109,8 +109,6 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       # libraries are a large part of what the unrestricted build compiles.
       # `llubi` is an ordinary `add_llvm_tool` in `llvm/tools/llubi`, so it is
       # not one of the targets this drops.
-      # `split-file` is an `add_llvm_utility`, which installs only when asked,
-      # and `Test/Passes/mod_arith_runner.mlir` runs it.
       -DLLVM_INSTALL_UTILS=ON \
       -DLLVM_INCLUDE_TESTS=OFF \
       -DCLANG_INCLUDE_TESTS=OFF \
