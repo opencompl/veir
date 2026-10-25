@@ -30,11 +30,11 @@ FROM ${NAMESPACE_BASE_IMAGE_REF} AS base
 USER root
 
 # Everything the build needs that is not LLVM: what `flake.nix` listed besides
-# the toolchain, and what compiling LLVM and Alive2 takes.
+# the toolchain, and what compiling LLVM takes.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl git \
-      cmake ninja-build python3 libz3-dev re2c \
+      cmake ninja-build python3 \
       # What the flake supplied besides LLVM, and what leanc links against.
       libgmp-dev pkg-config build-essential \
  && rm -rf /var/lib/apt/lists/*
@@ -81,16 +81,16 @@ RUN mem=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true); \
 
 # The one LLVM this image carries, built from the release resolved above and
 # installed: `clang`, `llvm-config` and `mlir-opt` for the build and the MLIR
-# compatibility tests, and `llubi` for the interpreter cross-checks. Alive2's
-# `alive-exec` is the other cross-check and is built against the same LLVM, so
-# the tests see one set of semantics rather than two. Both interpreters are
-# built from source because nothing packages them, and Alive2 needs an LLVM
-# with RTTI and exceptions, which a packaged one does not promise.
+# compatibility tests, and `llubi` for the interpreter cross-checks. `llubi` is
+# built from source because nothing packages it.
 #
-# Alive2 is taken at its default branch rather than at a commit: a commit old
-# enough to be pinned will not compile against an LLVM newer than itself, and
-# for an image whose job is to find breakage early, a build failure is the
-# signal rather than something to engineer around.
+# Alive2's `alive-exec` is the other cross-check and is not here. Its default
+# branch follows LLVM's main branch rather than LLVM's releases, so against the
+# newest release it fails to compile on symbols main has added and the release
+# does not have, and its own releases stop several majors back. Pinning it to a
+# commit would pin what this image exists to float. `Test/lit.cfg` reports it
+# missing and skips those cross-checks, which `namespace-base-image.Dockerfile`
+# still runs at its pinned LLVM.
 RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       https://github.com/llvm/llvm-project /tmp/llvm \
  && cmake -S /tmp/llvm/llvm -B /tmp/llvm/build -GNinja \
@@ -113,21 +113,11 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       -DLLVM_INCLUDE_EXAMPLES=OFF \
       -DLLVM_INCLUDE_BENCHMARKS=OFF \
  && cmake --build /tmp/llvm/build \
- && git clone --depth 1 https://github.com/AliveToolkit/alive2 /tmp/alive2 \
- # Alive2 only looks for LLVM, and only offers `alive-exec`, once it is
- # asked for the tools that use LLVM. The translation validation plugin,
- # which `BUILD_TV` would add, is not needed here.
- && cmake -S /tmp/alive2 -B /tmp/alive2/build -GNinja \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_LLVM_UTILS=1 \
-      -DLLVM_DIR=/tmp/llvm/build/lib/cmake/llvm \
- && cmake --build /tmp/alive2/build --target alive-exec \
- # Installing, rather than copying out the two interpreters and discarding the
- # rest, is what lets `clang` keep its resource headers and gives `mlir-opt`
- # and `llvm-config` the same provenance as `llubi`.
+ # Installing, rather than copying `llubi` out and discarding the rest, is
+ # what lets `clang` keep its resource headers and gives `mlir-opt` and
+ # `llvm-config` the same provenance as it.
  && DESTDIR=/stage cmake --install /tmp/llvm/build \
  && install -D -m 0755 /tmp/llvm/build/bin/llubi /stage/usr/local/bin/llubi \
- && install -D -m 0755 /tmp/alive2/build/alive-exec /stage/usr/local/bin/alive-exec \
  # Which release this is was readable from `/tmp/llvm-release` when the build
  # and the image were one stage. Carry it over, so the image can still say.
  && install -D -m 0644 /tmp/llvm-release /stage/usr/local/share/veir/llvm-release
@@ -177,7 +167,6 @@ RUN mlir-opt --version \
  && llvm-config --version \
  && test -f /usr/include/gmp.h \
  && llubi --version \
- && alive-exec --version \
  && uv --version \
  && lit --version \
  && filecheck --version \
