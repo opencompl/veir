@@ -3,6 +3,7 @@ module
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Legalization.LegalizerHelper
+import Veir.Passes.Legalization.LegalizationArtifactCombiner
 import Veir.PatternRewriter.Puddle.Execution
 
 /-!
@@ -33,6 +34,15 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
     let some pattern := pattern? | return (ctx, none)
     pattern.interpret ctx op
 
+/-- Combines the artifact `op` away with the first `tryCombineInstruction` pattern that applies. -/
+private def combineArtifactStep : LocalRewritePattern OpCode :=
+  fun ctx op => do
+    let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
+    for pattern in tryCombineInstruction opcode do
+      if let (ctx, some rewrite) ← pattern.interpret ctx op then
+        return (ctx, some rewrite)
+    return (ctx, none)
+
 /-- The error message for `op`, which could not be legalized with `action`. -/
 private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR)
     (action : LegalizeAction) : String :=
@@ -49,7 +59,10 @@ private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode :
 /-- Legalizes all GMIR operations of `ctx`. Fails if one of them remains illegal. -/
 def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
     Except String (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[.fromLocalRewrite info.legalizeInstrStep]
+  -- As in LLVM, an artifact is combined before it is legalized.
+  -- TODO: Use a proper worklist for artifacts.
+  let pattern := RewritePattern.GreedyRewritePattern
+    #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
   let some ctx := RewritePattern.applyInContext pattern ctx
     | throw "error while applying legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the

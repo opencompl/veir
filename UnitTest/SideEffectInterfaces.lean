@@ -41,6 +41,20 @@ private def volatileMemProperties : RISCVMemProperties :=
   (default : RISCVStackAllocaProperties) == .allocate
 
 /-
+  A CIRCT memory models its effects on the declaration and its ports rather than on a pointer:
+  `seq.firmem` allocates the storage, and each port has the effect its name says. A register is
+  not memory at all, so `seq.firreg` has none.
+-/
+
+#guard OpCode.getEffects (.seq .firmem) (default : SeqFirMemProperties) == .allocate
+#guard OpCode.getEffects (.seq .firmem__read_port) (default : Unit) == .read
+#guard OpCode.getEffects (.seq .firmem__write_port)
+  (default : SeqFirMemPortProperties) == .write
+#guard OpCode.getEffects (.seq .firmem__read_write_port)
+  (default : SeqFirMemPortProperties) == .readWrite
+#guard OpCode.getEffects (.seq .firreg) (default : SeqFirRegProperties) == .none
+
+/-
   A call is conservative in both directions: we have no interprocedural effect
   analysis, so the callee may do anything. Upstream reaches the same answer by
   a different route, as `func.call` implements no memory effect interface at

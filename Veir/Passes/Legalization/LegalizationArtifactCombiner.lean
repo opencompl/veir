@@ -1,0 +1,69 @@
+module
+
+public import Veir.PatternRewriter.Puddle.Definitions
+import Veir.PatternRewriter.Puddle.Builders
+
+/-!
+# Legalization Artifact Combiner
+
+This file implements, as Puddle patterns, the combines that clean up artifacts such as `g_trunc` and
+`g_[zsa]ext`, which legalization creates to make the types match.
+
+Also see:
+https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/CodeGen/GlobalISel/LegalizationArtifactCombiner.h
+-/
+
+namespace Veir
+
+open Puddle
+
+/--
+Matches `g_anyext (g_trunc x)` where the type of `x` and the result type satisfy `relation`.
+Returns `x` and the result type.
+-/
+def matchAnyExtOfTrunc (relation : IntegerType → IntegerType → Bool) :
+    MatchProg.Builder (Handle OpCode .value × Handle OpCode .type) := do
+  let srcType ← MatchProg.type (Attr := IntegerType)
+  let x ← MatchProg.value srcType
+  let narrowType ← MatchProg.type (Attr := IntegerType)
+  let trunc ← MatchProg.operation (.gmir .g_trunc) #[x] #[narrowType]
+  let type ← MatchProg.type (Attr := IntegerType)
+  MatchProg.matchNative (srcType, type) fun (srcType, type) =>
+    match srcType.val, type.val with
+    | .integerType srcType, .integerType type => relation srcType type
+    | _, _ => false
+  let _ ← MatchProg.root (.gmir .g_anyext) #[trunc.res[0]!] #[type]
+  return (x, type)
+
+/-- Combines `g_anyext (g_trunc x)` to `x` when both have the same type. -/
+def combineAnyExtOfTruncSame : Pattern OpCode :=
+  Pattern.Builder (matchAnyExtOfTrunc (· = ·)) pure (fun (x, _) => x)
+
+/--
+Combines `g_anyext (g_trunc x)` to `castOpcode x` when the type of `x` and the result type satisfy
+`relation`, as LLVM's `buildAnyExtOrTrunc`.
+-/
+def combineAnyExtOfTruncToCast (castOpcode : GMIR) (relation : IntegerType → IntegerType → Bool) :
+    Pattern OpCode :=
+  Pattern.Builder (matchAnyExtOfTrunc relation)
+    (fun (x, type) => do
+      let props ← CreateProg.property (.gmir castOpcode) default
+      CreateProg.operation (.gmir castOpcode) #[x] #[type] props)
+    (fun cast => cast)
+
+public section
+
+/--
+The patterns that combine an `opcode` artifact away, in the order they are tried, as in LLVM's
+`LegalizationArtifactCombiner::tryCombineInstruction`.
+-/
+def tryCombineInstruction : GMIR → List (Pattern OpCode)
+  | .g_anyext => [
+      combineAnyExtOfTruncSame,
+      combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)]
+  | _ => []
+
+end
+
+end Veir

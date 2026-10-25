@@ -69,6 +69,10 @@ instance : IsOpCode Cf where
   fromAttrDict := Cf.fromAttrDict
   toAttrDict := Cf.toAttrDict
 
+def Cf.unconditionalBranch? (op : Cf) (_props : Cf.propertiesOf op) : Option (OpKind Cf) :=
+  match op with
+  | .br | .cond_br => some ⟨.br, ()⟩
+
 def Cf.branchOpInterface? (op : Cf) : Option (BranchOpInterface (Cf.propertiesOf op)) :=
   match op with
   | .br =>
@@ -133,6 +137,7 @@ instance : HasOpInfo Cf where
   getEffects := Cf.getEffects
   isConstantLike := Cf.isConstantLike
   branchOpInterface? := Cf.branchOpInterface?
+  unconditionalBranch? := Cf.unconditionalBranch?
   hasSSADominance := Cf.hasSSADominance
   isTerminator := Cf.isTerminator
 
