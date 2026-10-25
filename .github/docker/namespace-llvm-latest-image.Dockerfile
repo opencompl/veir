@@ -4,9 +4,9 @@
 #
 # It is the sibling of `namespace-base-image.Dockerfile`, which pins its LLVM
 # so that pull-request CI is reproducible and the cross-checks in `Test/lit.cfg`
-# match their pinned versions. This one resolves the newest LLVM release at
-# build time instead, so that a release which breaks us is found before that
-# pin is next moved forward.
+# match their pinned versions. This one builds LLVM's main branch instead, so
+# that a change which breaks us is found while it is still upstream, months
+# before it reaches a release and that pin is moved forward.
 #
 # It carries the whole toolchain, because the workflow that uses it does not
 # activate the Nix development environment: that environment pins
@@ -46,22 +46,6 @@ RUN apt-get update \
 # but still needs the space while the layer is being built.
 FROM base AS llvm-builder
 
-# The newest LLVM release, as the highest `llvmorg-<major>.<minor>.<patch>` tag
-# the repository carries. Candidates are tagged `-rc<n>` and the pattern leaves
-# them out, so this is the newest release and not the next one. Asking git
-# rather than the GitHub API keeps the build off an anonymous rate limit that a
-# shared builder address would exhaust.
-#
-# apt.llvm.org is deliberately not used. Every suite it publishes is a nightly
-# snapshot of a branch rather than a release, so taking `mlir-opt` from there
-# while building `llubi` from a tag would put two different LLVMs in one image.
-RUN git ls-remote --tags --refs https://github.com/llvm/llvm-project 'llvmorg-*' \
-      | sed 's|.*/||' \
-      | grep -E '^llvmorg-[0-9]+\.[0-9]+\.[0-9]+$' \
-      | sort -V | tail -1 > /tmp/llvm-release \
- && test -s /tmp/llvm-release \
- && echo "LLVM release $(cat /tmp/llvm-release)"
-
 # How many compile jobs the LLVM build may run at once. Ninja defaults to one
 # per core plus two, and an LLVM or MLIR translation unit can take a couple of
 # gigabytes, so on a wide builder that asks for more memory than any of them
@@ -79,20 +63,20 @@ RUN mem=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true); \
     echo "${jobs}" > /tmp/llvm-jobs; \
     echo "memory ${mem}, $(nproc) cpus, ${jobs} compile jobs"
 
-# The one LLVM this image carries, built from the release resolved above and
-# installed: `clang`, `llvm-config` and `mlir-opt` for the build and the MLIR
-# compatibility tests, and `llubi` for the interpreter cross-checks. `llubi` is
-# built from source because nothing packages it.
+# The one LLVM this image carries, built from main and installed: `clang`,
+# `llvm-config` and `mlir-opt` for the build and the MLIR compatibility tests,
+# and `llubi` for the interpreter cross-checks. `llubi` is built from source
+# because nothing packages it.
 #
-# Alive2's `alive-exec` is the other cross-check and is not here. Its default
-# branch follows LLVM's main branch rather than LLVM's releases, so against the
-# newest release it fails to compile on symbols main has added and the release
-# does not have, and its own releases stop several majors back. Pinning it to a
-# commit would pin what this image exists to float. `Test/lit.cfg` reports it
-# missing and skips those cross-checks, which `namespace-base-image.Dockerfile`
-# still runs at its pinned LLVM.
-RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
-      https://github.com/llvm/llvm-project /tmp/llvm \
+# Alive2's `alive-exec` is the other cross-check and is not here. It was
+# dropped while this image tracked releases, which its default branch cannot
+# build against because that branch follows LLVM's main branch. That is the
+# branch built here now, so it could come back; until it does, `Test/lit.cfg`
+# reports it missing and skips those cross-checks, which
+# `namespace-base-image.Dockerfile` still runs at its pinned LLVM.
+RUN git clone --depth 1 https://github.com/llvm/llvm-project /tmp/llvm \
+ && git -C /tmp/llvm rev-parse HEAD > /tmp/llvm-revision \
+ && echo "LLVM main at $(cat /tmp/llvm-revision)" \
  && cmake -S /tmp/llvm/llvm -B /tmp/llvm/build -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -118,9 +102,9 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
  # `llvm-config` the same provenance as it.
  && DESTDIR=/stage cmake --install /tmp/llvm/build \
  && install -D -m 0755 /tmp/llvm/build/bin/llubi /stage/usr/local/bin/llubi \
- # Which release this is was readable from `/tmp/llvm-release` when the build
+ # Which commit this is was readable from `/tmp/llvm-revision` when the build
  # and the image were one stage. Carry it over, so the image can still say.
- && install -D -m 0644 /tmp/llvm-release /stage/usr/local/share/veir/llvm-release
+ && install -D -m 0644 /tmp/llvm-revision /stage/usr/local/share/veir/llvm-revision
 
 # The image itself, which never sees a compiler input. `/stage` holds exactly
 # what `cmake --install` and the two `install` calls above put there, so this

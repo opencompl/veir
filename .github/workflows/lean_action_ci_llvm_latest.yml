@@ -1,7 +1,7 @@
 name: Lean Action CI (LLVM latest)
 
 # The sibling of `lean_action_ci_namespace.yml`, on the runner profile whose
-# image floats to the newest LLVM release rather than the pinned one. It is
+# image is built from LLVM's main branch rather than a pinned release. It is
 # meant to run per commit, since that is what tests the image at all:
 # `rebuild-llvm-latest-image.yml` only triggers the rebuild and cannot wait for
 # it. Until it has run green once, it is dispatched by hand.
@@ -29,7 +29,7 @@ jobs:
       - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
 
       # Which LLVM this run is actually testing, named in the log so that a
-      # failure can be read against a release without digging into the image.
+      # failure can be read against a revision without digging into the image.
       - name: Report the toolchain
         run: |
           clang --version | head -1
