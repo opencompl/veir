@@ -11,12 +11,13 @@ public section
   Properties of the `arith.constant` operation: an integer or an index value.
 -/
 inductive ArithConstantProperties where
-  | mk (value : IntegerAttr)
+  | int (value : IntegerAttr)
   | index (value : IndexAttr)
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+@[simp, grind]
 def ArithConstantProperties.intAttr? : ArithConstantProperties → Option IntegerAttr
-  | .mk value => some value
+  | .int value => some value
   | .index _ => none
 
 def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
@@ -26,9 +27,9 @@ def ArithConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
   let some attr := attrDict["value".toUTF8]?
     | throw "arith.constant: missing 'value' property"
   match attr with
-  | .integerAttr intAttr => return .mk intAttr
+  | .integerAttr intAttr => return .int intAttr
   | .indexAttr indexAttr => return .index indexAttr
-  | _ => throw s!"arith.constant: expected 'value' to be an integer attribute, but got {attr}"
+  | _ => throw s!"arith.constant: expected 'value' to be an integer or index attribute, but got {attr}"
 
 /-- Properties of arith operations that can have `nsw` and `nuw` flags, such as `arith.addi` or `arith.muli`. -/
 structure ArithIntegerOverflowFlagsProperties where

@@ -19,6 +19,10 @@ set_option warn.sorry false
 
 namespace Veir.Benchmarks
 
+/-- The properties of an `i32` `arith.constant` with value `v`. -/
+def i32Const (v : Int) : ArithConstantProperties :=
+  .int (IntegerAttr.mk v (IntegerType.signless 32))
+
 structure Xoshiro256PP where
   s0 : UInt64
   s1 : UInt64
@@ -115,7 +119,7 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   -- Sum both constant values
   let lhsVal := (lhsOp.getProperties! rewriter.ctx.raw Arith.constant).intAttr?.get!.value
   let rhsVal := (rhsOp.getProperties! rewriter.ctx.raw Arith.constant).intAttr?.get!.value
-  let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.signless 32))
+  let newVal := i32Const (lhsVal + rhsVal)
   let (rewriter, newOp) ← rewriter.createOp (.arith .constant) #[IntegerType.signless 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
@@ -151,7 +155,7 @@ def addIConstantFoldingLocal (ctx: WfIRContext OpCode) (op: OperationPtr) :
   -- Sum both constant values
   let lhsVal := (lhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
   let rhsVal := (rhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
-  let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.signless 32))
+  let newVal := i32Const (lhsVal + rhsVal)
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] newVal none sorry sorry sorry sorry
   return (ctx, some (#[newOp], #[newOp.getResult 0]))
 
@@ -240,7 +244,7 @@ def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (W
   -- Sum both constant values
   let lhsVal := (lhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
   let rhsVal := (rhsOp.getProperties! ctx.raw Arith.constant).intAttr?.get!.value
-  let newVal := ArithConstantProperties.mk (IntegerAttr.mk (lhsVal + rhsVal) (IntegerType.signless 32))
+  let newVal := i32Const (lhsVal + rhsVal)
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut ctx ← WfRewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
@@ -354,8 +358,8 @@ def empty : Option (WfIRContext OpCode × OperationPtr × InsertPoint) := do
 --   %4 = [opcode] %2, %3 : u64
 --   ...
 def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (WfIRContext OpCode × OperationPtr) := do
-  let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.signless 32))
-  let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.signless 32))
+  let root := i32Const root
+  let inc := i32Const inc
   let (gctx, topOp, insertPoint) ← empty
   let mut (gctx, gacc) ← WfRewriter.createOp gctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] root insertPoint sorry sorry sorry sorry
   for i in [0:size] do
@@ -384,8 +388,8 @@ def mulTwoTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
 -- randomly selected previous ops as lhs
 def constFoldTreeSparse (opcode : OpCode) (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (WfIRContext OpCode × OperationPtr) :=
   Xoshiro256PP.run do
-    let rootAttr := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.signless 32))
-    let incAttr := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.signless 32))
+    let rootAttr := i32Const root
+    let incAttr := i32Const inc
     let (gctx, topOp, insertPoint) ← empty
 
     let mut (gctx, root) ← WfRewriter.createOp gctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] rootAttr insertPoint sorry sorry sorry sorry
@@ -430,8 +434,8 @@ def mulTwoTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPt
 --   %3 = [opcode] %2, %reuse : u64
 --   ...
 def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (WfIRContext OpCode × OperationPtr) := do
-  let root := ArithConstantProperties.mk (IntegerAttr.mk root (IntegerType.signless 32))
-  let inc := ArithConstantProperties.mk (IntegerAttr.mk inc (IntegerType.signless 32))
+  let root := i32Const root
+  let inc := i32Const inc
   let (ctx, topOp, insertPoint) ← empty
   let (ctx, acc) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] root insertPoint sorry sorry sorry sorry
   let (ctx, reuse) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] inc insertPoint sorry sorry sorry sorry
@@ -464,8 +468,8 @@ def addZeroReuseTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr
 --   %5 = [opcode] %4, %reuse : u64
 --   ...
 def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (lhs rhs: Int) : Option (WfIRContext OpCode × OperationPtr) := do
-  let lhs := ArithConstantProperties.mk (IntegerAttr.mk lhs (IntegerType.signless 32))
-  let rhs := ArithConstantProperties.mk (IntegerAttr.mk rhs (IntegerType.signless 32))
+  let lhs := i32Const lhs
+  let rhs := i32Const rhs
   let (ctx, topOp, insertPoint) ← empty
   let (ctx, lhsOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] lhs insertPoint sorry sorry sorry sorry
   let (ctx, rhsOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] rhs insertPoint sorry sorry sorry sorry

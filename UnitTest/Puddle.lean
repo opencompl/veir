@@ -16,13 +16,12 @@ open Veir.Data
 private theorem constant_iff (ty : IntegerType) (props : propertiesOf (.arith .constant : OpCode))
     (v : RuntimeValue) :
     InterpretsTo (.arith .constant) props #[ty] #[] #[v] ↔
-      ∃ attr, props = .mk attr ∧ v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth attr.value)) := by
-  simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
+      ∃ attr, props = .int attr ∧ v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth attr.value)) := by
+  cases props <;> simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
     List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', List.getElem_toArray,
-    TypeAttr.of_val, Attribute.of, Interp.pure_eq]
-  cases props <;> simp only [reduceCtorEq, false_and, exists_false]
+    TypeAttr.of_val, Attribute.of, Interp.pure_eq, reduceCtorEq, false_and, exists_false]
   all_goals
     constructor
     · rintro ⟨_, h⟩
@@ -73,9 +72,7 @@ private theorem mul_two_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
 def matchConstant (returnType : Handle OpCode .type) (constant : Int)
     : MatchProg.Builder (Handle OpCode .value) := do
   let op ← MatchProg.operation (.arith .constant) #[] #[returnType]
-    (fun properties => match properties with
-      | .mk attr => attr.value = constant
-      | .index _ => false)
+    (fun properties => properties.intAttr?.any (·.value = constant))
   return op.res[0]!
 
 /-- Rewrite `x + 0` to `x`. -/
@@ -139,9 +136,7 @@ private def nativeMatch : Pattern OpCode :=
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
       MatchProg.matchNative (returnType, cst.properties)
         (fun (type, properties) =>
-          type = (IntegerType.signless 32) && match properties with
-            | .mk attr => attr.value = 0
-            | .index _ => false)
+          type = (IntegerType.signless 32) && properties.intAttr?.any (·.value = 0))
       let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
       return x)
     pure
@@ -154,17 +149,13 @@ private def nativeApply : Pattern OpCode :=
       let returnType ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value returnType
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
-        (fun properties => match properties with
-      | .mk attr => attr.value = 2
-      | .index _ => false)
+        (fun properties => properties.intAttr?.any (·.value = 2))
       let _ ← MatchProg.root (.arith .muli) #[x, cst.res[0]!] #[returnType]
       return (returnType, x, cst.properties))
     (fun (returnType, x, properties) => do
       let (newType, newProperties) ← CreateProg.applyNative (returnType, properties)
         (fun (type, properties) =>
-          match properties with
-          | .mk attr => some (type, .mk { attr with value := attr.value + 1 })
-          | .index _ => none)
+          properties.intAttr?.map fun attr => (type, .int { attr with value := attr.value + 1 }))
       let constant ← CreateProg.operation (.arith .constant) #[] #[newType] (.inr newProperties)
       let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType]
       return add)

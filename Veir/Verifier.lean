@@ -493,7 +493,7 @@ private theorem OperationPtr.verifyIntegerBinop_ok_of_Verified {op : OperationPt
 
 theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds} {attr : IntegerAttr}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant)
-    (hProp : op.getProperties! ctx.raw Arith.constant = .mk attr) :
+    (hProp : op.getProperties! ctx.raw Arith.constant = .int attr) :
     op.getNumResults! ctx.raw = 1 ∧
     op.getNumOperands! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧

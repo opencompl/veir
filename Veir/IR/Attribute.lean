@@ -119,6 +119,9 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure IndexType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The bitwidth of `index` values, matching MLIR's 64-bit index attributes. -/
+def IndexType.bitwidth : Nat := 64
+
 /--
   An integer literal with an associated integer type.
 -/

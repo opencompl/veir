@@ -305,31 +305,33 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ":"
   let startPos ← getPos
 
+  -- Parse the literal as an integer, rejecting values for which `inRange` fails
+  -- unless `raw` is set.
+  let parseIntLiteral (attrKind : String) (raw : Bool) (inRange : Int → Bool) :
+      AttrParserM Int := do
+    if isFloatLit then
+      throwAtCurrentPos s!"integer literal expected in {attrKind} attribute"
+    let some n := numericValueToNat? value
+      | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
+    let literal := if isNegative then Int.negOfNat n else Int.ofNat n
+    if !raw && ((isNegative && n == 0) || !inRange literal) then
+      throwAt valueStartPos "integer constant out of range for attribute"
+    return literal
+
   -- Build the integer attribute from the parsed literal.
   let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
-    if isFloatLit then
-      throwAtCurrentPos "integer literal expected in integer attribute"
-    let some n := numericValueToNat? value
-      | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
-    let literal := if isNegative then Int.negOfNat n else Int.ofNat n
-    if (← get).rawIntegerLiterals then
-      return IntegerAttr.mk literal integerType
-    let bits := BitVec.ofInt integerType.bitwidth literal
-    if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
-      throwAt valueStartPos "integer constant out of range for attribute"
-    return IntegerAttr.ofInt literal integerType
+    let raw := (← get).rawIntegerLiterals
+    let literal ← parseIntLiteral "integer" raw fun literal =>
+      let bits := BitVec.ofInt integerType.bitwidth literal
+      literal == bits.toInt || literal == bits.toNat
+    return if raw then IntegerAttr.mk literal integerType else IntegerAttr.ofInt literal integerType
 
   -- Build the index attribute from the parsed literal. MLIR stores index
-  -- attributes as 64-bit integers, so the literal must lie in [-2^63, 2^63).
+  -- attributes as signed `IndexType.bitwidth`-bit integers, so the literal is
+  -- always range-checked, even with raw integer literals.
   let indexAttr : AttrParserM Attribute := do
-    if isFloatLit then
-      throwAtCurrentPos "integer literal expected in index attribute"
-    let some n := numericValueToNat? value
-      | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
-    let literal := if isNegative then Int.negOfNat n else Int.ofNat n
-    if (isNegative && n == 0) ∨ literal < -2 ^ 63 ∨ literal ≥ 2 ^ 63 then
-      throwAt valueStartPos "integer constant out of range for attribute"
-    return IndexAttr.mk literal
+    return IndexAttr.mk (← parseIntLiteral "index" false fun literal =>
+      literal == (BitVec.ofInt IndexType.bitwidth literal).toInt)
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
