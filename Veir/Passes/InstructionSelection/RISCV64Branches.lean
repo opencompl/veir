@@ -24,7 +24,7 @@ namespace Veir
 -/
 
 /-- Whether a value of type `type` fits into a register without losing information. -/
-def fitsRegister (type : TypeAttr) : Bool :=
+public def fitsRegister (type : TypeAttr) : Bool :=
   match type.val with
   | .integerType intType => 0 < intType.bitwidth && intType.bitwidth ≤ 64
   | .byteType byteType => 0 < byteType.bitwidth && byteType.bitwidth ≤ 64
@@ -34,6 +34,33 @@ def fitsRegister (type : TypeAttr) : Bool :=
   -- lowering has to split such a struct into its registers in front of the
   -- branch and reassemble it in the successor before it can be admitted here.
   | _ => false
+
+/-- An integer type fits a register when it has between one and 64 bits. -/
+@[simp, grind =]
+public theorem fitsRegister_integerType (type : IntegerType) :
+    fitsRegister (.of IntegerType type) = (0 < type.bitwidth && type.bitwidth ≤ 64) := by
+  simp only [fitsRegister, TypeAttr.of_val, Attribute.of_def, IsAttr.inject]
+
+/-- A byte type fits a register when it has between one and 64 bits. -/
+@[simp, grind =]
+public theorem fitsRegister_byteType (type : LLVM.ByteType) :
+    fitsRegister (.of LLVM.ByteType type) = (0 < type.bitwidth && type.bitwidth ≤ 64) := by
+  simp only [fitsRegister, TypeAttr.of_val, Attribute.of_def, IsAttr.inject]
+
+/-- A pointer type fits a register. -/
+@[simp, grind =]
+public theorem fitsRegister_llvmPointerType (type : LLVM.PointerType) :
+    fitsRegister (.of LLVM.PointerType type) = true := by
+  simp only [fitsRegister, TypeAttr.of_val, Attribute.of_def, IsAttr.inject]
+
+/-- The types that fit a register: an integer or a byte of at most 64 bits, or a pointer. -/
+public theorem fitsRegister_iff {type : TypeAttr} : fitsRegister type = true ↔
+    (∃ t : IntegerType, type = .of IntegerType t ∧ 0 < t.bitwidth ∧ t.bitwidth ≤ 64) ∨
+    (∃ t : LLVM.ByteType, type = .of LLVM.ByteType t ∧ 0 < t.bitwidth ∧ t.bitwidth ≤ 64) ∨
+    (∃ t : LLVM.PointerType, type = .of LLVM.PointerType t) := by
+  obtain ⟨attr, hattr⟩ := type
+  cases attr <;> simp only [fitsRegister, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    grind
 
 /--
   Cast `operand` to a register with a cast inserted at `ip`, and append the
