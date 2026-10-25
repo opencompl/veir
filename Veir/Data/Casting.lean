@@ -4,6 +4,7 @@ public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Int.Bitblast
 public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
+public import Veir.Data.Refinement
 
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.LLVM.Byte.Basic
@@ -98,3 +99,17 @@ theorem LLVM.Byte.toFrozenInt_fromInt {w : Nat} (h : 0 < w) (x : Veir.Data.LLVM.
     LLVM.Byte.toFrozenInt (Veir.Data.LLVM.Byte.fromInt x) = x := by
   cases x <;> simp [LLVM.Byte.toFrozenInt, Veir.Data.LLVM.Byte.fromInt,
     Veir.Data.LLVM.Int.isPoison] <;> grind
+
+/--
+  An integer is refined by its round trip through a register.
+-/
+theorem LLVM.Int.isRefinedBy_toInt_toReg {w : Nat} (hw : w ≤ 64) (i : Veir.Data.LLVM.Int w) :
+    i ⊒ RISCV.Reg.toInt (LLVM.Int.toReg i) w := by
+  cases i <;> simp [LLVM.Int.toReg, RISCV.Reg.toInt, isRefinedBy_eq, hw]
+
+/--
+  A byte is refined by its round trip through a register.
+-/
+theorem LLVM.Byte.isRefinedBy_toByte_toReg {w : Nat} (hw : w ≤ 64) (b : Veir.Data.LLVM.Byte w) :
+    b ⊒ RISCV.Reg.toByte (LLVM.Byte.toReg b) w := by
+  grind [LLVM.Byte.toReg, BitVec.setWidth_setWidth_of_le _ hw]
