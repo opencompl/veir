@@ -119,9 +119,9 @@ def addIConstantFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_
   let (rewriter, newOp) ← rewriter.createOp (.arith .constant) #[IntegerType.signless 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-  if (lhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !lhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp lhsOp sorry sorry sorry
-  if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
@@ -177,7 +177,7 @@ def addIZeroFolding (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : o
   let mut rewriter ← rewriter.replaceValue opValuePtr lhsValuePtr sorry sorry
   rewriter := rewriter.eraseOp op sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
@@ -202,7 +202,7 @@ def mulITwoReduce (rewriter: PatternRewriter OpCode) (op: OperationPtr) (_ : op.
   let (rewriter, newOp) ← rewriter.createOp (.arith .addi) #[IntegerType.signless 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) (some $ .before op) sorry sorry sorry sorry
   let mut rewriter ← rewriter.replaceOp op newOp sorry sorry sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse rewriter.ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses rewriter.ctx.raw (by sorry) then
     rewriter := rewriter.eraseOp rhsOp sorry sorry sorry
   return rewriter
 
@@ -244,9 +244,9 @@ def addIConstantFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (W
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.constant #[IntegerType.signless 32] #[] #[] #[] newVal (some $ .before op) sorry sorry sorry sorry
   let mut ctx ← WfRewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
-  if (lhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !lhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx lhsOp sorry sorry sorry
-  if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 
@@ -272,7 +272,7 @@ def addIZeroFolding (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRC
   let mut ctx ← WfRewriter.replaceValue ctx oldVal lhsValuePtr sorry sorry
   ctx ← WfRewriter.eraseOp ctx op sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 
@@ -297,7 +297,7 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
   let (ctx, newOp) ← WfRewriter.createOp ctx Arith.addi #[IntegerType.signless 32] #[lhsValuePtr, lhsValuePtr] #[] #[] (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) (some $ .before op) sorry sorry sorry sorry
   let mut ctx ← WfRewriter.replaceOp? ctx op newOp sorry sorry sorry sorry sorry
 
-  if (rhsValuePtr.getFirstUse ctx.raw (by sorry)).isNone then
+  if !rhsValuePtr.hasUses ctx.raw (by sorry) then
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 

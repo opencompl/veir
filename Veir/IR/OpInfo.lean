@@ -133,6 +133,13 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether permuting an operation's operands preserves all its results with
+  its properties unchanged. For binary operations this means `op x y` and
+  `op y x` compute the same results, including poison behavior. Defaults to
+  `false` for opcodes whose commutativity has not been declared.
+  -/
+  isCommutative : opCode → Bool := fun _ => false
+  /--
   Whether an operation with this opcode produces a wholly poisoned result
   whenever any one of its operands is wholly poison, mirroring LLVM's
   `propagatesPoison`. Defaults to `false` for every opcode, which
@@ -176,6 +183,14 @@ class HasOpInfo (opCode: Type)
   -/
   branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
+  /--
+  The unconditional branch and properties to use when a branch's selected
+  successor is known. The caller supplies that successor and its forwarded
+  operands. Preserve properties that still apply to the unconditional branch;
+  return `none` for non-branches or unsupported conversions.
+  -/
+  unconditionalBranch? : (op : opCode) → propertiesOf op → Option (OpKind opCode) :=
+    fun _ _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless

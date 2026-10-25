@@ -532,6 +532,39 @@ def OpCode.callOpInterface?
 
 #generate_has_dialect_instances OpCode
 
+/-- Unconditional-branch replacements assembled from the registered dialects. -/
+def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) :
+    Option (OpKind OpCode) :=
+  match opCode, props with
+  | .arith op, props => lift op props
+  | .llvm op, props => lift op props
+  | .riscv op, props => lift op props
+  | .riscv_cf op, props => lift op props
+  | .riscv_stack op, props => lift op props
+  | .rv64 op, props => lift op props
+  | .mod_arith op, props => lift op props
+  | .cf op, props => lift op props
+  | .comb op, props => lift op props
+  | .hw op, props => lift op props
+  | .verif op, props => lift op props
+  | .builtin op, props => lift op props
+  | .func op, props => lift op props
+  | .datapath op, props => lift op props
+  | .pdl op, props => lift op props
+  | .io op, props => lift op props
+  | .gmir op, props => lift op props
+  | .test op, props => lift op props
+  | .felt op, props => lift op props
+  | .cir op, props => lift op props
+  | .include op, props => lift op props
+  | .function op, props => lift op props
+  | .seq op, props => lift op props
+where
+  lift {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode Dialect]
+      (op : Dialect) (props : propertiesOf op) : Option (OpKind OpCode) := do
+    let ⟨branch, branchProps⟩ ← HasOpInfo.unconditionalBranch? op props
+    return Materialized.of branch branchProps
+
 @[expose]
 def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
     (ctx : WfIRContext OpCode) (opIn : op.InBounds ctx.raw) : Except String Unit :=
@@ -561,11 +594,39 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
   | .function opType => LLZK.Function.verifyLocalInvariants opType op ctx opIn
   | .seq opType => Seq.verifyLocalInvariants opType op ctx opIn
 
+/-- Delegate commutativity to the operation's dialect-local `HasOpInfo` instance. -/
+def OpCode.isCommutative (opCode : OpCode) : Bool :=
+  match opCode with
+  | .arith op => HasOpInfo.isCommutative op
+  | .llvm op => HasOpInfo.isCommutative op
+  | .riscv op => HasOpInfo.isCommutative op
+  | .riscv_cf op => HasOpInfo.isCommutative op
+  | .riscv_stack op => HasOpInfo.isCommutative op
+  | .rv64 op => HasOpInfo.isCommutative op
+  | .mod_arith op => HasOpInfo.isCommutative op
+  | .cf op => HasOpInfo.isCommutative op
+  | .comb op => HasOpInfo.isCommutative op
+  | .hw op => HasOpInfo.isCommutative op
+  | .verif op => HasOpInfo.isCommutative op
+  | .builtin op => HasOpInfo.isCommutative op
+  | .func op => HasOpInfo.isCommutative op
+  | .datapath op => HasOpInfo.isCommutative op
+  | .pdl op => HasOpInfo.isCommutative op
+  | .io op => HasOpInfo.isCommutative op
+  | .gmir op => HasOpInfo.isCommutative op
+  | .test op => HasOpInfo.isCommutative op
+  | .felt op => HasOpInfo.isCommutative op
+  | .cir op => HasOpInfo.isCommutative op
+  | .include op => HasOpInfo.isCommutative op
+  | .function op => HasOpInfo.isCommutative op
+  | .seq op => HasOpInfo.isCommutative op
+
 instance : HasOpInfo OpCode where
   verifyLocalInvariants := OpCode.verifyLocalInvariants
   tryFold := OpCode.tryFold
   getEffects := OpCode.getEffects
   isConstantLike := OpCode.isConstantLike
+  isCommutative := OpCode.isCommutative
   propagatesPoison := OpCode.propagatesPoison
   symbolInterface? := OpCode.symbolInterface?
   functionInterface? := OpCode.functionInterface?
@@ -573,6 +634,7 @@ instance : HasOpInfo OpCode where
   functionInterface_getSymName_isSome := OpCode.functionInterface_getSymName_isSome
   callOpInterface? := OpCode.callOpInterface?
   branchOpInterface? := OpCode.branchOpInterface?
+  unconditionalBranch? := OpCode.unconditionalBranch?
   getRegionKind := OpCode.getRegionKind
   hasSSADominance := OpCode.hasSSADominance
   hasNoTerminator := OpCode.hasNoTerminator
@@ -604,48 +666,6 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .function _ | .seq _ | .gmir _ => none
   guard materialized.fst.isConstantLike
   return materialized
-
-/--
-  The unconditional branch that replaces a branch of `opCode`'s dialect once
-  its successor is known, preserving applicable properties such as LLVM loop
-  annotations.
--/
-def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) :
-    Option (Σ op : OpCode, propertiesOf op) :=
-  match opCode, props with
-  | .cf _, _ => some (Materialized.of Cf.br ())
-  | .llvm .br, props => some (Materialized.of Llvm.br props)
-  | .llvm .cond_br, props =>
-    some (Materialized.of Llvm.br ({ loop_annotation := props.loop_annotation } : LLVMBrProperties))
-  | .llvm _, _ => some (Materialized.of Llvm.br ({ loop_annotation := none } : LLVMBrProperties))
-  | .riscv_cf _, _ => some (Materialized.of Riscv_Cf.branch ())
-  | _, _ => none
-
-/--
-  Is this `OpCode` commutative in its operands, i.e. `op x y` always
-  computes the same value as `op y x`?
--/
-def OpCode.isCommutative (opCode : OpCode) : Bool :=
-  match opCode with
-  | .arith .addi | .arith .muli
-  | .arith .andi | .arith .ori | .arith .xori
-  | .arith .maxsi | .arith .maxui | .arith .minsi | .arith .minui
-  | .arith .addui_extended
-  | .arith .mulsi_extended | .arith .mului_extended
-  | .llvm .add | .llvm .mul
-  | .llvm .and | .llvm .or | .llvm .xor
-  | .llvm .intr__smax | .llvm .intr__smin | .llvm .intr__umax | .llvm .intr__umin
-  | .llvm .intr__sadd__sat | .llvm .intr__uadd__sat
-  | .llvm .fadd | .llvm .fmul
-  | .riscv .add | .riscv .and | .riscv .or | .riscv .xor | .riscv .xnor
-  | .riscv .mul | .riscv .mulh | .riscv .mulhu
-  | .riscv .max | .riscv .maxu | .riscv .min | .riscv .minu
-  | .riscv .addw | .riscv .mulw
-  | .mod_arith .add | .mod_arith .mul
-  | .felt .add | .felt .mul
-  | .felt .bit_and | .felt .bit_or | .felt .bit_xor
-  | .cir .add | .cir .mul | .cir .and | .cir .or | .cir .xor | .cir .min | .cir .max => true
-  | _ => false
 
 instance : HasCustomPrinting OpCode OpCode where
   customPrinter?

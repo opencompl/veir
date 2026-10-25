@@ -485,6 +485,13 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   -- For everything else: be conservative!
   | _, _ => .unknown
 
+def Llvm.isCommutative : Llvm → Bool
+  | .add | .mul | .and | .or | .xor
+  | .intr__smax | .intr__smin | .intr__umax | .intr__umin
+  | .intr__sadd__sat | .intr__uadd__sat
+  | .fadd | .fmul => true
+  | _ => false
+
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__addressof => true
@@ -615,6 +622,14 @@ private def Llvm.getSwitchSuccessorIndexForOperands?
       if value = BitVec.ofInt bitwidth caseValues[i]! then
         return i + 1
     some 0
+
+def Llvm.unconditionalBranch? (op : Llvm) (props : Llvm.propertiesOf op) :
+    Option (OpKind Llvm) :=
+  match op with
+  | .br => some ⟨.br, props⟩
+  -- Removing a successor can change loop structure; conservatively drop loop annotations.
+  | .cond_br | .switch => some ⟨.br, { loop_annotation := none }⟩
+  | _ => none
 
 def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
   match op with
@@ -1147,6 +1162,12 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
+    let condType := (op.getOperandTypes! ctx.raw)[0]!
+    if let .integerType intType := condType.val then
+      if intType.bitwidth ≠ 1 then
+        throw s!"'llvm.cond_br' op operand #0 must be of type i1, but got '{intType}'"
+    else
+      throw "'llvm.cond_br' op operand #0 must be of type i1"
     let weights := (op.getProperties! ctx.raw Llvm.cond_br).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
@@ -1748,10 +1769,12 @@ instance : HasOpInfo Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  isCommutative := Llvm.isCommutative
   symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
   callOpInterface? := Llvm.callOpInterface?
   branchOpInterface? := Llvm.branchOpInterface?
+  unconditionalBranch? := Llvm.unconditionalBranch?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove

@@ -254,6 +254,13 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffect
   | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _
   | .la, _ => .none
 
+def Riscv.isCommutative : Riscv → Bool
+  | .add | .and | .or | .xor | .xnor
+  | .mul | .mulh | .mulhu
+  | .max | .maxu | .min | .minu
+  | .addw | .mulw => true
+  | _ => false
+
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with
   | .li | .lui => true
@@ -924,6 +931,7 @@ instance : HasOpInfo Riscv where
   tryFold := Riscv.tryFold
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
+  isCommutative := Riscv.isCommutative
   hasSSADominance := Riscv.hasSSADominance
 
 end

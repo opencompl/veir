@@ -54,6 +54,10 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
 def clearNswNuwProperties (props : NswNuwProperties) : NswNuwProperties :=
   { props with nsw := false, nuw := false }
 
+/-- Clears the disjoint flag, which no longer holds once the high bits are unconstrained. -/
+def clearDisjointProperties (props : DisjointProperties) : DisjointProperties :=
+  { props with disjoint := false }
+
 /-- Widens `g_constant` to `width` bits and then truncates it back, extending the value as LLVM's
 `LegalizerInfo::getExtOpcodeForWideningConstant` does. -/
 def widenConstant (width : Nat) : Pattern OpCode :=
@@ -71,10 +75,31 @@ def widenConstant (width : Nat) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type])
     (fun trunc => trunc)
 
+/-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
+LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. -/
+def lowerSext : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let src ← MatchProg.value srcType
+      let _ ← MatchProg.root (.gmir .g_sext) #[src] #[resType]
+      return (srcType, resType, src))
+    (fun (srcType, resType, src) => do
+      let extProps ← CreateProg.property (.gmir .g_anyext) default
+      let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps
+      let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_sext_inreg)))
+          srcType fun type => match type.val with
+            | .integerType type => some (SextInRegProperties.mk (BitVec.ofNat 64 type.bitwidth))
+            | _ => none
+      CreateProg.operation (.gmir .g_sext_inreg) #[ext.res[0]!] #[resType] props)
+    (fun op => op)
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
+  | .g_sext => lowerSext
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -99,7 +124,7 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_ashr, .type 1, width => widenTypeGroup .g_ashr (.type 1) .g_zext width
   | .g_lshr, .type 1, width => widenTypeGroup .g_lshr (.type 1) .g_zext width
   | .g_and, .type 0, width => widenTypeGroup .g_and (.type 0) .g_anyext width
-  | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width
+  | .g_or, .type 0, width => widenTypeGroup .g_or (.type 0) .g_anyext width clearDisjointProperties
   | .g_xor, .type 0, width => widenTypeGroup .g_xor (.type 0) .g_anyext width
   | .g_mul, .type 0, width => widenTypeGroup .g_mul (.type 0) .g_anyext width clearNswNuwProperties
   -- The high bits matter for division and remainder, so the operands are extended according to
@@ -109,6 +134,8 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_udiv, .type 0, width => widenTypeGroup .g_udiv (.type 0) .g_zext width
   | .g_urem, .type 0, width => widenTypeGroup .g_urem (.type 0) .g_zext width
   | .g_constant, .type 0, width => widenConstant width
+  -- `g_sext_inreg` only reads the low `sz` bits, so any extension is fine.
+  | .g_sext_inreg, .type 0, width => widenTypeGroup .g_sext_inreg (.type 0) .g_anyext width
   | _, _, _ => none
 
 end
