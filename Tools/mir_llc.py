@@ -6,7 +6,6 @@ Shared by vcc and vsmith.
 from __future__ import annotations
 
 import functools
-import re
 import subprocess
 
 # Register-allocation stage: MIR -> fully-lowered MIR. Rather than a canned
@@ -23,7 +22,9 @@ REGALLOC_PASSES = (
 )
 
 # LLVM 24 renamed several legacy machine passes to match their new-PM names;
-# -run-pass/-start-after on LLVM <= 23 only accept the old ones.
+# -run-pass/-start-after on LLVM <= 23 only accept the old ones. The renames
+# landed in separate commits, so a 24.0.0git llc may accept any mix of the
+# two spellings; pass_name probes each one rather than trusting the version.
 LLVM23_PASS_NAMES = {
     "two-address-instruction": "twoaddressinstruction",
     "virt-reg-rewriter": "virtregrewriter",
@@ -33,20 +34,21 @@ LLVM23_PASS_NAMES = {
 
 
 @functools.lru_cache(maxsize=None)
-def llc_major_version(llc: str) -> int:
-    out = subprocess.run([llc, "--version"], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, check=True).stdout
-    m = re.search(r"LLVM version (\d+)", out)
-    if m is None:
-        raise RuntimeError(f"cannot determine LLVM version of {llc}:\n{out}")
-    return int(m.group(1))
+def pass_registered(llc: str, name: str) -> bool:
+    """Whether this llc accepts `name` as a -run-pass argument."""
+    result = subprocess.run(
+        [llc, "-mtriple=riscv64", "-x", "mir", f"-run-pass={name}",
+         "-o", "/dev/null", "/dev/null"],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    return "is not registered" not in result.stderr
 
 
 def pass_name(llc: str, name: str) -> str:
     """`name` (LLVM 24 spelling) as accepted by this llc."""
-    if llc_major_version(llc) <= 23:
-        return LLVM23_PASS_NAMES.get(name, name)
-    return name
+    old = LLVM23_PASS_NAMES.get(name)
+    if old is None or pass_registered(llc, name):
+        return name
+    return old
 
 
 def regalloc_cmd(llc: str, mir: str, lowered: str) -> list[str]:
