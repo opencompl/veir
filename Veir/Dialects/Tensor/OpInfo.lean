@@ -11,6 +11,8 @@ public section
 @[opcodes]
 inductive Tensor where
 | empty
+| extract
+| insert
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -58,12 +60,32 @@ def Tensor.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     [HasDialect OpInfo Tensor] (opType : Tensor) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   let instrName := String.fromUTF8! (Tensor.name opType)
+  let operandType (i : Nat) := (op.getOperand! ctx.raw i).getType! ctx.raw
   let resultType (i : Nat) := (op.getResult i).getType! ctx.raw
+  let numOperands := op.getNumOperands ctx.raw opIn
   match opType with
   | .empty => do
     -- Tensor types are always statically shaped, so there are no dynamic size operands.
     op.verifyPlainOpCounts ctx opIn 0 1
     let _ ← (resultType 0).verifyTensorType s!"{instrName}: Expected result to be a tensor"
+  | .extract => do
+    if numOperands = 0 then
+      throw s!"{instrName}: Expected a tensor operand"
+    let source ← (operandType 0).verifyTensorType s!"{instrName}: Expected operand 0 to be a tensor"
+    op.verifyPlainOpCounts ctx opIn (1 + source.shape.size) 1
+    op.verifyIndexOperands ctx 1 source.shape.size instrName
+    if (resultType 0).val ≠ source.elementType then
+      throw s!"{instrName}: Expected result type to match the tensor element type"
+  | .insert => do
+    if numOperands < 2 then
+      throw s!"{instrName}: Expected a scalar and a destination operand"
+    let dest ← (operandType 1).verifyTensorType s!"{instrName}: Expected operand 1 to be a tensor"
+    op.verifyPlainOpCounts ctx opIn (2 + dest.shape.size) 1
+    op.verifyIndexOperands ctx 2 dest.shape.size instrName
+    if (operandType 0).val ≠ dest.elementType then
+      throw s!"{instrName}: Expected scalar type to match the tensor element type"
+    op.verifyResultTypeMatches ctx (operandType 1)
+      s!"{instrName}: Expected result type to match the destination type"
 
 instance : HasOpInfo Tensor where
   verifyLocalInvariants := Tensor.verifyLocalInvariants

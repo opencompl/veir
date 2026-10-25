@@ -220,6 +220,12 @@ def TypeAttr.verifyI64
   | .integerType { bitwidth := 64, .. } => pure ()
   | _ => throw errMsg
 
+def TypeAttr.verifyIndexType
+    (ty : TypeAttr) (errMsg : String) : Except String PUnit :=
+  match ty.val with
+  | .indexType _ => pure ()
+  | type => throw s!"{errMsg}, but found {type}"
+
 def TypeAttr.verifyTensorType
     (ty : TypeAttr) (errMsg : String) : Except String TensorType :=
   match ty.val with
@@ -258,6 +264,14 @@ def OperationPtr.verifyResultTypeMatches (op : OperationPtr)
     (expectedType : TypeAttr) (errMsg : String) : Except String PUnit := do
   if ((op.getResult 0).getType! ctx.raw).val ≠ expectedType.val then
     throw errMsg
+
+/-- Check that the operands `start .. start + count` all have `index` type. -/
+def OperationPtr.verifyIndexOperands (op : OperationPtr)
+    (ctx : WfIRContext OpInfo)
+    (start count : Nat) (instrName : String) : Except String PUnit := do
+  for i in [start:start + count] do
+    ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIndexType
+      s!"{instrName}: Expected operand {i} to be of index type"
 
 def OperationPtr.verifyIntegerBinop (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
