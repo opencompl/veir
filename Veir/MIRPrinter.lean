@@ -290,7 +290,7 @@ def regImmMnem : Riscv → Option String
 def unaryMnem : Riscv → Option String
   | .clz => "CLZ"   | .ctz => "CTZ"   | .cpop => "CPOP"
   | .clzw => "CLZW" | .ctzw => "CTZW" | .cpopw => "CPOPW"
-  | .orcb => "ORC_B" | .rev8 => "REV8_RV64"
+  | .orcb => "ORC_B" | .rev8 => "REV8_RV64" | .brev8 => "BREV8"
   | .sextb => "SEXT_B" | .sexth => "SEXT_H" | .zexth => "ZEXT_H_RV64"
   | _ => none
 

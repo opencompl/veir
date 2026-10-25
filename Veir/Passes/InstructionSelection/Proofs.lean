@@ -130,21 +130,7 @@ theorem bswap_refinement {x : LLVM.Int 64} :
 -/
 theorem bitreverse_refinement {x : LLVM.Int 64} :
     (Data.LLVM.Int.bitreverse x) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg x
-         let m1 := Data.RISCV.li 0x5555555555555555#64
-         let x1 := Data.RISCV.or
-           (Data.RISCV.slli 1#6 (Data.RISCV.and m1 x0))
-           (Data.RISCV.and m1 (Data.RISCV.srli 1#6 x0))
-         let m2 := Data.RISCV.li 0x3333333333333333#64
-         let x2 := Data.RISCV.or
-           (Data.RISCV.slli 2#6 (Data.RISCV.and m2 x1))
-           (Data.RISCV.and m2 (Data.RISCV.srli 2#6 x1))
-         let m4 := Data.RISCV.li 0x0f0f0f0f0f0f0f0f#64
-         let x3 := Data.RISCV.or
-           (Data.RISCV.slli 4#6 (Data.RISCV.and m4 x2))
-           (Data.RISCV.and m4 (Data.RISCV.srli 4#6 x2))
-         Data.RISCV.rev8 x3) 64) := by
+      (RISCV.Reg.toInt (Data.RISCV.rev8 (Data.RISCV.brev8 (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /--
@@ -1281,21 +1267,53 @@ theorem bswap_refinement_32 {x : LLVM.Int 32} :
 
 theorem bitreverse_refinement_32 {x : LLVM.Int 32} :
     (Data.LLVM.Int.bitreverse x) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srli 32#6 (Data.RISCV.rev8 (Data.RISCV.brev8 (LLVM.Int.toReg x)))) 32) := by
+  veir_bv_decide
+
+theorem bswap_refinement_16 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.bswap x) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srli 48#6 (Data.RISCV.rev8 (LLVM.Int.toReg x))) 16) := by
+  veir_bv_decide
+
+theorem bitreverse_refinement_16 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.bitreverse x) ⊒
       (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg x
-         let m1 := Data.RISCV.li 0x55555555#64
-         let x1 := Data.RISCV.or
-           (Data.RISCV.slli 1#6 (Data.RISCV.and m1 x0))
-           (Data.RISCV.and m1 (Data.RISCV.srli 1#6 x0))
-         let m2 := Data.RISCV.li 0x33333333#64
-         let x2 := Data.RISCV.or
-           (Data.RISCV.slli 2#6 (Data.RISCV.and m2 x1))
-           (Data.RISCV.and m2 (Data.RISCV.srli 2#6 x1))
-         let m4 := Data.RISCV.li 0x0f0f0f0f#64
-         let x3 := Data.RISCV.or
-           (Data.RISCV.slli 4#6 (Data.RISCV.and m4 x2))
-           (Data.RISCV.and m4 (Data.RISCV.srli 4#6 x2))
-         Data.RISCV.srli 32#6 (Data.RISCV.rev8 x3)) 32) := by
+        (Data.RISCV.srli 48#6 (Data.RISCV.rev8 (Data.RISCV.brev8 (LLVM.Int.toReg x)))) 16) := by
+  veir_bv_decide
+
+theorem bitreverse_refinement_8 {x : LLVM.Int 8} :
+    (Data.LLVM.Int.bitreverse x) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 8) := by
+  veir_bv_decide
+
+theorem bswap_bitreverse_refinement_16 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.bswap (Data.LLVM.Int.bitreverse x)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 16) := by
+  veir_bv_decide
+
+theorem bitreverse_bswap_refinement_16 {x : LLVM.Int 16} :
+    (Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 16) := by
+  veir_bv_decide
+
+theorem bswap_bitreverse_refinement_32 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.bswap (Data.LLVM.Int.bitreverse x)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem bitreverse_bswap_refinement_32 {x : LLVM.Int 32} :
+    (Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 32) := by
+  veir_bv_decide
+
+theorem bswap_bitreverse_refinement_64 {x : LLVM.Int 64} :
+    (Data.LLVM.Int.bswap (Data.LLVM.Int.bitreverse x)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+theorem bitreverse_bswap_refinement_64 {x : LLVM.Int 64} :
+    (Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.brev8 (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
 theorem icmp_refinement_eq_32 {x y : LLVM.Int 32} :
