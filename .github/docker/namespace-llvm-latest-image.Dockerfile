@@ -160,14 +160,21 @@ RUN curl -fsSL https://elan.lean-lang.org/elan-init.sh \
       | sh -s -- -y --default-toolchain none
 
 # Fail the image build rather than a CI run if a tool is missing or is not
-# reachable as `runner`. If a run reports `command not found` for one of these,
-# the image did not build and the profile fell back to the stock base image.
-RUN mlir-opt --version \
- && clang --version \
- && llvm-config --version \
- && test -f /usr/include/gmp.h \
- && llubi --version \
- && uv --version \
- && lit --version \
- && filecheck --version \
- && elan --version
+# reachable as `runner`. Every tool is tried and the report names each one, so
+# a failure here says which is absent rather than only that one of them is.
+RUN status=0; \
+    for tool in mlir-opt clang llvm-config llubi uv lit filecheck elan; do \
+      if out=$("${tool}" --version 2>&1); then \
+        echo "ok   ${tool}: $(printf '%s' "${out}" | head -1)"; \
+      else \
+        echo "FAIL ${tool}: $(printf '%s' "${out}" | head -1)"; \
+        status=1; \
+      fi; \
+    done; \
+    if [ -f /usr/include/gmp.h ]; then \
+      echo "ok   gmp.h"; \
+    else \
+      echo "FAIL gmp.h is missing"; \
+      status=1; \
+    fi; \
+    exit "${status}"
