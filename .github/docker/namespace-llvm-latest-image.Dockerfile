@@ -73,7 +73,7 @@ RUN git ls-remote --tags --refs https://github.com/llvm/llvm-project 'llvmorg-*'
 # than guessing at it.
 RUN mem=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || true); \
     case "${mem}" in ''|max) mem=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo) ;; esac; \
-    jobs=$((mem / 2500000000)); \
+    jobs=$((mem / 4000000000)); \
     if [ "${jobs}" -lt 1 ]; then jobs=1; fi; \
     if [ "${jobs}" -gt "$(nproc)" ]; then jobs=$(nproc); fi; \
     echo "${jobs}" > /tmp/llvm-jobs; \
@@ -100,9 +100,7 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
       -DLLVM_ENABLE_PROJECTS="clang;mlir" \
       -DLLVM_ENABLE_RTTI=ON \
       -DLLVM_ENABLE_EH=ON \
-      # Ninja runs one job per core, and an LLVM link step takes gigabytes, so
-      # on a builder with many cores the links are what exhausts the memory.
-      # Serialising them is what keeps this build inside the builder's RAM.
+      # Limit parallelism of compile and link jobs
       -DLLVM_PARALLEL_COMPILE_JOBS="$(cat /tmp/llvm-jobs)" \
       -DLLVM_PARALLEL_LINK_JOBS=1 \
       # None of these is installed or run here, and MLIR's and clang's test
