@@ -23,8 +23,7 @@
 // CHECK:    "riscv.ctz"
 // CHECK:    "riscv.cpop"
 // CHECK:    "riscv.rev8"
-// CHECK:    "riscv.slli"
-// CHECK:    "riscv.srli"
+// CHECK:    "riscv.brev8"
 // CHECK:    "riscv.rev8"
 
 // CHECK:    Program output: #[0x0000000000000007#64, 0x0000000000000007#64, 0x0000000000000000#64, 0x0000000000000000#64, 0x0000000000000020#64, 0xefcdab8967452301#64, 0xf7b3d591e6a2c480#64]
