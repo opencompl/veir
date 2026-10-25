@@ -36,7 +36,6 @@ jobs:
           llvm-config --version
           mlir-opt --version | head -2
           llubi --version
-          alive-exec --version
 
       # The checkout wipes the workspace, so create the build directories
       # before binding the cache volume. Otherwise the action skips them with
