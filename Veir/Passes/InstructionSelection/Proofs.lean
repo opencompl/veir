@@ -20,6 +20,12 @@ import all Veir.Data.Refinement
 
 public section
 
+/-
+  Elaborate the proofs one at a time: each `bv_decide` forks a SAT solver, and
+  several forks from one large process fail with `ENOMEM` on a GitHub runner.
+-/
+set_option Elab.async false
+
 /-!
   In this file we prove the correctness of the lowering patterns used in the
   instruction selection rewrites.

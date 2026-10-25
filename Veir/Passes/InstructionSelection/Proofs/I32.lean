@@ -20,6 +20,12 @@ import all Veir.Data.Refinement
 
 public section
 
+/-
+  Elaborate the proofs one at a time: each `bv_decide` forks a SAT solver, and
+  several forks from one large process fail with `ENOMEM` on a GitHub runner.
+-/
+set_option Elab.async false
+
 /-!
   The correctness of the lowering patterns of the i32 instruction selection path,
   in a module of their own: together with the 64-bit proofs they exhaust the memory
