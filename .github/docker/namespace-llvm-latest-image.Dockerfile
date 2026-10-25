@@ -96,8 +96,6 @@ RUN git clone --depth 1 --branch "$(cat /tmp/llvm-release)" \
  && cmake -S /tmp/llvm/llvm -B /tmp/llvm/build -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr/local \
-      # RISC-V is what veir targets, so `Tools/vcc` asks clang for it; `host`
-      # alone leaves clang with no backend for `riscv64-unknown-linux-gnu`.
       -DLLVM_TARGETS_TO_BUILD="host;RISCV" \
       -DLLVM_ENABLE_PROJECTS="clang;mlir" \
       -DLLVM_ENABLE_RTTI=ON \
