@@ -3,6 +3,7 @@ module
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 import Veir.IR.SymbolRef
+import Veir.DataLayout.RISCV64
 
 
 open Veir
@@ -840,9 +841,68 @@ private def isZeroInitializer (ctx : IRContext OpCode) (op : OperationPtr)
     ret.getOpType! ctx == .llvm .return &&
     ret.getOperands! ctx == #[.opResult (zero.getResult 0)]
 
+/-- A constant GEP operand is interpreted as a signed index at its own width,
+    then sign-extended or truncated to the RV64 pointer-index width. -/
+private def initializerIndex? (ctx : IRContext OpCode) (value : ValuePtr) : Option Int := do
+  let op ← value.definingOp?
+  guard (op.getOpType! ctx == .llvm .mlir__constant)
+  let .integer attr := (op.getProperties! ctx Llvm.mlir__constant).value | none
+  let width := attr.type.bitwidth
+  guard (width > 0)
+  return (BitVec.ofInt 64 (BitVec.ofInt width attr.value).toInt).toInt
+
+/-- Evaluate a preserved pointer constant to a symbol and byte addend. A null
+    base has no symbol. Fuel bounds traversal even on malformed input. -/
+private def pointerConstant? (ctx : IRContext OpCode) :
+    Nat → ValuePtr → Option (Option String × Int)
+  | 0, _ => none
+  | fuel + 1, value => do
+    let op ← value.definingOp?
+    let operands := op.getOperands! ctx
+    match op.getOpType! ctx with
+    | .llvm .mlir__addressof =>
+      let props := op.getProperties! ctx Llvm.mlir__addressof
+      return (some (symbolName props.global_name), 0)
+    | .llvm .mlir__zero => return (none, 0)
+    | .llvm .bitcast => pointerConstant? ctx fuel (← operands[0]?)
+    | .llvm .getelementptr =>
+      let (symbol, baseOffset) ← pointerConstant? ctx fuel (← operands[0]?)
+      let props := op.getProperties! ctx Llvm.getelementptr
+      let indices ← (GEPIndex.decode props.rawConstantIndices.values (operands.extract 1)).mapM
+        fun index => match index with
+        | .const i => pure (GEPIndex.const i : GEPIndex Unit)
+        | .dynamic v => do return .const (← initializerIndex? ctx v)
+      let (offset, _) ← DataLayout.riscv64.gepOffsets props.elem_type.val indices
+      return (symbol, (BitVec.ofInt 64 (baseOffset + offset)).toInt)
+    | _ => none
+
+/-- Serialize a pointer initializer as a relocatable LLVM constant expression.
+    Only a single block of constant-building operations and a return is accepted. -/
+private def pointerInitializer? (ctx : IRContext OpCode) (op : OperationPtr) : Option String := do
+  let block ← (op.getRegion! ctx 0).getFirstBlock! ctx
+  guard (block.getNextBlock! ctx |>.isNone)
+  let ops := collectOps ctx (block.getFirstOp! ctx)
+  guard (ops.all fun op => match op.getOpType! ctx with
+    | .llvm .mlir__constant | .llvm .mlir__addressof | .llvm .mlir__zero
+    | .llvm .getelementptr | .llvm .bitcast | .llvm .return => true
+    | _ => false)
+  let ret ← ops.back?
+  guard (ret.getOpType! ctx == .llvm .return)
+  let operands := ret.getOperands! ctx
+  guard (operands.size == 1)
+  let (symbol, offset) ← pointerConstant? ctx ops.size operands[0]!
+  match symbol with
+  | some name =>
+    if offset == 0 then return llvmSymbol name
+    return s!"getelementptr (i8, ptr {llvmSymbol name}, i64 {offset})"
+  | none =>
+    if offset == 0 then return "null"
+    return s!"inttoptr (i64 {offset} to ptr)"
+
 /-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
     Integer, string and dense integer array values, and aggregate zero regions,
     become initializers. With no initializer, the global is an external declaration.
+    Pointer regions become symbol references with constant byte offsets.
     Other region initializers, TLS and external weak globals remain unhandled. -/
 def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let props := op.getProperties! ctx Llvm.mlir__global
@@ -865,6 +925,7 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
       if values.all (· == 0) then return "zeroinitializer"
       let (init, _) ← integerArrayInitializer? type values
       return init
+    | none, .llvmPointerType _ => pointerInitializer? ctx op
     | none, type =>
       if isZeroInitializer ctx op type then some "zeroinitializer" else none
     | _, _ => none
@@ -904,6 +965,14 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
     for c in (calls ctx blocks).filterMap (callee? ctx) ++ laSymbols ctx blocks do
       if !defined.contains c && !externs.contains c then
         externs := externs.push c
+  -- An external function may be referenced only by a global function pointer.
+  for global in globalOps do
+    if let some block := (global.getRegion! ctx 0).getFirstBlock! ctx then
+      for op in collectOps ctx (block.getFirstOp! ctx) do
+        if op.getOpType! ctx == .llvm .mlir__addressof then
+          let name := symbolName (op.getProperties! ctx Llvm.mlir__addressof).global_name
+          if !defined.contains name && !externs.contains name then
+            externs := externs.push name
   IO.println "--- |"
   for op in globalOps do
     printGlobal ctx op

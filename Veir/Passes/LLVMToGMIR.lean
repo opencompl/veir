@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.Passes.LLVMGlobalInitializers
 import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
@@ -278,7 +279,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     .fromLocalRewrite normalizeGEPIndices,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying llvm-to-gmir translation"
   | some ctx =>
     -- A local rewrite may only erase the matched cast, so the folded first cast is left dead.

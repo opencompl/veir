@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.Passes.LLVMGlobalInitializers
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching
@@ -697,7 +698,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     addi, ori, andi, xori, slli, srli, srai, slti,
     addiw, slliw, srliw, sraiw, roriw, roliw, zext_1, sext_1,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying SDAG patterns"
   | some ctx => pure ctx
 

@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.Passes.LLVMGlobalInitializers
 import Veir.IR.SymbolRef
 import Veir.Passes.Matching.GMIR.Basic
 import Veir.Passes.Matching.LLVM.Basic
@@ -1906,7 +1907,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run]
-  let ctx ← match RewritePattern.applyInContext early ctx with
+  let ctx ← match RewritePattern.applyInContext early.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
@@ -1927,7 +1928,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirConstant.run] ++
     gmirIcmp.map (·.run)
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
 
