@@ -759,3 +759,16 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
 #assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
 #assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)
+
+/-! ## Seq clock and FIRRTL memory types -/
+#assert expectSuccessType "!seq.clock" Seq.ClockType.mk
+#assert expectSuccessType "!seq.firmem<4 x 8>" (Seq.FirMemType.mk 4 8 none)
+/- The lexer fuses `x8` into one identifier, so the separator is re-lexed rather than matched as
+   a keyword; both spellings have to give the same type. -/
+#assert expectSuccessType "!seq.firmem<4x8>" (Seq.FirMemType.mk 4 8 none)
+#assert expectSuccessType "!seq.firmem<16 x 32, mask 8>" (Seq.FirMemType.mk 16 32 (some 8))
+#assert expectSuccessType "!seq.firmem<1 x 1>" (Seq.FirMemType.mk 1 1 none)
+#assert expectErrorType "!seq.firmem<4>" "expected keyword 'x'" (some 13)
+#assert expectErrorType "!seq.firmem<4 y 8>" "expected keyword 'x'" (some 14)
+#assert expectErrorType "!seq.firmem<4 x 8, 2>" "expected keyword 'mask'" (some 19)
+#assert expectErrorType "!seq.firmem<x x 8>" "memory depth expected" (some 12)

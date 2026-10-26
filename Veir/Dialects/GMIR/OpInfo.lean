@@ -57,6 +57,8 @@ inductive GMIR where
 | g_ctpop
 | g_load
 | g_store
+| g_merge_values
+| g_unmerge_values
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -74,7 +76,8 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop => Unit
+  | .g_ctlz | .g_cttz | .g_ctpop
+  | .g_merge_values | .g_unmerge_values => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -94,7 +97,8 @@ def GMIR.fromAttrDict
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
-     | g_ctlz | g_cttz | g_ctpop => exact .ok ()
+     | g_ctlz | g_cttz | g_ctpop
+     | g_merge_values | g_unmerge_values => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -130,7 +134,8 @@ def GMIR.toAttrDict
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop => {}
+  | .g_ctlz | .g_cttz | .g_ctpop
+  | .g_merge_values | .g_unmerge_values => {}
 
 #generate_dialect GMIR
 
@@ -190,6 +195,19 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_store =>
     { outOperandList := #[]
       inOperandList := #[.type 0, .type 1] }
+  -- Unlike in LLVM, these are not variadic: they only split a value into two halves.
+  -- TODO: Support variadic ops in `GMIR.genericOpInfo`.
+  | .g_merge_values =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 1, .type 1] }
+  | .g_unmerge_values =>
+    { outOperandList := #[.type 0, .type 0]
+      inOperandList := #[.type 1] }
+
+/-- The number of distinct type groups of `opCode`. -/
+def GMIR.numTypeGroups (opCode : GMIR) : Nat :=
+  let info := opCode.genericOpInfo
+  (info.outOperandList ++ info.inOperandList).toList.eraseDups.length
 
 /-- Each result and operand type of `op`, paired with its type group in `opCode`. -/
 def GMIR.getTypedGroups! {OpInfo : Type} [IsOpCode OpInfo] (opCode : GMIR) (op : OperationPtr)
@@ -222,6 +240,27 @@ private def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.In
 private def resizeCount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
   | .val v => .val (BitVec.ofNat w v.toNat)
   | .poison => .poison
+
+/--
+The `2 * w`-bit value whose low half is `lo` and whose high half is `hi`, as produced by gMIR's
+`g_merge_values`. If either half is poison, the result is poison.
+-/
+-- TODO: A poison half should not make the other half poison, so that a half padded with
+-- `g_implicit_def` (as LLVM does when narrowing `g_anyext`) keeps the defined half.
+private def mergeValues {w : Nat} (lo hi : Data.LLVM.Int w) : Data.LLVM.Int (w + w) :=
+  match lo, hi with
+  | .val lo, .val hi => .val (hi ++ lo)
+  | _, _ => .poison
+
+/--
+The low and the high half of the `2 * w`-bit `x`, as produced by gMIR's `g_unmerge_values`.
+If `x` is poison, both halves are poison.
+-/
+private def unmergeValues {w : Nat} (x : Data.LLVM.Int (w + w)) :
+    Data.LLVM.Int w × Data.LLVM.Int w :=
+  match x with
+  | .val x => (.val (x.truncate w), .val (x.extractLsb' w w))
+  | .poison => (.poison, .poison)
 
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -446,6 +485,17 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
         else if size = w then pure val else none
       | _ => pure val
     return (#[], ← mem.llvmStore addr val, none)
+  | .g_merge_values => do
+    let [.int w lo, .int w' hi] := operands.toList | none
+    if h : w' ≠ w then none else
+    let hi := hi.cast (by simp at h; exact h)
+    return (#[.int (w + w) (mergeValues lo hi)], mem, none)
+  | .g_unmerge_values => do
+    let [.int w x] := operands.toList | none
+    let half := w / 2
+    if h : w ≠ half + half then none else
+    let (lo, hi) := unmergeValues (w := half) (x.cast (by simp at h; exact h))
+    return (#[.int half lo, .int half hi], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -490,6 +540,20 @@ private def MachineMemOperand.verify (mmo : MachineMemOperand) (type : TypeAttr)
   if type.val matches .llvmPointerType _ then
     if size ≠ width then
       throw s!"{instrName}: Expected 'size' to be the pointer width {width}, but got {size}"
+Verifies that the operands and the results of `op` have the same total width.
+This is used to verify `g_merge_values` and `g_unmerge_values`.
+-/
+private def OperationPtr.verifyGMIRTotalWidth {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  let totalWidth (types : Array TypeAttr) :=
+    types.foldl (fun width type => width + (Attribute.bitwidthOfType type.val).getD 0) 0
+  let operandWidth := totalWidth (op.getOperandTypes! ctx.raw)
+  let resultWidth := totalWidth (op.getResultTypes! ctx.raw)
+  if resultWidth ≠ operandWidth then
+    throw s!"{instrName}: Expected the results to be {operandWidth} bits wide in total, but got \
+      {resultWidth}"
 
 /--
 Verify the local invariants of a `gmir` operation in any operation-info type
@@ -575,6 +639,10 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     ((opPtr.getOperand! ctx.raw 1).getType! ctx.raw).verifyLlvmPointerType
       "gmir.g_store: Expected operand 1 to have !llvm.ptr type"
     (opPtr.getProperties! ctx.raw GMIR.g_store).verify valueType "gmir.g_store"
+  | .g_merge_values | .g_unmerge_values =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRIntegerTypes ctx opIn
+    opPtr.verifyGMIRTotalWidth ctx opIn
 
 def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
@@ -583,7 +651,8 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg => true
+  | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg
+  | .g_merge_values | .g_unmerge_values => true
   | .g_constant | .g_load | .g_store => false
 
 /--
@@ -595,6 +664,12 @@ def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :
   | .g_load, props => if props.volatile_ then .readWrite else .read
   | .g_store, props => if props.volatile_ then .readWrite else .write
   | _, _ => .none
+
+def GMIR.isCommutative : GMIR → Bool
+  | .g_add | .g_mul | .g_and | .g_or | .g_xor
+  | .g_smin | .g_smax | .g_umin | .g_umax
+  | .g_uaddsat | .g_saddsat => true
+  | _ => false
 
 def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
@@ -611,6 +686,7 @@ instance : HasOpInfo GMIR where
   propagatesPoison := GMIR.propagatesPoison
   getEffects := GMIR.getEffects
   isConstantLike := GMIR.isConstantLike
+  isCommutative := GMIR.isCommutative
   hasSSADominance := GMIR.hasSSADominance
   isTerminator := GMIR.isTerminator
 

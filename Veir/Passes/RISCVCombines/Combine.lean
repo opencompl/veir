@@ -1795,9 +1795,7 @@ def zextw_slliw_lbu_pattern (shamt : BitVec 64) : Puddle.Pattern OpCode :=
       let _ ← Puddle.MatchProg.root (.riscv .zextw) #[slliw.res[0]!] #[resultType]
       return (lbu.res[0]!, resultType))
     (fun (lbu, resultType) => do
-      let slliProperties ← Puddle.CreateProg.property (.riscv .slli)
-        (RISCVImmediateProperties.mk shamt)
-      let slli ← Puddle.CreateProg.operation (.riscv .slli) #[lbu] #[resultType] slliProperties
+      let slli ← Puddle.CreateProg.operation (.riscv .slli) #[lbu] #[resultType] (.inl $ .mk shamt)
       return slli)
     (fun slli => slli)
 
@@ -1834,8 +1832,7 @@ def packh_low_bytes_pattern (commuted : Bool) :
         Puddle.MatchProg.root (.riscv .or) #[lo, shifted.res[0]!] #[resultType]
       return (lo, hi, resultType))
     (fun (lo, hi, resultType) => do
-      let properties ← Puddle.CreateProg.property (.riscv .packh) ()
-      let packh ← Puddle.CreateProg.operation (.riscv .packh) #[lo, hi] #[resultType] properties
+      let packh ← Puddle.CreateProg.operation (.riscv .packh) #[lo, hi] #[resultType]
       return packh)
     (fun packh => packh)
 
@@ -1867,13 +1864,9 @@ def packh_high_bytes_pattern (commuted : Bool) :
         Puddle.MatchProg.root (.riscv .or) #[b2Shifted.res[0]!, b3Shifted.res[0]!] #[resultType]
       return (b2, b3, resultType))
     (fun (b2, b3, resultType) => do
-      let packhProperties ← Puddle.CreateProg.property (.riscv .packh) ()
       let packh ← Puddle.CreateProg.operation (.riscv .packh) #[b2, b3] #[resultType]
-        packhProperties
-      let slliProperties ← Puddle.CreateProg.property (.riscv .slli)
-        (RISCVImmediateProperties.mk 16#64)
       let shifted ← Puddle.CreateProg.operation (.riscv .slli) #[packh.res[0]!] #[resultType]
-        slliProperties
+        (.inl $ .mk 16#64)
       return shifted)
     (fun shifted => shifted)
 

@@ -19,8 +19,12 @@
       %udiv = "llvm.udiv"(%a, %b) : (i16, i16) -> i16
       %srem = "llvm.srem"(%a, %b) : (i16, i16) -> i16
       %urem = "llvm.urem"(%a, %b) : (i16, i16) -> i16
+      %shl = "llvm.shl"(%a, %b) <{overflowFlags = 1 : i32}> : (i16, i16) -> i16
+      %lshr = "llvm.lshr"(%a, %b) <{isExact}> : (i16, i16) -> i16
+      %ashr = "llvm.ashr"(%a, %b) : (i16, i16) -> i16
       %byte = "llvm.mlir.poison"() : () -> !llvm.byte<16>
       %truncByte = "llvm.trunc"(%byte) <{overflowFlags = 1 : i32}> : (!llvm.byte<16>) -> !llvm.byte<8>
+      %shlByte = "llvm.shl"(%byte, %b) : (!llvm.byte<16>, i16) -> !llvm.byte<16>
       %toByte = "llvm.bitcast"(%a) : (i16) -> !llvm.byte<16>
       %truncToByte = "llvm.trunc"(%toByte) : (!llvm.byte<16>) -> !llvm.byte<8>
       %fromByte = "llvm.bitcast"(%truncToByte) : (!llvm.byte<8>) -> i8
@@ -28,7 +32,8 @@
       %intToByte = "llvm.bitcast"(%byteToInt) : (i16) -> !llvm.byte<16>
       "test.test"(%add, %sub, %cmp, %sext, %zext, %trunc, %and, %or, %xor) : (i16, i16, i1, i32, i32, i8, i16, i16, i16) -> ()
       "test.test"(%mul, %sdiv, %udiv, %srem, %urem) : (i16, i16, i16, i16, i16) -> ()
-      "test.test"(%truncByte) : (!llvm.byte<8>) -> ()
+      "test.test"(%shl, %lshr, %ashr) : (i16, i16, i16) -> ()
+      "test.test"(%truncByte, %shlByte) : (!llvm.byte<8>, !llvm.byte<16>) -> ()
       "test.test"(%fromByte) : (i8) -> ()
       "test.test"(%intToByte) : (!llvm.byte<16>) -> ()
       "llvm.return"() : () -> ()
@@ -54,9 +59,17 @@
 // CHECK: "gmir.g_udiv"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 // CHECK: "gmir.g_srem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 // CHECK: "gmir.g_urem"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// CHECK: "gmir.g_shl"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 1 : i32}> : (i16, i16) -> i16
+// CHECK: "gmir.g_lshr"(%{{.*}}, %{{.*}}) <{isExact}> : (i16, i16) -> i16
+// CHECK: "gmir.g_ashr"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// Byte operations become gMIR operations on integers of the same width, between casts. The amount
+// of a byte shift is already an integer, so only the shifted value is cast.
 // CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<16>) -> i16
 // CHECK: "gmir.g_trunc"(%{{.*}}) <{"overflowFlags" = 1 : i32}> : (i16) -> i8
 // CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !llvm.byte<8>
+// CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<16>) -> i16
+// CHECK: "gmir.g_shl"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
+// CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (i16) -> !llvm.byte<16>
 // Bitcasts between integers and bytes become casts, and the casts between them fold away.
 // CHECK: [[T:%.*]] = "gmir.g_trunc"([[A]]) : (i16) -> i8
 // Casting a byte to an integer and back freezes its poison bits, so these casts stay.

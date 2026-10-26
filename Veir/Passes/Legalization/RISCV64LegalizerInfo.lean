@@ -3,7 +3,7 @@ module
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
-import Veir.PatternRewriter.Puddle.Builders
+import Veir.Passes.InstructionSelection.Common
 
 /-!
 # RISC-V 64 Legalization
@@ -16,39 +16,16 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 
 namespace Veir
 
-section
-open Puddle in
-
 /--
   Custom legalization of `i32` binary operations into their RISC-V word variant
   (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
   For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
-  later. For `g_sdiv`/`g_udiv`/`g_urem`, LLVM custom-legalizes into `RISCV::G_DIVW` etc.
+  later. For `g_sdiv`/`g_udiv`/`g_urem` and the shifts, LLVM custom-legalizes into `RISCV::G_DIVW`,
+  `RISCV::G_SLLW` etc.
 -/
 def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
-      let lhs ← MatchProg.value opType
-      let rhs ← MatchProg.value opType
-      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[opType]
-      return (opType, lhs, rhs))
-    (fun (opType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] castProps
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lcastOp.res[0]!, rcastOp.res[0]!] #[regType] riscvOpProps
-      CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castProps)
-    (fun castBackOp => castBackOp)
-
-end
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
+  lowerBinary (.gmir opcode) (·.bitwidth = 32) riscvOp riscvProps
 
 private def s16 : LLT := .scalar 16
 private def s32 : LLT := .scalar 32
@@ -64,6 +41,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
+    | .g_shl | .g_lshr | .g_ashr => [
+      .legalForTypePairs [(s64, s64)],
+      -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
+      .customForTypePairs [(s32, s32)],
+      .minScalar (.type 1) 64,
+      .minScalar (.type 0) 64,
+    ]
     | .g_icmp => [
       .legalForTypePairs [(s64, s64), (s64, p0)],
       .minScalar (.type 1) 64,
@@ -72,13 +56,25 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_anyext => [
       .alwaysLegal,
     ]
-    | .g_sext | .g_zext => [
+    | .g_sext => [
+      .legalForTypePairs [(s32, s16), (s64, s16), (s64, s32)],
       -- In LLVM, extensions from other widths never reach these rules: their operands are always
-      -- the result of a  `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`
-      -- or `g_and`.
-      -- FIXME: Add `g_sext_inreg`, `g_and` and these folds. Until then, other widths always legal.
+      -- the result of a `g_trunc`, and the artifact combiner turns them into `g_sext_inreg`.
+      -- We lower them to `g_sext_inreg` here instead.
+      .lowerIf fun query => match query.getLLT! (.type 0), query.getLLT! (.type 1) with
+        | .scalar dst, .scalar src => dst ≤ 64 ∧ src ∉ [8, 16, 32]
+        | _, _ => false,
+      .alwaysLegal
+    ]
+    | .g_zext => [
+      -- As for `g_sext`, LLVM's artifact combiner turns extensions from other widths into `g_and`.
+      -- FIXME: Add `g_and` and this fold. Until then, other widths always legal.
       .legalForTypePairs [(s32, s16), (s64, s16), (s64, s32)],
       .alwaysLegal
+    ]
+    | .g_sext_inreg => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
     ]
     | .g_trunc => [
       .alwaysLegal,
@@ -116,6 +112,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
     | .g_udiv => customLegalizeWord .g_udiv .divuw ()
     | .g_urem => customLegalizeWord .g_urem .remuw ()
+    | .g_shl => customLegalizeWord .g_shl .sllw ()
+    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
+    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

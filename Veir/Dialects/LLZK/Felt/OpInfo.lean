@@ -76,6 +76,10 @@ def Felt.getEffects
     (_op : Felt) (_props : Felt.propertiesOf _op) : MemoryEffects :=
   .none
 
+def Felt.isCommutative : Felt → Bool
+  | .add | .mul | .bit_and | .bit_or | .bit_xor => true
+  | _ => false
+
 def Felt.isConstantLike (op : Felt) : Bool :=
   match op with
   | .const => true
@@ -216,6 +220,7 @@ instance : HasOpInfo Felt where
   verifyLocalInvariants := Felt.verifyLocalInvariants
   getEffects := Felt.getEffects
   isConstantLike := Felt.isConstantLike
+  isCommutative := Felt.isCommutative
   hasSSADominance := Felt.hasSSADominance
 
 end

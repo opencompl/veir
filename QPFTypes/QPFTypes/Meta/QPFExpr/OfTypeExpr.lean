@@ -56,7 +56,7 @@ If found, the prefix is returned, as a `QPFExpr`, together with the remaining
 arguments. Otherwise, an error is thrown.
 -/
 private def parseApp (u : Level) (isLiveVar : FVarId → Bool) (target : Expr) :
-    MetaM ((k : Nat) × QPFExpr u k × Vector Expr k) := do
+    MetaM ((k : Nat) × QPFExpr k × Vector Expr k) := do
   let fn := target.getAppFn
   let args := target.getAppArgs
   let mut liveVarError? := none
@@ -87,7 +87,11 @@ private def parseApp (u : Level) (isLiveVar : FVarId → Bool) (target : Expr) :
     -- `IsPolynomial` for *this* `qpf` instance, not just for `typefun`.
     let isPolynomial? ←
       synthInstance? (mkApp3 (mkConst ``QPF.IsPolynomial [u, u]) (toExpr k) typefun qpf)
-    return ⟨k, { typefun, qpf, isPolynomial? }, rest.toVector⟩
+
+    let _ ← processPostponed (mayPostpone := false) (exceptionOnFailure := true)
+    let qpf ← instantiateMVars qpf
+    let isPolynomial? ← isPolynomial?.mapM instantiateMVars
+    return ⟨k, { domLevel := u, codLevel := u, typefun, qpf, isPolynomial? }, rest.toVector⟩
 
   if let some err := liveVarError? then
     throwError err
@@ -99,7 +103,7 @@ private def parseApp (u : Level) (isLiveVar : FVarId → Bool) (target : Expr) :
 
 /-- Implementation of `ofTypeExpr` -/
 partial def ofTypeExprCore (u : Level) (liveVars : Vector FVarId n) (target : Expr) :
-    MetaM (QPFExpr u n) :=
+    MetaM (QPFExpr n) :=
   withTraceNode `QPFTypes (fun _ => return m!"pipeline: {target}") do
     let isLiveVar (fvarId : FVarId) : Bool := liveVars.contains fvarId
 
@@ -122,7 +126,7 @@ partial def ofTypeExprCore (u : Level) (liveVars : Vector FVarId n) (target : Ex
     else
       throwError "unexpected target expression:{indentExpr target}"
 where
-  ofApp (target : Expr) : MetaM (QPFExpr u n) := do
+  ofApp (target : Expr) : MetaM (QPFExpr n) := do
     let isLiveVar (fvarId : FVarId) : Bool := liveVars.contains fvarId
     let ⟨k, F, args⟩ ← parseApp u isLiveVar target
     trace[QPFTypes] "{target} is an application of {F.typefun} to {args.toList}"
@@ -149,38 +153,49 @@ where
   Translate a (possibly dependent) function type `($binderName : $A) → $body`
   into a `QPF.Pi`.
   -/
-  ofForall (A body : Expr) : MetaM (QPFExpr u n) := do
+  ofForall (A body : Expr) : MetaM (QPFExpr n) := do
     if A.hasAnyFVar (liveVars.contains ·) then
       throwError "\
         the domain of a function type may not mention live variables:{indentExpr A}\n\
         a function type is not functorial in its domain."
-    unless ← isDefEq (← inferType A) (.sort u.succ) do
-      throwError "\
-        the domain of a function type must live in the same universe as the QPF \
-        itself, but{indentExpr A}\n\
-        has type{indentExpr (← inferType A)}\n\
-        instead of{indentD m!"Type {u}"}"
+    let w ← getIndexLevel A "the domain of a function type"
     trace[QPFTypes] "{A} → ⋯ is a dependent product"
-    mkPi u n A fun a => ofTypeExprCore u liveVars (body.instantiate1 a)
+    mkPi u n w A fun a => ofTypeExprCore u liveVars (body.instantiate1 a)
 
   /--
   Translate a dependent sum `($binderName : $A) × $body` into a `QPF.Sigma`.
   -/
-  ofSigma (A family : Expr) : MetaM (QPFExpr u n) := do
+  ofSigma (A family : Expr) : MetaM (QPFExpr n) := do
     if A.hasAnyFVar (liveVars.contains ·) then
       throwError "\
         the index type of a dependent sum may not mention live variables:\
         {indentExpr A}\n\
         a dependent sum is functorial in its summands only, not in the type it \
         is indexed by"
-    unless ← isDefEq (← inferType A) (.sort u.succ) do
-      throwError "\
-        the index type of a dependent sum must live in the same universe as the \
-        QPF itself, but{indentExpr A}\n\
-        has type{indentExpr (← inferType A)}\n\
-        instead of{indentD m!"Type {u}"}"
+    let w ← getIndexLevel A "the index type of a dependent sum"
     trace[QPFTypes] "{A} × ⋯ is a dependent sum"
-    mkSigma u n A fun a => ofTypeExprCore u liveVars (mkApp family a).headBeta
+    mkSigma u n w A fun a => ofTypeExprCore u liveVars (mkApp family a).headBeta
+
+  /--
+  Return the universe `w` such that `A : Type w`, after checking that `w` is at
+  most the universe `u` of the QPF itself, i.e., that `max w u` is def-eq to `u`.
+  `what` describes `A`, for use in error messages.
+  -/
+  getIndexLevel (A : Expr) (what : MessageData) : MetaM Level := do
+    let w ← mkFreshLevelMVar
+    let AType ← inferType A
+    unless ← isDefEq AType (.sort w.succ) do
+      throwError "\
+        {what} must be a type, but{indentExpr A}\n\
+        has type{indentExpr AType}"
+    let w ← instantiateLevelMVars w
+    unless ← isLevelDefEq (mkLevelMax' w u) u do
+      throwError "\
+        {what} may not live in a higher universe than the QPF itself, \
+        but{indentExpr A}\n\
+        has type{indentExpr AType}\n\
+        which is not below{indentD m!"Type {u}"}"
+    return w
 
 /--
 Assert that the given QPF, represents the uncurried type function that
@@ -189,14 +204,51 @@ abstracts `target` over the given (live) free variables.
 Concretely, this checks that `TypeFun.curry $q.typefun` is definitionally equal
 to `fun $liveVars... => $target`.
 -/
-private def assertCurriedDefEq (q : QPFExpr u n)
-    (liveVars : Vector FVarId n) (target : Expr) : MetaM Unit := do
-  let curried := mkApp2 (mkConst ``TypeFun.curry [u]) (toExpr n) q.typefun
-  let expected ← mkLambdaFVars (liveVars.toArray.map Expr.fvar) target
+private def assertCurriedDefEq (qpf : QPFExpr n)
+    (liveVars : Array FVarId) (target : Expr) : MetaM Unit := do
+  let q ← qpf.unifyLevels
+  let curried := mkApp2 (mkConst ``TypeFun.curry [q.domLevel]) (toExpr n) q.typefun
+  let expected ← mkLambdaFVars (liveVars.map Expr.fvar) target
   unless ← withoutModifyingState (isDefEq curried expected) do
     throwError "\
       debug assertion failed, the derived type function{indentExpr curried}\n\
       is not definitionally equal to{indentExpr expected}"
+
+/--
+Call `assertCurriedDefEq` only if the `QPFTypes.debug` option is set.
+-/
+private def debugAssertCurriedDefEq (qpf : QPFExpr n)
+    (liveVars : Array FVarId) (target : Expr) : MetaM Unit := do
+  if ← getBoolOption `QPFTypes.debug false then
+    qpf.assertCurriedDefEq liveVars target
+
+/-- Throw an error if `x` is not of type `Type $u`. -/
+@[inline]
+private def assertLiveVarInUniverse (x : FVarId) (u : Level) : MetaM Unit := do
+  let expected := Expr.sort u.succ
+  let actual ← x.getType
+  unless ← isDefEq actual expected do
+    let expected' := mkApp (mkConst ``liveParam [u]) expected
+    -- ^^ Note: `expected'` is def-eq to `expected`, but we add the liveParam
+    --    here to make the error message less confusing when `actual` is also an
+    --    application of `liveParam` (as it usually is).
+    throwError "\
+      Live parameter '{x}' \
+      {← mkHasTypeButIsExpectedMsg actual expected'
+        (some m!"\nNote that all live variables must live in the same universe.")
+      }"
+
+/-- Throw an error if `target` is not of type `Type $u`. -/
+@[inline]
+private def assertTargetInUniverse (target : Expr) (u : Level) : MetaM Unit := do
+  let expected := Expr.sort u.succ
+  let targetType ← inferType target
+  unless ← isDefEq targetType expected do
+    throwError "The expression:{indentExpr target}\n\
+      {← mkHasTypeButIsExpectedMsg targetType expected
+          (some m!"\nNote that the result of a QPF must live in the same type universe \
+                    as it's arguments")
+      }"
 
 /--
 Construct a QPFExpr from a type expression `$target : Type u` and given the free
@@ -221,25 +273,19 @@ That is, the resulting QPF is the uncurried version of the type function
 Converting the type function of the returned QPFExpr into a curried function,
 by applying `TypeFun.curry` to it, yields an expression which is
 definitionally equal to this abstracted expression.
+
+All live variables are assumed to of type `Type v`, for the same universe `v`.
 -/
 public def ofTypeExpr (liveVars : Vector FVarId n) (target : Expr) :
-    MetaM (Σ u, QPFExpr u n) :=
+    MetaM (QPFExpr n) :=
   try
-    let u ← getDecLevel target
-    for v in liveVars do
-      let actual ← v.getType
-      let expected := .sort u.succ
-      unless ← isDefEq actual expected do
-        throwError "\
-          Live variable {v} {← mkHasTypeButIsExpectedMsg actual expected}\n\
-          \n\
-          Note that all live variables must live in the same universe.
-          "
+    let u ← mkFreshLevelMVar
+    liveVars.forM (assertLiveVarInUniverse · u)
+    assertTargetInUniverse target u
 
     let qpf ← ofTypeExprCore u liveVars target
-    if ← getBoolOption `QPFTypes.debug false then
-      qpf.assertCurriedDefEq liveVars target
-    return ⟨_, qpf⟩
+    qpf.debugAssertCurriedDefEq liveVars.toArray target
+    return qpf
   catch err =>
     let liveVars := toMessageData liveVars.toList
     throwError "\
@@ -262,8 +308,11 @@ meta def LocalDecl.asLiveVar? (decl : LocalDecl) : Option FVarId :=
 
 /--
 The parameters of a QPF, separated into live and "dead" free variables.
+
+All live variables are of type `Type $liveVarLevel`
 -/
 public structure QPFParams where
+  liveVarLevel : Level
   liveVars : Array FVarId
   deadVars : Array FVarId
 
@@ -273,22 +322,28 @@ i.e., those whose type is an application of `liveParam`, and dead parameters
 (i.e., the rest), returned as a `QPFParams` object.
 
 Throws an error if a dead parameter occurs after a live parameter in the
-given array of variables; all dead parameters are expected to precede the live
-parameters.
+given array of variables--all dead parameters are expected to precede the live
+parameters--or if two live parameters live in different universes--all live
+parameters are expected to be of type `Type u`, for some fixed universe u.
 -/
 public def collectLiveParams (fvars : Array FVarId) : MetaM QPFParams := do
   let mut liveVars := #[]
+  let u ← mkFreshLevelMVar
   for x in fvars do
     let decl ← x.getDecl
     if let some v := LocalDecl.asLiveVar? decl then
+      assertLiveVarInUniverse v u
       liveVars := liveVars.push v
     else if let some live := liveVars[0]? then
+      let x := m!"{x} : {← x.getType}"
+      let live := m!"{live} : {← live.getType}"
       throwError "\
-        non-live parameter {x} occurs after live parameter {Expr.fvar live}\n\
+        non-live parameter:{indentD x}\n\
+        occurs after live parameter:{indentD live}\n\
         \n\
         Note that all non-live parameters must precede the live parameters."
   let deadVars := fvars.take (fvars.size - liveVars.size)
-  return { liveVars, deadVars }
+  return { liveVarLevel := u, liveVars, deadVars }
 
 variable [Monad m] [MonadEnv m] [MonadError m] [MonadLiftT MetaM m] [MonadControlT MetaM m]
               [MonadTrace m] [AddMessageContext m] [MonadOptions m] [MonadAlwaysExcept ε m]
@@ -311,16 +366,28 @@ universe level parameters.
 See also `ofTypeExpr` for details on how the QPFExpr is constructed.
 -/
 public def ofTypeDef (defn : Name)
-    (k : {n : Nat} → {u : Level} → (q : QPFExpr u n) →
-      (levelParams : List Name) → (deadVars : Array FVarId) → m α) : m α := do
-  withTraceNode `QPFTypes (fun _ => pure m!"Building a QPF expression from definition '{defn}'") <| do
+    (k : {n : Nat} → (q : QPFExpr n) →
+      (levelParams : List Name) → (deadVars : Array FVarId) → m α) : m α := withErrContext do
   let info ← getConstInfoDefn defn
   trace[QPFTypes] "Defined as: {info.value}"
-  lambdaTelescope info.value fun fvars target => do
-    let { liveVars, deadVars } ← collectLiveParams (fvars.map Expr.fvarId!)
+  forallTelescopeReducing info.type fun fvars _type => do
+    let { liveVars, deadVars, liveVarLevel := u } ← collectLiveParams (fvars.map Expr.fvarId!)
     trace[QPFTypes] "Identified:\nLive variables: {liveVars}\nDead variables: {deadVars}"
-    let ⟨_, qpf⟩ ← ofTypeExpr ⟨liveVars, rfl⟩ target
+
+    let target := mkAppN info.value fvars
+    assertTargetInUniverse target u
+    let qpf ← ofTypeExprCore u ⟨liveVars, rfl⟩ target
+    qpf.debugAssertCurriedDefEq liveVars target
     k qpf info.levelParams deadVars
+where
+  @[inline]
+  withErrContext {α} (x : m α) : m α :=
+    let defn := MessageData.ofConstName defn
+    withTraceNode `QPFTypes (fun _ => pure m!"Building a QPF expression from definition '{defn}'") <|
+      try x catch err =>
+        throwError "\
+          While deriving a QPF from definition:{indentD defn}\n\n\
+          {err.toMessageData}"
 
 end QPFTypes.QPFExpr
 end
