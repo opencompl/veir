@@ -158,10 +158,11 @@ def isNormalized (attr : IntegerAttr) : Bool :=
 end IntegerAttr
 
 /--
-  Integer literal of the builtin `index` type.
+  Integer literal of the builtin `index` type. MLIR stores index attributes as
+  `IndexType.bitwidth`-bit integers, so the value cannot be out of range.
 -/
 structure IndexAttr where
-  value : Int
+  value : BitVec IndexType.bitwidth
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
@@ -987,7 +988,7 @@ instance : ToString IntegerAttr where
     else s!"{attr.value} : {attr.type}"
 
 instance : ToString IndexAttr where
-  toString attr := s!"{attr.value} : index"
+  toString attr := s!"{attr.value.toInt} : index"
 
 instance : ToString FloatAttr where
   toString attr :=

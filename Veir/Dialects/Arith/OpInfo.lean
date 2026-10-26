@@ -269,7 +269,7 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
     | .integerType bw, .int attr =>
       return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth attr.value))], none)
     | .indexType _, .index attr =>
-      return (#[.int IndexType.bitwidth (.val (BitVec.ofInt IndexType.bitwidth attr.value))], none)
+      return (#[.int IndexType.bitwidth (.val attr.value)], none)
     | _, _ => none
   | .addi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none

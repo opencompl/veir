@@ -330,8 +330,9 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   -- attributes as signed `IndexType.bitwidth`-bit integers, so the literal is
   -- always range-checked, even with raw integer literals.
   let indexAttr : AttrParserM Attribute := do
-    return IndexAttr.mk (← parseIntLiteral "index" false fun literal =>
-      literal == (BitVec.ofInt IndexType.bitwidth literal).toInt)
+    let literal ← parseIntLiteral "index" false fun literal =>
+      literal == (BitVec.ofInt IndexType.bitwidth literal).toInt
+    return IndexAttr.mk (BitVec.ofInt IndexType.bitwidth literal)
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
