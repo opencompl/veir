@@ -164,6 +164,42 @@ example (next : BitVec 8 → Tree Nat) :
     CTree.CTree.tauG (.inr (FreezeCIn.mk 8)) (fun bits => Tree.interp_ub_and_error (next bits)) := by
   simp [CTree.CTree.choose_def, CTree.CTree.tau_def, Bind.bind]
 
+-- Each byte-freeze choice preserves all defined bits and resolves only poison.
+open Veir.Data in
+example (value : LLVM.Byte width) (bits : BitVec width) :
+    value ⊒ LLVM.Byte.fromBitVec (value.val ||| (value.poison &&& bits)) := by
+  have h := value.h
+  simp only [LLVM.Byte.isRefinedBy, LLVM.Byte.fromBitVec]
+  bv_normalize
+  grind
+
+-- Freezing poison pointers must preserve every possible concrete pointer,
+-- including its provenance, while freezing a concrete pointer preserves it.
+example (pointer : Veir.Data.Pointer) (memory : MemoryState) :
+    Llvm.interpretOpCTree .freeze () #[] #[.addr (.val pointer)] #[] memory =
+      pure (#[.addr (.val pointer)], memory, none) := by
+  simp [Llvm.interpretOpCTree]
+
+example (pointer : Veir.Data.Pointer) (memory : MemoryState) :
+    PureOrErr.CanInterpretTo
+      (Llvm.interpretOpCTree .freeze () #[] #[.addr .poison] #[] memory)
+      (.ok (#[.addr (.val pointer)], memory, none)) := by
+  simp only [Llvm.interpretOpCTree,
+    CTree.CTree.choose_def, CTree.CTree.tau_def, Bind.bind, CTree.CTree.bind_tau,
+    PureOrErr.CanInterpretTo.tauG_iff, CTree.CTree.bind_ret,
+    PureOrErr.CanInterpretTo.pure_iff]
+  exact ⟨pointer, rfl⟩
+
+example (pointer : Veir.Data.Pointer) (memory : MemoryState) :
+    Tree.Refines OperationResult.isRefinedBy
+      (Llvm.interpretOpCTree .freeze () #[] #[.addr .poison] #[] memory)
+      (Llvm.interpretOpCTree .freeze () #[] #[.addr (.val pointer)] #[] memory) := by
+  simp only [Llvm.interpretOpCTree,
+    CTree.CTree.choose_def, CTree.CTree.tau_def, Bind.bind, CTree.CTree.bind_tau,
+    CTree.CTree.bind_ret, Tree.Refines, Tree.interp_ub_and_error_pure,
+    Tree.interp_ub_and_error_tau, CTree.Sim.pure_tau_r, CTree.Sim.pure]
+  exact ⟨pointer, OperationResult.isRefinedBy_refl _⟩
+
 -- A source abort permits a successful target, as in Interp.isRefinedBy.
 example (value : Nat) : Tree.Refines Eq (ub : Tree Nat) (pure value) := by
   simp only [Tree.Refines, Tree.interp_ub_and_error_ub, Tree.interp_ub_and_error_pure]

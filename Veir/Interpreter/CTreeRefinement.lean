@@ -167,6 +167,170 @@ theorem refines_pure (relation : α → β → Prop) (source : α) (target : β)
   unfold Refines
   simp
 
+/-- Weakening the relation on successful return values preserves tree refinement. -/
+theorem refines_mono {relation relation' : α → β → Prop}
+    (hrelation : ∀ source target, relation source target → relation' source target)
+    {source : Tree α} {target : Tree β} (h : Refines relation source target) :
+    Refines relation' source target := by
+  unfold Refines at *
+  have hresult := Sim.bind _ _ (fun value => pure value) (fun value => pure value) h
+    (RR' := fun target source => Interp.isRefinedBy relation' source target) (by
+      intro target source h
+      apply (Sim.pure _ _ _).mpr
+      cases source <;> cases target <;> simp_all [Interp.isRefinedBy])
+  change Sim _ (interp_ub_and_error target >>= pure)
+    (interp_ub_and_error source >>= pure) at hresult
+  simpa using hresult
+
+/-- Source failure admits every target that source UB admits, using the existing
+outcome convention. This does not assume that UB admits an arbitrary infinite tree. -/
+theorem refines_fail_of_refines_ub (relation : α → β → Prop) (target : Tree β)
+    (hub : Refines relation (ub : Tree α) target) :
+    Refines relation (fail : Tree α) target := by
+  unfold Refines at *
+  rw [interp_ub_and_error_ub] at hub
+  rw [interp_ub_and_error_fail]
+  have hresult := Sim.bind _ _ (fun value => pure value)
+    (fun (_ : Interp α) => pure (Interp.fail none)) hub
+    (RR' := fun target source => Interp.isRefinedBy relation source target) (by
+      intro target source _
+      apply (Sim.pure _ _ _).mpr
+      trivial)
+  change Sim _ (interp_ub_and_error target >>= pure)
+    ((pure (Interp.ub none) : Tree (Interp α)) >>= fun _ => pure (Interp.fail none)) at hresult
+  simpa using hresult
+
+/-- Undefined source behavior permits every target behavior, including divergence.
+This is the explicit UB-top assumption for CTree refinement. -/
+axiom refines_ub (relation : α → β → Prop) (target : Tree β) :
+    Refines relation (ub : Tree α) target
+
+/-- Interpreter failure follows the same unconstrained-source convention as UB. -/
+theorem refines_fail (relation : α → β → Prop) (target : Tree β) :
+    Refines relation (fail : Tree α) target :=
+  refines_fail_of_refines_ub relation target (refines_ub relation target)
+
+/-- Compose related tree computations with related continuations. Terminal source
+errors use the UB-top convention, including when the target continuation diverges. -/
+theorem refines_bind {relation : α → β → Prop} {relation' : γ → δ → Prop}
+    {source : Tree α} {target : Tree β}
+    {sourceNext : α → Tree γ} {targetNext : β → Tree δ}
+    (hhead : Refines relation source target)
+    (hnext : ∀ a b, relation a b → Refines relation' (sourceNext a) (targetNext b)) :
+    Refines relation' (CTree.bind source sourceNext) (CTree.bind target targetNext) := by
+  have hterminal (result : Interp γ)
+      (htotal : ∀ value, Interp.isRefinedBy relation' result value) (tree : Tree δ) :
+      Sim (fun target source => Interp.isRefinedBy relation' source target)
+        (interp_ub_and_error tree) (pure result : Tree (Interp γ)) := by
+    have hub := refines_ub relation' tree
+    unfold Refines at hub
+    rw [interp_ub_and_error_ub] at hub
+    have hresult := Sim.bind _ _ (fun value => pure value)
+      (fun (_ : Interp γ) => pure result) hub
+      (RR' := fun target source => Interp.isRefinedBy relation' source target) (by
+        intro target source _
+        exact (Sim.pure _ _ _).mpr (htotal target))
+    change Sim _ (interp_ub_and_error tree >>= pure)
+      ((pure (Interp.ub none) : Tree (Interp γ)) >>= fun _ => pure result) at hresult
+    simpa using hresult
+  unfold Refines at hhead ⊢
+  rw [interp_ub_and_error_bind, interp_ub_and_error_bind]
+  apply Sim.bind _ _ _ _ hhead
+  intro targetResult sourceResult hresult
+  cases sourceResult with
+  | fail error =>
+    cases targetResult <;>
+      simp only [Sim.pure, Interp.isRefinedBy] <;>
+      try trivial
+    exact hterminal (.fail error) (by intro; trivial) _
+  | ub error =>
+    cases targetResult <;>
+      simp only [Sim.pure, Interp.isRefinedBy] <;>
+      try trivial
+    exact hterminal (.ub error) (by intro; trivial) _
+  | ok sourceValue =>
+    cases targetResult with
+    | fail error => cases hresult
+    | ub error => cases hresult
+    | ok targetValue => exact hnext sourceValue targetValue hresult
+
+/-- An action with a finite outcome can be discarded when its result is unused.
+The UB hypothesis makes the required treatment of arbitrary target continuations
+explicit, including continuations that diverge. -/
+theorem refines_discard_of_canInterpretTo_of_refines_ub (relation : β → γ → Prop)
+    {action : Tree α} {outcome : Interp α} {source : Tree β} {target : Tree γ}
+    (hub : Refines relation (ub : Tree β) target)
+    (haction : PureOrErr.CanInterpretTo action outcome)
+    (hcontinuation : Refines relation source target) :
+    Refines relation (CTree.bind action (fun _ => source)) target := by
+  induction haction with
+  | ret value => simpa using hcontinuation
+  | tau choice next value result h ih =>
+    unfold Refines at ih ⊢
+    rw [CTree.CTree.bind_tau, interp_ub_and_error_tau]
+    exact Sim.tau_r _ choice _ _ value ih
+  | fail =>
+    have hfail := refines_fail_of_refines_ub relation target hub
+    unfold Refines at hfail ⊢
+    rw [CTree.CTree.bind_vis]
+    conv => rhs; rw [interp_ub_and_error, unfold_vis]
+    change Sim (fun target source => Interp.isRefinedBy relation source target)
+      (interp_ub_and_error target) (pure (Interp.fail (α := β) none))
+    simpa only [interp_ub_and_error_fail] using hfail
+  | ub =>
+    unfold Refines at hub ⊢
+    rw [CTree.CTree.bind_vis]
+    conv => rhs; rw [interp_ub_and_error, unfold_vis]
+    change Sim (fun target source => Interp.isRefinedBy relation source target)
+      (interp_ub_and_error target) (pure (Interp.ub (α := β) none))
+    simpa only [interp_ub_and_error_ub] using hub
+
+/-- Every finite interpreter tree has an outcome: all silent and freeze choices
+have at least one possible response. -/
+theorem exists_canInterpretTo {action : Tree α} (haction : PureOrErr action) :
+    ∃ outcome, PureOrErr.CanInterpretTo action outcome := by
+  induction haction with
+  | ret value => exact ⟨.ok value, .ret value⟩
+  | tau choice next _ ih =>
+    have hchoice : Nonempty ((C1 ⊕ₑ FreezeC) choice) := by
+      cases choice with
+      | inl choice => cases choice; exact ⟨.unit⟩
+      | inr choice =>
+        cases choice with
+        | mk width => exact ⟨(0 : BitVec width)⟩
+        | pointer => exact ⟨(default : Data.Pointer)⟩
+    obtain ⟨value⟩ := hchoice
+    obtain ⟨outcome, houtcome⟩ := ih value
+    exact ⟨outcome, .tau choice next value outcome houtcome⟩
+  | fail => exact ⟨_, .fail⟩
+  | ub => exact ⟨_, .ub⟩
+
+/-- Discard a finite action whose returned value is unused, preserving a refining
+continuation. The UB hypothesis explicitly covers arbitrary target continuations. -/
+theorem refines_discard_of_refines_ub (relation : β → γ → Prop)
+    {action : Tree α} {source : Tree β} {target : Tree γ}
+    (hub : Refines relation (ub : Tree β) target)
+    (haction : PureOrErr action) (hcontinuation : Refines relation source target) :
+    Refines relation (CTree.bind action (fun _ => source)) target := by
+  obtain ⟨outcome, houtcome⟩ := exists_canInterpretTo haction
+  exact refines_discard_of_canInterpretTo_of_refines_ub relation hub houtcome hcontinuation
+
+/-- Discard an action with a finite outcome when its result is unused. -/
+theorem refines_discard_of_canInterpretTo (relation : β → γ → Prop)
+    {action : Tree α} {outcome : Interp α} {source : Tree β} {target : Tree γ}
+    (haction : PureOrErr.CanInterpretTo action outcome)
+    (hcontinuation : Refines relation source target) :
+    Refines relation (CTree.bind action (fun _ => source)) target :=
+  refines_discard_of_canInterpretTo_of_refines_ub relation
+    (refines_ub relation target) haction hcontinuation
+
+/-- Discard a finite action whose returned value is unused. -/
+theorem refines_discard (relation : β → γ → Prop)
+    {action : Tree α} {source : Tree β} {target : Tree γ}
+    (haction : PureOrErr action) (hcontinuation : Refines relation source target) :
+    Refines relation (CTree.bind action (fun _ => source)) target :=
+  refines_discard_of_refines_ub relation (refines_ub relation target) haction hcontinuation
+
 /-- Peel a lifted interpreter result in the target, preserving UB and failure. -/
 theorem refines_monadLift_target (relation : α → β → Prop) (source : Tree α)
     (outcome : Interp β) :

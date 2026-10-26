@@ -53,14 +53,16 @@ def fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} {R} [ErrorE -< E] : CTr
 
 /-! ## Freeze Effect -/
 
-/-- Choice of a bitvector of a given bitwidth (input type) -/
-structure FreezeCIn : Type u where
-  bw : Nat
+/-- Choices used to freeze poison bits or an entire poison pointer. -/
+inductive FreezeCIn : Type u where
+  | mk (bw : Nat)
+  | pointer
 
-/-- Choice of a bitvector of a given bitwidth (output type) -/
+/-- Freeze chooses arbitrary bits or an arbitrary concrete pointer, including its provenance. -/
 abbrev FreezeC (c : FreezeCIn.{u}) : Type :=
   match c with
   | .mk bw => BitVec bw
+  | .pointer => Data.Pointer
 
 /-! ## Region Runner Effect -/
 
