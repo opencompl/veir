@@ -32,6 +32,54 @@ class IsPolynomial (F : TypeVec.{u} n → Type v) [q : QPF F] where
 
 attribute [simp, grind =] IsPolynomial.repr_abs
 
+/-- For polynomial functors, `LiftP (PredLast α p) x` holds iff `p` holds for each value that
+`QPF.repr x` contains in the last position. -/
+theorem IsPolynomial.liftPLast_iff {F : TypeVec.{u} (n + 1) → Type v} [QPF F]
+    [IsPolynomial F] {α : TypeVec n} {β : Type u} (p : β → Prop) (x : F (α ::: β)) :
+    LiftPLast p x ↔ ∀ j, p ((repr x).2 0 j) := by
+  rw [LiftPLast, liftP_iff]
+  constructor
+  · rintro ⟨a, f, hx, hf⟩
+    have hr : repr x = ⟨a, f⟩ := by rw [hx]; exact IsPolynomial.repr_abs _
+    rw [hr]
+    exact hf 0
+  · refine fun h => ⟨_, _, (abs_repr x).symm, fun i => ?_⟩
+    cases i using Fin.cases
+    · exact h
+    · exact fun _ => trivial
+
+/-- For polynomial functors, `QPF.repr` commutes with `map`. -/
+theorem IsPolynomial.repr_map {F : TypeVec.{u} n → Type v} [QPF F] [IsPolynomial F]
+    {β γ : TypeVec n} (g : β ⟹ γ) (y : F β) :
+    repr (g <$$> y) = g <$$> repr y := by
+  conv => lhs; rw [← abs_repr y, ← abs_map, IsPolynomial.repr_abs]
+
+/-! ## Attaching proofs to the last position -/
+
+section Attach
+open TypeVec
+variable {F : TypeVec.{u} (n + 1) → Type v} [QPF F] [IsPolynomial F]
+  {α : TypeVec.{u} n} {β : Type u} {p : β → Prop}
+
+/-- Pairs every value in the last position of `x` with a proof of `p`, given that `p` holds on
+every value in that position, i.e., `LiftP (α.PredLast p) x`. -/
+def attach (x : F (α ::: β)) (h : LiftP (α.PredLast p) x) : F (α ::: Subtype p) :=
+  abs ⟨(repr x).1, splitFun (dropFun (repr x).2 : _ ⟹ α)
+    fun j => ⟨lastFun (repr x).2 j, (IsPolynomial.liftPLast_iff p x).1 h j⟩⟩
+
+/-- Forgetting the proofs attached by `attach` gives back `x`. -/
+@[simp, grind =]
+theorem val_attach (x : F (α ::: β)) (h : LiftP (α.PredLast p) x) :
+    (TypeVec.id ::: Subtype.val) <$$> attach x h = x := by
+  rw [attach]; erw [← abs_map]
+  conv => rhs; rw [← abs_repr x]
+  congr 1
+  refine Sigma.ext rfl (heq_of_eq ?_)
+  funext i j
+  rcases i with _ | i <;> rfl
+
+end Attach
+
 /-! ## ofEquiv -/
 
 /-- Any typefunction isomorphic to a polynomial QPF is itself polynomial. -/

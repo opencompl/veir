@@ -6,6 +6,7 @@ Authors: Jeremy Avigad, Mario Carneiro, Simon Hudon
 module
 
 public import QPFTypes.Theory.TypeVec
+public import QPFTypes.Theory.TypeFun
 
 /-!
 
@@ -51,6 +52,12 @@ def LiftR {α : TypeVec n} (R : ∀ ⦃i⦄, α i → α i → Prop) (x y : F α
     (fun i (t : { p : α i × α i // R p.fst p.snd }) => t.val.fst) <$$> u = x ∧
       (fun i (t : { p : α i × α i // R p.fst p.snd }) => t.val.snd) <$$> u = y
 
+variable {F : TypeFun (n+1)} [MvFunctor F] in
+/-- predicate lifting over the last variable only. -/
+abbrev LiftPLast  {αs : TypeVec n} {α : Type u}
+    (P : α → Prop) : (x : F (αs ::: α)) → Prop :=
+  LiftP (αs.PredLast P)
+
 end MvFunctor
 
 open TypeVec in
@@ -95,6 +102,40 @@ theorem id_map' (x : F α) : (fun _i a => a) <$$> x = x :=
 @[grind =]
 theorem map_map (g : α ⟹ β) (h : β ⟹ γ) (x : F α) : h <$$> g <$$> x = (h ⊚ g) <$$> x :=
   Eq.symm <| comp_map _ _ _
+
+/-- `LiftP` is monotone in the predicate. -/
+theorem LiftP.mono {P Q : ∀ i, α i → Prop} (h : ∀ i a, P i a → Q i a) {x : F α} :
+    LiftP P x → LiftP Q x := by
+  rintro ⟨u, rfl⟩
+  refine ⟨(fun i (a : Subtype (P i)) => (⟨a.1, h i a.1 a.2⟩ : Subtype (Q i))) <$$> u, ?_⟩
+  exact (map_map _ _ u).trans rfl
+
+section PredLast
+open Lean.Order
+
+variable {G : TypeVec.{u} (n + 1) → Type v} [MvFunctor G] [LawfulMvFunctor G]
+
+/-- `LiftP (PredLast α p)` is monotone in `p`. -/
+theorem LiftP.predLast_mono {β : Type u} {p q : β → Prop} (h : ∀ b, p b → q b)
+    {x : G (α ::: β)} : LiftP (α.PredLast p) x → LiftP (α.PredLast q) x :=
+  LiftP.mono fun i => by
+    cases i using Fin.cases
+    · exact h
+    · exact fun _ _ => trivial
+
+@[partial_fixpoint_monotone]
+theorem LiftP.predLast_mono_inductive {γ} [PartialOrder γ] {β : Type u}
+    (f : γ → β → ImplicationOrder) (hf : monotone f) (x : G (α ::: β)) :
+    @monotone _ _ _ ImplicationOrder.instOrder (fun g => LiftP (α.PredLast (f g)) x) :=
+  fun _ _ hg => LiftP.predLast_mono fun b => monotone_apply b f hf _ _ hg
+
+@[partial_fixpoint_monotone]
+theorem LiftP.predLast_mono_coinductive {γ} [PartialOrder γ] {β : Type u}
+    (f : γ → β → ReverseImplicationOrder) (hf : monotone f) (x : G (α ::: β)) :
+    @monotone _ _ _ ReverseImplicationOrder.instOrder (fun g => LiftP (α.PredLast (f g)) x) :=
+  fun _ _ hg => LiftP.predLast_mono fun b => monotone_apply b f hf _ _ hg
+
+end PredLast
 
 variable (F) in
 theorem exists_iff_exists_of_mono {P : F α → Prop} {q : F β → Prop}
