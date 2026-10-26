@@ -132,7 +132,7 @@ def veir_backend_to_asm(mlir: bytes, src_stem: str, debug: bool = False) -> byte
         if unhandled:
             where = f"see {mir}" if debug else "rerun with --debug to keep the MIR"
             sys.exit(f"vcc: VeIR's RISC-V backend could not lower {unhandled} operation(s) "
-                     f"({where}); --llvm-backend uses LLVM's backend instead")
+                     f"({where})")
         lowered = tmp / (src_stem + ".lowered.mir")
         asm = tmp / (src_stem + ".s")
         run(regalloc_cmd("llc", str(mir), str(lowered)), debug=debug)

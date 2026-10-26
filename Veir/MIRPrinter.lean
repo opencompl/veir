@@ -727,11 +727,17 @@ def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array Block
     emitTrampoline tr.1 tr.2
   IO.println "..."
 
-/-- The LLVM IR spelling of a first-class type, for the types we print. -/
+/-- The LLVM IR spelling of a first-class type, for the types we print.
+    Structs with known bodies, including identified structs, are printed inline:
+    the stub IR only needs their layout, and machine operands use opaque pointers. -/
 partial def llvmType? : Attribute → Option String
   | .integerType t => some s!"i{t.bitwidth}"
   | .llvmPointerType _ => some "ptr"
   | .llvmArrayType t => do return s!"[{t.size} x {← llvmType? t.type}]"
+  | .llvmStructType t => do
+    let fields ← t.body.mapM llvmType?
+    let body := "{ " ++ String.intercalate ", " fields.toList ++ " }"
+    return if t.packed then "<" ++ body ++ ">" else body
   | _ => none
 
 /-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
