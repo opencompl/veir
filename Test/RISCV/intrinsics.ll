@@ -6,7 +6,7 @@
 ;   fshl/fshr (rotate form, constant amount)    -> rori      (Zbb)
 ;   ctlz/cttz/ctpop      -> clz/ctz/cpop         (Zbb)
 ;   bswap                -> rev8                  (Zbb)
-;   bitreverse           -> SWAR stages + rev8    (Zbb)
+;   bitreverse           -> brev8 + rev8          (Zbkb)
 ;   sadd/ssub/sshl.sat   -> overflow test + czero select (Zicond)
 ;   uadd/usub/ushl.sat   -> Zbb/minmax and bit-test idioms
 ;   abs                  -> neg + max                (Zbb)
@@ -196,10 +196,7 @@ define i64 @test_bswap(i64 %a) {
 }
 
 ; CHECK-LABEL: "sym_name" = "test_bitreverse"
-; CHECK: "riscv.and"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slli"(%{{.*}}) <{{.*}}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srli"(%{{.*}}) <{{.*}}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+; CHECK: "riscv.brev8"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.rev8"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
 define i64 @test_bitreverse(i64 %a) {
   %r = call i64 @llvm.bitreverse.i64(i64 %a)

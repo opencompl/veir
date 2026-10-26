@@ -4,8 +4,6 @@ public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
-import Veir.Interfaces.ConstantLikeInterfaces
-import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.GMIR.Basic
 import Veir.Passes.Matching.LLVM.Basic
 import Veir.Passes.InstructionSelection.Common
@@ -33,32 +31,6 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
-/--
-  RISC-V lowerings with Puddle for unary operations.
-  TODO: Add a `guard` to check for legality once needed, just like for `lowerBinary`.
--/
-def lowerUnary (srcOp : OpCode) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let returnType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let x ← MatchProg.value returnType
-      let _ ← MatchProg.root srcOp #[x] #[returnType]
-      return (returnType, x))
-    (fun (returnType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[returnType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
 /-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
 def ctlz32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctlz) 32 .clzw ()
 
@@ -76,50 +48,6 @@ def ctpop32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 32 .cpop
 
 /-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
 def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop ()
-
-/--
-  RISC-V for binary operations that share a single integer type between both operands and the
-  result: cast both operands to registers, optionally apply `extend` to each register first (e.g.
-  `riscv.sextw` for the signed min/max `i32` arms, since `castToRegLocal`'s zero-extension does not
-  preserve signed order), apply `riscvOp`, and cast the result back to the source type.
-  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
--/
-def lowerBinary (srcOp : OpCode) (typeMatcher : IntegerType → Bool) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp))
-    (extend : Option (Σ extOp : Riscv, propertiesOf (OpCode.riscv extOp)) := none)
-    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
-      fun _ _ => pure ()) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) typeMatcher
-      let lhs ← MatchProg.value opType
-      let rhs ← MatchProg.value opType
-      let root ← MatchProg.root srcOp #[lhs, rhs] #[opType]
-      guard opType root.properties
-      return (opType, lhs, rhs))
-    (fun (opType, lhs, rhs) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lcastProps
-      let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rcastProps
-      let (lval, rval) ← match extend with
-        | some ⟨extOp, extProps'⟩ => do
-          let extProps ← CreateProg.property (.riscv extOp) extProps'
-          let lextOp ← CreateProg.operation (.riscv extOp) #[lcastOp.res[0]!] #[regType] extProps
-          let rextOp ← CreateProg.operation (.riscv extOp) #[rcastOp.res[0]!] #[regType] extProps
-          pure (lextOp.res[0]!, rextOp.res[0]!)
-        | none => pure (lcastOp.res[0]!, rcastOp.res[0]!)
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[lval, rval] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[opType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
 
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
@@ -163,18 +91,14 @@ def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
       return (opType, a, amt))
     (fun (opType, a, amt) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let aCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let aCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[a] #[regType] aCastProps
-      let amtCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[a] #[regType]
       let amtCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[amt] #[regType] amtCastProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
+          #[amt] #[regType]
       let rotOp ← CreateProg.operation (.riscv riscvOp)
-          #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rotOp.res[0]!] #[opType] castBackProps
+          #[rotOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -209,34 +133,30 @@ def ctpop32 : Puddle.CompiledPattern OpCode := ctpop32_pattern.compile
 def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
 
 /--
-  `llvm.intr.bswap` -> `riscv.rev8`. `rev8` reverses all 8 bytes; for `i32` the wanted bytes end
-  up in the high 32 bits, so shift them down with `srli 32`.
+  `llvm.intr.bswap` -> `riscv.rev8`. For `i16`/`i32`, shift the reversed bytes
+  down from the high end of the register by `64 - bw` bits.
 -/
 def lowerBswap (bw : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let resType ← MatchProg.type (Attr := TypeAttr)
+      let opType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = bw ∧ bw ∈ [16, 32, 64])
       let x ← MatchProg.value opType
-      let _ ← MatchProg.root (.llvm .intr__bswap) #[x] #[resType]
-      return (resType, x))
-    (fun (resType, x) => do
+      let _ ← MatchProg.root (.llvm .intr__bswap) #[x] #[opType]
+      return (opType, x))
+    (fun (opType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let rev8Props ← CreateProg.property (.riscv .rev8) ()
+          #[x] #[regType]
       let rev8Op ← CreateProg.operation (.riscv .rev8)
-          #[castOp.res[0]!] #[regType] rev8Props
-      let resOp ← if bw = 32 then do
-          let srliProps ← CreateProg.property (.riscv .srli)
-              (RISCVImmediateProperties.mk 32#64)
-          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
+          #[castOp.res[0]!] #[regType]
+      let resOp ← if bw < 64 then do
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType]
+              (.inl $ RISCVImmediateProperties.mk (BitVec.ofNat 64 (64 - bw)))
         else
           pure rev8Op
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[resOp.res[0]!] #[resType] castBackProps
+          #[resOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -246,79 +166,75 @@ def bswap64 : Puddle.CompiledPattern OpCode := (lowerBswap 64).compile
 /-- `llvm.intr.bswap` (`i32`) -> `riscv.rev8` + `riscv.srli 32`. -/
 def bswap32 : Puddle.CompiledPattern OpCode := (lowerBswap 32).compile
 
-/--
-  One SWAR bit-reversal stage:
-  `((x & mask) << shamt) | ((x >> shamt) & mask)`.
--/
-def bitreverseStage (regType : Handle OpCode .type) (mask shamt : Int)
-    (input : Handle OpCode .value) :
-    CreateProg.Builder (Handle OpCode .value) := do
-  let maskProps ← CreateProg.property (.riscv .li)
-      (RISCVImmediateProperties.mk (BitVec.ofInt 64 mask))
-  let maskOp ← CreateProg.operation (.riscv .li) #[] #[regType] maskProps
-  let lowProps ← CreateProg.property (.riscv .and) ()
-  let lowOp ← CreateProg.operation (.riscv .and)
-      #[maskOp.res[0]!, input] #[regType] lowProps
-  let lowShiftProps ← CreateProg.property (.riscv .slli)
-      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
-  let lowShiftOp ← CreateProg.operation (.riscv .slli)
-      #[lowOp.res[0]!] #[regType] lowShiftProps
-  let highShiftProps ← CreateProg.property (.riscv .srli)
-      (RISCVImmediateProperties.mk (BitVec.ofInt 64 shamt))
-  let highShiftOp ← CreateProg.operation (.riscv .srli)
-      #[input] #[regType] highShiftProps
-  let highProps ← CreateProg.property (.riscv .and) ()
-  let highOp ← CreateProg.operation (.riscv .and)
-      #[maskOp.res[0]!, highShiftOp.res[0]!] #[regType] highProps
-  let orProps ← CreateProg.property (.riscv .or) ()
-  let orOp ← CreateProg.operation (.riscv .or)
-      #[lowShiftOp.res[0]!, highOp.res[0]!] #[regType] orProps
-  return orOp.res[0]!
+/-- `llvm.intr.bswap` (`i16`) -> `riscv.rev8` + `riscv.srli 48`. -/
+def bswap16 : Puddle.CompiledPattern OpCode := (lowerBswap 16).compile
 
 /--
-  `llvm.intr.bitreverse` -> mask/shift/or stages followed by `riscv.rev8`.
+  Reverse bits within bytes with Zbkb's `brev8`, then reverse the byte order with `rev8`.
+  Narrow results need a shift back to the low bits; `i8` needs only `brev8`.
+  The backend's fixed target feature set includes Zbkb.
 -/
 def lowerBitreverse (bw : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let resType ← MatchProg.type (Attr := TypeAttr)
+      let opType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = bw ∧ bw ∈ [8, 16, 32, 64])
       let x ← MatchProg.value opType
-      let _ ← MatchProg.root (.llvm .intr__bitreverse) #[x] #[resType]
-      return (resType, x))
-    (fun (resType, x) => do
+      let _ ← MatchProg.root (.llvm .intr__bitreverse) #[x] #[opType]
+      return (opType, x))
+    (fun (opType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let resOp ← if bw = 32 then do
-          /- Use 32-bit masks so SWAR stages stay within the low 32 bits.
-             rev8 brings bits to high 32; srli 32 moves them back down. -/
-          let x1 ← bitreverseStage regType 0x55555555 1 castOp.res[0]!
-          let x2 ← bitreverseStage regType 0x33333333 2 x1
-          let x3 ← bitreverseStage regType 0x0f0f0f0f 4 x2
-          let rev8Props ← CreateProg.property (.riscv .rev8) ()
-          let rev8Op ← CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
-          let srliProps ← CreateProg.property (.riscv .srli)
-              (RISCVImmediateProperties.mk 32#64)
-          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType] srliProps
-        else do
-          let x1 ← bitreverseStage regType 0x5555555555555555 1 castOp.res[0]!
-          let x2 ← bitreverseStage regType 0x3333333333333333 2 x1
-          let x3 ← bitreverseStage regType 0x0f0f0f0f0f0f0f0f 4 x2
-          let rev8Props ← CreateProg.property (.riscv .rev8) ()
-          CreateProg.operation (.riscv .rev8) #[x3] #[regType] rev8Props
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[x] #[regType]
+      let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
+      let resOp ← if bw = 8 then pure brev8Op else do
+        let rev8Op ← CreateProg.operation (.riscv .rev8) #[brev8Op.res[0]!] #[regType]
+        if bw < 64 then
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType]
+              (.inl $ RISCVImmediateProperties.mk (BitVec.ofNat 64 (64 - bw)))
+        else
+          pure rev8Op
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[resOp.res[0]!] #[resType] castBackProps
+          #[resOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- `llvm.intr.bitreverse` (`i64`) -> mask/shift/or stages followed by `riscv.rev8`. -/
+/-- `llvm.intr.bitreverse` (`i64`) -> `brev8` + `rev8`. -/
 def bitreverse64 : Puddle.CompiledPattern OpCode := (lowerBitreverse 64).compile
 
-/-- `llvm.intr.bitreverse` (`i32`) -> mask/shift/or stages, `riscv.rev8` and `riscv.srli 32`. -/
+/-- `llvm.intr.bitreverse` (`i32`) -> `brev8` + `rev8` + `srli 32`. -/
 def bitreverse32 : Puddle.CompiledPattern OpCode := (lowerBitreverse 32).compile
+
+/-- `llvm.intr.bitreverse` (`i16`) -> `brev8` + `rev8` + `srli 48`. -/
+def bitreverse16 : Puddle.CompiledPattern OpCode := (lowerBitreverse 16).compile
+
+/-- `llvm.intr.bitreverse` (`i8`) -> `brev8`. -/
+def bitreverse8 : Puddle.CompiledPattern OpCode := (lowerBitreverse 8).compile
+
+/--
+  Byte swap composed with bit reversal, in either order, reverses bits within bytes.
+  Run before the individual intrinsic lowerings so both operations are still available.
+  Only replace the outer operation: other users of the inner operation must survive.
+-/
+def lowerBrev8 (bswapOuter : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ∈ [16, 32, 64])
+      let x ← MatchProg.value opType
+      let inner ← MatchProg.operation
+          (.llvm (if bswapOuter then .intr__bitreverse else .intr__bswap)) #[x] #[opType]
+      let _ ← MatchProg.root
+          (.llvm (if bswapOuter then .intr__bswap else .intr__bitreverse)) #[inner.res[0]!] #[opType]
+      return (opType, x))
+    (fun (opType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[brev8Op.res[0]!] #[opType])
+    (fun castBackOp => castBackOp)
+
+def bswapBitreverse : Puddle.CompiledPattern OpCode := (lowerBrev8 true).compile
+def bitreverseBswap : Puddle.CompiledPattern OpCode := (lowerBrev8 false).compile
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
@@ -339,36 +255,13 @@ def constant_pattern : Pattern OpCode :=
             return RISCVImmediateProperties.mk
                 ((BitVec.ofInt type'.bitwidth const.value).signExtend 64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[type] castBackProps
+          #[liOp.res[0]!] #[type]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /-- llvm.constant -> riscv.li -/
 def constant : Puddle.CompiledPattern OpCode := constant_pattern.compile
-
-/-! ### `gmir.icmp` lowering
-
-    gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
-    gmir.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
-    gmir.icmp slt lhs rhs -> riscv.slt lhs rhs
-    gmir.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
-    gmir.icmp sgt lhs rhs -> riscv.slt rhs lhs
-    gmir.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
-    gmir.icmp ult lhs rhs -> riscv.sltu lhs rhs
-    gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
-    gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
-    gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
--/
-
-/-- The `i1` constant `1`, the immediate shared by the `sltiu`/`xori` arms. -/
-def icmpOneImm : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk 1#64
-
-/-- The immediate `0`, materialized by the `li` feeding the `sltu` of the `≠` arms. -/
-def icmpZeroImm : RISCVImmediateProperties :=
-  RISCVImmediateProperties.mk 0#64
 
 /-- The width of an `icmp` operand of type `t` once it is in a register: integers keep their
     width, and an `!llvm.ptr` is a full 64-bit register, compared exactly like an `i64`. -/
@@ -381,85 +274,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
 /-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
 def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
   BitVec.ofInt props.value.type.bitwidth props.value.value = 0
-
-/--
-  Shared prologue of every `llvm.icmp` arm: cast both operands into registers and, when `ext` is
-  `some e`, sign-extend each register with `e` (`riscv.sextw` for `i32`, `riscv.sextb` for `i8`).
-  The cast zero-extends into the register, so without the fixup a negative narrow operand
-  would look positive to the 64-bit signed comparison; sign-extension also preserves the unsigned
-  order, so the unsigned comparisons stay correct too.
-
-  Returns the two registers to compare.
--/
-def icmpCastExt (regType : Handle OpCode .type)
-    (lhs rhs : Handle OpCode .value) :
-    CreateProg.Builder
-      (Handle OpCode .value × Handle OpCode .value) := do
-  let lcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-  let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-      #[lhs] #[regType] lcastProps
-  let rcastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-  let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-      #[rhs] #[regType] rcastProps
-  pure (lcastOp.res[0]!, rcastOp.res[0]!)
-
-
-/--
-  `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
-  are the two comparison registers, swapped when `swap` is set, optionally followed by the
-  immediate op `ropImm` applied to its result with the immediate `1`.
-  - `slt`/`sgt`/`ult`/`ugt`: just the comparison.
-  - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
-  - the generic `eq`: `xor` then `sltiu _ 1`.
--/
-def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
-    (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
-    (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
-    CreateProg.Builder CreatedOpHandle := do
-  let (u, v) := if swap then (b, a) else (a, b)
-  let cmpProps ← CreateProg.property (.riscv rop) ropProps
-  let cmpOp ← CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
-  match ropImm with
-  | none => pure cmpOp
-  | some ⟨immOp, immProps'⟩ => do
-    let immProps ← CreateProg.property (.riscv immOp) immProps'
-    CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
-
-/-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
-    `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
-def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
-    (zeroRhs : Bool) (a b : Handle OpCode .value) :
-    CreateProg.Builder CreatedOpHandle :=
-  match pred, zeroRhs with
-  /- `seqz`: `sltiu a 1`, the `eq`-against-zero peephole. -/
-  | .eq, true => do
-    let sltiuProps ← CreateProg.property (.riscv .sltiu) icmpOneImm
-    CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
-  | .eq, false => icmpEmitCmp regType a b .xor () true (some ⟨.sltiu, icmpOneImm⟩)
-  /- `snez`: `sltu 0 a`, the `ne`-against-zero peephole. The `riscv.li 0` becomes `x0` under
-     `riscv-combine` (see `li_zero_to_x0`). -/
-  | .ne, true => do
-    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
-    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-    let sltuProps ← CreateProg.property (.riscv .sltu) ()
-    CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
-  /- `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
-  | .ne, false => do
-    let xorProps ← CreateProg.property (.riscv .xor) ()
-    let xorOp ← CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
-    let liProps ← CreateProg.property (.riscv .li) icmpZeroImm
-    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-    let sltuProps ← CreateProg.property (.riscv .sltu) ()
-    CreateProg.operation (.riscv .sltu)
-        #[liOp.res[0]!, xorOp.res[0]!] #[regType] sltuProps
-  | .slt, _ => icmpEmitCmp regType a b .slt () false
-  | .sgt, _ => icmpEmitCmp regType a b .slt () true
-  | .ult, _ => icmpEmitCmp regType a b .sltu () false
-  | .ugt, _ => icmpEmitCmp regType a b .sltu () true
-  | .sge, _ => icmpEmitCmp regType a b .slt () false (some ⟨.xori, icmpOneImm⟩)
-  | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, icmpOneImm⟩)
-  | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, icmpOneImm⟩)
-  | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, icmpOneImm⟩)
 
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
@@ -498,13 +312,11 @@ def lowerRegCast (srcOp : OpCode) (legal : TypeAttr → TypeAttr → propertiesO
     (fun (resType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- First, cast the operand to registers -/
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
+          #[x] #[regType]
       /- Then, cast register to expected output type. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[castOp.res[0]!] #[resType] castBackProps
+          #[castOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -573,42 +385,6 @@ def lifetimeStart : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifet
 /-- Erase `llvm.intr.lifetime.end`. -/
 def lifetimeEnd : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__end).compile
 
-/--
-  Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
-  Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
-  Run before constant selection so the count still has an integer runtime value.
--/
-def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
-  if properties.inalloca then return (ctx, none)
-  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
-  let some entry := funcOp.getEntryBlock? | return (ctx, none)
-  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
-  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
-  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
-  let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
-  if size >= 2 ^ 63 then return (ctx, none)
-  let alignment : Int := if properties.alignment.value = 0 then layout.abiAlignment
-    else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
-    return (ctx, none)
-  let props : RISCVStackAllocaProperties :=
-    { size := BitVec.ofNat 64 size
-      alignment := BitVec.ofInt 64 alignment }
-  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
-      #[] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
-  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `llvm.alloca` -> `riscv_stack.alloca` and a cast back to the pointer type. -/
-def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
-
 /-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
 private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
     (name : ByteArray) : Option LLVMGlobalProperties := do
@@ -645,20 +421,24 @@ def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
 
 /--
-  The signed 12-bit immediate offset of a load/store address `getelementptr base, c`, with
-  properties `gep` and a constant `i64` index `c` with properties `idx`, when it can be folded
-  into the access, mirroring the `isBaseWithConstantOffset` case of LLVM's
+  The signed 12-bit immediate offset of a load/store address `getelementptr base, c*`, with
+  properties `gep` and constant `i64` dynamic indices `c*` with properties `idxs`, when it can
+  be folded into the access, mirroring the `isBaseWithConstantOffset` case of LLVM's
   [`RISCVDAGToDAGISel::SelectAddrRegImm`](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L3175-L3206).
 -/
-def selectAddrRegImm (gep : GetelementptrProperties) (idx : GMIRConstantProperties) :
+def selectAddrRegImm (gep : GetelementptrProperties) (idxs : Array GMIRConstantProperties) :
     Option Int := do
-  /- A single dynamic index with no trailing constant indices, as in `getelementptr`. -/
-  guard (gep.rawConstantIndices.values = #[(-2147483648 : Int)])
-  let c := idx.value
-  let scale ← DataLayout.riscv64.getTypeAllocSize gep.elem_type.val
-  let offset := (BitVec.ofInt 64 c.value).toInt * (scale : Int)
+  let idxs := idxs.map fun idx => (BitVec.ofInt 64 idx.value.value).toInt
+  let indices := GEPIndex.decode gep.rawConstantIndices.values idxs
+  let (offset, dynamic) ← DataLayout.riscv64.gepOffsets gep.elem_type.val indices
+  let offset := dynamic.foldl (init := offset) fun offset (c, stride) => offset + c * stride
   guard (-2048 ≤ offset ∧ offset ≤ 2047)
   return offset
+
+inductive AddrMode where
+  | reg
+  | gepIndex
+  | gepConst
 
 /-- The width in bytes of a load or store of a value of `type`, for the integers
   and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
@@ -690,32 +470,62 @@ def createStoreLocal (ctx : WfIRContext OpCode) (width : Nat) (val addr : ValueP
   | 4 => WfRewriter.createOp! ctx Riscv.sw #[] #[val, addr] #[] #[] props none
   | _ => WfRewriter.createOp! ctx Riscv.sd #[] #[val, addr] #[] #[] props none
 
+abbrev FoldedGEPProperties :=
+  Handle OpCode (.prop (.llvm .getelementptr)) ×
+    Option (Handle OpCode (.prop (.gmir .g_constant)))
+
+/-- Match the address of a load or store of `base`, split into a base register and a signed
+  12-bit offset as `mode` says (see `AddrMode`). -/
+def matchAddr (mode : AddrMode) (base : Handle OpCode .value) :
+    MatchProg.Builder (Handle OpCode .value × Option FoldedGEPProperties) :=
+  match mode with
+  | .reg => pure (base, none)
+  | .gepIndex => do
+    let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
+    let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
+    let addrType ← MatchProg.type (Attr := TypeAttr)
+    let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base, idxOp.res[0]!] #[addrType]
+    MatchProg.matchNative (gepOp.properties, idxOp.properties)
+        fun (gep, idx) => (selectAddrRegImm gep #[idx]).isSome
+    pure (gepOp.res[0]!, some (gepOp.properties, some idxOp.properties))
+  | .gepConst => do
+    let addrType ← MatchProg.type (Attr := TypeAttr)
+    let gepOp ← MatchProg.operation (.llvm .getelementptr) #[base] #[addrType]
+    MatchProg.matchNative gepOp.properties fun gep => (selectAddrRegImm gep #[]).isSome
+    pure (gepOp.res[0]!, some (gepOp.properties, none))
+
+/-- The `riscvOp` properties of a load or store with properties `access` at an address
+  matched by `matchAddr`: the folded offset, and the access's volatility. Volatility carries
+  over since, although the riscv op encodes the same access, the flag keeps later passes
+  from deleting or duplicating it. -/
+def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties)
+    {accessOp : OpCode} (volatile : propertiesOf accessOp → Bool) (gep? : Option FoldedGEPProperties)
+    (access : Handle OpCode (.prop accessOp)) :
+    CreateProg.Builder (Handle OpCode (.prop (.riscv riscvOp))) :=
+  let memProps (offset? : Option Int) (props : propertiesOf accessOp) :=
+    offset?.map fun offset =>
+      cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) (volatile props))
+  match gep? with
+  | some (gepProps, some idxProps) =>
+    CreateProg.applyNative (gepProps, idxProps, access)
+      fun (gep, idx, props) => memProps (selectAddrRegImm gep #[idx]) props
+  | some (gepProps, none) =>
+    CreateProg.applyNative (gepProps, access)
+      fun (gep, props) => memProps (selectAddrRegImm gep #[]) props
+  | none => CreateProg.applyNative access fun props => memProps (some 0) props
+
 /--
   llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8), for a
-  `width`-byte load with `riscvOp`. When `folded` is set, the address must be a
-  `getelementptr base, c` whose constant offset folds into the immediate (see
-  `selectAddrRegImm`); otherwise the address itself is the base, at offset `0`.
+  `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
 -/
-def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
+def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
   Pattern.Builder
     (do
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
-      /- Split the address into a base register and a signed 12-bit offset. -/
-      let (addr, gep?) ← if folded then do
-          let idxType ← MatchProg.type (Attr := IntegerType)
-              (fun t => t.bitwidth = 64)
-          let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
-          let addrType ← MatchProg.type (Attr := TypeAttr)
-          let gepOp ← MatchProg.operation (.llvm .getelementptr)
-              #[base, idxOp.res[0]!] #[addrType]
-          MatchProg.matchNative (gepOp.properties, idxOp.properties)
-              fun (gep, idx) => (selectAddrRegImm gep idx).isSome
-          pure (gepOp.res[0]!, some (gepOp.properties, idxOp.properties))
-        else
-          pure (base, none)
+      let (addr, gep?) ← matchAddr mode base
       /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
       let resType ← MatchProg.type (Attr := TypeAttr)
           (fun t => memAccessWidth? t = some width)
@@ -724,27 +534,14 @@ def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
     (fun (resType, base, gep?, loadProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
-      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[base] #[regType] baseCastProps
-      /- Volatility carries over from the `llvm.load`: the riscv op encodes the same, but the
-         flag keeps later passes from deleting or duplicating the access. -/
-      let memProps ← match gep? with
-        | some (gepProps, idxProps) =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
-              (gepProps, idxProps, loadProps)
-              fun (gep, idx, load) => (selectAddrRegImm gep idx).map fun offset =>
-                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) load.volatile_)
-        | none =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) loadProps
-              fun load => some (cast h.symm (RISCVMemProperties.mk 0 load.volatile_))
+          #[base] #[regType]
+      let memProps ←
+        addrMemProps riscvOp h (accessOp := .llvm .load) (·.volatile_) gep? loadProps
       let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ldOp.res[0]!] #[resType] castBackProps
+          #[ldOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -753,15 +550,15 @@ def lowerLoad (folded : Bool) (width : Nat) (riscvOp : Riscv)
   The patterns folding a constant `getelementptr` offset into the immediate come first.
 -/
 def load : Array (Puddle.CompiledPattern OpCode) :=
-  #[true, false].flatMap fun folded =>
-    #[lowerLoad folded 1 .lb, lowerLoad folded 2 .lh, lowerLoad folded 4 .lw,
-      lowerLoad folded 8 .ld].map (·.compile)
+  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
+    #[lowerLoad mode 1 .lb, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
+      lowerLoad mode 8 .ld].map (·.compile)
 
 /--
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8), for a
   `width`-byte store with `riscvOp`. The address is split as in `lowerLoad`.
 -/
-def lowerStore (folded : Bool) (width : Nat) (riscvOp : Riscv)
+def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
   Pattern.Builder
@@ -772,44 +569,20 @@ def lowerStore (folded : Bool) (width : Nat) (riscvOp : Riscv)
       let val ← MatchProg.value valType
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
-      /- Split the address into a base register and a signed 12-bit offset. -/
-      let (addr, gep?) ← if folded then do
-          let idxType ← MatchProg.type (Attr := IntegerType)
-              (fun t => t.bitwidth = 64)
-          let idxOp ← MatchProg.operation (.gmir .g_constant) #[] #[idxType]
-          let addrType ← MatchProg.type (Attr := TypeAttr)
-          let gepOp ← MatchProg.operation (.llvm .getelementptr)
-              #[base, idxOp.res[0]!] #[addrType]
-          MatchProg.matchNative (gepOp.properties, idxOp.properties)
-              fun (gep, idx) => (selectAddrRegImm gep idx).isSome
-          pure (gepOp.res[0]!, some (gepOp.properties, idxOp.properties))
-        else
-          pure (base, none)
+      let (addr, gep?) ← matchAddr mode base
       let root ← MatchProg.root (.llvm .store) #[val, addr] #[]
       return (val, base, gep?, root.properties))
     (fun (val, base, gep?, storeProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
-      let baseCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[base] #[regType] baseCastProps
+          #[base] #[regType]
       /- cast value (i64/i32/i16/i8/ptr) -> register -/
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
-      /- The store writes the low `width` bytes of the value register. Volatility carries over
-         from the `llvm.store`, as in `lowerLoad`. -/
-      let memProps ← match gep? with
-        | some (gepProps, idxProps) =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp)))
-              (gepProps, idxProps, storeProps)
-              fun (gep, idx, store) => (selectAddrRegImm gep idx).map fun offset =>
-                cast h.symm (RISCVMemProperties.mk (BitVec.ofInt 64 offset) store.volatile_)
-        | none =>
-          CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv riscvOp))) storeProps
-              fun store => some (cast h.symm (RISCVMemProperties.mk 0 store.volatile_))
+          #[val] #[regType]
+      /- The store writes the low `width` bytes of the value register. -/
+      let memProps ←
+        addrMemProps riscvOp h (accessOp := .llvm .store) (·.volatile_) gep? storeProps
       let _ ← CreateProg.operation (.riscv riscvOp)
           #[valCastOp.res[0]!, baseCastOp.res[0]!] #[] memProps
       return ())
@@ -820,169 +593,99 @@ def lowerStore (folded : Bool) (width : Nat) (riscvOp : Riscv)
   The patterns folding a constant `getelementptr` offset into the immediate come first.
 -/
 def store : Array (Puddle.CompiledPattern OpCode) :=
-  #[true, false].flatMap fun folded =>
-    #[lowerStore folded 1 .sb, lowerStore folded 2 .sh, lowerStore folded 4 .sw,
-      lowerStore folded 8 .sd].map (·.compile)
+  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
+    #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw,
+      lowerStore mode 8 .sd].map (·.compile)
 
 /--
-  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`, where `scale`
-  is the allocation size (ABI stride) of the element type, for a `scale` of 1, 2, 4, or 8:
-  `ptr + idx` or `(idx << log2 scale) + ptr` with `riscv.sh{1,2,3}add`.
+  Create the detached ops computing `pReg + iReg * scale`, returning them and the
+  register holding the sum.
 -/
-def lowerGetelementptr (scale : Nat) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      /- The index must be `i64`. -/
-      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let ptr ← MatchProg.value ptrType
-      let idx ← MatchProg.value idxType
-      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
-      MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any (· = scale)
-      return (resType, ptr, idx, root.properties))
-    (fun (resType, ptr, idx, _) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
-      let addOp ←
-        if scale = 1 then do
-          /- ptr + idx -/
-          let addProps ← CreateProg.property (.riscv .add) ()
-          CreateProg.operation (.riscv .add)
-              #[ptrCastOp.res[0]!, idxCastOp.res[0]!] #[regType] addProps
-        else if scale = 2 then do
-          /- (idx << 1) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh1add) ()
-          CreateProg.operation (.riscv .sh1add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
-        else if scale = 4 then do
-          /- (idx << 2) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh2add) ()
-          CreateProg.operation (.riscv .sh2add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
-        else do
-          /- (idx << 3) + ptr -/
-          let addProps ← CreateProg.property (.riscv .sh3add) ()
-          CreateProg.operation (.riscv .sh3add)
-              #[idxCastOp.res[0]!, ptrCastOp.res[0]!] #[regType] addProps
-      /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
+def addScaledLocal (ctx : WfIRContext OpCode) (pReg iReg : ValuePtr) (scale : Nat) :
+    Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do
+  match scale with
+  | 1 =>
+    /- ptr + idx -/
+    let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, iReg]
+    pure (ctx, #[addOp], addOp.getResult 0)
+  | 2 =>
+    /- (idx << 1) + ptr -/
+    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh1add rfl #[iReg, pReg]
+    pure (ctx, #[addOp], addOp.getResult 0)
+  | 4 =>
+    /- (idx << 2) + ptr -/
+    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh2add rfl #[iReg, pReg]
+    pure (ctx, #[addOp], addOp.getResult 0)
+  | 8 =>
+    /- (idx << 3) + ptr -/
+    let (ctx, addOp) ← createRISCVUnitLocal ctx .sh3add rfl #[iReg, pReg]
+    pure (ctx, #[addOp], addOp.getResult 0)
+  | _ =>
+    /- `0 < scale` excludes zero-sized element types, for which `Nat.log2 0 = 0` would give
+       `ptr + idx`, and `Nat.log2 scale < 64` excludes shifts that do not fit the 6-bit
+       immediate. Both take the `li`/`mul` form, which truncates modulo `2^64` exactly as the
+       source does. -/
+    if 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64 then
+      /- scale is a power of two: ptr + (idx << log2 scale) -/
+      let (ctx, slliOp) ← createRISCVImmLocal ctx .slli rfl #[iReg] (Nat.log2 scale)
+      let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, slliOp.getResult 0]
+      pure (ctx, #[slliOp, addOp], addOp.getResult 0)
+    else
+      /- arbitrary scale: ptr + idx * scale -/
+      let (ctx, liOp) ← createRISCVImmLocal ctx .li rfl #[] scale
+      let (ctx, mulOp) ← createRISCVUnitLocal ctx .mul rfl #[iReg, liOp.getResult 0]
+      let (ctx, addOp) ← createRISCVUnitLocal ctx .add rfl #[pReg, mulOp.getResult 0]
+      pure (ctx, #[liOp, mulOp, addOp], addOp.getResult 0)
 
 /--
-  `getelementptr` whose `scale` is any other power of two: `ptr + (idx << log2 scale)`.
-
-  `0 < scale` excludes zero-sized element types (`i0`, `!llvm.array<0 x _>`), for which
-  `scale &&& (scale - 1) = 0` also holds but `Nat.log2 0 = 0` would emit `idx << 0`, i.e.
-  `ptr + idx` rather than `ptr`. `Nat.log2 scale < 64` excludes element sizes of `2^64` and
-  beyond, whose shift amount does not fit the 6-bit immediate. Both fall through to the
-  `li`/`mul` form of `getelementptrMul_pattern`, which truncates modulo `2^64` exactly as the
-  source does.
+  Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into:
+  the base, plus `idx * stride` for each dynamic index, plus a constant offset.
+  Dynamic indices must have been normalized to `i64` by LLVM-to-GMIR.
 -/
-def getelementptrShift_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      /- The index must be `i64`. -/
-      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let ptr ← MatchProg.value ptrType
-      let idx ← MatchProg.value idxType
-      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
-      MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
-          scale ∉ [1, 2, 4, 8] ∧ 0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64
-      return (resType, ptr, idx, root.properties))
-    (fun (resType, ptr, idx, gepProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
-      let slliProps ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.riscv .slli))) gepProps
-          fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
-            RISCVImmediateProperties.mk (BitVec.ofInt 64 (Nat.log2 scale))
-      let slliOp ← CreateProg.operation (.riscv .slli)
-          #[idxCastOp.res[0]!] #[regType] slliProps
-      let addProps ← CreateProg.property (.riscv .add) ()
-      let addOp ← CreateProg.operation (.riscv .add)
-          #[ptrCastOp.res[0]!, slliOp.res[0]!] #[regType] addProps
-      /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
+def getelementptr_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (ptr, idxs, properties) := matchGetelementptrIndices op ctx.raw | return (ctx, none)
+  let indices := GEPIndex.decode properties.rawConstantIndices.values idxs
+  let some (offset, dynamic) := DataLayout.riscv64.gepOffsets properties.elem_type.val indices
+    | return (ctx, none)
+  for (idx, _) in dynamic do
+    let .integerType itype := (idx.getType! ctx.raw).val | return (ctx, none)
+    if itype.bitwidth ≠ 64 then return (ctx, none)
+  let (ctx, pcastOp) ← castToRegLocal ctx ptr
+  let mut ctx := ctx
+  let mut ops := #[pcastOp]
+  let mut addr : ValuePtr := pcastOp.getResult 0
+  for (idx, stride) in dynamic do
+    let (ctx', icastOp) ← castToRegLocal ctx idx
+    ops := ops.push icastOp
+    ctx := ctx'
+    let (ctx', addOps, sum) ← addScaledLocal ctx addr (icastOp.getResult 0) stride
+    ops := ops ++ addOps
+    addr := sum
+    ctx := ctx'
+  if offset ≠ 0 then
+    if -2048 ≤ offset ∧ offset ≤ 2047 then
+      let (ctx', addiOp) ← createRISCVImmLocal ctx .addi rfl #[addr] offset
+      ops := ops.push addiOp
+      addr := addiOp.getResult 0
+      ctx := ctx'
+    else
+      let (ctx', liOp) ← createRISCVImmLocal ctx .li rfl #[] offset
+      let (ctx', addOp) ← createRISCVUnitLocal ctx' .add rfl #[addr, liOp.getResult 0]
+      ops := ops ++ #[liOp, addOp]
+      addr := addOp.getResult 0
+      ctx := ctx'
+  /- Cast the resulting register back to `!llvm.ptr`. -/
+  let (ctx', castOp) ← replaceWithRegLocal ctx op addr
+  some (ctx', some (ops.push castOp, #[castOp.getResult 0]))
 
 /--
-  `getelementptr` with an arbitrary `scale` (see `getelementptrShift_pattern`):
-  `ptr + idx * scale`.
+  Lower a `llvm.getelementptr` to the address `gepOffsets` decomposes it into
+  (see `getelementptr_local`).
 -/
-def getelementptrMul_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let ptrType ← MatchProg.type (Attr := TypeAttr)
-      /- The index must be `i64`. -/
-      let idxType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := TypeAttr)
-      let ptr ← MatchProg.value ptrType
-      let idx ← MatchProg.value idxType
-      /- Bail unless it's a single dynamic index with no trailing constant indices. -/
-      let root ← MatchProg.root (.llvm .getelementptr) #[ptr, idx] #[resType]
-          (fun props => props.rawConstantIndices.values = #[(-2147483648 : Int)])
-      MatchProg.matchNative root.properties fun gep =>
-        (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).any fun scale =>
-          scale ∉ [1, 2, 4, 8] ∧ ¬ (0 < scale ∧ scale &&& (scale - 1) = 0 ∧ Nat.log2 scale < 64)
-      return (resType, ptr, idx, root.properties))
-    (fun (resType, ptr, idx, gepProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let ptrCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let ptrCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[ptr] #[regType] ptrCastProps
-      let idxCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let idxCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[idx] #[regType] idxCastProps
-      let liProps ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.riscv .li))) gepProps
-          fun gep => (DataLayout.riscv64.getTypeAllocSize gep.elem_type.val).map fun scale =>
-            RISCVImmediateProperties.mk (BitVec.ofInt 64 scale)
-      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let mulProps ← CreateProg.property (.riscv .mul) ()
-      let mulOp ← CreateProg.operation (.riscv .mul)
-          #[idxCastOp.res[0]!, liOp.res[0]!] #[regType] mulProps
-      let addProps ← CreateProg.property (.riscv .add) ()
-      let addOp ← CreateProg.operation (.riscv .add)
-          #[ptrCastOp.res[0]!, mulOp.res[0]!] #[regType] addProps
-      /- Cast the resulting register back to `!llvm.ptr`. -/
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  Lower a single-dynamic-index `llvm.getelementptr` computing `ptr + idx * scale`,
-  where `scale` is the allocation size (ABI stride) of the element type.
--/
-def getelementptr : Array (Puddle.CompiledPattern OpCode) :=
-  #[lowerGetelementptr 1, lowerGetelementptr 2, lowerGetelementptr 4, lowerGetelementptr 8,
-    getelementptrShift_pattern, getelementptrMul_pattern].map (·.compile)
+def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
 
 /-! ## Zicond branchless `select` lowering
 
@@ -1017,18 +720,14 @@ def selectCzeroeqz_pattern : Pattern OpCode :=
       return (resType, cond, val))
     (fun (resType, cond, val) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
-      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[val] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType] condCastProps
-      let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+          #[cond] #[regType]
       let czOp ← CreateProg.operation (.riscv .czeroeqz)
-          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType]
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType] castBackProps
+          #[czOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1056,18 +755,15 @@ def selectCzeronez_pattern : Pattern OpCode :=
       return (resType, cond, val))
     (fun (resType, cond, val) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
-      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[val] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType] condCastProps
+          #[cond] #[regType]
       let czProps ← CreateProg.property (.riscv .czeronez) ()
       let czOp ← CreateProg.operation (.riscv .czeronez)
           #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType] castBackProps
+          #[czOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1095,15 +791,12 @@ def selectGeneral_pattern : Pattern OpCode :=
       return (resType, cond, tval, fval))
     (fun (resType, cond, tval, fval) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let tCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[tval] #[regType] tCastProps
-      let fCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[tval] #[regType]
       let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[fval] #[regType] fCastProps
-      let condCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[fval] #[regType]
       let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType] condCastProps
+          #[cond] #[regType]
       let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
       let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
           #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
@@ -1113,9 +806,8 @@ def selectGeneral_pattern : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1209,12 +901,10 @@ def saddSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
       let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
@@ -1240,9 +930,8 @@ def saddSat_pattern : Pattern OpCode :=
       let satOp ← CreateProg.operation (.riscv .xor)
           #[sumSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType sumOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[selectOp.res[0]!] #[resType] castBackProps
+          #[selectOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1268,12 +957,10 @@ def ssubSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let minusOneProps ← CreateProg.property (.riscv .li) (mkRISCVImm (-1))
       let minusOneOp ← CreateProg.operation (.riscv .li)
           #[] #[regType] minusOneProps
@@ -1299,9 +986,8 @@ def ssubSat_pattern : Pattern OpCode :=
       let satOp ← CreateProg.operation (.riscv .xor)
           #[diffSignOp.res[0]!, intMinOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType diffOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[selectOp.res[0]!] #[resType] castBackProps
+          #[selectOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1326,12 +1012,10 @@ def uaddSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let notRhsProps ← CreateProg.property (.riscv .xori) (mkRISCVImm (-1))
       let notRhsOp ← CreateProg.operation (.riscv .xori)
           #[rCastOp.res[0]!] #[regType] notRhsProps
@@ -1341,9 +1025,8 @@ def uaddSat_pattern : Pattern OpCode :=
       let addProps ← CreateProg.property (.riscv .add) ()
       let addOp ← CreateProg.operation (.riscv .add)
           #[minuOp.res[0]!, rCastOp.res[0]!] #[regType] addProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[addOp.res[0]!] #[resType] castBackProps
+          #[addOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1367,21 +1050,18 @@ def usubSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let maxuProps ← CreateProg.property (.riscv .maxu) ()
       let maxuOp ← CreateProg.operation (.riscv .maxu)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] maxuProps
       let subProps ← CreateProg.property (.riscv .sub) ()
       let subOp ← CreateProg.operation (.riscv .sub)
           #[maxuOp.res[0]!, rCastOp.res[0]!] #[regType] subProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[subOp.res[0]!] #[resType] castBackProps
+          #[subOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1406,12 +1086,10 @@ def sshlSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let shiftedProps ← CreateProg.property (.riscv .sll) ()
       let shiftedOp ← CreateProg.operation (.riscv .sll)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
@@ -1434,9 +1112,8 @@ def sshlSat_pattern : Pattern OpCode :=
       let satOp ← CreateProg.operation (.riscv .xor)
           #[signOp.res[0]!, intMaxOp.res[0]!] #[regType] satProps
       let selectOp ← signedSatSelect regType shiftedOp.res[0]! overflowOp.res[0]! satOp.res[0]!
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[selectOp.res[0]!] #[resType] castBackProps
+          #[selectOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1463,12 +1140,10 @@ def ushlSat_pattern : Pattern OpCode :=
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let lCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let lCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[lhs] #[regType] lCastProps
-      let rCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[lhs] #[regType]
       let rCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rhs] #[regType] rCastProps
+          #[rhs] #[regType]
       let shiftedProps ← CreateProg.property (.riscv .sll) ()
       let shiftedOp ← CreateProg.operation (.riscv .sll)
           #[lCastOp.res[0]!, rCastOp.res[0]!] #[regType] shiftedProps
@@ -1487,9 +1162,8 @@ def ushlSat_pattern : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[overflowMaskOp.res[0]!, shiftedOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1514,18 +1188,16 @@ def abs_pattern : Pattern OpCode :=
       return (resType, val))
     (fun (resType, val) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] castProps
+          #[val] #[regType]
       let negProps ← CreateProg.property (.riscv .neg) ()
       let negOp ← CreateProg.operation (.riscv .neg)
           #[castOp.res[0]!] #[regType] negProps
       let maxProps ← CreateProg.property (.riscv .max) ()
       let maxOp ← CreateProg.operation (.riscv .max)
           #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[maxOp.res[0]!] #[resType] castBackProps
+          #[maxOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1557,9 +1229,8 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType] valCastProps
+          #[val] #[regType]
       let imm := fun (type : TypeAttr) (props : GMIRConstantProperties) => do
         let .integerType t := type.val | none
         let amt := props.value
@@ -1580,9 +1251,8 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
               fun (type, props) => imm type props
           CreateProg.operation (.riscv .rori)
               #[valCastOp.res[0]!] #[regType] roriProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[roriOp.res[0]!] #[resType] castBackProps
+          #[roriOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1637,15 +1307,12 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] xCastProps
-      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[x] #[regType]
       let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[y] #[regType] yCastProps
-      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[y] #[regType]
       let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[z] #[regType] zCastProps
+          #[z] #[regType]
       /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
       let notzProps ← CreateProg.property (.riscv .xori)
           (RISCVImmediateProperties.mk (-1#64))
@@ -1678,9 +1345,8 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1706,15 +1372,12 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       return (resType, x, y, z))
     (fun (resType, x, y, z) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let xCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] xCastProps
-      let yCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[x] #[regType]
       let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[y] #[regType] yCastProps
-      let zCastProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+          #[y] #[regType]
       let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[z] #[regType] zCastProps
+          #[z] #[regType]
       /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
       let notzProps ← CreateProg.property (.riscv .xori)
           (RISCVImmediateProperties.mk (-1#64))
@@ -1747,9 +1410,8 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       let orProps ← CreateProg.property (.riscv .or) ()
       let orOp ← CreateProg.operation (.riscv .or)
           #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType] castBackProps
+          #[orOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1771,9 +1433,8 @@ def poisonConst_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[resType] castBackProps
+          #[liOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1789,9 +1450,8 @@ def zeroConst_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let liProps ← CreateProg.property (.riscv .li) (RISCVImmediateProperties.mk 0#64)
       let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[resType] castBackProps
+          #[liOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
@@ -1979,7 +1639,7 @@ def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
   single-operand extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
-  or `32`, see `isLegalExtOpWidth`) and whose result is a strictly wider integer type of width at
+  or `32`) and whose result is a strictly wider integer type of width at
   most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
   unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
   the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
@@ -1988,28 +1648,10 @@ def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 -/
 def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = opBw)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => opBw < t.bitwidth ∧ t.bitwidth ≤ 64)
-      let x ← MatchProg.value opType
-      let root ← MatchProg.root (.gmir srcOp) #[x] #[resType]
-      matchLegal srcOp resType root.properties (type₁ := opType)
-      return (resType, x))
-    (fun (resType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType] castProps
-      let riscvOpProps ← CreateProg.property (.riscv riscvOp) riscvProps
-      let riscvResOp ← CreateProg.operation (.riscv riscvOp)
-          #[castOp.res[0]!] #[regType] riscvOpProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[riscvResOp.res[0]!] #[resType] castBackProps
-      return castBackOp)
-    (fun castBackOp => castBackOp)
+  lowerUnary (.gmir srcOp) opBw riscvOp riscvProps fun opType resType properties => do
+    -- A 64-bit register cannot hold a wider result.
+    MatchProg.matchNative resType fun t => (t.val.bitwidthOfType).any (· ≤ 64)
+    matchLegal srcOp resType properties (type₁ := opType)
 
 /-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
 def sext8_pattern : Pattern OpCode := lowerExt .g_sext 8 .sextb ()
@@ -2019,6 +1661,33 @@ def sext16_pattern : Pattern OpCode := lowerExt .g_sext 16 .sexth ()
 
 /-- `gmir.g_sext` (`i32` operand) -> `riscv.sextw`. -/
 def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
+
+/--
+  `gmir.g_sext_inreg` (`i64`) -> `riscv.sextb` / `riscv.sexth` / `riscv.sextw` for `sz` of
+  `8`, `16`, or `32`, and otherwise `riscv.slli` + `riscv.srai`, shifting bit `sz - 1` to bit 63
+  and back arithmetically, as LLVM's RISC-V `sext_inreg` patterns do.
+-/
+def sextInReg_local : LocalRewritePattern OpCode := fun ctx op => do
+  let some (operands, properties) := matchOp op ctx.raw GMIR.g_sext_inreg 1
+    | return (ctx, none)
+  let resType := (op.getResult 0).getType! ctx.raw
+  let .integerType type := resType.val | return (ctx, none)
+  if type.bitwidth ≠ 64 ||
+      !riscv64LegalizerInfo.isLegal .g_sext_inreg #[resType] properties then
+    return (ctx, none)
+  let (ctx, castOp) ← castToRegLocal ctx operands[0]!
+  let src := castOp.getResult 0
+  let (ctx, extOps) ← match properties.sz.toNat with
+    | 8 => do let (ctx, e) ← createRISCVUnitLocal ctx .sextb rfl #[src]; pure (ctx, #[e])
+    | 16 => do let (ctx, e) ← createRISCVUnitLocal ctx .sexth rfl #[src]; pure (ctx, #[e])
+    | 32 => do let (ctx, e) ← createRISCVUnitLocal ctx .sextw rfl #[src]; pure (ctx, #[e])
+    | sz => do
+      let shift : Int := 64 - sz
+      let (ctx, left) ← createRISCVImmLocal ctx .slli rfl #[src] shift
+      let (ctx, right) ← createRISCVImmLocal ctx .srai rfl #[left.getResult 0] shift
+      pure (ctx, #[left, right])
+  let (ctx, result) ← replaceWithRegLocal ctx op (extOps.back!.getResult 0)
+  return (ctx, some (#[castOp] ++ extOps.push result, #[result.getResult 0]))
 
 /-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
 def zext8_pattern : Pattern OpCode := lowerExt .g_zext 8 .zextb ()
@@ -2109,17 +1778,87 @@ def gmirConstant_pattern : Pattern OpCode :=
       let regType ← CreateProg.type (RegisterType.mk none)
       let liProps ← CreateProg.applyNative constProps fun ⟨const⟩ =>
         some (RISCVImmediateProperties.mk (BitVec.ofInt 64 const.value))
-      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] (.inr liProps)
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[liOp.res[0]!] #[type] castBackProps
+          #[liOp.res[0]!] #[type]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 def gmirConstant : Puddle.CompiledPattern OpCode := gmirConstant_pattern.compile
 
+/-! ### `gmir.icmp` lowering
+
+    gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
+    gmir.icmp ne lhs rhs  -> riscv.sltu 0 (riscv.xor lhs rhs)
+    gmir.icmp slt lhs rhs -> riscv.slt lhs rhs
+    gmir.icmp sle lhs rhs -> riscv.xori (riscv_slt rhs lhs) 1
+    gmir.icmp sgt lhs rhs -> riscv.slt rhs lhs
+    gmir.icmp sge lhs rhs -> riscv.xori (riscv_slt lhs rhs) 1
+    gmir.icmp ult lhs rhs -> riscv.sltu lhs rhs
+    gmir.icmp ule lhs rhs -> riscv.xori (riscv_sltu rhs lhs) 1
+    gmir.icmp ugt lhs rhs -> riscv.sltu rhs lhs
+    gmir.icmp uge lhs rhs -> riscv.xori (riscv_sltu lhs rhs) 1
+-/
+
 /--
-  `gmir.g_icmp pred` -> the comparison sequence of the `llvm.icmp` arm for `pred` (see
+  `icmp` arm emitting a register-register comparison `rop` (`slt`/`sltu`/`xor`), whose operands
+  are the two comparison registers, swapped when `swap` is set, optionally followed by the
+  immediate op `ropImm` applied to its result with the immediate `1`.
+  - `slt`/`sgt`/`ult`/`ugt`: just the comparison.
+  - `sle`/`sge`/`ule`/`uge`: `slt`/`sltu` then `xori _ 1`.
+  - the generic `eq`: `xor` then `sltiu _ 1`.
+-/
+def icmpEmitCmp (regType : Handle OpCode .type) (a b : Handle OpCode .value)
+    (rop : Riscv) (ropProps : propertiesOf (OpCode.riscv rop)) (swap : Bool)
+    (ropImm : Option (Σ immOp : Riscv, propertiesOf (OpCode.riscv immOp)) := none) :
+    CreateProg.Builder CreatedOpHandle := do
+  let (u, v) := if swap then (b, a) else (a, b)
+  let cmpProps ← CreateProg.property (.riscv rop) ropProps
+  let cmpOp ← CreateProg.operation (.riscv rop) #[u, v] #[regType] cmpProps
+  match ropImm with
+  | none => pure cmpOp
+  | some ⟨immOp, immProps'⟩ => do
+    let immProps ← CreateProg.property (.riscv immOp) immProps'
+    CreateProg.operation (.riscv immOp) #[cmpOp.res[0]!] #[regType] immProps
+
+/-- The comparison sequence of the `icmp` arm for `pred` on the comparison registers `a` and `b`.
+    `zeroRhs` selects the `eq`/`ne`-against-zero peepholes, which only use `a`. -/
+def icmpEmit (regType : Handle OpCode .type) (pred : Data.LLVM.IntPred)
+    (zeroRhs : Bool) (a b : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle :=
+  match pred, zeroRhs with
+  /- `seqz`: `sltiu a 1`, the `eq`-against-zero peephole. -/
+  | .eq, true => do
+    let sltiuProps ← CreateProg.property (.riscv .sltiu) (mkRISCVImm 1)
+    CreateProg.operation (.riscv .sltiu) #[a] #[regType] sltiuProps
+  | .eq, false => icmpEmitCmp regType a b .xor () true (some ⟨.sltiu, mkRISCVImm 1⟩)
+  /- `snez`: `sltu 0 a`, the `ne`-against-zero peephole. The `riscv.li 0` becomes `x0` under
+     `riscv-combine` (see `li_zero_to_x0`). -/
+  | .ne, true => do
+    let liProps ← CreateProg.property (.riscv .li) (mkRISCVImm 0)
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu) #[liOp.res[0]!, a] #[regType] sltuProps
+  /- `sltu 0 (xor b a)` (`snez` of the difference): the generic `ne`. -/
+  | .ne, false => do
+    let xorProps ← CreateProg.property (.riscv .xor) ()
+    let xorOp ← CreateProg.operation (.riscv .xor) #[b, a] #[regType] xorProps
+    let liProps ← CreateProg.property (.riscv .li) (mkRISCVImm 0)
+    let liOp ← CreateProg.operation (.riscv .li) #[] #[regType] liProps
+    let sltuProps ← CreateProg.property (.riscv .sltu) ()
+    CreateProg.operation (.riscv .sltu)
+        #[liOp.res[0]!, xorOp.res[0]!] #[regType] sltuProps
+  | .slt, _ => icmpEmitCmp regType a b .slt () false
+  | .sgt, _ => icmpEmitCmp regType a b .slt () true
+  | .ult, _ => icmpEmitCmp regType a b .sltu () false
+  | .ugt, _ => icmpEmitCmp regType a b .sltu () true
+  | .sge, _ => icmpEmitCmp regType a b .slt () false (some ⟨.xori, mkRISCVImm 1⟩)
+  | .sle, _ => icmpEmitCmp regType a b .slt () true (some ⟨.xori, mkRISCVImm 1⟩)
+  | .uge, _ => icmpEmitCmp regType a b .sltu () false (some ⟨.xori, mkRISCVImm 1⟩)
+  | .ule, _ => icmpEmitCmp regType a b .sltu () true (some ⟨.xori, mkRISCVImm 1⟩)
+
+/--
+  `gmir.g_icmp pred` -> the comparison sequence of the `gmir.icmp` arm for `pred` (see
   `icmpEmit`). Legal operands are `i64` or `!llvm.ptr`, so they fill a register and need no
   sign-extension. When `zeroRhs` is set, the rhs must be the `gmir.g_constant` `0`.
 -/
@@ -2141,16 +1880,18 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       return (resType, lhs, rhs))
     (fun (resType, lhs, rhs) => do
       let regType ← CreateProg.type (RegisterType.mk none)
-      let (a, b) ← icmpCastExt regType lhs rhs
-      let cmpOp ← icmpEmit regType pred zeroRhs a b
-      let castBackProps ← CreateProg.property (.builtin .unrealized_conversion_cast) ()
+      let lcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType]
+      let rcastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[rhs] #[regType]
+      let cmpOp ← icmpEmit regType pred zeroRhs lcastOp.res[0]! rcastOp.res[0]!
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cmpOp.res[0]!] #[resType] castBackProps
+          #[cmpOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
 
 /--
-  `gmir.g_icmp` -> riscv comparison sequence. As for `llvm.icmp`, the `eq`/`ne`-against-zero
+  `gmir.g_icmp` -> riscv comparison sequence. The `eq`/`ne`-against-zero
   peepholes come first so they take priority over the generic arms.
 -/
 def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
@@ -2164,10 +1905,10 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  /- Early loop: address folding, fixed stack allocations and memory intrinsic
-     expansion must inspect constants before the per-op lowerings consume them. -/
+  /- Early loop: fold composed intrinsics and inspect constants before the per-op
+     lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, alloca, memIntrinsic] ++ load.map (·.run) ++
+    #[bswapBitreverse.run, bitreverseBswap.run, lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
@@ -2176,12 +1917,14 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectGeneral.run,
-    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bitreverse64.run, bitreverse32.run,
+    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bswap16.run,
+    bitreverse64.run, bitreverse32.run, bitreverse16.run, bitreverse8.run,
     constant.run, addressof] ++
     #[
-    sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc.run,
+    sext32.run, sext16.run, sext8.run, .fromLocalRewrite sextInReg_local,
+    zext32.run, zext16.run, zext8.run, trunc.run,
     bitcast.run] ++
-    load.map (·.run) ++ getelementptr.map (·.run) ++ store.map (·.run) ++ #[
+    load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,

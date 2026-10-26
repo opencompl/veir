@@ -14,9 +14,12 @@
 
     %x_i1 = "llvm.mlir.constant"() <{value = 1 : i1}> : () -> i1
     %ult = "gmir.g_icmp"(%x_i1, %x_i1) <{predicate = 6 : i64}> : (i1, i1) -> i1
-    // CHECK:      "gmir.g_sext"({{.*}}) : (i1) -> i64
-    // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i1) -> i64
-    // CHECK-NEXT: "gmir.g_icmp"({{.*}}) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
+    // The `i1` sign extensions are lowered to `g_sext_inreg`.
+    // CHECK:      %[[EXT_LHS:.*]] = "gmir.g_anyext"({{.*}}) : (i1) -> i64
+    // CHECK-NEXT: %[[WIDE_LHS:.*]] = "gmir.g_sext_inreg"(%[[EXT_LHS]]) <{"sz" = 1 : i64}> : (i64) -> i64
+    // CHECK-NEXT: %[[EXT_RHS:.*]] = "gmir.g_anyext"({{.*}}) : (i1) -> i64
+    // CHECK-NEXT: %[[WIDE_RHS:.*]] = "gmir.g_sext_inreg"(%[[EXT_RHS]]) <{"sz" = 1 : i64}> : (i64) -> i64
+    // CHECK-NEXT: "gmir.g_icmp"(%[[WIDE_LHS]], %[[WIDE_RHS]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i1
 
     // Pointer operands are legal, so only the result is widened.

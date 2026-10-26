@@ -96,6 +96,7 @@ inductive Riscv where
 | cpopw
 | orcb
 | rev8
+| brev8
 | roriw
 | rori
 | bclr
@@ -243,7 +244,7 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffect
   | .rol, _ | .ror, _ | .rolw, _ | .rorw, _
   | .sextb, _ | .sexth, _ | .zexth, _
   | .clz, _ | .clzw, _ | .ctz, _ | .ctzw, _
-  | .cpop, _ | .cpopw, _ | .orcb, _ | .rev8, _
+  | .cpop, _ | .cpopw, _ | .orcb, _ | .rev8, _ | .brev8, _
   | .rori, _ | .roriw, _
   | .bclr, _ | .bext, _ | .binv, _ | .bset, _
   | .bclri, _ | .bexti, _ | .binvi, _ | .bseti, _
@@ -253,6 +254,13 @@ def Riscv.getEffects (op : Riscv) (props : Riscv.propertiesOf op) : MemoryEffect
   | .sextw, _ | .zextb, _ | .zextw, _
   | .seqz, _ | .snez, _ | .sltz, _ | .sgtz, _
   | .la, _ => .none
+
+def Riscv.isCommutative : Riscv → Bool
+  | .add | .and | .or | .xor | .xnor
+  | .mul | .mulh | .mulhu
+  | .max | .maxu | .min | .minu
+  | .addw | .mulw => true
+  | _ => false
 
 def Riscv.isConstantLike (op : Riscv) : Bool :=
   match op with
@@ -433,7 +441,7 @@ def Riscv.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .sextb | .sexth | .zexth
   | .clz | .clzw | .ctz | .ctzw
-  | .cpop | .cpopw | .orcb | .rev8 => do
+  | .cpop | .cpopw | .orcb | .rev8 | .brev8 => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .roriw => do
@@ -769,6 +777,9 @@ def Riscv.interpretOp' (opType : Veir.Riscv) (properties : propertiesOf opType)
   | .rev8 => do
     let [.reg op] := operands.toList | none
     return (#[.reg (RISCV.rev8 op)], mem, none)
+  | .brev8 => do
+    let [.reg op] := operands.toList | none
+    return (#[.reg (RISCV.brev8 op)], mem, none)
   | .roriw => do
     let [.reg op1] := operands.toList | none
     let imm := properties.immField 5
@@ -924,6 +935,7 @@ instance : HasOpInfo Riscv where
   tryFold := Riscv.tryFold
   getEffects := Riscv.getEffects
   isConstantLike := Riscv.isConstantLike
+  isCommutative := Riscv.isCommutative
   hasSSADominance := Riscv.hasSSADominance
 
 end

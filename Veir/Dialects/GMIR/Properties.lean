@@ -47,6 +47,53 @@ def SextInRegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
   let sz ← getI64Attr "gmir.g_sext_inreg" "sz" attrDict
   return { sz }
 
+/--
+A description of a memory reference used in the backend, same as LLVM's `MachineMemOperand`.
+
+Representing this fully, as done in LLVM's GISel backend, allows us to legalize an access
+independently of its value type (an `i8` load becomes an `i64` load of 8 bits).
+Once the RISC-V operations also carry MachineMemOperand, this will allow us to tell `llc` which
+accesses it may reorder or move.
+
+Unlike in the LLVM dialect, the alignment is explicit. The IR-level attributes (access groups,
+alias scopes, TBAA, `invariantGroup`) are not kept.
+
+TODO: Add missing `MachineMemOperand` fields.
+-/
+structure MachineMemOperand where
+  size : BitVec 64
+  alignment : BitVec 64
+  volatile_ : Bool
+  nontemporal : Bool
+  invariant : Bool
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def MachineMemOperand.fromAttrDict (instrName : String)
+    (attrDict : Std.HashMap ByteArray Attribute) : Except String MachineMemOperand := do
+  for key in attrDict.keys do
+    let key := String.fromUTF8! key
+    unless ["size", "alignment", "volatile_", "nontemporal", "invariant"].contains key do
+      throw s!"{instrName}: unexpected property '{key}'"
+  return {
+    size := ← getI64Attr instrName "size" attrDict
+    alignment := ← getI64Attr instrName "alignment" attrDict
+    volatile_ := ← getUnitAttr "volatile_" attrDict
+    nontemporal := ← getUnitAttr "nontemporal" attrDict
+    invariant := ← getUnitAttr "invariant" attrDict }
+
+def MachineMemOperand.toAttrDict (mmo : MachineMemOperand) :
+    Std.HashMap ByteArray Attribute := Id.run do
+  let mut dict := Std.HashMap.emptyWithCapacity 5
+  dict := dict.insert "size".toUTF8 (i64Attr mmo.size)
+  dict := dict.insert "alignment".toUTF8 (i64Attr mmo.alignment)
+  if mmo.volatile_ then
+    dict := dict.insert "volatile_".toUTF8 (.unitAttr UnitAttr.mk)
+  if mmo.nontemporal then
+    dict := dict.insert "nontemporal".toUTF8 (.unitAttr UnitAttr.mk)
+  if mmo.invariant then
+    dict := dict.insert "invariant".toUTF8 (.unitAttr UnitAttr.mk)
+  dict
+
 end
 
 end Veir

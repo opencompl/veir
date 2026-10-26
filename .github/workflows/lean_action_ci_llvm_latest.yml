@@ -1,0 +1,67 @@
+name: Lean Action CI (LLVM latest)
+
+# The sibling of `lean_action_ci_namespace.yml`, on the runner profile whose
+# image is built from LLVM's main branch rather than a pinned release. It runs
+# per commit, since that is what tests the image at all:
+# `rebuild-llvm-latest-image.yml` only triggers the rebuild and cannot wait for
+# it.
+#
+# It builds without the Nix development environment, unlike every other
+# workflow here. That environment pins `llvmPackages_23`, and activating it
+# would put that `clang`, `llvm` and `mlir-opt` ahead of the image's on PATH,
+# leaving only `llubi` floating. The image supplies the whole toolchain
+# instead, so the LLVM under test is the one it built.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  merge_group:
+
+jobs:
+  buildns-llvm-latest:
+    runs-on: namespace-profile-veir-llvm-latest
+
+    steps:
+      - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
+
+      # Which LLVM this run is actually testing, named in the log so that a
+      # failure can be read against a revision without digging into the image.
+      - name: Report the toolchain
+        run: |
+          clang --version | head -1
+          llvm-config --version
+          mlir-opt --version | head -2
+          llubi --version
+
+      # The checkout wipes the workspace, so create the build directories
+      # before binding the cache volume. Otherwise the action skips them with
+      # "Some cache paths missing" and still reports success.
+      - name: Create the build directories
+        run: mkdir -p .lake ExArray/.lake lean-ctrees/.lake
+
+      # The cache volume belongs to the profile, so this is separate from the
+      # pinned workflow's without having to be asked for.
+      - name: Set up caches
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
+        with:
+          path: |
+            ~/.elan
+            ${{ github.workspace }}/.lake
+            ${{ github.workspace }}/ExArray/.lake
+            ${{ github.workspace }}/lean-ctrees/.lake
+
+      - name: Build and test the project
+        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1.6.0
+        with:
+          build-args: "--iofail"
+          test-args: "--iofail"
+          test: true
+          use-github-cache: false
+
+      # `Test/lit.cfg` pins the cross-check tools to the versions of the other
+      # image, so without `-Dforce-cross-checks=1` every cross-check would skip
+      # itself here and the job would pass while testing nothing.
+      - name: Run filecheck tests against the latest LLVM
+        run: lit Test/ -v -Dforce-cross-checks=1

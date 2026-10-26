@@ -113,6 +113,12 @@ inductive Llvm where
 | intr__usub__sat
 | intr__sshl__sat
 | intr__ushl__sat
+| intr__sadd__with__overflow
+| intr__uadd__with__overflow
+| intr__ssub__with__overflow
+| intr__usub__with__overflow
+| intr__smul__with__overflow
+| intr__umul__with__overflow
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -204,6 +210,11 @@ def Llvm.fromAttrDict
   case module_flags => exact LLVMModuleFlagsProperties.fromAttrDict attrDict
   case call => exact LLVMCallProperties.fromAttrDict attrDict
   case call_intrinsic => exact LLVMCallIntrinsicProperties.fromAttrDict attrDict
+  case intr__sadd__with__overflow | intr__uadd__with__overflow
+      | intr__ssub__with__overflow | intr__usub__with__overflow
+      | intr__smul__with__overflow | intr__umul__with__overflow =>
+    exact if attrDict.isEmpty then .ok ()
+      else .error "LLVM overflow intrinsics have empty properties"
   all_goals exact .ok ()
 
 def Llvm.toAttrDict
@@ -479,11 +490,21 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
   | .intr__ssub__sat, _ | .intr__usub__sat, _
   | .intr__sshl__sat, _ | .intr__ushl__sat, _
+  | .intr__sadd__with__overflow, _ | .intr__uadd__with__overflow, _
+  | .intr__ssub__with__overflow, _ | .intr__usub__with__overflow, _
+  | .intr__smul__with__overflow, _ | .intr__umul__with__overflow, _
   | .fadd, _ | .fsub, _ | .fmul, _ | .fdiv, _ | .frem, _
   | .fneg, _ | .fcmp, _ | .sitofp, _ | .uitofp, _ | .fptosi, _ | .fptoui, _
   | .fpext, _ | .intr__fmuladd, _ | .intr__fabs, _ => .none
   -- For everything else: be conservative!
   | _, _ => .unknown
+
+def Llvm.isCommutative : Llvm → Bool
+  | .add | .mul | .and | .or | .xor
+  | .intr__smax | .intr__smin | .intr__umax | .intr__umin
+  | .intr__sadd__sat | .intr__uadd__sat
+  | .fadd | .fmul => true
+  | _ => false
 
 def Llvm.isConstantLike (op : Llvm) : Bool :=
   match op with
@@ -535,6 +556,10 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .fadd | .fsub | .fmul | .fdiv | .frem
   | .fneg | .fcmp | .sitofp | .uitofp | .fptosi | .fptoui | .fpext
   | .intr__fmuladd | .intr__fabs
+  -- Aggregate poison cannot yet be represented by `RuntimeValue` either.
+  | .intr__sadd__with__overflow | .intr__uadd__with__overflow
+  | .intr__ssub__with__overflow | .intr__usub__with__overflow
+  | .intr__smul__with__overflow | .intr__umul__with__overflow
   | .mlir__constant | .mlir__poison | .mlir__undef | .mlir__zero | .mlir__global | .mlir__alias
   | .mlir__addressof
   | .select | .br | .cond_br | .switch | .unreachable | .fence | .alloca | .load | .store
@@ -615,6 +640,14 @@ private def Llvm.getSwitchSuccessorIndexForOperands?
       if value = BitVec.ofInt bitwidth caseValues[i]! then
         return i + 1
     some 0
+
+def Llvm.unconditionalBranch? (op : Llvm) (props : Llvm.propertiesOf op) :
+    Option (OpKind Llvm) :=
+  match op with
+  | .br => some ⟨.br, props⟩
+  -- Removing a successor can change loop structure; conservatively drop loop annotations.
+  | .cond_br | .switch => some ⟨.br, { loop_annotation := none }⟩
+  | _ => none
 
 def Llvm.branchOpInterface? (op : Llvm) : Option (BranchOpInterface (Llvm.propertiesOf op)) :=
   match op with
@@ -767,6 +800,37 @@ def TypeAttr.verifyLLVMVectorType (ty : TypeAttr) (errMsg : String) :
   if !validElementType then
     throw s!"Expected an LLVM-compatible vector element type, but got {vectorType.elementType}"
   return vectorType
+
+def OperationPtr.verifyLLVMArithWithOverflow {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  for i in [0:2] do
+    let type := ((op.getOperand! ctx.raw i).getType! ctx.raw).val
+    let typeError := s!"operand #{i} must be a signless integer or a one-dimensional vector of signless integers"
+    let elementType ← match type with
+      | .vectorType vec => do
+        let #[size] := vec.shape | throw typeError
+        if size = 0 then
+          throw s!"operand #{i} vector must have at least one element"
+        pure vec.elementType
+      | _ => pure type
+    let .integerType intType := elementType
+      | throw typeError
+    if intType.signedness != .signless then
+      throw typeError
+    -- LangRef's integer type range also applies to vector elements.
+    if intType.bitwidth = 0 ∨ intType.bitwidth > 2 ^ 23 then
+      throw s!"operand #{i} integer bit width must be between 1 and 8388608"
+  let operandType ← op.verifyOperandTypesMatch ctx 0 1
+    "requires the same type for both operands"
+  let i1 := Attribute.integerType (IntegerType.signless 1)
+  let overflowType := match operandType.val with
+    | .vectorType vec => Attribute.vectorType { vec with elementType := i1 }
+    | _ => i1
+  let resultType := Attribute.llvmStructType ⟨none, false, #[operandType.val, overflowType]⟩
+  if ((op.getResult 0).getType! ctx.raw).val != resultType then
+    throw s!"result #0 must be {resultType}"
 
 /-- Whether the attribute represents an LLVM struct as text rather than parsed fields. -/
 private def isOpaqueLLVMStruct : Attribute → Bool
@@ -1064,6 +1128,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyIntegerBinop ctx opIn
     pure ()
+  | .intr__sadd__with__overflow | .intr__uadd__with__overflow
+  | .intr__ssub__with__overflow | .intr__usub__with__overflow
+  | .intr__smul__with__overflow | .intr__umul__with__overflow =>
+    op.verifyLLVMArithWithOverflow ctx opIn
   | .lshr | .shl => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMShift ctx opIn
@@ -1147,6 +1215,12 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .cond_br => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyTerminatorCounts ctx opIn 2
+    let condType := (op.getOperandTypes! ctx.raw)[0]!
+    if let .integerType intType := condType.val then
+      if intType.bitwidth ≠ 1 then
+        throw s!"'llvm.cond_br' op operand #0 must be of type i1, but got '{intType}'"
+    else
+      throw "'llvm.cond_br' op operand #0 must be of type i1"
     let weights := (op.getProperties! ctx.raw Llvm.cond_br).branch_weights
     if weights.values.size ≠ 2 && weights.values.size ≠ 0 then
       throw "Expected 0 or 2 branch weights"
@@ -1748,10 +1822,12 @@ instance : HasOpInfo Llvm where
   propagatesPoison := Llvm.propagatesPoison
   getEffects := Llvm.getEffects
   isConstantLike := Llvm.isConstantLike
+  isCommutative := Llvm.isCommutative
   symbolInterface? := Llvm.symbolInterface?
   functionInterface? := Llvm.functionInterface?
   callOpInterface? := Llvm.callOpInterface?
   branchOpInterface? := Llvm.branchOpInterface?
+  unconditionalBranch? := Llvm.unconditionalBranch?
   hasSSADominance := Llvm.hasSSADominance
   isTerminator := Llvm.isTerminator
   isIsolatedFromAbove := Llvm.isIsolatedFromAbove

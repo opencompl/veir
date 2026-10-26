@@ -87,6 +87,10 @@ private def parseApp (u : Level) (isLiveVar : FVarId → Bool) (target : Expr) :
     -- `IsPolynomial` for *this* `qpf` instance, not just for `typefun`.
     let isPolynomial? ←
       synthInstance? (mkApp3 (mkConst ``QPF.IsPolynomial [u, u]) (toExpr k) typefun qpf)
+
+    let _ ← processPostponed (mayPostpone := false) (exceptionOnFailure := true)
+    let qpf ← instantiateMVars qpf
+    let isPolynomial? ← isPolynomial?.mapM instantiateMVars
     return ⟨k, { domLevel := u, codLevel := u, typefun, qpf, isPolynomial? }, rest.toVector⟩
 
   if let some err := liveVarError? then
@@ -154,14 +158,9 @@ where
       throwError "\
         the domain of a function type may not mention live variables:{indentExpr A}\n\
         a function type is not functorial in its domain."
-    unless ← isDefEq (← inferType A) (.sort u.succ) do
-      throwError "\
-        the domain of a function type must live in the same universe as the QPF \
-        itself, but{indentExpr A}\n\
-        has type{indentExpr (← inferType A)}\n\
-        instead of{indentD m!"Type {u}"}"
+    let w ← getIndexLevel A "the domain of a function type"
     trace[QPFTypes] "{A} → ⋯ is a dependent product"
-    mkPi u n A fun a => ofTypeExprCore u liveVars (body.instantiate1 a)
+    mkPi u n w A fun a => ofTypeExprCore u liveVars (body.instantiate1 a)
 
   /--
   Translate a dependent sum `($binderName : $A) × $body` into a `QPF.Sigma`.
@@ -173,14 +172,30 @@ where
         {indentExpr A}\n\
         a dependent sum is functorial in its summands only, not in the type it \
         is indexed by"
-    unless ← isDefEq (← inferType A) (.sort u.succ) do
-      throwError "\
-        the index type of a dependent sum must live in the same universe as the \
-        QPF itself, but{indentExpr A}\n\
-        has type{indentExpr (← inferType A)}\n\
-        instead of{indentD m!"Type {u}"}"
+    let w ← getIndexLevel A "the index type of a dependent sum"
     trace[QPFTypes] "{A} × ⋯ is a dependent sum"
-    mkSigma u n A fun a => ofTypeExprCore u liveVars (mkApp family a).headBeta
+    mkSigma u n w A fun a => ofTypeExprCore u liveVars (mkApp family a).headBeta
+
+  /--
+  Return the universe `w` such that `A : Type w`, after checking that `w` is at
+  most the universe `u` of the QPF itself, i.e., that `max w u` is def-eq to `u`.
+  `what` describes `A`, for use in error messages.
+  -/
+  getIndexLevel (A : Expr) (what : MessageData) : MetaM Level := do
+    let w ← mkFreshLevelMVar
+    let AType ← inferType A
+    unless ← isDefEq AType (.sort w.succ) do
+      throwError "\
+        {what} must be a type, but{indentExpr A}\n\
+        has type{indentExpr AType}"
+    let w ← instantiateLevelMVars w
+    unless ← isLevelDefEq (mkLevelMax' w u) u do
+      throwError "\
+        {what} may not live in a higher universe than the QPF itself, \
+        but{indentExpr A}\n\
+        has type{indentExpr AType}\n\
+        which is not below{indentD m!"Type {u}"}"
+    return w
 
 /--
 Assert that the given QPF, represents the uncurried type function that
@@ -286,7 +301,7 @@ That is, if the type of the given local declaration is an application of the
 `liveParam` gadget, return the corresponding `FVarId`. Otherwise, return `none`.
 -/
 meta def LocalDecl.asLiveVar? (decl : LocalDecl) : Option FVarId :=
-  if decl.type.isAppOf ``liveParam then
+  if decl.type.cleanupAnnotations.isAppOf ``liveParam then
     some decl.fvarId
   else
     none
@@ -355,10 +370,11 @@ public def ofTypeDef (defn : Name)
       (levelParams : List Name) → (deadVars : Array FVarId) → m α) : m α := withErrContext do
   let info ← getConstInfoDefn defn
   trace[QPFTypes] "Defined as: {info.value}"
-  lambdaTelescope info.value fun fvars target => do
+  forallTelescopeReducing info.type fun fvars _type => do
     let { liveVars, deadVars, liveVarLevel := u } ← collectLiveParams (fvars.map Expr.fvarId!)
     trace[QPFTypes] "Identified:\nLive variables: {liveVars}\nDead variables: {deadVars}"
 
+    let target := mkAppN info.value fvars
     assertTargetInUniverse target u
     let qpf ← ofTypeExprCore u ⟨liveVars, rfl⟩ target
     qpf.debugAssertCurriedDefEq liveVars target
