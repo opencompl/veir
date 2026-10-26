@@ -740,10 +740,110 @@ partial def llvmType? : Attribute → Option String
     return if t.packed then "<" ++ body ++ ">" else body
   | _ => none
 
+/-- Dimensions and leaf width of an LLVM integer array (possibly nested). -/
+private partial def integerArrayShape? : Attribute → Option (List Nat × Nat)
+  | .integerType t => do
+    guard (t.bitwidth > 0)
+    return ([], t.bitwidth)
+  | .llvmArrayType t => do
+    let (dims, width) ← integerArrayShape? t.type
+    return (t.size :: dims, width)
+  | _ => none
+
+private def hexDigit? (c : Char) : Option Nat :=
+  if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat)
+  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10)
+  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10)
+  else none
+
+private def denseInteger? (text : String) : Option Int := do
+  if text == "true" then return 1
+  if text == "false" then return 0
+  if text.startsWith "0x" then
+    let digits := text.toList.drop 2
+    guard (!digits.isEmpty)
+    let n ← digits.foldlM (fun n c => do return n * 16 + (← hexDigit? c)) 0
+    return Int.ofNat n
+  text.toInt?
+
+/-- Decode the byte-aligned integer form of MLIR's little-endian raw dense data.
+    A single element's bytes can encode a splat. Other raw encodings stay unhandled. -/
+private def denseRawIntegers? (text : String) (width count : Nat) : Option (Array Int) := do
+  guard (width > 0 && width % 8 == 0 && text.startsWith "\"0x" && text.endsWith "\"")
+  let chars := (text.toList.drop 3).dropLast.toArray
+  let bytesPerElement := width / 8
+  guard (chars.size == 2 * bytesPerElement * count || chars.size == 2 * bytesPerElement)
+  let mut values := #[]
+  for i in 0...chars.size / (2 * bytesPerElement) do
+    let mut value := 0
+    for j in 0...bytesPerElement do
+      let k := 2 * (i * bytesPerElement + j)
+      let hi ← hexDigit? chars[k]!
+      let lo ← hexDigit? chars[k + 1]!
+      value := value + (hi * 16 + lo) * 2 ^ (8 * j)
+    values := values.push (Int.ofNat value)
+  return if values.size == 1 then Array.replicate count values[0]! else values
+
+/-- Dense elements are stored as text in VeIR. Check the shape and width before
+    reading integer lists, splats, or byte-aligned raw data. -/
+private def denseIntegers? (attr : DenseElementsAttr) (type : Attribute) : Option (Array Int) := do
+  let (dims, width) ← integerArrayShape? type
+  guard (!dims.isEmpty)
+  let shape := String.intercalate "x" (dims.map toString ++ [s!"i{width}"])
+  let attrType := String.ofList (attr.type.toList.filter (!·.isWhitespace))
+  guard (attrType == s!"tensor<{shape}>" || attrType == s!"vector<{shape}>")
+  let count := dims.foldl (· * ·) 1
+  let text := String.ofList (attr.value.toList.filter (!·.isWhitespace))
+  if text.isEmpty then
+    guard (count == 0)
+    return #[]
+  if text.startsWith "\"" then return ← denseRawIntegers? text width count
+  let values ← if text.startsWith "[" then do
+      let flat := String.ofList (text.toList.filter fun c => c != '[' && c != ']')
+      if flat.isEmpty then pure #[]
+      else (flat.splitOn ",").toArray.mapM denseInteger?
+    else do
+      let value ← denseInteger? text
+      pure (Array.replicate count value)
+  guard (values.size == count)
+  guard (values.all fun v => -(2 ^ (width - 1) : Int) ≤ v && v < (2 ^ width : Int))
+  return values
+
+/-- Rebuild nested LLVM array constants, attaching the element type at each level. -/
+private partial def integerArrayInitializer? (type : Attribute) (values : Array Int)
+    (index : Nat := 0) : Option (String × Nat) := do
+  match type with
+  | .integerType _ => return (toString (← values[index]?), index + 1)
+  | .llvmArrayType t =>
+    let elemType ← llvmType? t.type
+    let mut index := index
+    let mut elements := #[]
+    for _ in 0...t.size do
+      let (value, next) ← integerArrayInitializer? t.type values index
+      elements := elements.push (elemType ++ " " ++ value)
+      index := next
+    return ("[" ++ String.intercalate ", " elements.toList ++ "]", index)
+  | _ => none
+
+/-- Recognize the complete `zero; return` initializer region. Aggregate zero
+    operations survive instruction selection, unlike scalar/pointer constants. -/
+private def isZeroInitializer (ctx : IRContext OpCode) (op : OperationPtr)
+    (type : Attribute) : Bool := Id.run do
+  let some block := (op.getRegion! ctx 0).getFirstBlock! ctx | return false
+  if (block.getNextBlock! ctx).isSome then return false
+  let ops := collectOps ctx (block.getFirstOp! ctx)
+  if ops.size != 2 then return false
+  let zero := ops[0]!
+  let ret := ops[1]!
+  return zero.getOpType! ctx == .llvm .mlir__zero &&
+    ((zero.getResultTypes! ctx)[0]?.map (·.val)) == some type &&
+    ret.getOpType! ctx == .llvm .return &&
+    ret.getOperands! ctx == #[.opResult (zero.getResult 0)]
+
 /-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
-    An integer or string `value` becomes the initializer; with no initializer at
-    all, the global is an external declaration, as in MLIR's translation. A
-    region initializer, thread-local global, or external weak global is left unhandled. -/
+    Integer, string and dense integer array values, and aggregate zero regions,
+    become initializers. With no initializer, the global is an external declaration.
+    Other region initializers, TLS and external weak globals remain unhandled. -/
 def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
   let props := op.getProperties! ctx Llvm.mlir__global
   let name := llvmSymbol (String.fromUTF8! props.sym_name.value)
@@ -760,6 +860,13 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     | some (.integerAttr a), .integerType _ => some (toString a.value)
     | some (.stringAttr str), .llvmArrayType { type := .integerType { bitwidth := 8, .. }, .. } =>
       some ("c" ++ llvmQuoted str.value)
+    | some (.denseElementsAttr attr), type => do
+      let values ← denseIntegers? attr type
+      if values.all (· == 0) then return "zeroinitializer"
+      let (init, _) ← integerArrayInitializer? type values
+      return init
+    | none, type =>
+      if isZeroInitializer ctx op type then some "zeroinitializer" else none
     | _, _ => none
   let kind := if props.constant then "constant" else "global"
   let align := match props.alignment with
