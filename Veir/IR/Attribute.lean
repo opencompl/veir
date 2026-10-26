@@ -185,6 +185,25 @@ structure ArithIntegerOverflowFlagsAttr where
   nuw : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+namespace Linalg
+
+/--
+  The kinds of loop iterators of a linalg operation. A `parallel` loop computes
+  independent results, while a `reduction` loop accumulates into the same result.
+-/
+inductive IteratorType
+| parallel
+| reduction
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/--
+  The `#linalg.iterator_type<...>` attribute.
+-/
+structure IteratorTypeAttr where
+  value : IteratorType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end Linalg
 
 /--
   LLVM calling convention attribute, e.g. `#llvm.cconv<ccc>`.
@@ -763,6 +782,8 @@ inductive Attribute
 | fastMathFlagsAttr (attr : FastMathFlagsAttr)
 /-- Arith integer overflow flags attribute -/
 | arithIntegerOverflowFlagsAttr (attr : ArithIntegerOverflowFlagsAttr)
+/-- Linalg iterator type attribute -/
+| linalgIteratorTypeAttr (attr : Linalg.IteratorTypeAttr)
 /-- LLVM calling convention attribute -/
 | cconvAttr (attr : CConvAttr)
 /-- LLVM linkage attribute -/
@@ -1003,6 +1024,14 @@ def integerOverflowFlagsString (dialect : String) (nsw nuw : Bool) : String :=
 
 instance : ToString ArithIntegerOverflowFlagsAttr where
   toString attr := integerOverflowFlagsString "arith" attr.nsw attr.nuw
+
+instance : ToString Linalg.IteratorType where
+  toString
+    | .parallel => "parallel"
+    | .reduction => "reduction"
+
+instance : ToString Linalg.IteratorTypeAttr where
+  toString attr := s!"#linalg.iterator_type<{attr.value}>"
 
 instance : ToString CConvAttr where
   toString attr := s!"#llvm.cconv<{attr.value}>"
@@ -1305,6 +1334,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .byteType type => ToString.toString type
   | .fastMathFlagsAttr attr => ToString.toString attr
   | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
+  | .linalgIteratorTypeAttr attr => ToString.toString attr
   | .cconvAttr attr => ToString.toString attr
   | .linkageAttr attr => ToString.toString attr
   | .framePointerKindAttr attr => ToString.toString attr
@@ -1818,6 +1848,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case arithIntegerOverflowFlagsAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case linalgIteratorTypeAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
   case cconvAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case linkageAttr x =>
@@ -1961,6 +1993,7 @@ def isType (attr : Attribute) : Bool :=
   | .byteType _ => true
   | .fastMathFlagsAttr _ => false
   | .arithIntegerOverflowFlagsAttr _ => false
+  | .linalgIteratorTypeAttr _ => false
   | .cconvAttr _ => false
   | .linkageAttr _ => false
   | .framePointerKindAttr _ => false
@@ -2042,6 +2075,9 @@ theorem isType_tensorType type : (Attribute.of TensorType type).isType = true :=
 theorem isType_byteType type : (Attribute.of LLVM.ByteType type).isType = true := by rfl
 @[simp, grind =]
 theorem isType_fastMathFlags flags : (Attribute.of FastMathFlagsAttr flags).isType = false := by rfl
+@[simp, grind =]
+theorem isType_linalgIteratorType attr :
+  (Attribute.of Linalg.IteratorTypeAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_cconv attr : (Attribute.of CConvAttr attr).isType = false := by rfl
 @[simp, grind =]

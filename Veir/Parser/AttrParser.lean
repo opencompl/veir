@@ -512,6 +512,19 @@ def parseIntegerOverflowFlag : AttrParserM (Bool × Bool) := do
     return (false, true)
   throwAtCurrentPos "expected integer overflow flag to be one of: none, nsw, nuw"
 
+/-- Parse the body of a `#linalg.iterator_type<...>` attribute, e.g. `<parallel>`. -/
+def parseLinalgIteratorType : AttrParserM Linalg.IteratorType := do
+  parsePunctuation "<"
+  let iteratorType ← do
+    if ← parseOptionalKeyword "parallel".toByteArray then
+      pure Linalg.IteratorType.parallel
+    else if ← parseOptionalKeyword "reduction".toByteArray then
+      pure Linalg.IteratorType.reduction
+    else
+      throwAtCurrentPos "expected iterator type to be one of: parallel, reduction"
+  parsePunctuation ">"
+  return iteratorType
+
 def parseIntegerOverflowFlags : AttrParserM (Bool × Bool) := do
   parsePunctuation "<"
   let values ← parseList parseIntegerOverflowFlag
@@ -702,6 +715,9 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   if dialectName = "arith.overflow".toByteArray then do
     let (nsw, nuw) ← parseIntegerOverflowFlags
     return some (ArithIntegerOverflowFlagsAttr.mk nsw nuw : Attribute)
+
+  if dialectName = "linalg.iterator_type".toByteArray then do
+    return some (Linalg.IteratorTypeAttr.mk (← parseLinalgIteratorType) : Attribute)
 
   if let some (_, toAttr) := verbatimBodyAttrs.find? (fun (name, _) => dialectName == name) then
     parsePunctuation "<"

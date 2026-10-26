@@ -227,6 +227,20 @@ macro "#assert " e:term : command =>
 #assert expectErrorAttr "#arith.overflow<>"
   "expected integer overflow flag to be one of: none, nsw, nuw" (some 16)
 
+/-! ## Linalg iterator type attributes -/
+
+#assert expectSuccessAttr "#linalg.iterator_type<parallel>"
+  (Linalg.IteratorTypeAttr.mk .parallel)
+#assert expectSuccessAttr "#linalg.iterator_type<reduction>"
+  (Linalg.IteratorTypeAttr.mk .reduction)
+#assert expectRoundTripAttr "#linalg.iterator_type<parallel>"
+#assert expectRoundTripAttr "#linalg.iterator_type<reduction>"
+#assert expectRoundTripAttr
+  "[#linalg.iterator_type<parallel>, #linalg.iterator_type<reduction>]"
+#assert expectErrorAttr "#linalg.iterator_type<window>"
+  "expected iterator type to be one of: parallel, reduction" (some 22)
+#assert expectErrorAttr "#linalg.iterator_type" "Expected punctuation '<'" (some 21)
+
 /-! ## Float types -/
 
 #assert expectSuccessType "f16" FloatType.f16
