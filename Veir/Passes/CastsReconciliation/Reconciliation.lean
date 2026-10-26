@@ -27,7 +27,7 @@ def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
   | _, _ => false
 
 
-/- We reconcile cast from `!mod_arith.int< q: iN> to iM (and back) for any M -/
+/- We reconcile cast from `!mod_arith.int< q: uiN> to iM (and back) for any M -/
 def isPreservingModArithToIntCast (inputType interType : TypeAttr) : Bool :=
   match inputType.val, interType.val with
   | .modArithType _, .integerType _ => True

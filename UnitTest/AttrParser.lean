@@ -492,9 +492,9 @@ macro "#assert " e:term : command =>
 
 /-! ## Modarith type -/
 
-#assert expectSuccessType "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 64)))
-#assert expectSuccessType "!mod_arith.int<257 : i32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.signless 32)))
-#assert expectSuccessAttr "!mod_arith.int<17 : i64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.signless 64)))
+#assert expectSuccessType "!mod_arith.int<17 : ui64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.unsigned 64)))
+#assert expectSuccessType "!mod_arith.int<257 : ui32>" (ModArithType.mk (IntegerAttr.mk 257 (IntegerType.unsigned 32)))
+#assert expectSuccessAttr "!mod_arith.int<17 : ui64>" (ModArithType.mk (IntegerAttr.mk 17 (IntegerType.unsigned 64)))
 #assert expectErrorType "!mod_arith.int<>" "modarith type modulus expected" (some 15)
 #assert expectErrorType "!mod_arith.int<17>" "Expected punctuation ':'" (some 17)
 #assert expectErrorType "!mod_arith.int<17 : x>" "integer or float type expected after ':' in numeric attribute" (some 20)

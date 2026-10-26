@@ -29,8 +29,10 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
     | return rewriter
   let canonicalValue := props.value.value % modArithType.modulus.value
   if canonicalValue = props.value.value then return rewriter
+  -- The canonical value lies in `[0, modulus)`, so it is normalized for the unsigned
+  -- modulus type but not necessarily for the type of the original value attribute.
   let canonicalProps : ModArithConstantProperties :=
-    { value := { props.value with value := canonicalValue } }
+    { value := ⟨canonicalValue, modArithType.modulus.type⟩ }
   return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
 public def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)

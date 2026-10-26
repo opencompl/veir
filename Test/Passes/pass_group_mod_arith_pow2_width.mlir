@@ -6,15 +6,15 @@
 // non-power-of-two integer type and no `unrealized_conversion_cast` survives the pipeline.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!mod_arith.int<12289 : i29>, !mod_arith.int<12289 : i29>) -> !mod_arith.int<12289 : i29>, sym_name = "chain"}> ({
-  ^bb0(%a : !mod_arith.int<12289 : i29>, %b : !mod_arith.int<12289 : i29>):
-    %c5 = "mod_arith.constant"() <{"value" = 5 : i29}> : () -> !mod_arith.int<12289 : i29>
-    %s = "mod_arith.add"(%a, %b) : (!mod_arith.int<12289 : i29>, !mod_arith.int<12289 : i29>) -> !mod_arith.int<12289 : i29>
-    %d = "mod_arith.sub"(%a, %b) : (!mod_arith.int<12289 : i29>, !mod_arith.int<12289 : i29>) -> !mod_arith.int<12289 : i29>
-    %m = "mod_arith.mul"(%s, %d) : (!mod_arith.int<12289 : i29>, !mod_arith.int<12289 : i29>) -> !mod_arith.int<12289 : i29>
-    %r = "mod_arith.mul"(%m, %c5) : (!mod_arith.int<12289 : i29>, !mod_arith.int<12289 : i29>) -> !mod_arith.int<12289 : i29>
-    %out = "mod_arith.add"(%r, %a) : (!mod_arith.int<12289 : i29>, !mod_arith.int<12289 : i29>) -> !mod_arith.int<12289 : i29>
-    "func.return"(%out) : (!mod_arith.int<12289 : i29>) -> ()
+  "func.func"() <{function_type = (!mod_arith.int<12289 : ui29>, !mod_arith.int<12289 : ui29>) -> !mod_arith.int<12289 : ui29>, sym_name = "chain"}> ({
+  ^bb0(%a : !mod_arith.int<12289 : ui29>, %b : !mod_arith.int<12289 : ui29>):
+    %c5 = "mod_arith.constant"() <{"value" = 5 : ui29}> : () -> !mod_arith.int<12289 : ui29>
+    %s = "mod_arith.add"(%a, %b) : (!mod_arith.int<12289 : ui29>, !mod_arith.int<12289 : ui29>) -> !mod_arith.int<12289 : ui29>
+    %d = "mod_arith.sub"(%a, %b) : (!mod_arith.int<12289 : ui29>, !mod_arith.int<12289 : ui29>) -> !mod_arith.int<12289 : ui29>
+    %m = "mod_arith.mul"(%s, %d) : (!mod_arith.int<12289 : ui29>, !mod_arith.int<12289 : ui29>) -> !mod_arith.int<12289 : ui29>
+    %r = "mod_arith.mul"(%m, %c5) : (!mod_arith.int<12289 : ui29>, !mod_arith.int<12289 : ui29>) -> !mod_arith.int<12289 : ui29>
+    %out = "mod_arith.add"(%r, %a) : (!mod_arith.int<12289 : ui29>, !mod_arith.int<12289 : ui29>) -> !mod_arith.int<12289 : ui29>
+    "func.return"(%out) : (!mod_arith.int<12289 : ui29>) -> ()
   }) : () -> ()
 }) : () -> ()
 

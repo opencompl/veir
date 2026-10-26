@@ -4,11 +4,11 @@
 "builtin.module"() ({
   "func.func"() <{function_type = () -> (), sym_name = "main"}> ({
     ^bb0():
-      %0 = "mod_arith.constant"() <{"value" = 13 : i32}> : () -> !mod_arith.int<17 : i32>
-      %1 = "mod_arith.constant"() <{"value" = 7 : i32}> : () -> !mod_arith.int<17 : i32>
-      %2 = "mod_arith.add"(%0, %1) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-      %3 = "mod_arith.sub"(%0, %1) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-      %4 = "mod_arith.mul"(%0, %1) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
+      %0 = "mod_arith.constant"() <{"value" = 13 : ui32}> : () -> !mod_arith.int<17 : ui32>
+      %1 = "mod_arith.constant"() <{"value" = 7 : ui32}> : () -> !mod_arith.int<17 : ui32>
+      %2 = "mod_arith.add"(%0, %1) : (!mod_arith.int<17 : ui32>, !mod_arith.int<17 : ui32>) -> !mod_arith.int<17 : ui32>
+      %3 = "mod_arith.sub"(%0, %1) : (!mod_arith.int<17 : ui32>, !mod_arith.int<17 : ui32>) -> !mod_arith.int<17 : ui32>
+      %4 = "mod_arith.mul"(%0, %1) : (!mod_arith.int<17 : ui32>, !mod_arith.int<17 : ui32>) -> !mod_arith.int<17 : ui32>
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
@@ -18,11 +18,11 @@
 // CHECK-NEXT:   ^{{.*}}():
 // CHECK-NEXT:     "func.func"() <{"function_type" = () -> (), "sym_name" = "main"}> ({
 // CHECK-NEXT:       ^{{.*}}():
-// CHECK-NEXT:         %{{.*}} = "mod_arith.constant"() <{"value" = 13 : i32}> : () -> !mod_arith.int<17 : i32>
-// CHECK-NEXT:         %{{.*}} = "mod_arith.constant"() <{"value" = 7 : i32}> : () -> !mod_arith.int<17 : i32>
-// CHECK-NEXT:         %{{.*}} = "mod_arith.add"(%{{.*}}, %{{.*}}) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-// CHECK-NEXT:         %{{.*}} = "mod_arith.sub"(%{{.*}}, %{{.*}}) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
-// CHECK-NEXT:         %{{.*}} = "mod_arith.mul"(%{{.*}}, %{{.*}}) : (!mod_arith.int<17 : i32>, !mod_arith.int<17 : i32>) -> !mod_arith.int<17 : i32>
+// CHECK-NEXT:         %{{.*}} = "mod_arith.constant"() <{"value" = 13 : ui32}> : () -> !mod_arith.int<17 : ui32>
+// CHECK-NEXT:         %{{.*}} = "mod_arith.constant"() <{"value" = 7 : ui32}> : () -> !mod_arith.int<17 : ui32>
+// CHECK-NEXT:         %{{.*}} = "mod_arith.add"(%{{.*}}, %{{.*}}) : (!mod_arith.int<17 : ui32>, !mod_arith.int<17 : ui32>) -> !mod_arith.int<17 : ui32>
+// CHECK-NEXT:         %{{.*}} = "mod_arith.sub"(%{{.*}}, %{{.*}}) : (!mod_arith.int<17 : ui32>, !mod_arith.int<17 : ui32>) -> !mod_arith.int<17 : ui32>
+// CHECK-NEXT:         %{{.*}} = "mod_arith.mul"(%{{.*}}, %{{.*}}) : (!mod_arith.int<17 : ui32>, !mod_arith.int<17 : ui32>) -> !mod_arith.int<17 : ui32>
 // CHECK-NEXT:         "func.return"() : () -> ()
 // CHECK-NEXT:     }) : () -> ()
 // CHECK-NEXT: }) : () -> ()

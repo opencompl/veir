@@ -3,16 +3,16 @@
 "builtin.module"() ({
 
   // `mod_arith` function boundaries can be coerced to their storage integer type.
-  // The pre-existing `i32 <-> !mod_arith.int<7 : i32>` boundary casts then form
+  // The pre-existing `i32 <-> !mod_arith.int<7 : ui32>` boundary casts then form
   // identity round trips and are reconciled away, so the `arith.addi` consumes the
   // function arguments directly and the function returns the `arith.addi` result.
-    "func.func"() <{sym_name = "arith_add", function_type = (!mod_arith.int<7 : i32>, !mod_arith.int<7 : i32>) -> !mod_arith.int<7 : i32>}> ({
-    ^bb(%a: !mod_arith.int<7 : i32>, %b: !mod_arith.int<7 : i32>):
-      %ai = "builtin.unrealized_conversion_cast"(%a) : (!mod_arith.int<7 : i32>) -> i32
-      %bi = "builtin.unrealized_conversion_cast"(%b) : (!mod_arith.int<7 : i32>) -> i32
+    "func.func"() <{sym_name = "arith_add", function_type = (!mod_arith.int<7 : ui32>, !mod_arith.int<7 : ui32>) -> !mod_arith.int<7 : ui32>}> ({
+    ^bb(%a: !mod_arith.int<7 : ui32>, %b: !mod_arith.int<7 : ui32>):
+      %ai = "builtin.unrealized_conversion_cast"(%a) : (!mod_arith.int<7 : ui32>) -> i32
+      %bi = "builtin.unrealized_conversion_cast"(%b) : (!mod_arith.int<7 : ui32>) -> i32
       %sum = "arith.addi"(%ai, %bi) : (i32, i32) -> i32
-      %out = "builtin.unrealized_conversion_cast"(%sum) : (i32) -> !mod_arith.int<7 : i32>
-      "func.return"(%out) : (!mod_arith.int<7 : i32>) -> ()
+      %out = "builtin.unrealized_conversion_cast"(%sum) : (i32) -> !mod_arith.int<7 : ui32>
+      "func.return"(%out) : (!mod_arith.int<7 : ui32>) -> ()
       // CHECK:      func.func @arith_add([[A:%.*]]: i32, [[B:%.*]]: i32) -> i32 {
       // CHECK-NEXT:   [[SUM:%.*]] = "arith.addi"([[A]], [[B]]) : (i32, i32) -> i32
       // CHECK-NEXT:   "func.return"([[SUM]]) : (i32) -> ()

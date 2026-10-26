@@ -90,10 +90,12 @@ def TypeAttr.verifyModArithType (ty : TypeAttr) (msg : String) : Except String M
   | .modArithType type => do
     let modulus := type.modulus.value
     let bitWidth := type.modulus.type.bitwidth
+    if type.modulus.type.signedness ≠ .unsigned then
+      throw s!"{msg} but found invalid ModArithType type: modulus type '{type.modulus.type}' must be an unsigned integer type such as 'ui{bitWidth}'."
     if modulus ≤ 0 then
       throw s!"{msg} but found invalid ModArithType type: modulus {modulus} must be positive."
     if modulus ≥ (2 ^ bitWidth) then
-      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} does not fit into the underlying storage type 'i{bitWidth}'."
+      throw s!"{msg} but found invalid ModArithType type: modulus {modulus} does not fit into the underlying storage type 'ui{bitWidth}'."
     pure type
   | type => throw s!"{msg} but found {type} instead."
 
@@ -115,11 +117,14 @@ def OperationPtr.verifyModArithConstantOp {OpInfo : Type} [IsOpCode OpInfo]
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   let mat ← ((op.getResult 0).getType! ctx.raw).verifyModArithType
     s!"{instrName}: Expected result to have ModArithType"
-  let value := (op.getProperties! ctx.raw Mod_Arith.constant).value.value
+  let valueAttr := (op.getProperties! ctx.raw Mod_Arith.constant).value
+  op.verifyNormalizedIntegerAttr ctx opIn valueAttr
+  let value := valueAttr.value
   let bw := mat.modulus.type.bitwidth
-  -- Slightly odd range because the storage type is signless.
+  -- The value attribute may be signless, signed or unsigned, so accept every
+  -- value whose bits fit into the storage width under some interpretation.
   if value < -(2 ^ (bw - 1) : Int) ∨ (2 ^ bw : Int) ≤ value then
-    throw s!"{instrName}: constant value {value} does not fit in storage type 'i{bw}'."
+    throw s!"{instrName}: constant value {value} does not fit in storage type 'ui{bw}'."
 
 /--
 Verify the local invariants of a `mod_arith` operation in any operation-info

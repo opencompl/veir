@@ -10,11 +10,11 @@ namespace Veir
   # ModArithToArith pass
 
   Lowers operations from the `mod_arith` dialect into operations in the `arith` dialect,
-  translating `!mod_arith.int<q : iN>` values to their canonical representation in `[0, q)`.
+  translating `!mod_arith.int<q : uiN>` values to their canonical representation in `[0, q)`.
   The current lowering is trivial, eagerly reducing at all times.
 
   Since Veir has no Dialect Conversion framework, this pass eagerly inserts `unrealized_conversion_casts`
-  to handle the type conversions between `!mod_arith.int<q : iN>` and `iM` that are needed.
+  to handle the type conversions between `!mod_arith.int<q : uiN>` and `iM` that are needed.
 -/
 
 inductive ReductionKind
@@ -24,7 +24,7 @@ inductive ReductionKind
 
 /-! ## Unrealized Conversion Casts -/
 
-/-- Emit `unrealized_conversion_cast v : !mod_arith.int<q:iN> → i(legalizeWidth N)`. -/
+/-- Emit `unrealized_conversion_cast v : !mod_arith.int<q:uiN> → i(legalizeWidth N)`. -/
 def castToStorage (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode)
     (v : ValuePtr) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do
   let .modArithType mt := (v.getType! rewriter.ctx.raw).val
@@ -44,7 +44,7 @@ def castToModArith (rewriter : PatternRewriter OpCode) (x : ValuePtr) (ty : ModA
 /-! ## Unpack / Pack ModArithType -/
 
 /--
-  Unpack a `!mod_arith.int<q:iN>` value `v` into the IntegerType `intermediateType`
+  Unpack a `!mod_arith.int<q:uiN>` value `v` into the IntegerType `intermediateType`
 -/
 def unpackValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode) (v : ValuePtr)
     (intermediateType : IntegerType) (ip : InsertPoint) :
@@ -60,7 +60,7 @@ def unpackValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode
     return (rewriter, stored)
 
 /--
-  Pack an IntegerType value `v` of IntegerType `intermediateType` into a value of `!mod_arith.int<q:iN>` type `ty`.
+  Pack an IntegerType value `v` of IntegerType `intermediateType` into a value of `!mod_arith.int<q:uiN>` type `ty`.
 -/
 def packValue (legalizeWidth : Nat → Nat) (rewriter : PatternRewriter OpCode) (v : ValuePtr)
     (ty : ModArithType) (ip : InsertPoint) : Option (PatternRewriter OpCode × ValuePtr) := do

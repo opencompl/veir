@@ -147,7 +147,7 @@ def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
 
 /--
   Whether the value is already normalized for its type, as the parser guarantees
-  for every integer attribute outside `mod_arith`.
+  for every integer attribute.
 -/
 def isNormalized (attr : IntegerAttr) : Bool :=
   attr.value = normalizeValue attr.type attr.value

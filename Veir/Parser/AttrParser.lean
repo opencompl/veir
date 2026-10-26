@@ -19,24 +19,8 @@ structure AttrParserState where
   allowUnregisteredDialect : Bool := false
   /-- Type aliases in scope, keyed by name without the `!`. -/
   typeAliases : Std.HashMap ByteArray TypeAttr := {}
-  /--
-    Keep integer literals exactly as written instead of range-checking them and
-    normalizing them to their width the way MLIR does. Set only for `mod_arith`
-    moduli and properties.
-  -/
-  rawIntegerLiterals : Bool := false
 
 abbrev AttrParserM := StateT AttrParserState (EStateM ParserError ParserState)
-
-/--
-  Run `x` with `rawIntegerLiterals` set, restoring the previous setting after.
--/
-def withRawIntegerLiterals (x : AttrParserM α) : AttrParserM α := do
-  let saved := (← get).rawIntegerLiterals
-  modify ({ · with rawIntegerLiterals := true })
-  let result ← x
-  modify ({ · with rawIntegerLiterals := saved })
-  return result
 
 /--
   Execute the action with the given initial state.
@@ -312,8 +296,6 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
     let some n := numericValueToNat? value
       | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
     let literal := if isNegative then Int.negOfNat n else Int.ofNat n
-    if (← get).rawIntegerLiterals then
-      return IntegerAttr.mk literal integerType
     let bits := BitVec.ofInt integerType.bitwidth literal
     if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
       throwAt valueStartPos "integer constant out of range for attribute"
@@ -808,8 +790,8 @@ partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
 
 /--
   Parse HEIR's modarith type, if present.
-  Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : i32>`.
-  The modulus is kept as written (see `AttrParserState.rawIntegerLiterals`).
+  Its syntax is `!mod_arith.int<{IntegerAttr}>`, e.g., `!mod_arith.int<17 : ui32>`.
+  The verifier requires the modulus to have an unsigned integer type.
 -/
 def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
   let token ← peekToken
@@ -820,7 +802,7 @@ def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
     return none
   let _ ← consumeToken
   parsePunctuation "<"
-  let some modulus ← withRawIntegerLiterals parseOptionalNumericAttr
+  let some modulus ← parseOptionalNumericAttr
     | throwAtCurrentPos "modarith type modulus expected"
   let some modulus := modulus.cast? IntegerAttr
     | throwAtCurrentPos "modarith type modulus expected"

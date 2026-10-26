@@ -53,16 +53,16 @@ operation result is folded back into the canonical range `[0, q)`.
 def runModArithDefaultReductionExample : String :=
   let mlir := r#""builtin.module"() ({
 ^bb0:
-  "func.func"() <{function_type = (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>, sym_name = "mod_arith_add_chain"}> ({
-  ^bb1(%a : !mod_arith.int<12289 : i32>, %b : !mod_arith.int<12289 : i32>):
-    %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : i32>
-    %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : i32>
-    %add0 = "mod_arith.add"(%a, %c) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %sub = "mod_arith.sub"(%a, %c) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %add1 = "mod_arith.add"(%add0, %b) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %add2 = "mod_arith.add"(%add1, %a) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %out = "mod_arith.mul"(%add2, %small) : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    "func.return"(%out) : (!mod_arith.int<12289 : i32>) -> ()
+  "func.func"() <{function_type = (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>, sym_name = "mod_arith_add_chain"}> ({
+  ^bb1(%a : !mod_arith.int<12289 : ui32>, %b : !mod_arith.int<12289 : ui32>):
+    %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : ui32>
+    %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : ui32>
+    %add0 = "mod_arith.add"(%a, %c) : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %sub = "mod_arith.sub"(%a, %c) : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %add1 = "mod_arith.add"(%add0, %b) : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %add2 = "mod_arith.add"(%add1, %a) : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %out = "mod_arith.mul"(%add2, %small) : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    "func.return"(%out) : (!mod_arith.int<12289 : ui32>) -> ()
   }) : () -> ()
 }) : () -> ()"#
   let expected :=
@@ -100,16 +100,16 @@ Constants are tracked exactly.
 def runModArithNoneReductionExample : String :=
   let mlir := r#""builtin.module"() ({
 ^bb0:
-  "func.func"() <{function_type = (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>, sym_name = "mod_arith_add_chain"}> ({
-  ^bb1(%a : !mod_arith.int<12289 : i32>, %b : !mod_arith.int<12289 : i32>):
-    %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : i32>
-    %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : i32>
-    %add0 = "mod_arith.add"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %sub = "mod_arith.sub"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %add1 = "mod_arith.add"(%add0, %b) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %add2 = "mod_arith.add"(%add1, %a) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    %out = "mod_arith.mul"(%add2, %small) {"reduction" = "none"} : (!mod_arith.int<12289 : i32>, !mod_arith.int<12289 : i32>) -> !mod_arith.int<12289 : i32>
-    "func.return"(%out) : (!mod_arith.int<12289 : i32>) -> ()
+  "func.func"() <{function_type = (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>, sym_name = "mod_arith_add_chain"}> ({
+  ^bb1(%a : !mod_arith.int<12289 : ui32>, %b : !mod_arith.int<12289 : ui32>):
+    %c = "mod_arith.constant"() <{"value" = 46 : i32}> : () -> !mod_arith.int<12289 : ui32>
+    %small = "mod_arith.constant"() <{"value" = 3 : i32}> : () -> !mod_arith.int<12289 : ui32>
+    %add0 = "mod_arith.add"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %sub = "mod_arith.sub"(%a, %c) {"reduction" = "none"} : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %add1 = "mod_arith.add"(%add0, %b) {"reduction" = "none"} : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %add2 = "mod_arith.add"(%add1, %a) {"reduction" = "none"} : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    %out = "mod_arith.mul"(%add2, %small) {"reduction" = "none"} : (!mod_arith.int<12289 : ui32>, !mod_arith.int<12289 : ui32>) -> !mod_arith.int<12289 : ui32>
+    "func.return"(%out) : (!mod_arith.int<12289 : ui32>) -> ()
   }) : () -> ()
 }) : () -> ()"#
   let expected :=
@@ -130,14 +130,14 @@ def runModArithUnboundedStorageExample : String :=
   let mlir := r#""builtin.module"() ({
 ^bb0:
   "func.func"() <{
-    function_type = (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> (),
+    function_type = (!mod_arith.int<251 : ui8>, !mod_arith.int<251 : ui8>) -> (),
     sym_name = "unbounded_storage"
   }> ({
-  ^entry(%a : !mod_arith.int<251 : i8>, %b : !mod_arith.int<251 : i8>):
+  ^entry(%a : !mod_arith.int<251 : ui8>, %b : !mod_arith.int<251 : ui8>):
     %sum = "mod_arith.add"(%a, %b) {"reduction" = "none"}
-      : (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> !mod_arith.int<251 : i8>
+      : (!mod_arith.int<251 : ui8>, !mod_arith.int<251 : ui8>) -> !mod_arith.int<251 : ui8>
     %product = "mod_arith.mul"(%a, %b) {"reduction" = "none"}
-      : (!mod_arith.int<251 : i8>, !mod_arith.int<251 : i8>) -> !mod_arith.int<251 : i8>
+      : (!mod_arith.int<251 : ui8>, !mod_arith.int<251 : ui8>) -> !mod_arith.int<251 : ui8>
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()"#
