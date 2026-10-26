@@ -1,6 +1,7 @@
 module
 
 import Std.Internal.Order.Basic
+public import CTree.Order
 
 /-!
 Coinductive predicates up-to companion based on tower induction
@@ -162,7 +163,7 @@ theorem f_gfp' : monotone f → f (gfp' f) = gfp' f := by
     apply h
 
 /-- The standard and companion-based definitions of greatest fixpoint are equivalent -/
-theorem cpn_gfp : monotone f → gfp f = gfp' f := by
+theorem gfp_eq_gfp' : monotone f → gfp f = gfp' f := by
   intros hmon
   apply PartialOrder.rel_antisymm
   · apply le_sup
