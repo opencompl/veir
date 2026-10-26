@@ -317,10 +317,9 @@ theorem OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
   have blockDominance := dominance.properlyDominatesBlock_of_atStart succParent regionSSA
   exact blockDominance.dominatesIp_predecessor_exit blockParent succParent hsucc
 
-/-- In an SSA region, an in-bounds value dominating a successor block's entry dominates the
+/-- In an SSA region, a value dominating a successor block's entry dominates the
 predecessor's exit or is an argument of the successor. -/
 theorem ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValuePtr}
-    (valueInBounds : value.InBounds ctx.raw)
     (blockParent : block.getParent! ctx.raw = some region)
     (succParent : succ.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
@@ -329,17 +328,17 @@ theorem ValuePtr.DominatesIp.predecessor_exit_of_successor_entry {value : ValueP
     value.DominatesIp (.atEnd block) ctx ∨ value ∈ succ.getArguments! ctx.raw := by
   intro dominance
   cases dominance with
-  | OpResult dominance =>
-    exact Or.inl (.OpResult
+  | OpResult resultInBounds dominance =>
+    exact Or.inl (.OpResult resultInBounds
       (dominance.predecessor_exit_of_successor_entry blockParent succParent regionSSA hsucc))
-  | BlockArg ipParent dominance =>
+  | BlockArg argumentInBounds ipParent dominance =>
     rename_i argument ipBlock
     have succInBounds : succ.InBounds ctx.raw := by
       grind [BlockPtr.getParent!_of_not_inBounds]
     have ipParentEq := InsertPoint.block!_atStart!_eq ctx.wellFormed succInBounds
     by_cases same : argument.block = succ
     · exact Or.inr ((BlockArgumentPtr.block_of_mem_getArguments! (by grind)).mp same)
-    · exact Or.inl (.BlockArg (by simp)
+    · exact Or.inl (.BlockArg argumentInBounds (by simp)
         (BlockPtr.Dominates.predecessor_of_dominates_successor
           blockParent succParent same hsucc (by grind)))
 
@@ -349,7 +348,7 @@ theorem BlockPtr.argument_dominatesIp {ip : InsertPoint}
     (hMem : value ∈ block.getArguments! ctx.raw) :
     value.DominatesIp ip ctx := by
   obtain ⟨index, _, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
-  exact .BlockArg ipParent (Or.inl BlockPtr.getArgument_block)
+  exact .BlockArg (by grind) ipParent (Or.inl BlockPtr.getArgument_block)
 
 /-- An argument of an in-bounds block dominates the entry of that block. -/
 theorem BlockPtr.argument_dominatesIp_atStart

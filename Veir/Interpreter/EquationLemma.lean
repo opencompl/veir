@@ -231,7 +231,7 @@ theorem InterpreterState.DefinesDominating.setArgumentValues?_succ_entry
     InterpreterState.DefinesDominating ⟨newVars, exitState.memory⟩ (InsertPoint.atStart! succ ctx.raw) := by
   intro value valueInBounds valueDom
   cases ValuePtr.DominatesIp.predecessor_exit_of_successor_entry
-    valueInBounds blockParent succParent regionSSA hsucc valueDom
+    blockParent succParent regionSSA hsucc valueDom
   · grind [InterpreterState.DefinesDominating]
   · grind [BlockPtr.getArguments!.mem_iff_exists_index]
 
