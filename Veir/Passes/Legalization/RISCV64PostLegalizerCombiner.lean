@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 import Veir.PatternRewriter.Basic
+import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization.CombinerHelper
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
 import Veir.PatternRewriter.Puddle.Execution
@@ -24,8 +25,8 @@ def RISCV64PostLegalizerCombinerPass : Pass OpCode :=
   { name := "postlegalizer-combiner-riscv64"
     description := "Combine legalized gMIR operations for RISC-V 64."
     run := fun _ ctx _ _ => do
-      let patterns := #[sub_to_add riscv64LegalizerInfo] ++ commute_int_constant_to_rhs
-      let pattern := RewritePattern.GreedyRewritePattern (patterns.map (·.run))
+      let pattern := RewritePattern.GreedyRewritePattern
+        #[(sub_to_add riscv64LegalizerInfo).run, commutativeConstantRHS]
       match RewritePattern.applyInContext pattern ctx with
       | none => throw "error while applying the post-legalizer combines"
       | some ctx => pure ctx }

@@ -2,14 +2,14 @@ module
 
 public import Veir.Passes.Legalization.LegalizerInfo
 public import Veir.PatternRewriter.Puddle.Execution
-import Veir.Passes.Matching.GMIR.Basic
 import Veir.PatternRewriter.Puddle.Builders
 
 /-!
 # Combines
 
 This file implements the target-independent gMIR combines as Puddle patterns. The combines that
-depend on the legality of operations take the `LegalizerInfo` of the target.
+depend on the legality of operations take the `LegalizerInfo` of the target. LLVM's
+`commute_constant_to_rhs` is the canonicalizer's `commutativeConstantRHS`.
 
 TODO: Add the other combines of LLVM's `RISCVPostLegalizerCombiner` (`combines_for_extload`,
 `redundant_and`, `identity_combines`, `shift_immed_chain` and `simplify_neg_minmax`).
@@ -23,40 +23,6 @@ namespace Veir
 open Puddle
 
 public section
-
-/-! ### commute_int_constant_to_rhs : (C op x) → (x op C) -/
-
-/--
-Swaps the operands of an `opcode` operation whose left operand is a `gmir.g_constant` and whose
-right operand is not.
-
-https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/include/llvm/Target/GlobalISel/Combine.td#L669-L680
-https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L7227
--/
-def commute_int_constant_to_rhs_pattern (opcode : GMIR) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      let x ← MatchProg.value type
-      let root ← MatchProg.root (.gmir opcode) #[constant.res[0]!, x] #[type]
-      let _ ← MatchProg.inspectOperation (Outputs := Unit) root.op fun ctx op =>
-        if (matchGConstantIntVal (op.getOperand! ctx 1) ctx).isSome then none else some ()
-      return (type, constant.res[0]!, x, root.properties))
-    (fun (type, constant, x, properties) => do
-      let props ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.gmir opcode))) properties some
-      CreateProg.operation (.gmir opcode) #[x, constant] #[type] props)
-    (fun commutedOp => commutedOp)
-
-/-- The `opcode` operations that `commute_int_constant_to_rhs` commutes, which are the commutative
-integer operations of gMIR. -/
-def commutativeOpcodes : Array GMIR :=
-  #[.g_add, .g_mul, .g_and, .g_or, .g_xor, .g_smin, .g_smax, .g_umin, .g_umax, .g_uaddsat,
-    .g_saddsat]
-
-def commute_int_constant_to_rhs : Array (CompiledPattern OpCode) :=
-  commutativeOpcodes.map (commute_int_constant_to_rhs_pattern · |>.compile)
 
 /-! ### sub_to_add : (sub x, C) → (add x, -C) -/
 
