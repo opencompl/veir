@@ -1171,3 +1171,15 @@ theorem freeze_refinement {a : LLVM.Int 64} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `gmirAnyextOfReg` lowering pattern, at every width: the high bits of
+  `g_anyext` may be chosen as those of the register, so it is refined by a single cast from it.
+-/
+theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
+    ∃ ext : BitVec (m - n),
+      LLVM.Int.ext (RISCV.Reg.toInt r n) m ext h ⊒ RISCV.Reg.toInt r m :=
+  ⟨(r.val.zeroExtend m).extractLsb' n (m - n), by
+    veir_bv_normalize
+    simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
+    grind⟩

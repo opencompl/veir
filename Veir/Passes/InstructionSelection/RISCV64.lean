@@ -1628,10 +1628,34 @@ def gmirAnyext_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
     riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
 
+/--
+  `gmir.g_anyext` of a cast from `!riscv.reg` -> a cast of that register to the result type.
+  `g_anyext` leaves the high bits unspecified, so they may be the register's own high bits: this
+  avoids the `!riscv.reg -> iN -> !riscv.reg` round trip of `gmirAnyext`, which reconciles to a
+  zero-extension (see `anyext_of_reg_refinement`).
+-/
+def gmirAnyextOfReg_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let regType ← MatchProg.type (Attr := RegisterType)
+      let r ← MatchProg.value regType
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let castOp ← MatchProg.operation (.builtin .unrealized_conversion_cast) #[r] #[opType]
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let root ← MatchProg.root (.gmir .g_anyext) #[castOp.res[0]!] #[resType]
+      MatchProg.matchNative (opType, resType, root.properties)
+          fun (opType, resType, props) =>
+            riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] props
+      return (r, resType))
+    (fun (r, resType) =>
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[r] #[resType])
+    (fun castOp => castOp)
+
 def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
 def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
 def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
+def gmirAnyextOfReg : Puddle.CompiledPattern OpCode := gmirAnyextOfReg_pattern.compile
 def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
 def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
 def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
@@ -1928,7 +1952,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
+    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirConstant.run] ++
