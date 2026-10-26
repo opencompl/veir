@@ -334,22 +334,6 @@ theorem OperationPtr.getOperand_replaceValue?
       have : operand ∈ valueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
       grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
 
-set_option warn.sorry false in
-theorem OperationPtr.getOperand_replaceOp?
-    (hCtx : IRContext.WellFormed ctx)
-    (hCtx' : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn depth = some ctx') :
-    oldOp ≠ newOp →
-    OperationPtr.getOperand op ctx' idx opInBounds idxInBounds =
-    let operand := OperationPtr.getOperand op ctx idx (by sorry) (by sorry)
-    match operand with
-    | ValuePtr.opResult {op := op', index := idx'} =>
-      if op' = oldOp then
-        ValuePtr.opResult {op := newOp, index := idx'}
-      else
-        operand
-    | _ => operand := by
-  sorry
-
 theorem BlockPtr.opChain_rewriter_replaceUse
     (hWf : BlockPtr.OpChain block' ctx array) :
     BlockPtr.OpChain block'
