@@ -1,25 +1,23 @@
 name: Lean Action CI (LLVM latest)
 
 # The sibling of `lean_action_ci_namespace.yml`, on the runner profile whose
-# image floats to the newest LLVM release rather than the pinned one. It is
-# meant to run per commit, since that is what tests the image at all:
+# image is built from LLVM's main branch rather than a pinned release. It runs
+# per commit, since that is what tests the image at all:
 # `rebuild-llvm-latest-image.yml` only triggers the rebuild and cannot wait for
-# it. Until it has run green once, it is dispatched by hand.
+# it.
 #
 # It builds without the Nix development environment, unlike every other
 # workflow here. That environment pins `llvmPackages_23`, and activating it
 # would put that `clang`, `llvm` and `mlir-opt` ahead of the image's on PATH,
-# leaving only `llubi` and `alive-exec` floating. The image supplies the whole
-# toolchain instead, so the LLVM under test is the one it resolved.
+# leaving only `llubi` floating. The image supplies the whole toolchain
+# instead, so the LLVM under test is the one it built.
 
 on:
-  # Manual only for now. Nothing has yet built this project without the Nix
-  # development environment, and the image has never been built with the
-  # toolchain in it, so a red check on every pull request would be a poor way
-  # to find out what is missing. Add `push: branches: [main]`,
-  # `pull_request:` and `merge_group:` once a dispatched run has come back
-  # green.
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
+  merge_group:
 
 jobs:
   buildns-llvm-latest:
@@ -29,14 +27,13 @@ jobs:
       - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
 
       # Which LLVM this run is actually testing, named in the log so that a
-      # failure can be read against a release without digging into the image.
+      # failure can be read against a revision without digging into the image.
       - name: Report the toolchain
         run: |
           clang --version | head -1
           llvm-config --version
           mlir-opt --version | head -2
           llubi --version
-          alive-exec --version
 
       # The checkout wipes the workspace, so create the build directories
       # before binding the cache volume. Otherwise the action skips them with
