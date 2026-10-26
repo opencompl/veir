@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
+from mir_llc import emit_asm_cmd, regalloc_cmd
 from vsmith_generate import generate
 
 
@@ -37,60 +38,45 @@ RISCV_PASSES = "riscv"
 
 # --- RISC-V MIR execution cross-check -------------------------------------
 # In --riscv mode we further lower the optimized riscv-dialect MLIR to LLVM
-# pre-RA MIR (Tools/veir2mir + llc), assemble/link it into a bare-metal ELF
+# pre-RA MIR (Tools/veir2mir + llc), assemble/link it into a static Linux ELF
 # whose _start calls the lowered `main`, compares its i64 return value against
-# veir-interpret's result, and reports the verdict via the HTIF tohost device
-# (exit 0 = agree, 1 = disagree). The ELF runs under spike.
-MIR_TOOLS = ("llc", "clang", "spike")
+# veir-interpret's result, and exits with 0 (agree) or MIR_MISMATCH_EXIT
+# (disagree). The ELF runs under qemu-riscv64 user mode: directly if it is in
+# PATH (Linux), otherwise inside the Lima VM RISCV_VM (macOS). It is piped in
+# over stdin, so the VM needn't see the workdir.
+MIR_TOOLS = ("llc", "clang")
 MIR_MARCH = "rv64im_zba_zbb_zbs_zbc_zbkb_zicond"
 MIR_ABI = "lp64"
-SPIKE_TIMEOUT = 30
+# Disable C so compressed instructions trap; A, F and D are left on.
+QEMU_CPU = "rv64,c=false,zba=true,zbb=true,zbs=true,zbc=true,zbkb=true,zicond=true"
+RISCV_VM = "rv64"
+QEMU_TIMEOUT = 30
+MIR_MISMATCH_EXIT = 99
+# Runs the ELF read from stdin; $1 is the -cpu spec, $2 the timeout in seconds.
+QEMU_RUNNER = ('f=$(mktemp) && cat >"$f" && chmod +x "$f" && '
+               'timeout "$2" qemu-riscv64 -cpu "$1" "$f"; rc=$?; rm -f "$f"; exit $rc')
 
-MIR_LINK_LD = """OUTPUT_ARCH(riscv)
-ENTRY(_start)
-SECTIONS {
-  . = 0x80000000;
-  .text : { *(.text._start) *(.text*) }
-  .rodata : { *(.rodata*) *(.srodata*) }
-  .data : { *(.data*) *(.sdata*) }
-  .htif ALIGN(0x1000) : { *(.htif) }
-  .bss : { *(.bss*) *(.sbss*) *(COMMON) }
-}
-"""
-
-# _start calls main, compares a0 to the expected value, then HTIF-exits with
-# code 0 (match) or 1 (mismatch).  {expected} is the interpreter's result,
-# zero-extended to 64 bits, and {normalize} zero-extends a narrower a0 to match.
+# _start calls main, compares a0 to the expected value, then exits via the
+# exit_group syscall with 0 (match) or MIR_MISMATCH_EXIT (mismatch).  {expected}
+# is the interpreter's result, zero-extended to 64 bits, and {normalize}
+# zero-extends a narrower a0 to match.
 MIR_DRIVER_TEMPLATE = """\
 .section .text._start
 .globl _start
 _start:
-    la   sp, _stack_top
     call main
 {normalize}    la   t0, expected
     ld   t1, 0(t0)
-    bne  a0, t1, .Lfail
-    li   t0, 1            # (0<<1)|1  => HTIF exit code 0
-    j    .Lhalt
-.Lfail:
-    li   t0, 3            # (1<<1)|1  => HTIF exit code 1
-.Lhalt:
-    la   t1, tohost
-    sd   t0, 0(t1)
-1:  j 1b
+    li   t2, 0
+    beq  a0, t1, .Lexit
+    li   t2, {mismatch}
+.Lexit:
+    mv   a0, t2
+    li   a7, 94           # exit_group
+    ecall
 .section .rodata
 .align 3
 expected: .dword {expected}
-.section .htif, "aw", @progbits
-.align 6
-.globl tohost
-tohost:   .dword 0
-.globl fromhost
-fromhost: .dword 0
-.section .bss
-.align 4
-.skip 65536
-_stack_top:
 """
 
 
@@ -588,11 +574,23 @@ def refines(original: str, optimized: str, riscv: bool = False) -> bool:
 
 @functools.lru_cache(maxsize=1)
 def resolve_mir_tools() -> dict[str, str] | None:
-    """Resolve {llc, clang, spike}; None if any is missing."""
+    """Resolve {llc, clang}; None if any is missing."""
     resolved = {name: shutil.which(name) for name in MIR_TOOLS}
     if any(path is None for path in resolved.values()):
         return None
     return resolved  # type: ignore[return-value]
+
+
+@functools.lru_cache(maxsize=1)
+def resolve_qemu_runner() -> list[str] | None:
+    """Command prefix that runs QEMU_RUNNER locally if qemu-riscv64 is in PATH,
+    else in the Lima VM RISCV_VM; None if neither qemu-riscv64 nor limactl is."""
+    if shutil.which("qemu-riscv64"):
+        return ["sh", "-c", QEMU_RUNNER, "sh"]
+    limactl = shutil.which("limactl")
+    if limactl:
+        return [limactl, "shell", RISCV_VM, "sh", "-c", QEMU_RUNNER, "sh"]
+    return None
 
 
 def after_to_expected(after: str) -> tuple[int, int] | None:
@@ -607,16 +605,14 @@ def after_to_expected(after: str) -> tuple[int, int] | None:
     return parsed
 
 
-def _mir_run(cmd: list[str], timeout: int | None = None) -> tuple[int, str]:
-    result = subprocess.run(
-        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, timeout=timeout
-    )
-    return result.returncode, result.stdout
+def _mir_run(cmd: list[str], stdin: Path | None = None) -> tuple[int, str]:
+    with open(stdin, "rb") if stdin else open(os.devnull, "rb") as f:
+        result = subprocess.run(cmd, stdin=f, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    return result.returncode, result.stdout.decode(errors="replace")
 
 
 def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[bool, str]:
-    """Lower `opt` to MIR, execute it under spike, and check the returned
+    """Lower `opt` to MIR, execute it under qemu-riscv64, and check the returned
     integer equals the interpreter's value `after`.  Returns (ok, message).
 
     For a result narrower than i64 only its low bits of a0 are compared: the
@@ -630,7 +626,8 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     expected, width = parsed
 
     tools = resolve_mir_tools()
-    assert tools is not None  # guaranteed by the startup check
+    qemu = resolve_qemu_runner()
+    assert tools is not None and qemu is not None  # guaranteed by the startup check
     veir2mir = repo / ".lake" / "build" / "bin" / "veir2mir"
 
     stem = opt.name[: -len(".opt.mlir")] if opt.name.endswith(".opt.mlir") else opt.stem
@@ -642,7 +639,6 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
     drv_s = d / f"{stem}.driver.s"
     drv_o = d / f"{stem}.driver.o"
     elf = d / f"{stem}.elf"
-    ld_script = d / "veir_mir_link.ld"
     artifacts = [mir, lowered, asm, func_o, drv_s, drv_o, elf]
 
     def cleanup() -> None:
@@ -650,7 +646,7 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
             for f in artifacts:
                 f.unlink(missing_ok=True)
 
-    march = ["--target=riscv64-unknown-elf", f"-march={MIR_MARCH}", f"-mabi={MIR_ABI}"]
+    march = ["--target=riscv64-unknown-linux-gnu", f"-march={MIR_MARCH}", f"-mabi={MIR_ABI}"]
 
     # 1. veir2mir: riscv-dialect MLIR -> pre-RA MIR
     rc, out = _mir_run([str(veir2mir), str(opt)])
@@ -663,36 +659,21 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         return False, (f"veir2mir could not lower some ops\n"
                        f"optimized: {opt}\nmir: {mir}\n" + "\n".join(unhandled))
 
-    # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR. Rather than a
-    # canned -O0/-O2 pipeline we drive an explicit minimal machine pipeline via
-    # -run-pass so VeIR's instruction selection passes through unmodified while we
-    # still get the greedy allocator: PHI elimination, two-address lowering,
-    # register coalescing (deletes isel-generated copies), greedy allocation +
-    # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
-    # pseudo expansion. -run-pass emits MIR, so the asm printer runs in stage 2b.
-    rc, out = _mir_run([tools["llc"], str(mir), "-mtriple=riscv64", "-x", "mir",
-                        "-run-pass=phi-node-elimination,two-address-instruction,"
-                        "register-coalescer,greedy,virt-reg-rewriter,prolog-epilog,"
-                        "post-ra-pseudos,riscv-expand-pseudo-pre-emit", "-o", str(lowered)])
+    # 2a. llc, register-allocation stage: MIR -> fully-lowered MIR (see mir_llc)
+    rc, out = _mir_run(regalloc_cmd(tools["llc"], str(mir), str(lowered)))
     if rc != 0:
         return False, (f"llc failed to lower MIR (regalloc stage)\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
-    # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly.
-    # -start-after=riscv-expand-pseudo-pre-emit skips straight to the asm printer (the few
-    # remaining passes are no-ops here) without re-running regalloc or prologue
-    # insertion, which would corrupt the already-lowered MIR.
-    rc, out = _mir_run([tools["llc"], str(lowered), "-mtriple=riscv64", "-x", "mir",
-                        "-start-after=riscv-expand-pseudo-pre-emit", "-o", str(asm)])
+    # 2b. llc, emission stage: fully-lowered MIR -> RISC-V assembly (see mir_llc)
+    rc, out = _mir_run(emit_asm_cmd(tools["llc"], str(lowered), str(asm)))
     if rc != 0:
         return False, (f"llc failed to emit assembly from lowered MIR\n"
                        f"optimized: {opt}\nlowered: {lowered}\n{out}")
 
     # 3. assemble the lowered function and the comparison driver, then link
-    if not ld_script.exists():
-        ld_script.write_text(MIR_LINK_LD)
     drv_s.write_text(MIR_DRIVER_TEMPLATE.format(
-        expected=expected,
+        expected=expected, mismatch=MIR_MISMATCH_EXIT,
         normalize=(f"    slli a0, a0, {64 - width}\n    srli a0, a0, {64 - width}\n"
                    if width < 64 else "")))
     for label, src_path, obj in (("function", asm, func_o), ("driver", drv_s, drv_o)):
@@ -700,29 +681,27 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         if rc != 0:
             return False, (f"assembling MIR {label} failed\n"
                            f"optimized: {opt}\nmir: {mir}\n{out}")
-    rc, out = _mir_run([tools["clang"], *march, "-fuse-ld=lld", "-nostdlib", "-nostartfiles",
-                        "-static", f"-Wl,-T,{ld_script}", str(func_o), str(drv_o), "-o", str(elf)])
+    rc, out = _mir_run([tools["clang"], *march, "-fuse-ld=lld", "-nostdlib", "-static",
+                        str(func_o), str(drv_o), "-o", str(elf)])
     if rc != 0:
         return False, (f"linking MIR executable failed\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
-    # 4. execute under spike: exit 0 = return value agrees, nonzero = disagrees
-    try:
-        rc, out = _mir_run([tools["spike"], "--misaligned", f"--isa={MIR_MARCH}", str(elf)],
-                           timeout=SPIKE_TIMEOUT)
-    except subprocess.TimeoutExpired:
-        return False, (f"MIR execution under spike timed out ({SPIKE_TIMEOUT}s)\n"
-                       f"optimized: {opt}\nmir: {mir}\nelf: {elf}")
-
+    # 4. execute under qemu-riscv64: exit 0 = return value agrees,
+    # MIR_MISMATCH_EXIT = disagrees, 124 = timeout, anything else = crash
+    rc, out = _mir_run([*qemu, QEMU_CPU, str(QEMU_TIMEOUT)], stdin=elf)
     if rc == 0:
         cleanup()
         return True, ""
-    if rc == 1:
+    if rc == 124:
+        return False, (f"MIR execution under qemu-riscv64 timed out ({QEMU_TIMEOUT}s)\n"
+                       f"optimized: {opt}\nmir: {mir}\nelf: {elf}")
+    if rc == MIR_MISMATCH_EXIT:
         return False, (f"MIR execution disagrees with interpreter\n"
                        f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n"
                        f"interpreter: {after}  (expected 0x{expected:016x})\n"
-                       f"spike returned a different i{width} (exit {rc})\n{out}")
-    return False, (f"spike crashed running MIR (exit {rc})\n"
+                       f"qemu-riscv64 returned a different i{width} (exit {rc})\n{out}")
+    return False, (f"qemu-riscv64 crashed running MIR (exit {rc})\n"
                    f"optimized: {opt}\nmir: {mir}\nelf: {elf}\n{out}")
 
 
@@ -1005,7 +984,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--keep", action="store_true",
                         help="keep workdir on success (always kept on failure)")
     parser.add_argument("--no-mir-exec", action="store_true",
-                        help="in --riscv mode, skip lowering to MIR and executing it under spike")
+                        help="in --riscv mode, skip lowering to MIR and executing it under qemu-riscv64")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
                         help="number of parallel workers (default: all available cores)")
     parser.add_argument("--verbose", action="store_true",
@@ -1032,8 +1011,10 @@ def main(argv: list[str]) -> int:
         args.passes = RISCV_PASSES
     repo = Path(__file__).resolve().parents[1]
     mir_exec = args.riscv and not args.no_mir_exec
-    if mir_exec and resolve_mir_tools() is None:
+    if mir_exec and (resolve_mir_tools() is None or resolve_qemu_runner() is None):
         missing = [name for name in MIR_TOOLS if shutil.which(name) is None]
+        if resolve_qemu_runner() is None:
+            missing.append(f"qemu-riscv64 (or limactl with a Lima VM named {RISCV_VM})")
         raise SystemExit(
             f"--riscv MIR execution needs {', '.join(missing)} in PATH; "
             f"install them or pass --no-mir-exec"
@@ -1053,7 +1034,8 @@ def main(argv: list[str]) -> int:
     print(f"passes:  {args.passes}")
     print(f"workers: {args.workers}")
     if mir_exec:
-        print(f"mir-exec:    lower to MIR and execute under spike ({MIR_MARCH})")
+        where = "locally" if resolve_qemu_runner()[0] == "sh" else f"in Lima VM {RISCV_VM}"
+        print(f"mir-exec:    lower to MIR and execute under qemu-riscv64 {where} ({MIR_MARCH})")
     for interp in llvm_interps:
         print(f"{interp.name + ':':<12}{interp.bin}")
 

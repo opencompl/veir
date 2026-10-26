@@ -1,6 +1,6 @@
 name: Rebuild the LLVM latest image
 
-# Rebuilds the runner image that floats to the newest LLVM release, so that
+# Rebuilds the runner image that is built from LLVM's main branch, so that
 # `lean_action_ci_llvm_latest.yml` has something current to run against. That
 # workflow is what tests the image: `nsc github profile rebuild-base-image`
 # only triggers a build and returns, so a job here could not wait for the image
@@ -55,7 +55,7 @@ jobs:
       # image by itself, so asking again would build it twice, and each build
       # here compiles LLVM. On the schedule the file is the same as yesterday's
       # and nothing would rebuild on its own, which is exactly when the rebuild
-      # has to be asked for: what moves is the release the build resolves, not
+      # has to be asked for: what moves is the commit the build clones, not
       # the Dockerfile.
       #
       # `describe` does not report the Dockerfile the profile holds, so there
