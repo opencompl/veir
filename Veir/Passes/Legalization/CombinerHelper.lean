@@ -40,21 +40,22 @@ def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
       let x ← MatchProg.value type
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
       let root ← MatchProg.root (.gmir .g_sub) #[x, constant.res[0]!] #[type]
-      MatchProg.matchNative (type, constant.properties) fun (type, constantProps) =>
-        info.isLegal .g_add #[type] (NswNuwProperties.mk false false) &&
-          info.isLegal .g_constant #[type] constantProps.neg
+      MatchProg.matchNative (type, constant.properties) fun (ty, props) =>
+        info.isLegal .g_add #[ty] { nsw := false, nuw := false } &&
+          info.isLegal .g_constant #[ty] props.neg
       return (type, x, constant.properties, root.properties))
     (fun (type, x, constantProps, subProps) => do
-      -- `x - C` and `x + -C` overflow as signed integers in the same cases, unless `C` is the
-      -- minimum signed value, which is its own negation. As unsigned integers they do not, so `nuw`
-      -- is dropped.
-      let (negProps, addProps) ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.gmir .g_constant)) ×
-            Handle OpCode (.prop (.gmir .g_add)))
-          (constantProps, subProps) fun (constantProps, subProps) =>
-        some (constantProps.neg,
-          NswNuwProperties.mk (subProps.nsw && !constantProps.isMinSigned) false)
+      let negProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.gmir .g_constant))) constantProps
+          fun props => some props.neg
       let negOp ← CreateProg.operation (.gmir .g_constant) #[] #[type] negProps
+      -- `x - C` and `x + -C` wrap as signed integers in the same cases, unless `C` is the
+      -- minimum signed value, which is its own negation. As unsigned integers, a nonzero `C`
+      -- negates to the large value `2^n - C`, so `x + -C` wraps whenever `x - C` does not, and
+      -- `nuw` is dropped.
+      let addProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.gmir .g_add))) (constantProps, subProps)
+          fun (constant, sub) => some { nsw := sub.nsw && !constant.isMinSigned, nuw := false }
       CreateProg.operation (.gmir .g_add) #[x, negOp.res[0]!] #[type] addProps)
     (fun addOp => addOp)
 

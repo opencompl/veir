@@ -22,9 +22,9 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
+import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
-import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -54,7 +54,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CanonicalizePass,
      LegalizePass,
      LegalizeRISCV64Pass,
-     RISCV64PostLegalizerCombinerPass,
+     PostLegalizerCombinerRISCV64Pass,
      CirToStdPass,
      LLVMToGMIRPass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
