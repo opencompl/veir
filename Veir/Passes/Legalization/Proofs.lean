@@ -63,6 +63,37 @@ theorem anyext_trunc_wider (w n m : Nat) (hn : n < w) (hw : w < m) (x : LLVM.Int
     simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
     grind⟩
 
+/--
+Prove the correctness of combining `g_anyext (g_anyext x)` to `g_anyext x`, at every width.
+-/
+theorem anyext_anyext (w n m : Nat) (hn : w < n) (hm : n < m) (x : LLVM.Int w)
+    (ext : BitVec (m - w)) :
+    ∃ ext₁ : BitVec (n - w), ∃ ext₂ : BitVec (m - n),
+      LLVM.Int.ext (LLVM.Int.ext x n ext₁ hn) m ext₂ hm ⊒ LLVM.Int.ext x m ext (by omega) :=
+  ⟨ext.extractLsb' 0 (n - w), ext.extractLsb' (n - w) (m - n), by
+    veir_bv_normalize
+    simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
+    grind⟩
+
+/-- Bit `i` of the mask `2 ^ n - 1` is set exactly when `i < n`. -/
+private theorem getElem_ofInt_two_pow_sub_one {m n i : Nat} (hi : i < m) :
+    (BitVec.ofInt m (2 ^ n - 1))[i] = decide (i < n) := by
+  rw [show (2 ^ n - 1 : _root_.Int) = ((2 ^ n - 1 : Nat) : _root_.Int) by
+    simp [Int.natCast_sub Nat.one_le_two_pow]]
+  simp [← BitVec.getLsbD_eq_getElem, BitVec.getLsbD_ofNat, hi]
+
+/--
+Prove the correctness of lowering `g_zext` to a `g_and` of a `g_anyext` with the mask of the source
+width, at every width.
+-/
+theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
+    (ext : BitVec (m - n)) :
+    LLVM.Int.zext x m nneg h ⊒
+      LLVM.Int.and (LLVM.Int.ext x m ext h) (LLVM.Int.constant m (2 ^ n - 1)) := by
+  veir_bv_normalize
+  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append, getElem_ofInt_two_pow_sub_one]
+  grind
+
 end Veir.Data.LLVM
 
 end

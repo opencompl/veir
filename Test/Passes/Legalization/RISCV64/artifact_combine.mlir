@@ -39,7 +39,14 @@
     // CHECK-NEXT: %[[OR:.*]] = "gmir.g_or"(%[[A]], %[[B]]) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"(%[[OR]]) : (i64) -> i8
 
-    "test.test"(%ext, %and, %narrower, %wider, %or) : (i64, i8, i32, i64, i8) -> ()
+    // A `g_anyext (g_anyext x)` is a `g_anyext` of `x`.
+    %x_i1 = "llvm.mlir.constant"() <{value = true}> : () -> i1
+    %ext_i32 = "gmir.g_anyext"(%x_i1) : (i1) -> i32
+    %ext_ext = "gmir.g_anyext"(%ext_i32) : (i32) -> i64
+    // CHECK-NEXT: %[[X_I1:.*]] = "llvm.mlir.constant"() <{"value" = true}> : () -> i1
+    // CHECK-NEXT: "gmir.g_anyext"(%[[X_I1]]) : (i1) -> i64
+
+    "test.test"(%ext, %and, %narrower, %wider, %or, %ext_ext) : (i64, i8, i32, i64, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

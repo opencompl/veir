@@ -95,11 +95,33 @@ def lowerSext : Pattern OpCode :=
       CreateProg.operation (.gmir .g_sext_inreg) #[ext.res[0]!] #[resType] props)
     (fun op => op)
 
+/-- Lowers `g_zext` to a `g_anyext` followed by a `g_and` with the mask of the source width, which
+is what LLVM's artifact combiner makes of a `g_zext` of a `g_trunc`. -/
+def lowerZext : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let src ← MatchProg.value srcType
+      let _ ← MatchProg.root (.gmir .g_zext) #[src] #[resType]
+      return (srcType, resType, src))
+    (fun (srcType, resType, src) => do
+      let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
+      let maskProps ← CreateProg.applyNative (srcType, resType) fun (srcType, resType) =>
+        match srcType.val, resType.val with
+        | .integerType srcType, .integerType resType =>
+          some (GMIRConstantProperties.mk (.ofInt (2 ^ srcType.bitwidth - 1) resType))
+        | _, _ => none
+      let mask ← CreateProg.operation (.gmir .g_constant) #[] #[resType] (.inr maskProps)
+      CreateProg.operation (.gmir .g_and) #[ext.res[0]!, mask.res[0]!] #[resType])
+    (fun op => op)
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
+  | .g_zext => lowerZext
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/

@@ -51,6 +51,20 @@ def combineAnyExtOfTruncToCast (castOpcode : GMIR) (relation : IntegerType → I
       CreateProg.operation (.gmir castOpcode) #[x] #[type] props)
     (fun cast => cast)
 
+/-- Combines `g_anyext (g_anyext x)` to `g_anyext x`, as LLVM's `tryCombineAnyExt` does. -/
+def combineAnyExtOfAnyExt : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value srcType
+      let midType ← MatchProg.type (Attr := IntegerType)
+      let inner ← MatchProg.operation (.gmir .g_anyext) #[x] #[midType]
+      let type ← MatchProg.type (Attr := IntegerType)
+      let _ ← MatchProg.root (.gmir .g_anyext) #[inner.res[0]!] #[type]
+      return (x, type))
+    (fun (x, type) => CreateProg.operation (.gmir .g_anyext) #[x] #[type])
+    (fun ext => ext)
+
 public section
 
 /--
@@ -61,7 +75,8 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
   | .g_anyext => [
       combineAnyExtOfTruncSame,
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
-      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)]
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
+      combineAnyExtOfAnyExt]
   | _ => []
 
 end

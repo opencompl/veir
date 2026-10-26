@@ -1638,13 +1638,12 @@ def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
-  single-operand extension op whose operand has a fixed legal integer width `opBw` (`8`, `16`,
-  or `32`) and whose result is a strictly wider integer type of width at
-  most 64 (a 64-bit register cannot represent wider results, so e.g. `sext i8 to i128` is left
-  unselected; unlike `opBw`, the result width is matched generically rather than enumerated), cast
-  the operand to a register, apply the byte/halfword/word extension op matching `opBw`, and cast the
-  result back to the (generically-matched) result type. Only extensions that
-  `riscv64LegalizerInfo` considers legal are selected.
+  single-operand extension op whose operand has a fixed legal integer width `opBw` (`16` or `32`)
+  and whose result is a strictly wider integer type of width at most 64 (a 64-bit register cannot
+  represent wider results, so e.g. `sext i16 to i128` is left unselected; unlike `opBw`, the result
+  width is matched generically rather than enumerated), cast the operand to a register, apply the
+  halfword/word extension op matching `opBw`, and cast the result back to the (generically-matched)
+  result type. Only extensions that `riscv64LegalizerInfo` considers legal are selected.
 -/
 def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
@@ -1652,9 +1651,6 @@ def lowerExt (srcOp : GMIR) (opBw : Nat) (riscvOp : Riscv)
     -- A 64-bit register cannot hold a wider result.
     MatchProg.matchNative resType fun t => (t.val.bitwidthOfType).any (· ≤ 64)
     matchLegal srcOp resType properties (type₁ := opType)
-
-/-- `gmir.g_sext` (`i8` operand) -> `riscv.sextb`. -/
-def sext8_pattern : Pattern OpCode := lowerExt .g_sext 8 .sextb ()
 
 /-- `gmir.g_sext` (`i16` operand) -> `riscv.sexth`. -/
 def sext16_pattern : Pattern OpCode := lowerExt .g_sext 16 .sexth ()
@@ -1689,9 +1685,6 @@ def sextInReg_local : LocalRewritePattern OpCode := fun ctx op => do
   let (ctx, result) ← replaceWithRegLocal ctx op (extOps.back!.getResult 0)
   return (ctx, some (#[castOp] ++ extOps.push result, #[result.getResult 0]))
 
-/-- `gmir.g_zext` (`i8` operand) -> `riscv.zextb`. -/
-def zext8_pattern : Pattern OpCode := lowerExt .g_zext 8 .zextb ()
-
 /-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
 def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
 
@@ -1699,27 +1692,19 @@ def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
 def zext32_pattern : Pattern OpCode := lowerExt .g_zext 32 .zextw ()
 
 /--
-  gmir.g_sext %x `i8`  to `i32` -> riscv.sextb %x
-  gmir.g_sext %x `i8`  to `i64` -> riscv.sextb %x
   gmir.g_sext %x `i16` to `i64` -> riscv.sexth %x
   gmir.g_sext %x `i16` to `i32` -> riscv.sexth %x
   gmir.g_sext %x `i32` to `i64` -> riscv.sextw %x
 -/
-def sext8 : Puddle.CompiledPattern OpCode := sext8_pattern.compile
-
 def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
 
 def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
 
 /--
-  gmir.g_zext %x `i8`  to `i32` -> riscv.zextb %x
-  gmir.g_zext %x `i8`  to `i64` -> riscv.zextb %x
   gmir.g_zext %x `i16` to `i64` -> riscv.zexth %x
   gmir.g_zext %x `i16` to `i32` -> riscv.zexth %x
   gmir.g_zext %x `i32` to `i64` -> riscv.zextw %x
 -/
-def zext8 : Puddle.CompiledPattern OpCode := zext8_pattern.compile
-
 def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
 
 def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
@@ -1981,8 +1966,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     bitreverse64.run, bitreverse32.run, bitreverse16.run, bitreverse8.run,
     constant.run, addressof] ++
     #[
-    sext32.run, sext16.run, sext8.run, .fromLocalRewrite sextInReg_local,
-    zext32.run, zext16.run, zext8.run, trunc.run,
+    sext32.run, sext16.run, .fromLocalRewrite sextInReg_local,
+    zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
     load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
