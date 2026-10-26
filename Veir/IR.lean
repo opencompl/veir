@@ -1,5 +1,6 @@
 module
 
+public import Veir.IR.AffineMap
 public import Veir.IR.Attribute
 public import Veir.IR.Basic
 public import Veir.IR.Mutators

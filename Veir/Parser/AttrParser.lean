@@ -415,6 +415,65 @@ def parseOptionalDenseArrayAttr : AttrParserM (Option DenseArrayAttr) := do
   parsePunctuation ">"
   return some (DenseArrayAttr.mk elementType values)
 
+private def unsupportedAffineExprError :=
+  "only dimensions and integer constants are supported in affine expressions"
+
+/--
+  Parse an affine expression over the dimensions named `dims`.
+  Only a dimension name or a (possibly negated) integer constant is supported.
+-/
+private def parseAffineExpr (dims : Array ByteArray) : AttrParserM (AffineExpr dims.size) := do
+  let startPos ← getPos
+  let expr ← do
+    if let some name ← parseOptionalIdentifier then
+      -- In an expression, MLIR reads `symbol` as the start of an SSA symbol
+      -- `symbol(%x)`, even if a dimension has that name.
+      if name == "symbol".toByteArray then
+        throwAt startPos "symbols are not supported in affine maps"
+      let some i := dims.finIdxOf? name
+        | throwAt startPos s!"use of undeclared identifier '{String.fromUTF8! name}'"
+      pure (AffineExpr.dim i)
+    else
+      let isNegative := (← parseOptionalToken .minus).isSome
+      let valuePos ← getPos
+      let some token ← parseOptionalToken .intLit
+        | throwAt startPos unsupportedAffineExprError
+      let some value := numericValueToNat? (token.slice.of (← getThe ParserState).input)
+        | throwAt valuePos "invalid integer literal"
+      -- As in MLIR, constants are signed 64-bit integers.
+      if value ≥ 2 ^ 63 then
+        throwAt valuePos "constant too large for index"
+      pure (AffineExpr.const (if isNegative then -value else value))
+  -- Reject compound expressions such as `d0 + 1`, `2 * d0` or `d0 floordiv 2` for now.
+  if (← peekToken).kind matches .plus | .minus | .star | .bareIdent | .intLit | .lParen then
+    throwAt startPos unsupportedAffineExprError
+  return expr
+
+/--
+  Parse a builtin affine map attribute, if present.
+  Its syntax is `affine_map<(dim-list) -> (result-list)>`, e.g.,
+  `affine_map<(d0, d1) -> (d1, 0)>`. Dimensions may be given any identifier as a name,
+  and are numbered by their position. Results must be dimensions or integer constants;
+  symbols and compound affine expressions are not yet supported.
+-/
+def parseOptionalAffineMapAttr : AttrParserM (Option AffineMapAttr) := do
+  if !(← parseOptionalKeyword "affine_map".toByteArray) then
+    return none
+  parsePunctuation "<"
+  let dims ← parseDelimitedList .paren do
+    pure (← getPos, ← parseIdentifier "dimension identifier expected in affine map")
+  let mut names : Array ByteArray := #[]
+  for (pos, name) in dims do
+    if names.contains name then
+      throwAt pos s!"redefinition of identifier '{String.fromUTF8! name}'"
+    names := names.push name
+  if (← peekToken).kind matches .lSquare then
+    throwAtCurrentPos "symbols are not supported in affine maps"
+  let _ ← parseToken .arrow "expected '->' in affine map"
+  let results ← parseDelimitedList .paren (parseAffineExpr names)
+  parsePunctuation ">"
+  return some ⟨names.size, results⟩
+
 def parseFastMathFlag : AttrParserM FastMathFlagsAttr := do
   if (← parseOptionalKeyword "fast".toByteArray) then
     return { nnan := true, ninf := true, nsz := true }
@@ -1555,6 +1614,8 @@ partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
     return some stringAttr
   else if let some denseArrayAttr ← parseOptionalDenseArrayAttr then
     return some denseArrayAttr
+  else if let some affineMapAttr ← parseOptionalAffineMapAttr then
+    return some affineMapAttr
   else if let some denseElementsAttr ← parseOptionalDenseElementsAttr then
     return some denseElementsAttr
   else if let some unitAttr ← parseOptionalUnitAttr then

@@ -2,6 +2,7 @@ module
 
 import Veir.ForLean
 public import Veir.Data.Float
+public import Veir.IR.AffineMap
 public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
@@ -804,6 +805,8 @@ inductive Attribute
 | denseElementsAttr (attr : DenseElementsAttr)
 /-- Dictionary attribute -/
 | dictionaryAttr (attr : DictionaryAttr)
+/-- Builtin affine map attribute -/
+| affineMapAttr (attr : AffineMapAttr)
 /-- Function type -/
 | functionType (type : FunctionType)
 /-- An attribute from an unknown dialect. -/
@@ -1326,6 +1329,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .denseElementsAttr attr => ToString.toString attr
   | .denseArrayAttr attr => ToString.toString attr
   | .dictionaryAttr attr => attr.toString
+  | .affineMapAttr attr => ToString.toString attr
   | .unregisteredAttr attr => attr.toString
   | .flatSymbolRefAttr attr => ToString.toString attr
   | .symbolRefAttr attr => ToString.toString attr
@@ -1856,6 +1860,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case dictionaryAttr x =>
     exact IsAttr.decEqAgainst x attr2 (DictionaryAttr.decEq x)
+  case affineMapAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
   case functionType x =>
     exact IsAttr.decEqAgainst x attr2 (FunctionType.decEq x)
   case unregisteredAttr x =>
@@ -1977,6 +1983,7 @@ def isType (attr : Attribute) : Bool :=
   | .denseArrayAttr _ => false
   | .denseElementsAttr _ => false
   | .dictionaryAttr _ => false
+  | .affineMapAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .flatSymbolRefAttr _ => false
   | .symbolRefAttr _ => false
@@ -2059,6 +2066,8 @@ theorem isType_loopAnnotation attr : (Attribute.of LoopAnnotationAttr attr).isTy
 theorem isType_targetFeatures attr : (Attribute.of TargetFeaturesAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_dlSpec attr : (Attribute.of DlSpecAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_affineMap attr : (Attribute.of AffineMapAttr attr).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
   (Attribute.of UnregisteredAttr unregistered).isType = unregistered.isType := by rfl
