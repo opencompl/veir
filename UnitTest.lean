@@ -26,6 +26,8 @@ import UnitTest.SymbolInterfaces
 import UnitTest.CallInterfaces
 import UnitTest.Puddle
 import UnitTest.CTreePuddle
+import UnitTest.CTreeBuiltin
+import UnitTest.CTreeRISCV
 import UnitTest.CTreeSymbolicPuddle
 import UnitTest.LLVMConstantDecode
 import UnitTest.BoundedBitblasting.BoundedBitblasting

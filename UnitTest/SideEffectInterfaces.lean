@@ -1,5 +1,6 @@
 import Veir.GlobalOpInfo
 import Veir.Interfaces.SideEffectInterfaces
+import Veir.Interfaces.DeadCodeInterfaces
 import Veir.Rewriter.WfRewriter.Basic
 
 open Veir
@@ -76,3 +77,20 @@ private def opWithType {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpCode D
 #guard let (op, ctx) := opWithType Llvm.load default; !op.isMemoryIndependent ctx
 #guard let (op, ctx) := opWithType Llvm.store default; !op.isMemoryIndependent ctx
 #guard let (op, ctx) := opWithType Llvm.alloca default; !op.isMemoryIndependent ctx
+
+/-
+  DCE may remove unused reads, but must preserve allocations: even an unused
+  allocation changes the final memory and the addresses of later allocations.
+-/
+
+#guard let (op, ctx) := opWithType Arith.addi default; decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Llvm.load default; decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Llvm.load volatileLoadProperties;
+  !decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Llvm.store default; !decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Llvm.alloca default; !decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Riscv_Stack.alloca default;
+  !decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Func.call default; !decide (op.isTriviallyDead ctx)
+#guard let (op, ctx) := opWithType Func.return default; !decide (op.isTriviallyDead ctx)
+#guard !decide (moduleWithRegion.1.isTriviallyDead moduleWithRegion.2)

@@ -3,12 +3,29 @@ module
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
 public import Veir.Dialects.LLVM.Interpreter
+public import Veir.Dialects.Builtin.Interpreter
+public import Veir.Dialects.RISCV.Interpreter
 
 public section
 
 open CTree
 
 namespace Veir.CTree
+
+/-- Interpret the regionless opcode semantics, before embedding region-call effects. -/
+def interpretOpTree (opType : OpCode) (properties : propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (blockOperands : Array BlockPtr) (mem : MemoryState)
+    : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+  match opType with
+  | .llvm opType =>
+    Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .builtin opType =>
+    Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .riscv opType =>
+    Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | opType =>
+    monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
 
 set_option linter.unusedVariables false in
 /--
@@ -22,14 +39,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (blockOperands : Array BlockPtr) (mem : MemoryState)
     (regions : Array RegionPtr := #[])
     : RegionTree ctx MemoryState (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
-  match opType with
-  /- The LLVM dialect has a CTree-based interpreter. -/
-  | .llvm opType =>
-    CTree.interp (fun e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
-      (Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem)
-  /- Other dialects rely on lifting the `Interp`-based interpreter. -/
-  | opType =>
-    monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
+  CTree.interp (fun e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
+    (interpretOpTree opType properties resultTypes operands blockOperands mem)
 
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
@@ -109,16 +120,28 @@ def interpretRegion (region : RegionPtr) (values : Array RuntimeValue)
   CTree.mrec (E := RunRegionE ctx (InterpreterState ctx)) (fun ⟨region, values, state, inBounds⟩ =>
     interpretCFG region values state inBounds) ⟨region, values, state, inBounds⟩
 
-/-- Interpret a function body with the given runtime arguments. -/
+/--
+Interpret a function with the given runtime arguments and initial memory, returning both
+the final memory and the returned values. As with `Veir.interpretFunction`, the function
+starts with an empty variable state: the caller's SSA values are not visible in the callee.
+-/
+def interpretFunctionWithMemory {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (funcOp : FunctionOp ctx.raw op) (values : Array RuntimeValue) (mem : MemoryState)
+    (opIn : op.InBounds ctx.raw := by grind)
+    : Tree (MemoryState × Array RuntimeValue) := do
+  if h : op.getNumRegions ctx.raw ≠ 1 then
+    fail
+  else
+    let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
+    let (state, results) ← interpretRegion funcOp.getFunctionBody values state
+    return (state.memory, results)
+
+/-- Interpret a function body with empty memory, returning only its runtime results. -/
 def interpretFunction (op : OperationPtr) (values : Array RuntimeValue)
     {ctx : WfIRContext OpCode} (opIn : op.InBounds ctx.raw := by grind)
     : Tree (Array RuntimeValue) := do
   let some funcOp := FunctionOp.of? op ctx.raw | fail
-  if h : op.getNumRegions ctx.raw ≠ 1 then
-    fail
-  else
-    let (_, results) ← interpretRegion funcOp.getFunctionBody
-      values (.empty ctx)
-    return results
+  let (_, results) ← interpretFunctionWithMemory funcOp values .empty opIn
+  return results
 
 end Veir.CTree
