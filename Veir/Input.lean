@@ -104,11 +104,11 @@ def defaultSplitMarker : String := "// -----"
 
 /-- The start and end byte offsets of the chunks of `content` separated by `splitMarker`.
     Without `splitMarker`, all of `content` is one chunk. -/
-def splitInput (content : ByteArray) (splitMarker : Option String) : Array (Nat × Nat) :=
-  match splitMarker, String.fromUTF8? content with
-  | some marker, some text => (text.split marker).toArray.map fun (chunk : String.Slice) =>
-    (chunk.startInclusive.offset.byteIdx, chunk.endExclusive.offset.byteIdx)
-  | _, _ => #[(0, content.size)]
+def splitInput (content : ByteArray) : (splitMarker : Option String) → Array (Nat × Nat)
+  | none => #[(0, content.size)]
+  | some marker =>
+    ((String.fromUTF8! content).split marker).toArray.map fun chunk =>
+      (chunk.startInclusive.offset.byteIdx, chunk.endExclusive.offset.byteIdx)
 
 end Veir.Input
 
