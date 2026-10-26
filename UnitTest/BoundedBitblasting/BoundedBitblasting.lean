@@ -10,6 +10,11 @@ example (w : Nat) (x : BitVec (w + 0)) (y : BitVec w) (hw : w ≤ 4) :
     x + y = y + x := by
   pbv_decide 4
 
+/-- Add commutes with unrelated Nat hypothesis -/
+example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) (h : x.toNat < 3) :
+    x + y = y + x := by
+  pbv_decide 4
+
 /-- Commutativity of addition for three variables -/
 example (w : Nat) (x y z : BitVec w) (hw : w ≤ 4) :
     x + y + z = y + x + z := by

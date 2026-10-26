@@ -294,6 +294,15 @@ end
 #gsynth QPF.IsPolynomial (@TypeFun.ofCurried 2 AlsoFst)
 
 /-!
+## Optional Live Parameters
+-/
+
+@[qpf] def WithOptParam (α : liveParam Type := Nat) := α × α
+
+#gsynth QPF (@TypeFun.ofCurried 1 (WithOptParam ·))
+#gsynth QPF.IsPolynomial (@TypeFun.ofCurried 1 (WithOptParam ·))
+
+/-!
 ## Rejected targets
 -/
 

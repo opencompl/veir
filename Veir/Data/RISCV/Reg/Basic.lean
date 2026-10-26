@@ -614,6 +614,13 @@ def rev8 (rs1 : Reg) : Reg :=
    BitVec.extractLsb 39 32 rs1.val ++ BitVec.extractLsb 47 40 rs1.val ++
    BitVec.extractLsb 55 48 rs1.val ++ BitVec.extractLsb 63 56 rs1.val⟩
 
+/-- Zbkb: reverse the bits within each byte, preserving byte order. -/
+def brev8 (rs1 : Reg) : Reg :=
+  ⟨(BitVec.extractLsb 63 56 rs1.val).reverse ++ (BitVec.extractLsb 55 48 rs1.val).reverse ++
+   (BitVec.extractLsb 47 40 rs1.val).reverse ++ (BitVec.extractLsb 39 32 rs1.val).reverse ++
+   (BitVec.extractLsb 31 24 rs1.val).reverse ++ (BitVec.extractLsb 23 16 rs1.val).reverse ++
+   (BitVec.extractLsb 15 8 rs1.val).reverse ++ (BitVec.extractLsb 7 0 rs1.val).reverse⟩
+
 /-! ## Zbc: Carry-less multiplication -/
 
 /-! ## Zbs: Single-bit instructions -/
