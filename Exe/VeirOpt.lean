@@ -206,6 +206,21 @@ def processBuffer (args : VeirOptArgs) (sourceName : String) (input : ByteArray)
             catch errMsg => throw s!"Error: {errMsg}"
   Veir.Printer.printModule ctx.raw op { printGenericOpForm := args.printGenericOpForm }
 
+/--
+  Run `processBuffer` on each chunk of `content`, printing `defaultSplitMarker` between their
+  outputs. A failing chunk has its error printed and does not stop the following ones.
+  Returns whether all chunks succeeded.
+-/
+def processInput (args : VeirOptArgs) (sourceName : String) (content : ByteArray) : IO Bool := do
+  let mut succeeded := true
+  for ((start, stop), i) in (splitInput content args.splitInputFile).zipIdx do
+    if i > 0 then IO.println defaultSplitMarker
+    let chunk := processBuffer args sourceName (content.extract 0 stop) { byteOffset := start }
+    if let .error err ← chunk.run then
+      IO.eprintln err
+      succeeded := false
+  return succeeded
+
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
   match parseArgs args with
@@ -226,6 +241,5 @@ def main (args : List String) : IO Unit := do
       IO.eprintln errMsg
       IO.Process.exit 1
     | .ok content =>
-      let sourceName := args.filename.getD "<stdin>"
-      unless ← splitAndProcessBuffer content args.splitInputFile (processBuffer args sourceName) do
+      unless ← processInput args (args.filename.getD "<stdin>") content do
         IO.Process.exit 1

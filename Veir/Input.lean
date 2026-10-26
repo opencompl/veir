@@ -102,22 +102,13 @@ def inputSourceOfArgs (positional : List String) : Except String (Option String)
 /-- The marker separating the chunks of a split input by default. -/
 def defaultSplitMarker : String := "// -----"
 
-/-- Run `process` on each chunk of `content` separated by `splitMarker`, printing
-    `defaultSplitMarker` between their outputs, and return whether all of them succeeded.
+/-- The start and end byte offsets of the chunks of `content` separated by `splitMarker`.
     Without `splitMarker`, all of `content` is one chunk. -/
-def splitAndProcessBuffer (content : ByteArray) (splitMarker : Option String)
-    (process : ByteArray → Parser.Location → ExceptT String IO Unit) : IO Bool := do
-  let chunks := match splitMarker, String.fromUTF8? content with
-    | some marker, some text => (text.split marker).toArray.map fun (chunk : String.Slice) =>
-      (chunk.startInclusive.offset.byteIdx, chunk.endExclusive.offset.byteIdx)
-    | _, _ => #[(0, content.size)]
-  let mut succeeded := true
-  for ((start, stop), i) in chunks.zipIdx do
-    if i > 0 then IO.println defaultSplitMarker
-    if let .error err ← (process (content.extract 0 stop) { byteOffset := start }).run then
-      IO.eprintln err
-      succeeded := false
-  return succeeded
+def splitInput (content : ByteArray) (splitMarker : Option String) : Array (Nat × Nat) :=
+  match splitMarker, String.fromUTF8? content with
+  | some marker, some text => (text.split marker).toArray.map fun (chunk : String.Slice) =>
+    (chunk.startInclusive.offset.byteIdx, chunk.endExclusive.offset.byteIdx)
+  | _, _ => #[(0, content.size)]
 
 end Veir.Input
 
