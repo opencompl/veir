@@ -2,6 +2,7 @@ module
 
 public meta import Lean
 public import QPFTypes.Theory.QPF.Cofix.WithBot
+public import QPFTypes.Meta.ProductiveBy.Intro
 
 /-!
 # The `codef` command (proof of concept)
@@ -20,7 +21,8 @@ syntactic productivity check. Instead, it
    (see `Codef.Ctx.go`), and adds the result as `f.__partial : binders → PT` via
    `partial_fixpoint`;
 3. defines `f := fun binders => CofixWithBot.get (f.__partial binders) h`, where
-   `h : CofixWithBot.HasNoBot (f.__partial binders)` is proved by `tac`.
+   `h : CofixWithBot.HasNoBot (f.__partial binders)` is proved by `tac`, after
+   `productive_by_intro` has set up the coinduction.
 
 ## The translation
 
@@ -265,7 +267,7 @@ def elabCodef : CommandElab := fun stx => do
     let ctx ← mkCtx fullName rawName T
     let p := mkAppN (.const partialName lvls) xs
     let goal := mkApp (ctx.mkConst ``QPF.CofixWithBot.HasNoBot) p
-    let h ← elabTermEnsuringType (← `(by $tac)) goal
+    let h ← elabTermEnsuringType (← `(by productive_by_intro; ($tac:tacticSeq))) goal
     synthesizeSyntheticMVarsNoPostponing
     let h ← instantiateMVars h
     let get := ctx.mkConst ``QPF.CofixWithBot.get

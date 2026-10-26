@@ -16,6 +16,8 @@ open QPF Lean.Order
 
 @[qpf] def StreamF (α S : liveParam Type) := α × S
 
+
+
 /-- Possibly-partial streams. -/
 def PStream (a : Type) : Type :=
   CofixWithBot (@TypeFun.ofCurried 2 StreamF) #t[a]
@@ -132,15 +134,9 @@ def Stream.map' (xs : Stream α) (f : α → β) : Stream β :=
 codef Stream.map (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) (map f xs.tail)
 productive_by
-  apply CofixWithBot.HasNoBot.coinduct (fun z => ∃ xs, z = Stream.map.__partial f xs) _ _
-    ⟨xs, rfl⟩
-  intro a h
-  unfold Stream.map.__partial at h
-  clear xs
-  rcases h with ⟨xs, rfl⟩
-  -- ^^ TODO: should be auto-generated
-
-  exact ⟨_, CofixWithBot.dest_mk _, (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, rfl⟩⟩
+  erw [CofixWithBot.dest_mk]
+  refine ⟨_, rfl, ?_⟩
+  exact (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, rfl⟩
 
 theorem Stream.map.__unfold (f : α → β) (xs : Stream α) :
     Stream.map f xs = Stream.cons (f xs.head) (Stream.map f xs.tail) := by
@@ -183,13 +179,6 @@ codef filter (P : α → Bool) (xs : Stream α) (h : xs.InfOften P) : Stream α 
   else
     filter P xs.tail h.tail
 productive_by
-  apply CofixWithBot.HasNoBot.coinduct
-    (fun z => ∃ xs h, z = filter.__partial P xs h) _ _ ⟨xs, h, rfl⟩
-  rintro _ xsh
-  unfold filter.__partial at xsh
-  clear h xs
-  rcases xsh with ⟨xs, h, rfl⟩
-
   cases h with | mk hev hinf =>
   induction hev with
   | @here xs hP =>
@@ -243,13 +232,6 @@ section Nats
 codef nats (fro : Nat) : Stream Nat :=
   .cons fro (nats <| fro + 1)
 productive_by
-  apply CofixWithBot.HasNoBot.coinduct
-    (fun z => ∃ fro, z = nats.__partial fro) _ _ ⟨fro, rfl⟩
-  intro x h
-  unfold nats.__partial at h
-  clear fro
-  rcases h with ⟨fro, rfl⟩
-
   simp [CofixWithBot.mk]
   refine ⟨?y, by rfl, ?_⟩
   refine (IsPolynomial.liftPLast_iff _ _).2 fun i => ?_
