@@ -720,9 +720,11 @@ theorem OperationPtr.DominatesIp.exists_parentRegion {ip : InsertPoint}
   | AtEndSameBlock dominatorParent => grind
   | AtEndOtherBlock dominance => exact dominance.exists_parentRegion
 
-/-- An operation dominates the point after another operation exactly when it dominates
-that operation. -/
-axiom OperationPtr.DominatesIp.after_iff :
+/-- In a containing region, an operation dominates the point after a rooted operation exactly
+when it dominates that operation. -/
+axiom OperationPtr.DominatesIp.after_iff
+    (rooted : op₂.RootedAt root ctx)
+    (blockParent : block.getParent! ctx.raw = some region) :
     op₁.DominatesIp (InsertPoint.after op₂ ctx.raw block op₂HasParent op₂InBounds) ctx enclosingOk ↔
     op₁.Dominates op₂ ctx enclosingOk
 
