@@ -540,6 +540,8 @@ private def MachineMemOperand.verify (mmo : MachineMemOperand) (type : TypeAttr)
   if type.val matches .llvmPointerType _ then
     if size ≠ width then
       throw s!"{instrName}: Expected 'size' to be the pointer width {width}, but got {size}"
+
+/--
 Verifies that the operands and the results of `op` have the same total width.
 This is used to verify `g_merge_values` and `g_unmerge_values`.
 -/
