@@ -1,5 +1,6 @@
 module
 
+public import Veir.IR.CallInterfaceCallable
 public import Veir.IR.OpCode
 public import Veir.IR.WellFormed
 public import Veir.FoldDecision
@@ -55,12 +56,6 @@ structure FunctionOpInterface (Properties : Type) where
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
-/-- The callee of a call: a symbol, or one of its operands. -/
-inductive CallInterfaceCallable (α : Type) where
-  | symbol (ref : FlatSymbolRefAttr)
-  | value (value : α)
-deriving Inhabited, Repr, DecidableEq
-
 /--
 Information exposed by call-like operations. It only selects among the operands, so it works for
 any operand type `α`: the IR uses it on SSA values, and the interpreter on runtime values.
@@ -70,6 +65,12 @@ structure CallOpInterface (Properties : Type) where
   getCallableForCallee? : {α : Type} → Properties → Array α → Option (CallInterfaceCallable α)
   /-- Return the operands passed as arguments to the callee. -/
   getArgOperands : {α : Type} → Properties → Array α → Array α
+
+/-- The call requested by an operation with properties `props` and operands `operands`. -/
+def CallOpInterface.call? (callOpInterface : CallOpInterface Properties) (props : Properties)
+    (operands : Array RuntimeValue) : Option ControlFlowAction := do
+  let callee ← callOpInterface.getCallableForCallee? props operands
+  return .call callee (callOpInterface.getArgOperands props operands)
 
 /-- The SSA values forwarded from a branch operation to one of its successors. -/
 structure SuccessorOperands where

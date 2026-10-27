@@ -94,6 +94,8 @@ def interpretCFG.iter {ctx : WfIRContext OpCode} (location : interpretCFG.StateL
     | none =>
       rlet some nextOp := op.getNextOp ctx.raw | fail
       return .inl (.inr ⟨nextOp, by grind⟩, state)
+    /- TODO: perform calls. For now they fail. -/
+    | some (.call _ _) => fail
 
 /-- Interpret a region's CFG starting at its entry block, leaving nested region calls as effects. -/
 def interpretCFG (region : RegionPtr) (values : Array RuntimeValue)

@@ -106,13 +106,33 @@ def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : I
   | _, _ => False
 
 /--
+A function environment `source` is refined by `target` when calling any function with refining
+arguments and the same memory gives refining results.
+-/
+@[expose]
+def FunctionEnv.isRefinedBy (source target : FunctionEnv) : Prop :=
+  ∀ callee (args args' : Array RuntimeValue) mem, args ⊒ args' →
+    Interp.isRefinedBy FunctionResult.isRefinedBy (source callee args mem) (target callee args' mem)
+
+/-- Refinement between two callees: the same symbol, or refining values. -/
+@[expose]
+def CallInterfaceCallable.isRefinedBy :
+    CallInterfaceCallable RuntimeValue → CallInterfaceCallable RuntimeValue → Prop
+  | .symbol ref, .symbol ref' => ref = ref'
+  | .value v, .value v' => v ⊒ v'
+  | _, _ => False
+
+@[inherit_doc] infix:50 " ⊒ " => CallInterfaceCallable.isRefinedBy
+
+/--
 Refinement between two control flow actions: same constructor, equal successor block `dest`, and
-the carried value payloads refine pointwise.
+the callee and carried value payloads refine.
 -/
 @[expose]
 def ControlFlowAction.isRefinedBy : ControlFlowAction → ControlFlowAction → Prop
   | .return vals, .return vals' => vals ⊒ vals'
   | .branch vals dest, .branch vals' dest' => dest = dest' ∧ vals ⊒ vals'
+  | .call callee args, .call callee' args' => callee ⊒ callee' ∧ args ⊒ args'
   | _, _ => False
 
 @[inherit_doc] infix:50 " ⊒ " => ControlFlowAction.isRefinedBy

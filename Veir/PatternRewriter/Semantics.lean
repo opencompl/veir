@@ -169,7 +169,8 @@ def LocalRewritePattern.mapping
 /--
 Preservation of semantics for a local rewrite pattern.
 If the pattern matches an operation and return new operations and values, then interpreting
-the matched operation in a state is refined by interpreting the new operations in a refined state.
+the matched operation in a state is refined by interpreting the new operations in a refined state,
+in any function environment.
 -/
 def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
@@ -178,14 +179,15 @@ def LocalRewritePattern.PreservesSemantics
   ∀ ctx (root : OperationPtr) (ctxDom : ctx.Dom root) (ctxVerif : ctx.Verified root)
     (op : OperationPtr) (opInBounds : op.InBounds ctx.raw) (opInRoot : root.Ancestor op ctx),
   ∀ newCtx newOps newValues (hpattern : pattern ctx op = some (newCtx, some (newOps, newValues))),
-  ∀ (state : InterpreterState ctx), state.EquationLemmaAt (InsertPoint.before op) →
-  ∀ newState cf, interpretOp op state = some (newState, cf) →
+  ∀ (env : FunctionEnv) (state : InterpreterState ctx),
+  state.EquationLemmaAt (InsertPoint.before op) →
+  ∀ newState cf, interpretOp env op state = some (newState, cf) →
   ∀ sourceValues, (op.getResults ctx.raw).mapM (newState.variables.getVar? ·) = some sourceValues →
   ∀ (state' : InterpreterState newCtx), state'.EquationLemmaAt (InsertPoint.before op) →
   state'.DefinesDominating (InsertPoint.before op) →
   state.isRefinedByAt state' (LocalRewritePattern.mapping hpattern) (.at (.before op)) (.at (.before op)) →
   ∃ newState',
-    interpretOpList newOps.toList state' (by grind [ReturnOps]) = some (newState', cf) ∧
+    interpretOpList env newOps.toList state' (by grind [ReturnOps]) = some (newState', cf) ∧
     newState.memory = newState'.memory ∧
     ∃ targetValues,
       newValues.mapM (newState'.variables.getVar? ·) = some targetValues ∧

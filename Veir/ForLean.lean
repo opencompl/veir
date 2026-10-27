@@ -3,6 +3,7 @@ module
 public import Std.Data.ExtHashSet
 public import Veir.Meta.Tactic.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
+import all Init.Internal.Order.Basic -- unfold [Lean.Order.admissible] in Lean.Order.admissible_rel
 public section
 
 /--
@@ -1016,3 +1017,12 @@ namespace Rat
 def twoPow (k : Int) : Rat := 2 ^ k
 
 end Rat
+
+namespace Lean.Order
+
+/-- In a chain-complete partial order, the elements below `y` are an admissible predicate. -/
+theorem admissible_rel {α : Sort u} [CCPO α] (y : α) :
+    admissible (fun x => PartialOrder.rel x y) :=
+  fun _ hchain h => csup_le hchain h
+
+end Lean.Order
