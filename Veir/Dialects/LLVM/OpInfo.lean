@@ -603,14 +603,27 @@ def Llvm.functionInterface? (op : Llvm) : Option (FunctionOpInterface (Llvm.prop
           { props with function_type := functionType } }
   | _ => none
 
+/--
+`llvm.call` calls the function it names, or else the one its first operand points to. The arguments
+are the first operand segment, without the callee pointer of an indirect call; the rest are operand
+bundle operands.
+-/
+def Llvm.callInterface : CallOpInterface LLVMCallProperties where
+  getCallableForCallee? props operands :=
+    match props.callee with
+    | some callee => some (.symbol callee)
+    | none => operands[0]?.map .value
+  getArgOperands props operands :=
+    let numOperands :=
+      match props.extra.entries.find? (fun (k, _) => k == "operandSegmentSizes".toUTF8) with
+      | some (_, .denseArrayAttr sizes) => sizes.values[0]?.map Int.toNat
+      | _ => none
+    let operands := operands.extract 0 (numOperands.getD operands.size)
+    if props.callee.isSome then operands else operands.extract 1
+
 def Llvm.callOpInterface? (op : Llvm) : Option (CallOpInterface (Llvm.propertiesOf op)) :=
   match op with
-  | .call =>
-    some
-      { getCallableForCallee? := fun props operands =>
-          match props.callee with
-          | some callee => some (.symbol callee)
-          | none => operands[0]?.map .value }
+  | .call => some Llvm.callInterface
   | _ => none
 
 private def Llvm.getSwitchSuccessorOperands?
