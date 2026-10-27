@@ -191,7 +191,7 @@ def lowerZext : Pattern OpCode :=
     (fun op => op)
 
 /-- Creates a `g_constant` of value 0 and of the integer type `type`. -/
-private def createZero (type : Handle OpCode .type) : CreateProg.Builder CreatedOpHandle := do
+def createZero (type : Handle OpCode .type) : CreateProg.Builder CreatedOpHandle := do
   let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant))) type
     fun type => match type.val with
       | .integerType type => some (GMIRConstantProperties.mk (.ofInt 0 type))
@@ -203,7 +203,7 @@ Lowers `g_uaddo` to a `g_add`, which carries when the sum is less than either op
 `g_usubo` to a `g_sub`, which borrows when the left operand is less than the right one, as LLVM's
 `LegalizerHelper::lower` does.
 -/
-def lowerCarryOut (isAdd : Bool) : Pattern OpCode :=
+def lowerAddSubO (isAdd : Bool) : Pattern OpCode :=
   let (opcode, arithOpcode) := if isAdd then (GMIR.g_uaddo, GMIR.g_add) else (.g_usubo, .g_sub)
   Pattern.Builder
     (do
@@ -228,7 +228,7 @@ carries when its result is less than either operand (for `g_add`) or greater tha
 (for `g_sub`). The second one only carries when the carry-in is set, and the second result (for
 `g_add`) or the first result (for `g_sub`) is zero.
 -/
-def lowerCarryInOut (isAdd : Bool) : Pattern OpCode :=
+def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
   let (opcode, arithOpcode, predicate) :=
     if isAdd then (GMIR.g_uadde, GMIR.g_add, Data.LLVM.IntPred.ult)
     else (.g_usube, .g_sub, .ugt)
@@ -267,10 +267,10 @@ public section
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
   | .g_zext => lowerZext
-  | .g_uaddo => lowerCarryOut true
-  | .g_usubo => lowerCarryOut false
-  | .g_uadde => lowerCarryInOut true
-  | .g_usube => lowerCarryInOut false
+  | .g_uaddo => lowerAddSubO true
+  | .g_usubo => lowerAddSubO false
+  | .g_uadde => lowerAddSubE true
+  | .g_usube => lowerAddSubE false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/

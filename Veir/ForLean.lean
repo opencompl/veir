@@ -498,11 +498,24 @@ theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
     x.umulOverflow y = y.umulOverflow x := by
   grind [BitVec.umulOverflow]
 
-/-- An unsigned add overflows exactly when its sum is less than an operand. -/
+/-- An unsigned add overflows exactly when its sum is less than the right operand. -/
 theorem uaddOverflow_eq_ult {w : Nat} (x y : BitVec w) :
     x.uaddOverflow y = (x + y).ult y := by
   simp only [uaddOverflow, ult_eq_decide, toNat_add, Nat.add_mod_eq_ite, toNat_mod_cancel]
-  split <;> simp <;> omega
+  split <;> simp only [ge_iff_le, decide_eq_decide] <;> omega
+
+/--
+An unsigned add overflows exactly when its sum is less than the left operand.
+
+As in LLVM, `g_uaddo` compares the sum with the right operand and `g_uadde` with the left one.
+Either works, because a sum that wraps around is less than both operands.
+-/
+theorem uaddOverflow_eq_ult_left {w : Nat} (x y : BitVec w) : x.uaddOverflow y = (x + y).ult x := by
+  rw [uaddOverflow_comm, uaddOverflow_eq_ult, BitVec.add_comm]
+
+/-- Every `BitVec 1` is a `Bool`. -/
+theorem exists_eq_ofBool (c : BitVec 1) : ∃ b, c = ofBool b :=
+  ⟨c.getLsbD 0, by simpa using c.setWidth_one⟩
 
 /-- `x + y + b` carries exactly when `x + y` carries, or adding `b` to it carries. -/
 theorem carry_eq_uaddOverflow_or {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Bool) :
@@ -510,14 +523,17 @@ theorem carry_eq_uaddOverflow_or {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Bo
   have := Nat.one_lt_two_pow (Nat.pos_iff_ne_zero.mp hw); have := Bool.toNat_le b
   simp (disch := omega) only [carry_width, uaddOverflow, toNat_add, toNat_setWidth, toNat_ofBool,
     Nat.mod_eq_of_lt, Nat.add_mod_eq_ite]
-  split <;> simp [← Bool.decide_or] <;> omega
+  split <;> simp only [ge_iff_le, ← Bool.decide_or, decide_eq_decide] <;> omega
 
 /-- Adding a carry-in `b` overflows exactly when `b` is set and the result is zero. -/
 theorem uaddOverflow_setWidth_ofBool {w : Nat} (hw : 0 < w) (x : BitVec w) (b : Bool) :
     x.uaddOverflow ((ofBool b).setWidth w) = (x + (ofBool b).setWidth w == 0#w && b) := by
-  cases b <;> simp [uaddOverflow, Bool.beq_eq_decide_eq, ← toNat_inj, Nat.one_mod_two_pow hw,
-    Nat.add_mod_eq_ite, x.isLt]
-  split <;> omega
+  cases b
+  · simp [uaddOverflow, x.isLt]
+  · simp only [uaddOverflow, Bool.beq_eq_decide_eq, ← toNat_inj, toNat_add, toNat_setWidth,
+      toNat_ofBool, Bool.toNat_true, Nat.one_mod_two_pow hw, Nat.add_mod_eq_ite, toNat_mod_cancel,
+      toNat_ofNat, Nat.zero_mod, Bool.and_true, decide_eq_decide]
+    split <;> omega
 
 /-- An unsigned sub `x - y` borrows exactly when the result is greater than `x`. -/
 theorem usubOverflow_eq_ult_sub {w : Nat} (x y : BitVec w) : x.usubOverflow y = x.ult (x - y) := by
@@ -539,8 +555,8 @@ theorem ult_setWidth_add_ofBool {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Boo
   simp (disch := omega) only [ult_eq_decide, usubOverflow, toNat_add, toNat_setWidth, toNat_ofBool,
     Nat.pow_succ, Nat.mod_eq_of_lt]
   by_cases h : y.toNat ≤ x.toNat
-  · rw [toNat_sub_of_le (le_def.mpr h)]; simp [← Bool.decide_or]; omega
-  · rw [toNat_sub_of_lt (lt_def.mpr (by omega))]; simp [← Bool.decide_or]; omega
+  · rw [toNat_sub_of_le (le_def.mpr h)]; simp only [← Bool.decide_or, decide_eq_decide]; omega
+  · rw [toNat_sub_of_lt (lt_def.mpr (by omega))]; simp only [← Bool.decide_or, decide_eq_decide]; omega
 
 /-- Subtracting a borrow-in `b` from `x` borrows exactly when `b` is set and `x` is zero. -/
 theorem usubOverflow_setWidth_ofBool {w : Nat} (hw : 0 < w) (x : BitVec w) (b : Bool) :

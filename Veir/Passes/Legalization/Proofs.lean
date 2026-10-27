@@ -133,16 +133,16 @@ private theorem uadde_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (c : LLV
       let sum := LLVM.Int.add tmp (LLVM.Int.zext c w false h)
       let carry2 := LLVM.Int.and (LLVM.Int.icmp sum (LLVM.Int.constant w 0) .eq) c
       (sum, LLVM.Int.or carry carry2) := by
-  cases x <;> cases y <;> cases c <;>
+  cases x <;> cases y <;> cases c
+  case val.val.val x y c =>
+    obtain ⟨b, rfl⟩ := c.exists_eq_ofBool
+    -- It carries if either `g_add` carries.
     simp [uaddWithCarry, LLVM.Int.add, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.and, LLVM.Int.or,
-      LLVM.Int.constant, Id.run, IntPred.eval]
-  rename_i x y c
-  obtain ⟨b, rfl⟩ : ∃ b, c = BitVec.ofBool b := ⟨_, by simpa using c.setWidth_one⟩
-  -- It carries if either `g_add` carries.
-  simp [BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
-    BitVec.carry_eq_uaddOverflow_or (by omega : 0 < w), BitVec.uaddOverflow_comm x y,
-    BitVec.uaddOverflow_eq_ult y x, BitVec.add_comm y x,
-    BitVec.uaddOverflow_setWidth_ofBool (by omega : 0 < w)]
+      LLVM.Int.constant, Id.run, IntPred.eval, BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
+      BitVec.carry_eq_uaddOverflow_or (by omega : 0 < w), BitVec.uaddOverflow_eq_ult_left x y,
+      BitVec.uaddOverflow_setWidth_ofBool (by omega : 0 < w)]
+  -- A poison operand makes both sides poison.
+  all_goals rfl
 
 /--
 Prove the correctness of lowering `g_usubo` to a `g_sub`, at every width.
@@ -169,15 +169,16 @@ private theorem usube_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (b : LLV
       let diff := LLVM.Int.sub tmp (LLVM.Int.zext b w false h)
       let borrow2 := LLVM.Int.and (LLVM.Int.icmp tmp (LLVM.Int.constant w 0) .eq) b
       (diff, LLVM.Int.or borrow borrow2) := by
-  cases x <;> cases y <;> cases b <;>
+  cases x <;> cases y <;> cases b
+  case val.val.val x y b =>
+    obtain ⟨b, rfl⟩ := b.exists_eq_ofBool
+    -- It borrows if either `g_sub` borrows.
     simp [usubWithBorrow, LLVM.Int.sub, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.and, LLVM.Int.or,
-      LLVM.Int.constant, Id.run, IntPred.eval]
-  rename_i x y b
-  obtain ⟨b, rfl⟩ : ∃ c, b = BitVec.ofBool c := ⟨_, by simpa using b.setWidth_one⟩
-  -- It borrows if either `g_sub` borrows.
-  simp [BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
-    BitVec.ult_setWidth_add_ofBool (by omega : 0 < w), BitVec.usubOverflow_eq_ult_sub x y,
-    BitVec.usubOverflow_setWidth_ofBool (by omega : 0 < w)]
+      LLVM.Int.constant, Id.run, IntPred.eval, BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
+      BitVec.ult_setWidth_add_ofBool (by omega : 0 < w), BitVec.usubOverflow_eq_ult_sub x y,
+      BitVec.usubOverflow_setWidth_ofBool (by omega : 0 < w)]
+  -- A poison operand makes both sides poison.
+  all_goals rfl
 
 end Veir.Data.LLVM
 
