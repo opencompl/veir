@@ -261,17 +261,16 @@ theorem VariableState.setArgumentValues?_loop_isSome_iff {block : BlockPtr}
       · grind
       · grind [ih varState']
 
-/-- `setArgumentValues?` succeeds iff there is one value per argument, and every argument value
-conforms to its argument type. -/
+/-- Given one value per argument, `setArgumentValues?` succeeds iff every argument value conforms
+to its argument type. -/
 theorem VariableState.setArgumentValues?_isSome_iff_conforms (varState : VariableState ctx)
-    {block : BlockPtr} {values : Array RuntimeValue} {blockInBounds} :
-    (values.size = block.getNumArguments! ctx.raw ∧ ∀ j, j < block.getNumArguments! ctx.raw →
+    {block : BlockPtr} {values : Array RuntimeValue} {blockInBounds}
+    (hsize : values.size = block.getNumArguments! ctx.raw) :
+    (∀ j, j < block.getNumArguments! ctx.raw →
       (values[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx.raw)) ↔
     (∃ v, varState.setArgumentValues? block values blockInBounds = some v) := by
-  by_cases h : values.size = block.getNumArguments! ctx.raw <;>
-    simp only [VariableState.setArgumentValues?, h, ↓reduceIte, true_and]
-  · exact VariableState.setArgumentValues?_loop_isSome_iff
-  · simp
+  simp only [VariableState.setArgumentValues?, hsize, ↓reduceIte]
+  exact VariableState.setArgumentValues?_loop_isSome_iff
 
 /--
 Assert equality between two `interpretOp'` calls that have the same operation type and properties.
@@ -382,8 +381,10 @@ theorem VariableState.setArgumentValues?_eq_some_of_varState
     varState.setArgumentValues? block values blockInBounds = some varState' →
     ∃ varState₂', varState₂.setArgumentValues? block values blockInBounds = some varState₂' := by
   intro h
-  simp only [← VariableState.setArgumentValues?_isSome_iff_conforms]
-  grind [(VariableState.setArgumentValues?_isSome_iff_conforms varState).mpr ⟨_, h⟩]
+  have hsize : values.size = block.getNumArguments! ctx.raw := by
+    grind [VariableState.setArgumentValues?]
+  simp only [← VariableState.setArgumentValues?_isSome_iff_conforms _ hsize]
+  grind [(VariableState.setArgumentValues?_isSome_iff_conforms varState hsize).mpr ⟨_, h⟩]
 
 /-- Setting block arguments and operation results commute: block arguments and operation results
 are distinct `ValuePtr`s, so they never alias. -/
