@@ -211,6 +211,23 @@ theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
   grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
 
+/-! ## Conformance -/
+
+/-- A refinement of a value conforms to every type the value conforms to. -/
+theorem RuntimeValue.Conforms.of_isRefinedBy {v v' : RuntimeValue} {ty : TypeAttr}
+    (h : v.Conforms ty) (href : v ⊒ v') : v'.Conforms ty := by
+  rcases ty with ⟨ty, hty⟩
+  cases v <;> cases v' <;> cases ty <;>
+    simp_all [RuntimeValue.Conforms, RuntimeValue.isRefinedBy] <;> grind
+
+/-- A refinement of an array of values conforms to every array of types the array conforms to. -/
+theorem RuntimeValue.ArrayConforms.of_arrayIsRefinedBy {vals vals' : Array RuntimeValue}
+    {types : Array TypeAttr} (h : ArrayConforms vals types) (href : vals ⊒ vals') :
+    ArrayConforms vals' types :=
+  ⟨by grind [ArrayConforms, RuntimeValue.arrayIsRefinedBy], fun i hi =>
+    (h.2 i (by grind [RuntimeValue.arrayIsRefinedBy])).of_isRefinedBy
+      (href.2 i (by grind [RuntimeValue.arrayIsRefinedBy]))⟩
+
 /-! ## Interp refinements -/
 
 /-- `fail` is refined by any value. -/

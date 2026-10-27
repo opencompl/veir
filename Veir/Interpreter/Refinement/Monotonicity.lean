@@ -99,8 +99,7 @@ theorem interpretOp_monotone
     {mapping : ValueMapping ctx ctx'}
     (opIn : op.InBounds ctx.raw) (opIn' : op'.InBounds ctx'.raw)
     (hState : state.isRefinedBy state' mapping)
-    (hPreserves : mapping.PreservesOperation op op')
-    (opVerif' : op'.Verified ctx' opIn') :
+    (hPreserves : mapping.PreservesOperation op op') :
     Interp.isRefinedBy
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
@@ -141,7 +140,11 @@ theorem interpretOp_monotone
     subst memory'₂
     simp only [← hInterp'Eq] at hinterp'Tgt
     simp only [interpretOp, hTgtOps, bind, hinterp'Tgt, liftM, monadLift, MonadLift.monadLift]
-    have := interpretOp'_results_conform (opInBounds := opIn') opVerif' (VariableState.getOperandValues_conforms hTgtOps) hinterp'Tgt
+    /- The source results conform, since the source sets them. -/
+    have hConforms := (VariableState.setResultValues?_isSome_iff_conforms state.variables opIn).mpr
+      ⟨_, hResValues⟩
+    /- The target results refine them, so they conform too. -/
+    have := hPreserves.resultTypes ▸ hConforms.of_arrayIsRefinedBy resValuesRef
     have ⟨v, hv⟩ := (VariableState.setResultValues?_isSome_iff_conforms state'.variables opIn').mp this
     simp only [hv, Interp.pure_eq, Interp.withBlame_ok, Interp.ok.injEq, Prod.mk.injEq]
     have stateVarRef : state.variables.isRefinedBy state'.variables mapping := by grind [InterpreterState.isRefinedBy]
@@ -160,8 +163,7 @@ refinement over an *identical* list of operations modulus α-renaming
 *identical* slice of a block operation chain (the same `OperationPtr`s, whose intrinsic data agrees
 modulo renaming `mapping`). -/
 theorem interpretOpList_mono
-    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (hVerif : ctx'.Verified root)
-    {ops : List OperationPtr}
+    {ctx ctx' : WfIRContext OpCode} {ops : List OperationPtr}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
     (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
     {mapping : ValueMapping ctx ctx'}
@@ -178,7 +180,7 @@ theorem interpretOpList_mono
   | cons a l ih =>
     /- Refinement of the state after interpreting the head operation `a`. -/
     have refinesHead := interpretOp_monotone (opsInBounds a (by grind)) (opsInBounds' a (by grind))
-      hState (hPreserves a (by grind)) (by grind)
+      hState (hPreserves a (by grind))
     simp only [interpretOpList_cons]
     /- Case analysis on the interpretation of the head operation `a` in the source. -/
     rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | _ | ⟨s, act⟩
@@ -212,7 +214,7 @@ over an *identical* list of operations. The proof is derived from `interpretOpLi
 `interpretTerminatedOpList` is a wrapper around `interpretOpList` that checks that the list of
 operation has reached a terminator. -/
 theorem interpretTerminatedOpList_mono
-    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (ctx'Verif : ctx'.Verified root)
+    {ctx ctx' : WfIRContext OpCode}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     {mapping : ValueMapping ctx ctx'}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
@@ -224,7 +226,7 @@ theorem interpretTerminatedOpList_mono
            (r₂ : InterpreterState ctx' × ControlFlowAction) =>
         r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
       (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
-  have hList := interpretOpList_mono ctx'Verif opsInBounds opsInBounds' hState hFrame
+  have hList := interpretOpList_mono opsInBounds opsInBounds' hState hFrame
   simp only [interpretTerminatedOpList, bind]
   rcases hsrc : interpretOpList ops state (by grind) with _ | _ | ⟨s, act⟩
   · simp [Interp.isRefinedBy]
