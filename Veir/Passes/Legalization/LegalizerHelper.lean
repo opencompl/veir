@@ -421,7 +421,7 @@ carries when its result is less than either operand (for `g_add`) or greater tha
 (for `g_sub`). The second one only carries when the carry-in is set, and the second result (for
 `g_add`) or the first result (for `g_sub`) is zero.
 -/
-def lowerCarryInOut (isAdd : Bool) : Pattern OpCode :=
+def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
   let (opcode, arithOpcode, predicate) :=
     if isAdd then (GMIR.g_uadde, GMIR.g_add, Data.LLVM.IntPred.ult)
     else (.g_usube, .g_sub, .ugt)
@@ -558,8 +558,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_usubo => lowerUAddSubO false
   | .g_saddo => lowerSAddSubO true
   | .g_ssubo => lowerSAddSubO false
-  | .g_uadde => lowerCarryInOut true
-  | .g_usube => lowerCarryInOut false
+  | .g_uadde => lowerAddSubE true
+  | .g_usube => lowerAddSubE false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
