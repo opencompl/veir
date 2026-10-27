@@ -1008,7 +1008,7 @@ theorem setWidth_ofInt_1_64 (v : Int) :
 bits.
 -/
 @[veir_bv_normalize]
-theorem carry_eq_msb_setWidth_add {w : Nat} (x y : BitVec w) (b : Bool) :
+theorem carry_eq_msb_add_setWidth {w : Nat} (x y : BitVec w) (b : Bool) :
     carry w x y b = (x.setWidth (w + 1) + y.setWidth (w + 1) + (ofBool b).setWidth (w + 1)).msb := by
   have := x.isLt; have := y.isLt; have := Bool.toNat_le b; have := Nat.one_le_two_pow (n := w)
   simp (disch := omega) only [carry_width, msb_eq_decide, toNat_add, toNat_setWidth, toNat_ofBool,
