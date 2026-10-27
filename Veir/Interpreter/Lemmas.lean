@@ -333,6 +333,16 @@ theorem interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 
+/-- `interpretOp` never terminates iff `interpretOp'` never terminates, if the operands are
+correctly fetched from the variable state. -/
+theorem interpretOp_eq_spin_iff_of_getOperandValues_eq_some
+  {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
+  (hoperandValues : state.variables.getOperandValues op = some operandValues) :
+  interpretOp op state inBounds = .spin ↔
+  op.interpret ctx.raw operandValues state.memory = .spin := by
+  simp only [interpretOp, hoperandValues, bind, pure, liftM, monadLift, MonadLift.monadLift]
+  grind
+
 theorem VariableState.getOperandValues_eq_of_getVar?_eq :
     (∀ val, val ∈ op.getOperands! ctx.raw → varState.getVar? val = varState'.getVar? val) →
     varState.getOperandValues op = varState'.getOperandValues op := by
@@ -558,6 +568,7 @@ theorem interpretOpList_cons :
     match interpretOp op state with
     | .fail o => .fail o
     | .ub o => .ub o
+    | .spin => .spin
     | .ok (state', none) => interpretOpList l state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf) := by
   simp [interpretOpList, bind, pure]
@@ -569,6 +580,7 @@ theorem interpretOpList_append :
     | .ok (state', none) => interpretOpList l₂ state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf)
     | .ub o => .ub o
+    | .spin => .spin
     | .fail o => .fail o := by
   induction l₁ generalizing state
   · simp
@@ -587,6 +599,7 @@ theorem interpretTerminatedOpList_cons {ctx : WfIRContext OpCode}
     match interpretOp op state with
     | .fail o => .fail o
     | .ub o => .ub o
+    | .spin => .spin
     | .ok (state', none) => interpretTerminatedOpList l state' (by grind)
     | .ok (state', some cf) => .ok (state', cf) := by
   simp [interpretTerminatedOpList, interpretOpList_cons, bind, pure]
@@ -598,6 +611,7 @@ theorem interpretTerminatedOpList_append :
     | .ok (state', none) => interpretTerminatedOpList l₂ state' (by grind)
     | .ok (state', some cf)=> .ok (state', cf)
     | .ub o => .ub o
+    | .spin => .spin
     | .fail o => .fail o := by
   simp [interpretTerminatedOpList, interpretOpList_append, bind, pure]
   grind
@@ -608,6 +622,7 @@ theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
     match interpretOp op state' (by grind) with
     | .fail o => .fail o
     | .ub o => .ub o
+    | .spin => .spin
     | .ok (state'', none) => interpretOpChain op' state'' (by grind)
     | .ok (state'', some cf) => .ok (state'', cf) := by
   rw [interpretOpChain]
@@ -620,6 +635,7 @@ theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
     match interpretOp op state' (by grind) with
     | .fail o => .fail o
     | .ub o => .ub o
+    | .spin => .spin
     | .ok (_, none) => .fail none
     | .ok (state'', some cf) => .ok (state'', cf) := by
   rw [interpretOpChain]

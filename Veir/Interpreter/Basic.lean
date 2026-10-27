@@ -221,6 +221,7 @@ def interpretBlockCFG (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx :
       .fail none
   | .ub op => .ub op
   | .fail op => .fail op
+  | .spin => .spin
 partial_fixpoint
 
 /--

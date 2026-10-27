@@ -68,6 +68,10 @@ private def expectOk (what : String) : Interp α → IO α
   | .fail _ => do
     IO.eprintln s!"error: failed to initialize {what}"
     IO.Process.exit 1
+  -- Unreachable: the compiled interpreter loops rather than return `spin`.
+  | .spin => do
+    IO.eprintln s!"error: initializing {what} does not terminate"
+    IO.Process.exit 1
 
 /--
   Give each global and function of the module an object, before any of them
@@ -165,6 +169,10 @@ def main (args : List String) : IO Unit := do
       match op? with
       | some op => IO.eprintln (source.formatAt op "error" "failed to interpret operation")
       | none => IO.eprintln "error: failed to interpret module"
+      IO.Process.exit 1
+    -- Unreachable: the compiled interpreter loops rather than return `spin`.
+    | .spin =>
+      IO.eprintln "error: the program does not terminate"
       IO.Process.exit 1
   | .error errMsg =>
     IO.eprintln errMsg
