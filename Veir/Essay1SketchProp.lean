@@ -1,0 +1,673 @@
+import Veir.GlobalOpInfo
+import Veir.IR.WellFormed
+
+
+/-!
+# Proof-irrelevant proof sketch for Essay 1: a verified LLVM IR parser for VeIR
+
+This copy keeps all correctness conditions in `Prop`, using builtin membership,
+quantification, connectives, `Decidable`, and `Option`. Executable functions
+return data; separate lemmas establish their correctness.
+The parser and its main theorems are sketches; the token relation below has
+explicit spelling rules.
+The parser's output is a VeIR program: a well-formed `IRContext` over VeIR's
+`OpCode` (which includes the LLVM dialect), together with the top-level
+`builtin.module` operation.
+-/
+
+namespace Veir.LLVMParserProp
+
+open Veir
+
+/-! ## Tokens
+
+Tokens needed for the two De Morgan functions in the example. Whitespace and
+comments are represented explicitly in the lexical specification. -/
+
+/-- Keywords are data: adding one means a constructor plus a spelling line. -/
+inductive Keyword where
+  | define | ret | xor | and | or
+  deriving Repr, DecidableEq
+
+def Keyword.all : List Keyword := [.define, .ret, .xor, .and, .or]
+
+def Keyword.spelling : Keyword → List Char
+  | .define => "define".toList | .ret => "ret".toList | .xor => "xor".toList | .and => "and".toList | .or => "or".toList
+
+inductive Punct where
+  | equal | comma | lbrace | rbrace | lparen | rparen
+  deriving Repr, DecidableEq
+
+def Punct.all : List Punct := [.equal, .comma, .lbrace, .rbrace, .lparen, .rparen]
+
+def Punct.char : Punct → Char
+  | .equal => '=' | .comma => ',' | .lbrace => '{' | .rbrace => '}' | .lparen => '(' | .rparen => ')'
+
+theorem Keyword.mem_all (k : Keyword) : k ∈ Keyword.all := by cases k <;> decide
+theorem Punct.mem_all (p : Punct) : p ∈ Punct.all := by cases p <;> decide
+
+/-- Looking up a spelling finds the keyword it spells; proved once for all keywords. -/
+theorem Keyword.find_spelling :
+    ∀ k ∈ Keyword.all, Keyword.all.find? (·.spelling == k.spelling) = some k := by decide
+
+theorem Punct.find_char :
+    ∀ p ∈ Punct.all, Punct.all.find? (·.char == p.char) = some p := by decide
+
+inductive Token : Type where
+  | Eof
+  | ws
+  | comment
+  | punct (p : Punct)
+  | kw (k : Keyword)
+  | intType (width : Nat)
+  | LabelStr (name : String)
+  | GlobalVar (name : String)
+  | LocalVar (name : String)
+  | APSInt (value : Int)
+  deriving Repr, DecidableEq
+
+/-- Skeleton tree from the first pass: names unresolved, phi nodes still present. -/
+def LLVMModule : Type := sorry
+
+/-- A VeIR program: a well-formed context plus its top-level module operation. -/
+abbrev VeIRModule : Type := WfIRContext OpCode × OperationPtr
+
+/-! ## Declarative specification -/
+
+/-- ASCII character classes use Lean's builtin character predicates. -/
+def asciiAlpha (c : Char) : Prop := c.isAlpha = true
+
+def isDigit (c : Char) : Prop := c.isDigit = true
+
+instance (c : Char) : Decidable (asciiAlpha c) :=
+  inferInstanceAs (Decidable (c.isAlpha = true))
+
+instance (c : Char) : Decidable (isDigit c) :=
+  inferInstanceAs (Decidable (c.isDigit = true))
+
+inductive digitNum : Char → Nat → Prop where
+  | zero : digitNum '0' 0
+  | one : digitNum '1' 1
+  | two : digitNum '2' 2
+  | three : digitNum '3' 3
+  | four : digitNum '4' 4
+  | five : digitNum '5' 5
+  | six : digitNum '6' 6
+  | seven : digitNum '7' 7
+  | eight : digitNum '8' 8
+  | nine : digitNum '9' 9
+
+
+inductive digitsNum : List Char → Nat → Prop where
+  | singleDigit : digitNum c n → digitsNum [c] n
+  | digits : digitsNum cs n → digitNum d m → digitsNum (cs ++ [d]) (10 * n + m)
+
+
+
+def nameStart (c : Char) : Prop :=
+  asciiAlpha c ∨ c ∈ "-$._".toList
+
+def nameChar (c : Char) : Prop :=
+  nameStart c ∨ isDigit c
+
+instance (c : Char) : Decidable (nameStart c) :=
+  inferInstanceAs (Decidable (asciiAlpha c ∨ c ∈ "-$._".toList))
+
+instance (c : Char) : Decidable (nameChar c) :=
+  inferInstanceAs (Decidable (nameStart c ∨ isDigit c))
+
+/-- Parse one decimal digit, returning only its value. -/
+def decideDigit (c : Char) : Option Nat :=
+  if c = '0' then some 0
+  else if c = '1' then some 1
+  else if c = '2' then some 2
+  else if c = '3' then some 3
+  else if c = '4' then some 4
+  else if c = '5' then some 5
+  else if c = '6' then some 6
+  else if c = '7' then some 7
+  else if c = '8' then some 8
+  else if c = '9' then some 9
+  else none
+
+theorem digitNum.isDigit (h : digitNum c n) : isDigit c := by
+  cases h <;> decide
+
+theorem nameStart.nameChar (h : nameStart c) : nameChar c := Or.inl h
+
+theorem isDigit.nameChar (h : isDigit c) : nameChar c := Or.inr h
+
+theorem decideDigit_eq_some_iff : decideDigit c = some n ↔ digitNum c n := by
+  refine ⟨fun h => ?_, fun h => by cases h <;> decide⟩
+  unfold decideDigit at h
+  repeat' first | split at h | (simp_all)
+  all_goals subst n; constructor
+
+/-- Append one decimal digit to an accumulated value. -/
+def digitStep (n : Nat) (c : Char) : Option Nat :=
+  (10 * n + ·) <$> decideDigit c
+
+def decideDigits (s : List Char) : Option Nat :=
+  if s = [] then none else s.foldlM digitStep 0
+
+theorem digitsNum.ne_nil (h : digitsNum s n) : s ≠ [] := by
+  cases h <;> simp
+
+theorem digitsNum_snoc_iff : digitsNum (cs ++ [d]) n ↔
+    (cs = [] ∧ digitNum d n) ∨ ∃ m k, digitsNum cs m ∧ digitNum d k ∧ n = 10 * m + k := by
+  constructor
+  · intro h; generalize he : cs ++ [d] = s at h
+    cases h <;> simp_all [List.append_eq_singleton_iff] <;> grind
+  · rintro (⟨rfl, h⟩ | ⟨m, k, hm, hk, rfl⟩) <;>
+      solve_by_elim [digitsNum.singleDigit, digitsNum.digits]
+
+theorem decideDigits_snoc : decideDigits (cs ++ [d]) =
+    if cs = [] then decideDigit d else (decideDigits cs).bind (digitStep · d) := by
+  by_cases cs = [] <;> simp_all [decideDigits, List.foldlM_append, digitStep]
+
+theorem decideDigits_eq_some_iff : decideDigits s = some n ↔ digitsNum s n := by
+  obtain ⟨r, rfl⟩ : ∃ r, s = r.reverse := ⟨s.reverse, by simp⟩
+  induction r generalizing n with
+  | nil => simpa [decideDigits] using fun h => h.ne_nil rfl
+  | cons d r ih =>
+      rw [List.reverse_cons, decideDigits_snoc, digitsNum_snoc_iff]
+      by_cases hr : r = [] <;>
+        simp [hr, Option.bind_eq_some_iff, ih, digitStep, decideDigit_eq_some_iff] <;>
+        grind [digitsNum.ne_nil]
+
+#eval decideDigits "123".toList
+#eval decideDigits "12x".toList
+
+def bareName (s : String) : Prop :=
+  match s.toList with
+  | [] => False
+  | c :: cs => nameStart c ∧ ∀ c ∈ cs, nameChar c
+
+def labelName (s : String) : Prop :=
+  s ≠ "" ∧ ∀ c ∈ s.toList, nameChar c
+
+def digits (s : String) : Prop :=
+  s ≠ "" ∧ ∀ c ∈ s.toList, isDigit c
+
+inductive decimalInteger : List Char → Int → Prop where
+  | positive : digitsNum s n →  decimalInteger s n
+  | negative  : digitsNum s n →  decimalInteger ('-' :: s) (-n)
+
+theorem decimalInteger.nonempty (h : decimalInteger s n) : s ≠ [] := by
+  cases h with
+  | positive hd => exact hd.ne_nil
+  | negative _ => simp
+
+def decideDecimal : List Char → Option Int
+  | '-' :: cs => (decideDigits cs).map (fun (n : Nat) => -Int.ofNat n)
+  | s => (decideDigits s).map Int.ofNat
+
+theorem digitsNum.isDigits (h : digitsNum s n) : ∀ c ∈ s, isDigit c := by
+  induction h with
+  | singleDigit hd => simpa using hd.isDigit
+  | digits _ hd ih => simpa [or_imp, forall_and] using ⟨ih, hd.isDigit⟩
+
+theorem decideDecimal_eq_some_iff : decideDecimal s = some n ↔ decimalInteger s n := by
+  have bad (ds : List Char) (m : Nat) (h : digitsNum ('-' :: ds) m) : False :=
+    (by decide : ¬isDigit '-') (h.isDigits '-' (by simp))
+  unfold decideDecimal
+  split <;> simp only [Option.map_eq_some_iff, decideDigits_eq_some_iff]
+  all_goals grind only [decimalInteger, → decimalInteger.positive, → decimalInteger.negative]
+
+def noLinebreaks (s : List Char) : Prop :=
+  ∀ c ∈ s, c ≠ '\n' ∧ c ≠ '\r'
+
+/-- Tokens spelled by a maximal run of name characters: keywords and `iN` types. -/
+inductive WordToken : List Char → Token → Prop where
+  | keyword (k : Keyword) : WordToken k.spelling (.kw k)
+  | intType {s : List Char} {n : Nat} : digitsNum s n → WordToken ('i' :: s) (.intType n)
+
+def isWs (c : Char) : Prop := c ∈ " \t\n\r".toList
+
+instance (c : Char) : Decidable (isWs c) :=
+  inferInstanceAs (Decidable (c ∈ " \t\n\r".toList))
+
+/-- Spellings of the tokens in the example; boundaries belong to `Lexes`. -/
+inductive TokenRepresentation : List Char → Token → Prop where
+  | eof : TokenRepresentation [] .Eof
+  | ws {s : List Char} : s ≠ [] →
+      (∀ c ∈ s, isWs c) →
+      TokenRepresentation s .ws
+  | comment {line : List Char} {endChar : Char}
+     :  noLinebreaks line → endChar ∈ "\n\r".toList →
+      TokenRepresentation (';' :: (line ++ [endChar])) .comment
+  | commentEof {line : List Char} :
+      noLinebreaks line →
+      TokenRepresentation (';' :: line) .comment
+  | punct (p : Punct) : TokenRepresentation [p.char] (.punct p)
+  | word {w : List Char} {tok : Token} : WordToken w tok → TokenRepresentation w tok
+  | label (name : String) : labelName name ∧ ¬digits name →
+      TokenRepresentation (name.toList ++ [':']) (.LabelStr name)
+  | global (name : String) : bareName name →
+      TokenRepresentation ('@' :: name.toList) (.GlobalVar name)
+  | local (name : String) : bareName name →
+      TokenRepresentation ('%' :: name.toList) (.LocalVar name)
+  | integer {s : List Char} {value : Int} : decimalInteger s value →
+      TokenRepresentation s (.APSInt value)
+/-- The chosen lexeme cannot be extended to another token at this position. -/
+def MaximalToken (piece rest : List Char) : Prop :=
+  ∀ n, 0 < n → n ≤ rest.length → ∀ tok, ¬TokenRepresentation (piece ++ rest.take n) tok
+
+/-- A word token must end before the next name character. -/
+def WordBoundary' (tok : Token) (rest : List Char) : Prop :=
+  match tok, rest with
+  | .kw _, (c :: _)
+  | .intType _, (c :: _)  => ¬nameChar c
+  | _, _ => True
+
+-- nameChar
+def WordBoundary (tok : Token) (rest : List Char) : Prop :=
+  WordBoundary' tok rest
+
+/-- `piece` spells `tok` and is the longest lexeme at this position. -/
+def LongestMatch (piece : List Char) (tok : Token) (rest : List Char) : Prop :=
+  TokenRepresentation piece tok ∧ MaximalToken piece rest ∧ WordBoundary tok rest
+
+/-- Splits source text into tokens, including whitespace and comments. -/
+inductive Lexes : List Char → List (List Char × Token) → Prop where
+  | eof : Lexes [] [([], .Eof)]
+  | token {piece rest : List Char} {tok : Token} {ts : List (List Char × Token)}
+      : LongestMatch piece tok rest → tok ≠ .Eof →
+      Lexes rest ts →
+      Lexes (piece ++ rest) ((piece, tok) :: ts)
+
+
+/-- Reasons the executable lexer can reject input. -/
+inductive TokenizationError where
+  | expectedNameAfter (sigil : Char)
+  | unsupportedNumericLabel (name : String)
+  | invalidInteger (spelling : String)
+  | unsupportedWord (word : String)
+  | unexpectedChar (c : Char)
+  | noProgress
+  deriving Repr, DecidableEq
+
+/-- Classify a word, returning only its token. -/
+def classifyWordRelevant (w : List Char) : Option Token :=
+  match Keyword.all.find? (fun k => w == k.spelling) with
+  | some k => some (.kw k)
+  | none =>
+      match w with
+      | 'i' :: cs => (decideDigits cs).map Token.intType
+      | _ => none
+
+theorem classifyWordRelevant_eq_some_iff :
+    classifyWordRelevant w = some tok ↔ WordToken w tok := by
+  constructor
+  · unfold classifyWordRelevant
+    split <;> (try split) <;> (try simp only [Option.map_eq_some_iff])
+    all_goals grind [WordToken.keyword, WordToken.intType, decideDigits_eq_some_iff]
+  · intro h; cases h with
+    | keyword k => cases k <;> decide
+    | intType hd => simp [classifyWordRelevant, Keyword.all, Keyword.spelling,
+        decideDigits_eq_some_iff.mpr hd]
+
+/-- A complete comment body: any line break must be its final character. -/
+def commentBody : List Char → Prop
+  | [] => True
+  | c :: cs => if c = '\n' ∨ c = '\r' then cs = [] else commentBody cs
+
+instance (cs : List Char) : Decidable (commentBody cs) :=
+  match cs with
+  | [] => isTrue trivial
+  | c :: cs =>
+      letI := instDecidableCommentBody cs
+      inferInstanceAs (Decidable (if c = '\n' ∨ c = '\r' then cs = [] else commentBody cs))
+
+instance (s : String) : Decidable (bareName s) := by
+  unfold bareName
+  split <;> infer_instance
+
+instance (s : String) : Decidable (labelName s) :=
+  inferInstanceAs (Decidable (s ≠ "" ∧ ∀ c ∈ s.toList, nameChar c))
+
+instance (s : String) : Decidable (digits s) :=
+  inferInstanceAs (Decidable (s ≠ "" ∧ ∀ c ∈ s.toList, isDigit c))
+
+/-- Recognize a whole lexeme. Choosing its length is the generic scanner's job. -/
+def recognize : List Char → Option Token
+  | [] => some .Eof
+  | ';' :: cs => if commentBody cs then some .comment else none
+  | '@' :: cs => if bareName (String.ofList cs) then some (.GlobalVar (String.ofList cs)) else none
+  | '%' :: cs => if bareName (String.ofList cs) then some (.LocalVar (String.ofList cs)) else none
+  | cs =>
+      if ∀ c ∈ cs, isWs c then some .ws
+      else if cs.getLast? = some ':' then
+        let name := String.ofList cs.dropLast
+        if labelName name ∧ ¬digits name then some (.LabelStr name) else none
+      else match cs with
+        | [c] => match Punct.all.find? (·.char == c) with
+          | some p => some (.punct p)
+          | none => (classifyWordRelevant cs).or ((decideDecimal cs).map Token.APSInt)
+        | _ => (classifyWordRelevant cs).or ((decideDecimal cs).map Token.APSInt)
+
+theorem commentBody_iff : commentBody cs ↔
+    noLinebreaks cs ∨ ∃ line c, cs = line ++ [c] ∧ noLinebreaks line ∧ c ∈ "\n\r".toList := by
+  induction cs with
+  | nil => simp [commentBody, noLinebreaks]
+  | cons c cs ih =>
+      simp only [commentBody, List.cons_eq_append_iff, or_and_right, exists_or,
+        noLinebreaks, List.mem_cons, forall_eq_or_imp] at *
+      split <;> grind
+
+theorem recognize_sound (h : recognize cs = some tok) : TokenRepresentation cs tok := by
+  have last (xs : List Char) (h : xs.getLast? = some ':') : xs.dropLast ++ [':'] = xs := by
+    obtain ⟨ys, rfl⟩ := List.getLast?_eq_some_iff.mp h; simp
+  unfold recognize at h; repeat' split at h
+  all_goals simp_all [Option.or_eq_some_iff, Option.map_eq_some_iff,
+    decideDecimal_eq_some_iff, classifyWordRelevant_eq_some_iff, commentBody_iff]
+  all_goals grind only [intro TokenRepresentation, → TokenRepresentation.global,
+    → TokenRepresentation.local, → TokenRepresentation.label, List.find?_some,
+    = String.toList_ofList, = List.mem_cons, List.not_mem_nil]
+
+/-- Name characters cannot start a comment, sigilled name, or whitespace token. -/
+theorem nameChar_exclusions (hc : nameChar c) :
+    c ≠ ';' ∧ c ≠ '@' ∧ c ≠ '%' ∧ ¬isWs c ∧ c ≠ ':' := by
+  have : ∀ x ∈ [';', '@', '%', ' ', '\t', '\n', '\r', ':'], ¬nameChar x := by decide
+  simp_all [isWs]; grind
+
+theorem recognize_name (hc : nameChar c) :
+    recognize (c :: cs) =
+      if (c :: cs).getLast? = some ':' then
+        let name := String.ofList (c :: cs).dropLast
+        if labelName name ∧ ¬digits name then some (.LabelStr name) else none
+      else (classifyWordRelevant (c :: cs)).or ((decideDecimal (c :: cs)).map Token.APSInt) := by
+  obtain ⟨hsemi, hat, hpercent, hws, _⟩ := nameChar_exclusions hc
+  have hp : Punct.all.find? (·.char == c) = none := by
+    have : ∀ x ∈ ['=', ',', '{', '}', '(', ')'], ¬nameChar x := by decide
+    simp_all [Punct.all, Punct.char]; grind
+  cases cs <;> simp [recognize, hsemi, hat, hpercent, hws, hp]
+
+theorem recognize_ws (hne : cs ≠ []) (hw : ∀ c ∈ cs, isWs c) :
+    recognize cs = some .ws := by
+  cases cs with
+  | nil => contradiction
+  | cons c cs =>
+      have hc : c = ' ' ∨ c = '\t' ∨ c = '\n' ∨ c = '\r' := by simpa [isWs] using hw c (by simp)
+      rcases hc with rfl | rfl | rfl | rfl <;> simp_all [recognize]
+
+theorem recognize_label (h : labelName name ∧ ¬digits name) :
+    recognize (name.toList ++ [':']) = some (.LabelStr name) := by
+  cases he : name.toList with
+  | nil => simp_all [labelName]
+  | cons c cs =>
+      rw [List.cons_append, recognize_name (h.1.2 c (by simp [he]))]
+      simp [← List.cons_append, ← he, h]
+
+theorem recognize_word (h : WordToken cs tok) : recognize cs = some tok := by
+  cases h with
+  | keyword k => cases k <;> decide
+  | @intType ds n hd =>
+      rw [recognize_name (by decide)]
+      have : ¬isDigit ':' := by decide
+      have hb : ('i' :: ds).getLast? ≠ some ':' := by
+        have hh := hd.isDigits; intro hb; have := List.mem_of_getLast? hb; grind
+      simp [hb, classifyWordRelevant_eq_some_iff.mpr (WordToken.intType hd)]
+
+theorem decimalInteger.nameChars (h : decimalInteger cs n) : ∀ c ∈ cs, nameChar c := by
+  cases h with
+  | positive h => exact fun c hc => (h.isDigits c hc).nameChar
+  | negative h => exact List.forall_mem_cons.mpr ⟨by decide, fun c hc => (h.isDigits c hc).nameChar⟩
+
+theorem decimalInteger.not_word (h : decimalInteger cs n) : ¬WordToken cs tok := by
+  intro hw; cases hw with
+  | keyword k =>
+      have := decideDecimal_eq_some_iff.mpr h
+      cases k <;> simp [Keyword.spelling, decideDecimal, decideDigits, digitStep, decideDigit] at this
+  | intType _ => cases h with
+      | positive h => exact (by decide : ¬isDigit 'i') (h.isDigits 'i' (by simp))
+
+theorem recognize_integer (h : decimalInteger cs n) : recognize cs = some (.APSInt n) := by
+  have hw : classifyWordRelevant cs = none := Option.eq_none_iff_forall_ne_some.mpr
+    fun _ ht => h.not_word (classifyWordRelevant_eq_some_iff.mp ht)
+  cases cs with
+  | nil => exact (h.nonempty rfl).elim
+  | cons c cs =>
+      rw [recognize_name (h.nameChars c (by simp))]
+      have hb : (c :: cs).getLast? ≠ some ':' := by
+        intro he; exact (by decide : ¬nameChar ':') (h.nameChars ':' (List.mem_of_getLast? he))
+      simp [hb, hw, decideDecimal_eq_some_iff.mpr h]
+
+theorem recognize_complete (h : TokenRepresentation cs tok) : recognize cs = some tok := by
+  cases h <;> try solve_by_elim [recognize_ws, recognize_label, recognize_word, recognize_integer]
+  all_goals first
+    | (rename_i p; cases p <;> decide)
+    | (simp_all [recognize, commentBody_iff] <;> grind)
+
+theorem recognize_eq_some_iff : recognize cs = some tok ↔ TokenRepresentation cs tok :=
+  ⟨recognize_sound, recognize_complete⟩
+
+theorem mem_reverse_range_prefix (h : (List.range k).reverse = l₁ ++ a :: l₂) :
+    x ∈ l₁ ↔ a < x ∧ x < k := by
+  rw [List.reverse_eq_append_iff, List.range_eq_range', List.range'_eq_append_iff] at h
+  obtain ⟨_ | j, -, ha, hl⟩ := h
+  · simp at ha
+  · simp [List.range'_concat] at ha
+    rw [← List.mem_reverse, hl, List.mem_range', ha.2]
+    exact ⟨by omega, fun _ => ⟨x - (j + 1), by omega⟩⟩
+
+/-- Try complete prefixes longest first. The recognizer is independent of the
+search, which also works for other alphabets and token types. -/
+def longestPrefix (decode : List α → Option β) (xs : List α) : Option (List α × β × List α) :=
+  (List.range (xs.length + 1)).reverse.findSome? fun n =>
+    (decode (xs.take n)).map (xs.take n, ·, xs.drop n)
+
+theorem longestPrefix_eq_some_iff : longestPrefix decode xs = some (p, t, r) ↔
+    xs = p ++ r ∧ decode p = some t ∧
+    ∀ n, 0 < n → n ≤ r.length → decode (p ++ r.take n) = none := by
+  simp only [longestPrefix, List.findSome?_eq_some_iff, Option.map_eq_some_iff, Prod.mk.injEq]; constructor
+  · rintro ⟨l₁, m, l₂, hl, ⟨t, ht, rfl, rfl, rfl⟩, hn⟩; refine ⟨by simp, ht, fun n _ _ => ?_⟩
+    have := hn (m + n) ((mem_reverse_range_prefix hl).mpr (by grind)); simp_all [List.take_add]
+  · rintro ⟨rfl, ht, hn⟩
+    obtain ⟨l₁, l₂, hl⟩ := List.append_of_mem (a := p.length)
+      (l := (List.range ((p ++ r).length + 1)).reverse) (by simp; omega)
+    refine ⟨l₁, p.length, l₂, hl, ⟨t, by simpa using ht, by simp, by simp, by simp⟩, ?_⟩
+    intro x hx; have hx := (mem_reverse_range_prefix hl).mp hx
+    simpa [List.take_append, List.take_of_length_le (by omega : p.length ≤ x)] using
+      hn (x - p.length) (by omega) (by simp at hx; omega)
+
+/-- Specializing generic search to the independent LLVM spelling relation. -/
+theorem longestPrefix_recognize :
+    longestPrefix recognize input = some (piece, tok, rest) ↔
+    input = piece ++ rest ∧ TokenRepresentation piece tok ∧ MaximalToken piece rest := by
+  simp [longestPrefix_eq_some_iff, recognize_eq_some_iff, MaximalToken,
+    Option.eq_none_iff_forall_ne_some]
+
+structure ScanResult where
+  piece : List Char
+  tok : Token
+  rest : List Char
+  deriving Repr, DecidableEq
+
+def ScanResult.toTuple (result : ScanResult) : List Char × Token × List Char :=
+  (result.piece, result.tok, result.rest)
+
+instance (tok : Token) (rest : List Char) : Decidable (WordBoundary tok rest) := by
+  unfold WordBoundary WordBoundary'
+  cases tok <;> cases rest <;> simp only <;> infer_instance
+
+/-- Preserve the dispatcher's diagnostics when no valid token can be consumed. -/
+def rejection : List Char → TokenizationError
+  | [] => .noProgress
+  | c :: cs =>
+      if c = '@' ∨ c = '%' then .expectedNameAfter c
+      else if nameChar c then
+        .unsupportedWord (String.ofList ((c :: cs).takeWhile (fun c => decide (nameChar c))))
+      else .unexpectedChar c
+
+/-- Select the longest spelling first, then check its boundary. A failed boundary
+must not cause fallback to a shorter token. EOF is emitted by `tokenizerChars`. -/
+def scanOne (input : List Char) : Except TokenizationError ScanResult :=
+  match longestPrefix recognize input with
+  | some (piece, tok, rest) =>
+      if piece ≠ [] ∧ WordBoundary tok rest then .ok ⟨piece, tok, rest⟩
+      else .error (rejection input)
+  | none => .error (rejection input)
+
+theorem scanOne_eq_ok_iff : scanOne input = .ok result ↔
+    input = result.piece ++ result.rest ∧ result.piece ≠ [] ∧
+    LongestMatch result.piece result.tok result.rest := by
+  rcases result with ⟨piece, tok, rest⟩
+  refine ⟨fun h => ?_, fun ⟨hs, hne, ht, hm, hb⟩ => ?_⟩
+  · unfold scanOne at h
+    split at h <;> (try split at h) <;> cases h
+    simp_all [longestPrefix_recognize, LongestMatch]
+  · simp [scanOne, longestPrefix_recognize.mpr ⟨hs, ht, hm⟩, hne, hb]
+
+theorem scanOne_progress (h : scanOne input = .ok result) :
+    result.rest.length < input.length := by
+  obtain ⟨rfl, hn, -⟩ := scanOne_eq_ok_iff.mp h
+  simpa using List.length_pos_iff.mpr hn
+
+/-- Only the empty lexeme spells EOF. -/
+theorem TokenRepresentation.ne_nil_iff (h : TokenRepresentation piece tok) :
+    piece ≠ [] ↔ tok ≠ .Eof := by
+  refine ⟨fun hp ht => ?_, fun ht hp => ?_⟩
+  · subst ht; cases h with | eof => exact hp rfl | word hw => cases hw
+  · subst hp; simp [← recognize_eq_some_iff, recognize] at h; exact ht h.symm
+
+theorem scanOne_success_result (hr : TokenRepresentation piece tok) (hne : tok ≠ .Eof)
+    (hm : MaximalToken piece rest) (hb : WordBoundary tok rest) :
+    scanOne (piece ++ rest) = .ok ⟨piece, tok, rest⟩ :=
+  scanOne_eq_ok_iff.mpr ⟨rfl, hr.ne_nil_iff.mpr hne, hr, hm, hb⟩
+
+/-- Scanning a specified maximal non-EOF lexeme returns that exact lexeme. -/
+theorem scanOne_success {piece rest : List Char} {tok : Token} :
+    TokenRepresentation piece tok → tok ≠ .Eof →
+    MaximalToken piece rest → WordBoundary tok rest →
+    (scanOne (piece ++ rest)).map ScanResult.toTuple = .ok (piece, tok, rest) := by
+  intro hr hne hm hb; rw [scanOne_success_result hr hne hm hb]; rfl
+
+/-- The executable lexer for the token subset above. -/
+def tokenizerChars : List Char → Except TokenizationError (List (List Char × Token))
+  | [] => .ok [([], .Eof)]
+  | c :: cs => do
+      match _h : scanOne (c :: cs) with
+      | .error err => .error err
+      | .ok result => do
+          return (result.piece, result.tok) :: (← tokenizerChars result.rest)
+termination_by chars => chars.length
+decreasing_by exact scanOne_progress _h
+
+def tokenizer (s : String) : Except TokenizationError (List (List Char × Token)) :=
+  tokenizerChars s.toList
+
+/-- Tokenize while discarding the original lexeme spellings. -/
+def tokenizer' (s : String) : Except TokenizationError (List Token) :=
+  (tokenizer s).map (fun ts => ts.map Prod.snd)
+
+/-- The De Morgan example used to exercise the LLVM token subset. -/
+def deMorganExample : String := "; De Morgan's laws, written without applying the simplification.
+; In LLVM IR, xor with -1 flips every bit of an integer.
+
+define i32 @demorgan_or(i32 %p, i32 %q) {
+entry:
+  %not_p = xor i32 %p, -1
+  %not_q = xor i32 %q, -1
+  %both_not = and i32 %not_p, %not_q
+  %result = xor i32 %both_not, -1
+  ret i32 %result
+}
+
+define i32 @demorgan_and(i32 %p, i32 %q) {
+entry:
+  %not_p = xor i32 %p, -1
+  %not_q = xor i32 %q, -1
+  %either_not = or i32 %not_p, %not_q
+  %result = xor i32 %either_not, -1
+  ret i32 %result
+}
+"
+
+
+#eval (tokenizer deMorganExample)
+#eval tokenizer "  \n\t%foo = -12; comment\n"
+#eval tokenizer "  \n\t12:\n"
+
+theorem tokenizerChars_complete (h : Lexes input ts) : tokenizerChars input = .ok ts := by
+  induction h with
+  | eof => simp [tokenizerChars]
+  | @token piece rest tok ts hm hne hl ih =>
+      have hs := scanOne_success_result hm.1 hne hm.2.1 hm.2.2
+      have hp := hm.1.ne_nil_iff.mpr hne
+      cases piece <;> simp_all [tokenizerChars]
+      split <;> simp_all <;> rfl
+
+theorem tokenizerChars_sound (h : tokenizerChars input = .ok ts) : Lexes input ts := by
+  fun_induction tokenizerChars input generalizing ts with
+  | case1 => cases h; exact .eof
+  | case2 => cases h
+  | case3 c cs result hs ih =>
+      obtain ⟨he, hn, hm⟩ := scanOne_eq_ok_iff.mp hs
+      cases hr : tokenizerChars result.rest <;> simp only [hr] at h <;> cases h
+      exact he ▸ .token hm (hm.1.ne_nil_iff.mp hn) (ih hr)
+
+theorem tokenizer_eq_ok_iff : tokenizer s = .ok ts ↔ Lexes s.toList ts :=
+  ⟨tokenizerChars_sound, tokenizerChars_complete⟩
+
+theorem tokenizer_success : Lexes s.toList ts → tokenizer s = .ok ts :=
+  tokenizerChars_complete
+
+/-- The token-only tokenizer inherits completeness from `tokenizer`. -/
+theorem tokenizer'_success (h : Lexes s.toList ts) :
+    tokenizer' s = .ok (ts.map Prod.snd) := by
+  rw [tokenizer', tokenizer_success h]
+  rfl
+
+theorem tokenizer_fail : tokenizer s = .error message → Lexes s.toList ts → False := by
+  intro failed lexes; simp [tokenizer_success lexes] at failed
+
+/-- Concatenate simple spellings, using one space for whitespace and an empty comment. -/
+def printTokens (ts : List Token) : String :=
+  String.join (ts.map fun
+    | .Eof => ""
+    | .ws => " "
+    | .comment => ";\n"
+    | .punct p => String.ofList [p.char]
+    | .kw k => String.ofList k.spelling
+    | .intType width => "i" ++ toString width
+    | .LabelStr name => name ++ ":"
+    | .GlobalVar name => "@" ++ name
+    | .LocalVar name => "%" ++ name
+    | .APSInt value => toString value)
+
+/-- Printing and retokenizing preserves any token stream produced by the lexer.
+The hypothesis excludes invalid names, misplaced EOF, and impossible boundaries.
+This remains a specification: the simple printer above fails for `1-0`, whose
+integer tokens are printed as `10`. -/
+theorem tokenizer'_printTokens_round_trip :
+    tokenizer' s = .ok ts → tokenizer' (printTokens ts) = .ok ts := sorry
+
+def Parses : List (List Char × Token) → LLVMModule → Prop := sorry
+/-- Every name is defined exactly once, numbering is consecutive, phis come first, ... -/
+def WellFormed : LLVMModule → Prop := sorry
+/-- Second pass: resolve forward references, turn phi nodes into block arguments. -/
+def Elaborates : LLVMModule → VeIRModule → Prop := sorry
+
+/-! ## Implementation -/
+
+def parse : String → Option VeIRModule := sorry
+def prettyPrint : VeIRModule → String := sorry
+
+/-! ## Theorems -/
+
+-- theorem grammar_parse (s : String) (v : VeIRModule) :
+--     parse s = some v ↔
+--       ∃ ts ast, Lexes s ts ∧ Parses ts ast ∧ WellFormed ast ∧ Elaborates ast v := sorry
+
+/-- The grammar is unambiguous. -/
+theorem parses_unambiguous (ts : List (List Char × Token)) (a₁ a₂ : LLVMModule) :
+    Parses ts a₁ → Parses ts a₂ → a₁ = a₂ := sorry
+
+/-- Syntactic equality of two VeIR programs up to renaming of values and blocks. -/
+def EquivalentModuloNames : VeIRModule → VeIRModule → Prop := sorry
+
+theorem parse_prettyPrint_round_trip (v : VeIRModule) :
+    ∃ v', parse (prettyPrint v) = some v' ∧ EquivalentModuloNames v' v := sorry
+
+end Veir.LLVMParserProp
