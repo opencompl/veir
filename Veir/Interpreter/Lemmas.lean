@@ -261,14 +261,17 @@ theorem VariableState.setArgumentValues?_loop_isSome_iff {block : BlockPtr}
       · grind
       · grind [ih varState']
 
-/-- `setArgumentValues?` succeeds iff every argument value conforms to its argument type. -/
+/-- `setArgumentValues?` succeeds iff there is one value per argument, and every argument value
+conforms to its argument type. -/
 theorem VariableState.setArgumentValues?_isSome_iff_conforms (varState : VariableState ctx)
     {block : BlockPtr} {values : Array RuntimeValue} {blockInBounds} :
-    (∀ j, j < block.getNumArguments! ctx.raw →
+    (values.size = block.getNumArguments! ctx.raw ∧ ∀ j, j < block.getNumArguments! ctx.raw →
       (values[j]!).Conforms ((block.getArgument j : ValuePtr).getType! ctx.raw)) ↔
     (∃ v, varState.setArgumentValues? block values blockInBounds = some v) := by
-  simp only [VariableState.setArgumentValues?]
-  exact VariableState.setArgumentValues?_loop_isSome_iff
+  by_cases h : values.size = block.getNumArguments! ctx.raw <;>
+    simp only [VariableState.setArgumentValues?, h, ↓reduceIte, true_and]
+  · exact VariableState.setArgumentValues?_loop_isSome_iff
+  · simp
 
 /--
 Assert equality between two `interpretOp'` calls that have the same operation type and properties.
