@@ -14,3 +14,4 @@ public import QPFTypes.Instances.Option
 public import QPFTypes.Meta.QPFExpr
 public import QPFTypes.Meta.QPFAttr
 public import QPFTypes.Meta.Codef
+public import QPFTypes.Meta.QPFElim

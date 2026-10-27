@@ -72,9 +72,56 @@ partial_fixpoint
 def Stream (a : Type) : Type :=
   Cofix (@TypeFun.ofCurried 2 StreamF) #t[a]
 
+@[qpf_elim]
 def Stream.head (xs : Stream a) : a := (Cofix.dest xs).1
 
+@[qpf_elim]
 def Stream.tail (xs : Stream a) : Stream a := (Cofix.dest xs).2
+
+/-! `@[qpf_elim]` defines the partial versions of `Stream.head` and `Stream.tail`. -/
+
+/--
+info: @Stream.tail.__partial : {a : Type} →
+  CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a) →
+    CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a)
+-/
+#guard_msgs in
+#check @Stream.tail.__partial
+
+/--
+info: @Stream.tail.__partial_mono : ∀ {δ : Sort u_1} [inst : PartialOrder δ] {a : Type}
+  (xs_fn : δ → CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a)),
+  monotone xs_fn → monotone fun z => Stream.tail.__partial (xs_fn z)
+-/
+#guard_msgs in
+#check @Stream.tail.__partial_mono
+
+/--
+info: @Stream.tail.__partial_ofCofix : ∀ {a : Type} (xs : Stream a),
+  CofixWithBot.ofCofix xs.tail = Stream.tail.__partial (CofixWithBot.ofCofix xs)
+-/
+#guard_msgs in
+#check @Stream.tail.__partial_ofCofix
+
+-- `Stream.head` returns an `a`, which has no `⊥`: its partial version is in
+-- continuation-passing style.
+/--
+info: @Stream.head.__partial : {a : Type} →
+  CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a) →
+    {m : Nat} → {G : TypeFun (m + 1)} → [inst : QPF G] → {β : TypeVec m} → (a → CofixWithBot G β) → CofixWithBot G β
+-/
+#guard_msgs in
+#check @Stream.head.__partial
+
+/--
+info: @Stream.head.__partial_mono : ∀ {δ : Sort u_2} [inst : PartialOrder δ] {a : Type}
+  (xs_fn : δ → CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a)),
+  monotone xs_fn →
+    ∀ {m : Nat} {G : TypeFun (m + 1)} [inst_1 : QPF G] {β : TypeVec m} [inst_2 : IsPolynomial G]
+      (k_fn : δ → a → CofixWithBot G β), monotone k_fn → monotone fun z => Stream.head.__partial (xs_fn z) (k_fn z)
+-/
+#guard_msgs in
+#check @Stream.head.__partial_mono
 
 def Stream.cons (x : a) (xs : Stream a) : Stream a := Cofix.mk (x, xs)
 
@@ -309,12 +356,20 @@ end EvensExample
 section Map2
 
 /-
-FIXME: the following ought to work
+The recursive call is destructed with `Stream.tail`, which is translated to its partial version
+`Stream.tail.__partial` (see `@[qpf_elim]` on `Stream.tail`).
+
+The productivity proof is still missing: the motive set up by `productive_by_intro` only covers
+the recursive calls `cursedMap.__partial f xs`, but the second layer is
+`mk (f xs.head, tail.__partial (cursedMap.__partial f xs.tail))`.
+-/
 codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
 productive_by
   sorry
--/
+
+example (f : α → β) (xs : Stream α) : (cursedMap f xs).tail.head = f xs.head := by
+  rw [cursedMap, tail_cons, head_cons]
 
 /-
 FIXME: the following ought to work
@@ -353,6 +408,43 @@ codef Stream.nested (xs : Stream α) : Stream α :=
   Stream.cons xs.head (Stream.nested (Stream.nested xs.tail))
 productive_by
   sorry
+
+/-- A copy of `Stream.tail`, without `@[qpf_elim]`. -/
+def tail' (xs : Stream α) : Stream α := (Cofix.dest xs).2
+
+/--
+error: codef: cannot destruct a possibly-partial value with `Cofix.dest`
+  Cofix.dest (tailOfRec.__codef_raw xs.tail)
+`tail'` destructs a possibly-partial value, but has no partial version (`__partial`); mark `tail'` with `@[qpf_elim]` to define it
+-/
+#guard_msgs in
+codef tailOfRec (xs : Stream α) : Stream α :=
+  cons xs.head (tail' (tailOfRec xs.tail))
+productive_by
+  sorry
+
+-- `Stream.head.__partial` is in continuation-passing style, which `codef` does not use yet.
+/--
+error: codef: cannot use `head.__partial`, the partial version of `head`, in
+  (headOfRec.__codef_raw xs.tail).head
+it should have the same universe parameters as `head`. Note that partial versions in continuation-passing style, for eliminators whose result is not of a coinductive type, are not supported yet
+-/
+#guard_msgs in
+codef headOfRec (xs : Stream α) : Stream α :=
+  cons (headOfRec xs.tail).head xs
+productive_by
+  sorry
+
+/-- error: @[qpf_elim]: `notAnElim` has no argument of a `Cofix` type -/
+#guard_msgs in
+@[qpf_elim] def notAnElim (n : Nat) : Nat := n
+
+/--
+error: @[qpf_elim]: `noDest` does not destruct any of its arguments of type
+  Stream α
+-/
+#guard_msgs in
+@[qpf_elim] def noDest (xs : Stream α) : Stream α := xs
 
 -- Unproductive definitions are accepted as `__partial`; only the proof is missing.
 /-- warning: declaration uses `sorry` -/

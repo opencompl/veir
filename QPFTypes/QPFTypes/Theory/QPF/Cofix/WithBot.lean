@@ -26,6 +26,9 @@ functions into it, with non-productive recursion yielding a `none` layer.
 * `CofixWithBot.mk`         - the constructor of a non-bottom layer, with monotonicity lemma
                               `CofixWithBot.mk_map_mono`
 * `CofixWithBot.ofCofix`    - the inclusion of `Cofix F α` into `CofixWithBot F α`
+* `CofixWithBot.elim`       - case analysis on the root layer, into another `CofixWithBot`
+                              type, which sends `⊥` to `⊥`; with monotonicity lemma
+                              `CofixWithBot.elim_mono`
 
 These are the targets of the `codef` command, see `QPFTypes.Meta.Codef`.
 -/
@@ -34,7 +37,7 @@ These are the targets of the `codef` command, see `QPFTypes.Meta.Codef`.
 
 namespace QPFTypes
 
-universe u v
+universe u v w
 
 variable {n : Nat}
 
@@ -162,6 +165,71 @@ theorem get_mk [IsPolynomial F] (x : F (α ::: CofixWithBot F α)) (h : (mk x).H
           QPF.attach x (h.liftP_of_dest (dest_mk x))) := by
   rw [← Cofix.mk_dest (get _ _), dest_get, get_step_of_dest h (dest_mk x)]
 
+/-! ## `get` and `ofCofix` are mutually inverse -/
+
+theorem dest_eq_of_get {x : CofixWithBot F α} {y : F (α ::: CofixWithBot F α)}
+    (hd : (Cofix.dest x).get = some y) : Cofix.dest x = Comp.mk (some y) := by
+  rw [← hd]; rfl
+
+theorem map_mk_some {β γ : TypeVec (n + 1)} (f : β ⟹ γ) (y : F β) :
+    (f <$$> (Comp.mk (some y : Option (F β)) : F.WithBot β))
+      = (Comp.mk (some (f <$$> y) : Option (F γ)) : F.WithBot γ) :=
+  rfl
+
+@[simp, grind =]
+theorem ofCofix_mk (y : F (α ::: Cofix F α)) :
+    ofCofix (Cofix.mk y) = mk ((TypeVec.id ::: ofCofix) <$$> y) := by
+  apply Cofix.ext
+  rw [dest_eq_of_get (dest_ofCofix _), dest_eq_of_get (dest_mk _), Cofix.dest_mk]
+
+/-- Pulling a total value out of `CofixWithBot`, and including it back, is the identity. -/
+@[simp, grind =]
+theorem ofCofix_get [IsPolynomial F] (x : CofixWithBot F α) (h : HasNoBot x) :
+    ofCofix (get x h) = x := by
+  let r (a b : CofixWithBot F α) : Prop := ∃ x h, a = ofCofix (get x h) ∧ b = x
+  refine Cofix.bisim_rel r ?_ _ _ ⟨x, h, rfl, rfl⟩
+  clear h x
+  rintro a b ⟨x, h, rfl, rfl⟩
+  obtain ⟨y, hy⟩ : ∃ y : F (α ::: CofixWithBot F α), (Cofix.dest b).get = some y :=
+    Option.isSome_iff_exists.1 (dest_isSome_of_hasNoBot h)
+  rw [dest_eq_of_get (dest_ofCofix _), dest_get, get_step_of_dest h hy, dest_eq_of_get hy,
+    map_mk_some, map_mk_some]
+  congr 2
+  conv => rhs; rw [← val_attach y (h.liftP_of_dest hy)]
+  simp only [MvFunctor.map_map, ← TypeVec.appendFun_comp_id]
+  congr 2
+  funext ⟨z, hz⟩
+  exact Quot.sound ⟨z, hz, rfl, rfl⟩
+
+theorem ofCofix_injective [IsPolynomial F] : Function.Injective (ofCofix (F := F) (α := α)) := by
+  intro a b hab
+  let r (a b : Cofix F α) : Prop := ofCofix a = ofCofix b
+  refine Cofix.bisim_rel r ?_ _ _ hab
+  intro a b hab
+  have e := (dest_ofCofix a).symm.trans (hab ▸ dest_ofCofix b)
+  replace e := Option.some.inj e
+  -- `Quot.mk r` factors through `ofCofix`.
+  open Classical in
+  let φ (c : CofixWithBot F α) : Quot r :=
+    if h : ∃ z, ofCofix z = c then Quot.mk r h.choose else Quot.mk r a
+  have hφ : Quot.mk r = φ ∘ ofCofix := by
+    funext z
+    have h : ∃ w, ofCofix w = ofCofix z := ⟨z, rfl⟩
+    simp only [Function.comp_apply, φ, dite_eq_left h]
+    exact Quot.sound h.choose_spec.symm
+  rw [hφ, TypeVec.appendFun_comp_id, ← MvFunctor.map_map, ← MvFunctor.map_map, e]
+
+@[simp, grind =]
+theorem get_ofCofix [IsPolynomial F] (x : Cofix F α) (h : HasNoBot (ofCofix x)) :
+    get (ofCofix x) h = x :=
+  ofCofix_injective (ofCofix_get _ h)
+
+theorem get_eq_iff [IsPolynomial F] {x : CofixWithBot F α} {h : HasNoBot x} {y : Cofix F α} :
+    get x h = y ↔ x = ofCofix y := by
+  constructor
+  · rintro rfl; exact (ofCofix_get x h).symm
+  · rintro rfl; exact get_ofCofix y h
+
 /-- `Cofix.mk_map_mono`, for `CofixWithBot.mk`: a fixed layer `s`, whose recursive positions
 `ι` are filled in monotonically. Concrete constructors, such as
 `fun y => mk (x, f y)`, are (definitionally) instances of this with `ι := PUnit`. -/
@@ -170,6 +238,70 @@ theorem mk_map_mono {γ : Type v} [Lean.Order.PartialOrder γ] [IsPolynomial F] 
     (s : F (α ::: ι)) (f : γ → ι → CofixWithBot F α) (hf : Lean.Order.monotone f) :
     Lean.Order.monotone (fun y => mk ((TypeVec.id ::: f y) <$$> s)) :=
   Cofix.mk_map_mono (Comp.mk (some s) : F.WithBot (α ::: ι)) f hf
+
+/-! ## Eliminator -/
+
+section Elim
+
+variable {m : Nat} {G : TypeFun.{v} (m + 1)} [QPF G] {β : TypeVec.{v} m}
+
+/-- Case analysis on the root layer of `x`: `k y` if the root is `some y`, and `⊥` otherwise.
+
+The result lives in a `CofixWithBot` type, so that there is a `⊥` to return. This is what
+`@[qpf_elim]` translates the destructors of total values into, see `QPFTypes.Meta.QPFElim`. -/
+def elim (x : CofixWithBot F α) (k : F (α ::: CofixWithBot F α) → CofixWithBot G β) :
+    CofixWithBot G β :=
+  (Cofix.dest x).get.elim (Cofix.bot _) k
+
+@[simp, grind =]
+theorem elim_mk (y : F (α ::: CofixWithBot F α))
+    (k : F (α ::: CofixWithBot F α) → CofixWithBot G β) : elim (mk y) k = k y := by
+  simp only [elim, dest_mk]; rfl
+
+theorem elim_bot [IsPolynomial F] (k : F (α ::: CofixWithBot F α) → CofixWithBot G β) :
+    elim (Cofix.bot F.WithBot (α := α)) k = Cofix.bot _ := by
+  simp only [elim, Cofix.bot]
+  erw [Cofix.dest_corec]
+  rfl
+
+@[simp, grind =]
+theorem elim_ofCofix (x : Cofix F α) (k : F (α ::: CofixWithBot F α) → CofixWithBot G β) :
+    elim (ofCofix x) k = k ((TypeVec.id ::: ofCofix) <$$> Cofix.dest x) := by
+  simp only [elim, dest_ofCofix]; rfl
+
+/-- `elim` is monotone in the scrutinee and in the continuation. Monotonicity of the
+continuation `k z` is stated on layers `(TypeVec.id ::: g) <$$> s`, in `z` and in the
+children `g` separately, since that is the form in which two related layers are given. -/
+@[partial_fixpoint_monotone]
+theorem elim_mono [IsPolynomial F] [IsPolynomial G] {δ : Sort w} [Lean.Order.PartialOrder δ]
+    (x : δ → CofixWithBot F α) (hx : Lean.Order.monotone x)
+    (k : δ → F (α ::: CofixWithBot F α) → CofixWithBot G β)
+    (hk₁ : ∀ {ι : Type u} (s : F (α ::: ι)) (g : ι → CofixWithBot F α),
+      Lean.Order.monotone (fun z => k z ((TypeVec.id ::: g) <$$> s)))
+    (hk₂ : ∀ {ι : Type u} (s : F (α ::: ι)) (z : δ),
+      Lean.Order.monotone (fun g : ι → CofixWithBot F α => k z ((TypeVec.id ::: g) <$$> s))) :
+    Lean.Order.monotone (fun z => elim (x z) (k z)) := by
+  intro z₁ z₂ hz
+  rcases Cofix.le_step (hx z₁ z₂ hz) with hb | ⟨a, fd, g, g', h₁, h₂, hg⟩
+  · show Lean.Order.PartialOrder.rel (elim _ _) _
+    rw [hb, elim_bot]; exact Cofix.bot_le _
+  · -- Both roots are the layer `⟨a, fd⟩`, with the children `g`, resp. `g'`, filled in.
+    have key : ∀ (x : CofixWithBot F α) (g : _ → CofixWithBot F α),
+        QPF.repr (Cofix.dest x) = ⟨a, splitFun fd g⟩ →
+        Cofix.dest x = (TypeVec.id ::: g) <$$>
+          (QPF.abs ⟨a, splitFun fd _root_.id⟩ : F.WithBot (α ::: _)) := by
+      intro x g h
+      rw [← QPF.abs_repr (Cofix.dest x), h]
+      symm
+      erw [← QPF.abs_map, MvPFunctor.map_eq, appendFun_comp_splitFun, id_comp]
+      rfl
+    simp only [elim, key _ _ h₁, key _ _ h₂]
+    generalize (QPF.abs ⟨a, splitFun fd _root_.id⟩ : F.WithBot (α ::: _)) = s
+    rcases s with _ | s
+    · exact Lean.Order.PartialOrder.rel_refl
+    · exact Lean.Order.PartialOrder.rel_trans (hk₁ s g z₁ z₂ hz) (hk₂ s z₂ g g' hg)
+
+end Elim
 
 end QPF.CofixWithBot
 

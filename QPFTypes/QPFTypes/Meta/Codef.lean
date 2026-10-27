@@ -25,7 +25,8 @@ syntactic productivity check. Instead, it
    `productive_by_intro` has set up the coinduction;
 4. proves the unfolding equation `f.__unfold : ∀ binders, f binders = body`, where the
    recursive references in `body` are to `f` itself, by unfolding `f` and `f.__partial`
-   once, splitting on `if`s and `match`es, and rewriting with `CofixWithBot.get_mk`. It is
+   once, splitting on `if`s and `match`es, and either rewriting with `CofixWithBot.get_mk`,
+   or pushing `CofixWithBot.ofCofix` into `body` (see `addUnfoldEqns`). It is
    also added as `f.eq_1` and `f.eq_def`, so that `rw [f]`, `simp [f]` and `unfold f`
    use it, rather than unfolding to `CofixWithBot.get`.
 
@@ -34,17 +35,25 @@ syntactic productivity check. Instead, it
 The translation is uniform: every occurrence of the type `T` becomes `PT`,
 `Cofix.mk` (at `F`, `α`) becomes `CofixWithBot.mk`, and recursive calls go to
 `f.__partial`. Combinators that are polymorphic in their result type (`ite`, `dite`,
-matchers, user-defined variations, ...) thus need no special treatment. Two repairs are
-applied when an application becomes ill-typed:
+matchers, user-defined variations, ...) thus need no special treatment. The following
+repairs are applied when an application becomes ill-typed:
 * an argument of type `T` where `PT` is expected (e.g. an input `xs` or `xs.tail`) is
   wrapped in `CofixWithBot.ofCofix`;
+* otherwise, if the head constant `g` has a partial version `g.__partial` (e.g. an
+  eliminator such as `Stream.tail`, marked with `@[qpf_elim]`, see `QPFTypes.Meta.QPFElim`),
+  then that is used instead: this is what allows recursive calls to be destructed, as in
+  `(f xs).tail`;
 * otherwise, the head constant is unfolded (e.g. a user-defined `Stream.cons`), and the
-  result is translated instead.
+  result is translated instead. Unfolding `Cofix.dest` itself is an error, since a
+  possibly-partial value cannot be destructed directly.
 
 ## Limitations
 
 * Only `:=` bodies; no `where`, equation-style definitions, or `mutual`.
 * Recursive calls must not be nested inside arguments of recursive calls.
+* Recursive calls can only be destructed by eliminators whose result is of a coinductive
+  type (e.g. `Stream.tail`, but not `Stream.head`): partial versions in continuation-passing
+  style are not used yet.
 * `T`-typed inputs cannot be destructed inside the body (e.g. by `match`ing on
   `Cofix.dest xs`): the motive is translated as well, after which the pieces no longer
   fit back into recursive calls. Use non-recursive accessor functions instead.
@@ -70,6 +79,36 @@ def rawSuffix : Name := `__codef_raw
 def partialSuffix : Name := `__partial
 /-- The suffix for the generated unfolding equation. -/
 def unfoldSuffix : Name := `__unfold
+/-- The suffix for the lemma `ofCofix (g xs) = g.__partial (ofCofix xs)` of an eliminator `g`,
+see `QPFTypes.Meta.QPFElim`. -/
+def partialOfCofixSuffix : Name := `__partial_ofCofix
+
+/-- Reduce an application `(f ::: g) i x` (or `TypeVec.id i x`) of an arrow at a concrete
+index `i`, to `f i' x` or `g x`. -/
+def reduceArrowApp (e : Expr) : MetaM Expr :=
+  whnfHeadPred e fun e => do
+    let some n := e.getAppFn.constName? | return false
+    return n ∈ [``TypeVec.appendFun, ``TypeVec.splitFun, ``TypeVec.id, ``Fin.cases,
+      ``Fin.induction, ``Fin.induction.go, ``Eq.mpr, ``Eq.mp, ``cast, ``Eq.rec, ``Eq.ndrec] ||
+      (← isMatcher n)
+
+/--
+`qpf_reduce_maps` reduces each `f <$$> x` in the goal whose `x` reduces to a constructor
+application, mapping `f` over the fields: e.g. `(TypeVec.id ::: g) <$$> (a, b)` becomes
+`(a, g b)` for a product functor. Fails if there is nothing to reduce.
+-/
+syntax (name := qpfReduceMaps) "qpf_reduce_maps" : tactic
+
+@[tactic qpfReduceMaps]
+def evalQpfReduceMaps : Tactic.Tactic := fun _ => Tactic.liftMetaTactic1 fun g => do
+  let t ← instantiateMVars (← g.getType)
+  let t' ← Meta.transform t (post := fun e => do
+    unless e.isAppOf ``MvFunctor.map do return .continue
+    let e' ← whnfD e
+    unless ← isConstructorApp e' do return .continue
+    return .done (mkAppN e'.getAppFn (← e'.getAppArgs.mapM reduceArrowApp)))
+  if t' == t then throwError "qpf_reduce_maps: no progress"
+  g.change t'
 
 /-- The data of a translation from `T = Cofix F α` to `PT = CofixWithBot F α`. -/
 structure Ctx where
@@ -83,6 +122,16 @@ structure Ctx where
   rawName : Name
   /-- Stands for `f.__partial` during the translation (a free variable). -/
   recFn : Expr
+  /-- Pairs `(x, y)` of a possibly-partial variable `x`, and a variable `y` standing for its
+  root layer, which `Cofix.dest x` is translated to. Used by `@[qpf_elim]`, see
+  `QPFTypes.Meta.QPFElim`. -/
+  dests : Array (Expr × Expr) := #[]
+  /-- The constant whose unfolding is being translated, if any, for error messages. -/
+  unfolding : Option Name := none
+  /-- Records the constants which the translation unfolded, and the lemmas
+  `g.__partial_ofCofix` of the eliminators `g` whose partial versions it used: these
+  relate the translated body to the original one, see `addUnfoldEqns`. -/
+  log : IO.Ref (Array Name)
 
 /-- Whether `e` mentions the constant `c`. -/
 def mentionsConst (e : Expr) (c : Name) : Bool :=
@@ -125,6 +174,16 @@ def fixArgs? (ctx : Ctx) (fn : Expr) (args : Array Expr) : MetaM (Option Expr) :
     args := args.set! i a
     fnTy := b.instantiate1 a
   return mkAppN fn args
+
+/-- The error for a `Cofix.dest` of a possibly-partial value, which is only possible inside
+of an `@[qpf_elim]` eliminator. -/
+def throwDestError (ctx : Ctx) (e : Expr) : MetaM α := do
+  let hint := match ctx.unfolding with
+    | some n => m!"`{.ofConstName n}` destructs a possibly-partial value, but has no partial \
+        version (`{partialSuffix}`); mark `{.ofConstName n}` with `@[qpf_elim]` to define it"
+    | none => m!"use an eliminator marked with `@[qpf_elim]` instead"
+  throwError "codef: cannot destruct a possibly-partial value with `Cofix.dest`{indentExpr e}\n\
+    {hint}"
 
 mutual
 
@@ -171,14 +230,44 @@ partial def goApp (ctx : Ctx) (e : Expr) : MetaM Expr := do
         | throwError "codef: the argument of this constructor is not parametric in its \
             recursive positions{indentExpr e}"
       return mkApp mk x
+  -- Destructors of the possibly-partial arguments of an `@[qpf_elim]` eliminator.
+  if fn.isConstOf ``QPF.Cofix.dest && args.size == 5 then
+    if let some (_, y) := ctx.dests.find? (·.1 == args[4]!) then
+      return y
   let fn' ← if fn.isConst then pure fn else go ctx fn
   let args' ← args.mapM (go ctx)
   if let some e' ← ctx.fixArgs? fn' args' then
     return e'
-  -- The head is not polymorphic in `T`: unfold it, and try again.
-  if fn.isConst then
+  if let .const fnName us := fn then
+    -- Not a destructor that we can translate: unfolding `Cofix.dest` would not help.
+    if fnName == ``QPF.Cofix.dest then
+      ctx.throwDestError e
+    -- The head has a partial version (e.g. an eliminator marked with `@[qpf_elim]`): use it.
+    let pName := fnName ++ partialSuffix
+    if let some pInfo := (← getEnv).find? pName then
+      let wrongType (msg : MessageData) : MetaM Expr :=
+        throwError "codef: cannot use `{.ofConstName pName}`, the partial version of \
+          `{.ofConstName fnName}`, in{indentExpr e}\n{msg}"
+      unless pInfo.levelParams.length == us.length do
+        return ← wrongType m!"it should have the same universe parameters as \
+          `{.ofConstName fnName}`. Note that partial versions in continuation-passing style, \
+          for eliminators whose result is not of a coinductive type, are not supported yet"
+      let p := Expr.const pName us
+      let some e' ← ctx.fixArgs? p args'
+        | return ← wrongType m!"it cannot be applied to the translated arguments{indentD
+            (MessageData.joinSep (args'.toList.map indentExpr) "")}"
+      let expected ← go ctx (← inferType e)
+      let actual ← inferType e'
+      unless ← isDefEq actual expected do
+        return ← wrongType m!"the result has type{indentExpr actual}\nbut is expected to have \
+          type{indentExpr expected}"
+      let lemma := fnName ++ partialOfCofixSuffix
+      if (← getEnv).contains lemma then ctx.log.modify (·.push lemma)
+      return e'
+    -- The head is not polymorphic in `T`: unfold it, and try again.
     if let some e' ← unfoldDefinition? e then
-      return ← go ctx e'.headBeta
+      ctx.log.modify (·.push fnName)
+      return ← go { ctx with unfolding := some fnName } e'.headBeta
   throwError "codef: cannot translate{indentExpr e}"
 
 end
@@ -204,7 +293,11 @@ def partialFixpointHints (ref : Syntax) : TerminationHints :=
 
 /-- The translation context for a function `fullName` with codomain `T`, which is unified
 with `Cofix ?F ?α`. -/
-def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default) : MetaM Ctx := do
+def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default)
+    (log : Option (IO.Ref (Array Name)) := none) : MetaM Ctx := do
+  let log ← match log with
+    | some log => pure log
+    | none => IO.mkRef #[]
   let lvl ← mkFreshLevelMVar
   let cofix := Expr.const ``QPF.Cofix [lvl]
   let (args, _, _) ← forallMetaTelescope (← inferType cofix)
@@ -215,7 +308,7 @@ def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default) : MetaM
   let lvl ← instantiateLevelMVars lvl
   let args ← args.mapM instantiateMVars
   return {
-    lvl, args, T, recFn
+    lvl, args, T, recFn, log
     PT := mkAppN (.const ``QPF.CofixWithBot [lvl]) args
     rawName
   }
@@ -223,8 +316,16 @@ def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default) : MetaM
 /-- Prove and add the unfolding equation `f.__unfold : ∀ xs, f xs = body` for the function
 `declName` defined by `codef`, where `raw` is its elaborated `f.__codef_raw`, and `body` is the
 latter's body with recursive calls to `f` itself. The equation is also registered as `f.eq_1`
-and `f.eq_def`, to be used by `rw [f]`, `simp [f]` and `unfold f`. -/
-def addUnfoldEqns (declName : Name) (raw : DefinitionVal) : TermElabM Unit := do
+and `f.eq_def`, to be used by `rw [f]`, `simp [f]` and `unfold f`.
+
+The equation is first attempted by unfolding `CofixWithBot.get` on the outer constructor, which
+suffices when the children of the translated body are recursive calls. Otherwise (e.g. with
+nested constructors, or partial eliminators of recursive calls), it is reduced, with
+`CofixWithBot.get_eq_iff`, to `body' = ofCofix body`, where `body'` is the translated body, and
+`ofCofix` is pushed into `body` with `simp`, using the constants and lemmas in `log` (see
+`Ctx.log`). -/
+def addUnfoldEqns (declName : Name) (raw : DefinitionVal) (log : Array Name) :
+    TermElabM Unit := do
   let fullName := privateToUserName declName
   let lvls := raw.levelParams.map mkLevelParam
   let (type, value) ← forallTelescope raw.type fun xs _ => do
@@ -237,8 +338,21 @@ def addUnfoldEqns (declName : Name) (raw : DefinitionVal) : TermElabM Unit := do
       | throwError "codef: failed to unfold `{fullName}`"
     let r ← unfold lhs' (declName ++ partialSuffix)
     let g ← mkFreshExprSyntheticOpaqueMVar (← mkEq r.expr body)
-    let tac ← `(tactic| (repeat' split) <;>
-      first | (erw [$(mkCIdent ``QPF.CofixWithBot.get_mk):ident]; rfl) | rfl)
+    -- One step of pushing `ofCofix` into the original body: the terms involved are only
+    -- type-correct up to unfolding (e.g. of `TypeVec.head (α ::: T)`), hence `erw`. Since
+    -- `erw` matches up to unfolding, the generic lemmas come last: e.g. `ofCofix_get` would
+    -- otherwise match `ofCofix (Stream.tail (get x h))`, by unfolding `Stream.tail`.
+    let lemmas := log.toList.eraseDups.toArray ++
+      #[``QPF.CofixWithBot.ofCofix_mk, ``QPF.CofixWithBot.ofCofix_get]
+    let step ← lemmas.foldrM (init := ← `(tactic| qpf_reduce_maps)) fun n tac =>
+      `(tactic| first | erw [$(mkCIdent n):ident] | ($tac:tactic))
+    let tac ← `(tactic| (repeat' split) <;> first
+      | (erw [$(mkCIdent ``QPF.CofixWithBot.get_mk):ident]; rfl)
+      | rfl
+      | (refine $(mkCIdent ``QPF.CofixWithBot.get_eq_iff):ident.2 ?_
+         try delta $(mkCIdent declName):ident
+         repeat ($step:tactic)
+         done))
     let gs ← try Tactic.run g.mvarId! (Tactic.evalTactic tac)
       catch ex => throwError "codef: failed to prove `{unfoldSuffix}` for `{fullName}`:\
         {indentD ex.toMessageData}"
@@ -289,6 +403,7 @@ def elabCodef : CommandElab := fun stx => do
   let some (.defnInfo raw) := (← getEnv).find? rawName
     | throwError "codef: failed to elaborate `{fullName}`"
   liftTermElabM do
+  let log ← IO.mkRef #[]
   let lvls := raw.levelParams.map mkLevelParam
   let docCtx := (← getLCtx, ← getLocalInstances)
   -- Steps B and C: check the result type, and translate the body.
@@ -296,7 +411,7 @@ def elabCodef : CommandElab := fun stx => do
     mkForallFVars xs (← mkCtx fullName rawName T).PT
   let partialValue ← withLocalDeclD `rec partialType fun recFn => do
     let value ← forallTelescope raw.type fun xs T => do
-      let ctx ← mkCtx fullName rawName T recFn
+      let ctx ← mkCtx fullName rawName T recFn log
       let body ← instantiateLambda raw.value xs
       let some body ← ctx.coerce? (← ctx.go body) ctx.PT
         | throwError "codef: the translated body does not have type{indentExpr ctx.PT}"
@@ -339,6 +454,6 @@ def elabCodef : CommandElab := fun stx => do
     termination := { TerminationHints.none with ref := stx }
   }]
   -- Step F: the unfolding equation `f.__unfold : f xs = body`.
-  addUnfoldEqns declName raw
+  addUnfoldEqns declName raw (← log.get)
 
 end QPFTypes.Codef
