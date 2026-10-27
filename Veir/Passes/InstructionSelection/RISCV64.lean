@@ -31,33 +31,6 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
-/-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
-    is used at both bitwidths, since the register already holds the correctly-represented value. -/
-def umax_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__umax) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .maxu ()
-
-/-- `llvm.intr.umin` -> `riscv.minu`. -/
-def umin_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__umin) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
-
-/-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
-def smax64_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smax) (fun t => t.bitwidth = 64) .max ()
-
-/-- `llvm.intr.smax` (`i32`) -> sign-extend (so negative values order correctly, since
-    `castToRegLocal` zero-extends) then `riscv.max`. -/
-def smax32_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smax) (fun t => t.bitwidth = 32) .max () (extend := some ⟨.sextw, ()⟩)
-
-/-- `llvm.intr.smin` (`i64`) -> `riscv.min`. -/
-def smin64_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smin) (fun t => t.bitwidth = 64) .min ()
-
-/-- `llvm.intr.smin` (`i32`) -> sign-extend (so negative values order correctly, since
-    `castToRegLocal` zero-extends) then `riscv.min`. -/
-def smin32_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smin) (fun t => t.bitwidth = 32) .min () (extend := some ⟨.sextw, ()⟩)
-
 /--
   RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
   identical).
@@ -686,21 +659,6 @@ def selectGeneral : Puddle.CompiledPattern OpCode := selectGeneral_pattern.compi
   multi-instruction expansion and is intentionally left unselected.
 -/
 
-/-- llvm.intr.smax -> riscv.max -/
-def smax64 : Puddle.CompiledPattern OpCode := smax64_pattern.compile
-
-def smax32 : Puddle.CompiledPattern OpCode := smax32_pattern.compile
-
-/-- llvm.intr.smin -> riscv.min -/
-def smin64 : Puddle.CompiledPattern OpCode := smin64_pattern.compile
-
-def smin32 : Puddle.CompiledPattern OpCode := smin32_pattern.compile
-
-/-- llvm.intr.umax -> riscv.maxu -/
-def umax : Puddle.CompiledPattern OpCode := umax_pattern.compile
-
-/-- llvm.intr.umin -> riscv.minu -/
-def umin : Puddle.CompiledPattern OpCode := umin_pattern.compile
 
 /-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
@@ -1757,6 +1715,27 @@ def gmirBitreverse_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[rev8Op.res[0]!] #[type])
     (fun castBackOp => castBackOp)
 
+/-- `gmir.g_smax` (`i64`) -> `riscv.max`. -/
+def gmirSmax_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_smax) (·.bitwidth = 64) .max () (guard := matchLegal .g_smax)
+
+/-- `gmir.g_smin` (`i64`) -> `riscv.min`. -/
+def gmirSmin_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_smin) (·.bitwidth = 64) .min () (guard := matchLegal .g_smin)
+
+/-- `gmir.g_umax` (`i64`) -> `riscv.maxu`. -/
+def gmirUmax_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_umax) (·.bitwidth = 64) .maxu () (guard := matchLegal .g_umax)
+
+/-- `gmir.g_umin` (`i64`) -> `riscv.minu`. -/
+def gmirUmin_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_umin) (·.bitwidth = 64) .minu () (guard := matchLegal .g_umin)
+
+def gmirSmax : Puddle.CompiledPattern OpCode := gmirSmax_pattern.compile
+def gmirSmin : Puddle.CompiledPattern OpCode := gmirSmin_pattern.compile
+def gmirUmax : Puddle.CompiledPattern OpCode := gmirUmax_pattern.compile
+def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
+
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
 def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
@@ -1902,14 +1881,15 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
     load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
-    smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
+    saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirConstant.run,
-    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run] ++
+    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
+    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
     gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"

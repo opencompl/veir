@@ -242,6 +242,14 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
   | .g_bswap, .type 0, width => widenReverse .g_bswap width
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
+  -- Sign extension preserves the signed order, and also the unsigned order. For `g_umin` and
+  -- `g_umax`, LLVM only sign-extends where it is cheaper than zero-extending (from `i32` on
+  -- RISC-V), but both are correct.
+  | .g_smin, .type 0, width => widenTypeGroup .g_smin (.type 0) .g_sext width
+  | .g_smax, .type 0, width => widenTypeGroup .g_smax (.type 0) .g_sext width
+  | .g_umin, .type 0, width => widenTypeGroup .g_umin (.type 0) .g_sext width
+  | .g_umax, .type 0, width => widenTypeGroup .g_umax (.type 0) .g_sext width
+  | .g_abs, .type 0, width => widenTypeGroup .g_abs (.type 0) .g_sext width
   | _, _, _ => none
 
 end
