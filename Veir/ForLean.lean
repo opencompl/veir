@@ -1003,6 +1003,17 @@ theorem setWidth_ofInt_1_64 (v : Int) :
     BitVec.toInt_ofInt]
   grind
 
+/--
+`bv_decide` does not support `BitVec.carry`, so we rewrite it as the top bit of the sum in `w + 1`
+bits.
+-/
+@[veir_bv_normalize]
+theorem carry_eq_msb_setWidth_add {w : Nat} (x y : BitVec w) (b : Bool) :
+    carry w x y b = (x.setWidth (w + 1) + y.setWidth (w + 1) + (ofBool b).setWidth (w + 1)).msb := by
+  have := x.isLt; have := y.isLt; have := Bool.toNat_le b; have := Nat.one_le_two_pow (n := w)
+  simp (disch := omega) only [carry_width, msb_eq_decide, toNat_add, toNat_setWidth, toNat_ofBool,
+    Nat.add_sub_cancel, Nat.pow_succ, Nat.mod_eq_of_lt, ge_iff_le]
+
 @[grind =]
 theorem eq_setWidth_zero (x : BitVec w) :
     x = 0#w → x.setWidth w' = 0#w' := by
