@@ -306,7 +306,28 @@ example (i) : evens'.get i = evens.get i := by
 
 end EvensExample
 
+section Map2
 
+/-
+FIXME: the following ought to work
+codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
+  cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
+productive_by
+  sorry
+-/
+
+/-
+FIXME: the following ought to work
+
+```
+codef map2 (f : α → α) (xs : Stream α) : Stream α :=
+  cons (f xs.head) (map2 f <| map2 f xs.tail)
+productive_by
+  sorry
+```
+-/
+
+end Map2
 
 
 /-! ### Errors -/
