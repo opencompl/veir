@@ -29,7 +29,7 @@
 // SRC:   Program output: #[0x00000008#32, 0x00000008#32, 0x00000008#32, 0x03#8, 0x02#8, 0x08#8, 0x08#8, 0x00e1f000#32, 0xf012#16, 0x00870f00#32, 0x28#8]
 // CHECK:    "riscv.clzw"
 // CHECK:    "riscv.ctzw"
-// CHECK:    "riscv.cpop"
+// CHECK:    "riscv.cpopw"
 // CHECK:    "riscv.clzw"
 // CHECK:    "riscv.ctzw"
 // CHECK:    "riscv.rev8"

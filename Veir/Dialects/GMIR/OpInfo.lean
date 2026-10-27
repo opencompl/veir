@@ -268,7 +268,7 @@ Reverses the bits within each byte of `x`, as RISC-V's `brev8` (LLVM's `RISCV::G
 Reversing all bits also reverses the byte order, which `bswap` undoes. The verifier only accepts
 widths of 8, 16, 32 and 64 bits.
 -/
-private def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
+def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
   if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
 
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
