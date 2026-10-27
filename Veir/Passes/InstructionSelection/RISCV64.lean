@@ -31,24 +31,6 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
-/-- `llvm.intr.ctlz` (`i32`) -> `riscv.clzw`. -/
-def ctlz32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctlz) 32 .clzw ()
-
-/-- `llvm.intr.ctlz` (`i64`) -> `riscv.clz`. -/
-def ctlz64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctlz) 64 .clz ()
-
-/-- `llvm.intr.cttz` (`i32`) -> `riscv.ctzw`. -/
-def cttz32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__cttz) 32 .ctzw ()
-
-/-- `llvm.intr.cttz` (`i64`) -> `riscv.ctz`. -/
-def cttz64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__cttz) 64 .ctz ()
-
-/-- `llvm.intr.ctpop` (`i32`) -> `riscv.cpopw`. -/
-def ctpop32_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 32 .cpopw ()
-
-/-- `llvm.intr.ctpop` (`i64`) -> `riscv.cpop`. -/
-def ctpop64_pattern : Pattern OpCode := lowerUnary (.llvm .intr__ctpop) 64 .cpop ()
-
 /-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
     is used at both bitwidths, since the register already holds the correctly-represented value. -/
 def umax_pattern : Pattern OpCode :=
@@ -113,24 +95,6 @@ def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
 def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
-
-/--
-  `llvm.intr.ctlz` -> `riscv.clz`.
--/
-def ctlz32 : Puddle.CompiledPattern OpCode := ctlz32_pattern.compile
-def ctlz64 : Puddle.CompiledPattern OpCode := ctlz64_pattern.compile
-
-/--
-  `llvm.intr.cttz` -> `riscv.ctz`.
--/
-def cttz32 : Puddle.CompiledPattern OpCode := cttz32_pattern.compile
-def cttz64 : Puddle.CompiledPattern OpCode := cttz64_pattern.compile
-
-/--
-  `llvm.intr.ctpop` -> `riscv.cpop`.
--/
-def ctpop32 : Puddle.CompiledPattern OpCode := ctpop32_pattern.compile
-def ctpop64 : Puddle.CompiledPattern OpCode := ctpop64_pattern.compile
 
 /--
   `llvm.intr.bswap` -> `riscv.rev8`. For `i16`/`i32`, shift the reversed bytes
@@ -2024,7 +1988,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectGeneral.run,
-    ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap64.run, bswap32.run, bswap16.run,
+    bswap64.run, bswap32.run, bswap16.run,
     bitreverse64.run, bitreverse32.run, bitreverse16.run, bitreverse8.run,
     constant.run, addressof] ++
     #[
