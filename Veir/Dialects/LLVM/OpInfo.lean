@@ -621,6 +621,26 @@ def Llvm.callInterface : CallOpInterface LLVMCallProperties where
     let operands := operands.extract 0 (numOperands.getD operands.size)
     if props.callee.isSome then operands else operands.extract 1
 
+/--
+Whether the call attribute `entry` gives the call operand bundles. A bundle counts even without
+operands, as its tag alone can change what the call does.
+-/
+def Llvm.isOperandBundleAttr (entry : ByteArray × Attribute) : Bool :=
+  let (name, attr) := entry
+  if name == "op_bundle_sizes".toUTF8 then
+    match attr with
+    | .denseArrayAttr sizes => !sizes.values.isEmpty
+    | _ => true
+  else if name == "op_bundle_tags".toUTF8 then
+    match attr with
+    | .arrayAttr tags => !tags.value.isEmpty
+    | _ => true
+  else false
+
+/-- Whether a call passes operand bundles, which the interpreter does not model. -/
+def LLVMCallProperties.hasOperandBundles (props : LLVMCallProperties) : Bool :=
+  props.extra.entries.any Llvm.isOperandBundleAttr
+
 def Llvm.callOpInterface? (op : Llvm) : Option (CallOpInterface (Llvm.propertiesOf op)) :=
   match op with
   | .call => some Llvm.callInterface
@@ -1827,6 +1847,9 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     let [type] := resultTypes.toList | none
     let .integerType bw := type.val | none
     if bw.bitwidth = 64 then return (#[.int 64 val.toInt], mem, none) else .fail none
+  | .call => do
+    if properties.hasOperandBundles then .fail none
+    return (#[], mem, some (← Llvm.callInterface.call? properties operands))
   | _ => none
 
 instance : HasOpInfo Llvm where

@@ -57,18 +57,10 @@ private def isUnsupportedAbiAttr (entry : ByteArray × Attribute) : Bool :=
 /-- Required tail calls and bundles (even with zero operands) also need separate support. -/
 private def isUnsupportedCallAttr (entry : ByteArray × Attribute) : Bool :=
   let (name, attr) := entry
-  isUnsupportedAbiAttr entry ||
+  isUnsupportedAbiAttr entry || Llvm.isOperandBundleAttr entry ||
     if name == "TailCallKind".toUTF8 then
       match attr with
       | .tailCallKindAttr kind => kind.value.trimAscii.toString == "musttail"
-      | _ => true
-    else if name == "op_bundle_sizes".toUTF8 then
-      match attr with
-      | .denseArrayAttr sizes => !sizes.values.isEmpty
-      | _ => true
-    else if name == "op_bundle_tags".toUTF8 then
-      match attr with
-      | .arrayAttr tags => !tags.value.isEmpty
       | _ => true
     else false
 

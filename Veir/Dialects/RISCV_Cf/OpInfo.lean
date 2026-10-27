@@ -452,9 +452,8 @@ def Riscv_Cf.interpretOp' (opType : Veir.Riscv_Cf) (properties : propertiesOf op
     Interp.ub none
   | .return =>
     return (#[], some (.return operands))
-  -- Calls require symbol resolution and an interpreter call stack.
-  | .call =>
-    Interp.fail none
+  | .call => do
+    return (#[], some (← Riscv_Cf.callInterface.call? properties operands))
 
 instance : HasOpInfo Riscv_Cf where
   verifyLocalInvariants := Riscv_Cf.verifyLocalInvariants Riscv_Cf.functionInterface?
