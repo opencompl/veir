@@ -55,6 +55,7 @@ private def foldByEvaluation (opType : OpCode) (properties : propertiesOf opType
   | .fail _ => none
   | .ok results => return results.map .useConstant
   | .ub _ => allResultsPoison resultTypes
+  | .spin => none
 
 /--
   Fold an operation that propagates poison and has a wholly poisoned operand.

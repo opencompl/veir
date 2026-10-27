@@ -242,13 +242,31 @@ theorem Interp.isRefinedBy_ub_target :
     Interp.isRefinedBy R (.ub op) target := by
   simp only [Interp.isRefinedBy]
 
+/-- `spin` is only refined by `spin`. -/
+@[simp, grind =]
+theorem Interp.isRefinedBy_spin_target_iff :
+    Interp.isRefinedBy R .spin target ↔ target = .spin := by
+  cases target <;> simp [Interp.isRefinedBy]
+
 /-- `ok` is only refined by `ok` values that satisfy the given refinement relation. -/
 @[simp, grind =]
 theorem Interp.isRefinedBy_ok_target_iff :
     Interp.isRefinedBy R (.ok sourceRes) target ↔
     ∃ targetRes, target = .ok targetRes ∧ R sourceRes targetRes := by
   simp only [Interp.isRefinedBy]
-  rcases target with _ | (_ | _) <;> grind
+  cases target <;> grind
+
+/-- Binding preserves refinement, given continuations that preserve it. -/
+theorem Interp.isRefinedBy_bind {α β γ δ : Type} {R : α → β → Prop} {S : γ → δ → Prop}
+    {x : Interp α} {y : Interp β} {f : α → Interp γ} {g : β → Interp δ}
+    (h : Interp.isRefinedBy R x y) (hk : ∀ a b, R a b → Interp.isRefinedBy S (f a) (g b)) :
+    Interp.isRefinedBy S (x >>= f) (y >>= g) := by
+  rcases x with _ | _ | _ | a
+  case fail | ub => simp
+  case spin => simp [Interp.isRefinedBy_spin_target_iff.mp h]
+  case ok =>
+    obtain ⟨b, rfl, hab⟩ := Interp.isRefinedBy_ok_target_iff.mp h
+    exact hk a b hab
 
 /-! ## ValueMapping -/
 

@@ -93,7 +93,8 @@ on the underlying values. This asserts:
 * every well-defined outcome `.ok a` of `source` must be matched by an outcome
   `.ok b` of `target` with `R a b`;
 * when `source` is undefined behaviour (`.ub`) or failed interpretation (`.fail`), `target`
-  is unconstrained
+  is unconstrained;
+* a run that never terminates (`.spin`) is only refined by a run that never terminates.
 -/
 @[expose]
 def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
@@ -101,6 +102,7 @@ def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : I
   | .ok a, .ok b => R a b
   | .ub _, _ => True
   | .fail _, _ => True
+  | .spin, .spin => True
   | _, _ => False
 
 /--

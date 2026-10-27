@@ -124,12 +124,21 @@ theorem interpretOp_monotone
                     op.interpret ctx.raw operands' state.memory := by
      grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
   /- Do a case analysis on the source interpretation -/
-  rcases hsrc : interpretOp op state opIn with _ | _ | ⟨state₂, act⟩
-  · -- If the source interpretation fails, then the refinement is trivial
+  rcases hsrc : interpretOp op state opIn with _ | _ | _ | ⟨state₂, act⟩
+  case fail =>
+    -- If the source interpretation fails, then the refinement is trivial
     simp [Interp.isRefinedBy]
-  · /- If the source interpretation returns UB, then the refinement holds trivially. -/
+  case ub =>
+    /- If the source interpretation returns UB, then the refinement holds trivially. -/
     simp
-  · /- If the source interpretation returns a new state, we need to prove that (1) the target
+  case spin =>
+    /- If the source interpretation never terminates, then neither does its operation, nor the
+       target operation, which refines it. -/
+    rw [interpretOp_eq_spin_iff_of_getOperandValues_eq_some hSrcOps] at hsrc
+    simp only [hsrc, Interp.isRefinedBy_spin_target_iff] at hPR1
+    simp [interpretOp_eq_spin_iff_of_getOperandValues_eq_some hTgtOps, hInterp'Eq, hPR1]
+  case ok =>
+    /- If the source interpretation returns a new state, we need to prove that (1) the target
        interpretation also returns a new state, and (2) the new states are in the refinement relation. -/
     simp only [Interp.isRefinedBy_ok_target_iff, Prod.exists]
     have ⟨resValues, hinterp', hResValues⟩ :=
@@ -183,12 +192,19 @@ theorem interpretOpList_mono
       hState (hPreserves a (by grind))
     simp only [interpretOpList_cons]
     /- Case analysis on the interpretation of the head operation `a` in the source. -/
-    rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | _ | ⟨s, act⟩
-    · /- Source operation fails: interpreting the list returns `.fail`, refinement is trivial. -/
+    rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | _ | _ | ⟨s, act⟩
+    case fail =>
+      /- Source operation fails: interpreting the list returns `.fail`, refinement is trivial. -/
       simp [Interp.isRefinedBy]
-    · /- Source operation is UB, which is refined by anything. -/
+    case ub =>
+      /- Source operation is UB, which is refined by anything. -/
       simp
-    · /- Source operation succeeds with new state `s` and action `act`. This means that the target
+    case spin =>
+      /- Source operation never terminates, so neither does the target operation. -/
+      simp only [hsrc, Interp.isRefinedBy_spin_target_iff] at refinesHead
+      simp [refinesHead]
+    case ok =>
+      /- Source operation succeeds with new state `s` and action `act`. This means that the target
       operation also succeeds with a refined state `s'` and action `act'`. -/
       simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at refinesHead
       obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := refinesHead
@@ -227,23 +243,16 @@ theorem interpretTerminatedOpList_mono
         r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
       (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
   have hList := interpretOpList_mono opsInBounds opsInBounds' hState hFrame
-  simp only [interpretTerminatedOpList, bind]
-  rcases hsrc : interpretOpList ops state (by grind) with _ | _ | ⟨s, act⟩
-  · simp [Interp.isRefinedBy]
-  · exact Interp.isRefinedBy_ub_target
-  · simp only [hsrc, Interp.isRefinedBy_ok_target_iff] at hList
-    obtain ⟨⟨s', act'⟩, htgt, hsRef, hactRef⟩ := hList
-    simp only [htgt]
-    /- Case analysis on the action returned by `interpretOpList`. If no action is returned at the
-    source, then the refinement is trivial (as interpretation failed in the input). If an action
-    is returned, then we derive refinement from the refinement of the action (given by
-    `interpretOpList_mono`). -/
-    cases act with
-    | none =>  simp [Interp.isRefinedBy]
-    | some cf =>
-      have ⟨cf', hact', hcfRef⟩ : ∃ cf', act' = some cf' ∧ cf.isRefinedBy cf' := by
-        cases act' <;> simp_all [ControlFlowAction.optionIsRefinedBy]
-      subst hact'
-      exact ⟨hsRef, hcfRef⟩
+  unfold interpretTerminatedOpList
+  refine Interp.isRefinedBy_bind hList ?_
+  rintro ⟨s, act⟩ ⟨s', act'⟩ ⟨hsRef, hactRef⟩
+  /- If `interpretOpList` returns no action, the source fails. Otherwise, the target returns a
+     refining action, given by `interpretOpList_mono`. -/
+  cases act with
+  | none => exact Interp.isRefinedBy_fail_target
+  | some cf =>
+    cases act' with
+    | none => nomatch hactRef
+    | some cf' => exact ⟨hsRef, hactRef⟩
 
 end Veir

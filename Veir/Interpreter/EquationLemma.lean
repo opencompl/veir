@@ -298,10 +298,12 @@ theorem InterpreterState.DefinesDominating.interpretOp_ne_fail
   have hconforms : RuntimeValue.ArrayConforms operandValues (op.getOperandTypes! ctx.raw) := by
     grind [VariableState.getOperandValues_conforms]
   have hne := interpretOp'_ne_fail opVerif hconforms state.memory
-  rcases hresValues : op.interpret ctx operandValues state.memory with _ | _ | ⟨resValues, mem', act⟩
-  · simp [hresValues] at hne
-  · simp
-  · simp only [liftM, monadLift, MonadLift.monadLift]
+  rcases hresValues : op.interpret ctx operandValues state.memory with
+    _ | _ | _ | ⟨resValues, mem', act⟩
+  case fail => simp [hresValues] at hne
+  case ub | spin => rfl
+  case ok =>
+    simp only [liftM, monadLift, MonadLift.monadLift]
     have := interpretOp'_results_conform opVerif hconforms hresValues
     have ⟨v, hv⟩ :=
       (VariableState.setResultValues?_isSome_iff_conforms state.variables opInBounds).mp this
@@ -327,10 +329,10 @@ theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
     have headInRoot : root.Ancestor a ctx := by
       grind [IRNode.Ancestor.of_ancestor_parent_of_parent_descendant]
     simp only [interpretOpList_cons]
-    rcases hi : interpretOp a state (by grind) with _ | _ | ⟨s, act⟩
-    · grind [InterpreterState.DefinesDominating.interpretOp_ne_fail]
-    · simp
-    · grind [interpretOp_DefinesDominating hDom headParent hi]
+    rcases hi : interpretOp a state (by grind) with _ | _ | _ | ⟨s, act⟩
+    case fail => grind [InterpreterState.DefinesDominating.interpretOp_ne_fail]
+    case ub | spin => rfl
+    case ok => grind [interpretOp_DefinesDominating hDom headParent hi]
 
 /-- If the equation lemma holds at the point *before* an operation chain, interpreting the chain
 keeps the equation lemma valid at the point *after* the chain. -/
@@ -354,11 +356,11 @@ theorem interpretOpList_equationLemmaAt {ctx : WfIRContext OpCode}
     have : head = fstOp := by grind
     subst head
     simp only [interpretOpList_cons] at hrun
-    rcases hi : interpretOp fstOp state headInBounds with _ | _ | ⟨s, act⟩ <;>
+    rcases hi : interpretOp fstOp state headInBounds with _ | _ | _ | ⟨s, act⟩ <;>
       simp only [hi] at hrun
-    · simp at hrun
-    · grind
-    · have headRooted : fstOp.RootedAt root ctx := blockRooted.of_parent (by grind)
+    case fail | ub | spin => simp at hrun
+    case ok =>
+      have headRooted : fstOp.RootedAt root ctx := blockRooted.of_parent (by grind)
       have hAfter : s.EquationLemmaAt (InsertPoint.after fstOp ctx.raw block) := by
         grind [interpretOp_equationLemmaAt]
       cases tail <;> grind
@@ -380,11 +382,11 @@ theorem interpretOpList_DefinesDominating {ctx : WfIRContext OpCode}
     obtain ⟨headInBounds, headParent, headNext, hChainTail⟩ := hChain
     obtain rfl : a = fstOp := by simpa using head
     simp only [interpretOpList_cons] at hrun
-    rcases hi : interpretOp a state headInBounds with _ | _ | ⟨s, act⟩ <;>
+    rcases hi : interpretOp a state headInBounds with _ | _ | _ | ⟨s, act⟩ <;>
       simp only [hi] at hrun
-    · simp at hrun
-    · grind
-    · cases act
+    case fail | ub | spin => simp at hrun
+    case ok =>
+      cases act
       case none =>
         have hAfter := interpretOp_DefinesDominating stateDom headParent hi
         cases tail <;> grind

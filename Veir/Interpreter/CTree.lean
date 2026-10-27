@@ -98,6 +98,7 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
   monadLift
     | .ub _ => ub
     | .fail _ => fail
+    | .spin => .spin
     | .ok v => return v
 
 /-! ## Definition of Pure CTrees -/
