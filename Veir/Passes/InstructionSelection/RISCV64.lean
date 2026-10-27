@@ -1885,50 +1885,6 @@ def gmirBrev8_pattern : Pattern OpCode :=
 def gmirBitreverse_pattern : Pattern OpCode :=
   lowerBitreverse 64 (.gmir .g_bitreverse) (matchLegal .g_bitreverse)
 
-/--
-  `gmir.g_ctpop` (`i64`) of the zero-extension of an `i32` -> `riscv.cpopw`, which only counts the
-  low 32 bits. The legalizer widens an `i32` `g_ctpop` into this form. As LLVM's `selectZExtBits`,
-  the zero-extension is either a `gmir.g_zext` of an `i32` (`andMask = false`), or a `gmir.g_and`
-  with the constant `0xffffffff` (`andMask = true`), which is what the artifact combiner makes of
-  it. The constant is only matched on the rhs, where the post-legalizer combiner places it.
-  TODO: Also match values whose high 32 bits are known to be zero.
-
-  LLVM: `Pat<(i64 (ctpop (i64 (zexti32 (i64 GPR:$rs1))))), (CPOPW GPR:$rs1)>`.
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L595
--/
-def lowerCpopw (andMask : Bool) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let wideType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
-      let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
-      let (x, ext) ← if andMask then do
-          let x ← MatchProg.value wideType
-          let mask ← MatchProg.operation (.gmir .g_constant) #[] #[wideType]
-          MatchProg.matchNative mask.properties fun ⟨const⟩ =>
-            (BitVec.ofInt 64 const.value).toNat = 0xffffffff
-          let ext ← MatchProg.operation (.gmir .g_and) #[x, mask.res[0]!] #[wideType]
-          pure (x, ext.res[0]!)
-        else do
-          let narrowType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
-          let x ← MatchProg.value narrowType
-          let ext ← MatchProg.operation (.gmir .g_zext) #[x] #[wideType]
-          pure (x, ext.res[0]!)
-      let root ← MatchProg.root (.gmir .g_ctpop) #[ext] #[resType]
-      matchLegal .g_ctpop resType root.properties (type₁ := wideType)
-      return (resType, x))
-    (fun (resType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
-      let cpopwOp ← CreateProg.operation (.riscv .cpopw) #[castOp.res[0]!] #[regType]
-      CreateProg.operation (.builtin .unrealized_conversion_cast) #[cpopwOp.res[0]!] #[resType])
-    (fun castBackOp => castBackOp)
-
-/-- `gmir.g_ctpop` of a `gmir.g_zext` of an `i32` -> `riscv.cpopw`. -/
-def gmirCpopwZext : Puddle.CompiledPattern OpCode := (lowerCpopw false).compile
-
-/-- `gmir.g_ctpop` of a `gmir.g_and` with `0xffffffff` -> `riscv.cpopw`. -/
-def gmirCpopwAnd : Puddle.CompiledPattern OpCode := (lowerCpopw true).compile
-
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
 def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
@@ -2061,8 +2017,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     #[bswapBitreverse.run, bitreverseBswap.run, lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
-    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
-    gmirCpopwZext.run, gmirCpopwAnd.run]
+    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
