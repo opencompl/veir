@@ -19,11 +19,16 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 def Tensor.propertiesOf (_op : Tensor) : Type :=
   Unit
 
+/-- Reject properties on `tensor` operations, none of which carry any. -/
 def Tensor.fromAttrDict
-    (op : Tensor) (_attrDict : Std.HashMap ByteArray Attribute) :
-    Except String (Tensor.propertiesOf op) := by
-  cases op
-  all_goals exact .ok ()
+    (op : Tensor) (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (Tensor.propertiesOf op) :=
+  if attrDict.size > 0 then
+    let plural := if attrDict.size = 1 then "property" else "properties"
+    .error s!"tensor: expected no properties, but got {attrDict.size} {plural}"
+  else by
+    cases op
+    all_goals exact .ok ()
 
 def Tensor.toAttrDict
     (op : Tensor) (_props : Tensor.propertiesOf op) :
