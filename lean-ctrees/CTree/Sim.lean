@@ -1,5 +1,6 @@
 module
 
+public import CTree.Order
 public import CTree.Defs
 public import CTree.Iter
 public import CTree.Interp
@@ -7,7 +8,7 @@ public import CTree.Interp
 public section
 
 namespace CTree
-open Coinductive Lean.Order
+open Coinductive Lean.Order Tower
 
 variable {EIn FIn CIn C'In DIn X Y X' Y' : Type u}
   {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u}
@@ -60,6 +61,14 @@ axiom iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
 axiom interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C X) (u : CTree E C Y) :
   Sim RR t u →
   Sim RR (CTree.interp h t) (CTree.interp h u)
+
+@[expose]
+def prod_rel {A B C D} (RR : A → B → Prop) (RS : C → D → Prop) := fun (x, σ) (y, σ') => RR x y ∧ RS σ σ'
+
+axiom interp_state {RR RR'} {RS : σ → σ → Prop} (h : (i : EIn) → StateT σ (CTree F C) (E i)) (t : CTree E C X) (u : CTree E C Y) :
+  prod_rel RR RS ⊑ RR' →
+  Sim RR t u →
+  Sim RR' (CTree.interp_state h t s) (CTree.interp_state h u s)
 
 end Sim
 
