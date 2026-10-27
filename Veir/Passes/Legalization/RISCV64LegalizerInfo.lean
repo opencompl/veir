@@ -114,6 +114,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
+    | .g_uadde | .g_usube => [
+      .lower,
+    ]
     | .g_shl | .g_lshr | .g_ashr => [
       .legalForTypePairs [(s64, s64)],
       -- Unlike LLVM, which widens a shift by a constant, we also use a word shift for it.
