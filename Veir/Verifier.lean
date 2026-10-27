@@ -327,7 +327,9 @@ def WfIRContext.verify
         match op.getParent ctx.raw opIn with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
-        op.verifyOperandIsolation ctx opIn))
+        op.verifyOperandIsolation ctx opIn
+        if let some funcOp := FunctionOp.of? op ctx.raw then
+          funcOp.verifyTrait))
   ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyLLVMComdats
