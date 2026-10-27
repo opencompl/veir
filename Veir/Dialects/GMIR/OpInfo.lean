@@ -41,6 +41,7 @@ inductive GMIR where
 | g_ptrtoint
 | g_bswap
 | g_bitreverse
+| g_brev8
 | g_saddsat
 | g_uaddsat
 | g_ssubsat
@@ -73,7 +74,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_load | .g_store => MachineMemOperand
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
-  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
@@ -94,7 +95,7 @@ def GMIR.fromAttrDict
   case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
   case g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
-     | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse
+     | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_ctlz | g_cttz | g_ctpop
@@ -131,7 +132,7 @@ def GMIR.toAttrDict
   | .g_load | .g_store => props.toAttrDict
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
-  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
@@ -183,7 +184,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_inttoptr | .g_ptrtoint | .g_ctlz | .g_cttz | .g_ctpop =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1] }
-  | .g_bswap | .g_bitreverse | .g_abs | .g_sext_inreg =>
+  | .g_bswap | .g_bitreverse | .g_brev8 | .g_abs | .g_sext_inreg =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
   | .g_constant =>
@@ -261,6 +262,14 @@ private def unmergeValues {w : Nat} (x : Data.LLVM.Int (w + w)) :
   match x with
   | .val x => (.val (x.truncate w), .val (x.extractLsb' w w))
   | .poison => (.poison, .poison)
+
+/--
+Reverses the bits within each byte of `x`, as RISC-V's `brev8` (LLVM's `RISCV::G_BREV8`).
+Reversing all bits also reverses the byte order, which `bswap` undoes. The verifier only accepts
+widths of 8, 16, 32 and 64 bits.
+-/
+private def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
+  if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
 
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
@@ -435,6 +444,9 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
   | .g_bitreverse => do
     let [.int bw x] := operands.toList | none
     return (#[.int bw (Data.LLVM.Int.bitreverse x)], mem, none)
+  | .g_brev8 => do
+    let [.int bw x] := operands.toList | none
+    return (#[.int bw (brev8 x)], mem, none)
   | .g_ctlz => do
     let [.int _ x] := operands.toList | none
     let some resType := resultTypes[0]? | none
@@ -602,6 +614,13 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | throw "gmir.g_bswap: Expected result to have integer type"
     if intType.bitwidth ∉ [16, 32, 64] then
       throw "gmir.g_bswap: bitwidth must be 16, 32, or 64"
+  | .g_brev8 =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRIntegerTypes ctx opIn
+    let .integerType intType := ((opPtr.getResult 0).getType! ctx.raw).val
+      | throw "gmir.g_brev8: Expected result to have integer type"
+    if intType.bitwidth ∉ [8, 16, 32, 64] then
+      throw "gmir.g_brev8: bitwidth must be 8, 16, 32, or 64"
   | .g_inttoptr =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
@@ -650,7 +669,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr
-  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse
+  | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg

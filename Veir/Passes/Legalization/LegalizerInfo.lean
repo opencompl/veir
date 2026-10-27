@@ -190,6 +190,23 @@ def widenScalarIf (predicate : LegalityPredicate opcode)
 def minScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule opcode :=
   widenScalarIf (.scalarNarrowerThan typeIdx width) fun _ => (typeIdx, width)
 
+/-- Widen the scalar of type group `typeIdx` to the next power of two, if it is not one. -/
+def widenScalarToNextPow2 (typeIdx : TypeGroup) : LegalizeRule opcode :=
+  fun query => match query.getLLT! typeIdx with
+    | .scalar width =>
+      if width.nextPowerOfTwo = width then none
+      else some (.widenScalar typeIdx width.nextPowerOfTwo)
+    | .pointer _ => none
+
+/--
+Ensure the scalar of type group `typeIdx` is as wide as the scalar of type group `sameAs`.
+Unlike LLVM's `scalarSameSizeAs`, this only widens, as narrowing is not implemented yet.
+-/
+def scalarSameSizeAs (typeIdx sameAs : TypeGroup) : LegalizeRule opcode :=
+  fun query => match query.getLLT! sameAs with
+    | .scalar width => minScalar typeIdx width query
+    | .pointer _ => none
+
 end LegalizeRule
 
 /-- The legalization rules of a target. -/

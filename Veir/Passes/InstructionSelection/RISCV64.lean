@@ -173,14 +173,18 @@ def bswap16 : Puddle.CompiledPattern OpCode := (lowerBswap 16).compile
   Reverse bits within bytes with Zbkb's `brev8`, then reverse the byte order with `rev8`.
   Narrow results need a shift back to the low bits; `i8` needs only `brev8`.
   The backend's fixed target feature set includes Zbkb.
+  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
 -/
-def lowerBitreverse (bw : Nat) : Pattern OpCode :=
+def lowerBitreverse (bw : Nat) (srcOp : OpCode := .llvm .intr__bitreverse)
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let opType ← MatchProg.type (Attr := IntegerType)
           (fun t => t.bitwidth = bw ∧ bw ∈ [8, 16, 32, 64])
       let x ← MatchProg.value opType
-      let _ ← MatchProg.root (.llvm .intr__bitreverse) #[x] #[opType]
+      let root ← MatchProg.root srcOp #[x] #[opType]
+      guard opType root.properties
       return (opType, x))
     (fun (opType, x) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -1854,6 +1858,40 @@ def gmirConstant_pattern : Pattern OpCode :=
 
 def gmirConstant : Puddle.CompiledPattern OpCode := gmirConstant_pattern.compile
 
+/-- `gmir.g_ctlz` (`i64`) -> `riscv.clz`. -/
+def gmirCtlz_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_ctlz) 64 .clz () fun opType resType props =>
+    matchLegal .g_ctlz resType props (type₁ := opType)
+
+/-- `gmir.g_cttz` (`i64`) -> `riscv.ctz`. -/
+def gmirCttz_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_cttz) 64 .ctz () fun opType resType props =>
+    matchLegal .g_cttz resType props (type₁ := opType)
+
+/-- `gmir.g_ctpop` (`i64`) -> `riscv.cpop`. -/
+def gmirCtpop_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_ctpop) 64 .cpop () fun opType resType props =>
+    matchLegal .g_ctpop resType props (type₁ := opType)
+
+/-- `gmir.g_bswap` (`i64`) -> `riscv.rev8`. -/
+def gmirBswap_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_bswap) 64 .rev8 () fun _ resType props => matchLegal .g_bswap resType props
+
+/-- `gmir.g_brev8` (`i64`) -> `riscv.brev8`. -/
+def gmirBrev8_pattern : Pattern OpCode :=
+  lowerUnary (.gmir .g_brev8) 64 .brev8 () fun _ resType props => matchLegal .g_brev8 resType props
+
+/-- `gmir.g_bitreverse` (`i64`) -> `riscv.brev8` + `riscv.rev8`. -/
+def gmirBitreverse_pattern : Pattern OpCode :=
+  lowerBitreverse 64 (.gmir .g_bitreverse) (matchLegal .g_bitreverse)
+
+def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
+def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
+def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
+def gmirBswap : Puddle.CompiledPattern OpCode := gmirBswap_pattern.compile
+def gmirBrev8 : Puddle.CompiledPattern OpCode := gmirBrev8_pattern.compile
+def gmirBitreverse : Puddle.CompiledPattern OpCode := gmirBitreverse_pattern.compile
+
 /-! ### `gmir.icmp` lowering
 
     gmir.icmp eq lhs rhs  -> riscv.sltiu (riscv.xor lhs rhs) 1
@@ -2000,7 +2038,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
-    gmirConstant.run] ++
+    gmirConstant.run,
+    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run] ++
     gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
