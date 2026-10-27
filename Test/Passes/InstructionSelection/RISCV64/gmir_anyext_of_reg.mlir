@@ -4,7 +4,7 @@
 // that register itself, with no zero-extension.
 
 "builtin.module"() ({
-    "llvm.func"()  <{function_type = !llvm.func<void ()>, sym_name = "main"}> ({
+    "llvm.func"()  <{function_type = !llvm.func<void (!riscv.reg, !riscv.reg)>, sym_name = "main"}> ({
     ^bb0(%r : !riscv.reg, %s : !riscv.reg):
         %sum = "riscv.addw"(%r, %s) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %narrow = "builtin.unrealized_conversion_cast"(%sum) : (!riscv.reg) -> i32
