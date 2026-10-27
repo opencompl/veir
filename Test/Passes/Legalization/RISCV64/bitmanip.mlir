@@ -17,7 +17,7 @@
     %brev8 = "gmir.g_brev8"(%x_i64) : (i64) -> i64
     // CHECK-NEXT: "gmir.g_brev8"(%{{.*}}) : (i64) -> i64
 
-    // The `i32` counts of zeros use the word variants.
+    // The `i32` counts use the word variants.
     %ctlz32 = "gmir.g_ctlz"(%x_i32) : (i32) -> i32
     // CHECK-NEXT: %[[C:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
     // CHECK-NEXT: %[[W:.*]] = "riscv.clzw"(%[[C]]) : (!riscv.reg) -> !riscv.reg
@@ -27,11 +27,10 @@
     // CHECK-NEXT: %[[W:.*]] = "riscv.ctzw"(%[[C]]) : (!riscv.reg) -> !riscv.reg
     // CHECK-NEXT: "builtin.unrealized_conversion_cast"(%[[W]]) : (!riscv.reg) -> i32
 
-    // `ctpop` is widened to `i64`, zero-extending its operand.
     %ctpop32 = "gmir.g_ctpop"(%x_i32) : (i32) -> i32
-    // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_zext"(%{{.*}}) : (i32) -> i64
-    // CHECK-NEXT: %[[POP:.*]] = "gmir.g_ctpop"(%[[EXT]]) : (i64) -> i64
-    // CHECK-NEXT: "gmir.g_trunc"(%[[POP]]) : (i64) -> i32
+    // CHECK-NEXT: %[[C:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
+    // CHECK-NEXT: %[[W:.*]] = "riscv.cpopw"(%[[C]]) : (!riscv.reg) -> !riscv.reg
+    // CHECK-NEXT: "builtin.unrealized_conversion_cast"(%[[W]]) : (!riscv.reg) -> i32
 
     // `i8` counts are widened to `i32`. `ctlz` subtracts the added leading zeros and `cttz` sets
     // the bit above the operand, so that a zero operand still counts 8.
@@ -46,6 +45,12 @@
     // CHECK:      "gmir.g_constant"() <{"value" = 256 : i64}> : () -> i64
     // CHECK:      "gmir.g_or"
     // CHECK:      "riscv.ctzw"
+    // CHECK:      "gmir.g_trunc"(%{{.*}}) : (i32) -> i8
+
+    // An `i8` `ctpop` is widened to `i32`, zero-extending its operand.
+    %ctpop8 = "gmir.g_ctpop"(%x_i8) : (i8) -> i8
+    // CHECK:      "gmir.g_and"
+    // CHECK:      "riscv.cpopw"
     // CHECK:      "gmir.g_trunc"(%{{.*}}) : (i32) -> i8
 
     // Narrow reversals are done on `i64`, and the result is shifted back down.
@@ -76,7 +81,7 @@
 
     "test.test"(%ctlz64, %cttz64, %ctpop64, %bswap64, %bitreverse64, %brev8) : (i64, i64, i64, i64, i64, i64) -> ()
     "test.test"(%ctlz32, %cttz32, %ctpop32, %bitreverse32) : (i32, i32, i32, i32) -> ()
-    "test.test"(%ctlz8, %cttz8, %bitreverse8, %bswap16, %bitreverse5) : (i8, i8, i8, i16, i5) -> ()
+    "test.test"(%ctlz8, %cttz8, %ctpop8, %bitreverse8, %bswap16, %bitreverse5) : (i8, i8, i8, i8, i16, i5) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
