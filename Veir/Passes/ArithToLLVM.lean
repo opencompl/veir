@@ -95,7 +95,7 @@ def flagsToNswNuw (p : ArithIntegerOverflowFlagsProperties) : NswNuwProperties :
 
 /-! ### The 1:1 patterns -/
 
-/-- Index constants are left alone, as lowering them needs an index → i64 conversion. -/
+/-- TODO: Index constants are left alone, as lowering them needs an index → i64 conversion. -/
 def lowerConstant := lower1to1? .constant .mlir__constant
   (fun props => props.intAttr?.map (LLVMConstantProperties.mk ∘ .integer)) 0
 

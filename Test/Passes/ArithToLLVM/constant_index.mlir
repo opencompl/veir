@@ -1,7 +1,7 @@
 // RUN: veir-opt %s --print-op-generic -p=arith-to-llvm | filecheck %s
 
-// Lowering an index constant needs an index -> i64 conversion, so the pass
-// leaves it alone.
+// TODO: Lowering an index constant needs an index -> i64 conversion, for now
+// the pass leaves it alone.
 "builtin.module"() ({
   "func.func"() <{sym_name = "constants", function_type = () -> (index, i32)}> ({
     %idx = "arith.constant"() <{value = 4 : index}> : () -> index
