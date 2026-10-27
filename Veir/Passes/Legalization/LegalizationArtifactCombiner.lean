@@ -65,6 +65,22 @@ def combineAnyExtOfAnyExt : Pattern OpCode :=
     (fun (x, type) => CreateProg.operation (.gmir .g_anyext) #[x] #[type])
     (fun ext => ext)
 
+/--
+Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has no flags.
+-/
+def combineTruncOfTrunc : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value srcType
+      let midType ← MatchProg.type (Attr := IntegerType)
+      let inner ← MatchProg.operation (.gmir .g_trunc) #[x] #[midType]
+      let type ← MatchProg.type (Attr := IntegerType)
+      let _ ← MatchProg.root (.gmir .g_trunc) #[inner.res[0]!] #[type]
+      return (x, type))
+    (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
+    (fun trunc => trunc)
+
 public section
 
 /--
@@ -77,6 +93,7 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
       combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
       combineAnyExtOfAnyExt]
+  | .g_trunc => [combineTruncOfTrunc]
   | _ => []
 
 end
