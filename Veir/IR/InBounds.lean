@@ -21,7 +21,7 @@ attribute [local grind] BlockOperandPtrPtr.InBounds BlockOperandPtr.InBounds Ope
 @[grind .]
 theorem IRContext.empty_not_inBounds (ptr : GenericPtr)  :
     ¬ ptr.InBounds (empty OpInfo) := by
-  grind
+  grind [IRContext.default_def]
 
 variable {ctx ctx' : IRContext OpInfo}
 
