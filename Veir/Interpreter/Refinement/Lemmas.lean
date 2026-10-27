@@ -75,6 +75,12 @@ theorem InterpreterState.isRefinedBy_refl
     state.isRefinedBy state id := by
   grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
 
+/-- Every callee refines itself. -/
+@[simp, grind .]
+theorem CallInterfaceCallable.isRefinedBy_refl (c : CallInterfaceCallable RuntimeValue) :
+    c ⊒ c := by
+  cases c <;> simp [CallInterfaceCallable.isRefinedBy]
+
 @[simp, grind .]
 theorem ControlFlowAction.isRefinedBy_refl (cf : ControlFlowAction) : cf ⊒ cf := by
   cases cf <;> simp [ControlFlowAction.isRefinedBy]

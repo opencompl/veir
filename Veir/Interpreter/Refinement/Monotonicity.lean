@@ -80,8 +80,42 @@ theorem VariableState.setResultValues?_isRefinedBy
     have hfix := ValueMapping.applyToArray_getResults!_ext opIn hResults.symm
     grind [RuntimeValue.arrayIsRefinedBy]
 
+/-!
+## Monotonicity of calls
+-/
+
+/-- Performing a call is monotone in the outcome of the operation and in the function
+environment. -/
+theorem FunctionEnv.perform_isRefinedBy {env env' : FunctionEnv} (henv : env.isRefinedBy env')
+    {results results' : Array RuntimeValue} {mem mem' : MemoryState}
+    {action action' : Option ControlFlowAction} (hresults : results ⊒ results') (hmem : mem = mem')
+    (haction : ControlFlowAction.optionIsRefinedBy action action') :
+    Interp.isRefinedBy OperationResult.isRefinedBy
+      (env.perform results mem action) (env'.perform results' mem' action') :=
+  hmem ▸ match action, action', haction with
+  /- Both sides call the same function on refined arguments. -/
+  | some (.call (.symbol _) _), some (.call (.symbol _) _), ⟨rfl, hargs⟩ =>
+    Interp.isRefinedBy_bind (henv _ _ _ mem hargs) fun _ _ ⟨hmem, hres⟩ => ⟨hres, hmem, trivial⟩
+  /- TODO: indirect calls. For now the source fails, which anything refines. -/
+  | some (.call (.value _) _), some (.call (.value _) _), _ => Interp.isRefinedBy_fail_target
+  /- Other actions are passed through unchanged. -/
+  | none, none, h | some (.return _), some (.return _), h
+  | some (.branch _ _), some (.branch _ _), h => ⟨hresults, rfl, h⟩
+
+/-- Interpreting an operation and performing its call is monotone in the function environment. -/
+theorem OperationPtr.interpretWith_isRefinedBy {env env' : FunctionEnv}
+    (henv : env.isRefinedBy env') {op op' : OperationPtr} {ctx ctx' : IRContext OpCode}
+    {operands operands' : Array RuntimeValue} {mem : MemoryState}
+    (h : Interp.isRefinedBy OperationResult.isRefinedBy (op.interpret ctx operands mem)
+      (op'.interpret ctx' operands' mem)) :
+    Interp.isRefinedBy OperationResult.isRefinedBy (op.interpretWith env ctx operands mem)
+      (op'.interpretWith env' ctx' operands' mem) :=
+  Interp.isRefinedBy_bind h fun _ _ ⟨hresults, hmem, haction⟩ =>
+    FunctionEnv.perform_isRefinedBy henv hresults hmem haction
+
 /--
-`interpretOp` is monotone under a *cross-context* interpreter-state refinement.
+`interpretOp` is monotone under a *cross-context* interpreter-state refinement, and in the function
+environment.
 
 Lift `interpretOp'_monotone` through `getOperandValues` and `setResultValues?`. The source state
 lives in `ctx`, the target in `ctx'`, related by `InterpreterState.isRefinedBy` through the value
@@ -94,6 +128,7 @@ results are added on both sides and re-established by `interpretOp'_monotone`, w
 values stay defined and refined.
 -/
 theorem interpretOp_monotone
+    {env env' : FunctionEnv} (henv : env.isRefinedBy env')
     {ctx ctx' : WfIRContext OpCode}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     {mapping : ValueMapping ctx ctx'}
@@ -104,27 +139,30 @@ theorem interpretOp_monotone
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
         r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
-      (interpretOp op state opIn)
-      (interpretOp op' state' opIn') := by
+      (interpretOp env op state opIn)
+      (interpretOp env' op' state' opIn') := by
   -- If the source interpretation fails, then the refinement is trivial
-  by_cases hsource : (interpretOp op state opIn).isFail
-  · rcases h : interpretOp op state opIn with _ | _ | _ <;> simp_all [Interp.isRefinedBy]
+  by_cases hsource : (interpretOp env op state opIn).isFail
+  · rcases h : interpretOp env op state opIn with _ | _ | _ <;> simp_all [Interp.isRefinedBy]
   -- Source/target operands are defined, and memory is equal.
   have ⟨operands, hSrcOps⟩ : ∃ operands, state.variables.getOperandValues op = some operands := by
-    grind [interpretOp]
+    grind [interpretOp, Interp.withBlame]
   obtain ⟨operands', hTgtOps, hOpsRef⟩ :=
     VariableState.getOperandValues_isRefinedBy hState.2 opIn hPreserves.operands hSrcOps
   have hMem : state.memory = state'.memory := hState.1
-  -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`
-  have hPR1 := interpretOp'_monotone (op.getOpType! ctx.raw)
-    (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) (op.getResultTypes! ctx.raw)
-    operands operands' (op.getSuccessors! ctx.raw) state.memory hOpsRef
   -- Add the equality between `interpretOp'` on `operands'`
-  have hInterp'Eq : op'.interpret ctx'.raw operands' state'.memory =
+  have hInterp'Eq : op'.interpret ctx'.raw operands' state.memory =
                     op.interpret ctx.raw operands' state.memory := by
      grind [interpretOp'_opType_cast, cases ValueMapping.PreservesOperation]
+  -- Add the refinement of `interpretOp'` on `op` with `operands` and `operands'`, and of its call
+  have hPR1 : Interp.isRefinedBy OperationResult.isRefinedBy
+      (op.interpretWith env ctx.raw operands state.memory)
+      (op'.interpretWith env' ctx'.raw operands' state.memory) := by
+    apply OperationPtr.interpretWith_isRefinedBy henv
+    rw [hInterp'Eq]
+    exact interpretOp'_monotone _ _ _ operands operands' _ state.memory hOpsRef
   /- Do a case analysis on the source interpretation -/
-  rcases hsrc : interpretOp op state opIn with _ | _ | _ | ⟨state₂, act⟩
+  rcases hsrc : interpretOp env op state opIn with _ | _ | _ | ⟨state₂, act⟩
   case fail =>
     -- If the source interpretation fails, then the refinement is trivial
     simp [Interp.isRefinedBy]
@@ -136,7 +174,7 @@ theorem interpretOp_monotone
        target operation, which refines it. -/
     rw [interpretOp_eq_spin_iff_of_getOperandValues_eq_some hSrcOps] at hsrc
     simp only [hsrc, Interp.isRefinedBy_spin_target_iff] at hPR1
-    simp [interpretOp_eq_spin_iff_of_getOperandValues_eq_some hTgtOps, hInterp'Eq, hPR1]
+    simp [interpretOp_eq_spin_iff_of_getOperandValues_eq_some hTgtOps, ← hMem, hPR1]
   case ok =>
     /- If the source interpretation returns a new state, we need to prove that (1) the target
        interpretation also returns a new state, and (2) the new states are in the refinement relation. -/
@@ -147,18 +185,19 @@ theorem interpretOp_monotone
       Prod.exists] at hPR1
     have ⟨resValues', memory'₂, act', hinterp'Tgt, resValuesRef, memoryEq, actRef⟩ := hPR1
     subst memory'₂
-    simp only [← hInterp'Eq] at hinterp'Tgt
-    simp only [interpretOp, hTgtOps, bind, hinterp'Tgt, liftM, monadLift, MonadLift.monadLift]
+    rw [hMem] at hinterp'Tgt
     /- The source results conform, since the source sets them. -/
     have hConforms := (VariableState.setResultValues?_isSome_iff_conforms state.variables opIn).mpr
       ⟨_, hResValues⟩
     /- The target results refine them, so they conform too. -/
     have := hPreserves.resultTypes ▸ hConforms.of_arrayIsRefinedBy resValuesRef
     have ⟨v, hv⟩ := (VariableState.setResultValues?_isSome_iff_conforms state'.variables opIn').mp this
-    simp only [hv, Interp.pure_eq, Interp.withBlame_ok, Interp.ok.injEq, Prod.mk.injEq]
+    /- So the target interpretation returns them too. -/
+    have hTgt : interpretOp env' op' state' opIn' = .ok (⟨v, state₂.memory⟩, act') :=
+      (interpretOp_ok_iff_of_getOperandValues_eq_some hTgtOps).mpr ⟨_, hinterp'Tgt, hv⟩
+    simp only [hTgt, Interp.ok.injEq, Prod.mk.injEq]
     have stateVarRef : state.variables.isRefinedBy state'.variables mapping := by grind [InterpreterState.isRefinedBy]
     grind [InterpreterState.isRefinedBy, VariableState.setResultValues?_isRefinedBy stateVarRef resValuesRef, cases ValueMapping.PreservesOperation]
-
 
 /-!
 ## Monotonicity of `interpretOpList` and `interpretTerminatedOpList`
@@ -172,6 +211,7 @@ refinement over an *identical* list of operations modulus α-renaming
 *identical* slice of a block operation chain (the same `OperationPtr`s, whose intrinsic data agrees
 modulo renaming `mapping`). -/
 theorem interpretOpList_mono
+    {env env' : FunctionEnv} (henv : env.isRefinedBy env')
     {ctx ctx' : WfIRContext OpCode} {ops : List OperationPtr}
     (opsInBounds : ∀ op, op ∈ ops → op.InBounds ctx.raw)
     (opsInBounds' : ∀ op, op ∈ ops → op.InBounds ctx'.raw)
@@ -183,16 +223,16 @@ theorem interpretOpList_mono
       (fun (r₁ : InterpreterState ctx × Option ControlFlowAction)
            (r₂ : InterpreterState ctx' × Option ControlFlowAction) =>
         r₁.1.isRefinedBy r₂.1 mapping ∧ ControlFlowAction.optionIsRefinedBy r₁.2 r₂.2)
-      (interpretOpList ops state) (interpretOpList ops state') := by
+      (interpretOpList env ops state) (interpretOpList env' ops state') := by
   induction ops generalizing state state' with
   | nil => simpa using hState
   | cons a l ih =>
     /- Refinement of the state after interpreting the head operation `a`. -/
-    have refinesHead := interpretOp_monotone (opsInBounds a (by grind)) (opsInBounds' a (by grind))
-      hState (hPreserves a (by grind))
+    have refinesHead := interpretOp_monotone henv (opsInBounds a (by grind))
+      (opsInBounds' a (by grind)) hState (hPreserves a (by grind))
     simp only [interpretOpList_cons]
     /- Case analysis on the interpretation of the head operation `a` in the source. -/
-    rcases hsrc : interpretOp a state (opsInBounds a (by grind)) with _ | _ | _ | ⟨s, act⟩
+    rcases hsrc : interpretOp env a state (opsInBounds a (by grind)) with _ | _ | _ | ⟨s, act⟩
     case fail =>
       /- Source operation fails: interpreting the list returns `.fail`, refinement is trivial. -/
       simp [Interp.isRefinedBy]
@@ -230,6 +270,7 @@ over an *identical* list of operations. The proof is derived from `interpretOpLi
 `interpretTerminatedOpList` is a wrapper around `interpretOpList` that checks that the list of
 operation has reached a terminator. -/
 theorem interpretTerminatedOpList_mono
+    {env env' : FunctionEnv} (henv : env.isRefinedBy env')
     {ctx ctx' : WfIRContext OpCode}
     {state : InterpreterState ctx} {state' : InterpreterState ctx'}
     {mapping : ValueMapping ctx ctx'}
@@ -241,8 +282,8 @@ theorem interpretTerminatedOpList_mono
       (fun (r₁ : InterpreterState ctx × ControlFlowAction)
            (r₂ : InterpreterState ctx' × ControlFlowAction) =>
         r₁.1.isRefinedBy r₂.1 mapping ∧ r₁.2.isRefinedBy r₂.2)
-      (interpretTerminatedOpList ops state) (interpretTerminatedOpList ops state') := by
-  have hList := interpretOpList_mono opsInBounds opsInBounds' hState hFrame
+      (interpretTerminatedOpList env ops state) (interpretTerminatedOpList env' ops state') := by
+  have hList := interpretOpList_mono henv opsInBounds opsInBounds' hState hFrame
   unfold interpretTerminatedOpList
   refine Interp.isRefinedBy_bind hList ?_
   rintro ⟨s, act⟩ ⟨s', act'⟩ ⟨hsRef, hactRef⟩

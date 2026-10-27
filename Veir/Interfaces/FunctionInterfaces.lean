@@ -2,6 +2,7 @@ module
 
 public import Veir.Rewriter.WfRewriter
 public import Veir.Interfaces.SymbolInterfaces
+public import Veir.IR.SymbolRef
 
 /-!
 # FunctionOpInterface
@@ -177,6 +178,16 @@ TODO: also check `arg_attrs` and `res_attrs`, once `FunctionOpInterface` exposes
 -/
 def verifyTrait (funcOp : FunctionOp ctx op) : Except String Unit :=
   funcOp.verifyBody
+
+/--
+The function named `callee`, looked up in the closest symbol table containing `scope`.
+
+This is equivalent to `mlir::SymbolTable::lookupNearestSymbolFrom<FunctionOpInterface>` in MLIR.
+-/
+def lookup? (scope : OperationPtr) (ctx : IRContext OpCode) (callee : FlatSymbolRefAttr) :
+    Option ((function : OperationPtr) × FunctionOp ctx function) := do
+  let function ← scope.lookupNearestSymbolFrom? ctx ⟨← callee.getName?⟩
+  return ⟨function, ← FunctionOp.of? function ctx⟩
 
 end FunctionOp
 

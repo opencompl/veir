@@ -24,6 +24,9 @@ open Veir.Data
   The interpreter walks the linked list of operations in a block. It continues
   until a `func.return` is encountered, at which point the returned values are
   collected and propagated to the caller.
+
+  Calls are performed in a function environment (`FunctionEnv`), which `interpretCall`
+  provides. Since functions may call each other, it is a `partial_fixpoint`.
 -/
 
 namespace Veir
@@ -77,6 +80,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     return (vals, mem, act)
   | .func .return => do
     return (#[], mem, some (.return operands))
+  | .func .call => do
+    return (#[], mem, some (← Func.callInterface.call? properties operands))
   | .cir .return => do
     return (#[], mem, some (.return operands))
   | .gmir gmirOp => do
@@ -118,18 +123,48 @@ abbrev OperationPtr.interpret (op : OperationPtr) (ctx : IRContext OpCode)
     (op.getResultTypes! ctx) operandValues (op.getSuccessors! ctx) memory layout
 
 /--
-  Interpret a single operation given the current interpreter state.
+  The context in which a function is executed: the result of calling each callee.
+  Callees are symbols rather than bodies, since rewrites preserve symbols.
+-/
+abbrev FunctionEnv :=
+  (callee : FlatSymbolRefAttr) → (args : Array RuntimeValue) → (mem : MemoryState) →
+    Interp (MemoryState × Array RuntimeValue)
+
+/--
+  Perform the call requested by `action`, if any. The callee's return values replace `results`.
+-/
+@[expose]
+def FunctionEnv.perform (env : FunctionEnv) (results : Array RuntimeValue) (mem : MemoryState) :
+    Option ControlFlowAction → Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)
+  | some (.call (.symbol callee) args) => do
+    let (mem, results) ← env callee args mem
+    return (results, mem, none)
+  /- TODO: interpret indirect calls. -/
+  | some (.call (.value _) _) => .fail none
+  | action => return (results, mem, action)
+
+/-- Interpret an operation and perform the call it requests, if any, in `env`. -/
+@[expose]
+def OperationPtr.interpretWith (env : FunctionEnv) (op : OperationPtr) (ctx : IRContext OpCode)
+    (operandValues : Array RuntimeValue) (memory : MemoryState) :
+    Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) := do
+  let (results, mem, action) ← op.interpret ctx operandValues memory
+  env.perform results mem action
+
+/--
+  Interpret a single operation given the current interpreter state, in `env`.
   Return an updated interpreter state and a control flow action indicating how
   to continue the interpretation.
   If any error occurs during interpretation (e.g., unknown operation, missing variable),
-  return `none`. Failures and UB are blamed on `op`.
+  return `none`. Failures and UB are blamed on `op`, unless a callee already blamed one of its
+  operations.
 -/
 @[expose]
-def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
-    (inBounds : op.InBounds ctx.raw := by grind)
+def interpretOp (env : FunctionEnv) (op : OperationPtr) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (inBounds : op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × Option ControlFlowAction) := Interp.withBlame op do
   let some operands := state.variables.getOperandValues op | none
-  let (resultValues, mem, action) ← op.interpret ctx operands state.memory
+  let (resultValues, mem, action) ← op.interpretWith env ctx operands state.memory
   let newVars ← state.variables.setResultValues? op resultValues
   let newState := ⟨newVars, mem⟩
   return (newState, action)
@@ -141,14 +176,14 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode} (state : Interpre
   Return a ControlFlowAction indicating how to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretOpChain (op : OperationPtr) {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
-    (opInBounds : op.InBounds ctx.raw := by grind)
+def interpretOpChain (env : FunctionEnv) (op : OperationPtr) {ctx : WfIRContext OpCode}
+    (state : InterpreterState ctx) (opInBounds : op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × ControlFlowAction) := do
-  let (state, action) ← interpretOp op state
+  let (state, action) ← interpretOp env op state
   match action with
   | none =>
     rlet next ← op.getNextOp ctx.raw
-    interpretOpChain next state
+    interpretOpChain env next state
   | some action =>
     return (state, action)
 termination_by op.idxInParentFromTail ctx.raw
@@ -161,16 +196,16 @@ decreasing_by grind
   list was reached without encountering a terminator.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
+def interpretOpList (env : FunctionEnv) {ctx : WfIRContext OpCode} (ops : List OperationPtr)
     (state : InterpreterState ctx)
     (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × Option ControlFlowAction) :=
   match ops with
   | [] => return (state, none)
   | op :: ops => do
-    let (state, action) ← interpretOp op state
+    let (state, action) ← interpretOp env op state
     match action with
-    | none => interpretOpList ops state (by grind)
+    | none => interpretOpList env ops state (by grind)
     | some cf => return (state, cf)
 
 /--
@@ -180,11 +215,11 @@ def interpretOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
   Return `none` if any errors occur during interpretation.
 -/
 @[expose]
-def interpretTerminatedOpList {ctx : WfIRContext OpCode} (ops : List OperationPtr)
-    (state : InterpreterState ctx)
+def interpretTerminatedOpList (env : FunctionEnv) {ctx : WfIRContext OpCode}
+    (ops : List OperationPtr) (state : InterpreterState ctx)
     (opInBounds : ∀ op ∈ ops, op.InBounds ctx.raw := by grind)
     : Interp (InterpreterState ctx × ControlFlowAction) := do
-  match ← interpretOpList ops state opInBounds with
+  match ← interpretOpList env ops state opInBounds with
   | (_, none) => none
   | (state, some cf) => return (state, cf)
 
@@ -195,13 +230,14 @@ def interpretTerminatedOpList {ctx : WfIRContext OpCode} (ops : List OperationPt
   to continue the interpretation.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
-    (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+def interpretBlock (env : FunctionEnv) (blockPtr : BlockPtr) (values : Array RuntimeValue)
+    {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × ControlFlowAction) := do
   let newVars ← state.variables.setArgumentValues? blockPtr values
   let state := ⟨newVars, state.memory⟩
   rlet firstOp ← blockPtr.getFirstOp ctx.raw
-  interpretOpChain firstOp state
+  interpretOpChain env firstOp state
 
 /--
   Interpret a CFG, starting from the given block.
@@ -209,16 +245,19 @@ def interpretBlock (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : Wf
   Return the resulting interpreter state and values eventually returned, if any.
   Return `none` if any errors occur during interpretation.
 -/
-def interpretBlockCFG (blockPtr : BlockPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
-    (state : InterpreterState ctx) (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
+def interpretBlockCFG (env : FunctionEnv) (blockPtr : BlockPtr) (values : Array RuntimeValue)
+    {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (blockInBounds : blockPtr.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
-  match interpretBlock blockPtr values state blockInBounds with
+  match interpretBlock env blockPtr values state blockInBounds with
   | .ok (state, .return res) => .ok (state, res)
   | .ok (state, .branch res succ) =>
     if h : succ.InBounds ctx.raw then
-      interpretBlockCFG succ res state h
+      interpretBlockCFG env succ res state h
     else
       .fail none
+  /- Unreachable: `interpretOp` performs all calls. -/
+  | .ok (_, .call _ _) => .fail none
   | .ub op => .ub op
   | .fail op => .fail op
   | .spin => .spin
@@ -230,22 +269,23 @@ partial_fixpoint
   Return the resulting interpreter state and values eventually returned, or `none`
   if any errors occur during interpretation.
 -/
-def interpretRegion (region : RegionPtr) (values : Array RuntimeValue) {ctx : WfIRContext OpCode}
-    (state : InterpreterState ctx) (regionIn : region.InBounds ctx.raw := by grind) :
+def interpretRegion (env : FunctionEnv) (region : RegionPtr) (values : Array RuntimeValue)
+    {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
+    (regionIn : region.InBounds ctx.raw := by grind) :
     Interp (InterpreterState ctx × Array RuntimeValue) := do
   rlet block ← region.getFirstBlock ctx.raw
-  interpretBlockCFG block values state
+  interpretBlockCFG env block values state
 
 /--
   Interpret an operation representing a function, given the runtime values of its arguments
-  and the current memory state. Return the resulting memory state and the values eventually
-  returned.
+  and the current memory state, in the function environment `env`. Return the resulting memory state
+  and the values eventually returned.
 
   Unlike the other interpreter functions, this does not take an `InterpreterState`:
   a function call starts with a fresh, empty variable state, since the caller's SSA
   values are not visible inside the callee.
 -/
-def interpretFunction {ctx : WfIRContext OpCode} {op : OperationPtr}
+def interpretFunctionWith (env : FunctionEnv) {ctx : WfIRContext OpCode} {op : OperationPtr}
     (funcOp : FunctionOp ctx.raw op) (values : Array RuntimeValue)
     (mem : MemoryState) (opIn : op.InBounds ctx.raw := by grind) :
     Interp (MemoryState × Array RuntimeValue) := do
@@ -253,8 +293,129 @@ def interpretFunction {ctx : WfIRContext OpCode} {op : OperationPtr}
     none
   else
     let state : InterpreterState ctx := ⟨.empty ctx, mem⟩
-    let (state, results) ← interpretRegion funcOp.getFunctionBody values state
+    let (state, results) ← interpretRegion env funcOp.getFunctionBody values state
     return (state.memory, results)
+
+/-!
+  ## Monotonicity in the function environment
+
+  `interpretCall` is a `partial_fixpoint`, so interpreting a function body must be monotone in
+  the function environment.
+-/
+
+section Monotonicity
+
+open Lean.Order
+
+variable {γ : Type} [PartialOrder γ] {f : γ → FunctionEnv}
+
+/-- Interpreting an operation is monotone in the function environment. -/
+@[partial_fixpoint_monotone]
+theorem monotone_interpretOp (hmono : monotone f) {op : OperationPtr} {ctx : WfIRContext OpCode}
+    {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw} :
+    monotone (fun x => interpretOp (f x) op state inBounds) := by
+  unfold interpretOp OperationPtr.interpretWith FunctionEnv.perform
+  repeat' monotonicity
+  all_goals solve_by_elim [monotone_apply, hmono]
+
+/-- Interpreting an operation chain is monotone in the function environment. -/
+@[partial_fixpoint_monotone]
+theorem monotone_interpretOpChain (hmono : monotone f) {op : OperationPtr}
+    {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {opInBounds : op.InBounds ctx.raw} :
+    monotone (fun x => interpretOpChain (f x) op state opInBounds) := by
+  induction hn : op.idxInParentFromTail ctx.raw using Nat.strongRecOn
+    generalizing op state with
+  | ind n ih =>
+    unfold interpretOpChain
+    repeat' monotonicity
+    all_goals first
+      | solve_by_elim [monotone_apply, hmono]
+      | exact ih _ (by grind) rfl
+
+/-- Interpreting a block is monotone in the function environment. -/
+@[partial_fixpoint_monotone]
+theorem monotone_interpretBlock (hmono : monotone f) {block : BlockPtr}
+    {values : Array RuntimeValue} {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
+    {blockInBounds : block.InBounds ctx.raw} :
+    monotone (fun x => interpretBlock (f x) block values state blockInBounds) := by
+  unfold interpretBlock
+  repeat' monotonicity
+  all_goals solve_by_elim [monotone_apply, hmono]
+
+/-- Interpreting a CFG is monotone in the function environment. -/
+@[partial_fixpoint_monotone]
+theorem monotone_interpretBlockCFG (hmono : monotone f) {block : BlockPtr}
+    {values : Array RuntimeValue} {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
+    {blockInBounds : block.InBounds ctx.raw} :
+    monotone (fun x => interpretBlockCFG (f x) block values state blockInBounds) := by
+  intro x y hxy
+  /- By fixpoint induction, every approximation of `interpretBlockCFG (f x)` is below
+     `interpretBlockCFG (f y)`. -/
+  refine interpretBlockCFG.fixpoint_induct (env := f x) (ctx := ctx)
+    (motive := fun g => @g ⊑ fun block values state blockIn =>
+      interpretBlockCFG (f y) block values state blockIn)
+    (admissible_rel _) ?_ block values state blockInBounds
+  intro g hg block values state blockInBounds
+  dsimp only
+  rw [interpretBlockCFG]
+  /- The block run with `f x` either never terminates or equals the one run with `f y`.
+     Only a branch recurses. -/
+  rcases Interp.rel_iff.mp (monotone_interpretBlock (block := block) (values := values)
+    (state := state) (blockInBounds := blockInBounds) hmono x y hxy) with h | h <;>
+    dsimp only at h
+  · rw [h]
+    exact Interp.rel_iff.mpr (.inl rfl)
+  · rw [h]
+    split <;> (try split) <;> first | exact hg _ _ _ _ | exact PartialOrder.rel_refl
+
+/-- Interpreting a region is monotone in the function environment. -/
+@[partial_fixpoint_monotone]
+theorem monotone_interpretRegion (hmono : monotone f) {region : RegionPtr}
+    {values : Array RuntimeValue} {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
+    {regionIn : region.InBounds ctx.raw} :
+    monotone (fun x => interpretRegion (f x) region values state regionIn) := by
+  unfold interpretRegion
+  repeat' monotonicity
+  all_goals solve_by_elim [monotone_apply, hmono]
+
+/-- Interpreting a function body is monotone in the function environment. -/
+@[partial_fixpoint_monotone]
+theorem monotone_interpretFunctionWith (hmono : monotone f) {ctx : WfIRContext OpCode}
+    {op : OperationPtr} {funcOp : FunctionOp ctx.raw op} {values : Array RuntimeValue}
+    {mem : MemoryState} {opIn : op.InBounds ctx.raw} :
+    monotone (fun x => interpretFunctionWith (f x) funcOp values mem opIn) := by
+  unfold interpretFunctionWith
+  repeat' monotonicity
+  all_goals solve_by_elim [monotone_apply, hmono]
+
+end Monotonicity
+
+/--
+  Call the function `callee`, looked up from `scope`, with arguments `args` and memory `mem`.
+  Calls in its body are looked up from the callee. This matches MLIR, which looks up from the call,
+  unless a symbol table lies between the call and the function.
+  A call that never terminates returns `spin`.
+-/
+def interpretCall (ctx : WfIRContext OpCode) (scope : OperationPtr) (callee : FlatSymbolRefAttr)
+    (args : Array RuntimeValue) (mem : MemoryState) :
+    Interp (MemoryState × Array RuntimeValue) := do
+  let some ⟨function, funcOp⟩ := FunctionOp.lookup? scope ctx.raw callee | .fail none
+  if h : function.InBounds ctx.raw then
+    interpretFunctionWith (interpretCall ctx function) funcOp args mem h
+  else
+    .fail none
+partial_fixpoint
+
+/--
+  Interpret an operation representing a function, given the runtime values of its arguments
+  and the current memory state. Return the resulting memory state and the values eventually
+  returned. Calls are looked up from `op` and performed by `interpretCall`.
+-/
+def interpretFunction {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (funcOp : FunctionOp ctx.raw op) (values : Array RuntimeValue)
+    (mem : MemoryState) (opIn : op.InBounds ctx.raw := by grind) :
+    Interp (MemoryState × Array RuntimeValue) :=
+  interpretFunctionWith (interpretCall ctx op) funcOp values mem opIn
 
 /--
   Interpret a builtin.module operation.
@@ -266,7 +427,9 @@ def interpretModule (ctx : WfIRContext OpCode) (op : OperationPtr)
   if h: op.getNumRegions ctx.raw ≠ 1 then
     none
   else
-    let (_state, results) ← interpretRegion (op.getRegion ctx.raw 0) #[] (InterpreterState.empty ctx)
+    let (_state, results) ←
+      interpretRegion (interpretCall ctx op) (op.getRegion ctx.raw 0) #[]
+        (InterpreterState.empty ctx)
     return results
 
 end Veir

@@ -16,6 +16,7 @@ variable {ctx ctx' : WfIRContext OpInfo}
 variable {varState varState' : VariableState ctx}
 variable {state state' : InterpreterState ctx}
 variable {op op' : OperationPtr}
+variable {env : FunctionEnv}
 
 /-- The value stored for `var` conforms to `var`'s type. -/
 theorem VariableState.getVar?_conforms {ctx : WfIRContext OpInfo} {state : VariableState ctx}
@@ -284,12 +285,35 @@ theorem interpretOp'_opType_cast
   subst opType
   grind
 
+/-! ### Performing calls -/
+
+/-- Without an action, performing returns the results of the operation unchanged. -/
+@[simp, grind =]
+theorem FunctionEnv.perform_none : env.perform results mem none = .ok (results, mem, none) :=
+  rfl
+
+/-- Without a call, performing returns the results of the operation unchanged. -/
+theorem FunctionEnv.perform_of_notCall (h : ControlFlowAction.NotCall action) :
+    env.perform results mem action = .ok (results, mem, action) := by
+  unfold FunctionEnv.perform
+  split <;> grind [ControlFlowAction.NotCall]
+
+/-- Any action returned by `interpretWith` comes from `interpret`: a performed call returns no
+action. -/
+theorem OperationPtr.interpretWith_eq_ok_some {ctx : IRContext OpCode}
+    (h : op.interpretWith env ctx operands mem = .ok (results, mem', some cf)) :
+    ∃ results' mem'', op.interpret ctx operands mem = .ok (results', mem'', some cf) := by
+  simp only [OperationPtr.interpretWith, Interp.bind_eq_ok_iff] at h
+  obtain ⟨⟨results', mem'', action⟩, hi, hperform⟩ := h
+  unfold FunctionEnv.perform at hperform
+  split at hperform <;> grind [Interp.bind_eq_ok_iff]
+
 theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx}
   {inBounds : op.InBounds ctx.raw} :
-  interpretOp op state inBounds = .ok (state', cf) ↔
+  interpretOp env op state inBounds = .ok (state', cf) ↔
   ∃ operandValues resValues mem' varState',
     (state.variables.getOperandValues op) = some operandValues ∧
-    op.interpret ctx operandValues state.memory = .ok (resValues, mem', cf) ∧
+    op.interpretWith env ctx operandValues state.memory = .ok (resValues, mem', cf) ∧
     state.variables.setResultValues? op resValues = some varState' ∧
     state' = ⟨varState', mem'⟩ := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
@@ -297,49 +321,49 @@ theorem interpretOp_some_iff {ctx : WfIRContext OpCode} {state state' : Interpre
 
 /--
 Given that getting the operands from the interpreter state succeeds, interpreting an operation
-with `interpretOp` returns `ok` iff interpreting the operation with `interpretOp'` returns `ok` and
-setting the result values in the state succeeds.
+with `interpretOp` returns `ok` iff interpreting the operation and performing its call returns
+`ok`, and setting the result values in the state succeeds.
 -/
 theorem interpretOp_ok_iff_of_getOperandValues_eq_some
   {ctx : WfIRContext OpCode} {state state' : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
   (hoperandValues : state.variables.getOperandValues op = some operandValues) :
-  interpretOp op state inBounds = .ok (state', cf) ↔
+  interpretOp env op state inBounds = .ok (state', cf) ↔
   ∃ resValues,
-    op.interpret ctx operandValues state.memory = .ok (resValues, state'.memory, cf) ∧
+    op.interpretWith env ctx operandValues state.memory = .ok (resValues, state'.memory, cf) ∧
     state.variables.setResultValues? op resValues = some state'.variables := by
   simp only [interpretOp, hoperandValues, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind [cases InterpreterState]
 
 /--
 If interpreting an operation triggers `ub`, then we know that the operands were correctly fetched,
-and that the underlying `interpretOp'` call triggered `ub`.
+and that interpreting the operation or performing its call triggered `ub`.
 -/
 theorem interpretOp_ub_iff {ctx : WfIRContext OpCode} {state : InterpreterState ctx}
   {inBounds : op.InBounds ctx.raw} :
-  (interpretOp op state inBounds).isUB ↔
+  (interpretOp env op state inBounds).isUB ↔
   ∃ operandValues,
     (state.variables.getOperandValues op) = some operandValues ∧
-    (op.interpret ctx operandValues state.memory).isUB := by
+    (op.interpretWith env ctx operandValues state.memory).isUB := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 
-/-- `interpretOp` is `ub` iff `interpretOp'` is `ub` if the operands are correctly fetched from
-the variable state. -/
+/-- `interpretOp` is `ub` iff interpreting the operation or performing its call is `ub`, if the
+operands are correctly fetched from the variable state. -/
 theorem interpretOp_ub_iff_op_interpret_of_getOperandValues_eq_some
   {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
   (hoperandValues : state.variables.getOperandValues op = some operandValues) :
-  (interpretOp op state inBounds).isUB ↔
-  (op.interpret ctx.raw operandValues state.memory).isUB := by
+  (interpretOp env op state inBounds).isUB ↔
+  (op.interpretWith env ctx.raw operandValues state.memory).isUB := by
   simp only [interpretOp, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 
-/-- `interpretOp` never terminates iff `interpretOp'` never terminates, if the operands are
-correctly fetched from the variable state. -/
+/-- `interpretOp` never terminates iff interpreting the operation or performing its call never
+terminates, if the operands are correctly fetched from the variable state. -/
 theorem interpretOp_eq_spin_iff_of_getOperandValues_eq_some
   {ctx : WfIRContext OpCode} {state : InterpreterState ctx} {inBounds : op.InBounds ctx.raw}
   (hoperandValues : state.variables.getOperandValues op = some operandValues) :
-  interpretOp op state inBounds = .spin ↔
-  op.interpret ctx.raw operandValues state.memory = .spin := by
+  interpretOp env op state inBounds = .spin ↔
+  op.interpretWith env ctx.raw operandValues state.memory = .spin := by
   simp only [interpretOp, hoperandValues, bind, pure, liftM, monadLift, MonadLift.monadLift]
   grind
 
@@ -544,14 +568,14 @@ theorem interpretOp_forward
     (hVals : state.variables.getOperandValues op = some vals)
     (hInterp : op.interpret ctx vals state.memory = .ok (results, mem', none))
     (hConf : RuntimeValue.ArrayConforms results (op.getResultTypes! ctx.raw)) :
-    ∃ state', interpretOp op state inBounds = .ok (state', none) ∧
+    ∃ state', interpretOp env op state inBounds = .ok (state', none) ∧
       state'.memory = mem' ∧
       state.variables.setResultValues? op results = some state'.variables := by
   obtain ⟨varState', hSet⟩ :=
     (VariableState.setResultValues?_isSome_iff_conforms state.variables inBounds).mp hConf
   have hsize : op.getNumResults! ctx.raw = results.size := by grind
   exists ⟨varState', mem'⟩
-  grind [interpretOp_ok_iff_of_getOperandValues_eq_some]
+  grind [interpretOp_ok_iff_of_getOperandValues_eq_some, OperationPtr.interpretWith]
 
 section interpretOpList
 
@@ -560,24 +584,24 @@ variable {state : InterpreterState ctx}
 
 @[simp, grind =]
 theorem interpretOpList_nil :
-    interpretOpList [] state inBounds = .ok (state, none) := by
+    interpretOpList env [] state inBounds = .ok (state, none) := by
   simp [interpretOpList, pure]
 
 theorem interpretOpList_cons :
-    interpretOpList (op :: l) state inBounds =
-    match interpretOp op state with
+    interpretOpList env (op :: l) state inBounds =
+    match interpretOp env op state with
     | .fail o => .fail o
     | .ub o => .ub o
     | .spin => .spin
-    | .ok (state', none) => interpretOpList l state' (by grind)
+    | .ok (state', none) => interpretOpList env l state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf) := by
   simp [interpretOpList, bind, pure]
   grind
 
 theorem interpretOpList_append :
-    interpretOpList (l₁ ++ l₂) state inBounds =
-    match interpretOpList l₁ state (by grind) with
-    | .ok (state', none) => interpretOpList l₂ state' (by grind)
+    interpretOpList env (l₁ ++ l₂) state inBounds =
+    match interpretOpList env l₁ state (by grind) with
+    | .ok (state', none) => interpretOpList env l₂ state' (by grind)
     | .ok (state', some cf) => .ok (state', some cf)
     | .ub o => .ub o
     | .spin => .spin
@@ -588,27 +612,27 @@ theorem interpretOpList_append :
 
 @[simp, grind =]
 theorem interpretTerminatedOpList_nil :
-    interpretTerminatedOpList [] state inBounds = .fail none := by
+    interpretTerminatedOpList env [] state inBounds = .fail none := by
   simp [interpretTerminatedOpList, interpretOpList_nil, bind]
 
 theorem interpretTerminatedOpList_cons {ctx : WfIRContext OpCode}
     {op : OperationPtr} {l : List OperationPtr}
     {state : InterpreterState ctx}
     {inBounds : ∀ op' ∈ op :: l, op'.InBounds ctx.raw} :
-    interpretTerminatedOpList (op :: l) state inBounds =
-    match interpretOp op state with
+    interpretTerminatedOpList env (op :: l) state inBounds =
+    match interpretOp env op state with
     | .fail o => .fail o
     | .ub o => .ub o
     | .spin => .spin
-    | .ok (state', none) => interpretTerminatedOpList l state' (by grind)
+    | .ok (state', none) => interpretTerminatedOpList env l state' (by grind)
     | .ok (state', some cf) => .ok (state', cf) := by
   simp [interpretTerminatedOpList, interpretOpList_cons, bind, pure]
   grind
 
 theorem interpretTerminatedOpList_append :
-    interpretTerminatedOpList (l₁ ++ l₂) state inBounds =
-    match interpretOpList l₁ state (by grind) with
-    | .ok (state', none) => interpretTerminatedOpList l₂ state' (by grind)
+    interpretTerminatedOpList env (l₁ ++ l₂) state inBounds =
+    match interpretOpList env l₁ state (by grind) with
+    | .ok (state', none) => interpretTerminatedOpList env l₂ state' (by grind)
     | .ok (state', some cf)=> .ok (state', cf)
     | .ub o => .ub o
     | .spin => .spin
@@ -618,12 +642,12 @@ theorem interpretTerminatedOpList_append :
 
 theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
     (hnext : op.getNextOp! ctx.raw = some op') :
-    interpretOpChain op state' inBounds =
-    match interpretOp op state' (by grind) with
+    interpretOpChain env op state' inBounds =
+    match interpretOp env op state' (by grind) with
     | .fail o => .fail o
     | .ub o => .ub o
     | .spin => .spin
-    | .ok (state'', none) => interpretOpChain op' state'' (by grind)
+    | .ok (state'', none) => interpretOpChain env op' state'' (by grind)
     | .ok (state'', some cf) => .ok (state'', cf) := by
   rw [interpretOpChain]
   simp [bind, pure]
@@ -631,8 +655,8 @@ theorem interpretOpChain_of_next!_eq_some {state' : InterpreterState ctx}
 
 theorem interpretOpChain_of_next!_eq_none {state' : InterpreterState ctx}
     (hnext : op.getNextOp! ctx.raw = none) :
-    interpretOpChain op state' inBounds =
-    match interpretOp op state' (by grind) with
+    interpretOpChain env op state' inBounds =
+    match interpretOp env op state' (by grind) with
     | .fail o => .fail o
     | .ub o => .ub o
     | .spin => .spin
@@ -650,8 +674,8 @@ theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
     (hchain : BlockPtr.OpChain block ctx.raw array) (n : Nat) :
     ∀ (i : Nat) (state' : InterpreterState ctx)
       (_hni : i + n = array.size) (hi : i < array.size),
-      interpretOpChain array[i] state' (hchain.arrayInBounds (Array.getElem_mem hi)) =
-      interpretTerminatedOpList (array.toList.drop i) state' (by grind [BlockPtr.OpChain]) := by
+      interpretOpChain env array[i] state' (hchain.arrayInBounds (Array.getElem_mem hi)) =
+      interpretTerminatedOpList env (array.toList.drop i) state' (by grind [BlockPtr.OpChain]) := by
   induction n
   case zero => grind
   case succ n ih =>
@@ -663,12 +687,12 @@ theorem interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain
 theorem interpretOpChain_eq_interpretTerminatedOpList_of_firstOp
     {block : BlockPtr} (blockInBounds : block.InBounds ctx.raw) :
     block.getFirstOp! ctx.raw = some op →
-    interpretOpChain op state opInBounds =
-    interpretTerminatedOpList (block.operationList ctx.raw).toList state
+    interpretOpChain env op state opInBounds =
+    interpretTerminatedOpList env (block.operationList ctx.raw).toList state
       (by grind [BlockPtr.operationListWF, BlockPtr.OpChain]) := by
   intro hfirst
   have hchain := BlockPtr.operationListWF ctx.raw block blockInBounds ctx.wellFormed
-  have := interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain hchain
+  have := interpretOpChain_getElem_array_eq_interpretTerminatedOpList_of_opChain (env := env) hchain
     (block.operationList ctx.raw).size 0 state (by omega) (by grind [BlockPtr.OpChain])
   grind [BlockPtr.OpChain]
 
@@ -710,12 +734,14 @@ theorem interpretOp'_monotone
 
 /--
 A successful operation interpretation returns result values that conform to the declared
-`resultTypes` when the operation verifies.
+`resultTypes` when the operation verifies, unless it asks for a call, whose results are the values
+its callee returns.
 -/
 axiom interpretOp'_results_conform {ctx : WfIRContext OpCode}
     {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
     (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
-    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act)) :
+    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act))
+    (notCall : ControlFlowAction.NotCall act) :
     RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
 
 /--
@@ -734,8 +760,9 @@ operation successors.
 theorem interpretOp_branch_dest_mem_getSuccessors!
     {ctx : WfIRContext OpCode} {op : OperationPtr} {state state' : InterpreterState ctx}
     {inBounds : op.InBounds ctx.raw} {res : Array RuntimeValue} {dest : BlockPtr}
-    (h : interpretOp op state inBounds = .ok (state', some (.branch res dest))) :
+    (h : interpretOp env op state inBounds = .ok (state', some (.branch res dest))) :
     dest ∈ op.getSuccessors! ctx.raw := by
   obtain ⟨operandValues, resValues, mem', varState', hOperand, hInterp', hSetRes, hStateEq⟩ :=
     interpretOp_some_iff.mp h
-  exact interpretOp'_branch_dest_mem hInterp'
+  obtain ⟨_, _, hInterp⟩ := OperationPtr.interpretWith_eq_ok_some hInterp'
+  exact interpretOp'_branch_dest_mem hInterp

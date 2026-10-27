@@ -125,6 +125,11 @@ theorem Interp.bind_eq_bind_iff {α β : Type} {x : Interp α} {f g : α → Int
     (x >>= f) = (x >>= g) ↔ ∀ a, x = .ok a → f a = g a := by
   cases x <;> simp [Interp.bind_def]
 
+/-- A bind succeeds exactly when both its steps succeed. -/
+theorem Interp.bind_eq_ok_iff {α β : Type} {x : Interp α} {f : α → Interp β} {b : β} :
+    (x >>= f) = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x <;> simp
+
 /-- Binding is monotone, so a `partial_fixpoint` may recurse under `do` notation. -/
 instance : Lean.Order.MonoBind Interp where
   bind_mono_left h := by
