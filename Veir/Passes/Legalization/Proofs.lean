@@ -7,6 +7,8 @@ meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
 
 import Veir.ForLean
+import all Veir.Data.LLVM.Int.Basic
+import all Veir.Dialects.GMIR.OpInfo
 
 public section
 
@@ -104,6 +106,78 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
   veir_bv_normalize
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append, getElem_ofInt_two_pow_sub_one]
   grind
+
+/--
+Prove the correctness of lowering `g_uaddo` to a `g_add`, at every width.
+
+The add carries exactly when its sum is less than an operand.
+-/
+theorem uaddo_lowering {w : Nat} (x y : LLVM.Int w) :
+    (LLVM.Int.add x y, LLVM.Int.uaddOverflowFlag x y) =
+      let sum := LLVM.Int.add x y
+      (sum, LLVM.Int.icmp sum y .ult) := by
+  cases x <;> cases y <;>
+    simp [LLVM.Int.uaddOverflowFlag, LLVM.Int.add, LLVM.Int.icmp, Id.run, IntPred.eval,
+      BitVec.uaddOverflow_eq_ult]
+
+/--
+Prove the correctness of lowering `g_uadde`, at every width wider than `i1`.
+
+The lowering adds the operands, then adds the carry-in. It carries if either add carries. The
+second add carries only if its sum is zero.
+-/
+private theorem uadde_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (c : LLVM.Int 1) :
+    uaddWithCarry x y c =
+      let tmp := LLVM.Int.add x y
+      let carry := LLVM.Int.icmp tmp x .ult
+      let sum := LLVM.Int.add tmp (LLVM.Int.zext c w false h)
+      let carry2 := LLVM.Int.and (LLVM.Int.icmp sum (LLVM.Int.constant w 0) .eq) c
+      (sum, LLVM.Int.or carry carry2) := by
+  cases x <;> cases y <;> cases c <;>
+    simp [uaddWithCarry, LLVM.Int.add, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.and, LLVM.Int.or,
+      LLVM.Int.constant, Id.run, IntPred.eval]
+  rename_i x y c
+  obtain ⟨b, rfl⟩ : ∃ b, c = BitVec.ofBool b := ⟨_, by simpa using c.setWidth_one⟩
+  -- It carries if either `g_add` carries.
+  simp [BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
+    BitVec.carry_eq_uaddOverflow_or (by omega : 0 < w), BitVec.uaddOverflow_comm x y,
+    BitVec.uaddOverflow_eq_ult y x, BitVec.add_comm y x,
+    BitVec.uaddOverflow_setWidth_ofBool (by omega : 0 < w)]
+
+/--
+Prove the correctness of lowering `g_usubo` to a `g_sub`, at every width.
+
+The sub borrows exactly when the left operand is less than the right one.
+-/
+theorem usubo_lowering {w : Nat} (x y : LLVM.Int w) :
+    (LLVM.Int.sub x y, LLVM.Int.usubOverflowFlag x y) =
+      (LLVM.Int.sub x y, LLVM.Int.icmp x y .ult) := by
+  cases x <;> cases y <;>
+    simp [LLVM.Int.usubOverflowFlag, LLVM.Int.icmp, Id.run, IntPred.eval,
+      BitVec.usubOverflow_eq, BitVec.ult_eq_decide, BitVec.lt_def]
+
+/--
+Prove the correctness of lowering `g_usube`, at every width wider than `i1`.
+
+The lowering subtracts the operands, then subtracts the borrow-in. It borrows if either sub borrows.
+The second sub borrows only if the first difference is zero.
+-/
+private theorem usube_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (b : LLVM.Int 1) :
+    usubWithBorrow x y b =
+      let tmp := LLVM.Int.sub x y
+      let borrow := LLVM.Int.icmp tmp x .ugt
+      let diff := LLVM.Int.sub tmp (LLVM.Int.zext b w false h)
+      let borrow2 := LLVM.Int.and (LLVM.Int.icmp tmp (LLVM.Int.constant w 0) .eq) b
+      (diff, LLVM.Int.or borrow borrow2) := by
+  cases x <;> cases y <;> cases b <;>
+    simp [usubWithBorrow, LLVM.Int.sub, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.and, LLVM.Int.or,
+      LLVM.Int.constant, Id.run, IntPred.eval]
+  rename_i x y b
+  obtain ⟨b, rfl⟩ : ∃ c, b = BitVec.ofBool c := ⟨_, by simpa using b.setWidth_one⟩
+  -- It borrows if either `g_sub` borrows.
+  simp [BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
+    BitVec.ult_setWidth_add_ofBool (by omega : 0 < w), BitVec.usubOverflow_eq_ult_sub x y,
+    BitVec.usubOverflow_setWidth_ofBool (by omega : 0 < w)]
 
 end Veir.Data.LLVM
 
