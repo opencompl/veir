@@ -22,7 +22,12 @@ syntactic productivity check. Instead, it
    `partial_fixpoint`;
 3. defines `f := fun binders => CofixWithBot.get (f.__partial binders) h`, where
    `h : CofixWithBot.HasNoBot (f.__partial binders)` is proved by `tac`, after
-   `productive_by_intro` has set up the coinduction.
+   `productive_by_intro` has set up the coinduction;
+4. proves the unfolding equation `f.__unfold : ∀ binders, f binders = body`, where the
+   recursive references in `body` are to `f` itself, by unfolding `f` and `f.__partial`
+   once, splitting on `if`s and `match`es, and rewriting with `CofixWithBot.get_mk`. It is
+   also added as `f.eq_1` and `f.eq_def`, so that `rw [f]`, `simp [f]` and `unfold f`
+   use it, rather than unfolding to `CofixWithBot.get`.
 
 ## The translation
 
@@ -63,6 +68,8 @@ syntax (name := codefCmd) declModifiers "codef " declId optDeclSig " := " term
 def rawSuffix : Name := `__codef_raw
 /-- The suffix for the translated, possibly-partial definition. -/
 def partialSuffix : Name := `__partial
+/-- The suffix for the generated unfolding equation. -/
+def unfoldSuffix : Name := `__unfold
 
 /-- The data of a translation from `T = Cofix F α` to `PT = CofixWithBot F α`. -/
 structure Ctx where
@@ -213,6 +220,51 @@ def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default) : MetaM
     rawName
   }
 
+/-- Prove and add the unfolding equation `f.__unfold : ∀ xs, f xs = body` for the function
+`declName` defined by `codef`, where `raw` is its elaborated `f.__codef_raw`, and `body` is the
+latter's body with recursive calls to `f` itself. The equation is also registered as `f.eq_1`
+and `f.eq_def`, to be used by `rw [f]`, `simp [f]` and `unfold f`. -/
+def addUnfoldEqns (declName : Name) (raw : DefinitionVal) : TermElabM Unit := do
+  let fullName := privateToUserName declName
+  let lvls := raw.levelParams.map mkLevelParam
+  let (type, value) ← forallTelescope raw.type fun xs _ => do
+    let body := (← instantiateLambda raw.value xs).replace fun e =>
+      if e.isConstOf raw.name then some (.const declName lvls) else none
+    let lhs := mkAppN (.const declName lvls) xs
+    let eq ← mkEq lhs body
+    -- `f xs` unfolds to `CofixWithBot.get (f.__partial xs) _`; unfold `f.__partial` once.
+    let some lhs' ← unfoldDefinition? lhs
+      | throwError "codef: failed to unfold `{fullName}`"
+    let r ← unfold lhs' (declName ++ partialSuffix)
+    let g ← mkFreshExprSyntheticOpaqueMVar (← mkEq r.expr body)
+    let tac ← `(tactic| (repeat' split) <;>
+      first | (erw [$(mkCIdent ``QPF.CofixWithBot.get_mk):ident]; rfl) | rfl)
+    let gs ← try Tactic.run g.mvarId! (Tactic.evalTactic tac)
+      catch ex => throwError "codef: failed to prove `{unfoldSuffix}` for `{fullName}`:\
+        {indentD ex.toMessageData}"
+    unless gs.isEmpty do
+      throwError "codef: failed to prove `{unfoldSuffix}` for `{fullName}`, \
+        unsolved goals:{goalsToMessageData gs}"
+    let value ← instantiateMVars (← mkEqTrans (← r.getProof) g)
+    return (← mkForallFVars xs eq, ← mkLambdaFVars xs value)
+  let unfoldName := declName ++ unfoldSuffix
+  -- A `sorry` in the productivity proof has already been reported on `f`.
+  withOptions (warn.sorry.set · false) <| addDecl <| .thmDecl {
+    name := unfoldName
+    levelParams := raw.levelParams
+    type, value
+  }
+  -- Register it as the equation lemmas of `f`, used by `rw [f]`, `simp [f]` (`f.eq_1`) and
+  -- `unfold f` (`f.eq_def`): these are generated on demand, unless they already exist.
+  -- Marking `f` as recursive keeps `simp [f]` from also delta-unfolding `f`.
+  markAsRecursive declName
+  for suffix in [eqn1ThmSuffix, unfoldThmSuffix] do
+    addDecl <| .thmDecl {
+      name := mkEqLikeNameFor (← getEnv) declName suffix
+      levelParams := raw.levelParams
+      type, value := .const unfoldName lvls
+    }
+
 @[command_elab codefCmd]
 def elabCodef : CommandElab := fun stx => do
   let `($mods:declModifiers codef $declId:declId $sig:optDeclSig := $body
@@ -286,5 +338,7 @@ def elabCodef : CommandElab := fun stx => do
     value
     termination := { TerminationHints.none with ref := stx }
   }]
+  -- Step F: the unfolding equation `f.__unfold : f xs = body`.
+  addUnfoldEqns declName raw
 
 end QPFTypes.Codef

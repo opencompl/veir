@@ -138,21 +138,15 @@ productive_by
   refine ⟨_, rfl, ?_⟩
   exact (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, rfl⟩
 
-theorem Stream.map.__unfold (f : α → β) (xs : Stream α) :
-    Stream.map f xs = Stream.cons (f xs.head) (Stream.map f xs.tail) := by
-  conv => lhs; unfold Stream.map __partial
-  erw [CofixWithBot.get_mk]
-  rfl
--- ^^ TODO: `__unfold` should be auto-generated
 
 @[simp, grind =]
 theorem Stream.head_map (f : α → β) (xs : Stream α) : (Stream.map f xs).head = f xs.head := by
-  rw [Stream.map.__unfold, Stream.head_cons]
+  rw [Stream.map, Stream.head_cons]
 
 @[simp, grind =]
 theorem Stream.tail_map (f : α → β) (xs : Stream α) :
     (Stream.map f xs).tail = Stream.map f xs.tail := by
-  rw [Stream.map.__unfold, Stream.tail_cons]
+  rw [Stream.map, Stream.tail_cons]
 
 namespace Stream
 
@@ -190,31 +184,25 @@ productive_by
     · rw [filter.__partial]
       cases hinf with | mk _ hinf' => exact ih hinf'
 
-theorem filter.__unfold (P : α → Bool) (xs : Stream α) (h : xs.InfOften P) :
-    filter P xs h = (if P xs.head then
-        cons xs.head (filter P xs.tail h.tail)
-      else
-        filter P xs.tail h.tail) := by
-  conv => lhs; unfold filter __partial
-  by_cases hP : P xs.head
-  · simp only [hP, ite_true]
-    erw [CofixWithBot.get_mk]
-    rfl
-  · simp only [hP, Bool.false_eq_true, ite_false]
-    rfl
-
+/--
+info: '_private.Test.Theory.QPF.Cofix.WithBot.0.QPFTypes.Test.WithBot.Stream.filter' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in
+#print axioms filter
 
 @[grind =]
 theorem filter_of_pos {P : α → Bool} {xs : Stream α} (h : xs.InfOften P)
     (hP : P xs.head) :
     filter P xs h = cons xs.head (filter P xs.tail h.tail) := by
-  rw [filter.__unfold]; grind
+  rw [filter]; grind
 
 @[grind =]
 theorem filter_of_neg {P : α → Bool} {xs : Stream α} (h : xs.InfOften P)
     (hP : ¬P xs.head) :
     filter P xs h = filter P xs.tail h.tail := by
-  rw [filter.__unfold]; grind
+  rw [filter]; grind
 
 theorem head_filter {P : α → Bool} {xs : Stream α} (h : xs.InfOften P)
     (hP : P xs.head) : (filter P xs h).head = xs.head := by
@@ -237,19 +225,13 @@ productive_by
   refine (IsPolynomial.liftPLast_iff _ _).2 fun i => ?_
   exists fro + 1
 
-theorem nats.__unfold : (nats n) = .cons n (nats (n + 1)) := by
-  conv => lhs; unfold nats __partial
-  erw [CofixWithBot.get_mk]
-  rfl
--- TODO: ^^ `nats.__unfold` should be auto-generated
-
 @[simp, grind =]
 theorem head_nats : (nats n).head = n := by
-  rw [nats.__unfold]; simp
+  rw [nats]; simp
 
 @[simp, grind =]
 theorem tail_nats : (nats n).tail = nats (n + 1) := by
-  rw [nats.__unfold]; simp
+  rw [nats]; simp
 
 end Nats
 
