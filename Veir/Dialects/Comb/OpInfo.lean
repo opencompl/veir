@@ -166,6 +166,19 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
               return (#[.int w (Veir.Data.Comb.or l)], none)
   | .xor => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
                return (#[.int w (Veir.Data.Comb.xor l)], none)
+  -- Binary and width preserving.
+  | .sub => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+               let [x, y] := l | none
+               return (#[.int w (Veir.Data.Comb.sub x y)], none)
+  | .shl => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+               let [x, y] := l | none
+               return (#[.int w (Veir.Data.Comb.shl x y)], none)
+  | .shru => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+                let [x, y] := l | none
+                return (#[.int w (Veir.Data.Comb.shru x y)], none)
+  | .shrs => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+                let [x, y] := l | none
+                return (#[.int w (Veir.Data.Comb.shrs x y)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
