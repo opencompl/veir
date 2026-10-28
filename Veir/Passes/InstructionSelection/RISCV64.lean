@@ -69,6 +69,40 @@ def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
 def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
+/--
+  Reverse bits within bytes with Zbkb's `brev8`, then reverse the byte order with `rev8`.
+  Narrow results need a shift back to the low bits; `i8` needs only `brev8`.
+  The backend's fixed target feature set includes Zbkb.
+  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
+-/
+def lowerBitreverse (bw : Nat) (srcOp : OpCode)
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let opType ← MatchProg.type (Attr := IntegerType)
+          (fun t => t.bitwidth = bw ∧ bw ∈ [8, 16, 32, 64])
+      let x ← MatchProg.value opType
+      let root ← MatchProg.root srcOp #[x] #[opType]
+      guard opType root.properties
+      return (opType, x))
+    (fun (opType, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[x] #[regType]
+      let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
+      let resOp ← if bw = 8 then pure brev8Op else do
+        let rev8Op ← CreateProg.operation (.riscv .rev8) #[brev8Op.res[0]!] #[regType]
+        if bw < 64 then
+          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType]
+              (.inl $ RISCVImmediateProperties.mk (BitVec.ofNat 64 (64 - bw)))
+        else
+          pure rev8Op
+      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[resOp.res[0]!] #[opType]
+      return castBackOp)
+    (fun castBackOp => castBackOp)
+
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
 def constant_pattern : Pattern OpCode :=
@@ -992,36 +1026,6 @@ def ushlSat_pattern : Pattern OpCode :=
     at 12630-12633). -/
 def ushlSat : Puddle.CompiledPattern OpCode := ushlSat_pattern.compile
 
-/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max`.
-    LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
-    `intMin` back to `intMin`, so this is correct for both the
-    `is_int_min_poison` and non-poison forms of the intrinsic. -/
-def abs_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let val ← MatchProg.value valType
-      let _ ← MatchProg.root (.llvm .intr__abs) #[val] #[resType]
-      return (resType, val))
-    (fun (resType, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let negProps ← CreateProg.property (.riscv .neg) ()
-      let negOp ← CreateProg.operation (.riscv .neg)
-          #[castOp.res[0]!] #[regType] negProps
-      let maxProps ← CreateProg.property (.riscv .max) ()
-      let maxOp ← CreateProg.operation (.riscv .max)
-          #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[maxOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max` (see `abs_pattern`). -/
-def abs : Puddle.CompiledPattern OpCode := abs_pattern.compile
-
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
@@ -1881,7 +1885,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
     load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
-    saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
+    saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
