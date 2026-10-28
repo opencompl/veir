@@ -2,12 +2,6 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 // RUN: veir-opt %s -p=riscv | filecheck %s --check-prefix=ISEL
 
-// Each `llvm.cond_br` on an `llvm.icmp` sets one bit when its branch is taken: bits 0-9 compare
-// -1 and 1, and bits 10-19 compare 5 with itself, for the predicates eq, ne, slt, sle, sgt, sge,
-// ult, ule, ugt and uge in turn.
-// The operands are block arguments, so that no compare is selected as one against an immediate,
-// and every compare is folded into a compare-and-branch.
-
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
     ^entry():

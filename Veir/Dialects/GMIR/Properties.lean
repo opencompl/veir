@@ -47,12 +47,6 @@ def SextInRegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
   let sz ← getI64Attr "gmir.g_sext_inreg" "sz" attrDict
   return { sz }
 
-/--
-Properties of `gmir.g_brcond`. Unlike LLVM's `G_BRCOND`, which falls through to the next block when
-its condition is false, `g_brcond` names both successors and forwards operands to each of them, as
-`llvm.cond_br` does. `operandSegmentSizes` splits the operands into the condition and the operands
-forwarded to each successor.
--/
 structure GMIRBrCondProperties where
   operandSegmentSizes : DenseArrayAttr
 deriving Inhabited, Repr, Hashable, DecidableEq

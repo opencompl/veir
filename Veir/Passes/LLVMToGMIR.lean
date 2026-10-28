@@ -177,11 +177,6 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
       operands #[] #[] props none
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
 
-/--
-`llvm.br` -> `gmir.g_br` and `llvm.cond_br` -> `gmir.g_brcond`, as in LLVM's
-`IRTranslator::translateBr`. The branch weights and loop annotations of `llvm.cond_br` are dropped:
-LLVM keeps the former as successor probabilities of the machine basic block, which we do not have.
--/
 private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
   let opType := op.getOpType! ctx.raw
   if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then return (ctx, none)

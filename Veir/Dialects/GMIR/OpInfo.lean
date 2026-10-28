@@ -211,7 +211,6 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_unmerge_values =>
     { outOperandList := #[.type 0, .type 0]
       inOperandList := #[.type 1] }
-  -- The operands a branch forwards to its successors have no type group, so they are not listed.
   | .g_br =>
     { outOperandList := #[]
       inOperandList := #[] }

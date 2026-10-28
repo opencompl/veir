@@ -1,10 +1,6 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 // RUN: veir-opt %s -p=legalize-riscv64,postlegalizer-combiner-riscv64 | filecheck %s --check-prefix=COMBINE
 
-// `g_br` is always legal. The condition of `g_brcond` is widened to `i64` with a `g_zext`, which is
-// lowered to a mask of the low bit. For a `g_icmp` condition, the mask is combined away (by the
-// artifact combiner or by `redundant_and`), so the `g_brcond` branches on the `g_icmp` itself.
-
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "f", function_type = !llvm.func<i64 (i32, i32, i1)>}> ({
   ^bb0(%x: i32, %y: i32, %c: i1):
