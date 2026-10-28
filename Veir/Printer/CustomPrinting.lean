@@ -24,12 +24,25 @@ structure OpPrinterContext (OpCode : Type) [IsOpCode OpCode] where
   irContext : IRContext OpCode
   private printRegion :
     RegionPtr → (printEntryBlockArgs : Bool) → StateT Nat IO Unit
+  /-- Where printed text goes. `IO.print` -- stdout -- is the default, and
+  `Printer.printModuleToString` is what supplies anything else.
+
+  A sink rather than a monad parameter: `printRegion` above fixes the base monad at `IO`, so
+  making the printer generic over its output would mean changing that too, and every custom
+  printer with it. Collecting into a `String` is the only other destination anyone has wanted. -/
+  sink : String → IO Unit := IO.print
 deriving Inhabited
 
-/-- Create a print context. -/
+/-- Create a print context, writing to stdout. -/
 def OpPrinterContext.create (irContext : IRContext OpCode)
     (printRegion : RegionPtr → Bool → StateT Nat IO Unit) : OpPrinterContext OpCode :=
   { irContext, printRegion }
+
+/-- Create a print context that writes through `sink` instead of to stdout. -/
+def OpPrinterContext.createWithSink (irContext : IRContext OpCode)
+    (printRegion : RegionPtr → Bool → StateT Nat IO Unit)
+    (sink : String → IO Unit) : OpPrinterContext OpCode :=
+  { irContext, printRegion, sink }
 
 /--
 Monadic printer. Threads the print context via `Reader` and the current
@@ -53,11 +66,11 @@ def getContext : OpPrinter OpCode (IRContext OpCode) := do
 
 /-- Print a raw string to the output stream. -/
 def printString (s : String) : OpPrinter OpCode Unit := do
-  (IO.print s : IO Unit)
+  ((← read).sink s : IO Unit)
 
 /-- Print a newline. -/
 def printNewline : OpPrinter OpCode Unit := do
-  (IO.println "" : IO Unit)
+  ((← read).sink "\n" : IO Unit)
 
 /-- Print a symbol reference `@name`, escaping when it is not a bare identifier. -/
 def printSymbolName (sym : ByteArray) : OpPrinter OpCode Unit := do
