@@ -173,6 +173,38 @@ def addPartialCtor (declName : Name) (log : IO.Ref (Array Name)) : MetaM Unit :=
             body'}\ndoes not have type{indentExpr ctx.PT}"
       addPartialDef (declName ++ partialSuffix) info.levelParams xs' body'
 
+/-- The entries of a literal `TypeVec`, built from `TypeVec.nil`, `append1`, `cons`, `tail` and
+`drop`, such that `(evalTypeVec? v)[i] = v i` (up to unfolding). -/
+partial def evalTypeVec? (v : Expr) : Option (Array Expr) :=
+  match v.consumeMData.getAppFnArgs with
+  | (``QPFTypes.TypeVec.nil, #[]) => some #[]
+  | (``QPFTypes.TypeVec.append1, #[_, v, a]) => return #[a] ++ (← evalTypeVec? v)
+  | (``QPFTypes.TypeVec.cons, #[_, a, v]) => return (← evalTypeVec? v).push a
+  | (``QPFTypes.TypeVec.tail, #[_, v]) => return (← evalTypeVec? v).pop
+  | (``QPFTypes.TypeVec.drop, #[_, v]) => return (← evalTypeVec? v).extract 1
+  | _ => none
+
+/-- Reduce the projections `v.head`, `v.last` and `v i` (for a numeral `i`) of literal
+`TypeVec`s `v` in `e` to the corresponding entries. E.g. the layer `L` of `Stream.cons x xs` is
+`@StreamF.cons (#t[α] ::: PStream α).head (#t[α] ::: PStream α).tail.head x xs`, as elaborated
+against `TypeFun.ofCurried StreamF (#t[α] ::: PStream α)`; this gives
+`@StreamF.cons α (PStream α) x xs`. Otherwise, `L` is only type-correct up to unfolding
+`TypeVec.head`, so that `rw` and `simp` (at instances transparency) cannot instantiate lemmas
+about `StreamF.cons` with it. -/
+partial def reduceTypeVecProjs (e : Expr) : MetaM Expr :=
+  Meta.transform e (post := fun e => do
+    let entry? : Option Expr ← match e.getAppFnArgs with
+      | (``QPFTypes.TypeVec.head, #[_, v]) => pure <| (evalTypeVec? v).bind (·.back?)
+      | (``QPFTypes.TypeVec.last, #[_, v]) => pure <| (evalTypeVec? v).bind (·[0]?)
+      | _ => match e with
+        | .app v i => do
+          let some ⟨_, i⟩ ← getFinValue? i | pure none
+          pure <| (evalTypeVec? v).bind (·[i.val]?)
+        | _ => pure none
+    match entry? with
+    | some r => return .visit r
+    | none => return .continue)
+
 /-- The suffix for the lemma `Cofix.dest (g.__partial xs) = Comp.mk (some L)` of a constructor
 `g`, see `addPartialCtorDest`. -/
 def destPartialSuffix : Name := `__dest_partial
@@ -205,6 +237,9 @@ def addPartialCtorDest (declName : Name) : MetaM Unit := do
     unless m.isAppOfArity ``QPF.Cofix.mk 5 do return false
     let y := m.appArg!
     unless y.isAppOfArity ``QPF.Comp.mk 6 do return false
+    -- State the layer with reduced types (see `reduceTypeVecProjs`); the proofs below still
+    -- prove the unreduced statements, which agree up to unfolding.
+    let y := y.updateApp! y.appFn! (← reduceTypeVecProjs y.appArg!)
     let addThm (name : Name) (eq proof : Expr) : MetaM Unit := do
       let type ← instantiateMVars (← mkForallFVars xs eq)
       let value ← instantiateMVars (← mkLambdaFVars xs proof)

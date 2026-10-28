@@ -16,6 +16,20 @@ open QPF Lean.Order
 
 @[qpf] def StreamF (α S : liveParam Type) := α × S
 
+namespace StreamF
+
+def cons (hd : α) (tl : S) : StreamF α S :=
+  (hd, tl)
+
+@[simp, grind =]
+theorem liftPLast_cons (hd : α) (tl : S) (P : S → Prop) :
+    MvFunctor.LiftPLast (F := @TypeFun.ofCurried 2 StreamF) (αs := TypeVec.nil ::: α) P
+      (cons (α := α) (S := S) hd tl) ↔ P tl := by
+  rw [IsPolynomial.liftPLast_iff]
+  exact ⟨fun h => h ⟨⟩, fun h _ => h⟩
+
+end StreamF
+
 
 
 /-- Possibly-partial streams. -/
@@ -26,7 +40,7 @@ def PStream (a : Type) : Type :=
 variable {a b : Type}
 
 def PStream.cons (x : a) (xs : PStream a) : PStream a :=
-  Cofix.mk (Comp.mk (some (x, xs)))
+  Cofix.mk (Comp.mk (some <| .cons x xs))
 
 def PStream.dest (xs : PStream a) : Option (a × PStream a) :=
   Cofix.dest xs
@@ -69,19 +83,16 @@ def Stream.head (xs : Stream a) : a := (Cofix.dest xs).1
 def Stream.tail (xs : Stream a) : Stream a := (Cofix.dest xs).2
 
 @[qpf_ctor]
-def Stream.cons (x : a) (xs : Stream a) : Stream a := Cofix.mk (x, xs)
+def Stream.cons (x : a) (xs : Stream a) : Stream a :=
+  Cofix.mk (.cons x xs)
 
 @[simp, grind =]
 theorem Stream.head_cons : (cons x xs).head = x := by
-  simp [cons, head]
-  erw [Cofix.dest_mk]
-  -- FIXME: why does this need `erw` rather than just `rw`?
+  simp [cons, head]; rfl
 
 @[simp, grind =]
 theorem Stream.tail_cons : (cons x xs).tail = xs := by
-  simp [cons, tail]
-  erw [Cofix.dest_mk]
-  -- FIXME: why does this need `erw` rather than just `rw`?
+  simp [cons, tail]; rfl
 
 /-- Bisimulation for total streams: related streams have equal heads and related tails. -/
 theorem Stream.bisim (R : Stream α → Stream α → Prop)
@@ -316,7 +327,9 @@ codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
 productive_by
   rw [cons.__get_dest_partial]
   refine ⟨_, rfl, ?_⟩
-  intro z
+  simp only [StreamF.liftPLast_cons]
+  -- Stuck: `cons.__partial (f xs.head) (tail.__partial ..)` is not of the form
+  -- `cursedMap.__partial f _` (see the comment above).
   sorry
 
 /-!
