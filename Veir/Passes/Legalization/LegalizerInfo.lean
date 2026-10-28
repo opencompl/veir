@@ -106,6 +106,12 @@ def scalarNarrowerThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate o
     | .scalar width' => width' < width
     | .pointer _ => false
 
+/-- True if type group `typeIdx` is a scalar wider than `width` bits. -/
+def scalarWiderThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate opcode :=
+  fun query => match query.getLLT! typeIdx with
+    | .scalar width' => width < width'
+    | .pointer _ => false
+
 /-- True if all of `predicates` hold. -/
 def all (predicates : List (LegalityPredicate opcode)) : LegalityPredicate opcode :=
   fun query => predicates.all (· query)
@@ -128,6 +134,11 @@ inductive LegalizeAction where
   | legal
   /-- The operation should be implemented with type group `typeIdx` widened to `width` bits. -/
   | widenScalar (typeIdx : TypeGroup) (width : Nat)
+  /--
+  The operation should be implemented with several operations on type group `typeIdx` narrowed to
+  `width` bits. For example, a 128-bit add can be implemented with 64-bit adds with carry.
+  -/
+  | narrowScalar (typeIdx : TypeGroup) (width : Nat)
   /-- The operation is expanded into legal operations, as in `LegalizerHelper::lower`. -/
   | lower
   /-- The operation is legalized by the target's `legalizeCustom` pattern. -/
@@ -200,12 +211,28 @@ def widenScalarToNextPow2 (typeIdx : TypeGroup) : LegalizeRule opcode :=
 
 /--
 Ensure the scalar of type group `typeIdx` is as wide as the scalar of type group `sameAs`.
-Unlike LLVM's `scalarSameSizeAs`, this only widens, as narrowing is not implemented yet.
+Unlike LLVM's `scalarSameSizeAs`, this only widens.
 -/
 def scalarSameSizeAs (typeIdx sameAs : TypeGroup) : LegalizeRule opcode :=
   fun query => match query.getLLT! sameAs with
     | .scalar width => minScalar typeIdx width query
     | .pointer _ => none
+
+/-- Narrow the scalar to the width selected by `mutation` if `predicate` is true. -/
+def narrowScalarIf (predicate : LegalityPredicate opcode)
+    (mutation : LegalityQuery opcode → TypeGroup × Nat) : LegalizeRule opcode :=
+  fun query => if predicate query then
+    let (typeIdx, width) := mutation query
+    some (.narrowScalar typeIdx width)
+  else none
+
+/-- Ensure the scalar of type group `typeIdx` is at most `width` bits wide. -/
+def maxScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule opcode :=
+  narrowScalarIf (.scalarWiderThan typeIdx width) fun _ => (typeIdx, width)
+
+/-- Ensure the scalar of type group `typeIdx` is between `minWidth` and `maxWidth` bits wide. -/
+def clampScalar (typeIdx : TypeGroup) (minWidth maxWidth : Nat) : LegalizeRule opcode :=
+  fun query => (minScalar typeIdx minWidth query).or (maxScalar typeIdx maxWidth query)
 
 end LegalizeRule
 

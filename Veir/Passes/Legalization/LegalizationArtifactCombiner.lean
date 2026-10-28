@@ -81,6 +81,23 @@ def combineTruncOfTrunc : Pattern OpCode :=
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
     (fun trunc => trunc)
 
+/--
+Combines `g_unmerge_values (g_merge_values lo hi)` to `lo` and `hi`, as LLVM's
+`tryCombineUnmergeValues` does.
+-/
+def combineUnmergeOfMerge : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let halfType ← MatchProg.type (Attr := IntegerType)
+      let lo ← MatchProg.value halfType
+      let hi ← MatchProg.value halfType
+      let type ← MatchProg.type (Attr := IntegerType)
+      let merge ← MatchProg.operation (.gmir .g_merge_values) #[lo, hi] #[type]
+      let _ ← MatchProg.root (.gmir .g_unmerge_values) #[merge.res[0]!] #[halfType, halfType]
+      return #[lo, hi])
+    pure
+    (fun halves => halves)
+
 public section
 
 /--
@@ -94,6 +111,7 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
       combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
       combineAnyExtOfAnyExt]
   | .g_trunc => [combineTruncOfTrunc]
+  | .g_unmerge_values => [combineUnmergeOfMerge]
   | _ => []
 
 end
