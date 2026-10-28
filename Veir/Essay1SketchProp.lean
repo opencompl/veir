@@ -144,8 +144,7 @@ theorem nameStart.nameChar (h : nameStart c) : nameChar c := Or.inl h
 theorem isDigit.nameChar (h : isDigit c) : nameChar c := Or.inr h
 
 theorem decideDigit_eq_some_iff : decideDigit c = some n ↔ digitNum c n := by
-  unfold decideDigit
-  split <;> simp_all <;> grind [digitNum]
+  grind (splits := 20) [decideDigit, digitNum]
 
 /-- Append one decimal digit to an accumulated value. -/
 def digitStep (n : Nat) (c : Char) : Option Nat :=
@@ -198,7 +197,7 @@ inductive decimalInteger : List Char → Int → Prop where
   | negative  : digitsNum s n →  decimalInteger ('-' :: s) (-n)
 
 theorem decimalInteger.nonempty (h : decimalInteger s n) : s ≠ [] := by
-  cases h <;> simp_all [digitsNum.ne_nil]
+  cases h <;> grind [digitsNum.ne_nil]
 
 def decideDecimal : List Char → Option Int
   | '-' :: cs => (decideDigits cs).map (fun (n : Nat) => -Int.ofNat n)
@@ -402,13 +401,13 @@ theorem recognize_word (h : WordToken cs tok) : recognize cs = some tok := by
   | keyword k => cases k <;> decide
   | @intType ds n hd =>
       rw [recognize_name (by decide)]
-      have : ¬isDigit ':' := by decide
-      have hb : ('i' :: ds).getLast? ≠ some ':' := by
-        have hh := hd.isDigits; intro hb; have := List.mem_of_getLast? hb; grind
-      simp [hb, classifyWordRelevant_eq_some_iff.mpr (WordToken.intType hd)]
+      have : ('i' :: ds).getLast? ≠ some ':' := by
+        have := hd.isDigits; have : ¬isDigit ':' := by decide
+        grind [List.mem_of_getLast?]
+      simp [this, classifyWordRelevant_eq_some_iff.mpr (WordToken.intType hd)]
 
 theorem decimalInteger.nameChars (h : decimalInteger cs n) : ∀ c ∈ cs, nameChar c := by
-  cases h <;> simp_all [List.forall_mem_cons, isDigit.nameChar, nameChar, nameStart, asciiAlpha]
+  cases h <;> grind [digitsNum.isDigits, isDigit.nameChar, show nameChar '-' by decide]
 
 theorem decimalInteger.not_word (h : decimalInteger cs n) : ¬WordToken cs tok := by
   intro hw; cases hw with
@@ -421,13 +420,12 @@ theorem decimalInteger.not_word (h : decimalInteger cs n) : ¬WordToken cs tok :
 theorem recognize_integer (h : decimalInteger cs n) : recognize cs = some (.APSInt n) := by
   have hw : classifyWordRelevant cs = none := Option.eq_none_iff_forall_ne_some.mpr
     fun _ ht => h.not_word (classifyWordRelevant_eq_some_iff.mp ht)
-  cases cs with
-  | nil => exact (h.nonempty rfl).elim
-  | cons c cs =>
-      rw [recognize_name (h.nameChars c (by simp))]
-      have hb : (c :: cs).getLast? ≠ some ':' := by
-        intro he; exact (by decide : ¬nameChar ':') (h.nameChars ':' (List.mem_of_getLast? he))
-      simp [hb, hw, decideDecimal_eq_some_iff.mpr h]
+  obtain ⟨c, cs, rfl⟩ := List.exists_cons_of_ne_nil h.nonempty
+  rw [recognize_name (h.nameChars c (by simp))]
+  have : (c :: cs).getLast? ≠ some ':' := by
+    have := h.nameChars; have : ¬nameChar ':' := by decide
+    grind [List.mem_of_getLast?]
+  simp [this, hw, decideDecimal_eq_some_iff.mpr h]
 
 theorem recognize_complete (h : TokenRepresentation cs tok) : recognize cs = some tok := by
   cases h <;> try solve_by_elim [recognize_ws, recognize_label, recognize_word, recognize_integer]
@@ -523,14 +521,14 @@ theorem scanOne_progress (h : scanOne input = .ok result) :
 /-- Only the empty lexeme spells EOF. -/
 theorem TokenRepresentation.ne_nil_iff (h : TokenRepresentation piece tok) :
     piece ≠ [] ↔ tok ≠ .Eof := by
-  have := recognize_eq_some_iff.mpr h
-  cases piece <;> cases tok <;> simp_all [recognize]
+  refine ⟨fun hp ht => ?_, fun ht hp => ?_⟩
+  · subst ht; cases h with | eof => exact hp rfl | word hw => cases hw
+  · subst hp; simp [← recognize_eq_some_iff, recognize] at h; exact ht h.symm
 
 theorem scanOne_success_result (hr : TokenRepresentation piece tok) (hne : tok ≠ .Eof)
     (hm : MaximalToken piece rest) (hb : WordBoundary tok rest) :
-    scanOne (piece ++ rest) = .ok ⟨piece, tok, rest⟩ := by
-  intro hr hne hm hb
-  simp [scanOne_success_result hr hne hm hb, ScanResult.toTuple]
+    scanOne (piece ++ rest) = .ok ⟨piece, tok, rest⟩ :=
+  scanOne_eq_ok_iff.mpr ⟨rfl, hr.ne_nil_iff.mpr hne, hr, hm, hb⟩
 
 /-- Scanning a specified maximal non-EOF lexeme returns that exact lexeme. -/
 theorem scanOne_success {piece rest : List Char} {tok : Token} :
@@ -616,7 +614,8 @@ theorem tokenizer_success : Lexes s.toList ts → tokenizer s = .ok ts :=
 /-- The token-only tokenizer inherits completeness from `tokenizer`. -/
 theorem tokenizer'_success (h : Lexes s.toList ts) :
     tokenizer' s = .ok (significant ts) := by
-  simp [tokenizer', tokenizer_success h]
+  rw [tokenizer', tokenizer_success h]
+  rfl
 
 theorem tokenizer_fail : tokenizer s = .error message → Lexes s.toList ts → False := by
   intro failed lexes; simp [tokenizer_success lexes] at failed
@@ -647,9 +646,8 @@ theorem digitsNum_toDigits (n : Nat) : digitsNum (Nat.toDigits 10 n) n := by
       rw [Nat.toDigits_eq_ite (by decide)]
       split
       · exact .singleDigit (decideDigit_eq_some_iff.mp (small ⟨n, by assumption⟩))
-      · have hd := decideDigit_eq_some_iff.mp (small ⟨n % 10, by omega⟩)
-        have hi := ih (n / 10) (by omega)
-        simpa [Nat.div_add_mod] using digitsNum.digits hi hd
+      · simpa [Nat.div_add_mod] using digitsNum.digits (ih (n / 10) (by omega))
+          (decideDigit_eq_some_iff.mp (small ⟨n % 10, by omega⟩))
 
 theorem decimalInteger_toString (n : Int) : decimalInteger (toString n).toList n := by
   cases n with
@@ -682,12 +680,12 @@ theorem nameChar.not_ws_or_semicolon (h : nameChar c) : ¬isWs c ∧ c ≠ ';' :
 
 theorem bareName.nameChars (h : bareName name) : ∀ c ∈ name.toList, nameChar c := by
   unfold bareName at h
-  split at h <;> simp_all [List.forall_mem_cons, nameStart.nameChar]
+  split at h <;> simp_all [nameStart.nameChar]
 
 theorem WordToken.nameChars (h : WordToken piece tok) : ∀ c ∈ piece, nameChar c := by
   cases h with
   | keyword k => cases k <;> decide
-  | intType hd => exact List.forall_mem_cons.mpr ⟨by decide, fun c hc => (hd.isDigits c hc).nameChar⟩
+  | intType hd => grind [digitsNum.isDigits, isDigit.nameChar, show nameChar 'i' by decide]
 
 /-- Significant lexemes contain neither whitespace nor a comment opener. -/
 theorem TokenRepresentation.significant_chars (h : TokenRepresentation piece tok)
@@ -707,7 +705,7 @@ theorem TokenRepresentation.trivia (h : TokenRepresentation piece tok)
     (ht : tok.isTrivia) :
     (∀ c ∈ piece, isWs c) ∨ ∃ cs, piece = ';' :: cs := by
   cases h <;> simp_all [Token.isTrivia]
-  rename_i hw; cases hw <;> simp at ht
+  cases ‹WordToken _ _› <;> simp_all
 
 theorem TokenRepresentation.maximal_space (h : TokenRepresentation piece tok)
     (ht : ¬tok.isTrivia) (hne : tok ≠ .Eof) :
@@ -721,7 +719,7 @@ theorem TokenRepresentation.maximal_space (h : TokenRepresentation piece tok)
   · exact (h.significant_chars ht c (by simp)).2 (List.cons_eq_cons.mp he).1
 
 theorem TokenRepresentation.space_boundary (tok : Token) : WordBoundary tok (' ' :: rest) := by
-  cases tok <;> decide
+  cases tok <;> exact of_decide_eq_true rfl
 
 theorem TokenRepresentation.first_not_ws (h : TokenRepresentation piece tok)
     (ht : ¬tok.isTrivia) (hne : tok ≠ .Eof) :
