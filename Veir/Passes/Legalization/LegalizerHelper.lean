@@ -1,7 +1,9 @@
 module
 
 public import Veir.PatternRewriter.Puddle.Definitions
+public import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 /-!
 # Legalization Actions
@@ -190,6 +192,25 @@ def lowerZext : Pattern OpCode :=
       CreateProg.operation (.gmir .g_and) #[ext.res[0]!, mask.res[0]!] #[resType])
     (fun op => op)
 
+/--
+Widens the condition of `g_brcond` to `width` bits with a `g_zext`, which is what LLVM's
+`LegalizerHelper::widenScalar` extends it with on a target whose booleans are 0 or 1, as on RISC-V.
+`g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
+match, so this is a local rewrite.
+-/
+def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx op => do
+  -- Read `ctx` before creating operations: any later read makes the first one copy the context.
+  let operands := op.getOperands! ctx.raw
+  let successors := op.getSuccessors! ctx.raw
+  let props := op.getProperties! ctx.raw GMIR.g_brcond
+  let .integerType type := (operands[0]!.getType! ctx.raw).val | return (ctx, none)
+  if width ≤ type.bitwidth then return (ctx, none)
+  let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_zext #[IntegerType.signless width]
+    #[operands[0]!] #[] #[] (NnegProperties.mk false) none
+  let (ctx, branch) ← WfRewriter.createOp! ctx GMIR.g_brcond #[]
+    (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
+  return (ctx, some (#[ext, branch], #[]))
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
@@ -199,7 +220,11 @@ def lower? : GMIR → Option (Pattern OpCode)
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
+    Option (LocalRewritePattern OpCode)
+  | .g_brcond, .type 0, width => widenBrcondCondition width
+  | opcode, typeIdx, width => Option.map Puddle.Pattern.interpret <|
+  match opcode, typeIdx, width with
   -- The high bits of the operands never reach the low bits of the result, so any extension is
   -- fine.
   | .g_add, .type 0, width => widenTypeGroup .g_add (.type 0) .g_anyext width clearNswNuwProperties

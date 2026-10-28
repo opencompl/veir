@@ -77,6 +77,17 @@ theorem anyext_anyext (w n m : Nat) (hn : w < n) (hm : n < m) (x : LLVM.Int w)
     simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
     grind⟩
 
+/--
+Prove the correctness of combining `g_trunc (g_trunc x)` to `g_trunc x`, at every width and whatever
+the flags of both `g_trunc`s.
+-/
+theorem trunc_trunc (w n m : Nat) (hn : n < m) (hm : m < w) (x : LLVM.Int w)
+    (nsw nuw nsw' nuw' : Bool) :
+    LLVM.Int.trunc (LLVM.Int.trunc x m nsw nuw hm) n nsw' nuw' hn ⊒
+      LLVM.Int.trunc x n false false (by omega) := by
+  veir_bv_normalize
+  simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
+
 /-- Bit `i` of the mask `2 ^ n - 1` is set exactly when `i < n`. -/
 private theorem getElem_ofInt_two_pow_sub_one {m n i : Nat} (hi : i < m) :
     (BitVec.ofInt m (2 ^ n - 1))[i] = decide (i < n) := by

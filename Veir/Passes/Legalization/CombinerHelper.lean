@@ -12,7 +12,8 @@ depend on the legality of operations take the `LegalizerInfo` of the target. LLV
 `commute_constant_to_rhs` is the canonicalizer's `commutativeConstantRHS`.
 
 TODO: Add the other combines of LLVM's `RISCVPostLegalizerCombiner` (`combines_for_extload`,
-`redundant_and`, `identity_combines`, `shift_immed_chain` and `simplify_neg_minmax`).
+`identity_combines`, `shift_immed_chain` and `simplify_neg_minmax`), and the rest of
+`redundant_and`.
 
 Also see:
 https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp
@@ -61,33 +62,30 @@ def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
 
 def sub_to_add (info : LegalizerInfo) : CompiledPattern OpCode := (sub_to_add_pattern info).compile
 
-/-! ### redundant_and of a comparison : (and (icmp p x y), 1) → (icmp p x y) -/
+/-! ### redundant_and : (and (icmp x, y), C) → (icmp x, y) -/
 
 /--
-`g_and (g_icmp p x y), 1` becomes `g_icmp p x y`: a comparison is zero or one, on a target whose
-booleans are zero or one, so masking it with one changes nothing. This is the case of LLVM's
-`redundant_and` that needs no known-bits analysis. Legalization creates it when it zero-extends
-the `i1` condition of a `g_select` that a widened `g_icmp` computes.
+`g_and (g_icmp x, y), C` becomes the `g_icmp` when the low bit of `C` is set: the `g_icmp` yields 0
+or 1, so the mask keeps it. LLVM's `redundant_and` finds this, and other redundant masks, with known
+bits, which we do not have; the `g_icmp` is the case that legalizing a `g_brcond` leaves behind.
 
-https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/include/llvm/Target/GlobalISel/Combine.td#L611-L615
+https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L3497
 -/
-def redundant_and_icmp_pattern : Pattern OpCode :=
+def redundant_and_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
       let operandType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value operandType
+      let rhs ← MatchProg.value operandType
       let type ← MatchProg.type (Attr := IntegerType)
-      let x ← MatchProg.value operandType
-      let y ← MatchProg.value operandType
-      let cmp ← MatchProg.operation (.gmir .g_icmp) #[x, y] #[type]
-      let one ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      MatchProg.matchNative one.properties fun props =>
-        BitVec.ofInt props.value.type.bitwidth props.value.value = 1
-      let _ ← MatchProg.root (.gmir .g_and) #[cmp.res[0]!, one.res[0]!] #[type]
-      return cmp.res[0]!)
-    pure
-    (fun cmp => cmp)
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      MatchProg.matchNative constant.properties fun props => props.value.value % 2 = 1
+      let _ ← MatchProg.root (.gmir .g_and) #[icmp.res[0]!, constant.res[0]!] #[type]
+      return icmp.res[0]!)
+    pure (fun x => x)
 
-def redundant_and_icmp : CompiledPattern OpCode := redundant_and_icmp_pattern.compile
+def redundant_and : CompiledPattern OpCode := redundant_and_pattern.compile
 
 end
 
