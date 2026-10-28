@@ -178,9 +178,6 @@ theorem decideDigits_eq_some_iff : decideDigits s = some n ↔ digitsNum s n := 
         simp [hr, Option.bind_eq_some_iff, ih, digitStep, decideDigit_eq_some_iff] <;>
         grind [digitsNum.ne_nil]
 
-#eval decideDigits "123".toList
-#eval decideDigits "12x".toList
-
 def bareName (s : String) : Prop :=
   match s.toList with
   | [] => False
@@ -595,10 +592,6 @@ entry:
 "
 
 
-#eval (tokenizer deMorganExample)
-#eval tokenizer "  \n\t%foo = -12; comment\n"
-#eval tokenizer "  \n\t12:\n"
-
 theorem tokenizerChars_complete (h : Lexes input ts) : tokenizerChars input = .ok ts := by
   induction h with
   | eof => simp [tokenizerChars]
@@ -649,7 +642,10 @@ def Token.spelling : Token → String
 def printTokens (ts : List Token) : String :=
   ts.foldr (fun t s => if t = .Eof then s else t.spelling ++ " " ++ s) ""
 
-#eval (printTokens <$> tokenizer' deMorganExample)
+/--
+info: Except.ok "define i32 @demorgan_or ( i32 %p , i32 %q ) { entry: %not_p = xor i32 %p , -1 %not_q = xor i32 %q , -1 %both_not = and i32 %not_p , %not_q %result = xor i32 %both_not , -1 ret i32 %result } define i32 @demorgan_and ( i32 %p , i32 %q ) { entry: %not_p = xor i32 %p , -1 %not_q = xor i32 %q , -1 %either_not = or i32 %not_p , %not_q %result = xor i32 %either_not , -1 ret i32 %result } "
+-/
+#guard_msgs in #eval (printTokens <$> tokenizer' deMorganExample)
 
 theorem digitsNum_toDigits (n : Nat) : digitsNum (Nat.toDigits 10 n) n := by
   have small : ∀ n : Fin 10, decideDigit n.val.digitChar = some n.val := by decide
