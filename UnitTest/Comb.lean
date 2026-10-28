@@ -206,3 +206,43 @@ private def testMux : String := Id.run do
 #guard_msgs in
 #eval! testMux
 
+/-! ### Concatenation and extraction
+
+The two operations where the wrong answer looks entirely plausible, and the first that need
+`resultTypes`: `extract`'s result width is in its type and nowhere else.
+
+`comb.concat` takes its **most significant** operand first. Swapping the two is a one-character
+change that still type-checks and still verifies.
+-/
+
+private def testConcatExtract : String := Id.run do
+  if comb .concat () #[ity 8] #[i 4 10, i 4 3] != some 163 then return "concat"   -- 0xA3
+  if comb .concat () #[ity 8] #[i 4 3, i 4 10] != some 58 then return "concat swapped"  -- 0x3A
+  -- Variadic, and the widths accumulate rather than being taken from the first operand.
+  if comb .concat () #[ity 6] #[i 2 1, i 2 2, i 2 3] != some 27 then return "concat of three"
+  -- Zero extension, which is how a narrow index is widened to a port's width.
+  if comb .concat () #[ity 5] #[i 2 0, i 3 5] != some 5 then return "zero extend"
+  if !combIsPoison .concat () #[ity 8] #[i 4 1, poison 4] then return "concat poison"
+  -- 0xA3 = 1010_0011. The result width comes from `resultTypes`, not from the operand, so the
+  -- same operand and offset with different result widths must give different answers.
+  let ex (lowBit n v : Nat) : Option Nat :=
+    comb .extract { lowBit := IntegerAttr.mk (Int.ofNat lowBit) (IntegerType.signless 32) }
+      #[ity n] #[i 8 v]
+  if ex 0 4 163 != some 3 then return "extract at 0"
+  if ex 4 4 163 != some 10 then return "extract at 4"
+  if ex 2 4 163 != some 8 then return "extract at 2"
+  if ex 7 1 163 != some 1 then return "extract the top bit"
+  if ex 0 8 163 != some 163 then return "extract the whole operand"
+  -- 0xA7 = 1010_0111, whose low four bits (7) and low two bits (3) differ -- unlike 0xA3, where
+  -- both are 3 and the comparison below would hold for the wrong reason.
+  if ex 0 4 167 != some 7 then return "extract four bits of 0xA7"
+  if ex 0 2 167 != some 3 then return "extract two bits of 0xA7"
+  if ex 0 4 167 == ex 0 2 167 then return "the result width is being ignored"
+  if !combIsPoison .extract { lowBit := IntegerAttr.mk 0 (IntegerType.signless 32) } #[ity 4]
+      #[poison 8] then return "extract poison"
+  return "ok"
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testConcatExtract
+

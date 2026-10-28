@@ -99,3 +99,21 @@ def mux {w : Nat} (c : LLVM.Int 1) (t f : LLVM.Int w) : LLVM.Int w :=
   | .poison => .poison
   | .val c => if c == 1#1 then t else f
 
+/-- `comb.concat`, **most significant operand first**, as `BitVec.++` takes it.
+
+Binary here while CIRCT's operation is variadic: the folding is left to the interpreter, which has
+to track the accumulated width anyway. -/
+def concat {w₁ w₂ : Nat} (x : LLVM.Int w₁) (y : LLVM.Int w₂) : LLVM.Int (w₁ + w₂) :=
+  match x, y with
+  | .val x, .val y => .val (x ++ y)
+  | _, _ => .poison
+
+/-- `comb.extract`: `n` bits starting at `lowBit`.
+
+The caller is responsible for `lowBit + n ≤ w`; CIRCT's verifier enforces it, and
+`Comb.verifyLocalInvariants` is where that lives. -/
+def extract {w : Nat} (n : Nat) (lowBit : Nat) (x : LLVM.Int w) : LLVM.Int n :=
+  match x with
+  | .val x => .val (BitVec.ofNat n (x.ushiftRight lowBit).toNat)
+  | .poison => .poison
+
