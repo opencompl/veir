@@ -26,7 +26,7 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
     description := "Combine legalized gMIR operations for RISC-V 64."
     run := fun _ ctx _ _ => do
       let pattern := RewritePattern.GreedyRewritePattern
-        #[(sub_to_add riscv64LegalizerInfo).run, commutativeConstantRHS]
+        #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run, commutativeConstantRHS]
       match RewritePattern.applyInContext pattern ctx with
       | none => throw "Error while applying the post-legalizer combines"
       | some ctx => pure ctx }

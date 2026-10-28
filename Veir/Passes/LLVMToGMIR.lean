@@ -177,6 +177,24 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
       operands #[] #[] props none
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
 
+/--
+`llvm.br` -> `gmir.g_br` and `llvm.cond_br` -> `gmir.g_brcond`, as in LLVM's
+`IRTranslator::translateBr`. The branch weights and loop annotations of `llvm.cond_br` are dropped:
+LLVM keeps the former as successor probabilities of the machine basic block, which we do not have.
+-/
+private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
+  let opType := op.getOpType! ctx.raw
+  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then return (ctx, none)
+  let operands := op.getOperands! ctx.raw
+  let successors := op.getSuccessors! ctx.raw
+  let (ctx', branch) ← if opType = OpCode.llvm .br then
+      WfRewriter.createOp! ctx GMIR.g_br #[] operands successors #[] () none
+    else
+      let props : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
+      WfRewriter.createOp! ctx GMIR.g_brcond #[] operands successors #[]
+        (GMIRBrCondProperties.mk props.operandSegmentSizes) none
+  return (ctx', some (#[branch], #[]))
+
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -310,7 +328,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_ctlz.run, g_cttz.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices,
+    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with

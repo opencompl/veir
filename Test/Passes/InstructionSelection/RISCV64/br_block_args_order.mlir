@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-br-riscv64 --print-op-generic | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 --print-op-generic | filecheck %s
 
 // The casts back to the argument types stand in the order of the arguments.
 
