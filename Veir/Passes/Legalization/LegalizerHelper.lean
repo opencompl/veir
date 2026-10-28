@@ -261,6 +261,33 @@ def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
       return #[result.res[0]!, flagOut.res[0]!])
     (fun results => results)
 
+/--
+Narrows a `2 * width`-bit `g_add` to a `g_uaddo` of the low halves and a `g_uadde` of the high
+halves, and `g_sub` to the same with `g_usubo` and `g_usube`, as LLVM's
+`LegalizerHelper::narrowScalarAddSub` does.
+-/
+def narrowAddSub (isAdd : Bool) (width : Nat) : Pattern OpCode :=
+  let (opcode, loOpcode, hiOpcode) :=
+    if isAdd then (GMIR.g_add, GMIR.g_uaddo, GMIR.g_uadde) else (.g_sub, .g_usubo, .g_usube)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 2 * width)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let halfType ← CreateProg.type (IntegerType.signless width)
+      let carryType ← CreateProg.type (IntegerType.signless 1)
+      let lhsHalves ← CreateProg.operation (.gmir .g_unmerge_values) #[lhs] #[halfType, halfType]
+      let rhsHalves ← CreateProg.operation (.gmir .g_unmerge_values) #[rhs] #[halfType, halfType]
+      let lo ← CreateProg.operation (.gmir loOpcode) #[lhsHalves.res[0]!, rhsHalves.res[0]!]
+        #[halfType, carryType]
+      let hi ← CreateProg.operation (.gmir hiOpcode)
+        #[lhsHalves.res[1]!, rhsHalves.res[1]!, lo.res[1]!] #[halfType, carryType]
+      CreateProg.operation (.gmir .g_merge_values) #[lo.res[0]!, hi.res[0]!] #[type])
+    (fun merge => merge)
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
@@ -317,6 +344,12 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
   | .g_bswap, .type 0, width => widenReverse .g_bswap width
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
+  | _, _, _ => none
+
+/-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
+def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
+  | .g_add, .type 0, width => narrowAddSub true width
+  | .g_sub, .type 0, width => narrowAddSub false width
   | _, _, _ => none
 
 end

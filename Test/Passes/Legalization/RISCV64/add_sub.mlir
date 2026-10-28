@@ -19,7 +19,7 @@
     // CHECK-NEXT: "gmir.g_sub"(%[[WIDE_LHS]], %[[WIDE_RHS]]) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
 
-    // Widths that are not a power of two are widened to `i64` directly.
+    // Widths that are not a power of two are widened to `i64`.
     %x_i3 = "llvm.mlir.constant"() <{value = 1 : i3}> : () -> i3
     %add3 = "gmir.g_add"(%x_i3, %x_i3) : (i3, i3) -> i3
     // CHECK:      "gmir.g_anyext"({{.*}}) : (i3) -> i64

@@ -180,6 +180,64 @@ private theorem usube_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (b : LLV
   -- A poison operand makes both sides poison.
   all_goals rfl
 
+/-- Dropping the no-wrap flags of `g_add` can only remove poison. -/
+private theorem add_isRefinedBy_add {w : Nat} (x y : LLVM.Int w) (nsw nuw : Bool) :
+    LLVM.Int.add x y nsw nuw ⊒ LLVM.Int.add x y := by
+  grind
+
+/-- Dropping the no-wrap flags of `g_sub` can only remove poison. -/
+private theorem sub_isRefinedBy_sub {w : Nat} (x y : LLVM.Int w) (nsw nuw : Bool) :
+    LLVM.Int.sub x y nsw nuw ⊒ LLVM.Int.sub x y := by
+  grind
+
+/--
+Prove the correctness of narrowing `g_add` to a `g_uaddo` of the low halves of its operands, and a
+`g_uadde` of their high halves, at every width.
+-/
+private theorem add_narrowing {w : Nat} (x y : LLVM.Int (w + w)) (nsw nuw : Bool) :
+    LLVM.Int.add x y nsw nuw ⊒
+      let (xLo, xHi) := unmergeValues x
+      let (yLo, yHi) := unmergeValues y
+      let (hi, _) := uaddWithCarry xHi yHi (LLVM.Int.uaddOverflowFlag xLo yLo)
+      mergeValues (LLVM.Int.add xLo yLo) hi := by
+  -- Without its flags, the `g_add` is equal to its narrowing.
+  refine isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
+  cases x <;> cases y
+  case val.val x y =>
+    simp [LLVM.Int.add, LLVM.Int.uaddOverflowFlag, unmergeValues, uaddWithCarry, mergeValues,
+      Id.run, BitVec.add_eq_append]
+  -- A poison operand makes both sides poison.
+  all_goals exact poison_isRefinedBy _
+
+/--
+Prove the correctness of narrowing `g_sub` to a `g_usubo` of the low halves of its operands, and a
+`g_usube` of their high halves, at every width.
+-/
+private theorem sub_narrowing {w : Nat} (x y : LLVM.Int (w + w)) (nsw nuw : Bool) :
+    LLVM.Int.sub x y nsw nuw ⊒
+      let (xLo, xHi) := unmergeValues x
+      let (yLo, yHi) := unmergeValues y
+      let (hi, _) := usubWithBorrow xHi yHi (LLVM.Int.usubOverflowFlag xLo yLo)
+      mergeValues (LLVM.Int.sub xLo yLo) hi := by
+  -- Without its flags, the `g_sub` is equal to its narrowing.
+  refine isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
+  cases x <;> cases y
+  case val.val x y =>
+    simp [LLVM.Int.sub, LLVM.Int.usubOverflowFlag, unmergeValues, usubWithBorrow, mergeValues,
+      Id.run, BitVec.sub_eq_append]
+  -- A poison operand makes both sides poison.
+  all_goals exact poison_isRefinedBy _
+
+/--
+Prove the correctness of combining `g_unmerge_values (g_merge_values lo hi)` to `lo` and `hi`, at
+every width.
+-/
+private theorem unmerge_merge {w : Nat} (lo hi : LLVM.Int w) :
+    (unmergeValues (mergeValues lo hi)).1 ⊒ lo ∧ (unmergeValues (mergeValues lo hi)).2 ⊒ hi := by
+  cases lo <;> cases hi <;>
+    simp [mergeValues, unmergeValues, BitVec.setWidth_append_eq_right,
+      BitVec.extractLsb'_append_eq_left]
+
 end Veir.Data.LLVM
 
 end

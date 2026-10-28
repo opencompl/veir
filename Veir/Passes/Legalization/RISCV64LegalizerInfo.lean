@@ -72,7 +72,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_add | .g_sub => [
       .legalFor [s64],
       .customFor [s32],
-      .minScalar (.type 0) 64,
+      .widenScalarToNextPow2 (.type 0),
+      .clampScalar (.type 0) 64 64,
     ]
     | .g_uaddo | .g_uadde | .g_usubo | .g_usube => [
       .lower,
