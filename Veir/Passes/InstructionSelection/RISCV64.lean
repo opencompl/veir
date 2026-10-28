@@ -96,40 +96,6 @@ def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
 def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
-/--
-  Reverse bits within bytes with Zbkb's `brev8`, then reverse the byte order with `rev8`.
-  Narrow results need a shift back to the low bits; `i8` needs only `brev8`.
-  The backend's fixed target feature set includes Zbkb.
-  `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
--/
-def lowerBitreverse (bw : Nat) (srcOp : OpCode)
-    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
-      fun _ _ => pure ()) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = bw ∧ bw ∈ [8, 16, 32, 64])
-      let x ← MatchProg.value opType
-      let root ← MatchProg.root srcOp #[x] #[opType]
-      guard opType root.properties
-      return (opType, x))
-    (fun (opType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType]
-      let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
-      let resOp ← if bw = 8 then pure brev8Op else do
-        let rev8Op ← CreateProg.operation (.riscv .rev8) #[brev8Op.res[0]!] #[regType]
-        if bw < 64 then
-          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType]
-              (.inl $ RISCVImmediateProperties.mk (BitVec.ofNat 64 (64 - bw)))
-        else
-          pure rev8Op
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[resOp.res[0]!] #[opType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
 def constant_pattern : Pattern OpCode :=
@@ -1771,9 +1737,25 @@ def gmirBswap_pattern : Pattern OpCode :=
 def gmirBrev8_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_brev8) 64 .brev8 () fun _ resType props => matchLegal .g_brev8 resType props
 
-/-- `gmir.g_bitreverse` (`i64`) -> `riscv.brev8` + `riscv.rev8`. -/
+/--
+  `gmir.g_bitreverse` (`i64`) -> `riscv.brev8` + `riscv.rev8`: reverse the bits within each byte
+  with Zbkb's `brev8`, then reverse the byte order.
+-/
 def gmirBitreverse_pattern : Pattern OpCode :=
-  lowerBitreverse 64 (.gmir .g_bitreverse) (matchLegal .g_bitreverse)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let root ← MatchProg.root (.gmir .g_bitreverse) #[x] #[type]
+      matchLegal .g_bitreverse type root.properties
+      return (type, x))
+    (fun (type, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
+      let rev8Op ← CreateProg.operation (.riscv .rev8) #[brev8Op.res[0]!] #[regType]
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[rev8Op.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
 
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
