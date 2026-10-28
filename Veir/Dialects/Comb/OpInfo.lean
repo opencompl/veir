@@ -138,7 +138,21 @@ def Comb.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     if lowBit + resultType.bitwidth > operandType.bitwidth then
       throw s!"comb.extract: extracting i{resultType.bitwidth} at offset {lowBit} reads past \
         an i{operandType.bitwidth} operand"
-  | .parity | .replicate | .reverse => do
+  | .replicate => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    -- The result must be a whole number of copies. `Data.Comb.replicate` fills `n / w` copies and
+    -- leaves whatever remains at zero, so a width that is not a multiple answers with the operand
+    -- repeated and then cut short rather than failing.
+    let .integerType operandType := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+      | throw "comb.replicate: expected the operand to be a signless integer"
+    let .integerType resultType := ((op.getResult 0).getType! ctx.raw).val
+      | throw "comb.replicate: expected the result to be a signless integer"
+    if operandType.bitwidth = 0 then
+      throw "comb.replicate: cannot replicate a zero-width operand"
+    if resultType.bitwidth % operandType.bitwidth ≠ 0 then
+      throw s!"comb.replicate: an i{resultType.bitwidth} result is not a whole number of \
+        i{operandType.bitwidth} copies"
+  | .parity | .reverse => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .mux => do
@@ -234,6 +248,21 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     -- offset to `0` and so would extract from the bottom of a different window.
     let .ofNat lowBit := properties.lowBit.value | none
     return (#[.int n (Veir.Data.Comb.extract (w := w) n lowBit x)], none)
+  -- Bit manipulation. `parity` reduces to an `i1`; `replicate` takes its result width from the
+  -- type, like `extract`.
+  | .parity => do
+    let ⟨_, l⟩ ← Comb.sameWidthOperands operands
+    let #[x] := l | none
+    return (#[.int 1 (Veir.Data.Comb.parity x)], none)
+  | .replicate => do
+    let n ← Comb.resultWidth resultTypes
+    let #[x] := operands | none
+    let .int w x := x | none
+    return (#[.int n (Veir.Data.Comb.replicate (w := w) n x)], none)
+  | .reverse => do
+    let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+    let #[x] := l | none
+    return (#[.int w (Veir.Data.Comb.reverse x)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
