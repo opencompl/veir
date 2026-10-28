@@ -72,9 +72,6 @@ def Token.isTrivia (t : Token) : Prop := t = .ws ∨ t = .comment
 instance : DecidablePred Token.isTrivia := by
   intro t; unfold Token.isTrivia; infer_instance
 
-/-- Skeleton tree from the first pass: names unresolved, phi nodes still present. -/
-def LLVMModule : Type := sorry
-
 /-- A VeIR program: a well-formed context plus its top-level module operation. -/
 abbrev VeIRModule : Type := WfIRContext OpCode × OperationPtr
 
@@ -801,32 +798,5 @@ theorem tokenizer'_printTokens_round_trip (h : IsValidTokenStream ts) :
   obtain ⟨printed, hp, he, -⟩ := h.print_lexes
   rw [tokenizer', tokenizer_success hp, ← he]; rfl
 
-
-def Parses : List (List Char × Token) → LLVMModule → Prop := sorry
-/-- Every name is defined exactly once, numbering is consecutive, phis come first, ... -/
-def WellFormed : LLVMModule → Prop := sorry
-/-- Second pass: resolve forward references, turn phi nodes into block arguments. -/
-def Elaborates : LLVMModule → VeIRModule → Prop := sorry
-
-/-! ## Implementation -/
-
-def parse : String → Option VeIRModule := sorry
-def prettyPrint : VeIRModule → String := sorry
-
-/-! ## Theorems -/
-
--- theorem grammar_parse (s : String) (v : VeIRModule) :
---     parse s = some v ↔
---       ∃ ts ast, Lexes s ts ∧ Parses ts ast ∧ WellFormed ast ∧ Elaborates ast v := sorry
-
-/-- The grammar is unambiguous. -/
-theorem parses_unambiguous (ts : List (List Char × Token)) (a₁ a₂ : LLVMModule) :
-    Parses ts a₁ → Parses ts a₂ → a₁ = a₂ := sorry
-
-/-- Syntactic equality of two VeIR programs up to renaming of values and blocks. -/
-def EquivalentModuloNames : VeIRModule → VeIRModule → Prop := sorry
-
-theorem parse_prettyPrint_round_trip (v : VeIRModule) :
-    ∃ v', parse (prettyPrint v) = some v' ∧ EquivalentModuloNames v' v := sorry
 
 end Veir.LLVMParserProp
