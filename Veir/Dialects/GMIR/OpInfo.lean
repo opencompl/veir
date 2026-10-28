@@ -4,6 +4,7 @@ public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.GMIR.Properties
+public import Veir.ConstantMaterialization
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
@@ -695,6 +696,14 @@ def GMIR.isCommutative : GMIR → Bool
 def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
   | _ => false
+
+/-- Materialize constants produced by folding GMIR operations. -/
+def GMIR.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo GMIR]
+    (_op : GMIR) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int _ (.val value), .integerType intType =>
+    some (.of GMIR.g_constant (GMIRConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
+  | _, _ => none
 
 def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
   true
