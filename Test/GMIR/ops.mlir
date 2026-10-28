@@ -37,6 +37,10 @@
   "gmir.g_store"(%a, %p) <{alignment = 4 : i64, nontemporal, size = 32 : i64, volatile_}> : (i32, !llvm.ptr) -> ()
   %merge = "gmir.g_merge_values"(%a, %b) : (i32, i32) -> i64
   %lo, %hi = "gmir.g_unmerge_values"(%c) : (i64) -> (i32, i32)
+  %uaddo, %uaddo_carry = "gmir.g_uaddo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %uadde, %uadde_carry = "gmir.g_uadde"(%a, %b, %uaddo_carry) : (i32, i32, i1) -> (i32, i1)
+  %usubo, %usubo_borrow = "gmir.g_usubo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %usube, %usube_borrow = "gmir.g_usube"(%a, %b, %usubo_borrow) : (i32, i32, i1) -> (i32, i1)
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -74,3 +78,7 @@
 // CHECK: "gmir.g_store"(%{{.*}}, %{{.*}}) <{"alignment" = 4 : i64, nontemporal, "size" = 32 : i64, volatile_}> : (i32, !llvm.ptr) -> ()
 // CHECK: "gmir.g_merge_values"(%{{.*}}, %{{.*}}) : (i32, i32) -> i64
 // CHECK: "gmir.g_unmerge_values"(%{{.*}}) : (i64) -> (i32, i32)
+// CHECK: "gmir.g_uaddo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_uadde"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
+// CHECK: "gmir.g_usubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_usube"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)

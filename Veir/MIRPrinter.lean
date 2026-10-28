@@ -81,7 +81,7 @@ private def symbolName (ref : FlatSymbolRefAttr) : String :=
 /-- The physical-register MIR name (e.g. `$x0`) named by a register type
     carrying an index, if any. -/
 def physRegName? : Attribute → Option String
-  | .registerType { index := some n } => some s!"$x{n}"
+  | .registerType { index := some n } => if n >= 0 then some s!"$x{n}" else none
   | _ => none
 
 /-- Virtual-register name for an op's `i`-th result: `%v<opId>`, with a
@@ -300,11 +300,14 @@ def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array Value
   let nsucc := term.getNumSuccessors! ctx
   let ops := getOperands ctx term
   let segs := segments? ctx term
-  -- first segment (if any) is the comparison operands, not block args
-  let mut off := match segs with | some s => (s[0]!).toNat | none => 0
+  -- leading segments (one per comparison operand) are not block args
+  let ncmp := match segs with | some s => s.size - nsucc | none => 0
+  let mut off := match segs with
+    | some s => (s.extract 0 ncmp).foldl (fun acc n => acc + n.toNat) 0
+    | none => 0
   let mut res := #[]
   for k in 0...nsucc do
-    let nk := match segs with | some s => (s[k+1]!).toNat | none => ops.size
+    let nk := match segs with | some s => (s[ncmp + k]!).toNat | none => ops.size
     res := res.push (ops.extract off (off + nk))
     off := off + nk
   return res

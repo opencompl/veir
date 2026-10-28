@@ -26,6 +26,15 @@ def GMIRConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
     | throw s!"gmir.g_constant: expected 'value' to be an integer attribute, but got {attr}"
   return { value := intAttr }
 
+/-- The negation of the constant, wrapped to its type. -/
+def GMIRConstantProperties.neg (props : GMIRConstantProperties) : GMIRConstantProperties :=
+  { value := IntegerAttr.ofInt (-props.value.value) props.value.type }
+
+/-- Whether the constant is the minimum signed value of its type. -/
+def GMIRConstantProperties.isMinSigned (props : GMIRConstantProperties) : Bool :=
+  let bitwidth := props.value.type.bitwidth
+  BitVec.ofInt bitwidth props.value.value = BitVec.intMin bitwidth
+
 /--
 Properties of `gmir.g_sext_inreg`. `sz` is the number of low bits that are kept.
 -/
@@ -37,6 +46,22 @@ def SextInRegProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute
     Except String SextInRegProperties := do
   let sz ← getI64Attr "gmir.g_sext_inreg" "sz" attrDict
   return { sz }
+
+structure GMIRBrCondProperties where
+  operandSegmentSizes : DenseArrayAttr
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+def GMIRBrCondProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attribute) :
+    Except String GMIRBrCondProperties := do
+  if attrDict.size > 1 then
+    throw s!"gmir.g_brcond: expected only 'operandSegmentSizes' property, but got \
+      {attrDict.size} properties"
+  let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
+    | throw "gmir.g_brcond: missing 'operandSegmentSizes' property"
+  let .denseArrayAttr sizesAttr := sizesAttr
+    | throw s!"gmir.g_brcond: expected 'operandSegmentSizes' to be a dense array attribute, but \
+        got {sizesAttr}"
+  return { operandSegmentSizes := sizesAttr }
 
 /--
 A description of a memory reference used in the backend, same as LLVM's `MachineMemOperand`.

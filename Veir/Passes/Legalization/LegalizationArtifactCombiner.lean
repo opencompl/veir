@@ -51,6 +51,60 @@ def combineAnyExtOfTruncToCast (castOpcode : GMIR) (relation : IntegerType → I
       CreateProg.operation (.gmir castOpcode) #[x] #[type] props)
     (fun cast => cast)
 
+/-- Combines `g_anyext (g_anyext x)` to `g_anyext x`, as LLVM's `tryCombineAnyExt` does. -/
+def combineAnyExtOfAnyExt : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value srcType
+      let midType ← MatchProg.type (Attr := IntegerType)
+      let inner ← MatchProg.operation (.gmir .g_anyext) #[x] #[midType]
+      let type ← MatchProg.type (Attr := IntegerType)
+      let _ ← MatchProg.root (.gmir .g_anyext) #[inner.res[0]!] #[type]
+      return (x, type))
+    (fun (x, type) => CreateProg.operation (.gmir .g_anyext) #[x] #[type])
+    (fun ext => ext)
+
+/--
+Combines `g_zext (g_trunc (g_icmp lhs rhs))` to the `g_icmp` when it has the type of the `g_zext`.
+A `g_icmp` yields 0 or 1, so truncating it and zero-extending it back keeps its value. LLVM's
+`tryCombineZExt` finds this with known bits, which we do not have.
+-/
+def combineZExtOfTruncOfICmp : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let operandType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value operandType
+      let rhs ← MatchProg.value operandType
+      let wideType ← MatchProg.type (Attr := IntegerType)
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType]
+      let narrowType ← MatchProg.type (Attr := IntegerType)
+      let trunc ← MatchProg.operation (.gmir .g_trunc) #[icmp.res[0]!] #[narrowType]
+      let type ← MatchProg.type (Attr := IntegerType)
+      MatchProg.matchNative (wideType, type) fun (wideType, type) =>
+        match wideType.val, type.val with
+        | .integerType wideType, .integerType type => wideType = type
+        | _, _ => false
+      let _ ← MatchProg.root (.gmir .g_zext) #[trunc.res[0]!] #[type]
+      return icmp.res[0]!)
+    pure (fun x => x)
+
+/--
+Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has no flags.
+-/
+def combineTruncOfTrunc : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value srcType
+      let midType ← MatchProg.type (Attr := IntegerType)
+      let inner ← MatchProg.operation (.gmir .g_trunc) #[x] #[midType]
+      let type ← MatchProg.type (Attr := IntegerType)
+      let _ ← MatchProg.root (.gmir .g_trunc) #[inner.res[0]!] #[type]
+      return (x, type))
+    (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
+    (fun trunc => trunc)
+
 public section
 
 /--
@@ -61,7 +115,10 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
   | .g_anyext => [
       combineAnyExtOfTruncSame,
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
-      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)]
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
+      combineAnyExtOfAnyExt]
+  | .g_zext => [combineZExtOfTruncOfICmp]
+  | .g_trunc => [combineTruncOfTrunc]
   | _ => []
 
 end
