@@ -20,8 +20,7 @@ namespace StreamF
 
 def cons (hd : α) (tl : S) : StreamF α S :=
   (hd, tl)
-
-@[simp, grind =]
+@[simp, grind =, qpf_productive_by]
 theorem liftPLast_cons (hd : α) (tl : S) (P : S → Prop) :
     MvFunctor.LiftPLast (F := @TypeFun.ofCurried 2 StreamF) (αs := TypeVec.nil ::: α) P
       (cons (α := α) (S := S) hd tl) ↔ P tl := by
@@ -138,9 +137,9 @@ def Stream.map' (xs : Stream α) (f : α → β) : Stream β :=
 codef Stream.map (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) (map f xs.tail)
 productive_by
-  rw [Stream.cons.__get_dest_partial]
   refine ⟨_, rfl, ?_⟩
-  exact (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, rfl⟩
+
+  exact (StreamF.liftPLast_cons _ _ _).2 ⟨_, rfl⟩
 
 
 @[simp, grind =]
@@ -183,10 +182,10 @@ productive_by
     rw [hP]
     simp only [↓reduceIte, cons.__dest_partial, Comp.get_mk]
     refine ⟨_, rfl, ?_⟩
-    exact (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, _, rfl⟩
+    exact (StreamF.liftPLast_cons _ _ _).2 ⟨_, _, rfl⟩
   | @later xs hev ih =>
     split
-    · exact ⟨_, CofixWithBot.dest_mk _, (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, _, rfl⟩⟩
+    · exact ⟨_, CofixWithBot.dest_mk _, (StreamF.liftPLast_cons _ _ _).2 ⟨_, _, rfl⟩⟩
     · rw [filter.__partial]
       cases hinf with | mk _ hinf' => exact ih hinf'
 
@@ -226,9 +225,8 @@ section Nats
 codef nats (fro : Nat) : Stream Nat :=
   .cons fro (nats <| fro + 1)
 productive_by
-  rw [cons.__get_dest_partial]
   refine ⟨?y, by rfl, ?_⟩
-  refine (IsPolynomial.liftPLast_iff _ _).2 fun i => ?_
+  simp only [StreamF.liftPLast_cons]
   exists fro + 1
 
 @[simp, grind =]
@@ -325,12 +323,13 @@ the recursive calls `cursedMap.__partial f xs`, but the second layer is
 codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
 productive_by
-  rw [cons.__get_dest_partial]
   refine ⟨_, rfl, ?_⟩
   simp only [StreamF.liftPLast_cons]
   -- Stuck: `cons.__partial (f xs.head) (tail.__partial ..)` is not of the form
   -- `cursedMap.__partial f _` (see the comment above).
   sorry
+
+
 
 /-!
 NOTE: `cursedMap` is another example of a corecursive function where the default

@@ -2,6 +2,7 @@ module
 
 public meta import Lean
 public import QPFTypes.Theory.QPF.Cofix.WithBot
+public import QPFTypes.Meta.ProductiveBy.SimpLemmas
 
 /-!
 # `productive_by_intro` tactic
@@ -79,7 +80,8 @@ It applies `CofixWithBot.HasNoBot.coinduct` with the motive
 `fun z => ∃ ys, z = f.__partial xs[ys]`, where `ys` replaces those arguments which are
 changed by some recursive call of `f.__partial`. It then introduces `z` and the motive,
 unfolds `f.__partial` in the latter, and destructs it, substituting `z` away. The
-arguments `ys` are named after the parameters of `f`, and replace the original `xs`.
+arguments `ys` are named after the parameters of `f`, and replace the original `xs`. Finally,
+it cleans up the goal with `simp only [qpf_productive_by]`.
 -/
 syntax (name := productiveByIntro) "productive_by_intro" : tactic
 
@@ -125,3 +127,5 @@ def evalProductiveByIntro : Tactic.Tactic := fun _ => Tactic.withMainContext do
     g := s.mvarId
     h := s.fields[1]!.fvarId!
   Tactic.replaceMainGoal [← subst g h]
+  -- Clean up the types in the goal, e.g. `∀ z : (TypeVec.nil ::: α ::: PT) 0, ..`.
+  Tactic.evalTactic (← `(tactic| try simp only [qpf_productive_by]))
