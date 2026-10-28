@@ -1,9 +1,9 @@
-// RUN: veir-opt %s -p=isel-br-riscv64{strict=false} --print-op-generic | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64{strict=false} --print-op-generic | filecheck %s
 
 // With `strict=false`, a block that a `cf.br` branches to keeps its argument,
 // so the `llvm.br` to it survives as well, while the other branch is lowered.
 
-// CHECK:      "llvm.br"(%{{.*}}) [^{{.*}}] : (i64) -> ()
+// CHECK:      "gmir.g_br"(%{{.*}}) [^{{.*}}] : (i64) -> ()
 // CHECK:      "cf.br"(%{{.*}}) [^{{.*}}] : (i64) -> ()
 // CHECK-NEXT: ^{{.*}}(%{{.*}} : i64):
 // CHECK-NEXT:   "func.return"

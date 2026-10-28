@@ -33,7 +33,7 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
     { value := { props.value with value := canonicalValue } }
   return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
-def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+public def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let opType := op.getOpType! rewriter.ctx.raw
   if ¬ opType.isCommutative then return rewriter

@@ -1,4 +1,4 @@
-// RUN: not veir-opt %s -p=isel-br-riscv64 2>&1 | filecheck %s
+// RUN: not veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 2>&1 | filecheck %s
 
 // A vector does not fit a register.
 // CHECK: isel-br-riscv64: a branch operand does not fit a register

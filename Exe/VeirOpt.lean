@@ -22,6 +22,7 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
+import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
 
@@ -53,6 +54,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CanonicalizePass,
      LegalizePass,
      LegalizeRISCV64Pass,
+     PostLegalizerCombinerRISCV64Pass,
      CirToStdPass,
      LLVMToGMIRPass ] : List (Pass OpCode)).foldl
     (fun m pass => m.insert pass.name pass)
@@ -71,7 +73,7 @@ def passGroups : Std.HashMap String String :=
     |>.insert "mod-arith-pow2-width"
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
-        "isel-sdag-riscv64,isel-br-riscv64,llvm-to-gmir,legalize-riscv64,isel-riscv64,isel-abi-riscv64,reconcile-cast,riscv-combine,dce"
+        "isel-sdag-riscv64,llvm-to-gmir,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,isel-abi-riscv64,reconcile-cast,riscv-combine,dce"
     |>.insert "cir"
         "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 
@@ -111,6 +113,8 @@ structure VeirOptArgs where
   disableVerifiers : Bool
   /-- Whether to print operations in generic form. -/
   printGenericOpForm : Bool
+  /-- The marker to split the input at, if any. -/
+  splitInputFile : Option String
 
 /--
   Replace every pass-group name in a pipeline string by the passes it stands for, leaving
@@ -155,6 +159,15 @@ def parsePipelineOption (args : List String) :
   return ({ passes }, rest)
 
 /--
+  The marker given by a `--split-input-file[=<marker>]` flag or `defaultSplitMarker` if it has none.
+-/
+def splitMarkerOfFlag? (flag : String) : Option String :=
+  if flag == "--split-input-file" || flag == "--split-input-file=" then
+    some defaultSplitMarker
+  else
+    (flag.dropPrefix? "--split-input-file=").map (·.toString)
+
+/--
   Parse CLI arguments. Returns an error if the arguments are malformed.
 -/
 def parseArgs (args : List String) : Except String VeirOptArgs := do
@@ -170,22 +183,52 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--print-op-generic` if present.
   let printGenericOpForm := flags.contains "--print-op-generic"
   let flags := flags.filter (· != "--print-op-generic")
+  -- Consume `--split-input-file[=<marker>]` if present.
+  let splitInputFile := flags.findSome? splitMarkerOfFlag?
+  let flags := flags.filter fun flag => (splitMarkerOfFlag? flag).isNone
   -- If anything survived, it was unrecognized and we error out.
   if let some flag := flags.head? then
     .error s!"Unrecognized flag '{flag}'."
 
   match inputSourceOfArgs positional with
   | .ok filename =>
-    return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers, printGenericOpForm }
+    return { filename, passes := pipeline, allowUnregisteredDialect, disableVerifiers,
+             printGenericOpForm, splitInputFile }
   | .error errMsg => .error errMsg
 
 set_option warn.sorry false in
+/--
+  Parse `input` starting at `start`, run the passes on it, and print the result.
+-/
+def processBuffer (args : VeirOptArgs) (sourceName : String) (input : ByteArray)
+    (start : Parser.Location) : ExceptT String IO Unit := do
+  let (ctx, op, _) ← liftExcept (parseSourceString input sourceName
+    args.allowUnregisteredDialect (verifyAfterParse := !args.disableVerifiers) start)
+  let ctx ← try args.passes.run ⟨ctx, by sorry⟩ op args.disableVerifiers
+            catch errMsg => throw s!"Error: {errMsg}"
+  Veir.Printer.printModule ctx.raw op { printGenericOpForm := args.printGenericOpForm }
+
+/--
+  Run `processBuffer` on each chunk of `content`, printing `defaultSplitMarker` between their
+  outputs. A failing chunk has its error printed and does not stop the following ones.
+  Returns whether all chunks succeeded.
+-/
+def processInput (args : VeirOptArgs) (sourceName : String) (content : ByteArray) : IO Bool := do
+  let mut succeeded := true
+  for ((start, stop), i) in (splitInput content args.splitInputFile).zipIdx do
+    if i > 0 then IO.println defaultSplitMarker
+    let chunk := processBuffer args sourceName (content.extract 0 stop) { byteOffset := start }
+    if let .error err ← chunk.run then
+      IO.eprintln err
+      succeeded := false
+  return succeeded
+
 def main (args : List String) : IO Unit := do
   enableExitOnPanic
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic] [--split-input-file[=<marker>]]"
     IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
     IO.eprintln "  A pass name may be followed by boolean options: pass{opt1 opt2=false}."
     IO.eprintln "  Bare option names mean true; omitted options take their declared defaults."
@@ -194,16 +237,11 @@ def main (args : List String) : IO Unit := do
     IO.eprintln "  A pass list may also contain pass-group names, which expand in place:"
     IO.eprintln passGroupsUsage
     IO.Process.exit 1
-  | .ok { filename, passes, allowUnregisteredDialect, disableVerifiers, printGenericOpForm } =>
-    match ← parseSourceFile filename allowUnregisteredDialect
-        (verifyAfterParse := !disableVerifiers) with
+  | .ok args =>
+    match ← getFileContent args.filename with
     | .error errMsg =>
       IO.eprintln errMsg
       IO.Process.exit 1
-    | .ok (ctx, op, _) =>
-      match ← passes.run ⟨ctx, by sorry⟩ op disableVerifiers with
-      | .error errMsg =>
-        IO.eprintln s!"Error: {errMsg}"
+    | .ok content =>
+      unless ← processInput args (args.filename.getD "<stdin>") content do
         IO.Process.exit 1
-      | .ok finalCtx =>
-        Veir.Printer.printModule finalCtx.raw op { printGenericOpForm }

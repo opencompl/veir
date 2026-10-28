@@ -14,11 +14,14 @@ import subprocess
 # the greedy allocator: PHI elimination, two-address lowering, register
 # coalescing (deletes isel-generated copies), greedy allocation +
 # virtual-register rewriting, prologue/epilogue insertion, and post-RA / RISCV
-# pseudo expansion. -run-pass emits MIR, so the asm printer runs in a second
+# pseudo expansion. riscv-expand-pseudo-post-ra is needed for large frames:
+# frame-index elimination emits PseudoAddUpperImm, which the asm printer can't
+# print. -run-pass emits MIR, so the asm printer runs in a second
 # stage.
 REGALLOC_PASSES = (
     "phi-node-elimination,two-address-instruction,register-coalescer,greedy,"
-    "virt-reg-rewriter,prolog-epilog,post-ra-pseudos,riscv-expand-pseudo-pre-emit"
+    "virt-reg-rewriter,prolog-epilog,post-ra-pseudos,riscv-expand-pseudo-post-ra,"
+    "riscv-expand-pseudo-pre-emit"
 )
 
 # LLVM 24 renamed several legacy machine passes to match their new-PM names;
@@ -29,6 +32,7 @@ LLVM23_PASS_NAMES = {
     "two-address-instruction": "twoaddressinstruction",
     "virt-reg-rewriter": "virtregrewriter",
     "post-ra-pseudos": "postrapseudos",
+    "riscv-expand-pseudo-post-ra": "riscv-post-ra-expand-pseudo",
     "riscv-expand-pseudo-pre-emit": "riscv-expand-pseudo",
 }
 

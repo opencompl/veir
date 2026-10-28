@@ -21,10 +21,11 @@ structure ParserState where
   currentToken : Token
 
 /--
-  Create a new parser state at the beginning of the given input.
+  Create a new parser state at position `start` of the given input.
 -/
-def ParserState.fromInput (input : ByteArray) : Except ParserError ParserState := do
-  let lexerState := LexerState.mk input { byteOffset := 0 }
+def ParserState.fromInput (input : ByteArray) (start : Location := { byteOffset := 0 }) :
+    Except ParserError ParserState := do
+  let lexerState := LexerState.mk input start
   let (firstToken, lexerState) ← lex lexerState
   return ParserState.mk lexerState firstToken
 

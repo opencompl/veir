@@ -46,29 +46,49 @@
 
     // Signed division and remainder sign-extend their operands. Division is widened to `i32` only,
     // and then custom-legalized.
+    // TODO: Lower function call arguments / results before legalization.
+    // This might reduce the amount of artifacts omitted here.
     %sdiv = "gmir.g_sdiv"(%lhs, %rhs) <{isExact}> : (i8, i8) -> i8
-    // CHECK:      "gmir.g_sext"({{.*}}) : (i8) -> i32
-    // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i8) -> i32
+    // CHECK:      "gmir.g_anyext"({{.*}}) : (i8) -> i64
+    // CHECK-NEXT: "gmir.g_sext_inreg"({{.*}}) <{"sz" = 8 : i64}> : (i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
+    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i8) -> i64
+    // CHECK-NEXT: "gmir.g_sext_inreg"({{.*}}) <{"sz" = 8 : i64}> : (i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
     // CHECK:      "riscv.divw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     // CHECK:      "gmir.g_trunc"({{.*}}) : (i32) -> i8
     %srem = "gmir.g_srem"(%lhs, %rhs) : (i8, i8) -> i8
-    // CHECK:      "gmir.g_sext"({{.*}}) : (i8) -> i64
-    // CHECK-NEXT: "gmir.g_sext"({{.*}}) : (i8) -> i64
+    // CHECK:      "gmir.g_anyext"({{.*}}) : (i8) -> i64
+    // CHECK-NEXT: "gmir.g_sext_inreg"({{.*}}) <{"sz" = 8 : i64}> : (i64) -> i64
+    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i8) -> i64
+    // CHECK-NEXT: "gmir.g_sext_inreg"({{.*}}) <{"sz" = 8 : i64}> : (i64) -> i64
     // CHECK-NEXT: "gmir.g_srem"({{.*}}) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i8
 
     // Unsigned division and remainder zero-extend their operands.
     %udiv = "gmir.g_udiv"(%lhs, %rhs) : (i8, i8) -> i8
-    // CHECK:      "gmir.g_zext"({{.*}}) : (i8) -> i32
-    // CHECK-NEXT: "gmir.g_zext"({{.*}}) : (i8) -> i32
+    // CHECK:      "gmir.g_constant"() <{"value" = 255 : i64}> : () -> i64
+    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i8) -> i64
+    // CHECK-NEXT: "gmir.g_and"({{.*}}) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
+    // CHECK-NEXT: "gmir.g_constant"() <{"value" = 255 : i64}> : () -> i64
+    // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i8) -> i64
+    // CHECK-NEXT: "gmir.g_and"({{.*}}) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i32
     // CHECK:      "riscv.divuw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     // CHECK:      "gmir.g_trunc"({{.*}}) : (i32) -> i8
 
     // Widths that are not a power of two are widened to `i32` directly.
     %x_i3 = "llvm.mlir.constant"() <{value = 1 : i3}> : () -> i3
     %urem3 = "gmir.g_urem"(%x_i3, %x_i3) : (i3, i3) -> i3
-    // CHECK:      "gmir.g_zext"({{.*}}) : (i3) -> i32
-    // CHECK-NEXT: "gmir.g_zext"({{.*}}) : (i3) -> i32
+    // CHECK:      %[[MASK_LHS:.*]] = "gmir.g_constant"() <{"value" = 7 : i64}> : () -> i64
+    // CHECK-NEXT: %[[EXT_LHS:.*]] = "gmir.g_anyext"({{.*}}) : (i3) -> i64
+    // CHECK-NEXT: %[[AND_LHS:.*]] = "gmir.g_and"(%[[EXT_LHS]], %[[MASK_LHS]]) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"(%[[AND_LHS]]) : (i64) -> i32
+    // CHECK-NEXT: %[[MASK_RHS:.*]] = "gmir.g_constant"() <{"value" = 7 : i64}> : () -> i64
+    // CHECK-NEXT: %[[EXT_RHS:.*]] = "gmir.g_anyext"({{.*}}) : (i3) -> i64
+    // CHECK-NEXT: %[[AND_RHS:.*]] = "gmir.g_and"(%[[EXT_RHS]], %[[MASK_RHS]]) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"(%[[AND_RHS]]) : (i64) -> i32
     // CHECK:      "riscv.remuw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
     // CHECK:      "gmir.g_trunc"({{.*}}) : (i32) -> i3
 

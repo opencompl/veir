@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "foo"}> ({
+    "func.func"()  <{function_type = (!llvm.ptr, i64) -> (), sym_name = "foo"}> ({
     ^bb0(%a: !llvm.ptr, %b : i64):
         "llvm.store"(%b, %a) : (i64, !llvm.ptr) -> ()
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
@@ -11,7 +11,7 @@
     }) : () -> ()
 
     // i32 store lowers to `riscv.sw`.
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "bar"}> ({
+    "func.func"()  <{function_type = (!llvm.ptr, i32) -> (), sym_name = "bar"}> ({
     ^bb0(%a: !llvm.ptr, %b : i32):
         "llvm.store"(%b, %a) : (i32, !llvm.ptr) -> ()
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
@@ -21,7 +21,7 @@
     }) : () -> ()
 
     // i8 store lowers to `riscv.sb`.
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "baz"}> ({
+    "func.func"()  <{function_type = (!llvm.ptr, i8) -> (), sym_name = "baz"}> ({
     ^bb0(%a: !llvm.ptr, %b : i8):
         "llvm.store"(%b, %a) : (i8, !llvm.ptr) -> ()
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
@@ -31,7 +31,7 @@
     }) : () -> ()
 
     // i16 store lowers to `riscv.sh`.
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "qux"}> ({
+    "func.func"()  <{function_type = (!llvm.ptr, i16) -> (), sym_name = "qux"}> ({
     ^bb0(%a: !llvm.ptr, %b : i16):
         "llvm.store"(%b, %a) : (i16, !llvm.ptr) -> ()
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg
@@ -41,7 +41,7 @@
     }) : () -> ()
 
     // !llvm.ptr store lowers to `riscv.sd`.
-    "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "quux"}> ({
+    "func.func"()  <{function_type = (!llvm.ptr, !llvm.ptr) -> (), sym_name = "quux"}> ({
     ^bb0(%a: !llvm.ptr, %b : !llvm.ptr):
         "llvm.store"(%b, %a) : (!llvm.ptr, !llvm.ptr) -> ()
         // CHECK:      {{.*}} = "builtin.unrealized_conversion_cast"({{.*}}) : (!llvm.ptr) -> !riscv.reg

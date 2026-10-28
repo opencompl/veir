@@ -301,7 +301,7 @@ That is, if the type of the given local declaration is an application of the
 `liveParam` gadget, return the corresponding `FVarId`. Otherwise, return `none`.
 -/
 meta def LocalDecl.asLiveVar? (decl : LocalDecl) : Option FVarId :=
-  if decl.type.isAppOf ``liveParam then
+  if decl.type.cleanupAnnotations.isAppOf ``liveParam then
     some decl.fvarId
   else
     none
