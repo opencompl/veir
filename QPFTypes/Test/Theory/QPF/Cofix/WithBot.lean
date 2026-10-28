@@ -348,8 +348,29 @@ must be before `productive_by`) which we can use to add more cases to the motive
 codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
 with_motive
-
+  cons ?x ?xs
+productive_by
+  ...
 ```
+
+Here, we expect the used motive to become
+  `(∃ xs, z = cursedMap.__partial f xs) ∨ (∃ x xs, z = cons.__partial x xs)`
+That is, the `with_motive` term is parsed as an expresion of the (non-partial)
+type `Stream α`, and translated as usual. The `?`-prefixed variables should be
+parsed as meta-variables, which should then be turned into existentials.
+If this meta-variable to existential parsing turns out to be complicated, we
+can also use the syntax:
+```
+with_motive x xs => cons x xs
+```
+where the bound variables are put before a `=>` token, and the expression after it.
+In this syntax, instead of comma-delimited terms, we would just allow multiple
+`with_motive ...` blocks after the definition, for repeated disjunct in the motive.
+
+Since each motive-disjunct is, well, a disjunct, it will give rise to a separate
+subgoal for the productivity proof. We want `productive_by_intro` to do this
+case-distinction directly.
+
 -/
 
 example (f : α → β) (xs : Stream α) : (cursedMap f xs).tail.head = f xs.head := by
