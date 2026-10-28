@@ -211,9 +211,20 @@ def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx o
     (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
   return (ctx, some (#[ext, branch], #[]))
 
-/-- Widens type group `typeIdx` of `opcode` to `width` bits with a Puddle pattern. -/
-private def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
-    Option (Pattern OpCode)
+public section
+
+/-- The pattern that lowers `opcode`, if it can be lowered. -/
+def lower? : GMIR → Option (Pattern OpCode)
+  | .g_sext => lowerSext
+  | .g_zext => lowerZext
+  | _ => none
+
+/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
+    Option (LocalRewritePattern OpCode)
+  | .g_brcond, .type 0, width => widenBrcondCondition width
+  | opcode, typeIdx, width => Option.map Puddle.Pattern.interpret <|
+  match opcode, typeIdx, width with
   -- The high bits of the operands never reach the low bits of the result, so any extension is
   -- fine.
   | .g_add, .type 0, width => widenTypeGroup .g_add (.type 0) .g_anyext width clearNswNuwProperties
@@ -257,20 +268,6 @@ private def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Na
   | .g_bswap, .type 0, width => widenReverse .g_bswap width
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
   | _, _, _ => none
-
-public section
-
-/-- The pattern that lowers `opcode`, if it can be lowered. -/
-def lower? : GMIR → Option (Pattern OpCode)
-  | .g_sext => lowerSext
-  | .g_zext => lowerZext
-  | _ => none
-
-/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
-    Option (LocalRewritePattern OpCode)
-  | .g_brcond, .type 0, width => widenBrcondCondition width
-  | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map (·.interpret)
 
 end
 
