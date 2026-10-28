@@ -122,9 +122,11 @@ def cofixWithBotArgs? (ty : Expr) : MetaM (Option (Level × Array Expr)) := do
   return some (← instantiateLevelMVars lvl, ← args.mapM instantiateMVars)
 
 /-- Introduce the parameters `xs` again, with their types translated by `ctx`, and call `k` on
-the new parameters. Parameters of type `T` become parameters of type `PT`. -/
+the new parameters. Parameters of type `T` become parameters of type `PT`. `attr` is the
+attribute being applied, for error messages. -/
 def withTranslatedParams (ctx : Ctx) (declName : Name) (xs : Array Expr)
-    (k : Array Expr → MetaM α) (i : Nat := 0) (ys : Array Expr := #[]) : MetaM α := do
+    (k : Array Expr → MetaM α) (i : Nat := 0) (ys : Array Expr := #[])
+    (attr : Name := `qpf_elim) : MetaM α := do
   if h : i < xs.size then
     let x := xs[i]
     let decl ← x.fvarId!.getDecl
@@ -132,15 +134,28 @@ def withTranslatedParams (ctx : Ctx) (declName : Name) (xs : Array Expr)
     let ty' ← ctx.go ty
     if ← xs[:i].toArray.anyM fun z => do
         return decl.type.containsFVar z.fvarId! && (← ctx.isTotalType (← inferType z)) then
-      throwError "@[qpf_elim]: the type of the argument `{decl.userName}` of \
+      throwError "@[{attr}]: the type of the argument `{decl.userName}` of \
         `{.ofConstName declName}` depends on an argument of type{indentExpr ctx.T}"
     -- Keep the parameters whose type does not change (e.g. the parameters of `T`).
     if ty' == decl.type then
-      return ← withTranslatedParams ctx declName xs k (i + 1) (ys.push x)
+      return ← withTranslatedParams ctx declName xs k (i + 1) (ys.push x) attr
     withLocalDecl decl.userName decl.binderInfo ty' fun y =>
-      withTranslatedParams ctx declName xs k (i + 1) (ys.push y)
+      withTranslatedParams ctx declName xs k (i + 1) (ys.push y) attr
   else
     k ys
+
+/-- Add the definition `pName : ∀ params, _ := fun params => value`, with universe parameters
+`lvls`. -/
+def addPartialDef (pName : Name) (lvls : List Name) (params : Array Expr) (value : Expr) :
+    MetaM Unit := do
+  let value ← instantiateMVars (← mkLambdaFVars params value)
+  let type ← instantiateMVars (← inferType value)
+  addAndCompile <| .defnDecl {
+    name := pName, levelParams := lvls, type, value
+    hints := .regular (getMaxHeight (← getEnv) value + 1), safety := .safe
+  }
+  -- So that its equation lemmas (e.g. for `unfold`) can be generated on demand.
+  enableRealizationsForConst pName
 
 /-- Define `declName.__partial`, see the module docstring, and return whether it is in
 continuation-passing style. -/
@@ -183,15 +198,7 @@ def addPartialElim (declName : Name) : MetaM Bool := do
             catch ex => throwError "@[qpf_elim]: failed to construct `{.ofConstName pName}`:\
               {indentD ex.toMessageData}"
             return e
-        let addDef (lvls : List Name) (params : Array Expr) (value : Expr) : MetaM Unit := do
-          let value ← instantiateMVars (← mkLambdaFVars params value)
-          let type ← instantiateMVars (← inferType value)
-          addAndCompile <| .defnDecl {
-            name := pName, levelParams := lvls, type, value
-            hints := .regular (getMaxHeight (← getEnv) value + 1), safety := .safe
-          }
-          -- So that its equation lemmas (e.g. for `unfold`) can be generated on demand.
-          enableRealizationsForConst pName
+        let addDef := addPartialDef pName
         -- The direct form, if the result type is a `CofixWithBot` type.
         if let some (lvl, gArgs) ← cofixWithBotArgs? R' then
           addDef lvlNames xs' (← wrap lvl gArgs body')
@@ -207,8 +214,11 @@ def addPartialElim (declName : Name) : MetaM Bool := do
             addDef (lvlNames ++ [v]) (xs' ++ gs ++ #[k]) (← wrap (.param v) gs (mkApp k body'))
             return true
 
-/-- Prove and add `declName.__partial_mono`, see the module docstring. -/
-def addPartialElimMono (declName : Name) (cps : Bool) : TermElabM Unit := do
+/-- Prove and add `declName.__partial_mono`, see the module docstring, where `attr` is the
+attribute being applied, and `tac` proves the monotonicity of the unfolding of
+`declName.__partial`. -/
+def addPartialMono (attr declName : Name) (cps : Bool) (tac : TSyntax `tactic) :
+    TermElabM Unit := do
   let pName := declName ++ partialSuffix
   let pInfo ← getConstInfo pName
   let lvlNames := pInfo.levelParams
@@ -240,12 +250,12 @@ def addPartialElimMono (declName : Name) (cps : Bool) : TermElabM Unit := do
         let lhs ← mkLambdaFVars #[z] (mkAppN (.const pName (lvlNames.map mkLevelParam)) args)
         let goal ← mkAppM ``Lean.Order.monotone #[lhs]
         let g ← mkFreshExprSyntheticOpaqueMVar goal
-        let tac ← `(tactic| (unfold $(mkCIdent pName):ident; qpf_elim_mono))
+        let tac ← `(tactic| (unfold $(mkCIdent pName):ident; $tac:tactic))
         let gs ← try Tactic.run g.mvarId! (Tactic.evalTactic tac)
-          catch ex => throwError "@[qpf_elim]: failed to prove the monotonicity of \
+          catch ex => throwError "@[{attr}]: failed to prove the monotonicity of \
             `{.ofConstName pName}`:{indentD ex.toMessageData}"
         unless gs.isEmpty do
-          throwError "@[qpf_elim]: failed to prove the monotonicity of `{.ofConstName pName}`, \
+          throwError "@[{attr}]: failed to prove the monotonicity of `{.ofConstName pName}`, \
             unsolved goals:{goalsToMessageData gs}"
         let otherParams := params.filter (!PTs.contains ·)
         let binders := #[δ, instδ] ++ otherParams ++ fns ++ hs ++ extra
@@ -271,17 +281,18 @@ def addPartialElimMono (declName : Name) (cps : Bool) : TermElabM Unit := do
       else
         finish #[] args
 
-/-- If `declName` returns a value of the same type `T` that it destructs, prove and add
+/-- If `declName` returns a value of a `Cofix` type `T`, and `declName.__partial` takes the
+same arguments, except for those of type `T`, prove and add
 `declName.__partial_ofCofix : ofCofix (g xs) = g.__partial (ofCofix xs)`, which `codef` uses
-to prove unfolding equations, see `Codef.addUnfoldEqns`. -/
-def addPartialElimOfCofix (declName : Name) : TermElabM Unit := do
+to prove unfolding equations, see `Codef.addUnfoldEqns`. The proof is by `tac`, and `attr` is
+the attribute being applied. -/
+def addPartialOfCofix (attr declName : Name) (tac : TSyntax `tactic) : TermElabM Unit := do
   let info ← getConstInfo declName
   let pName := declName ++ partialSuffix
   let lvls := info.levelParams.map mkLevelParam
   forallTelescope info.type fun xs R => do
-    let some x₀ ← xs.findM? fun x => do isCofixType (← inferType x) | return
-    let ctx ← mkCtx declName .anonymous (← inferType x₀)
-    unless ← ctx.isTotalType R do return
+    unless ← isCofixType R do return
+    let ctx ← mkCtx declName .anonymous R
     let ofCofix := ctx.mkConst ``QPF.CofixWithBot.ofCofix
     let args ← xs.mapM fun x => do
       return if ← ctx.isTotalType (← inferType x) then mkApp ofCofix x else x
@@ -290,15 +301,11 @@ def addPartialElimOfCofix (declName : Name) : TermElabM Unit := do
     unless (← observing? (check rhs)).isSome do return
     let goal ← mkEq (mkApp ofCofix (mkAppN (.const declName lvls) xs)) rhs
     let g ← mkFreshExprSyntheticOpaqueMVar goal
-    let tac ← `(tactic|
-      (delta $(mkCIdent pName):ident
-       simp only [$(mkCIdent ``QPF.CofixWithBot.elim_ofCofix):ident]
-       try rfl))
     let gs ← try Tactic.run g.mvarId! (Tactic.evalTactic tac)
-      catch ex => throwError "@[qpf_elim]: failed to prove `{.ofConstName pName}` commutes \
+      catch ex => throwError "@[{attr}]: failed to prove `{.ofConstName pName}` commutes \
         with `ofCofix`:{indentD ex.toMessageData}"
     unless gs.isEmpty do
-      throwError "@[qpf_elim]: failed to prove `{.ofConstName pName}` commutes with \
+      throwError "@[{attr}]: failed to prove `{.ofConstName pName}` commutes with \
         `ofCofix`, unsolved goals:{goalsToMessageData gs}"
     addDecl <| .thmDecl {
       name := declName ++ partialOfCofixSuffix
@@ -317,8 +324,12 @@ initialize registerBuiltinAttribute {
       throwError "@[qpf_elim] can only be used globally"
     let cps ← MetaM.run' (addPartialElim declName)
     MetaM.run' <| Term.TermElabM.run' do
-      addPartialElimMono declName cps
-      addPartialElimOfCofix declName
+      addPartialMono `qpf_elim declName cps (← `(tactic| qpf_elim_mono))
+      let pName := declName ++ partialSuffix
+      addPartialOfCofix `qpf_elim declName <| ← `(tactic|
+        (delta $(mkCIdent pName):ident
+         simp only [$(mkCIdent ``QPF.CofixWithBot.elim_ofCofix):ident]
+         try rfl))
     Attribute.add (declName ++ partialMonoSuffix) `partial_fixpoint_monotone .missing
   erase := fun declName =>
     throwError "@[qpf_elim] cannot be erased from '{.ofConstName declName}'"

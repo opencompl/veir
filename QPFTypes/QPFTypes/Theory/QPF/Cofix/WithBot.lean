@@ -234,10 +234,22 @@ theorem get_eq_iff [IsPolynomial F] {x : CofixWithBot F α} {h : HasNoBot x} {y 
 `ι` are filled in monotonically. Concrete constructors, such as
 `fun y => mk (x, f y)`, are (definitionally) instances of this with `ι := PUnit`. -/
 @[partial_fixpoint_monotone]
-theorem mk_map_mono {γ : Type v} [Lean.Order.PartialOrder γ] [IsPolynomial F] {ι : Type u}
+theorem mk_map_mono {γ : Sort w} [Lean.Order.PartialOrder γ] [IsPolynomial F] {ι : Type u}
     (s : F (α ::: ι)) (f : γ → ι → CofixWithBot F α) (hf : Lean.Order.monotone f) :
     Lean.Order.monotone (fun y => mk ((TypeVec.id ::: f y) <$$> s)) :=
   Cofix.mk_map_mono (Comp.mk (some s) : F.WithBot (α ::: ι)) f hf
+
+/-- Monotonicity of a family of children `Fin (k + 1) → β`, given by `Fin.cases`. Used by
+`qpf_mk_mono`, which instantiates `mk_map_mono` with `ι := Fin k`, see `QPFTypes.Meta.QPFCtor`. -/
+theorem monotone_finCases {γ : Sort v} [Lean.Order.PartialOrder γ] {β : Sort w}
+    [Lean.Order.PartialOrder β] {k : Nat} (v : γ → β) (f : γ → Fin k → β)
+    (hv : Lean.Order.monotone v) (hf : Lean.Order.monotone f) :
+    Lean.Order.monotone (fun z => Fin.cases (motive := fun _ => β) (v z) (f z)) := by
+  apply Lean.Order.monotone_of_monotone_apply
+  intro i
+  induction i using Fin.cases with
+  | zero => simpa using hv
+  | succ i => simpa using Lean.Order.monotone_apply i f hf
 
 /-! ## Eliminator -/
 

@@ -31,16 +31,6 @@ def PStream.cons (x : a) (xs : PStream a) : PStream a :=
 def PStream.dest (xs : PStream a) : Option (a × PStream a) :=
   Cofix.dest xs
 
-/-- `codef` unfolds `Stream.cons` into `Cofix.mk (x, _)`, and translates that into
-`CofixWithBot.mk (x, _)`; this lemma makes the latter monotone. -/
-@[partial_fixpoint_monotone]
-theorem PStream.mk_mono {γ : Type} [PartialOrder γ] (x : a) (f : γ → PStream a)
-    (hf : monotone f) :
-    monotone (fun y =>
-      CofixWithBot.mk (F := @TypeFun.ofCurried 2 StreamF) (α := #t[a]) (x, f y)) :=
-  CofixWithBot.mk_map_mono ((x, ()) : StreamF a Unit) (fun y _ => f y)
-    fun y₁ y₂ h _ => hf y₁ y₂ h
-
 @[simp, grind =]
 theorem PStream.dest_cons (x : a) (xs : PStream a) :
     (Cofix.dest (cons x xs)).get = some (x, xs) := by
@@ -78,51 +68,7 @@ def Stream.head (xs : Stream a) : a := (Cofix.dest xs).1
 @[qpf_elim]
 def Stream.tail (xs : Stream a) : Stream a := (Cofix.dest xs).2
 
-/-! `@[qpf_elim]` defines the partial versions of `Stream.head` and `Stream.tail`. -/
-
-/--
-info: @Stream.tail.__partial : {a : Type} →
-  CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a) →
-    CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a)
--/
-#guard_msgs in
-#check @Stream.tail.__partial
-
-/--
-info: @Stream.tail.__partial_mono : ∀ {δ : Sort u_1} [inst : PartialOrder δ] {a : Type}
-  (xs_fn : δ → CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a)),
-  monotone xs_fn → monotone fun z => Stream.tail.__partial (xs_fn z)
--/
-#guard_msgs in
-#check @Stream.tail.__partial_mono
-
-/--
-info: @Stream.tail.__partial_ofCofix : ∀ {a : Type} (xs : Stream a),
-  CofixWithBot.ofCofix xs.tail = Stream.tail.__partial (CofixWithBot.ofCofix xs)
--/
-#guard_msgs in
-#check @Stream.tail.__partial_ofCofix
-
--- `Stream.head` returns an `a`, which has no `⊥`: its partial version is in
--- continuation-passing style.
-/--
-info: @Stream.head.__partial : {a : Type} →
-  CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a) →
-    {m : Nat} → {G : TypeFun (m + 1)} → [inst : QPF G] → {β : TypeVec m} → (a → CofixWithBot G β) → CofixWithBot G β
--/
-#guard_msgs in
-#check @Stream.head.__partial
-
-/--
-info: @Stream.head.__partial_mono : ∀ {δ : Sort u_2} [inst : PartialOrder δ] {a : Type}
-  (xs_fn : δ → CofixWithBot (TypeFun.ofCurried StreamF) (TypeVec.nil ::: a)),
-  monotone xs_fn →
-    ∀ {m : Nat} {G : TypeFun (m + 1)} [inst_1 : QPF G] {β : TypeVec m} [inst_2 : IsPolynomial G]
-      (k_fn : δ → a → CofixWithBot G β), monotone k_fn → monotone fun z => Stream.head.__partial (xs_fn z) (k_fn z)
--/
-#guard_msgs in
-#check @Stream.head.__partial_mono
-
+@[qpf_ctor]
 def Stream.cons (x : a) (xs : Stream a) : Stream a := Cofix.mk (x, xs)
 
 @[simp, grind =]
@@ -181,7 +127,7 @@ def Stream.map' (xs : Stream α) (f : α → β) : Stream β :=
 codef Stream.map (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) (map f xs.tail)
 productive_by
-  erw [CofixWithBot.dest_mk]
+  rw [Stream.cons.__get_dest_partial]
   refine ⟨_, rfl, ?_⟩
   exact (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, rfl⟩
 
@@ -224,7 +170,9 @@ productive_by
   induction hev with
   | @here xs hP =>
     rw [hP]
-    exact ⟨_, CofixWithBot.dest_mk _, (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, _, rfl⟩⟩
+    simp only [↓reduceIte, cons.__dest_partial, Comp.get_mk]
+    refine ⟨_, rfl, ?_⟩
+    exact (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, _, rfl⟩
   | @later xs hev ih =>
     split
     · exact ⟨_, CofixWithBot.dest_mk _, (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, _, rfl⟩⟩
@@ -267,7 +215,7 @@ section Nats
 codef nats (fro : Nat) : Stream Nat :=
   .cons fro (nats <| fro + 1)
 productive_by
-  simp [CofixWithBot.mk]
+  rw [cons.__get_dest_partial]
   refine ⟨?y, by rfl, ?_⟩
   refine (IsPolynomial.liftPLast_iff _ _).2 fun i => ?_
   exists fro + 1
@@ -366,7 +314,31 @@ the recursive calls `cursedMap.__partial f xs`, but the second layer is
 codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
 productive_by
+  rw [cons.__get_dest_partial]
+  refine ⟨_, rfl, ?_⟩
+  intro z
   sorry
+
+/-!
+NOTE: `cursedMap` is another example of a corecursive function where the default
+coinductive invariant containing just applications of the function itself
+does not suffice.
+
+Still, by the reasoning we did, we know that the invariant we've picked MUST be
+contained in whatever invariant ends up being used regardless. So I propose
+we fix this with some extra syntax for adding more things into the invariant,
+keeping the current behaviour as a default.
+
+We should add a `with_motive term,*` syntax to the `codef` command (optional,
+must be before `productive_by`) which we can use to add more cases to the motive.
+
+```
+codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
+  cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
+with_motive
+
+```
+-/
 
 example (f : α → β) (xs : Stream α) : (cursedMap f xs).tail.head = f xs.head := by
   rw [cursedMap, tail_cons, head_cons]
@@ -413,9 +385,9 @@ productive_by
 def tail' (xs : Stream α) : Stream α := (Cofix.dest xs).2
 
 /--
-error: codef: cannot destruct a possibly-partial value with `Cofix.dest`
-  Cofix.dest (tailOfRec.__codef_raw xs.tail)
-`tail'` destructs a possibly-partial value, but has no partial version (`__partial`); mark `tail'` with `@[qpf_elim]` to define it
+error: codef: cannot translate
+  (tailOfRec.__codef_raw xs.tail).tail'
+`tail'` is applied to a possibly-partial value, but has no partial version (`__partial`); mark it with `@[qpf_ctor]` if it is a constructor, or with `@[qpf_elim]` if it is an eliminator
 -/
 #guard_msgs in
 codef tailOfRec (xs : Stream α) : Stream α :=

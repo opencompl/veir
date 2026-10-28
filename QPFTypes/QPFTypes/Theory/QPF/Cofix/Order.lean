@@ -235,7 +235,7 @@ instantiates to — compare `tau_mono` and `vis_mono` in the reference's
 -/
 
 @[partial_fixpoint_monotone]
-theorem Cofix.mk_mono {γ : Type v} [PartialOrder γ]
+theorem Cofix.mk_mono {γ : Sort v} [PartialOrder γ]
     [HasBot F α] [IsPolynomial F]
     (a : q.P.A) (fd : q.P.drop.B a ⟹ α) (fl : γ → q.P.last.B a → Cofix F α)
     (hfl : monotone fl) :
@@ -257,7 +257,7 @@ theorem Cofix.mk_mono {γ : Type v} [PartialOrder γ]
 layer `s`, whose recursive positions `ι` are filled in monotonically. A concrete constructor,
 such as `cons x xs = Cofix.mk (.inr (x, xs))`, is (definitionally) of this form with
 `ι := PUnit`, so its monotonicity lemma is a direct instance. -/
-theorem Cofix.mk_map_mono {γ : Type v} [PartialOrder γ]
+theorem Cofix.mk_map_mono {γ : Sort v} [PartialOrder γ]
     [HasBot F α] [IsPolynomial F] {ι : Type u}
     (s : F (α ::: ι)) (f : γ → ι → Cofix F α) (hf : monotone f) :
     monotone (fun x => Cofix.mk ((TypeVec.id ::: f x) <$$> s)) := by
