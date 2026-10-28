@@ -85,10 +85,10 @@ def asciiAlpha (c : Char) : Prop := c.isAlpha = true
 
 def isDigit (c : Char) : Prop := c.isDigit = true
 
-instance (c : Char) : Decidable (asciiAlpha c) :=
+instance : DecidablePred asciiAlpha := fun c =>
   inferInstanceAs (Decidable (c.isAlpha = true))
 
-instance (c : Char) : Decidable (isDigit c) :=
+instance : DecidablePred isDigit := fun c =>
   inferInstanceAs (Decidable (c.isDigit = true))
 
 inductive digitNum : Char → Nat → Prop where
@@ -116,10 +116,10 @@ def nameStart (c : Char) : Prop :=
 def nameChar (c : Char) : Prop :=
   nameStart c ∨ isDigit c
 
-instance (c : Char) : Decidable (nameStart c) :=
+instance : DecidablePred nameStart := fun c =>
   inferInstanceAs (Decidable (asciiAlpha c ∨ c ∈ "-$._".toList))
 
-instance (c : Char) : Decidable (nameChar c) :=
+instance : DecidablePred nameChar := fun c =>
   inferInstanceAs (Decidable (nameStart c ∨ isDigit c))
 
 /-- Parse one decimal digit, returning only its value. -/
@@ -234,7 +234,7 @@ inductive WordToken : List Char → Token → Prop where
 
 def isWs (c : Char) : Prop := c ∈ " \t\n\r".toList
 
-instance (c : Char) : Decidable (isWs c) :=
+instance : DecidablePred isWs := fun c =>
   inferInstanceAs (Decidable (c ∈ " \t\n\r".toList))
 
 /-- Spellings of the tokens in the example; boundaries belong to `Lexes`. -/
@@ -322,21 +322,20 @@ def commentBody : List Char → Prop
   | [] => True
   | c :: cs => if c = '\n' ∨ c = '\r' then cs = [] else commentBody cs
 
-instance (cs : List Char) : Decidable (commentBody cs) :=
-  match cs with
+instance instDecidableCommentBody : DecidablePred commentBody
   | [] => isTrue trivial
   | c :: cs =>
       letI := instDecidableCommentBody cs
       inferInstanceAs (Decidable (if c = '\n' ∨ c = '\r' then cs = [] else commentBody cs))
 
-instance (s : String) : Decidable (bareName s) := by
+instance : DecidablePred bareName := fun s => by
   unfold bareName
   split <;> infer_instance
 
-instance (s : String) : Decidable (labelName s) :=
+instance : DecidablePred labelName := fun s =>
   inferInstanceAs (Decidable (s ≠ "" ∧ ∀ c ∈ s.toList, nameChar c))
 
-instance (s : String) : Decidable (digits s) :=
+instance : DecidablePred digits := fun s =>
   inferInstanceAs (Decidable (s ≠ "" ∧ ∀ c ∈ s.toList, isDigit c))
 
 /-- Recognize a whole lexeme. Choosing its length is the generic scanner's job. -/
@@ -490,7 +489,7 @@ structure ScanResult where
 def ScanResult.toTuple (result : ScanResult) : List Char × Token × List Char :=
   (result.piece, result.tok, result.rest)
 
-instance (tok : Token) (rest : List Char) : Decidable (WordBoundary tok rest) := by
+instance (tok : Token) : DecidablePred (WordBoundary tok) := fun rest => by
   unfold WordBoundary WordBoundary'
   cases tok <;> cases rest <;> simp only <;> infer_instance
 
