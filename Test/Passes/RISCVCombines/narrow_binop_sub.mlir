@@ -22,11 +22,12 @@
   }) : () -> ()
 }) : () -> ()
 
-// The sub runs on the narrowed operands.
+// The sub runs on the narrowed operands; the truncated constant folds and the
+// subtraction of a constant is canonicalized to an add of its negation.
 // CHECK:      func.func @foo(%[[X:.*]]: i64) -> i32 {
 // CHECK:      %[[TX:.*]] = "llvm.trunc"(%[[X]]) : (i64) -> i32
-// CHECK:      %[[TC:.*]] = "llvm.trunc"(%{{.*}}) : (i64) -> i32
-// CHECK:      %[[R:.*]] = "llvm.sub"(%[[TX]], %[[TC]]) : (i32, i32) -> i32
+// CHECK:      %[[TC:.*]] = "llvm.mlir.constant"() <{"value" = -7 : i32}> : () -> i32
+// CHECK:      %[[R:.*]] = "llvm.add"(%[[TX]], %[[TC]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 
 // Non-constant second operand: the pattern does not fire.

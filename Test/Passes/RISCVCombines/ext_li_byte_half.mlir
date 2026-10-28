@@ -38,8 +38,8 @@
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  // Negative case: 200 is outside the *signed* byte range [-128, 128), so its
-  // sign-extension differs -- the `sextb` must stay.
+  // 200 is outside the *signed* byte range [-128, 128), so the `sextb` is not
+  // redundant; it is constant-folded instead, to 200 - 256 = -56.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f4"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = 200 : i64}> : () -> !riscv.reg
@@ -47,8 +47,8 @@
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  // Negative case: a negative immediate is sign-extended, so bits above the byte
-  // aren't clear -- the `zextb` must stay.
+  // A negative immediate is sign-extended, so bits above the byte aren't clear
+  // and the `zextb` is not redundant; it is constant-folded instead, to 255.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "f5"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
@@ -69,10 +69,8 @@
 // CHECK:      %[[SH:.*]] = "riscv.li"() <{"value" = -1000 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[SH]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[NSB_C:.*]] = "riscv.li"() <{"value" = 200 : i64}> : () -> !riscv.reg
-// CHECK-NEXT: %[[NSB_Z:.*]] = "riscv.sextb"(%[[NSB_C]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT: "func.return"(%[[NSB_Z]]) : (!riscv.reg) -> ()
+// CHECK:      %[[NSB:.*]] = "riscv.li"() <{"value" = -56 : i64}> : () -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[NSB]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[NZB_C:.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
-// CHECK-NEXT: %[[NZB_Z:.*]] = "riscv.zextb"(%[[NZB_C]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT: "func.return"(%[[NZB_Z]]) : (!riscv.reg) -> ()
+// CHECK:      %[[NZB:.*]] = "riscv.li"() <{"value" = 255 : i64}> : () -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[NZB]]) : (!riscv.reg) -> ()

@@ -11,8 +11,9 @@
     "func.return"(%z) : (!riscv.reg) -> ()
   }) : () -> ()
 
-  // Negative case: a negative immediate's 64-bit materialization does *not*
-  // have bits 63:32 clear (it's sign-extended), so the `zextw` must stay.
+  // A negative immediate's 64-bit materialization does *not* have bits 63:32
+  // clear (it's sign-extended), so the `zextw` is not redundant; it is
+  // constant-folded instead, to 2^32 - 1.
   "func.func"() <{function_type = () -> !riscv.reg, sym_name = "bar"}> ({
   ^bb0():
     %c = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
@@ -24,6 +25,5 @@
 // CHECK:      %[[C16:.*]] = "riscv.li"() <{"value" = 16 : i64}> : () -> !riscv.reg
 // CHECK-NEXT: "func.return"(%[[C16]]) : (!riscv.reg) -> ()
 
-// CHECK:      %[[CNEG:.*]] = "riscv.li"() <{"value" = -1 : i64}> : () -> !riscv.reg
-// CHECK-NEXT: %[[Z:.*]] = "riscv.zextw"(%[[CNEG]]) : (!riscv.reg) -> !riscv.reg
-// CHECK-NEXT: "func.return"(%[[Z]]) : (!riscv.reg) -> ()
+// CHECK:      %[[CNEG:.*]] = "riscv.li"() <{"value" = 4294967295 : i64}> : () -> !riscv.reg
+// CHECK-NEXT: "func.return"(%[[CNEG]]) : (!riscv.reg) -> ()

@@ -5,7 +5,13 @@
 // umax(-1, 1) = -1 (unsigned, 0xff..ff is the larger). -> riscv.maxu
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
-    %a = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
+    // Round-trip %a through memory so it is not a constant; otherwise the op
+    // under test is folded away during lowering.
+    %n = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %slot = "llvm.alloca"(%n) <{elem_type = i64}> : (i64) -> !llvm.ptr
+    %a0 = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
+    "llvm.store"(%a0, %slot) : (i64, !llvm.ptr) -> ()
+    %a = "llvm.load"(%slot) : (!llvm.ptr) -> i64
     %b = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %r = "llvm.intr.umax"(%a, %b) : (i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()

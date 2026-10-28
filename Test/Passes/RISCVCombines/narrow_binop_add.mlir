@@ -22,10 +22,10 @@
   }) : () -> ()
 }) : () -> ()
 
-// The add runs on the narrowed operands.
+// The add runs on the narrowed operands; the truncated constant folds.
 // CHECK:      func.func @foo(%[[X:.*]]: i64) -> i32 {
 // CHECK:      %[[TX:.*]] = "llvm.trunc"(%[[X]]) : (i64) -> i32
-// CHECK:      %[[TC:.*]] = "llvm.trunc"(%{{.*}}) : (i64) -> i32
+// CHECK:      %[[TC:.*]] = "llvm.mlir.constant"() <{"value" = 7 : i32}> : () -> i32
 // CHECK:      %[[R:.*]] = "llvm.add"(%[[TX]], %[[TC]]) : (i32, i32) -> i32
 // CHECK:      "func.return"(%[[R]]) : (i32) -> ()
 

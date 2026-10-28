@@ -1,9 +1,8 @@
 // RUN: veir-opt -p=legalize %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> i32}> ({
-    %lhs = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32
-    %rhs = "llvm.mlir.constant"() <{ "value" = 5 : i32 }> : () -> i32
+  "func.func"() <{sym_name = "main", function_type = (i32, i32) -> i32}> ({
+  ^bb0(%lhs: i32, %rhs: i32):
     %x = "llvm.add"(%lhs, %rhs) : (i32, i32) -> i32
 // CHECK:      %[[lhs:.*]] = "llvm.zext"(%{{.*}}) : (i32) -> i64
 // CHECK-NEXT: %[[rhs:.*]] = "llvm.zext"(%{{.*}}) : (i32) -> i64

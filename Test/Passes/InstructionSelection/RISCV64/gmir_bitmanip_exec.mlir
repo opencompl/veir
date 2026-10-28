@@ -6,10 +6,25 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32, i8, i8, i8, i8, i32, i16, i32, i8)}> ({
-    %x32 = "llvm.mlir.constant"() <{value = 0x00f0e100 : i32}> : () -> i32
-    %x16 = "llvm.mlir.constant"() <{value = 0x12f0 : i16}> : () -> i16
-    %x8 = "llvm.mlir.constant"() <{value = 0x14 : i8}> : () -> i8
-    %zero8 = "llvm.mlir.constant"() <{value = 0 : i8}> : () -> i8
+    // Round-trip the inputs through memory so they are not constants; otherwise
+    // the ops under test are folded away during lowering.
+    %n = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %x32_slot = "llvm.alloca"(%n) <{elem_type = i32}> : (i64) -> !llvm.ptr
+    %x32_c = "llvm.mlir.constant"() <{value = 0x00f0e100 : i32}> : () -> i32
+    "llvm.store"(%x32_c, %x32_slot) : (i32, !llvm.ptr) -> ()
+    %x32 = "llvm.load"(%x32_slot) : (!llvm.ptr) -> i32
+    %x16_slot = "llvm.alloca"(%n) <{elem_type = i16}> : (i64) -> !llvm.ptr
+    %x16_c = "llvm.mlir.constant"() <{value = 0x12f0 : i16}> : () -> i16
+    "llvm.store"(%x16_c, %x16_slot) : (i16, !llvm.ptr) -> ()
+    %x16 = "llvm.load"(%x16_slot) : (!llvm.ptr) -> i16
+    %x8_slot = "llvm.alloca"(%n) <{elem_type = i8}> : (i64) -> !llvm.ptr
+    %x8_c = "llvm.mlir.constant"() <{value = 0x14 : i8}> : () -> i8
+    "llvm.store"(%x8_c, %x8_slot) : (i8, !llvm.ptr) -> ()
+    %x8 = "llvm.load"(%x8_slot) : (!llvm.ptr) -> i8
+    %zero8_slot = "llvm.alloca"(%n) <{elem_type = i8}> : (i64) -> !llvm.ptr
+    %zero8_c = "llvm.mlir.constant"() <{value = 0 : i8}> : () -> i8
+    "llvm.store"(%zero8_c, %zero8_slot) : (i8, !llvm.ptr) -> ()
+    %zero8 = "llvm.load"(%zero8_slot) : (!llvm.ptr) -> i8
     %ctlz32 = "llvm.intr.ctlz"(%x32) <{is_zero_poison = false}> : (i32) -> i32
     %cttz32 = "llvm.intr.cttz"(%x32) <{is_zero_poison = false}> : (i32) -> i32
     %ctpop32 = "llvm.intr.ctpop"(%x32) : (i32) -> i32

@@ -97,7 +97,7 @@ define i64 @test_umin(i64 %a, i64 %b) {
 ; CHECK: "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.slt"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
+; CHECK: "riscv.li"() <{"value" = -9223372036854775808 : i64}> : () -> !riscv.reg
 ; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_sadd_sat(i64 %a, i64 %b) {
@@ -110,7 +110,7 @@ define i64 @test_sadd_sat(i64 %a, i64 %b) {
 ; CHECK: "riscv.slt"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
+; CHECK: "riscv.li"() <{"value" = -9223372036854775808 : i64}> : () -> !riscv.reg
 ; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_ssub_sat(i64 %a, i64 %b) {
@@ -139,7 +139,7 @@ define i64 @test_usub_sat(i64 %a, i64 %b) {
 ; CHECK: "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.sra"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-; CHECK: "riscv.srli"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+; CHECK: "riscv.li"() <{"value" = 9223372036854775807 : i64}> : () -> !riscv.reg
 ; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 define i64 @test_sshl_sat(i64 %a, i64 %b) {
