@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.Passes.Matching
 import Std
 
 namespace Veir
@@ -13,7 +14,9 @@ namespace Veir
 
   It works in two phases. First every `llvm.br` and `llvm.cond_br` is replaced
   by a RISC-V branch whose operands are cast to registers, and every
-  `llvm.unreachable` by `riscv_cf.unreachable`. Then the arguments
+  `llvm.unreachable` by `riscv_cf.unreachable`. An `llvm.cond_br` on a legalized
+  `g_icmp` becomes a compare-and-branch such as `riscv_cf.blt`, and any other one
+  a `riscv_cf.bnez`. The pass runs after legalization for this. Then the arguments
   of every block that is branched to become registers, with a cast back to
   their original type at the start of the block.
 
@@ -46,6 +49,48 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
     Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand] #[]
     #[] default ip | throw "isel-br-riscv64: cannot cast a branch operand to a register"
   return (ctx, casts.push cast)
+
+/-- A conditional RISC-V branch. All of them take `RISCVBrProperties`. -/
+abbrev CondBranch := { op : Riscv_Cf // Riscv_Cf.propertiesOf op = RISCVBrProperties }
+
+/--
+  The RISC-V branch that takes its first successor when `icmp pred lhs rhs` holds, with its two
+  operands, as LLVM's `getOperandsForBranch`. `sgt`, `sle`, `ugt` and `ule` swap the operands.
+-/
+def compareBranch (pred : Data.LLVM.IntPred) (lhs rhs : ValuePtr) :
+    CondBranch × ValuePtr × ValuePtr :=
+  match pred with
+  | .eq => (⟨.beq, rfl⟩, lhs, rhs)
+  | .ne => (⟨.bne, rfl⟩, lhs, rhs)
+  | .slt => (⟨.blt, rfl⟩, lhs, rhs)
+  | .sge => (⟨.bge, rfl⟩, lhs, rhs)
+  | .ult => (⟨.bltu, rfl⟩, lhs, rhs)
+  | .uge => (⟨.bgeu, rfl⟩, lhs, rhs)
+  | .sgt => (⟨.blt, rfl⟩, rhs, lhs)
+  | .sle => (⟨.bge, rfl⟩, rhs, lhs)
+  | .ugt => (⟨.bltu, rfl⟩, rhs, lhs)
+  | .ule => (⟨.bgeu, rfl⟩, rhs, lhs)
+
+/-- Whether a value of type `type` fills a register, so that comparing registers compares values. -/
+def fillsRegister (type : TypeAttr) : Bool :=
+  match type.val with
+  | .integerType intType => intType.bitwidth = 64
+  | .llvmPointerType _ => true
+  | _ => false
+
+/--
+  Match the branch condition `cond` against `g_trunc (g_icmp pred lhs rhs)`, which is what
+  legalization makes of an `llvm.icmp`, and return the compare-and-branch that replaces it.
+  The operands must fill a register, as they do once the `g_icmp` is legal.
+-/
+def matchCompare (ctx : IRContext OpCode) (cond : ValuePtr) :
+    Option (CondBranch × ValuePtr × ValuePtr) := do
+  let .opResult trunc := cond | none
+  let (operands, _) ← matchOp trunc.op ctx GMIR.g_trunc 1
+  let .opResult icmp := operands[0]! | none
+  let (operands, props) ← matchOp icmp.op ctx GMIR.g_icmp 2
+  guard (fillsRegister (operands[0]!.getType! ctx))
+  return compareBranch props.predicate operands[0]! operands[1]!
 
 /-- Whether `op` is a branch the pass rewrites, or a RISC-V branch that is already lowered. -/
 def isLoweredBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
@@ -113,6 +158,11 @@ def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (
   let successors := op.getSuccessors! ctx.raw
   -- Read `ctx` before the casts: any later read makes the first cast copy the whole context.
   let condProps : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
+  let compare := if opType = OpCode.llvm .cond_br then matchCompare ctx.raw operands[0]! else none
+  -- A compare-and-branch takes the two compared values in place of the condition.
+  let operands := match compare with
+    | some (_, lhs, rhs) => lhs :: rhs :: operands.drop 1
+    | none => operands
   let (ctx', casts) ← operands.foldlM (castToReg ip) (ctx, #[])
   let regs := casts.map (fun cast => cast.getResult 0)
 
@@ -123,10 +173,14 @@ def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (
         | throw "isel-br-riscv64: cannot create riscv_cf.branch"
       pure ctx'
     else do
-      let props : RISCVBrProperties := ⟨condProps.operandSegmentSizes⟩
-      let some (ctx', _) := WfRewriter.createOp! ctx' Riscv_Cf.bnez #[] regs
-        successors #[] props ip
-        | throw "isel-br-riscv64: cannot create riscv_cf.bnez"
+      let segments := condProps.operandSegmentSizes
+      let (branch, segments) : CondBranch × DenseArrayAttr := match compare with
+        | some (branch, _, _) => (branch, { segments with values := #[1] ++ segments.values })
+        | none => (⟨.bnez, rfl⟩, segments)
+      let props : RISCVBrProperties := ⟨segments⟩
+      let some (ctx', _) := WfRewriter.createOp! ctx' branch.val #[] regs
+        successors #[] (cast branch.property.symm props) ip
+        | throw "isel-br-riscv64: cannot create a conditional riscv_cf branch"
       pure ctx'
 
   if op.getNumRegions! ctx'.raw = 0 && !op.hasUses! ctx'.raw then
