@@ -123,7 +123,22 @@ def Comb.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .divs | .divu | .icmp | .mods | .modu | .shl | .shrs | .shru | .sub => do
     op.verifyPlainOpCounts ctx opIn 2 1
     pure ()
-  | .extract | .parity | .replicate | .reverse => do
+  | .extract => do
+    op.verifyPlainOpCounts ctx opIn 1 1
+    -- The window must lie inside the operand. `Data.Comb.extract` reads bits above the operand
+    -- as zero, so an unchecked out-of-range window produces a plausible answer rather than a
+    -- failure, and the offset is the one operand check nothing else performs.
+    let props := op.getProperties! ctx.raw Comb.extract
+    let .ofNat lowBit := props.lowBit.value
+      | throw s!"comb.extract: 'lowBit' cannot be negative, but got {props.lowBit.value}"
+    let .integerType operandType := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+      | throw "comb.extract: expected the operand to be a signless integer"
+    let .integerType resultType := ((op.getResult 0).getType! ctx.raw).val
+      | throw "comb.extract: expected the result to be a signless integer"
+    if lowBit + resultType.bitwidth > operandType.bitwidth then
+      throw s!"comb.extract: extracting i{resultType.bitwidth} at offset {lowBit} reads past \
+        an i{operandType.bitwidth} operand"
+  | .parity | .replicate | .reverse => do
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .mux => do
@@ -145,13 +160,19 @@ private def Comb.sameWidthOperands (operands : Array RuntimeValue) :
         return val.cast (by simpa using h)) | none
   return ⟨w, nl⟩
 
+/-- The bit width of the operation's first result, for the operations whose result width is not
+determined by their operands. -/
+private def Comb.resultWidth (resultTypes : Array TypeAttr) : Option Nat := do
+  let resType ← resultTypes[0]?
+  let .integerType bw := resType.val | none
+  return bw.bitwidth
+
 /-- Interpret one `comb` operation.
 
-`resultTypes` is taken even though nothing uses it yet: the operations whose result width is not
-determined by their operands -- `extract` and `replicate` -- are the reason the signature has it,
-and threading it from the start keeps the one call site in `Veir.interpretOp'` stable. -/
+`resultTypes` is needed because `extract` does not determine its result width from its operands;
+everything else either preserves the operand width, sums it, or produces an `i1`. -/
 def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
-    (_resultTypes : Array TypeAttr)
+    (resultTypes : Array TypeAttr)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -197,6 +218,22 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     let .int w' f := f | none
     if h : w' ≠ w then none else
     return (#[.int w (Veir.Data.Comb.mux c t (f.cast (by simpa using h)))], none)
+  -- Width changing.
+  | .concat => do
+    -- Variadic and most significant first, so it folds from the left, growing the width.
+    let mut acc : (w : Nat) × Data.LLVM.Int w := ⟨0, .val (BitVec.ofNat 0 0)⟩
+    for operand in operands do
+      let .int w v := operand | none
+      acc := ⟨acc.1 + w, Veir.Data.Comb.concat acc.2 v⟩
+    return (#[.int acc.1 acc.2], none)
+  | .extract => do
+    let n ← Comb.resultWidth resultTypes
+    let #[x] := operands | none
+    let .int w x := x | none
+    -- Matched on `Int.ofNat` rather than taken through `Int.toNat`, which clamps a negative
+    -- offset to `0` and so would extract from the bottom of a different window.
+    let .ofNat lowBit := properties.lowBit.value | none
+    return (#[.int n (Veir.Data.Comb.extract (w := w) n lowBit x)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
