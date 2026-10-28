@@ -22,13 +22,27 @@ public section
 
 namespace LegalizerInfo
 
+/--
+Whether `op` is a `g_sext` or `g_zext` whose operand is defined by a gMIR operation that still has to
+be legalized. LLVM legalizes all other operations before the extensions it creates, so that they can
+be combined with the legalized operands, e.g. a `g_zext` of the `g_trunc` of a widened `g_icmp`.
+-/
+private def waitsForOperand (info : LegalizerInfo) (ctx : IRContext OpCode) (op : OperationPtr)
+    (opcode : GMIR) : Bool := Id.run do
+  unless opcode matches .g_sext | .g_zext do return false
+  let .opResult result := op.getOperand! ctx 0 | return false
+  let some srcOpcode := toDialect? GMIR (result.op.getOpType! ctx) | return false
+  return !(info.getAction ctx result.op srcOpcode matches .legal)
+
 /-- Applies the action of the rules to `op`. Does not match legal operations or illegal ones. -/
 private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCode :=
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    let pattern? := match info.getAction ctx.raw op opcode with
+    if waitsForOperand info ctx.raw op opcode then return (ctx, none)
+    let some query := LegalityQuery.of? ctx.raw op opcode | return (ctx, none)
+    let pattern? := match info.getActionFor query with
       | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
-      | .lower => lower? opcode
+      | .lower => lower? info opcode query
       | .custom => info.legalizeCustom opcode
       | .legal | .unsupported => none
     let some pattern := pattern? | return (ctx, none)

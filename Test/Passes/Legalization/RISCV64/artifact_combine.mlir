@@ -51,7 +51,15 @@
     %trunc_trunc = "gmir.g_trunc"(%trunc_i16) <{overflowFlags = 3 : i32}> : (i16) -> i8
     // CHECK-NEXT: "gmir.g_trunc"(%[[X_I64]]) : (i64) -> i8
 
-    "test.test"(%ext, %and, %narrower, %wider, %or, %ext_ext, %trunc_trunc) : (i64, i8, i32, i64, i8, i64, i8) -> ()
+    // A `g_zext (g_trunc x)` of a `g_icmp` result `x` is `x`, which is `0` or `1`. The `g_zext` of
+    // the condition of the widened `g_select` waits until the `i1` `g_icmp` is widened, so that it
+    // can be combined.
+    %cmp = "gmir.g_icmp"(%x_i64, %x_i64) <{predicate = 6 : i64}> : (i64, i64) -> i1
+    %select = "gmir.g_select"(%cmp, %x_i64, %x_i64) : (i1, i64, i64) -> i64
+    // CHECK-NEXT: %[[CMP:.*]] = "gmir.g_icmp"(%[[X_I64]], %[[X_I64]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_select"(%[[CMP]], %[[X_I64]], %[[X_I64]]) : (i64, i64, i64) -> i64
+
+    "test.test"(%ext, %and, %narrower, %wider, %or, %ext_ext, %trunc_trunc, %select) : (i64, i8, i32, i64, i8, i64, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

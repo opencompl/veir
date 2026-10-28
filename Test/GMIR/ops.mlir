@@ -41,6 +41,9 @@
   %uadde, %uadde_carry = "gmir.g_uadde"(%a, %b, %uaddo_carry) : (i32, i32, i1) -> (i32, i1)
   %usubo, %usubo_borrow = "gmir.g_usubo"(%a, %b) : (i32, i32) -> (i32, i1)
   %usube, %usube_borrow = "gmir.g_usube"(%a, %b, %usubo_borrow) : (i32, i32, i1) -> (i32, i1)
+  %saddo, %saddo_overflow = "gmir.g_saddo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %ssubo, %ssubo_overflow = "gmir.g_ssubo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %select = "gmir.g_select"(%saddo_overflow, %a, %b) : (i1, i32, i32) -> i32
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -82,3 +85,6 @@
 // CHECK: "gmir.g_uadde"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
 // CHECK: "gmir.g_usubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK: "gmir.g_usube"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
+// CHECK: "gmir.g_saddo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_ssubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i1, i32, i32) -> i32

@@ -186,6 +186,22 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat => [
+      .lower,
+    ]
+    | .g_uaddo | .g_usubo => [
+      .lower,
+    ]
+    | .g_saddo | .g_ssubo => [
+      .minScalar (.type 0) 64,
+      .lower,
+    ]
+    | .g_select => [
+      .legalForTypePairs [(s32, s64), (s64, s64)],
+      .widenScalarToNextPow2 (.type 0),
+      .minScalar (.type 0) 32,
+      .minScalar (.type 1) 64,
+    ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
       .legalFor [s64],

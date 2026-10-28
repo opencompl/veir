@@ -25,7 +25,8 @@
 // SRC:   Program output: #[0x7fffffffffffffff#64, 0x8000000000000000#64, 0xffffffffffffffff#64, 0x0000000000000000#64, 0x7fffffffffffffff#64, 0xffffffffffffffff#64]
 // CHECK: Program output: #[0x7fffffffffffffff#64, 0x8000000000000000#64, 0xffffffffffffffff#64, 0x0000000000000000#64, 0x7fffffffffffffff#64, 0xffffffffffffffff#64]
 
-// ISEL: "riscv.czeroeqz"
+// ISEL-NOT: "llvm.intr
+// ISEL-NOT: "gmir.
+// ISEL: "riscv.max"
 // ISEL: "riscv.minu"
-// ISEL: "riscv.maxu"
-// ISEL: "riscv.sltiu"
+// ISEL: "riscv.czeroeqz"

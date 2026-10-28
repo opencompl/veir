@@ -64,6 +64,9 @@ inductive GMIR where
 | g_uadde
 | g_usubo
 | g_usube
+| g_saddo
+| g_ssubo
+| g_select
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -83,7 +86,8 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
   | .g_merge_values | .g_unmerge_values
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => Unit
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_saddo | .g_ssubo | .g_select => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -105,7 +109,8 @@ def GMIR.fromAttrDict
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_ctlz | g_cttz | g_ctpop
      | g_merge_values | g_unmerge_values
-     | g_uaddo | g_uadde | g_usubo | g_usube => exact .ok ()
+     | g_uaddo | g_uadde | g_usubo | g_usube
+     | g_saddo | g_ssubo | g_select => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -143,7 +148,8 @@ def GMIR.toAttrDict
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
   | .g_merge_values | .g_unmerge_values
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => {}
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_saddo | .g_ssubo | .g_select => {}
 
 #generate_dialect GMIR
 
@@ -211,12 +217,15 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_unmerge_values =>
     { outOperandList := #[.type 0, .type 0]
       inOperandList := #[.type 1] }
-  | .g_uaddo | .g_usubo =>
+  | .g_uaddo | .g_usubo | .g_saddo | .g_ssubo =>
     { outOperandList := #[.type 0, .type 1]
       inOperandList := #[.type 0, .type 0] }
   | .g_uadde | .g_usube =>
     { outOperandList := #[.type 0, .type 1]
       inOperandList := #[.type 0, .type 0, .type 1] }
+  | .g_select =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 1, .type 0, .type 0] }
 
 /-- The number of distinct type groups of `opCode`. -/
 def GMIR.numTypeGroups (opCode : GMIR) : Nat :=
@@ -582,6 +591,31 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
     return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
+  | .g_saddo => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let some overflowType := resultTypes[1]? | none
+    let .integerType overflowBw := overflowType.val | none
+    return (#[.int bw (Data.LLVM.Int.add lhs rhs),
+      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.saddOverflowFlag lhs rhs))], mem, none)
+  | .g_ssubo => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let some overflowType := resultTypes[1]? | none
+    let .integerType overflowBw := overflowType.val | none
+    return (#[.int bw (Data.LLVM.Int.sub lhs rhs),
+      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.ssubOverflowFlag lhs rhs))], mem, none)
+  -- As in LLVM, a wider condition is true when it is non-zero.
+  | .g_select => do
+    let [.int _ cond, .int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let cond : Data.LLVM.Int 1 := match cond with
+      | .val c => .val (BitVec.ofBool (c ≠ 0))
+      | .poison => .poison
+    return (#[.int bw (Data.LLVM.Int.select cond lhs rhs)], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -738,7 +772,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
     opPtr.verifyGMIRTotalWidth ctx opIn
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube =>
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo | .g_select =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
 
@@ -751,8 +785,9 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => true
-  | .g_constant | .g_load | .g_store => false
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo => true
+  -- Poison in the arm that is not selected does not reach the result.
+  | .g_constant | .g_load | .g_store | .g_select => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
@@ -767,7 +802,7 @@ def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :
 def GMIR.isCommutative : GMIR → Bool
   | .g_add | .g_mul | .g_and | .g_or | .g_xor
   | .g_smin | .g_smax | .g_umin | .g_umax
-  | .g_uaddsat | .g_saddsat | .g_uaddo => true
+  | .g_uaddsat | .g_saddsat | .g_uaddo | .g_saddo => true
   | _ => false
 
 def GMIR.isConstantLike : GMIR → Bool
