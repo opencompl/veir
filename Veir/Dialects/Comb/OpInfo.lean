@@ -178,6 +178,16 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
   | .shrs => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
                 let #[x, y] := l | none
                 return (#[.int w (Veir.Data.Comb.shrs x y)], none)
+  -- Comparison, producing an `i1`. The predicate is an integer attribute, and
+  -- `IntPred.fromNat` refuses one outside the table rather than defaulting.
+  | .icmp => do
+    let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+    let #[x, y] := l | none
+    -- Matched on `Int.ofNat` rather than taken through `Int.toNat`, which clamps: a predicate of
+    -- `-1` would otherwise be read as `0`, which is `eq`, instead of being refused.
+    let .ofNat predNat := properties.predicate.value | none
+    let pred ← Data.LLVM.IntPred.fromNat predNat
+    return (#[.int 1 (Veir.Data.Comb.icmp (w := w) pred x y)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
