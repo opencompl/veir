@@ -80,7 +80,7 @@ private def symbolName (ref : FlatSymbolRefAttr) : String :=
 /-- The physical-register MIR name (e.g. `$x0`) named by a register type
     carrying an index, if any. -/
 def physRegName? : Attribute → Option String
-  | .registerType { index := some n } => some s!"$x{n}"
+  | .registerType { index := some n } => if n >= 0 then some s!"$x{n}" else none
   | _ => none
 
 /-- Virtual-register name for an op's `i`-th result: `%v<opId>`, with a
