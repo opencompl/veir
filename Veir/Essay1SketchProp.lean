@@ -192,6 +192,18 @@ def labelName (s : String) : Prop :=
 def digits (s : String) : Prop :=
   s ≠ "" ∧ ∀ c ∈ s.toList, isDigit c
 
+/-- A token's payload satisfies the lexical restrictions on its constructor. -/
+def IsValidToken : Token → Prop
+  | .LabelStr name => labelName name ∧ ¬digits name
+  | .GlobalVar name | .LocalVar name => bareName name
+  | _ => True
+
+/-- Valid nontrivia tokens followed by exactly one final EOF token. -/
+inductive IsValidTokenStream : List Token → Prop where
+  | eof : IsValidTokenStream [.Eof]
+  | cons : IsValidToken tok → ¬tok.isTrivia → tok ≠ .Eof →
+      IsValidTokenStream ts → IsValidTokenStream (tok :: ts)
+
 inductive decimalInteger : List Char → Int → Prop where
   | positive : digitsNum s n →  decimalInteger s n
   | negative  : digitsNum s n →  decimalInteger ('-' :: s) (-n)
@@ -674,6 +686,17 @@ theorem TokenRepresentation.spelling (h : TokenRepresentation piece tok) :
   | integer _ => exact .integer (decimalInteger_toString _)
 
 
+theorem TokenRepresentation.spelling2 (h : IsValidToken tok) :
+    TokenRepresentation tok.spelling.toList tok := by
+  cases tok <;> simp only [IsValidToken] at h
+  all_goals apply TokenRepresentation.spelling
+  case ws => exact .ws (s := [' ']) (by decide) (by decide)
+  case comment => exact .commentEof (line := []) (by simp [noLinebreaks])
+  all_goals solve_by_elim [TokenRepresentation.eof, TokenRepresentation.punct,
+    TokenRepresentation.word, WordToken.keyword, WordToken.intType, digitsNum_toDigits,
+    TokenRepresentation.label, TokenRepresentation.global, TokenRepresentation.local,
+    TokenRepresentation.integer, decimalInteger_toString]
+
 theorem nameChar.not_ws_or_semicolon (h : nameChar c) : ¬isWs c ∧ c ≠ ';' :=
   ⟨(nameChar_exclusions h).2.2.2.1, (nameChar_exclusions h).1⟩
 
@@ -763,12 +786,24 @@ theorem Lexes.reprint (h : Lexes input ts) :
         TokenRepresentation.space_boundary tok⟩ hne (hp.space hc), ?_, hm.1.spelling.first_not_ws ‹_› hne⟩
       simp [significant_cons, *, show Token.ws.isTrivia from .inl rfl]
 
-/-- Printing and retokenizing preserves any token stream produced by the lexer. -/
-theorem tokenizer'_printTokens_round_trip (h : tokenizer' s = .ok ts) :
+/-- Printing a valid token stream gives lexemes with the same significant tokens. -/
+theorem IsValidTokenStream.print_lexes (h : IsValidTokenStream ts) :
+    ∃ printed, Lexes (printTokens ts).toList printed ∧ significant printed = ts ∧
+      ∀ c cs, (printTokens ts).toList = c :: cs → ¬isWs c := by
+  induction h with
+  | eof => exact ⟨_, .eof, rfl, by simp [printTokens]⟩
+  | @cons tok ts hv ht hne _ ih =>
+      obtain ⟨printed, hp, he, hc⟩ := ih
+      have hr := TokenRepresentation.spelling2 hv
+      rw [printTokens_cons hne]
+      refine ⟨_, .token ⟨hr, hr.maximal_space ht hne, TokenRepresentation.space_boundary tok⟩
+        hne (hp.space hc), ?_, hr.first_not_ws ht hne⟩
+      simp [significant_cons, ht, he, show Token.ws.isTrivia from .inl rfl]
+
+/-- Printing and retokenizing preserves any valid token stream. -/
+theorem tokenizer'_printTokens_round_trip (h : IsValidTokenStream ts) :
     tokenizer' (printTokens ts) = .ok ts := by
-  obtain ⟨lexemes, hs, rfl⟩ : ∃ l, tokenizer s = .ok l ∧ significant l = ts := by
-    revert h; unfold tokenizer'; cases tokenizer s <;> simp [Except.map, significant]
-  obtain ⟨printed, hp, he, -⟩ := (tokenizer_eq_ok_iff.mp hs).reprint
+  obtain ⟨printed, hp, he, -⟩ := h.print_lexes
   rw [tokenizer', tokenizer_success hp, ← he]; rfl
 
 
