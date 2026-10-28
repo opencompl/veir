@@ -97,49 +97,12 @@ def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
 
 /--
-  `llvm.intr.bswap` -> `riscv.rev8`. For `i16`/`i32`, shift the reversed bytes
-  down from the high end of the register by `64 - bw` bits.
--/
-def lowerBswap (bw : Nat) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = bw ∧ bw ∈ [16, 32, 64])
-      let x ← MatchProg.value opType
-      let _ ← MatchProg.root (.llvm .intr__bswap) #[x] #[opType]
-      return (opType, x))
-    (fun (opType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType]
-      let rev8Op ← CreateProg.operation (.riscv .rev8)
-          #[castOp.res[0]!] #[regType]
-      let resOp ← if bw < 64 then do
-          CreateProg.operation (.riscv .srli) #[rev8Op.res[0]!] #[regType]
-              (.inl $ RISCVImmediateProperties.mk (BitVec.ofNat 64 (64 - bw)))
-        else
-          pure rev8Op
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[resOp.res[0]!] #[opType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- `llvm.intr.bswap` (`i64`) -> `riscv.rev8`. -/
-def bswap64 : Puddle.CompiledPattern OpCode := (lowerBswap 64).compile
-
-/-- `llvm.intr.bswap` (`i32`) -> `riscv.rev8` + `riscv.srli 32`. -/
-def bswap32 : Puddle.CompiledPattern OpCode := (lowerBswap 32).compile
-
-/-- `llvm.intr.bswap` (`i16`) -> `riscv.rev8` + `riscv.srli 48`. -/
-def bswap16 : Puddle.CompiledPattern OpCode := (lowerBswap 16).compile
-
-/--
   Reverse bits within bytes with Zbkb's `brev8`, then reverse the byte order with `rev8`.
   Narrow results need a shift back to the low bits; `i8` needs only `brev8`.
   The backend's fixed target feature set includes Zbkb.
   `guard` adds conditions on the matched type and on the properties of the `srcOp` operation.
 -/
-def lowerBitreverse (bw : Nat) (srcOp : OpCode := .llvm .intr__bitreverse)
+def lowerBitreverse (bw : Nat) (srcOp : OpCode)
     (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
       fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
@@ -166,43 +129,6 @@ def lowerBitreverse (bw : Nat) (srcOp : OpCode := .llvm .intr__bitreverse)
           #[resOp.res[0]!] #[opType]
       return castBackOp)
     (fun castBackOp => castBackOp)
-
-/-- `llvm.intr.bitreverse` (`i64`) -> `brev8` + `rev8`. -/
-def bitreverse64 : Puddle.CompiledPattern OpCode := (lowerBitreverse 64).compile
-
-/-- `llvm.intr.bitreverse` (`i32`) -> `brev8` + `rev8` + `srli 32`. -/
-def bitreverse32 : Puddle.CompiledPattern OpCode := (lowerBitreverse 32).compile
-
-/-- `llvm.intr.bitreverse` (`i16`) -> `brev8` + `rev8` + `srli 48`. -/
-def bitreverse16 : Puddle.CompiledPattern OpCode := (lowerBitreverse 16).compile
-
-/-- `llvm.intr.bitreverse` (`i8`) -> `brev8`. -/
-def bitreverse8 : Puddle.CompiledPattern OpCode := (lowerBitreverse 8).compile
-
-/--
-  Byte swap composed with bit reversal, in either order, reverses bits within bytes.
-  Run before the individual intrinsic lowerings so both operations are still available.
-  Only replace the outer operation: other users of the inner operation must survive.
--/
-def lowerBrev8 (bswapOuter : Bool) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth ∈ [16, 32, 64])
-      let x ← MatchProg.value opType
-      let inner ← MatchProg.operation
-          (.llvm (if bswapOuter then .intr__bitreverse else .intr__bswap)) #[x] #[opType]
-      let _ ← MatchProg.root
-          (.llvm (if bswapOuter then .intr__bswap else .intr__bitreverse)) #[inner.res[0]!] #[opType]
-      return (opType, x))
-    (fun (opType, x) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
-      let brev8Op ← CreateProg.operation (.riscv .brev8) #[castOp.res[0]!] #[regType]
-      CreateProg.operation (.builtin .unrealized_conversion_cast) #[brev8Op.res[0]!] #[opType])
-    (fun castBackOp => castBackOp)
-
-def bswapBitreverse : Puddle.CompiledPattern OpCode := (lowerBrev8 true).compile
-def bitreverseBswap : Puddle.CompiledPattern OpCode := (lowerBrev8 false).compile
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
@@ -1978,7 +1904,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Early loop: fold composed intrinsics and inspect constants before the per-op
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
-    #[bswapBitreverse.run, bitreverseBswap.run, lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
+    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
@@ -1988,8 +1914,6 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[selectGeneral.run,
-    bswap64.run, bswap32.run, bswap16.run,
-    bitreverse64.run, bitreverse32.run, bitreverse16.run, bitreverse8.run,
     constant.run, addressof] ++
     #[
     sext32.run, sext16.run, .fromLocalRewrite sextInReg_local,
