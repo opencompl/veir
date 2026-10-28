@@ -22,7 +22,7 @@ syntactic productivity check. Instead, it
    `partial_fixpoint`;
 3. defines `f := fun binders => CofixWithBot.get (f.__partial binders) h`, where
    `h : CofixWithBot.HasNoBot (f.__partial binders)` is proved by `tac`, after
-   `productive_by_intro` has set up the coinduction;
+   `productive_by_intro` has set up the coinduction (see also `with_motive` below);
 4. proves the unfolding equation `f.__unfold : ∀ binders, f binders = body`, where the
    recursive references in `body` are to `f` itself, by unfolding `f` and `f.__partial`
    once, splitting on `if`s and `match`es, and either rewriting with `CofixWithBot.get_mk`,
@@ -50,6 +50,25 @@ repairs are applied when an application becomes ill-typed:
   If there is no partial version, the translation fails. In particular, `Cofix.dest` cannot
   be applied to a possibly-partial value directly.
 
+## Extending the motive with `with_motive`
+
+The motive of `productive_by_intro` only contains the recursive calls `f.__partial ys`, which
+does not suffice when the children of the translated body are not of this form, as for
+```
+codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
+  cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
+with_motive
+  cons ?x (cursedMap f ?xs).tail
+productive_by
+  tac
+```
+Each term `t` in `with_motive t₁, .., tₙ` is elaborated with the total type `T` as its
+expected type, in the context of the parameters of `f`, and translated like the body. Its
+metavariables, such as the named holes `?x`, are turned into existentials, which keep their
+(total) types, like the parameters of `f`. This adds the disjunct `∃ ws, z = t'` to the motive,
+here `∃ x xs, z = cons.__partial x (tail.__partial (cursedMap.__partial f xs))`. Then
+`productive_by_intro` produces one goal per disjunct, tagged `rec` and `with_motive_i`.
+
 ## Limitations
 
 * Only `:=` bodies; no `where`, equation-style definitions, or `mutual`.
@@ -70,8 +89,9 @@ namespace QPFTypes.Codef
 
 open Lean Meta Elab Command Term
 
-/-- `codef f binders : T := body productive_by tac`, see the module docstring. -/
+/-- `codef f binders : T := body (with_motive t,+)? productive_by tac`, see the module docstring. -/
 syntax (name := codefCmd) declModifiers "codef " declId optDeclSig " := " term
+  (" with_motive " term,+)?
   " productive_by " Lean.Parser.Tactic.tacticSeq : command
 
 /-- The suffix for the elaborated, but untranslated, unsafe definition. -/
@@ -373,9 +393,32 @@ def addUnfoldEqns (declName : Name) (raw : DefinitionVal) (log : Array Name) :
       type, value := .const unfoldName lvls
     }
 
+/-- Elaborate and translate a `with_motive` term `stx` of the total type `T`, to the motive
+disjunct `fun z => ∃ ys, z = stx'`. Here, `stx'` is the translation of `stx` (see `Ctx.go`),
+whose recursive references are to `f.__partial` (`ctx.recFn`), and `ys` are the
+metavariables of `stx`, such as the named holes `?x`. They keep their (total) types, like the
+parameters of `f`. -/
+def elabMotive (ctx : Ctx) (fullName : Name) (stx : Term) : TermElabM Expr := do
+  -- Named holes `?x` refer to existing metavariables of the same name, e.g. from elaborating
+  -- the body, or a previous `with_motive` term: forget these names.
+  let userNames := (← getMCtx).userNames
+  modifyMCtx ({ · with userNames := {} })
+  let e ← elabTermEnsuringType (renameRecRefs fullName rawSuffix stx) ctx.T
+  synthesizeSyntheticMVarsNoPostponing
+  let r ← abstractMVars (← instantiateMVars e) (levels := false)
+  modifyMCtx ({ · with userNames })
+  lambdaBoundedTelescope r.expr r.mvars.size fun ys body => do
+    let some body ← ctx.coerce? (← ctx.go body) ctx.PT
+      | throwErrorAt stx "codef: the translated motive does not have type{indentExpr ctx.PT}"
+    withLocalDeclD `z ctx.PT fun z => do
+      let prop ← ys.foldrM (init := ← mkEq z body) fun y prop => do
+        mkAppM ``Exists #[← mkLambdaFVars #[y] prop]
+      mkLambdaFVars #[z] prop
+
 @[command_elab codefCmd]
 def elabCodef : CommandElab := fun stx => do
   let `($mods:declModifiers codef $declId:declId $sig:optDeclSig := $body
+      $[with_motive $motives,*]?
       productive_by $tac) := stx | throwUnsupportedSyntax
   let userName := declId.raw[0].getId
   -- The kernel name, as `def` would choose it (e.g. private, in a module).
@@ -425,9 +468,13 @@ def elabCodef : CommandElab := fun stx => do
   }]
   -- Step E: the total version, given the productivity proof.
   let value ← forallTelescope raw.type fun xs T => do
-    let ctx ← mkCtx fullName rawName T
+    let ctx ← mkCtx fullName rawName T (.const partialName lvls)
     let p := mkAppN (.const partialName lvls) xs
     let goal := mkApp (ctx.mkConst ``QPF.CofixWithBot.HasNoBot) p
+    -- The `with_motive` disjuncts, passed on to `productive_by_intro`.
+    let extras ← (motives.map (·.getElems) |>.getD #[]).mapM (elabMotive ctx fullName)
+    let goal ← extras.foldrM (init := goal) fun extra goal =>
+      mkAppM ``ProductiveByMotive #[extra, goal]
     let h ← elabTermEnsuringType (← `(by productive_by_intro; ($tac:tacticSeq))) goal
     synthesizeSyntheticMVarsNoPostponing
     let h ← instantiateMVars h

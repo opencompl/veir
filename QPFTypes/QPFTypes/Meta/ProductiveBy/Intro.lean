@@ -7,6 +7,18 @@ public import QPFTypes.Meta.ProductiveBy.SimpLemmas
 /-!
 # `productive_by_intro` tactic
 -/
+
+namespace QPFTypes.Codef
+
+universe u
+
+/-- `ProductiveByMotive extra P` is just `P`. On a goal `P = CofixWithBot.HasNoBot (f.__partial xs)`,
+it instructs `productive_by_intro` to add `extra` as a disjunct to the motive. This is how
+`codef ... with_motive t productive_by tac` passes the translated `t` on. -/
+@[expose] public def ProductiveByMotive {β : Sort u} (_extra : β → Prop) (P : Prop) : Prop := P
+
+end QPFTypes.Codef
+
 public meta section
 
 namespace QPFTypes.Codef
@@ -72,6 +84,29 @@ partial def proveExistsEq (e p : Expr) : List Expr → MetaM Expr
     return mkApp4 (.const ``Exists.intro lvls) ty pred w h
   | [] => mkEqRefl p
 
+/-- Split a hypothesis `h : P₀ ∨ .. ∨ Pₙ` into `n + 1` goals, with hypotheses `h : Pᵢ`. -/
+def splitOr (g : MVarId) (h : FVarId) : Nat → MetaM (Array (MVarId × FVarId))
+  | 0 => return #[(g, h)]
+  | n + 1 => do
+    let #[l, r] ← g.cases h
+      | throwError "productive_by_intro: failed to split the motive"
+    return #[(l.mvarId, l.fields[0]!.fvarId!)] ++
+      (← splitOr r.mvarId r.fields[0]!.fvarId! n)
+
+/-- Destruct the existentials of a hypothesis `h : ∃ ys, z = e`, naming the witnesses after the
+binders, and substitute `z` away. If `h` is not of this form, as much as possible is done. -/
+partial def destructExistsEq (g : MVarId) (h : FVarId) : MetaM MVarId := g.withContext do
+  let ty ← whnfR (← instantiateMVars (← h.getType))
+  if ty.isAppOfArity ``Exists 2 then
+    let n := match ty.appArg! with
+      | .lam n .. => n
+      | _ => `y
+    let #[s] ← g.cases h #[{ varNames := [n] }]
+      | throwError "productive_by_intro: failed to destruct the motive"
+    destructExistsEq s.mvarId s.fields[1]!.fvarId!
+  else
+    try subst g h catch _ => pure g
+
 /--
 `productive_by_intro` sets up a coinductive productivity proof, on a goal
 `CofixWithBot.HasNoBot (f.__partial xs)`. `codef ... productive_by tac` runs it before `tac`.
@@ -82,6 +117,12 @@ changed by some recursive call of `f.__partial`. It then introduces `z` and the 
 unfolds `f.__partial` in the latter, and destructs it, substituting `z` away. The
 arguments `ys` are named after the parameters of `f`, and replace the original `xs`. Finally,
 it cleans up the goal with `simp only [qpf_productive_by]`.
+
+If the goal is wrapped in `ProductiveByMotive extra₁ (.. (ProductiveByMotive extraₙ _))`
+(see `codef ... with_motive`), the motive is instead `fun z => (∃ ys, ..) ∨ extra₁ z ∨ .. ∨
+extraₙ z`, and there is one goal per disjunct: `rec` for the first, and `with_motive_i` for
+`extraᵢ`. The latter are expected to be of the form `fun z => ∃ ws, z = e`; their existentials
+are destructed, substituting `z` away, but `f.__partial` is not unfolded in them.
 -/
 syntax (name := productiveByIntro) "productive_by_intro" : tactic
 
@@ -89,7 +130,11 @@ open Elab in
 @[tactic productiveByIntro]
 def evalProductiveByIntro : Tactic.Tactic := fun _ => Tactic.withMainContext do
   let goal ← Tactic.getMainGoal
-  let tgt := (← instantiateMVars (← goal.getType)).cleanupAnnotations
+  let mut tgt := (← instantiateMVars (← goal.getType)).cleanupAnnotations
+  let mut extras := #[]
+  while tgt.isAppOfArity ``ProductiveByMotive 3 do
+    extras := extras.push tgt.appFn!.appArg!
+    tgt := tgt.appArg!.cleanupAnnotations
   let some p := (if tgt.isAppOf ``QPF.CofixWithBot.HasNoBot then some tgt.appArg! else none)
     | throwError "productive_by_intro: expected a goal of the form \
         `CofixWithBot.HasNoBot (f.__partial ..)`, got{indentExpr tgt}"
@@ -99,9 +144,13 @@ def evalProductiveByIntro : Tactic.Tactic := fun _ => Tactic.withMainContext do
   let ps := p.getAppArgs
   let fixed ← fixedParams cName ps.size
   let motive ← withLocalDeclD `z (← inferType p) fun z => do
-    mkLambdaFVars #[z] (← mkExistsEq z c ps fixed)
+    let ds := #[← mkExistsEq z c ps fixed] ++ extras.map (·.beta #[z])
+    mkLambdaFVars #[z] (ds.pop.foldr mkOr ds.back!)
   let ws := (ps.zip fixed).filterMap fun (x, b) => if b then none else some x
-  let init ← proveExistsEq (motive.beta #[p]) p ws.toList
+  let mp := motive.beta #[p]
+  let init ← if extras.isEmpty then proveExistsEq mp p ws.toList else
+    pure <| mkApp3 (mkConst ``Or.inl) mp.appFn!.appArg! mp.appArg!
+      (← proveExistsEq mp.appFn!.appArg! p ws.toList)
   let coinduct ← mkAppM ``QPF.CofixWithBot.HasNoBot.coinduct #[motive]
   let .forallE _ stepTy _ _ ← whnfR (← inferType coinduct)
     | throwError "productive_by_intro: unexpected type of `CofixWithBot.HasNoBot.coinduct`"
@@ -109,6 +158,8 @@ def evalProductiveByIntro : Tactic.Tactic := fun _ => Tactic.withMainContext do
   goal.assign (mkApp3 coinduct step p init)
   let (_, g) ← step.mvarId!.intro1
   let (h, g) ← g.intro1
+  let cases ← splitOr g h extras.size
+  let (g, h) := cases[0]!
   -- Unfold `f.__partial` in the motive only, not in the goal.
   let some (h, g) ← g.withContext do
       let r ← unfold (← instantiateMVars (← h.getType)) cName
@@ -126,6 +177,19 @@ def evalProductiveByIntro : Tactic.Tactic := fun _ => Tactic.withMainContext do
       | throwError "productive_by_intro: failed to destruct the motive"
     g := s.mvarId
     h := s.fields[1]!.fvarId!
-  Tactic.replaceMainGoal [← subst g h]
-  -- Clean up the types in the goal, e.g. `∀ z : (TypeVec.nil ::: α ::: PT) 0, ..`.
-  Tactic.evalTactic (← `(tactic| try simp only [qpf_productive_by]))
+  let mut goals := #[← subst g h]
+  for (g', h') in cases.extract 1 cases.size do
+    let (g', _) ← g'.tryClearMany' (ws.filterMap (·.fvarId?))
+    goals := goals.push (← destructExistsEq g' h')
+  unless extras.isEmpty do
+    goals[0]!.setTag `rec
+    for i in [1:goals.size] do
+      goals[i]!.setTag (.mkSimple s!"with_motive_{i}")
+  -- Clean up the types in the goals, e.g. `∀ z : (TypeVec.nil ::: α ::: PT) 0, ..`.
+  let rest := (← Tactic.getGoals).drop 1
+  let mut result := #[]
+  for g' in goals do
+    Tactic.setGoals [g']
+    Tactic.evalTactic (← `(tactic| try simp only [qpf_productive_by]))
+    result := result ++ (← Tactic.getUnsolvedGoals)
+  Tactic.setGoals (result.toList ++ rest)

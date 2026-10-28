@@ -316,65 +316,42 @@ section Map2
 The recursive call is destructed with `Stream.tail`, which is translated to its partial version
 `Stream.tail.__partial` (see `@[qpf_elim]` on `Stream.tail`).
 
-The productivity proof is still missing: the motive set up by `productive_by_intro` only covers
-the recursive calls `cursedMap.__partial f xs`, but the second layer is
-`mk (f xs.head, tail.__partial (cursedMap.__partial f xs.tail))`.
+The default motive set up by `productive_by_intro` only covers the recursive calls
+`cursedMap.__partial f xs`, but the second layer is
+`cons.__partial (f xs.head) (tail.__partial (cursedMap.__partial f xs.tail))`. The
+`with_motive` clause adds this shape to the motive: its term is elaborated at the total type
+`Stream β`, translated like the body, and its named holes `?x` become existentials. The motive
+is then
+  `(∃ xs, z = cursedMap.__partial f xs) ∨ (∃ x xs, z = cons.__partial x (tail.__partial (cursedMap.__partial f xs)))`
+and `productive_by_intro` produces one goal per disjunct: `rec`, and `with_motive_1`.
 -/
-codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
-  cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
-productive_by
-  refine ⟨_, rfl, ?_⟩
-  simp only [StreamF.liftPLast_cons]
-  -- Stuck: `cons.__partial (f xs.head) (tail.__partial ..)` is not of the form
-  -- `cursedMap.__partial f _` (see the comment above).
-  sorry
 
-
-
-/-!
-NOTE: `cursedMap` is another example of a corecursive function where the default
-coinductive invariant containing just applications of the function itself
-does not suffice.
-
-Still, by the reasoning we did, we know that the invariant we've picked MUST be
-contained in whatever invariant ends up being used regardless. So I propose
-we fix this with some extra syntax for adding more things into the invariant,
-keeping the current behaviour as a default.
-
-We should add a `with_motive term,*` syntax to the `codef` command (optional,
-must be before `productive_by`) which we can use to add more cases to the motive.
-
-```
 codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) <| cons (f xs.head) (cursedMap f xs.tail).tail
 with_motive
-  cons ?x ?xs
+  cons ?x (cursedMap f ?xs).tail
 productive_by
-  ...
-```
+  · refine ⟨_, rfl, ?_⟩
+    simp only [StreamF.liftPLast_cons]
+    right
+    exact ⟨_, _, rfl⟩
+  · refine ⟨_, rfl, ?_⟩
+    simp only [StreamF.liftPLast_cons]
+    right
+    exists f xs.head, xs.tail
+    rw [cursedMap.__partial]
+    simp only [tail.__partial, cons.__partial, CofixWithBot.elim_mk]
+    rfl
 
-Here, we expect the used motive to become
-  `(∃ xs, z = cursedMap.__partial f xs) ∨ (∃ x xs, z = cons.__partial x xs)`
-That is, the `with_motive` term is parsed as an expresion of the (non-partial)
-type `Stream α`, and translated as usual. The `?`-prefixed variables should be
-parsed as meta-variables, which should then be turned into existentials.
-If this meta-variable to existential parsing turns out to be complicated, we
-can also use the syntax:
-```
-with_motive x xs => cons x xs
-```
-where the bound variables are put before a `=>` token, and the expression after it.
-In this syntax, instead of comma-delimited terms, we would just allow multiple
-`with_motive ...` blocks after the definition, for repeated disjunct in the motive.
-
-Since each motive-disjunct is, well, a disjunct, it will give rise to a separate
-subgoal for the productivity proof. We want `productive_by_intro` to do this
-case-distinction directly.
-
+/-!
+FIXME: the `cursedMap` example should work with a `cons ?x ?xs` motive.
+The `?xs : Stream _` existential should be translated to a partial stream, but
+for the translation from Stream to partial Stream values to work in general,
+`cursedMap.__partial` ought to take `xs` as a partial Stream argument, too.
+Either way, this makes sense, given that is the transformation that we're
+already doing to constructors in `@[qpf_ctor]`. Further, it would enable us to
+support `map2`
 -/
-
-example (f : α → β) (xs : Stream α) : (cursedMap f xs).tail.head = f xs.head := by
-  rw [cursedMap, tail_cons, head_cons]
 
 /-
 FIXME: the following ought to work
@@ -386,6 +363,7 @@ productive_by
   sorry
 ```
 -/
+
 
 end Map2
 
