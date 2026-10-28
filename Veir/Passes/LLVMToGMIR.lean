@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
@@ -302,7 +303,7 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
 
 /-! ## Pass implementation -/
 
-def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+def LLVMToGMIRPass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
@@ -313,17 +314,17 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     .fromLocalRewrite normalizeGEPIndices,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying llvm-to-gmir translation"
   | some ctx =>
     -- A local rewrite may only erase the matched cast, so the folded first cast is left dead.
-    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx (fold := fold) with
     | none => throw "Error while applying DCE after llvm-to-gmir translation"
     | some ctx => pure ctx
 
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"
     description := "Lower llvm dialect operations to the gmir dialect."
-    run := fun _ => LLVMToGMIRPass.impl }
+    run := fun options => LLVMToGMIRPass.impl options.fold }
 
 end Veir

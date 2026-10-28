@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 import Veir.Interfaces.CallInterfaces
 import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.InstructionSelection.Common
@@ -212,12 +213,12 @@ def lowerOp : LocalRewritePattern OpCode := fun ctx op =>
 
 /-! # Pass implementation -/
 
-def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (_op : OperationPtr)
+def IselAbiRISCV64.impl (fold : Bool) (ctx : WfIRContext OpCode) (_op : OperationPtr)
     (_ : _op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries .riscvReg ctx fun ctx op =>
     op.getOpType! ctx == .llvm .func && supportsFunctionAbi ctx op
   -- The rewrite driver inserts the new operations, replaces results, and removes dead casts.
-  match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx with
+  match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx (fold := fold) with
   | none => throw "Error while applying isel-abi-riscv64"
   | some ctx => pure ctx
 
@@ -225,4 +226,4 @@ public def IselAbiRISCV64 : Pass OpCode :=
   { name := "isel-abi-riscv64"
     description :=
       "Lower LLVM function boundaries, returns and calls to the RISC-V calling convention."
-    run := fun _ => IselAbiRISCV64.impl }
+    run := fun options => IselAbiRISCV64.impl options.fold }

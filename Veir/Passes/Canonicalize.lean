@@ -1,10 +1,10 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
 import Veir.Analysis.DataFlow.DeadCodeAnalysis
-import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.Canonicalize.UniqueConstants
@@ -118,7 +118,6 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     let some propagated := propagateConstants ctx op
       | throw "Error while propagating constants"
     ctx := propagated
-    patterns := patterns.push foldOperation
   if (options.get? "constant-branch").getD true then
     patterns := patterns.push simplifyConstantBranch
   if (options.get? "mod-arith-constant").getD true then
@@ -126,7 +125,8 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   if (options.get? "commutative-constant-rhs").getD true then
     patterns := patterns.push commutativeConstantRHS
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  let some result := RewritePattern.applyInContext pattern ctx
+  let fold := (options.get? "sccp").getD true && options.fold
+  let some result := RewritePattern.applyInContext pattern ctx (fold := fold)
     | throw "Error while applying canonicalization patterns"
   ctx := result
   if (options.get? "unique-constants").getD true then

@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
@@ -315,7 +316,7 @@ def tagModArithOpsWithReduction (reduction : ReductionKind)
 
 /-! ## Pass implementation -/
 
-def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (reduction : ReductionKind) (ctx : WfIRContext OpCode)
+def ModArithToArithPass.impl (fold : Bool) (legalizeWidth : Nat → Nat) (reduction : ReductionKind) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
 
   -- First, we tag each mod_arith operation with a `reduction` attribute,
@@ -327,7 +328,7 @@ def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (reduction : Reductio
   let taggingPattern := RewritePattern.GreedyRewritePattern #[
     tagModArithOpsWithReduction reduction
   ]
-  let some ctx := RewritePattern.applyInContext taggingPattern ctx
+  let some ctx := RewritePattern.applyInContext taggingPattern ctx (fold := fold)
     | throw "Error while tagging mod_arith operations with their reduction kind"
 
   -- Now apply the actual "lowering" part, via RewritePatterns
@@ -337,7 +338,7 @@ def ModArithToArithPass.impl (legalizeWidth : Nat → Nat) (reduction : Reductio
     lowerModArithSubOp legalizeWidth,
     lowerModArithMulOp legalizeWidth
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying mod-arith-to-arith lowering"
   | some ctx => pure ctx
 
@@ -348,7 +349,7 @@ public def ModArithToArithPass : Pass OpCode :=
       ("barrett", { description := "Use Barrett reduction instead of `arith.remui` for reduction." }),
       ("pow2-width", { description := "Use power-of-two bitwidths for the lowered integer types." })]
     run := fun options =>
-      ModArithToArithPass.impl
+      ModArithToArithPass.impl options.fold
         (if (options.get? "pow2-width").getD false then Nat.nextPowerOfTwo else id)
         (if (options.get? "barrett").getD false then .barrett else .full) }
 

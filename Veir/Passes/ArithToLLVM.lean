@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Interfaces.FoldInterfaces
 import Veir.Passes.Matching
@@ -299,7 +300,7 @@ def lowerMulUIExtended := lowerMulExtended .mului_extended
 
 /-! ## Pass implementation -/
 
-def ArithToLLVMPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+def ArithToLLVMPass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     lowerConstant,
@@ -311,13 +312,13 @@ def ArithToLLVMPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     lowerCeilDivUI, lowerCeilDivSI, lowerFloorDivSI,
     lowerAddUIExtended, lowerSubUIExtended, lowerMulSIExtended, lowerMulUIExtended
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying arith-to-llvm lowering"
   | some ctx => pure ctx
 
 public def ArithToLLVMPass : Pass OpCode :=
   { name := "arith-to-llvm"
     description := "Lower arith operations to the llvm dialect."
-    run := fun _ => ArithToLLVMPass.impl }
+    run := fun options => ArithToLLVMPass.impl options.fold }
 
 end Veir

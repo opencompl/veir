@@ -1,12 +1,14 @@
 module
 
 public import Veir.PatternRewriter.Basic
+public import Veir.PatternRewriter.Driver
 public import Veir.GlobalOpInfo
 
 import Veir.Printer
 
 meta import Veir.GlobalOpInfo
 meta import Veir.PatternRewriter.Basic
+meta import Veir.PatternRewriter.Driver
 meta import Veir.Printer
 
 public section
@@ -494,7 +496,8 @@ def addZeroLotsOfReuseTree (size pc: Nat) : Option (WfIRContext OpCode × Operat
 end Program
 
 def rewriteWorklist (program: WfIRContext OpCode) (_topOp : OperationPtr) (rewriter: RewritePattern OpCode) : Option (WfIRContext OpCode):=
-  RewritePattern.applyInContext rewriter program
+  -- Folding would rewrite the benchmark programs before the pattern under test sees them.
+  RewritePattern.applyInContext rewriter program (fold := false)
 
 def print (program: Option (WfIRContext OpCode × OperationPtr)) : IO Unit := do
   if let some (ctx, topOp) := program then

@@ -14,6 +14,7 @@ import Veir.PatternRewriter.Semantics
 import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.PatternRewriter.Basic
+import Veir.PatternRewriter.Driver
 import Veir.PatternRewriter.Puddle
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces

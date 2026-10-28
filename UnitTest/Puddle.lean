@@ -1,6 +1,7 @@
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.PatternRewriter.Puddle.Validity
+import Veir.PatternRewriter.Driver
 import Veir.Input
 import Veir.Printer
 
@@ -261,7 +262,7 @@ private def mulTwoProgram := r#""builtin.module"() ({
 private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit := do
   let some program := parseBinaryProgram source | IO.println "parse failed"
   let pattern := Pattern.compile rule
-  let some ctx := RewritePattern.applyInContext pattern.run program.ctx | IO.println "rewrite failed"
+  let some ctx := RewritePattern.applyInContext pattern.run program.ctx (fold := false) | IO.println "rewrite failed"
   Printer.printModule ctx.raw program.moduleOp
 
 /--

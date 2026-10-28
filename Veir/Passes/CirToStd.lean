@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
@@ -329,7 +330,7 @@ def convertCirBlock (ctx : WfIRContext OpCode) (block : BlockPtr) : WfIRContext 
 
 /-! ## Pass implementation -/
 
-def CirToStdPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+def CirToStdPass.impl (fold strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let lowering := RewritePattern.GreedyRewritePattern #[
     lowerConst, lowerAdd, lowerSub, lowerMul, lowerDiv, lowerRem,
@@ -337,7 +338,7 @@ def CirToStdPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : Operation
     lowerMin, lowerMax, lowerCmp, lowerSelect, lowerCast,
     lowerBr, lowerBrCond, lowerUnreachable
   ]
-  let some lowered := RewritePattern.applyInContext lowering ctx
+  let some lowered := RewritePattern.applyInContext lowering ctx (fold := fold)
     | throw "cir-to-std: internal rewriter failure"
   -- The lowered branches still forward `cir` values: retype the blocks they target.
   let mut converted := lowered
@@ -357,6 +358,6 @@ public def CirToStdPass : Pass OpCode :=
     options := .ofList [
       ("strict", { description := "Fail if a cir operation other than cir.func/cir.return remains.",
                    defaultValue := true })]
-    run := fun options => CirToStdPass.impl ((options.get? "strict").getD true) }
+    run := fun options => CirToStdPass.impl options.fold ((options.get? "strict").getD true) }
 
 end Veir

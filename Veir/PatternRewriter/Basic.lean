@@ -425,37 +425,3 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
       else
         failure
     return { rewriter with hasDoneAction := hasDoneAction }
-
-/--
-- Apply the given rewrite pattern to all operations in the context (possibly multiple times).
-- Return the new context, and a boolean indicating whether any changes were made.
-- If any pattern failed, return none.
--/
-private partial def RewritePattern.applyOnceInContext
-    (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) :
-    Option (Bool × WfIRContext OpInfo) := do
-  let worklist := PatternRewriter.Worklist.createFromContext ctx
-  let mut rewriter : PatternRewriter OpInfo := { ctx, hasDoneAction := false, worklist }
-  while !rewriter.worklist.isEmpty do
-    let (opOpt, newWorklist) := rewriter.worklist.pop
-    let op := opOpt.get!
-    rewriter := { rewriter with worklist := newWorklist }
-    if hin : op.InBounds rewriter.ctx.raw then
-      -- Erase trivially dead operations directly, as in MLIR's greedy driver.
-      if hdead : op.isTriviallyDead rewriter.ctx.raw then
-        rewriter := rewriter.eraseOp op hdead.1 hdead.2.1 hin
-      else
-        rewriter ← pattern rewriter op (by grind)
-    else
-      failure
-  pure (rewriter.hasDoneAction, rewriter.ctx)
-
-def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
-    (ctx: WfIRContext OpInfo) : Option (WfIRContext OpInfo) := do
-  let mut hasDoneAction := true
-  let mut ctx := ctx
-  while hasDoneAction do
-    let (lastHasDoneAction, newCtx) ← pattern.applyOnceInContext ctx
-    ctx := newCtx
-    hasDoneAction := lastHasDoneAction
-  pure ctx

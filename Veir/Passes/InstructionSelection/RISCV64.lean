@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
@@ -1890,7 +1891,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
-  let ctx ← match RewritePattern.applyInContext early ctx with
+  -- Folding legalized gMIR can produce constants of illegal width, which isel cannot select.
+  let ctx ← match RewritePattern.applyInContext early ctx (fold := false) with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
@@ -1911,7 +1913,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run] ++
     gmirIcmp.map (·.run)
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := false) with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
 

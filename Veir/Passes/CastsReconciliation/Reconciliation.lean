@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
 
@@ -115,7 +116,7 @@ def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
       return (ctx, some (#[shlOp, srlOp], #[srlOp.getResult 0]))
 
 
-def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def CastReconcilePass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     .fromLocalRewrite (reconcilePairingCastLocal isRegToI64RoundTrip),
@@ -123,16 +124,16 @@ def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : o
     .fromLocalRewrite (reconcilePairingCastLocal isPreservingModArithToIntCast),
     .fromLocalRewrite (reconcilePairingCastLocal isCirToIntRoundTrip),
     .fromLocalRewrite reconcileRegIntCastLocal]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying cast reconciliation"
   -- The patterns leave the (now dead) parent casts behind: `LocalRewritePattern` can only erase
   -- the matched operation. Clean them up here so the pass is self-contained.
   | some ctx =>
-    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+    match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx (fold := fold) with
     | none => throw "Error while applying DCE after cast reconciliation"
     | some ctx => pure ctx
 
 public def CastReconcilePass : Pass OpCode :=
   { name := "reconcile-cast"
     description := "Reconcile round trips of casts that return to their own input type."
-    run := fun _ => CastReconcilePass.impl }
+    run := fun options => CastReconcilePass.impl options.fold }

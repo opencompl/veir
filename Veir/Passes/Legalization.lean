@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
@@ -78,13 +79,13 @@ def widenOperations (ctx : WfIRContext OpCode) (op : OperationPtr) :
     widenSimpleBinaryIntOp ctx op 64 .any (some ⟨.llvm .or, .mk false⟩)
   | _ => return (ctx, none)
 
-def LegalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def LegalizePass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[.fromLocalRewrite widenOperations]) ctx with
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[.fromLocalRewrite widenOperations]) ctx (fold := fold) with
   | none => throw "Error while applying legalization"
   | some ctx => pure ctx
 
 public def LegalizePass : Pass OpCode :=
   { name := "legalize"
     description := "Legalize types."
-    run := fun _ => LegalizePass.impl }
+    run := fun options => LegalizePass.impl options.fold }

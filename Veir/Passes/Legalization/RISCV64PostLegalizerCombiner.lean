@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization.CombinerHelper
@@ -27,7 +28,8 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
     run := fun _ ctx _ _ => do
       let pattern := RewritePattern.GreedyRewritePattern
         #[(sub_to_add riscv64LegalizerInfo).run, commutativeConstantRHS]
-      match RewritePattern.applyInContext pattern ctx with
+      -- Folding legalized gMIR can produce constants of illegal width, which isel cannot select.
+      match RewritePattern.applyInContext pattern ctx (fold := false) with
       | none => throw "Error while applying the post-legalizer combines"
       | some ctx => pure ctx }
 

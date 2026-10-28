@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 
 import all Veir.Passes.InstCombine
@@ -43,7 +44,7 @@ def ApplyPatternsPass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   let patterns := applyPatterns.foldl (init := #[]) fun selected (name, pattern) =>
     if (options.get? name).getD false then selected.push pattern else selected
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := options.fold) with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 

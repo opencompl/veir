@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.RISCVCombines.MIRCombinesVeir
 import Veir.PatternRewriter.Puddle.Builders
@@ -3046,7 +3047,7 @@ def constant_fold_binop (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite constant_fold_binop_local rewriter op opInBounds
 
-def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def Combine.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let patterns : Array (RewritePattern OpCode) :=
     #[ packh_low_bytes
@@ -3312,11 +3313,11 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      ,
      ] ++ mir_pattern_combines
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 
 public def Combine : Pass OpCode :=
   { name := "riscv-combine"
     description := "GlobalISel RISCV combines"
-    run := fun _ => Combine.impl }
+    run := fun options => Combine.impl options.fold }

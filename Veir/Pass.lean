@@ -23,6 +23,13 @@ structure BoolPassOption where
 /-- The boolean option values for one instance of a pass. -/
 abbrev PassOptions := Std.HashMap String Bool
 
+/--
+  Whether the rewrite drivers of a pass fold the operations they visit. This is not an option of
+  any one pass: `veir-opt --no-fold` clears it for every pass in the pipeline.
+-/
+def PassOptions.fold (options : PassOptions) : Bool :=
+  (options.get? "fold").getD true
+
 /-- A compilation pass. -/
 structure Pass (OpInfo : Type) [HasOpInfo OpInfo] where
   /--

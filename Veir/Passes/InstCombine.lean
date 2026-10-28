@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 
@@ -252,7 +253,7 @@ def deMorganOrToAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite deMorganOrToAnd_local rewriter op opInBounds
 
-def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def InstCombinePass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
     mulITwoToAddi, mulIZeroToCst, mulIOneToX,
@@ -262,7 +263,7 @@ def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.
     xoriZeroToX, xoriSelfToZero,
     notNotToX, deMorganAndToOr, deMorganOrToAnd
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 
@@ -270,4 +271,4 @@ public def InstCombinePass : Pass OpCode :=
   { name := "instcombine"
     description :=
       "Combine instructions into more efficient forms, e.g., fold constants or simplify llvmmetic."
-    run := fun _ => InstCombinePass.impl }
+    run := fun options => InstCombinePass.impl options.fold }

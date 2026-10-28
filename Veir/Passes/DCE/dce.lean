@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 
 namespace Veir
@@ -17,7 +18,8 @@ public def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 def DCEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[eliminateDeadOp]
-  match RewritePattern.applyInContext pattern ctx with
+  -- Dead code elimination only erases operations; it does not fold them.
+  match RewritePattern.applyInContext pattern ctx (fold := false) with
   | none => throw "Error while applying DCE"
   | some ctx => pure ctx
 

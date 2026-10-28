@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 import Veir.Passes.DCE.dce
 
 namespace Veir
@@ -125,10 +126,10 @@ public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRCon
   return ctx
 
 
-def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
+def CoerceFunctionBoundariesPass.impl (fold : Bool) (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries coercion ctx
-  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx (fold := fold) with
   | none => throw "Error while applying DCE after function boundary coercion"
   | some ctx => pure ctx
 
@@ -138,11 +139,11 @@ public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
     options := .ofList [
       ("pow2-width", { description := "Widen the storage integer type to a power-of-two bitwidth." })]
     run := fun options =>
-      CoerceFunctionBoundariesPass.impl
+      CoerceFunctionBoundariesPass.impl options.fold
         (.modArithToInt
           (if (options.get? "pow2-width").getD false then Nat.nextPowerOfTwo else id)) }
 
 public def CoerceCirFunctionBoundariesPass : Pass OpCode :=
   { name := "coerce-cir-function-boundaries"
     description := "Coerce `!cir.int` and `!cir.bool` function boundaries to the builtin integer of the same width."
-    run := fun _ => CoerceFunctionBoundariesPass.impl .cirToStd }
+    run := fun options => CoerceFunctionBoundariesPass.impl options.fold .cirToStd }

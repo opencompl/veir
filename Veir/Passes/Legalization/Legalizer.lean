@@ -1,6 +1,7 @@
 module
 
 public import Veir.Passes.Legalization.LegalizerInfo
+import Veir.PatternRewriter.Driver
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Legalization.LegalizerHelper
 import Veir.Passes.Legalization.LegalizationArtifactCombiner
@@ -63,7 +64,9 @@ def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
   -- TODO: Use a proper worklist for artifacts.
   let pattern := RewritePattern.GreedyRewritePattern
     #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
-  let some ctx := RewritePattern.applyInContext pattern ctx
+  -- Folding can undo legalization: `g_trunc (g_constant)` from `widenConstant` folds back to the
+  -- narrow constant it widened, which would then be widened again, forever.
+  let some ctx := RewritePattern.applyInContext pattern ctx (fold := false)
     | throw "error while applying legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the
   -- legality of every operation afterwards.

@@ -183,6 +183,11 @@ def parseArgs (args : List String) : Except String VeirOptArgs := do
   -- Consume `--print-op-generic` if present.
   let printGenericOpForm := flags.contains "--print-op-generic"
   let flags := flags.filter (· != "--print-op-generic")
+  -- Consume `--no-fold` if present, turning off folding in every pass's rewrite drivers.
+  let pipeline := if flags.contains "--no-fold" then
+      { passes := pipeline.passes.map fun (pass, options) => (pass, options.insert "fold" false) }
+    else pipeline
+  let flags := flags.filter (· != "--no-fold")
   -- Consume `--split-input-file[=<marker>]` if present.
   let splitInputFile := flags.findSome? splitMarkerOfFlag?
   let flags := flags.filter fun flag => (splitMarkerOfFlag? flag).isNone
@@ -228,8 +233,9 @@ def main (args : List String) : IO Unit := do
   match parseArgs args with
   | .error errMsg =>
     IO.eprintln s!"Error: {errMsg}"
-    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic] [--split-input-file[=<marker>]]"
+    IO.eprintln "Usage: veir-opt <filename> [-p=\"pass1,pass2,...\"]... [--allow-unregistered-dialect] [--disable-verifiers] [--print-op-generic] [--no-fold] [--split-input-file[=<marker>]]"
     IO.eprintln "  -p may be repeated; passes run in the order the flags appear."
+    IO.eprintln "  --no-fold stops every pass from folding the operations it rewrites."
     IO.eprintln "  A pass name may be followed by boolean options: pass{opt1 opt2=false}."
     IO.eprintln "  Bare option names mean true; omitted options take their declared defaults."
     IO.eprintln "  The passes taking options are:"

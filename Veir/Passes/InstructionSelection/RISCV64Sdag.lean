@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+import Veir.PatternRewriter.Driver
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
@@ -683,7 +684,7 @@ def sdivwPow2 := RewritePattern.fromLocalRewrite (sdivPow2GenLocal .sraiw rfl .s
 
 /-! # Pass implementation -/
 
-def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+def IselSDAG.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   /- Order matters where patterns overlap: the more specific Zbs/Zba rules (`bexti`,
      `slliuw`) must precede the generic `andi`/`slli` forms they would otherwise be
@@ -697,7 +698,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     addi, ori, andi, xori, slli, srli, srai, slti,
     addiw, slliw, srliw, sraiw, roriw, roliw, zext_1, sext_1,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx (fold := fold) with
   | none => throw "Error while applying SDAG patterns"
   | some ctx => pure ctx
 
@@ -705,4 +706,4 @@ public def IselSDAG : Pass OpCode :=
   { name := "isel-sdag-riscv64"
     description :=
       "Lower LLVM IR to RISCV 64 assembly instruction selection pass."
-    run := fun _ => IselSDAG.impl }
+    run := fun options => IselSDAG.impl options.fold }
