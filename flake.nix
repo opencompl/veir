@@ -21,6 +21,8 @@
 
       developmentPackages = pkgs: with pkgs; [
         bash
+        typst
+        claude-code
         (llvmPackages pkgs).clang
         elan
         gmp

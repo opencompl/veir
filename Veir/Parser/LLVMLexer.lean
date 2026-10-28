@@ -3,16 +3,14 @@ import Veir.IR.WellFormed
 
 
 /-!
-# Proof-irrelevant proof sketch for Essay 1: a verified LLVM IR parser for VeIR
+# Verified lexer for a subset of textual LLVM IR
 
-This copy keeps all correctness conditions in `Prop`, using builtin membership,
-quantification, connectives, `Decidable`, and `Option`. Executable functions
-return data; separate lemmas establish their correctness.
-The parser and its main theorems are sketches; the token relation below has
-explicit spelling rules.
-The parser's output is a VeIR program: a well-formed `IRContext` over VeIR's
-`OpCode` (which includes the LLVM dialect), together with the top-level
-`builtin.module` operation.
+The lexer covers the tokens needed by the De Morgan examples below. It specifies
+lexical units and token spellings declaratively, proves the executable tokenizer
+sound and complete, and proves a round trip through the token printer.
+
+Correctness conditions live in `Prop`; executable functions return data and
+separate lemmas establish their correctness.
 -/
 
 namespace Veir.LLVMParserProp
