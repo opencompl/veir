@@ -79,3 +79,12 @@ def shrs {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
   | .val x, .val y => if y.toNat ≥ w then .poison else .val (x.sshiftRight y.toNat)
   | _, _ => .poison
 
+/-- `comb.icmp`, with CIRCT's `ICmpPredicate` as the integer it is printed as.
+
+The numbering is MLIR's and `LLVM.IntPred` already uses it -- 0 is `eq`, 6 is `ult` -- so the
+predicate table is shared rather than restated here. -/
+def icmp {w : Nat} (p : LLVM.IntPred) (x y : LLVM.Int w) : LLVM.Int 1 :=
+  match x, y with
+  | .val x, .val y => .val (BitVec.ofBool (p.eval x y))
+  | _, _ => .poison
+
