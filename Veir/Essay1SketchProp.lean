@@ -261,15 +261,11 @@ def MaximalToken (piece rest : List Char) : Prop :=
   ∀ n, 0 < n → n ≤ rest.length → ∀ tok, ¬TokenRepresentation (piece ++ rest.take n) tok
 
 /-- A word token must end before the next name character. -/
-def WordBoundary' (tok : Token) (rest : List Char) : Prop :=
+def WordBoundary (tok : Token) (rest : List Char) : Prop :=
   match tok, rest with
   | .kw _, (c :: _)
   | .intType _, (c :: _)  => ¬nameChar c
   | _, _ => True
-
--- nameChar
-def WordBoundary (tok : Token) (rest : List Char) : Prop :=
-  WordBoundary' tok rest
 
 /-- `piece` spells `tok` and is the longest lexeme at this position. -/
 def LongestMatch (piece : List Char) (tok : Token) (rest : List Char) : Prop :=
@@ -287,8 +283,6 @@ inductive Lexes : List Char → List (List Char × Token) → Prop where
 /-- Reasons the executable lexer can reject input. -/
 inductive TokenizationError where
   | expectedNameAfter (sigil : Char)
-  | unsupportedNumericLabel (name : String)
-  | invalidInteger (spelling : String)
   | unsupportedWord (word : String)
   | unexpectedChar (c : Char)
   | noProgress
@@ -487,7 +481,7 @@ def ScanResult.toTuple (result : ScanResult) : List Char × Token × List Char :
   (result.piece, result.tok, result.rest)
 
 instance (tok : Token) : DecidablePred (WordBoundary tok) := fun rest => by
-  unfold WordBoundary WordBoundary'
+  unfold WordBoundary
   cases tok <;> cases rest <;> simp only <;> infer_instance
 
 /-- Preserve the dispatcher's diagnostics when no valid token can be consumed. -/
