@@ -154,17 +154,6 @@ example (w : Nat) (x : BitVec (w / 2)) (hw : w ≤ 4) :
     (x.setWidth w).setWidth (w / 2) = x := by
   pbv_decide 4
 
--- Expected failure, width in `extractLsb'` is not converted to mask
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofNatClamp 4 (w - 1)
--/
-#guard_msgs(error, substring := true) in
-example (a : BitVec w) (h : w ≤ 4) :
-    (a.extractLsb' (w - 1) 1 == 1) = a.msb := by
-  pbv_decide 4
-
 -- `w + w` correctly interpreted as a sum of widths
 /--
 `pbv_decide` found a counterexample, consider the following assignment:
@@ -185,4 +174,15 @@ error: unsolved goals
 #guard_msgs(error, warning, substring := true) in
 example {v w : Nat} (x : BitVec (w - v)) (hw : w ≤ 4) :
     x + 0 = x := by
+  pbv_decide 4
+
+-- Extracting at a symbolic offset induces spurious bound requirement
+/--
+warning: `grind` could not prove the following : s ≤ 4
+---
+error: unsolved goals
+-/
+#guard_msgs(error, warning, substring := true) in
+example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
+    x.extractLsb' s v = (x >>> s).setWidth v := by
   pbv_decide 4
