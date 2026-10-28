@@ -246,3 +246,38 @@ private def testConcatExtract : String := Id.run do
 #guard_msgs in
 #eval! testConcatExtract
 
+/-! ### Parity, replicate and reverse
+
+Bit manipulation, where an implementation can be off by a reflection or a repetition and still
+return something of the right width.
+-/
+
+private def testBitManipulation : String := Id.run do
+  if comb .parity () #[ity 1] #[i 4 7] != some 1 then return "parity odd"
+  if comb .parity () #[ity 1] #[i 4 15] != some 0 then return "parity even"
+  if comb .parity () #[ity 1] #[i 4 0] != some 0 then return "parity zero"
+  if comb .parity () #[ity 1] #[i 4 8] != some 1 then return "parity of the top bit"
+  -- 0b10 repeated four times is 0b10101010; three times, 0b101010.
+  if comb .replicate () #[ity 8] #[i 2 2] != some 170 then return "replicate four times"
+  if comb .replicate () #[ity 6] #[i 2 1] != some 21 then return "replicate three times"
+  -- The number of copies comes from the result width, so the same operand at two result widths
+  -- must give different answers.
+  if comb .replicate () #[ity 8] #[i 2 2] == comb .replicate () #[ity 6] #[i 2 2] then
+    return "the result width is being ignored"
+  -- 0b1100 reversed is 0b0011, and a single bit moves from one end to the other.
+  if comb .reverse () #[ity 4] #[i 4 12] != some 3 then return "reverse"
+  if comb .reverse () #[ity 4] #[i 4 1] != some 8 then return "reverse one bit"
+  -- A palindrome is its own reverse, so this would pass on an identity; the cases above are what
+  -- rule that out.
+  if comb .reverse () #[ity 4] #[i 4 9] != some 9 then return "reverse a palindrome"
+  if !combIsPoison .parity () #[ity 1] #[poison 4] then return "parity poison"
+  if !combIsPoison .reverse () #[ity 4] #[poison 4] then return "reverse poison"
+  -- Unary, so a second operand is refused rather than ignored.
+  if (comb .parity () #[ity 1] #[i 4 1, i 4 2]).isSome then return "parity took two"
+  if (comb .reverse () #[ity 4] #[i 4 1, i 4 2]).isSome then return "reverse took two"
+  return "ok"
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testBitManipulation
+

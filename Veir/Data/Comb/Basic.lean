@@ -117,3 +117,38 @@ def extract {w : Nat} (n : Nat) (lowBit : Nat) (x : LLVM.Int w) : LLVM.Int n :=
   | .val x => .val (BitVec.ofNat n (x.ushiftRight lowBit).toNat)
   | .poison => .poison
 
+/-- `comb.parity`: the xor of every bit, so 1 exactly when the operand has an odd population. -/
+def parity {w : Nat} (x : LLVM.Int w) : LLVM.Int 1 :=
+  match x with
+  | .poison => .poison
+  | .val x => Id.run do
+      let mut acc := false
+      for i in List.range w do
+        if x.getLsbD i then
+          acc := !acc
+      .val (BitVec.ofBool acc)
+
+/-- `comb.replicate`: the operand repeated until it fills `n` bits.
+
+`n` is the result width; CIRCT requires it to be a multiple of `w`, which the verifier checks. -/
+def replicate {w : Nat} (n : Nat) (x : LLVM.Int w) : LLVM.Int n :=
+  match x with
+  | .poison => .poison
+  | .val x => Id.run do
+      let mut acc : Nat := 0
+      let copies := if w == 0 then 0 else n / w
+      for _ in List.range copies do
+        acc := acc * (2 ^ w) + x.toNat
+      .val (BitVec.ofNat n acc)
+
+/-- `comb.reverse`: the operand's bits in the opposite order. -/
+def reverse {w : Nat} (x : LLVM.Int w) : LLVM.Int w :=
+  match x with
+  | .poison => .poison
+  | .val x => Id.run do
+      let mut acc : BitVec w := 0
+      for i in List.range w do
+        if x.getLsbD i then
+          acc := acc ||| (BitVec.twoPow w (w - 1 - i))
+      .val acc
+
