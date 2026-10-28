@@ -190,12 +190,87 @@ def lowerZext : Pattern OpCode :=
       CreateProg.operation (.gmir .g_and) #[ext.res[0]!, mask.res[0]!] #[resType])
     (fun op => op)
 
+/-- Creates a `g_constant` of value 0 and of the integer type `type`. -/
+def createZero (type : Handle OpCode .type) : CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant))) type
+    fun type => match type.val with
+      | .integerType type => some (GMIRConstantProperties.mk (.ofInt 0 type))
+      | _ => none
+  CreateProg.operation (.gmir .g_constant) #[] #[type] (.inr props)
+
+/--
+Lowers `g_uaddo` to a `g_add`, which carries when the sum is less than either operand, and
+`g_usubo` to a `g_sub`, which borrows when the left operand is less than the right one, as LLVM's
+`LegalizerHelper::lower` does.
+-/
+def lowerAddSubO (isAdd : Bool) : Pattern OpCode :=
+  let (opcode, arithOpcode) := if isAdd then (GMIR.g_uaddo, GMIR.g_add) else (.g_usubo, .g_sub)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let flagType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, flagType]
+      return (type, flagType, lhs, rhs))
+    (fun (type, flagType, lhs, rhs) => do
+      let result ← CreateProg.operation (.gmir arithOpcode) #[lhs, rhs] #[type]
+      let cmpLhs := if isAdd then result.res[0]! else lhs
+      let flag ← CreateProg.operation (.gmir .g_icmp) #[cmpLhs, rhs] #[flagType]
+        (.inl { predicate := .ult })
+      return #[result.res[0]!, flag.res[0]!])
+    (fun results => results)
+
+/--
+Lowers `g_uadde` to a `g_add` of the operands, and a `g_add` of the carry-in to that sum, and
+`g_usube` to the same with `g_sub`, as LLVM's `LegalizerHelper::lower` does. The first operation
+carries when its result is less than either operand (for `g_add`) or greater than the left operand
+(for `g_sub`). The second one only carries when the carry-in is set, and the second result (for
+`g_add`) or the first result (for `g_sub`) is zero.
+-/
+def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
+  let (opcode, arithOpcode, predicate) :=
+    if isAdd then (GMIR.g_uadde, GMIR.g_add, Data.LLVM.IntPred.ult)
+    else (.g_usube, .g_sub, .ugt)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let flagType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let flagIn ← MatchProg.value flagType
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs, flagIn] #[type, flagType]
+      -- The carry-in is zero-extended to the type of the operands, so that type must be wider.
+      MatchProg.matchNative (type, flagType) fun (type, flagType) =>
+        match type.val, flagType.val with
+        | .integerType type, .integerType flagType => flagType.bitwidth < type.bitwidth
+        | _, _ => false
+      return (type, flagType, lhs, rhs, flagIn))
+    (fun (type, flagType, lhs, rhs, flagIn) => do
+      let tmp ← CreateProg.operation (.gmir arithOpcode) #[lhs, rhs] #[type]
+      let flag ← CreateProg.operation (.gmir .g_icmp) #[tmp.res[0]!, lhs] #[flagType]
+        (.inl { predicate })
+      let ext ← CreateProg.operation (.gmir .g_zext) #[flagIn] #[type]
+      let result ← CreateProg.operation (.gmir arithOpcode) #[tmp.res[0]!, ext.res[0]!] #[type]
+      let zero ← createZero type
+      let zeroOperand := if isAdd then result.res[0]! else tmp.res[0]!
+      let isZero ← CreateProg.operation (.gmir .g_icmp) #[zeroOperand, zero.res[0]!] #[flagType]
+        (.inl { predicate := .eq })
+      let flag2 ← CreateProg.operation (.gmir .g_and) #[isZero.res[0]!, flagIn] #[flagType]
+      let flagOut ← CreateProg.operation (.gmir .g_or) #[flag.res[0]!, flag2.res[0]!] #[flagType]
+      return #[result.res[0]!, flagOut.res[0]!])
+    (fun results => results)
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
   | .g_zext => lowerZext
+  | .g_uaddo => lowerAddSubO true
+  | .g_usubo => lowerAddSubO false
+  | .g_uadde => lowerAddSubE true
+  | .g_usube => lowerAddSubE false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
