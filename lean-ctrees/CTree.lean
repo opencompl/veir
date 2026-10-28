@@ -1,5 +1,7 @@
 -- SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import CTree.Order
+import CTree.Tower
 import CTree.Effect
 import CTree.Defs
 import CTree.Iter
