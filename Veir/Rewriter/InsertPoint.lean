@@ -111,6 +111,16 @@ theorem InsertPoint.after_eq_of_some_next :
 grind_pattern InsertPoint.after_eq_of_some_next =>
   op.getNextOp! ctx, some nextOp, InsertPoint.after op ctx blockPtr opHasParent opInBounds
 
+/-- After the last operation, the insertion point is the end of its block. -/
+theorem InsertPoint.after_eq_of_none_next
+    (next : op.getNextOp! ctx = none) :
+    InsertPoint.after op ctx blockPtr opHasParent opInBounds = .atEnd blockPtr := by
+  grind [InsertPoint.after]
+
+grind_pattern InsertPoint.after_eq_of_none_next =>
+  op.getNextOp! ctx, InsertPoint.after op ctx blockPtr opHasParent opInBounds where
+  guard op.getNextOp! ctx = none
+
 @[grind]
 def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
   match insertionPoint with
