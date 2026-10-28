@@ -28,7 +28,7 @@
         // The shift is widened to `i64`: the amount is zero-extended and the shifted value
         // is sign-extended.
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
-        // CHECK-NEXT: %[[AMT:.*]] = "riscv.zextb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %[[AMT:.*]] = "riscv.andi"(%{{.*}}) <{"value" = 255 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
         // CHECK-NEXT: %[[VAL:.*]] = "riscv.sextb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sra"(%[[VAL]], %[[AMT]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg

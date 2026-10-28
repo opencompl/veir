@@ -653,6 +653,41 @@ def testDomAfterFirstOpErasure : String :=
     if middleBlock.immediateDominator? dfCtx ≠ some entryBlock then
       report := report.push "intermediate block lost its immediate dominator fact"
     report)
+
+/-
+  Test: the verifier's use check orders two operations of the same block by the
+  positions it is given, instead of walking the block. `%def` dominates its use
+  at the actual positions, and no longer does once the two positions are
+  swapped.
+-/
+def testUseDomSameBlockPositions : String :=
+  let mlir := r#""builtin.module"() ({
+^bb0:
+  "func.func"() <{function_type = () -> (), sym_name = "f"}> ({
+  ^bb1:
+    %def = "test.test"() : () -> i32
+    %use = "test.test"(%def) : (i32) -> i32
+    "func.return"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
+  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    let .ok recovered := recoverNames top ctx mlir
+      | return #["failed to recover names"]
+    let some value := recovered.values["def"]?
+      | return #["missing defined value"]
+    let some defOp := getNamedOperation? recovered "def"
+      | return #["missing defining operation"]
+    let some useOp := getNamedOperation? recovered "use"
+      | return #["missing using operation"]
+
+    let positions := ctx.opPositions
+    let swapped := (positions.insert defOp positions[useOp]!).insert useOp positions[defOp]!
+    let mut report := #[]
+    if !value.properlyDominatesUse useOp dfCtx positions ctx then
+      report := report.push "a value does not dominate a later use in its block"
+    if value.properlyDominatesUse useOp dfCtx swapped ctx then
+      report := report.push "same-block order did not come from the positions"
+    report)
 /--
 info: "ok"
 -/
@@ -730,5 +765,11 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testDomAfterFirstOpErasure
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testUseDomSameBlockPositions
 
 end DominanceAnalysis

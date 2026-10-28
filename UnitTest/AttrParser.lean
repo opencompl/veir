@@ -742,6 +742,10 @@ macro "#assert " e:term : command =>
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
 #assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk (some 13))
+#assert expectSuccessType "!riscv.reg<x0>" (RegisterType.mk (some 0))
+#assert expectErrorType "!riscv.reg<j3>" "expected RV64 register of the form xID" (some 11)
+#assert ToString.toString (RegisterType.mk (some (-1))) = "!riscv.reg<j0>"
+#assert ToString.toString (RegisterType.mk (some (-12))) = "!riscv.reg<j11>"
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")

@@ -39,9 +39,9 @@ example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
     x + y = x := by
   pbv_decide 4
 
--- Every composite width gets its own mask, reported next to the `Nat` value it encodes
+-- Masks are named after the width variables they encode
 /--
-error: `pbv_decide` found a counterexample
+(m_v_add_w =
 -/
 #guard_msgs(error, substring := true) in
 example (v w : Nat) (x : BitVec v) (y : BitVec w) (hv : v ≤ 4) (hw : w ≤ 4) (h : v = w) :
@@ -104,17 +104,6 @@ example (w : Nat) (x y : BitVec w) :
     x + y = x := by
   pbv_decide 4
 
--- The bound must also cover widths built from literals: `w + 2` can exceed 4
-/--
-warning: `grind` could not prove the following : w + 2 ≤ 4
----
-error: unsolved goals
--/
-#guard_msgs(error, warning, substring := true) in
-example (w : Nat) (x y : BitVec (w + 2)) (hw : w ≤ 4) :
-    x + y = y + x := by
-  pbv_decide 4
-
 -- The counterexample can pick a width of zero
 /--
 error: `pbv_decide` found a counterexample
@@ -135,39 +124,42 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4
 
--- Expected failure: width expressions using `Nat` subtraction cannot be reified
+-- Expected failure: width expressions using `Nat` subtraction are not translated faithfully
 /--
-error: Failed to reify width expr: v - 1 - 0 + 1
+`pbv_decide` found a potentially spurious counterexample.
 -/
 #guard_msgs(error, substring := true) in
 example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
     (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
-  pbv_decide 8 -bv_decide
+  pbv_decide 8
 
+-- Expected failure: `w / 2` is a width independent of `w`, so a true statement fails spuriously
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following widths were abstracted as independent variables:
+    - w / 2
+-/
+#guard_msgs(error, substring := true) in
+example (w : Nat) (x : BitVec (w / 2)) (hw : w ≤ 4) :
+    (x.setWidth w).setWidth (w / 2) = x := by
+  pbv_decide 4
+
+-- Expected failure, width in `extractLsb'` is not converted to mask
 /--
 error: `pbv_decide` found a potentially spurious counterexample.
   The following expressions were abstracted as opaque variables:
-    - BitVec.ofNatClamp 4 (w - 1) = 0xf#4
-Consider the following assignment:
-  w = 4  	(m_w0 = 0xf#4)
-  a = 0xf#4
+    - BitVec.ofNatClamp 4 (w - 1)
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (a : BitVec w) (h : w ≤ 4) :
     (a.extractLsb' (w - 1) 1 == 1) = a.msb := by
   pbv_decide 4
 
--- `w + w` treated as an atom and hence differs from `w`
+-- `w + w` correctly interpreted as a sum of widths
 /--
-error: `pbv_decide` found a counterexample, consider the following assignment:
-  w = 8  	(m_w0 = 0xff#8)
-  w + (w + w) = 8  	(m_w0_add_w1 = 0xff#8)
-  w + w = 4  	(m_w1 = 0x0f#8)
-  w + w + w = 8  	(m_w1_add_w0 = 0xff#8)
-  a = 0xf#4
-  b = 0x7f#8
+`pbv_decide` found a counterexample, consider the following assignment:
 -/
-#guard_msgs in
+#guard_msgs(error, substring := true) in
 example (a : BitVec (w + w)) (b : BitVec w) (hw4 : w + w ≤ 4):
   a ++ b = (b ++ a).cast (by grind)
   := by

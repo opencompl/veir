@@ -81,6 +81,40 @@ def g_srem := (lowerBinop .srem .g_srem).compile
 def g_urem := (lowerBinop .urem .g_urem).compile
 
 /--
+  GMIR lowerings with Puddle for unary operations on values that gMIR can represent, whose
+  properties are converted with `convert`.
+-/
+def lowerUnop (lOp : Llvm) (gOp : GMIR)
+    (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp)) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operandType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let operand ← Puddle.MatchProg.value operandType
+      let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[resultType]
+      return (resultType, operand, root))
+    (fun (resultType, operand, root) => do
+      let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (convert p))
+      Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] (.inr props))
+    (fun newOp => newOp)
+
+/-
+  LLVM translates a `ctlz`/`cttz` whose zero input is poison to `G_CTLZ_ZERO_POISON`/
+  `G_CTTZ_ZERO_POISON`. We do not have these opcodes yet, and `g_ctlz`/`g_cttz`, which are
+  defined at zero, refine them.
+-/
+def g_ctlz := (lowerUnop .intr__ctlz .g_ctlz fun _ => ()).compile
+
+def g_cttz := (lowerUnop .intr__cttz .g_cttz fun _ => ()).compile
+
+def g_ctpop := (lowerUnop .intr__ctpop .g_ctpop id).compile
+
+def g_bswap := (lowerUnop .intr__bswap .g_bswap id).compile
+
+def g_bitreverse := (lowerUnop .intr__bitreverse .g_bitreverse id).compile
+
+/--
   GMIR lowerings with Puddle for integer casts.
 -/
 def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
@@ -142,6 +176,19 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
   let (ctx', gep) ← WfRewriter.createOp! ctx Llvm.getelementptr (op.getResultTypes! ctx.raw)
       operands #[] #[] props none
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
+
+private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
+  let opType := op.getOpType! ctx.raw
+  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then return (ctx, none)
+  let operands := op.getOperands! ctx.raw
+  let successors := op.getSuccessors! ctx.raw
+  let (ctx', branch) ← if opType = OpCode.llvm .br then
+      WfRewriter.createOp! ctx GMIR.g_br #[] operands successors #[] () none
+    else
+      let props : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
+      WfRewriter.createOp! ctx GMIR.g_brcond #[] operands successors #[]
+        (GMIRBrCondProperties.mk props.operandSegmentSizes) none
+  return (ctx', some (#[branch], #[]))
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -274,8 +321,9 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
+    g_ctlz.run, g_cttz.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices,
+    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with

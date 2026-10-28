@@ -307,6 +307,10 @@ def matchRVRev8 (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr 
   let (op, properties) ← matchOp op ctx Riscv.rev8 1
   return (op[0]!,  properties)
 
+def matchRVBrev8 (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.brev8) := do
+  let (op, properties) ← matchOp op ctx Riscv.brev8 1
+  return (op[0]!, properties)
+
 def matchRVRoriw (op : OperationPtr) (ctx : IRContext OpCode) : Option (ValuePtr × propertiesOf Riscv.roriw) := do
   let (op, properties) ← matchOp op ctx Riscv.roriw 1
   return (op[0]!,  properties)

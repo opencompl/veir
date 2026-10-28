@@ -7,8 +7,10 @@
     %slt = "gmir.g_icmp"(%lhs, %rhs) <{predicate = 2 : i64}> : (i8, i8) -> i1
     // CHECK:      %[[LHS:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i8}> : () -> i8
     // CHECK-NEXT: %[[RHS:.*]] = "llvm.mlir.constant"() <{"value" = 2 : i8}> : () -> i8
-    // CHECK-NEXT: %[[WIDE_LHS:.*]] = "gmir.g_sext"(%[[LHS]]) : (i8) -> i64
-    // CHECK-NEXT: %[[WIDE_RHS:.*]] = "gmir.g_sext"(%[[RHS]]) : (i8) -> i64
+    // CHECK-NEXT: %[[EXT_LHS:.*]] = "gmir.g_anyext"(%[[LHS]]) : (i8) -> i64
+    // CHECK-NEXT: %[[WIDE_LHS:.*]] = "gmir.g_sext_inreg"(%[[EXT_LHS]]) <{"sz" = 8 : i64}> : (i64) -> i64
+    // CHECK-NEXT: %[[EXT_RHS:.*]] = "gmir.g_anyext"(%[[RHS]]) : (i8) -> i64
+    // CHECK-NEXT: %[[WIDE_RHS:.*]] = "gmir.g_sext_inreg"(%[[EXT_RHS]]) <{"sz" = 8 : i64}> : (i64) -> i64
     // CHECK-NEXT: "gmir.g_icmp"(%[[WIDE_LHS]], %[[WIDE_RHS]]) <{"predicate" = 2 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"({{.*}}) : (i64) -> i1
 

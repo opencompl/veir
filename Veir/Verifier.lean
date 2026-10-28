@@ -296,11 +296,12 @@ private def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
   let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
     | throw "dominance analysis did not reach a fixpoint"
+  let positions := ctx.opPositions
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := op.getParent ctx.raw opIn | return
     if !block.isReachable dfCtx then return
     for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
-      if !value.properlyDominatesUse op dfCtx ctx then
+      if !value.properlyDominatesUse op dfCtx positions ctx then
         let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
         throw s!"{opName}: operand #{index} does not dominate this use"
 
@@ -326,7 +327,9 @@ def WfIRContext.verify
         match op.getParent ctx.raw opIn with
         | some _ => op.verifyTerminatorPosition ctx opIn
         | none => pure ()
-        op.verifyOperandIsolation ctx opIn))
+        op.verifyOperandIsolation ctx opIn
+        if let some funcOp := FunctionOp.of? op ctx.raw then
+          funcOp.verifyTrait))
   ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
   ctx.verifyLLVMGlobalSymbols
   ctx.verifyLLVMComdats

@@ -136,21 +136,7 @@ theorem bswap_refinement {x : LLVM.Int 64} :
 -/
 theorem bitreverse_refinement {x : LLVM.Int 64} :
     (Data.LLVM.Int.bitreverse x) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg x
-         let m1 := Data.RISCV.li 0x5555555555555555#64
-         let x1 := Data.RISCV.or
-           (Data.RISCV.slli 1#6 (Data.RISCV.and m1 x0))
-           (Data.RISCV.and m1 (Data.RISCV.srli 1#6 x0))
-         let m2 := Data.RISCV.li 0x3333333333333333#64
-         let x2 := Data.RISCV.or
-           (Data.RISCV.slli 2#6 (Data.RISCV.and m2 x1))
-           (Data.RISCV.and m2 (Data.RISCV.srli 2#6 x1))
-         let m4 := Data.RISCV.li 0x0f0f0f0f0f0f0f0f#64
-         let x3 := Data.RISCV.or
-           (Data.RISCV.slli 4#6 (Data.RISCV.and m4 x2))
-           (Data.RISCV.and m4 (Data.RISCV.srli 4#6 x2))
-         Data.RISCV.rev8 x3) 64) := by
+      (RISCV.Reg.toInt (Data.RISCV.rev8 (Data.RISCV.brev8 (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /--
@@ -1185,3 +1171,15 @@ theorem freeze_refinement {a : LLVM.Int 64} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
   veir_bv_decide
+
+/--
+  Prove the correctness of the `gmirAnyextOfReg` lowering pattern, at every width: the high bits of
+  `g_anyext` may be chosen as those of the register, so it is refined by a single cast from it.
+-/
+theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
+    ∃ ext : BitVec (m - n),
+      LLVM.Int.ext (RISCV.Reg.toInt r n) m ext h ⊒ RISCV.Reg.toInt r m :=
+  ⟨(r.val.zeroExtend m).extractLsb' n (m - n), by
+    veir_bv_normalize
+    simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
+    grind⟩
