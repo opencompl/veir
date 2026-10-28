@@ -209,6 +209,11 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   -- The high bits matter for the comparison, and sign extension preserves both the signed and
   -- the unsigned order.
   | .g_icmp, .type 1, width => widenTypeGroup .g_icmp (.type 1) .g_sext width
+  -- The high bits of the selected values never reach the low bits of the result.
+  | .g_select, .type 0, width => widenTypeGroup .g_select (.type 0) .g_anyext width
+  -- The condition is true when it is nonzero, so its high bits must be zero, as with LLVM's
+  -- `getBoolExtOp` on a target whose booleans are zero or one.
+  | .g_select, .type 1, width => widenTypeGroup .g_select (.type 1) .g_zext width
   -- As for `g_add`, the high bits of the shifted value never reach the low bits of the result.
   | .g_shl, .type 0, width => widenTypeGroup .g_shl (.type 0) .g_anyext width clearNswNuwProperties
   -- `ashr` shifts copies of the sign bit into the result, so the high bits must be sign bits.

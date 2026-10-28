@@ -841,6 +841,16 @@ def select {w : Nat} (c : Int 1) (x y : Int w) : Int w := Id.run do
   let val c' := c | poison
   if c' == 1#1 then x else y
 
+/--
+ Like `select`, for a condition of any width, which is true when it is nonzero. This is the
+ meaning gMIR's `G_SELECT` has on a target whose booleans are zero or one, such as RISC-V: LLVM
+ leaves the meaning of a condition wider than `i1` to the target. For an `i1` condition, it is
+ `select` (see `selectNonzero_one`).
+-/
+def selectNonzero {wc w : Nat} (c : Int wc) (x y : Int w) : Int w := Id.run do
+  let val c' := c | poison
+  if c' != 0#wc then x else y
+
 
 /--
  The `freeze` instruction converts a poison value to a non-poison value by

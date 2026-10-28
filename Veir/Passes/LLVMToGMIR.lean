@@ -115,6 +115,27 @@ def g_bswap := (lowerUnop .intr__bswap .g_bswap id).compile
 def g_bitreverse := (lowerUnop .intr__bitreverse .g_bitreverse id).compile
 
 /--
+  `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
+  selects as `g_select` does, see `LLVM.Int.selectNonzero_one`.
+  TODO: Also translate selects of pointers, once `g_select` accepts them.
+-/
+def lowerSelect : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let condType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let cond ← Puddle.MatchProg.value condType
+      let tval ← Puddle.MatchProg.value type
+      let fval ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm .select) #[cond, tval, fval] #[type]
+      return (type, cond, tval, fval))
+    (fun (type, cond, tval, fval) =>
+      Puddle.CreateProg.operation (.gmir .g_select) #[cond, tval, fval] #[type])
+    (fun newOp => newOp)
+
+def g_select := lowerSelect.compile
+
+/--
   GMIR lowerings with Puddle for integer casts.
 -/
 def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
@@ -305,7 +326,7 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
-    g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
+    g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_ctlz.run, g_cttz.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,

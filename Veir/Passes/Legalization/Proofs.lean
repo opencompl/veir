@@ -7,6 +7,8 @@ meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
 
 import Veir.ForLean
+import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.Refinement
 
 public section
 
@@ -92,6 +94,67 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
       LLVM.Int.and (LLVM.Int.ext x m ext h) (LLVM.Int.constant m (2 ^ n - 1)) := by
   veir_bv_normalize
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append, getElem_ofInt_two_pow_sub_one]
+  grind
+
+/-- `x` is refined by its low bits after any extension. -/
+private theorem trunc_ext_self {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
+    x ⊒ LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h := by
+  cases x with
+  | poison => simp [isRefinedBy]
+  | val v =>
+    simp only [LLVM.Int.ext, LLVM.Int.trunc, Id.run, isRefinedBy]
+    simp
+    apply BitVec.eq_of_getElem_eq
+    intro i hi
+    simp [BitVec.getElem_setWidth, BitVec.getLsbD_append, hi]
+
+/--
+Prove the correctness of widening the values of `g_select` with `g_anyext`, at every width and
+whatever the high bits of the extended values are: the selected value is truncated back.
+-/
+theorem select_widen_values (n m wc : Nat) (h : n < m) (c : LLVM.Int wc) (x y : LLVM.Int n)
+    (ext ext' : BitVec (m - n)) :
+    LLVM.Int.selectNonzero c x y ⊒
+      LLVM.Int.trunc
+        (LLVM.Int.selectNonzero c (LLVM.Int.ext x m ext h) (LLVM.Int.ext y m ext' h))
+        n false false h := by
+  cases c with
+  | poison => simp [LLVM.Int.selectNonzero, LLVM.Int.trunc, Id.run, isRefinedBy]
+  | val c =>
+    simp only [LLVM.Int.selectNonzero, Id.run]
+    split
+    · exact trunc_ext_self h x ext
+    · exact trunc_ext_self h y ext'
+
+/--
+Prove the correctness of widening the condition of `g_select` with `g_zext`, at every width: the
+zero-extended condition is nonzero exactly when the condition is.
+-/
+theorem select_widen_cond (n m w : Nat) (h : n < m) (c : LLVM.Int n) (x y : LLVM.Int w) :
+    LLVM.Int.selectNonzero c x y ⊒ LLVM.Int.selectNonzero (LLVM.Int.zext c m false h) x y := by
+  cases c with
+  | poison => simp [LLVM.Int.selectNonzero, LLVM.Int.zext, Id.run, isRefinedBy]
+  | val c =>
+    have hz : c.setWidth m = 0#m ↔ c = 0#n := by
+      constructor
+      · intro hz
+        apply BitVec.eq_of_getElem_eq
+        intro i hi
+        have := congrArg (fun b => b[i]'(by omega)) hz
+        simpa [BitVec.getElem_setWidth, hi] using this
+      · rintro rfl
+        simp
+    simp [LLVM.Int.selectNonzero, LLVM.Int.zext, Id.run, hz]
+
+/--
+Prove the correctness of combining `g_and (g_icmp p x y), 1` to `g_icmp p x y`, at every width: a
+`g_icmp` wider than `i1` is its `i1` comparison zero-extended.
+-/
+theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
+    LLVM.Int.zext c m false h ⊒
+      LLVM.Int.and (LLVM.Int.zext c m false h) (LLVM.Int.constant m 1) := by
+  veir_bv_normalize
+  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
 
 end Veir.Data.LLVM

@@ -482,29 +482,30 @@ theorem xnor_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
-  Prove the correctness of the `select c t 0` -> `czero.eqz t c` lowering pattern.
+  Prove the correctness of the `g_select c t 0` -> `czero.eqz t c` lowering pattern. The `i64`
+  condition is true when it is nonzero, as `czero.eqz` tests it.
 -/
-theorem select_czeroeqz_refinement {c : LLVM.Int 1} {t : LLVM.Int 64} :
-    (Data.LLVM.Int.select c t (LLVM.Int.constant 64 0)) ⊒
+theorem gmir_select_czeroeqz_refinement {c t : LLVM.Int 64} :
+    (Data.LLVM.Int.selectNonzero c t (LLVM.Int.constant 64 0)) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 64) := by
   veir_bv_decide
 
 /--
-  Prove the correctness of the `select c 0 f` -> `czero.nez f c` lowering pattern.
+  Prove the correctness of the `g_select c 0 f` -> `czero.nez f c` lowering pattern.
 -/
-theorem select_czeronez_refinement {c : LLVM.Int 1} {f : LLVM.Int 64} :
-    (Data.LLVM.Int.select c (LLVM.Int.constant 64 0) f) ⊒
+theorem gmir_select_czeronez_refinement {c f : LLVM.Int 64} :
+    (Data.LLVM.Int.selectNonzero c (LLVM.Int.constant 64 0) f) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 64) := by
   veir_bv_decide
 
 /--
-  Prove the correctness of the general `select c t f` ->
+  Prove the correctness of the general `g_select c t f` ->
   `or (czero.eqz t c) (czero.nez f c)` lowering pattern.
 -/
-theorem select_refinement {c : LLVM.Int 1} {t f : LLVM.Int 64} :
-    (Data.LLVM.Int.select c t f) ⊒
+theorem gmir_select_refinement {c t f : LLVM.Int 64} :
+    (Data.LLVM.Int.selectNonzero c t f) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.or
           (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
