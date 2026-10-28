@@ -66,6 +66,12 @@ inductive Token : Type where
   | APSInt (value : Int)
   deriving Repr, DecidableEq
 
+/-- Whitespace and comments are omitted from the parser-facing token stream. -/
+def Token.isTrivia (t : Token) : Prop := t = .ws ∨ t = .comment
+
+instance : DecidablePred Token.isTrivia := by
+  intro t; unfold Token.isTrivia; infer_instance
+
 /-- Skeleton tree from the first pass: names unresolved, phi nodes still present. -/
 def LLVMModule : Type := sorry
 
@@ -138,10 +144,8 @@ theorem nameStart.nameChar (h : nameStart c) : nameChar c := Or.inl h
 theorem isDigit.nameChar (h : isDigit c) : nameChar c := Or.inr h
 
 theorem decideDigit_eq_some_iff : decideDigit c = some n ↔ digitNum c n := by
-  refine ⟨fun h => ?_, fun h => by cases h <;> decide⟩
-  unfold decideDigit at h
-  repeat' first | split at h | (simp_all)
-  all_goals subst n; constructor
+  unfold decideDigit
+  split <;> simp_all <;> grind [digitNum]
 
 /-- Append one decimal digit to an accumulated value. -/
 def digitStep (n : Nat) (c : Char) : Option Nat :=
@@ -194,9 +198,7 @@ inductive decimalInteger : List Char → Int → Prop where
   | negative  : digitsNum s n →  decimalInteger ('-' :: s) (-n)
 
 theorem decimalInteger.nonempty (h : decimalInteger s n) : s ≠ [] := by
-  cases h with
-  | positive hd => exact hd.ne_nil
-  | negative _ => simp
+  cases h <;> simp_all [digitsNum.ne_nil]
 
 def decideDecimal : List Char → Option Int
   | '-' :: cs => (decideDigits cs).map (fun (n : Nat) => -Int.ofNat n)
@@ -369,7 +371,7 @@ theorem recognize_sound (h : recognize cs = some tok) : TokenRepresentation cs t
 theorem nameChar_exclusions (hc : nameChar c) :
     c ≠ ';' ∧ c ≠ '@' ∧ c ≠ '%' ∧ ¬isWs c ∧ c ≠ ':' := by
   have : ∀ x ∈ [';', '@', '%', ' ', '\t', '\n', '\r', ':'], ¬nameChar x := by decide
-  simp_all [isWs]; grind
+  grind [isWs]
 
 theorem recognize_name (hc : nameChar c) :
     recognize (c :: cs) =
@@ -385,11 +387,7 @@ theorem recognize_name (hc : nameChar c) :
 
 theorem recognize_ws (hne : cs ≠ []) (hw : ∀ c ∈ cs, isWs c) :
     recognize cs = some .ws := by
-  cases cs with
-  | nil => contradiction
-  | cons c cs =>
-      have hc : c = ' ' ∨ c = '\t' ∨ c = '\n' ∨ c = '\r' := by simpa [isWs] using hw c (by simp)
-      rcases hc with rfl | rfl | rfl | rfl <;> simp_all [recognize]
+  cases cs <;> simp_all [recognize, isWs] <;> grind
 
 theorem recognize_label (h : labelName name ∧ ¬digits name) :
     recognize (name.toList ++ [':']) = some (.LabelStr name) := by
@@ -410,9 +408,7 @@ theorem recognize_word (h : WordToken cs tok) : recognize cs = some tok := by
       simp [hb, classifyWordRelevant_eq_some_iff.mpr (WordToken.intType hd)]
 
 theorem decimalInteger.nameChars (h : decimalInteger cs n) : ∀ c ∈ cs, nameChar c := by
-  cases h with
-  | positive h => exact fun c hc => (h.isDigits c hc).nameChar
-  | negative h => exact List.forall_mem_cons.mpr ⟨by decide, fun c hc => (h.isDigits c hc).nameChar⟩
+  cases h <;> simp_all [List.forall_mem_cons, isDigit.nameChar, nameChar, nameStart, asciiAlpha]
 
 theorem decimalInteger.not_word (h : decimalInteger cs n) : ¬WordToken cs tok := by
   intro hw; cases hw with
@@ -527,14 +523,14 @@ theorem scanOne_progress (h : scanOne input = .ok result) :
 /-- Only the empty lexeme spells EOF. -/
 theorem TokenRepresentation.ne_nil_iff (h : TokenRepresentation piece tok) :
     piece ≠ [] ↔ tok ≠ .Eof := by
-  refine ⟨fun hp ht => ?_, fun ht hp => ?_⟩
-  · subst ht; cases h with | eof => exact hp rfl | word hw => cases hw
-  · subst hp; simp [← recognize_eq_some_iff, recognize] at h; exact ht h.symm
+  have := recognize_eq_some_iff.mpr h
+  cases piece <;> cases tok <;> simp_all [recognize]
 
 theorem scanOne_success_result (hr : TokenRepresentation piece tok) (hne : tok ≠ .Eof)
     (hm : MaximalToken piece rest) (hb : WordBoundary tok rest) :
-    scanOne (piece ++ rest) = .ok ⟨piece, tok, rest⟩ :=
-  scanOne_eq_ok_iff.mpr ⟨rfl, hr.ne_nil_iff.mpr hne, hr, hm, hb⟩
+    scanOne (piece ++ rest) = .ok ⟨piece, tok, rest⟩ := by
+  intro hr hne hm hb
+  simp [scanOne_success_result hr hne hm hb, ScanResult.toTuple]
 
 /-- Scanning a specified maximal non-EOF lexeme returns that exact lexeme. -/
 theorem scanOne_success {piece rest : List Char} {tok : Token} :
@@ -557,9 +553,13 @@ decreasing_by exact scanOne_progress _h
 def tokenizer (s : String) : Except TokenizationError (List (List Char × Token)) :=
   tokenizerChars s.toList
 
-/-- Tokenize while discarding the original lexeme spellings. -/
+/-- The parser-facing tokens of a lexeme list. -/
+def significant (ts : List (List Char × Token)) : List Token :=
+  (ts.map Prod.snd).filter (fun tok => decide (¬tok.isTrivia))
+
+/-- Tokenize while discarding original spellings, whitespace, and comments. -/
 def tokenizer' (s : String) : Except TokenizationError (List Token) :=
-  (tokenizer s).map (fun ts => ts.map Prod.snd)
+  (tokenizer s).map significant
 
 /-- The De Morgan example used to exercise the LLVM token subset. -/
 def deMorganExample : String := "; De Morgan's laws, written without applying the simplification.
@@ -615,16 +615,14 @@ theorem tokenizer_success : Lexes s.toList ts → tokenizer s = .ok ts :=
 
 /-- The token-only tokenizer inherits completeness from `tokenizer`. -/
 theorem tokenizer'_success (h : Lexes s.toList ts) :
-    tokenizer' s = .ok (ts.map Prod.snd) := by
-  rw [tokenizer', tokenizer_success h]
-  rfl
+    tokenizer' s = .ok (significant ts) := by
+  simp [tokenizer', tokenizer_success h]
 
 theorem tokenizer_fail : tokenizer s = .error message → Lexes s.toList ts → False := by
   intro failed lexes; simp [tokenizer_success lexes] at failed
 
-/-- Concatenate simple spellings, using one space for whitespace and an empty comment. -/
-def printTokens (ts : List Token) : String :=
-  String.join (ts.map fun
+/-- A simple spelling for each token. -/
+def Token.spelling : Token → String
     | .Eof => ""
     | .ws => " "
     | .comment => ";\n"
@@ -634,14 +632,147 @@ def printTokens (ts : List Token) : String :=
     | .LabelStr name => name ++ ":"
     | .GlobalVar name => "@" ++ name
     | .LocalVar name => "%" ++ name
-    | .APSInt value => toString value)
+    | .APSInt value => toString value
 
-/-- Printing and retokenizing preserves any token stream produced by the lexer.
-The hypothesis excludes invalid names, misplaced EOF, and impossible boundaries.
-This remains a specification: the simple printer above fails for `1-0`, whose
-integer tokens are printed as `10`. -/
-theorem tokenizer'_printTokens_round_trip :
-    tokenizer' s = .ok ts → tokenizer' (printTokens ts) = .ok ts := sorry
+/-- Print each significant token followed by a space; EOF is implicit. -/
+def printTokens (ts : List Token) : String :=
+  ts.foldr (fun t s => if t = .Eof then s else t.spelling ++ " " ++ s) ""
+
+#eval (printTokens <$> tokenizer' deMorganExample)
+
+theorem digitsNum_toDigits (n : Nat) : digitsNum (Nat.toDigits 10 n) n := by
+  have small : ∀ n : Fin 10, decideDigit n.val.digitChar = some n.val := by decide
+  induction n using Nat.strongRecOn with
+  | ind n ih =>
+      rw [Nat.toDigits_eq_ite (by decide)]
+      split
+      · exact .singleDigit (decideDigit_eq_some_iff.mp (small ⟨n, by assumption⟩))
+      · have hd := decideDigit_eq_some_iff.mp (small ⟨n % 10, by omega⟩)
+        have hi := ih (n / 10) (by omega)
+        simpa [Nat.div_add_mod] using digitsNum.digits hi hd
+
+theorem decimalInteger_toString (n : Int) : decimalInteger (toString n).toList n := by
+  cases n with
+  | ofNat n => simpa [Int.repr] using decimalInteger.positive (digitsNum_toDigits n)
+  | negSucc n =>
+      change decimalInteger ("-" ++ Nat.repr (n + 1)).toList (Int.negSucc n)
+      simpa [Int.negSucc_eq] using decimalInteger.negative (digitsNum_toDigits (n + 1))
+
+theorem TokenRepresentation.spelling (h : TokenRepresentation piece tok) :
+    TokenRepresentation tok.spelling.toList tok := by
+  cases h with
+  | eof => exact .eof
+  | ws _ _ => exact .ws (by decide) (by decide)
+  | comment _ _ | commentEof _ =>
+      exact .comment (line := []) (endChar := '\n') (by simp [noLinebreaks]) (by decide)
+  | punct p => simpa [Token.spelling] using TokenRepresentation.punct p
+  | word hw => cases hw with
+    | keyword k => simpa [Token.spelling] using TokenRepresentation.word (WordToken.keyword k)
+    | intType _ => simpa [Token.spelling] using
+        TokenRepresentation.word (WordToken.intType (digitsNum_toDigits _))
+  | label name h => simpa [Token.spelling] using TokenRepresentation.label name h
+  | global name h => simpa [Token.spelling] using TokenRepresentation.global name h
+  | «local» name h => simpa [Token.spelling] using TokenRepresentation.local name h
+  | integer _ => exact .integer (decimalInteger_toString _)
+
+
+theorem nameChar.not_ws_or_semicolon (h : nameChar c) : ¬isWs c ∧ c ≠ ';' :=
+  ⟨(nameChar_exclusions h).2.2.2.1, (nameChar_exclusions h).1⟩
+
+
+theorem bareName.nameChars (h : bareName name) : ∀ c ∈ name.toList, nameChar c := by
+  unfold bareName at h
+  split at h <;> simp_all [List.forall_mem_cons, nameStart.nameChar]
+
+theorem WordToken.nameChars (h : WordToken piece tok) : ∀ c ∈ piece, nameChar c := by
+  cases h with
+  | keyword k => cases k <;> decide
+  | intType hd => exact List.forall_mem_cons.mpr ⟨by decide, fun c hc => (hd.isDigits c hc).nameChar⟩
+
+/-- Significant lexemes contain neither whitespace nor a comment opener. -/
+theorem TokenRepresentation.significant_chars (h : TokenRepresentation piece tok)
+    (ht : ¬tok.isTrivia) : ∀ c ∈ piece, ¬isWs c ∧ c ≠ ';' := by
+  cases h with
+  | eof | ws _ _ | comment _ _ | commentEof _ => simp_all [Token.isTrivia]
+  | punct p => cases p <;> decide
+  | word hw => exact fun c hc => (hw.nameChars c hc).not_ws_or_semicolon
+  | label name hn =>
+      exact List.forall_mem_append.mpr
+        ⟨fun c hc => (hn.1.2 c hc).not_ws_or_semicolon, by decide⟩
+  | global name hn | «local» name hn =>
+      exact List.forall_mem_cons.mpr ⟨by decide, fun c hc => (hn.nameChars c hc).not_ws_or_semicolon⟩
+  | integer hd => exact fun c hc => (hd.nameChars c hc).not_ws_or_semicolon
+
+theorem TokenRepresentation.trivia (h : TokenRepresentation piece tok)
+    (ht : tok.isTrivia) :
+    (∀ c ∈ piece, isWs c) ∨ ∃ cs, piece = ';' :: cs := by
+  cases h <;> simp_all [Token.isTrivia]
+  rename_i hw; cases hw <;> simp at ht
+
+theorem TokenRepresentation.maximal_space (h : TokenRepresentation piece tok)
+    (ht : ¬tok.isTrivia) (hne : tok ≠ .Eof) :
+    MaximalToken piece (' ' :: rest) := by
+  obtain ⟨c, cs, rfl⟩ := List.exists_cons_of_ne_nil (h.ne_nil_iff.mpr hne)
+  intro n hn _ tok hr
+  obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : n ≠ 0)
+  have hs := fun ht' => (hr.significant_chars ht' ' ' (by simp)).1 (by decide)
+  rcases hr.trivia (Classical.byContradiction hs) with hw | ⟨_, he⟩
+  · exact (h.significant_chars ht c (by simp)).1 (hw c (by simp))
+  · exact (h.significant_chars ht c (by simp)).2 (List.cons_eq_cons.mp he).1
+
+theorem TokenRepresentation.space_boundary (tok : Token) : WordBoundary tok (' ' :: rest) := by
+  cases tok <;> decide
+
+theorem TokenRepresentation.first_not_ws (h : TokenRepresentation piece tok)
+    (ht : ¬tok.isTrivia) (hne : tok ≠ .Eof) :
+    ∀ c cs, piece ++ rest = c :: cs → ¬isWs c := by
+  obtain ⟨c, cs, rfl⟩ := List.exists_cons_of_ne_nil (h.ne_nil_iff.mpr hne)
+  simpa using (h.significant_chars ht c (by simp)).1
+
+/-- No lexeme starts with a space followed by a non-whitespace character. -/
+theorem recognize_space_cons (hc : ¬isWs c) : recognize (' ' :: c :: cs) = none := by
+  simp [recognize, hc, labelName, nameChar, nameStart, asciiAlpha, isDigit, classifyWordRelevant,
+    Keyword.all, Keyword.spelling, decideDecimal, decideDigits, digitStep, decideDigit]
+
+theorem Lexes.space (h : Lexes input ts) (hc : ∀ c cs, input = c :: cs → ¬isWs c) :
+    Lexes (' ' :: input) (([' '], .ws) :: ts) := by
+  refine .token ⟨.ws (s := [' ']) (by simp) (by decide), fun n hn hl tok hr => ?_, trivial⟩ (by decide) h
+  obtain ⟨c, cs, rfl⟩ := List.exists_cons_of_ne_nil (l := input) (by rintro rfl; simp at hl; omega)
+  obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : n ≠ 0)
+  simpa [recognize_space_cons (hc c cs rfl)] using recognize_eq_some_iff.mpr hr
+
+theorem printTokens_cons (hne : tok ≠ .Eof) :
+    (printTokens (tok :: ts)).toList = tok.spelling.toList ++ ' ' :: (printTokens ts).toList := by
+  simp [printTokens, hne, String.toList_append]
+
+theorem significant_cons : significant ((p, tok) :: ts) =
+    if tok.isTrivia then significant ts else tok :: significant ts := by
+  by_cases tok.isTrivia <;> simp [significant, *]
+
+/-- Reprint significant lexemes, each followed by a whitespace lexeme. -/
+theorem Lexes.reprint (h : Lexes input ts) :
+    ∃ printed, Lexes (printTokens (significant ts)).toList printed ∧
+      significant printed = significant ts ∧
+      ∀ c cs, (printTokens (significant ts)).toList = c :: cs → ¬isWs c := by
+  induction h with
+  | eof => exact ⟨_, .eof, rfl, by simp [printTokens, significant, Token.isTrivia]⟩
+  | @token piece rest tok ts hm hne hl ih =>
+      obtain ⟨printed, hp, he, hc⟩ := ih
+      rw [significant_cons]; split
+      · exact ⟨printed, hp, he, hc⟩
+      rw [printTokens_cons hne]
+      refine ⟨_, .token ⟨hm.1.spelling, hm.1.spelling.maximal_space ‹_› hne,
+        TokenRepresentation.space_boundary tok⟩ hne (hp.space hc), ?_, hm.1.spelling.first_not_ws ‹_› hne⟩
+      simp [significant_cons, *, show Token.ws.isTrivia from .inl rfl]
+
+/-- Printing and retokenizing preserves any token stream produced by the lexer. -/
+theorem tokenizer'_printTokens_round_trip (h : tokenizer' s = .ok ts) :
+    tokenizer' (printTokens ts) = .ok ts := by
+  obtain ⟨lexemes, hs, rfl⟩ : ∃ l, tokenizer s = .ok l ∧ significant l = ts := by
+    revert h; unfold tokenizer'; cases tokenizer s <;> simp [Except.map, significant]
+  obtain ⟨printed, hp, he, -⟩ := (tokenizer_eq_ok_iff.mp hs).reprint
+  rw [tokenizer', tokenizer_success hp, ← he]; rfl
+
 
 def Parses : List (List Char × Token) → LLVMModule → Prop := sorry
 /-- Every name is defined exactly once, numbering is consecutive, phis come first, ... -/
