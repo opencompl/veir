@@ -229,7 +229,19 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     let ⟨w, l⟩ ← Comb.sameWidthOperands operands
     let [x] := l | none
     return (#[.int w (Veir.Data.Comb.reverse x)], none)
-  | _ => none
+  -- Division and remainder. Poison on a zero divisor; see the note in `Veir.Data.Comb`.
+  | .divu => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+                let [x, y] := l | none
+                return (#[.int w (Veir.Data.Comb.divu x y)], none)
+  | .divs => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+                let [x, y] := l | none
+                return (#[.int w (Veir.Data.Comb.divs x y)], none)
+  | .modu => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+                let [x, y] := l | none
+                return (#[.int w (Veir.Data.Comb.modu x y)], none)
+  | .mods => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+                let [x, y] := l | none
+                return (#[.int w (Veir.Data.Comb.mods x y)], none)
 
 instance : HasOpInfo Comb where
   verifyLocalInvariants := Comb.verifyLocalInvariants

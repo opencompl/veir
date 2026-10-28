@@ -281,3 +281,39 @@ private def testBitManipulation : String := Id.run do
 #guard_msgs in
 #eval! testBitManipulation
 
+/-! ### Division and remainder
+
+`comb`'s division is **not** `LLVM`'s: CIRCT has no `exact` flag, and leaves division by zero
+undefined rather than giving it a value. `Data.Comb` takes the stricter reading and returns poison,
+which is the one that cannot silently produce a wrong answer.
+
+At width 4, `9` is `-7` signed and `6` is `6`, so the signed and unsigned forms disagree on every
+case below and neither is a copy of the other.
+-/
+
+private def testDivision : String := Id.run do
+  if comb .divu () #[ity 4] #[i 4 9, i 4 2] != some 4 then return "divu"
+  if comb .modu () #[ity 4] #[i 4 9, i 4 2] != some 1 then return "modu"
+  -- -7 / 2 is -3, rounding toward zero, which is 13 at four bits.
+  if comb .divs () #[ity 4] #[i 4 9, i 4 2] != some 13 then return "divs"
+  -- -7 % 2 is -1, which is 15.
+  if comb .mods () #[ity 4] #[i 4 9, i 4 2] != some 15 then return "mods"
+  -- Signed and unsigned really do differ, so these are four tests and not two written twice.
+  if comb .divu () #[ity 4] #[i 4 9, i 4 2] == comb .divs () #[ity 4] #[i 4 9, i 4 2] then
+    return "divu and divs agree"
+  if comb .modu () #[ity 4] #[i 4 9, i 4 2] == comb .mods () #[ity 4] #[i 4 9, i 4 2] then
+    return "modu and mods agree"
+  -- A zero divisor is poison, not a trap and not a value. Written out rather than looped:
+  -- `propertiesOf` only reduces to `Unit` for a concrete opcode.
+  if !combIsPoison .divu () #[ity 4] #[i 4 9, i 4 0] then return "divu by zero"
+  if !combIsPoison .divs () #[ity 4] #[i 4 9, i 4 0] then return "divs by zero"
+  if !combIsPoison .modu () #[ity 4] #[i 4 9, i 4 0] then return "modu by zero"
+  if !combIsPoison .mods () #[ity 4] #[i 4 9, i 4 0] then return "mods by zero"
+  -- Binary, so three operands are refused rather than folded.
+  if (comb .divu () #[ity 4] #[i 4 9, i 4 2, i 4 1]).isSome then return "divu took three"
+  return "ok"
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testDivision
+
