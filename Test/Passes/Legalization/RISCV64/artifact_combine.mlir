@@ -46,7 +46,12 @@
     // CHECK-NEXT: %[[X_I1:.*]] = "llvm.mlir.constant"() <{"value" = true}> : () -> i1
     // CHECK-NEXT: "gmir.g_anyext"(%[[X_I1]]) : (i1) -> i64
 
-    "test.test"(%ext, %and, %narrower, %wider, %or, %ext_ext) : (i64, i8, i32, i64, i8, i64) -> ()
+    // A `g_trunc (g_trunc x)` is a `g_trunc` of `x`. As in LLVM, the new `g_trunc` has no flags.
+    %trunc_i16 = "gmir.g_trunc"(%x_i64) <{overflowFlags = 3 : i32}> : (i64) -> i16
+    %trunc_trunc = "gmir.g_trunc"(%trunc_i16) <{overflowFlags = 3 : i32}> : (i16) -> i8
+    // CHECK-NEXT: "gmir.g_trunc"(%[[X_I64]]) : (i64) -> i8
+
+    "test.test"(%ext, %and, %narrower, %wider, %or, %ext_ext, %trunc_trunc) : (i64, i8, i32, i64, i8, i64, i8) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()
