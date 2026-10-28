@@ -256,20 +256,18 @@ inductive TokenRepresentation : List Char → Token → Prop where
       TokenRepresentation ('%' :: name.toList) (.LocalVar name)
   | integer {s : List Char} {value : Int} : decimalInteger s value →
       TokenRepresentation s (.APSInt value)
-/-- The chosen lexeme cannot be extended to another token at this position. -/
-def MaximalToken (piece rest : List Char) : Prop :=
-  ∀ n, 0 < n → n ≤ rest.length → ∀ tok, ¬TokenRepresentation (piece ++ rest.take n) tok
+/-- Lexical units include unsupported words, so classification cannot split a word. -/
+def LexemeRepresentation (piece : List Char) : Prop :=
+  (∃ tok, TokenRepresentation piece tok) ∨
+    (piece ≠ [] ∧ ∀ c ∈ piece, nameChar c)
 
-/-- A word token must end before the next name character. -/
-def WordBoundary (tok : Token) (rest : List Char) : Prop :=
-  match tok, rest with
-  | .kw _, (c :: _)
-  | .intType _, (c :: _)  => ¬nameChar c
-  | _, _ => True
+/-- No longer lexical unit starts at this position, including unsupported words. -/
+def MaximalLexeme (piece rest : List Char) : Prop :=
+  ∀ n, 0 < n → n ≤ rest.length → ¬LexemeRepresentation (piece ++ rest.take n)
 
-/-- `piece` spells `tok` and is the longest lexeme at this position. -/
+/-- Classify the entire maximal lexical unit as a supported token. -/
 def LongestMatch (piece : List Char) (tok : Token) (rest : List Char) : Prop :=
-  TokenRepresentation piece tok ∧ MaximalToken piece rest ∧ WordBoundary tok rest
+  TokenRepresentation piece tok ∧ MaximalLexeme piece rest
 
 /-- Splits source text into tokens, including whitespace and comments. -/
 inductive Lexes : List Char → List (List Char × Token) → Prop where
@@ -464,12 +462,30 @@ theorem longestPrefix_eq_some_iff : longestPrefix decode xs = some (p, t, r) ↔
     simpa [List.take_append, List.take_of_length_le (by omega : p.length ≤ x)] using
       hn (x - p.length) (by omega) (by simp at hx; omega)
 
-/-- Specializing generic search to the independent LLVM spelling relation. -/
-theorem longestPrefix_recognize :
-    longestPrefix recognize input = some (piece, tok, rest) ↔
-    input = piece ++ rest ∧ TokenRepresentation piece tok ∧ MaximalToken piece rest := by
-  simp [longestPrefix_eq_some_iff, recognize_eq_some_iff, MaximalToken,
-    Option.eq_none_iff_forall_ne_some]
+/-- Recognize lexical shape without requiring a supported token classification. -/
+def recognizeLexeme (piece : List Char) : Option Unit :=
+  if (recognize piece).isSome ∨ (piece ≠ [] ∧ ∀ c ∈ piece, nameChar c)
+  then some () else none
+
+theorem recognizeLexeme_eq_some_iff :
+    recognizeLexeme piece = some () ↔ LexemeRepresentation piece := by
+  simp [recognizeLexeme, LexemeRepresentation, Option.isSome_iff_exists,
+    recognize_eq_some_iff]
+  grind
+
+theorem recognizeLexeme_eq_none_iff :
+    recognizeLexeme piece = none ↔ ¬LexemeRepresentation piece := by
+  rw [← recognizeLexeme_eq_some_iff]
+  cases recognizeLexeme piece with
+  | none => simp
+  | some u => cases u; simp
+
+/-- Length selection is independent of classification of the selected unit. -/
+theorem longestPrefix_lexeme :
+    longestPrefix recognizeLexeme input = some (piece, (), rest) ↔
+    input = piece ++ rest ∧ LexemeRepresentation piece ∧ MaximalLexeme piece rest := by
+  simp [longestPrefix_eq_some_iff, recognizeLexeme_eq_some_iff, MaximalLexeme,
+    recognizeLexeme_eq_none_iff]
 
 structure ScanResult where
   piece : List Char
@@ -480,10 +496,6 @@ structure ScanResult where
 def ScanResult.toTuple (result : ScanResult) : List Char × Token × List Char :=
   (result.piece, result.tok, result.rest)
 
-instance (tok : Token) : DecidablePred (WordBoundary tok) := fun rest => by
-  unfold WordBoundary
-  cases tok <;> cases rest <;> simp only <;> infer_instance
-
 /-- Preserve the dispatcher's diagnostics when no valid token can be consumed. -/
 def rejection : List Char → TokenizationError
   | [] => .noProgress
@@ -493,24 +505,37 @@ def rejection : List Char → TokenizationError
         .unsupportedWord (String.ofList ((c :: cs).takeWhile (fun c => decide (nameChar c))))
       else .unexpectedChar c
 
-/-- Select the longest spelling first, then check its boundary. A failed boundary
-must not cause fallback to a shorter token. EOF is emitted by `tokenizerChars`. -/
+/-- Select a whole lexical unit, then classify it. EOF is emitted by `tokenizerChars`. -/
 def scanOne (input : List Char) : Except TokenizationError ScanResult :=
-  match longestPrefix recognize input with
-  | some (piece, tok, rest) =>
-      if piece ≠ [] ∧ WordBoundary tok rest then .ok ⟨piece, tok, rest⟩
-      else .error (rejection input)
+  match longestPrefix recognizeLexeme input with
+  | some (piece, (), rest) =>
+      match recognize piece with
+      | some tok => if piece ≠ [] then .ok ⟨piece, tok, rest⟩ else .error (rejection input)
+      | none => .error (rejection input)
   | none => .error (rejection input)
+
+-- Unsupported words remain whole; a longer supported label is still selected.
+#guard (scanOne "i32 ".toList).map ScanResult.toTuple ==
+  .ok ("i32".toList, .intType 32, [' '])
+#guard (scanOne "i32foo ".toList).map ScanResult.toTuple ==
+  .error (.unsupportedWord "i32foo")
+#guard (scanOne "addendum".toList).map ScanResult.toTuple ==
+  .error (.unsupportedWord "addendum")
+#guard (scanOne "123abc".toList).map ScanResult.toTuple ==
+  .error (.unsupportedWord "123abc")
+#guard (scanOne "i32foo:".toList).map ScanResult.toTuple ==
+  .ok ("i32foo:".toList, .LabelStr "i32foo", [])
 
 theorem scanOne_eq_ok_iff : scanOne input = .ok result ↔
     input = result.piece ++ result.rest ∧ result.piece ≠ [] ∧
     LongestMatch result.piece result.tok result.rest := by
   rcases result with ⟨piece, tok, rest⟩
-  refine ⟨fun h => ?_, fun ⟨hs, hne, ht, hm, hb⟩ => ?_⟩
+  refine ⟨fun h => ?_, fun ⟨hs, hne, ht, hm⟩ => ?_⟩
   · unfold scanOne at h
-    split at h <;> (try split at h) <;> cases h
-    simp_all [longestPrefix_recognize, LongestMatch]
-  · simp [scanOne, longestPrefix_recognize.mpr ⟨hs, ht, hm⟩, hne, hb]
+    split at h <;> (try split at h) <;> (try split at h) <;> cases h
+    simp_all [longestPrefix_lexeme, recognize_eq_some_iff, LongestMatch]
+  · simp [scanOne, longestPrefix_lexeme.mpr ⟨hs, .inl ⟨tok, ht⟩, hm⟩,
+      recognize_eq_some_iff.mpr ht, hne]
 
 theorem scanOne_progress (h : scanOne input = .ok result) :
     result.rest.length < input.length := by
@@ -525,16 +550,16 @@ theorem TokenRepresentation.ne_nil_iff (h : TokenRepresentation piece tok) :
   · subst hp; simp [← recognize_eq_some_iff, recognize] at h; exact ht h.symm
 
 theorem scanOne_success_result (hr : TokenRepresentation piece tok) (hne : tok ≠ .Eof)
-    (hm : MaximalToken piece rest) (hb : WordBoundary tok rest) :
+    (hm : MaximalLexeme piece rest) :
     scanOne (piece ++ rest) = .ok ⟨piece, tok, rest⟩ :=
-  scanOne_eq_ok_iff.mpr ⟨rfl, hr.ne_nil_iff.mpr hne, hr, hm, hb⟩
+  scanOne_eq_ok_iff.mpr ⟨rfl, hr.ne_nil_iff.mpr hne, hr, hm⟩
 
 /-- Scanning a specified maximal non-EOF lexeme returns that exact lexeme. -/
 theorem scanOne_success {piece rest : List Char} {tok : Token} :
     TokenRepresentation piece tok → tok ≠ .Eof →
-    MaximalToken piece rest → WordBoundary tok rest →
+    MaximalLexeme piece rest →
     (scanOne (piece ++ rest)).map ScanResult.toTuple = .ok (piece, tok, rest) := by
-  intro hr hne hm hb; rw [scanOne_success_result hr hne hm hb]; rfl
+  intro hr hne hm; rw [scanOne_success_result hr hne hm]; rfl
 
 /-- The executable lexer for the token subset above. -/
 def tokenizerChars : List Char → Except TokenizationError (List (List Char × Token))
@@ -586,7 +611,7 @@ theorem tokenizerChars_complete (h : Lexes input ts) : tokenizerChars input = .o
   induction h with
   | eof => simp [tokenizerChars]
   | @token piece rest tok ts hm hne hl ih =>
-      have hs := scanOne_success_result hm.1 hne hm.2.1 hm.2.2
+      have hs := scanOne_success_result hm.1 hne hm.2
       have hp := hm.1.ne_nil_iff.mpr hne
       cases piece <;> simp_all [tokenizerChars]
       split <;> simp_all <;> rfl
@@ -718,17 +743,16 @@ theorem TokenRepresentation.trivia (h : TokenRepresentation piece tok)
 
 theorem TokenRepresentation.maximal_space (h : TokenRepresentation piece tok)
     (ht : ¬tok.isTrivia) (hne : tok ≠ .Eof) :
-    MaximalToken piece (' ' :: rest) := by
+    MaximalLexeme piece (' ' :: rest) := by
   obtain ⟨c, cs, rfl⟩ := List.exists_cons_of_ne_nil (h.ne_nil_iff.mpr hne)
-  intro n hn _ tok hr
+  intro n hn _ hr
   obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : n ≠ 0)
-  have hs := fun ht' => (hr.significant_chars ht' ' ' (by simp)).1 (by decide)
-  rcases hr.trivia (Classical.byContradiction hs) with hw | ⟨_, he⟩
-  · exact (h.significant_chars ht c (by simp)).1 (hw c (by simp))
-  · exact (h.significant_chars ht c (by simp)).2 (List.cons_eq_cons.mp he).1
-
-theorem TokenRepresentation.space_boundary (tok : Token) : WordBoundary tok (' ' :: rest) := by
-  cases tok <;> exact of_decide_eq_true rfl
+  rcases hr with ⟨tok, hr⟩ | ⟨_, hw⟩
+  · have hs := fun ht' => (hr.significant_chars ht' ' ' (by simp)).1 (by decide)
+    rcases hr.trivia (Classical.byContradiction hs) with hw | ⟨_, he⟩
+    · exact (h.significant_chars ht c (by simp)).1 (hw c (by simp))
+    · exact (h.significant_chars ht c (by simp)).2 (List.cons_eq_cons.mp he).1
+  · exact (by decide : ¬nameChar ' ') (hw ' ' (by simp))
 
 theorem TokenRepresentation.first_not_ws (h : TokenRepresentation piece tok)
     (ht : ¬tok.isTrivia) (hne : tok ≠ .Eof) :
@@ -743,10 +767,12 @@ theorem recognize_space_cons (hc : ¬isWs c) : recognize (' ' :: c :: cs) = none
 
 theorem Lexes.space (h : Lexes input ts) (hc : ∀ c cs, input = c :: cs → ¬isWs c) :
     Lexes (' ' :: input) (([' '], .ws) :: ts) := by
-  refine .token ⟨.ws (s := [' ']) (by simp) (by decide), fun n hn hl tok hr => ?_, trivial⟩ (by decide) h
+  refine .token ⟨.ws (s := [' ']) (by simp) (by decide), fun n hn hl hr => ?_⟩ (by decide) h
   obtain ⟨c, cs, rfl⟩ := List.exists_cons_of_ne_nil (l := input) (by rintro rfl; simp at hl; omega)
   obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : n ≠ 0)
-  simpa [recognize_space_cons (hc c cs rfl)] using recognize_eq_some_iff.mpr hr
+  rcases hr with ⟨tok, hr⟩ | ⟨_, hw⟩
+  · simpa [recognize_space_cons (hc c cs rfl)] using recognize_eq_some_iff.mpr hr
+  · exact (by decide : ¬nameChar ' ') (hw ' ' (by simp))
 
 theorem printTokens_cons (hne : tok ≠ .Eof) :
     (printTokens (tok :: ts)).toList = tok.spelling.toList ++ ' ' :: (printTokens ts).toList := by
@@ -768,8 +794,8 @@ theorem Lexes.reprint (h : Lexes input ts) :
       rw [significant_cons]; split
       · exact ⟨printed, hp, he, hc⟩
       rw [printTokens_cons hne]
-      refine ⟨_, .token ⟨hm.1.spelling, hm.1.spelling.maximal_space ‹_› hne,
-        TokenRepresentation.space_boundary tok⟩ hne (hp.space hc), ?_, hm.1.spelling.first_not_ws ‹_› hne⟩
+      refine ⟨_, .token ⟨hm.1.spelling, hm.1.spelling.maximal_space ‹_› hne⟩
+        hne (hp.space hc), ?_, hm.1.spelling.first_not_ws ‹_› hne⟩
       simp [significant_cons, *, show Token.ws.isTrivia from .inl rfl]
 
 /-- Printing a valid token stream gives lexemes with the same significant tokens. -/
@@ -782,7 +808,7 @@ theorem IsValidTokenStream.print_lexes (h : IsValidTokenStream ts) :
       obtain ⟨printed, hp, he, hc⟩ := ih
       have hr := TokenRepresentation.spelling2 hv
       rw [printTokens_cons hne]
-      refine ⟨_, .token ⟨hr, hr.maximal_space ht hne, TokenRepresentation.space_boundary tok⟩
+      refine ⟨_, .token ⟨hr, hr.maximal_space ht hne⟩
         hne (hp.space hc), ?_, hr.first_not_ws ht hne⟩
       simp [significant_cons, ht, he, show Token.ws.isTrivia from .inl rfl]
 
