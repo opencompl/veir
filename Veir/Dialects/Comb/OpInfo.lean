@@ -188,6 +188,15 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     let .ofNat predNat := properties.predicate.value | none
     let pred ← Data.LLVM.IntPred.fromNat predNat
     return (#[.int 1 (Veir.Data.Comb.icmp (w := w) pred x y)], none)
+  -- `mux` is not folded through `sameWidthOperands`: its condition is an `i1` while its arms are
+  -- at the result width, so the operands are deliberately not all one width.
+  | .mux => do
+    let #[c, t, f] := operands | none
+    let .int 1 c := c | none
+    let .int w t := t | none
+    let .int w' f := f | none
+    if h : w' ≠ w then none else
+    return (#[.int w (Veir.Data.Comb.mux c t (f.cast (by simpa using h)))], none)
   | _ => none
 
 instance : HasOpInfo Comb where
