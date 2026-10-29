@@ -41,4 +41,17 @@ theorem Llvm.tryFold_add_correct (opType : op.getOpType! ctx.raw = .llvm .add) :
     simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Llvm.interpretOp',
       LLVM.Int.cast_self, LLVM.Int.add_zero, Interp.isRefinedBy]
 
+/-- Every `llvm` fold table entry is correct. The case analysis is exhaustive:
+adding a table entry without a proof breaks this theorem. -/
+theorem Llvm.tryFold_correct (opType : op.getOpType! ctx.raw = .llvm llvmOp) :
+    FoldTable.CorrectAt ctx op := by
+  by_cases hAdd : llvmOp = .add
+  · exact Llvm.tryFold_add_correct (hAdd ▸ opType)
+  apply FoldTable.CorrectAt.of_tryFold_none
+  generalize op.getOpType! ctx.raw = opCode at *
+  subst opType
+  intro properties resultTypes known
+  simp only [HasOpInfo.tryFold, OpCode.tryFold, Llvm.tryFold]
+  split <;> simp_all
+
 end Veir

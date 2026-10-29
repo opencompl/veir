@@ -111,6 +111,14 @@ theorem CorrectAt.of_verified {ctx : WfIRContext OpCode} {op : OperationPtr}
   hasTypes verified := (h _ verified).hasTypes verified
   preservesSemantics verified := (h _ verified).preservesSemantics verified
 
+/-- An operation whose opcode never folds is trivially correct. -/
+theorem CorrectAt.of_tryFold_none {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (h : ∀ properties resultTypes known,
+      HasOpInfo.tryFold (op.getOpType! ctx.raw) properties resultTypes known = none) :
+    CorrectAt ctx op where
+  hasTypes _ known decisions _ hFold := by simp [h] at hFold
+  preservesSemantics _ known decisions hFold := by simp [h] at hFold
+
 /-- Reduce an integer binary fold with a known right operand to its typing and
 value semantics. The lookup describes which decisions are returned; this helper
 handles width agreement and every consistent runtime completion. The right

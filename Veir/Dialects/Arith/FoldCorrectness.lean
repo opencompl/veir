@@ -87,4 +87,19 @@ theorem Arith.tryFold_addui_extended_correct
       LLVM.Int.cast_self, LLVM.Int.add_zero, Interp.isRefinedBy, OperationResult.isRefinedBy,
       RuntimeValue.isRefinedBy, LLVM.Int.uaddOverflowFlag_zero]
 
+/-- Every `arith` fold table entry is correct. The case analysis is exhaustive:
+adding a table entry without a proof breaks this theorem. -/
+theorem Arith.tryFold_correct (opType : op.getOpType! ctx.raw = .arith arithOp) :
+    FoldTable.CorrectAt ctx op := by
+  by_cases hAddi : arithOp = .addi
+  · exact Arith.tryFold_addi_correct (hAddi ▸ opType)
+  by_cases hAddUiExtended : arithOp = .addui_extended
+  · exact Arith.tryFold_addui_extended_correct (hAddUiExtended ▸ opType)
+  apply FoldTable.CorrectAt.of_tryFold_none
+  generalize op.getOpType! ctx.raw = opCode at *
+  subst opType
+  intro properties resultTypes known
+  simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold]
+  split <;> simp_all
+
 end Veir

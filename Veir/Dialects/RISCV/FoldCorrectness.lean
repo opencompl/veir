@@ -70,4 +70,17 @@ theorem Riscv.tryFold_andi_correct (opType : op.getOpType! ctx.raw = .riscv .and
     simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Riscv.interpretOp',
       RISCVImmediateProperties.immField, hZero, RISCV.andi, Interp.isRefinedBy]
 
+/-- Every `riscv` fold table entry is correct. The case analysis is exhaustive:
+adding a table entry without a proof breaks this theorem. -/
+theorem Riscv.tryFold_correct (opType : op.getOpType! ctx.raw = .riscv riscvOp) :
+    FoldTable.CorrectAt ctx op := by
+  by_cases hAndi : riscvOp = .andi
+  · exact Riscv.tryFold_andi_correct (hAndi ▸ opType)
+  apply FoldTable.CorrectAt.of_tryFold_none
+  generalize op.getOpType! ctx.raw = opCode at *
+  subst opType
+  intro properties resultTypes known
+  simp only [HasOpInfo.tryFold, OpCode.tryFold, Riscv.tryFold]
+  split <;> simp_all
+
 end Veir
