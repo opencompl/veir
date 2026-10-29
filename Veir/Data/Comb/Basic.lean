@@ -152,3 +152,35 @@ def reverse {w : Nat} (x : LLVM.Int w) : LLVM.Int w :=
           acc := acc ||| (BitVec.twoPow w (w - 1 - i))
       .val acc
 
+/-! ### Division
+
+`comb`'s division and remainder are **not** `LLVM`'s: CIRCT leaves division by zero undefined
+rather than poison, and has no `exact` flag. They are given here as poison on a zero divisor,
+which is the stricter of the two readings and the one that cannot silently produce a wrong answer;
+anything relying on a particular value for `x / 0` should not.
+-/
+
+/-- `comb.divu`, unsigned. Poison on a zero divisor -- see the section note. -/
+def divu {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y == 0#w then .poison else .val (x / y)
+  | _, _ => .poison
+
+/-- `comb.divs`, signed. Poison on a zero divisor. -/
+def divs {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y == 0#w then .poison else .val (BitVec.sdiv x y)
+  | _, _ => .poison
+
+/-- `comb.modu`, unsigned. Poison on a zero divisor. -/
+def modu {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y == 0#w then .poison else .val (x % y)
+  | _, _ => .poison
+
+/-- `comb.mods`, signed. Poison on a zero divisor. -/
+def mods {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y == 0#w then .poison else .val (BitVec.srem x y)
+  | _, _ => .poison
+
