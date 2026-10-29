@@ -21,8 +21,8 @@ public section
 namespace Veir
 open Data
 
-/-- The operand and result types of a verified `arith.addui_extended`: two operands and a sum of
-one integer type, and an `i1` carry. -/
+/-- The operand and result types of a verified `arith.addui_extended`: both operands and the sum
+share one integer type, and the carry is `i1`. -/
 theorem OperationPtr.Verified.arith_addui_extended {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds} (opVerify : op.Verified ctx opInBounds)
     (opType : op.getOpType! ctx.raw = .arith .addui_extended) :
