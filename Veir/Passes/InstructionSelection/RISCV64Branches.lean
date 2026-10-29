@@ -206,17 +206,35 @@ def fillsRegister (type : TypeAttr) : Bool :=
   | _ => false
 
 /--
-  Match the branch condition `cond` against `g_icmp pred lhs rhs`, and return the
-  compare-and-branch that replaces it. The operands must fill a register, as they do once the
-  `g_icmp` is legal.
+  Match the condition of the `g_brcond` `branch` against `g_icmp pred lhs rhs`, and return the
+  compare-and-branch that replaces both. The operands must fill a register, as they do once the
+  `g_icmp` is legal. The compare-and-branch reads `lhs` and `rhs` where the branch is, so the
+  `g_icmp` must come right before the branch and must not compare its own result: then the values
+  it compared are still those of `lhs` and `rhs`.
 -/
-def matchCompare (ctx : IRContext OpCode) (cond : ValuePtr) :
+def matchCompare (ctx : IRContext OpCode) (branch : OperationPtr) :
     Option (CondBranch × Option ValuePtr × Option ValuePtr) := do
+  guard (branch.getOpType! ctx = OpCode.gmir .g_brcond)
+  let cond := branch.getOperand! ctx 0
   let .opResult icmp := cond | none
+  guard (branch.getPrevOp! ctx = some icmp.op)
   let (operands, props) ← matchOp icmp.op ctx GMIR.g_icmp 2
+  guard (operands[0]! ≠ cond && operands[1]! ≠ cond)
   guard (fillsRegister (operands[0]!.getType! ctx))
   return compareBranch props.predicate operands[0]! operands[1]!
     (matchGConstantIntVal operands[1]! ctx)
+
+/--
+  The values whose registers the RISC-V branch that replaces `op` takes, where `none` is `x0`:
+  those of the operands of `op`, except that a compare-and-branch takes the two compared values
+  in place of the condition.
+-/
+def regOperands (ctx : IRContext OpCode) (op : OperationPtr)
+    (compare : Option (CondBranch × Option ValuePtr × Option ValuePtr)) : List (Option ValuePtr) :=
+  let operands := (List.range (op.getNumOperands! ctx)).map (op.getOperand! ctx ·)
+  match compare with
+  | some (_, lhs, rhs) => lhs :: rhs :: (operands.drop 1).map some
+  | none => operands.map some
 
 /-- Whether `op` is a branch the pass rewrites, or a RISC-V branch that is already lowered. -/
 def isLoweredBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
@@ -264,9 +282,11 @@ def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) 
   Replace the terminator `op` by its RISC-V counterpart if it is a `g_br`,
   a `g_brcond` or an `llvm.unreachable`, and leave any other operation
   alone. A branch to a block that cannot be converted is left alone as well.
+  `compareOf` gives the compare-and-branch that replaces a `g_brcond`, if any.
 -/
-def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode)
-    (op : OperationPtr) : Except String (WfIRContext OpCode) :=
+def convertBranch (convertible : BlockPtr → Bool)
+    (compareOf : OperationPtr → Option (CondBranch × Option ValuePtr × Option ValuePtr))
+    (ctx : WfIRContext OpCode) (op : OperationPtr) : Except String (WfIRContext OpCode) :=
   if op.getOpType! ctx = OpCode.llvm .unreachable then
     match WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[] #[] #[] ()
         (InsertPoint.before op) with
@@ -278,25 +298,20 @@ def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode)
     pure ctx
   else do
     let ip := InsertPoint.before op
-    let opType := op.getOpType! ctx.raw
-    let operands := (List.range (op.getNumOperands! ctx.raw)).map (op.getOperand! ctx.raw ·)
-    let successors := op.getSuccessors! ctx.raw
     -- Read `ctx` before the casts: any later read makes the first cast copy the whole context.
-    let condProps := op.getProperties! ctx.raw GMIR.g_brcond
-    let compare :=
-      if opType = OpCode.gmir .g_brcond then matchCompare ctx.raw operands[0]! else none
-    -- A compare-and-branch takes the two compared values in place of the condition.
-    let operands := match compare with
-      | some (_, lhs, rhs) => lhs :: rhs :: (operands.drop 1).map some
-      | none => operands.map some
-    let (ctx', regs) ← operands.foldlM (regOf ip) (ctx, #[])
+    let isBr := op.getOpType! ctx.raw = OpCode.gmir .g_br
+    let successors := op.getSuccessors! ctx.raw
+    let segments := (op.getProperties! ctx.raw (OpCode.gmir .g_brcond) : GMIRBrCondProperties)
+      |>.operandSegmentSizes
+    let compare := compareOf op
+    let (ctx', regs) ← (regOperands ctx.raw op compare).foldlM (regOf ip) (ctx, #[])
     let ctx' ←
-      if opType = OpCode.gmir .g_br then
+      if isBr then
         match WfRewriter.createOp! ctx' Riscv_Cf.branch #[] regs successors #[] default ip with
         | some (ctx', _) => pure ctx'
         | none => throw "isel-br-riscv64: cannot create riscv_cf.branch"
       else
-        let segments := condProps.operandSegmentSizes
+        -- A compare-and-branch takes the two compared values in front of the operands.
         let (branch, segments) : CondBranch × DenseArrayAttr := match compare with
           | some (branch, _, _) => (branch, { segments with values := #[1] ++ segments.values })
           | none => (⟨.bnez, rfl⟩, segments)
@@ -335,9 +350,9 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   (List.range (block.getNumArguments! ctx.raw)).reverse.foldlM (convertBlockArgument block) ctx
 
 /--
-  The pure core of the pass. The operations to visit and the blocks that can
-  be converted are fixed up front, so the operations the pass creates are not
-  visited.
+  The pure core of the pass. The operations to visit, the blocks that can be
+  converted and the compares to fuse with a branch are fixed up front, so the
+  operations the pass creates are not visited.
 -/
 def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
   let ops := ctx.raw.operations.keys
@@ -351,7 +366,10 @@ def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode
       block.hasPredecessor! ctx.raw)
   -- As a set, so that each lookup below does not walk the list.
   let convertibleSet := Std.HashSet.ofList convertible
-  let lowered ← ops.foldlM (convertBranch convertibleSet.contains) ctx
+  -- The compares are matched in the module the pass was given.
+  let compares := Std.HashMap.ofList
+    (ops.filterMap fun op => (matchCompare ctx.raw op).map (op, ·))
+  let lowered ← ops.foldlM (convertBranch convertibleSet.contains (compares[·]?)) ctx
   convertible.foldlM convertBlock lowered
 
 /-! # Pass implementation -/
