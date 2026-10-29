@@ -170,6 +170,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .widenScalarToNextPow2 (.type 0),
       .scalarSameSizeAs (.type 1) (.type 0),
     ]
+    -- As in LLVM, these are lowered to `g_ctlz` and `g_cttz`.
+    | .g_ctlz_zero_poison | .g_cttz_zero_poison => [
+      .lower,
+    ]
     | .g_bswap => [
       .legalFor [s64],
       .minScalar (.type 0) 64,
