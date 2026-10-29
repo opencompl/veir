@@ -28,8 +28,11 @@
   %umin = "gmir.g_umin"(%a, %b) : (i32, i32) -> i32
   %umax = "gmir.g_umax"(%a, %b) : (i32, i32) -> i32
   %abs = "gmir.g_abs"(%a) : (i32) -> i32
+  %select = "gmir.g_select"(%c, %d, %d) : (i64, i8, i8) -> i8
   %ctlz = "gmir.g_ctlz"(%a) : (i32) -> i8
   %cttz = "gmir.g_cttz"(%a) : (i32) -> i32
+  %ctlz_zero_poison = "gmir.g_ctlz_zero_poison"(%a) : (i32) -> i8
+  %cttz_zero_poison = "gmir.g_cttz_zero_poison"(%a) : (i32) -> i32
   %ctpop = "gmir.g_ctpop"(%c) : (i64) -> i32
   %sext_inreg = "gmir.g_sext_inreg"(%c) <{sz = 32 : i64}> : (i64) -> i64
   %constant = "gmir.g_constant"() <{value = -1 : i8}> : () -> i8
@@ -69,8 +72,11 @@
 // CHECK: "gmir.g_umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
+// CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i8, i8) -> i8
 // CHECK: "gmir.g_ctlz"(%{{.*}}) : (i32) -> i8
 // CHECK: "gmir.g_cttz"(%{{.*}}) : (i32) -> i32
+// CHECK: "gmir.g_ctlz_zero_poison"(%{{.*}}) : (i32) -> i8
+// CHECK: "gmir.g_cttz_zero_poison"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_ctpop"(%{{.*}}) : (i64) -> i32
 // CHECK: "gmir.g_sext_inreg"(%{{.*}}) <{"sz" = 32 : i64}> : (i64) -> i64
 // CHECK: "gmir.g_constant"() <{"value" = -1 : i8}> : () -> i8

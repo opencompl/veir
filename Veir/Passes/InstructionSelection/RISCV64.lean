@@ -32,33 +32,6 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
-/-- `llvm.intr.umax` -> `riscv.maxu`. Width-agnostic: unlike `add`/`sub`/…, the same instruction
-    is used at both bitwidths, since the register already holds the correctly-represented value. -/
-def umax_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__umax) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .maxu ()
-
-/-- `llvm.intr.umin` -> `riscv.minu`. -/
-def umin_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__umin) (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32) .minu ()
-
-/-- `llvm.intr.smax` (`i64`) -> `riscv.max`. -/
-def smax64_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smax) (fun t => t.bitwidth = 64) .max ()
-
-/-- `llvm.intr.smax` (`i32`) -> sign-extend (so negative values order correctly, since
-    `castToRegLocal` zero-extends) then `riscv.max`. -/
-def smax32_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smax) (fun t => t.bitwidth = 32) .max () (extend := some ⟨.sextw, ()⟩)
-
-/-- `llvm.intr.smin` (`i64`) -> `riscv.min`. -/
-def smin64_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smin) (fun t => t.bitwidth = 64) .min ()
-
-/-- `llvm.intr.smin` (`i32`) -> sign-extend (so negative values order correctly, since
-    `castToRegLocal` zero-extends) then `riscv.min`. -/
-def smin32_pattern : Pattern OpCode :=
-  lowerBinary (.llvm .intr__smin) (fun t => t.bitwidth = 32) .min () (extend := some ⟨.sextw, ()⟩)
-
 /--
   RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
   identical).
@@ -96,6 +69,7 @@ def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
 
 /-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
 def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
+
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
@@ -548,136 +522,6 @@ def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
 
-/-! ## Zicond branchless `select` lowering
-
-  The Zicond extension lowers `llvm.select` branchlessly (mirroring LLVM's
-  SelectionDAG lowering of `ISD::SELECT` when `Zicond` is available):
-  ```
-    (select c, t, 0) -> (czero.eqz t, c)
-    (select c, 0, f) -> (czero.nez f, c)
-    (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
-  ```
-  The single-instruction zero-arm cases take priority over the general form;
-  the greedy driver tries patterns in array order, so `selectCzeroeqz` and
-  `selectCzeronez` are registered before `selectGeneral`.
--/
-
-/--
-  `select c t 0` -> `riscv.czeroeqz t c`.
--/
-def selectCzeroeqz_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let condType ← MatchProg.type (Attr := TypeAttr)
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let zeroType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
-      let cond ← MatchProg.value condType
-      let val ← MatchProg.value valType
-      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[zeroType]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
-      let _ ← MatchProg.root (.llvm .select) #[cond, val, zeroOp.res[0]!] #[resType]
-      return (resType, cond, val))
-    (fun (resType, cond, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType]
-      let czOp ← CreateProg.operation (.riscv .czeroeqz)
-          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType]
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  `select c t 0` -> `riscv.czeroeqz t c`.
--/
-def selectCzeroeqz : Puddle.CompiledPattern OpCode := selectCzeroeqz_pattern.compile
-
-/--
-  `select c 0 f` -> `riscv.czeronez f c`.
--/
-def selectCzeronez_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let condType ← MatchProg.type (Attr := TypeAttr)
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let zeroType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
-      let cond ← MatchProg.value condType
-      let val ← MatchProg.value valType
-      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[zeroType]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
-      let _ ← MatchProg.root (.llvm .select) #[cond, zeroOp.res[0]!, val] #[resType]
-      return (resType, cond, val))
-    (fun (resType, cond, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType]
-      let czProps ← CreateProg.property (.riscv .czeronez) ()
-      let czOp ← CreateProg.operation (.riscv .czeronez)
-          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  `select c 0 f` -> `riscv.czeronez f c`.
--/
-def selectCzeronez : Puddle.CompiledPattern OpCode := selectCzeronez_pattern.compile
-
-/--
-  General branchless select:
-  `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
--/
-def selectGeneral_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let condType ← MatchProg.type (Attr := TypeAttr)
-      let tType ← MatchProg.type (Attr := TypeAttr)
-      let fType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 1)
-      let cond ← MatchProg.value condType
-      let tval ← MatchProg.value tType
-      let fval ← MatchProg.value fType
-      let _ ← MatchProg.root (.llvm .select) #[cond, tval, fval] #[resType]
-      return (resType, cond, tval, fval))
-    (fun (resType, cond, tval, fval) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[tval] #[regType]
-      let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[fval] #[regType]
-      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType]
-      let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
-      let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
-          #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
-      let nezProps ← CreateProg.property (.riscv .czeronez) ()
-      let nezOp ← CreateProg.operation (.riscv .czeronez)
-          #[fCastOp.res[0]!, condCastOp.res[0]!] #[regType] nezProps
-      let orProps ← CreateProg.property (.riscv .or) ()
-      let orOp ← CreateProg.operation (.riscv .or)
-          #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  General branchless select:
-  `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
--/
-def selectGeneral : Puddle.CompiledPattern OpCode := selectGeneral_pattern.compile
-
 /-! ## Zbb min/max and rotate intrinsics
 
   These mirror the simple one-to-one patterns in LLVM's RISC-V backend
@@ -687,21 +531,6 @@ def selectGeneral : Puddle.CompiledPattern OpCode := selectGeneral_pattern.compi
   multi-instruction expansion and is intentionally left unselected.
 -/
 
-/-- llvm.intr.smax -> riscv.max -/
-def smax64 : Puddle.CompiledPattern OpCode := smax64_pattern.compile
-
-def smax32 : Puddle.CompiledPattern OpCode := smax32_pattern.compile
-
-/-- llvm.intr.smin -> riscv.min -/
-def smin64 : Puddle.CompiledPattern OpCode := smin64_pattern.compile
-
-def smin32 : Puddle.CompiledPattern OpCode := smin32_pattern.compile
-
-/-- llvm.intr.umax -> riscv.maxu -/
-def umax : Puddle.CompiledPattern OpCode := umax_pattern.compile
-
-/-- llvm.intr.umin -> riscv.minu -/
-def umin : Puddle.CompiledPattern OpCode := umin_pattern.compile
 
 /-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
@@ -1035,36 +864,6 @@ def ushlSat_pattern : Pattern OpCode :=
     at 12630-12633). -/
 def ushlSat : Puddle.CompiledPattern OpCode := ushlSat_pattern.compile
 
-/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max`.
-    LLVM's RV64+Zbb lowering (`neg a1, a0; max a0, a0, a1`). The `neg` wraps
-    `intMin` back to `intMin`, so this is correct for both the
-    `is_int_min_poison` and non-poison forms of the intrinsic. -/
-def abs_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = 64)
-      let val ← MatchProg.value valType
-      let _ ← MatchProg.root (.llvm .intr__abs) #[val] #[resType]
-      return (resType, val))
-    (fun (resType, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let negProps ← CreateProg.property (.riscv .neg) ()
-      let negOp ← CreateProg.operation (.riscv .neg)
-          #[castOp.res[0]!] #[regType] negProps
-      let maxProps ← CreateProg.property (.riscv .max) ()
-      let maxOp ← CreateProg.operation (.riscv .max)
-          #[castOp.res[0]!, negOp.res[0]!] #[regType] maxProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[maxOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- llvm.intr.abs.i64 -> `max(x, -x)` via Zbb `neg`/`max` (see `abs_pattern`). -/
-def abs : Puddle.CompiledPattern OpCode := abs_pattern.compile
-
 /-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
     The general (distinct-operand) funnel shift is left unselected. -/
 def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
@@ -1076,7 +875,8 @@ def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
   for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
   lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
 -/
-def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
+def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let valType ← MatchProg.type (Attr := TypeAttr)
@@ -1084,9 +884,16 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
       let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
       let val ← MatchProg.value valType
       let amtOp ← MatchProg.operation (.gmir .g_constant) #[] #[amtType]
+      /- Legalization widens a narrow constant to `g_trunc (g_constant i64)`. Truncation keeps
+         the low bits, so the amount modulo `bw` is unchanged when read from the wide constant. -/
+      let amt ← if throughTrunc then do
+          let truncType ← MatchProg.type (Attr := IntegerType)
+          let truncOp ← MatchProg.operation (.gmir .g_trunc) #[amtOp.res[0]!] #[truncType]
+          pure truncOp.res[0]!
+        else pure amtOp.res[0]!
       let _ ← MatchProg.root
           (.llvm (if rotateLeft then .intr__fshl else .intr__fshr))
-          #[val, val, amtOp.res[0]!] #[resType]
+          #[val, val, amt] #[resType]
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -1123,12 +930,16 @@ def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).comp
 
 def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
 
+def fshrConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst false 32 true).compile
+
 /-- llvm.intr.fshl with identical data operands and a constant shift amount is a
     constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
     `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
 def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
 
 def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
+
+def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 true).compile
 
 /-! ## General (distinct-operand) funnel shift
 
@@ -1459,6 +1270,97 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
       riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
 
+/-! ## Zicond branchless `g_select` lowering
+
+  The Zicond extension lowers `gmir.g_select` branchlessly, mirroring LLVM's SelectionDAG
+  lowering of `ISD::SELECT` when `Zicond` is available (LLVM's GlobalISel selects `G_SELECT` with
+  a branch instead):
+  ```
+    (select c, t, 0) -> (czero.eqz t, c)
+    (select c, 0, f) -> (czero.nez f, c)
+    (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
+  ```
+  A legal `g_select` selects `i64` values with an `i64` condition, which is true when it is
+  nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the `g_constant`,
+  so they run in the early loop, before `gmirConstant` lowers it.
+-/
+
+/--
+  `gmir.g_select c t 0` -> `riscv.czeroeqz t c` when `zeroFalse` is set, and
+  `gmir.g_select c 0 f` -> `riscv.czeronez f c` otherwise.
+-/
+def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let cond ← MatchProg.value condType
+      let val ← MatchProg.value type
+      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+      let operands :=
+        if zeroFalse then #[cond, val, zeroOp.res[0]!] else #[cond, zeroOp.res[0]!, val]
+      let root ← MatchProg.root (.gmir .g_select) operands #[type]
+      matchLegal .g_select type root.properties (type₁ := condType)
+      return (type, cond, val))
+    (fun (type, cond, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType]
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType]
+      let czOp ← if zeroFalse then do
+          let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+          CreateProg.operation (.riscv .czeroeqz)
+            #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
+        else do
+          let czProps ← CreateProg.property (.riscv .czeronez) ()
+          CreateProg.operation (.riscv .czeronez)
+            #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[czOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+/-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
+def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
+  #[true, false].map (gmirSelectZero_pattern · |>.compile)
+
+/--
+  General branchless select:
+  `gmir.g_select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
+-/
+def gmirSelect_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let cond ← MatchProg.value condType
+      let tval ← MatchProg.value type
+      let fval ← MatchProg.value type
+      let root ← MatchProg.root (.gmir .g_select) #[cond, tval, fval] #[type]
+      matchLegal .g_select type root.properties (type₁ := condType)
+      return (type, cond, tval, fval))
+    (fun (type, cond, tval, fval) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[tval] #[regType]
+      let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[fval] #[regType]
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType]
+      let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
+      let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
+          #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
+      let nezProps ← CreateProg.property (.riscv .czeronez) ()
+      let nezOp ← CreateProg.operation (.riscv .czeronez)
+          #[fCastOp.res[0]!, condCastOp.res[0]!] #[regType] nezProps
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
+          #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[orOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+def gmirSelect : Puddle.CompiledPattern OpCode := gmirSelect_pattern.compile
+
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_add) (·.bitwidth = 64) .add () (guard := matchLegal .g_add)
@@ -1758,6 +1660,27 @@ def gmirBitreverse_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[rev8Op.res[0]!] #[type])
     (fun castBackOp => castBackOp)
 
+/-- `gmir.g_smax` (`i64`) -> `riscv.max`. -/
+def gmirSmax_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_smax) (·.bitwidth = 64) .max () (guard := matchLegal .g_smax)
+
+/-- `gmir.g_smin` (`i64`) -> `riscv.min`. -/
+def gmirSmin_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_smin) (·.bitwidth = 64) .min () (guard := matchLegal .g_smin)
+
+/-- `gmir.g_umax` (`i64`) -> `riscv.maxu`. -/
+def gmirUmax_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_umax) (·.bitwidth = 64) .maxu () (guard := matchLegal .g_umax)
+
+/-- `gmir.g_umin` (`i64`) -> `riscv.minu`. -/
+def gmirUmin_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_umin) (·.bitwidth = 64) .minu () (guard := matchLegal .g_umin)
+
+def gmirSmax : Puddle.CompiledPattern OpCode := gmirSmax_pattern.compile
+def gmirSmin : Puddle.CompiledPattern OpCode := gmirSmin_pattern.compile
+def gmirUmax : Puddle.CompiledPattern OpCode := gmirUmax_pattern.compile
+def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
+
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
 def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
@@ -1888,29 +1811,31 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
-    store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
+    store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
+    fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
   let ctx ← match RewritePattern.applyInContext early.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
-    #[selectGeneral.run,
+    #[gmirSelect.run,
     constant.run, addressof] ++
     #[
     sext32.run, sext16.run, .fromLocalRewrite sextInReg_local,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
     load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
-    smax64.run, smax32.run, smin64.run, smin32.run, umax.run, umin.run, saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run, abs.run,
+    saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run,
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirConstant.run,
-    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run] ++
+    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
+    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
     gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying main instruction-selection patterns"

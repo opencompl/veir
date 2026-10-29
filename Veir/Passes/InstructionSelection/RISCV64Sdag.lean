@@ -2,10 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-import Veir.DataLayout.RISCV64
 import Veir.Passes.LLVMGlobalInitializers
-import Veir.Interfaces.ConstantLikeInterfaces
-import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.InstructionSelection.Common
 
@@ -24,42 +21,6 @@ def singleSetBit (x : BitVec 64) : Option Int :=
   if u == 0 || (u &&& (u - 1)) != 0 then none else some (Nat.log2 u)
 
 /-! # SelectionDAG Lowering Patterns  -/
-
-/--
-  Lower a constant-count entry-block allocation to a fixed RISC-V stack object.
-  Dynamic allocations and `inalloca` need additional stack-lifetime support in the backend.
-  Run before legalization, which can hide a narrow constant count behind `g_trunc`.
--/
-def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
-  if properties.inalloca then return (ctx, none)
-  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
-  let some entry := funcOp.getEntryBlock? | return (ctx, none)
-  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
-  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
-  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
-  let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
-  if size >= 2 ^ 63 then return (ctx, none)
-  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
-    else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
-    return (ctx, none)
-  let props : RISCVStackAllocaProperties :=
-    { size := BitVec.ofNat 64 size
-      alignment := BitVec.ofInt 64 alignment }
-  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
-      #[] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
-  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `llvm.alloca` -> `riscv_stack.alloca` and a cast back to the pointer type. -/
-def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
 
 /--
   Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary LLVM
@@ -199,7 +160,8 @@ def orcb (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   emits the immediate-form RISC-V op. The constant is matched only on the right
   operand, since the canonicalizer (run before isel) places it there — mirroring
   `PatGprImm`'s `(OpNode GPR:$rs1, imm)` shape. The reg-reg fallback (non-constant
-  operand, or out-of-range immediate) is handled by the generic `isel-riscv64` pass.
+  operand, or out-of-range immediate) is handled by the generic `isel-riscv64` pass,
+  which also selects the i64 immediate forms (`addi`, `slli`, ...) on gMIR.
 
   See the `PatGprImm`/`PatGprSimm12`/`PatGprUimmLog2XLen` classes:
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1386-L1393
@@ -225,19 +187,6 @@ def selectBinopImmLocal {α} (matchPair : OperationPtr → IRContext OpCode → 
       #[] #[] (cast h.symm immProps) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- imm12 binops on i64: `add/or/and/xor x (const ∈ [-2048, 2047])` -> `addi/ori/andi/xori`.
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1467-L1474 -/
-def addi := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAdd .addi rfl 64 (-2048) 2047)
-def ori  := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchOr  .ori  rfl 64 (-2048) 2047)
-def andi := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAnd .andi rfl 64 (-2048) 2047)
-def xori := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchXor .xori rfl 64 (-2048) 2047)
-
-/-- uimm6 shifts on i64: `shl/lshr/ashr x (const ∈ [0, 63])` -> `slli/srli/srai`.
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1475-L1477 -/
-def slli := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchShl  .slli rfl 64 0 63)
-def srli := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchLshr .srli rfl 64 0 63)
-def srai := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAshr .srai rfl 64 0 63)
 
 /-- Word `*w` immediate forms (best-effort: gated on an i32 result as a proxy for
     LLVM's `binop_allwusers`, which we lack the demanded-bits analysis to model).
@@ -394,54 +343,6 @@ def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite bexti_local rewriter op opInBounds
 
-/-- `fshr x x (const)` on i32 is a constant word rotate-right -> `riscv.roriw`
-    (i32 analogue of `fshrConst` -> `rori`; mirrors `PatGprImm<riscv_rorw, RORIW, uimm5>`).
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L504 -/
-def roriw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 32 then return (ctx, none)
-  let sh : Int := ((amtAttr % 32) + 32) % 32
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 sh)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
-      #[] #[] immProps none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[valCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `fshr x x (const)` on i32 -> `riscv.roriw` (see `roriw_local`). -/
-def roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite roriw_local rewriter op opInBounds
-
-/-- `fshl x x (const)` on i32 is a constant word rotate-left. There is no `roliw`,
-    so (like `fshlConst` at i64) it lowers to `riscv.roriw` with the negated immediate
-    `(32 - amt) mod 32` (i32 analogue of `fshlConst`). -/
-def roliw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 32 then return (ctx, none)
-  /- rotate-left by `sh` == rotate-right by `32 - sh` (mod 32). -/
-  let sh : Int := ((amtAttr % 32) + 32) % 32
-  let imm : Int := (32 - sh) % 32
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 imm)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
-      #[] #[] immProps none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[valCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `fshl x x (const)` on i32 -> `riscv.roriw` with negated immediate (see `roliw_local`). -/
-def roliw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite roliw_local rewriter op opInBounds
-
 /-- `shl (zext i32->i64 x) (const ∈ [0,31])` -> `riscv.slliuw x shamt`
     (Zba: `(i64 (shl (and GPR, 0xFFFFFFFF), uimm5)) -> SLLI_UW`; our `zext` is the mask).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
@@ -467,54 +368,6 @@ def slliuw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def slliuw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite slliuw_local rewriter op opInBounds
-
-/-- llvm.zext x i1 to i64 -> and x 1 -/
-def zext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchZext op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 1 then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  let imm := RISCVImmediateProperties.mk 1#64
-  let (ctx, andiOp) ← WfRewriter.createOp! ctx Riscv.andi #[RegisterType.mk] #[opCastOp.getResult 0]
-      #[] #[] imm none
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[t] #[andiOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, andiOp, castOp], #[castOp.getResult 0]))
-
-/-- llvm.zext x i1 to i64 -> and x 1 -/
-def zext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite zext_1_local rewriter op opInBounds
-
-/-- llvm.sext x i1 to i64 -> srai (slli x 63) 63 -/
-def sext_1_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operand, _) := matchSext op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 ∧ t.bitwidth ≠ 32 then return (ctx, none)
-  let .integerType opType := (operand.getType! ctx.raw).val | return (ctx, none)
-  if opType.bitwidth ≠ 1 then return (ctx, none)
-  /- First, cast the operand to registers -/
-  let (ctx, opCastOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[RegisterType.mk] #[operand]
-      #[] #[] () none
-  let imm := RISCVImmediateProperties.mk 63#64
-  let (ctx, slliOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[opCastOp.getResult 0]
-      #[] #[] imm none
-  let (ctx, sraiOp) ← WfRewriter.createOp! ctx Riscv.srai #[RegisterType.mk] #[slliOp.getResult 0]
-      #[] #[] imm none
-  let (ctx, castOp) ← WfRewriter.createOp! ctx Builtin.unrealized_conversion_cast #[t] #[sraiOp.getResult 0]
-      #[] #[] () none
-  some (ctx, some (#[opCastOp, slliOp, sraiOp, castOp], #[castOp.getResult 0]))
-
-/-- llvm.sext x i1 to i64 -> srai (slli x 63) 63 -/
-def sext_1 (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sext_1_local rewriter op opInBounds
 
 /-! ## Division by a constant power of two
 
@@ -686,17 +539,15 @@ def sdivwPow2 := RewritePattern.fromLocalRewrite (sdivPow2GenLocal .sraiw rfl .s
 
 def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  /- Order matters where patterns overlap: the more specific Zbs/Zba rules (`bexti`,
-     `slliuw`) must precede the generic `andi`/`slli` forms they would otherwise be
-     shadowed by. The `bseti`/`bclri`/`binvi` rules are mutually exclusive with
-     `ori`/`andi`/`xori` via their `!isInt<12>` guard, so their order is immaterial.
+  /- The more specific Zbs/Zba rules (`bexti`, `slliuw`) must run before the generic
+     `andi`/`slli` forms, which `isel-riscv64` selects later. The `bseti`/`bclri`/`binvi`
+     rules are mutually exclusive with `ori`/`andi`/`xori` via their `!isInt<12>` guard.
      `sdivPow2Exact`/`sdivwPow2Exact` are listed before `sdivPow2`/`sdivwPow2` to
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
-  let pattern := RewritePattern.GreedyRewritePattern #[alloca, andn, orn, xnor, orcb,
-    bexti, bseti, bclri, binvi, slliuw,
-    addi, ori, andi, xori, slli, srli, srai, slti,
-    addiw, slliw, srliw, sraiw, roriw, roliw, zext_1, sext_1,
+  let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb,
+    bexti, bseti, bclri, binvi, slliuw, slti,
+    addiw, slliw, srliw, sraiw,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
   match RewritePattern.applyInContext pattern.preserveLLVMGlobalInitializers ctx with
   | none => throw "Error while applying SDAG patterns"
