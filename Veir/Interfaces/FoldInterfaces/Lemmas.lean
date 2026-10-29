@@ -13,28 +13,14 @@ public section
 namespace Veir
 open Data
 
-/-- Recover the integer operands from their declared widths. -/
-theorem RuntimeValue.ArrayConforms.int_pair
-    {type₁ type₂ : IntegerType}
-    (h : RuntimeValue.ArrayConforms operands
-      #[(type₁ : TypeAttr), (type₂ : TypeAttr)]) :
-    ∃ lhs rhs, operands = #[.int type₁.bitwidth lhs, .int type₂.bitwidth rhs] := by
-  simpa using h
-
-/-- Recover a single register operand, regardless of its allocation. -/
-theorem RuntimeValue.ArrayConforms.reg_single {type : RegisterType}
-    (h : RuntimeValue.ArrayConforms operands #[(type : TypeAttr)]) :
-    ∃ value, operands = #[.reg value] := by
-  simpa using h
-
 /-- Typing a single replacement reduces to typing its decision. -/
-@[simp]
+@[simp, grind =]
 theorem FoldDecision.hasTypes_singleton :
     HasTypes #[decision] operands #[type] ↔ HasType operands decision type := by
   simp [HasTypes]
 
 /-- Typing two replacements reduces to their individual typing obligations. -/
-@[simp]
+@[simp, grind =]
 theorem FoldDecision.hasTypes_pair :
     HasTypes #[a, b] operands #[ta, tb] ↔
       HasType operands a ta ∧ HasType operands b tb := by
@@ -78,7 +64,7 @@ theorem FoldTable.correctAt_int_rhs
     exact typed
   preservesSemantics known results hFold operands hOperands hAgree memory layout := by
     obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
-    obtain ⟨lhs, actualRhs, rfl⟩ := (operandTypes ▸ hOperands).int_pair
+    obtain ⟨lhs, actualRhs, rfl⟩ := by simpa [operandTypes] using hOperands
     cases hAgree.2 1 (by simp) _ rfl
     exact evaluate lhs memory layout
 

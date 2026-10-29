@@ -94,7 +94,7 @@ theorem Arith.tryFold_addi_correct (verified : op.Verified ctx opIn)
       have h := opType ▸ h
       simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
       grind [Array.toList_inj])
-  · simp [hOperands, hResults, FoldDecision.HasType]
+  · grind [FoldDecision.HasType]
   · simp only [OperationPtr.interpret]
     rw [opType]
     simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Arith.interpretOp',
@@ -111,8 +111,7 @@ theorem Arith.tryFold_addui_extended_correct (verified : op.Verified ctx opIn)
       have h := opType ▸ h
       simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
       grind [Array.toList_inj])
-  · rw [hOperands, hResults, FoldDecision.hasTypes_pair]
-    exact ⟨rfl, hCarry⟩
+  · grind [FoldDecision.HasType]
   · simp only [OperationPtr.interpret]
     rw [opType]
     simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Arith.interpretOp',
@@ -129,7 +128,7 @@ theorem Llvm.tryFold_add_correct (verified : op.Verified ctx opIn)
       have h := opType ▸ h
       simp only [HasOpInfo.tryFold, OpCode.tryFold, Llvm.tryFold] at h
       grind [Array.toList_inj])
-  · simp [hOperands, hResults, FoldDecision.HasType]
+  · grind [FoldDecision.HasType]
   · simp only [OperationPtr.interpret]
     rw [opType]
     simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Llvm.interpretOp',
@@ -148,7 +147,7 @@ theorem Riscv.tryFold_andi_correct (verified : op.Verified ctx opIn)
     simp [hResults, FoldDecision.HasType]
   · intro known decisions hFold operands hConform _ memory layout
     obtain ⟨hZero, rfl⟩ := riscv_andi_lookup (opType ▸ hFold)
-    obtain ⟨value, rfl⟩ := (hOperands ▸ hConform).reg_single
+    obtain ⟨value, rfl⟩ := by simpa [hOperands] using hConform
     rw [OperationPtr.interpret, opType]
     simp [FoldDecision.resolveAll, FoldDecision.resolve, Veir.interpretOp', Riscv.interpretOp',
       RISCVImmediateProperties.immField, hZero, RISCV.andi, Interp.isRefinedBy]
