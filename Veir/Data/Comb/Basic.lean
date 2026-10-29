@@ -88,3 +88,14 @@ def icmp {w : Nat} (p : LLVM.IntPred) (x y : LLVM.Int w) : LLVM.Int 1 :=
   | .val x, .val y => .val (BitVec.ofBool (p.eval x y))
   | _, _ => .poison
 
+/-- `comb.mux`: the true operand when the condition is 1, otherwise the false one.
+
+**The exception to the file's poison convention.** Poison in the *condition* is poison in the
+result, because nothing has been selected. Poison in the arm that was *not* selected is not: a mux
+is defined when the value it chooses is, and that is what lets one guard an undefined computation.
+-/
+def mux {w : Nat} (c : LLVM.Int 1) (t f : LLVM.Int w) : LLVM.Int w :=
+  match c with
+  | .poison => .poison
+  | .val c => if c == 1#1 then t else f
+

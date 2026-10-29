@@ -176,3 +176,33 @@ private def testIcmp : String := Id.run do
 #guard_msgs in
 #eval! testIcmp
 
+/-! ### Mux
+
+The one operation that is defined when an operand is not. A mux selects, so poison in the arm it
+did *not* select cannot reach the result -- which is what makes a mux usable to guard an undefined
+computation, and is worth a test rather than a comment. Poison in the condition is poison, since
+then nothing was selected.
+
+Its operands are also the only ones in the dialect that are deliberately at different widths: an
+`i1` condition and two arms at the result width.
+-/
+
+private def testMux : String := Id.run do
+  if comb .mux () #[ity 4] #[i 1 1, i 4 11, i 4 12] != some 11 then return "selects true"
+  if comb .mux () #[ity 4] #[i 1 0, i 4 11, i 4 12] != some 12 then return "selects false"
+  -- The exception, both ways round.
+  if comb .mux () #[ity 4] #[i 1 1, i 4 7, poison 4] != some 7 then return "poison in the false arm"
+  if comb .mux () #[ity 4] #[i 1 0, poison 4, i 4 9] != some 9 then return "poison in the true arm"
+  -- But a poison condition selects nothing.
+  if !combIsPoison .mux () #[ity 4] #[poison 1, i 4 7, i 4 9] then return "poison condition"
+  -- Arity, and arms that disagree with each other.
+  if (comb .mux () #[ity 4] #[i 1 1, i 4 2]).isSome then return "mux took two operands"
+  if (comb .mux () #[ity 4] #[i 1 1, i 4 1, i 8 1]).isSome then return "mux took mismatched arms"
+  -- A condition wider than one bit is refused rather than truncated.
+  if (comb .mux () #[ity 4] #[i 4 1, i 4 1, i 4 2]).isSome then return "mux took an i4 condition"
+  return "ok"
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testMux
+
