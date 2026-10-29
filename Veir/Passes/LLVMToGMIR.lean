@@ -116,7 +116,7 @@ def g_bitreverse := (lowerUnop .intr__bitreverse .g_bitreverse id).compile
 
 /--
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
-  selects as `g_select` does, see `LLVM.Int.selectNonzero_one`.
+  selects as `g_select` does, see `GMIR.selectNonzero_one`.
   TODO: Also translate selects of pointers, once `g_select` accepts them.
 -/
 def lowerSelect : Puddle.Pattern OpCode :=

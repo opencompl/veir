@@ -4,6 +4,7 @@ public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
 public import Veir.Data.Refinement
+public import Veir.Dialects.GMIR.Semantics
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
@@ -15,6 +16,7 @@ import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
+import all Veir.Dialects.GMIR.Semantics
 import all Veir.Data.Casting
 import all Veir.Data.Refinement
 
@@ -486,7 +488,7 @@ theorem xnor_refinement {x y : LLVM.Int 64} :
   condition is true when it is nonzero, as `czero.eqz` tests it.
 -/
 theorem gmir_select_czeroeqz_refinement {c t : LLVM.Int 64} :
-    (Data.LLVM.Int.selectNonzero c t (LLVM.Int.constant 64 0)) ⊒
+    (GMIR.selectNonzero c t (LLVM.Int.constant 64 0)) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 64) := by
   veir_bv_decide
@@ -495,7 +497,7 @@ theorem gmir_select_czeroeqz_refinement {c t : LLVM.Int 64} :
   Prove the correctness of the `g_select c 0 f` -> `czero.nez f c` lowering pattern.
 -/
 theorem gmir_select_czeronez_refinement {c f : LLVM.Int 64} :
-    (Data.LLVM.Int.selectNonzero c (LLVM.Int.constant 64 0) f) ⊒
+    (GMIR.selectNonzero c (LLVM.Int.constant 64 0) f) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 64) := by
   veir_bv_decide
@@ -505,7 +507,7 @@ theorem gmir_select_czeronez_refinement {c f : LLVM.Int 64} :
   `or (czero.eqz t c) (czero.nez f c)` lowering pattern.
 -/
 theorem gmir_select_refinement {c t f : LLVM.Int 64} :
-    (Data.LLVM.Int.selectNonzero c t f) ⊒
+    (GMIR.selectNonzero c t f) ⊒
       (RISCV.Reg.toInt
         (Data.RISCV.or
           (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))

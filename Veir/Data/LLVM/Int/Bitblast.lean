@@ -532,32 +532,6 @@ theorem getValue_select {w : Nat} (x y : Int w) (c : Int 1) (h : (select c x y).
   | val c' => by_cases hc : c' = 1#1 <;> simp [select, Id.run, hc]
 
 @[veir_bv_normalize, grind =]
-theorem isPoison_selectNonzero {wc w : Nat} (x y : Int w) (c : Int wc) :
-    (selectNonzero c x y).isPoison =
-      if h : c.isPoison = true then true
-      else if c.getValue ≠ 0#wc then x.isPoison else y.isPoison := by
-  cases c with
-  | poison => simp [selectNonzero, Id.run, isPoison]
-  | val c' => by_cases hc : c' = 0#wc <;> simp [selectNonzero, Id.run, hc, isPoison]
-
-@[veir_bv_normalize, grind =]
-theorem getValue_selectNonzero {wc w : Nat} (x y : Int w) (c : Int wc)
-    (h : (selectNonzero c x y).isPoison = false) :
-    (selectNonzero c x y).getValue h =
-      if _ : c.getValue ≠ 0#wc then x.getValue else y.getValue := by
-  cases c with
-  | poison => simp [selectNonzero, Id.run, isPoison] at h
-  | val c' => by_cases hc : c' = 0#wc <;> simp [selectNonzero, Id.run, hc]
-
-/-- For an `i1` condition, `selectNonzero` is `select`. -/
-theorem selectNonzero_one {w : Nat} (c : Int 1) (x y : Int w) :
-    selectNonzero c x y = select c x y := by
-  cases c with
-  | poison => simp [selectNonzero, select, Id.run]
-  | val c' =>
-    rcases BitVec.eq_zero_or_eq_one c' with rfl | rfl <;> simp [selectNonzero, select, Id.run]
-
-@[veir_bv_normalize, grind =]
 theorem isPoison_smax {w : Nat} (x y : Int w) :
     (smax x y).isPoison = decide (x.isPoison ∨ y.isPoison) := by
   simp [smax, isPoison, Id.run]

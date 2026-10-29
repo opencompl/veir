@@ -10,6 +10,7 @@ public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Dialects.GMIR.Semantics
 import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
@@ -364,7 +365,7 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let [.int _ cond, .int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (Data.LLVM.Int.selectNonzero cond lhs rhs)], mem, none)
+    return (#[.int bw (GMIR.selectNonzero cond lhs rhs)], mem, none)
   | .g_sub => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
