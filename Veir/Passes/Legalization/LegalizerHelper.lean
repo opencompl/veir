@@ -2,7 +2,7 @@ module
 
 public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.PatternRewriter.Basic
-import Veir.PatternRewriter.Puddle.Builders
+public import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
 /-!
@@ -17,6 +17,25 @@ https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/CodeGen/GlobalI
 namespace Veir
 
 open Puddle
+
+public section
+
+/-- Create a `g_constant` of `type` whose value `value` computes from the metadata `inputs`. -/
+def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
+    (type : Handle OpCode .type) (inputs : Inputs)
+    (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
+      (type, inputs) fun (type, inputs) => do
+        let .integerType type := type.val | none
+        return { value := .ofInt (value inputs) type }
+  CreateProg.operation (.gmir .g_constant) #[] #[type] props
+
+/-- Create a `g_constant` of `type` with the value `value`. -/
+def createConstant (type : Handle OpCode .type) (value : Int) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type () fun () => value
+
+end
 
 /--
 Widens type group `typeIdx` of `opcode` to `width` bits. Its operands are extended with `extOpcode`
@@ -80,13 +99,8 @@ def widenConstant (width : Nat) : Pattern OpCode :=
 /-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
 integer type `srcType`. -/
 private def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
-    CreateProg.Builder CreatedOpHandle := do
-  let props ← CreateProg.applyNative (srcType, type) fun (srcType, type) =>
-    match srcType.val, type.val with
-    | .integerType srcType, .integerType type =>
-      some (GMIRConstantProperties.mk (.ofInt (value srcType.bitwidth) type))
-    | _, _ => none
-  CreateProg.operation (.gmir .g_constant) #[] #[type] (.inr props)
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
 
 /--
 Widens the operand of `g_ctlz` to `width` bits. The operand is zero-extended, so the count is too
@@ -183,12 +197,7 @@ def lowerZext : Pattern OpCode :=
       return (srcType, resType, src))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
-      let maskProps ← CreateProg.applyNative (srcType, resType) fun (srcType, resType) =>
-        match srcType.val, resType.val with
-        | .integerType srcType, .integerType resType =>
-          some (GMIRConstantProperties.mk (.ofInt (2 ^ srcType.bitwidth - 1) resType))
-        | _, _ => none
-      let mask ← CreateProg.operation (.gmir .g_constant) #[] #[resType] (.inr maskProps)
+      let mask ← widthConstant srcType resType (2 ^ · - 1)
       CreateProg.operation (.gmir .g_and) #[ext.res[0]!, mask.res[0]!] #[resType])
     (fun op => op)
 

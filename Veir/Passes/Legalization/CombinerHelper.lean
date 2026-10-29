@@ -4,6 +4,7 @@ public import Veir.Passes.Legalization.LegalizerInfo
 public import Veir.PatternRewriter.Puddle.Execution
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Passes.Legalization.LegalizerHelper
 
 /-!
 # Combines
@@ -29,6 +30,14 @@ open Puddle
 
 public section
 
+/-! ### Helpers -/
+
+/-- Match a `g_constant` of `type` whose properties satisfy `pred`. -/
+def matchConstant (type : Handle OpCode .type)
+    (pred : GMIRConstantProperties → Bool := fun _ => true) :
+    MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
+  MatchProg.operation (.gmir .g_constant) #[] #[type] pred
+
 /-! ### sub_to_add : (sub x, C) → (add x, -C) -/
 
 /--
@@ -43,7 +52,7 @@ def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value type
-      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      let constant ← matchConstant type
       let root ← MatchProg.root (.gmir .g_sub) #[x, constant.res[0]!] #[type]
       MatchProg.matchNative (type, constant.properties) fun (ty, props) =>
         info.isLegal .g_add #[ty] { nsw := false, nuw := false } &&
@@ -83,36 +92,12 @@ def redundant_and_pattern : Pattern OpCode :=
       let rhs ← MatchProg.value operandType
       let type ← MatchProg.type (Attr := IntegerType)
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
-      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      MatchProg.matchNative constant.properties fun props => props.value.value % 2 = 1
+      let constant ← matchConstant type (·.value.value % 2 = 1)
       let _ ← MatchProg.root (.gmir .g_and) #[icmp.res[0]!, constant.res[0]!] #[type]
       return icmp.res[0]!)
     pure (fun x => x)
 
 def redundant_and : CompiledPattern OpCode := redundant_and_pattern.compile
-
-/-! ### Helpers -/
-
-/-- Match a `g_constant` of `type` whose properties satisfy `pred`. -/
-def matchConstant (type : Handle OpCode .type)
-    (pred : GMIRConstantProperties → Bool := fun _ => true) :
-    MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
-  MatchProg.operation (.gmir .g_constant) #[] #[type] pred
-
-/-- Create a `g_constant` of `type` whose value `value` computes from the metadata `inputs`. -/
-def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
-    (type : Handle OpCode .type) (inputs : Inputs)
-    (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
-  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
-      (type, inputs) fun (type, inputs) => do
-        let .integerType type := type.val | none
-        return { value := .ofInt (value inputs) type }
-  CreateProg.operation (.gmir .g_constant) #[] #[type] props
-
-/-- Create a `g_constant` of `type` with the value `value`. -/
-def createConstant (type : Handle OpCode .type) (value : Int) :
-    CreateProg.Builder CreatedOpHandle :=
-  createConstantWith type () fun () => value
 
 /-! ### identity_combines -/
 
@@ -1041,7 +1026,9 @@ def combines : Array (CompiledPattern OpCode) :=
       #[Data.LLVM.IntPred.eq, .ne].map (redundant_binop_in_equality_pattern opcode ·)) ++
   #[not_cmp_fold_pattern .eq .ne, not_cmp_fold_pattern .ne .eq,
     not_cmp_fold_pattern .ugt .ule, not_cmp_fold_pattern .uge .ult,
+    not_cmp_fold_pattern .ult .uge, not_cmp_fold_pattern .ule .ugt,
     not_cmp_fold_pattern .sgt .sle, not_cmp_fold_pattern .sge .slt,
+    not_cmp_fold_pattern .slt .sge, not_cmp_fold_pattern .sle .sgt,
     double_icmp_zero_pattern .g_and .eq, double_icmp_zero_pattern .g_or .ne,
     NotAPlusNegOne_pattern, sub_one_from_sub_pattern,
     APlusC1MinusC2_pattern, C2MinusAPlusC1_pattern, AMinusC1MinusC2_pattern,
