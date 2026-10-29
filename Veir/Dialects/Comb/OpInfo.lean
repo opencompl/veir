@@ -146,13 +146,19 @@ private def Comb.sameWidthOperands (operands : Array RuntimeValue) :
         return val.cast (by simpa using h)) | none
   return ⟨w, nl⟩
 
+/-- The bit width of the operation's first result, for the operations whose result width is not
+determined by their operands. -/
+private def Comb.resultWidth (resultTypes : Array TypeAttr) : Option Nat := do
+  let resType ← resultTypes[0]?
+  let .integerType bw := resType.val | none
+  return bw.bitwidth
+
 /-- Interpret one `comb` operation.
 
-`resultTypes` is taken even though nothing uses it yet: the operations whose result width is not
-determined by their operands -- `extract` and `replicate` -- are the reason the signature has it,
-and threading it from the start keeps the one call site in `Veir.interpretOp'` stable. -/
+`resultTypes` is needed because `extract` does not determine its result width from its operands;
+everything else either preserves the operand width, sums it, or produces an `i1`. -/
 def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
-    (_resultTypes : Array TypeAttr)
+    (resultTypes : Array TypeAttr)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
@@ -195,6 +201,19 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     let .int w' f := f | none
     if h : w' ≠ w then none else
     return (#[.int w (Veir.Data.Comb.mux c t (f.cast (by simpa using h)))], none)
+  -- Width changing.
+  | .concat => do
+    -- Variadic and most significant first, so it folds from the left, growing the width.
+    let mut acc : (w : Nat) × Data.LLVM.Int w := ⟨0, .val (BitVec.ofNat 0 0)⟩
+    for operand in operands do
+      let .int w v := operand | none
+      acc := ⟨acc.1 + w, Veir.Data.Comb.concat acc.2 v⟩
+    return (#[.int acc.1 acc.2], none)
+  | .extract => do
+    let n ← Comb.resultWidth resultTypes
+    let #[x] := operands | none
+    let .int w x := x | none
+    return (#[.int n (Veir.Data.Comb.extract (w := w) n properties.lowBit.value.toNat x)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
