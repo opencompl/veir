@@ -320,30 +320,6 @@ def APlusZeroMinusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite APlusZeroMinusB_local rewriter op opInBounds
 
-def APlusBMinusB_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (A, sub, _props) := matchAdd op ctx.raw | return (ctx, none)
-  let some defOp := sub.definingOp? | return (ctx, none)
-  let some (B, A1, _props1) := matchSub defOp ctx.raw | return (ctx, none)
-  if A != A1 then return (ctx, none)
-  some (ctx, some (#[], #[B]))
-
-def APlusBMinusB (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite APlusBMinusB_local rewriter op opInBounds
-
-def BMinusAPlusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (sub, A, _props) := matchAdd op ctx.raw | return (ctx, none)
-  let some defOp := sub.definingOp? | return (ctx, none)
-  let some (B, A1, _props1) := matchSub defOp ctx.raw | return (ctx, none)
-  if A != A1 then return (ctx, none)
-  some (ctx, some (#[], #[B]))
-
-def BMinusAPlusA (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite BMinusAPlusA_local rewriter op opInBounds
-
 def AMinusBPlusCMinusA_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let some (sub1, sub2, _props) := matchAdd op ctx.raw | return (ctx, none)
@@ -459,8 +435,6 @@ def mir_pattern_combines :=
   AMinusBMinusCMinusC,
   ZeroMinusAPlusB,
   APlusZeroMinusB,
-  APlusBMinusB,
-  BMinusAPlusA,
   AMinusBPlusCMinusA,
   AMinusBPlusBMinusC,
   APlusBMinusAplusC,

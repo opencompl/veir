@@ -2604,24 +2604,6 @@ def sext_of_sext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite sext_of_sext_local rewriter op opInBounds
 
-/-! ### sub_to_add :  (sub x, C) → (add x, -C)   (C constant) -/
-
-def sub_to_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (x, cval, _sp) := matchSub op ctx.raw | return (ctx, none)
-  let some c := matchConstantIntVal cval ctx.raw | return (ctx, none)
-  let .integerType xty := (x.getType! ctx.raw).val | return (ctx, none)
-  let negC := LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (-c) xty))
-  let (ctx, cn) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[x.getType! ctx.raw] #[]
-    #[] #[] negC none
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x, (cn.getResult 0)]
-    #[] #[] (NswNuwProperties.mk false false) none
-  some (ctx, some (#[cn, newOp], #[newOp.getResult 0]))
-
-def sub_to_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite sub_to_add_local rewriter op opInBounds
-
 /-! ### sub_of_mul_const :  (sub a, (mul x, C)) → (add a, (mul x, -C))   (C constant) -/
 
 def sub_of_mul_const_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -2660,73 +2642,6 @@ def select_not_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def select_not (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite select_not_local rewriter op opInBounds
-
-/-! ### commute_int_constant_to_rhs :  (C op x) → (x op C)   (move constant to the right) -/
-
-def commute_const_add_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, props) := matchAdd op ctx.raw | return (ctx, none)
-  let some _ := matchConstantIntVal lhs ctx.raw | return (ctx, none)
-  if (matchConstantIntVal rhs ctx.raw).isSome then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs]
-    #[] #[] props none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def commute_const_add (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite commute_const_add_local rewriter op opInBounds
-
-def commute_const_mul_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, props) := matchMul op ctx.raw | return (ctx, none)
-  let some _ := matchConstantIntVal lhs ctx.raw | return (ctx, none)
-  if (matchConstantIntVal rhs ctx.raw).isSome then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mul #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs]
-    #[] #[] props none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def commute_const_mul (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite commute_const_mul_local rewriter op opInBounds
-
-def commute_const_and_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAnd op ctx.raw | return (ctx, none)
-  let some _ := matchConstantIntVal lhs ctx.raw | return (ctx, none)
-  if (matchConstantIntVal rhs ctx.raw).isSome then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.and #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs]
-    #[] #[] () none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def commute_const_and (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite commute_const_and_local rewriter op opInBounds
-
-def commute_const_or_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, props) := matchOr op ctx.raw | return (ctx, none)
-  let some _ := matchConstantIntVal lhs ctx.raw | return (ctx, none)
-  if (matchConstantIntVal rhs ctx.raw).isSome then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.or #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs]
-    #[] #[] props none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def commute_const_or (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite commute_const_or_local rewriter op opInBounds
-
-def commute_const_xor_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchXor op ctx.raw | return (ctx, none)
-  let some _ := matchConstantIntVal lhs ctx.raw | return (ctx, none)
-  if (matchConstantIntVal rhs ctx.raw).isSome then return (ctx, none)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.xor #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[rhs, lhs]
-    #[] #[] () none
-  some (ctx, some (#[newOp], #[newOp.getResult 0]))
-
-def commute_const_xor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite commute_const_xor_local rewriter op opInBounds
 
 /-! ### simplify_neg_minmax :  0 - (minmax a, (0 - a)) → oppositeMinMax a, (0 - a)
 
@@ -3309,14 +3224,8 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , truncate_of_sext
      , zext_of_zext
      , sext_of_sext
-     , sub_to_add
      , sub_of_mul_const
      , select_not
-     , commute_const_add
-     , commute_const_mul
-     , commute_const_and
-     , commute_const_or
-     , commute_const_xor
      , SubSminSub
      , SubUminSub
      , lshr_of_trunc_of_lshr

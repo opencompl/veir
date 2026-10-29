@@ -26,8 +26,7 @@
 // CHECK-NOT:  "llvm.mul"
 // CHECK:      "func.return"(%[[Z]]) : (i64) -> ()
 
-// Left factor is nonzero: the mul survives. `commute_const_mul` moves the
-// constant `3` to the right, so the surviving mul is `mul x, 3`.
+// Left factor is nonzero: the mul survives.
 // CHECK:      func.func @bar(%[[NX:.*]]: i64) -> i64 {
-// CHECK:      %[[NR:.*]] = "llvm.mul"(%[[NX]], %{{.*}}) : (i64, i64) -> i64
+// CHECK:      %[[NR:.*]] = "llvm.mul"(%{{.*}}, %[[NX]]) : (i64, i64) -> i64
 // CHECK:      "func.return"(%[[NR]]) : (i64) -> ()
