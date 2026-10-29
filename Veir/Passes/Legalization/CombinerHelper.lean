@@ -59,10 +59,7 @@ def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
           info.isLegal .g_constant #[ty] props.neg
       return (type, x, constant.properties, root.properties))
     (fun (type, x, constantProps, subProps) => do
-      let negProps ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.gmir .g_constant))) constantProps
-          fun props => some props.neg
-      let negOp ← CreateProg.operation (.gmir .g_constant) #[] #[type] negProps
+      let negOp ← createConstantWith type constantProps fun c => -c.bits.toInt
       -- `x - C` and `x + -C` wrap as signed integers in the same cases, unless `C` is the
       -- minimum signed value, which is its own negation. As unsigned integers, a nonzero `C`
       -- negates to the large value `2^n - C`, so `x + -C` wraps whenever `x - C` does not, and
@@ -415,9 +412,9 @@ def sub_one_from_sub_pattern : Pattern OpCode :=
 
 /--
 A reassociation of two constants `c₁` and `c₂` around `a`: `root (inner a₁ a₂) c₂`, where `a₁ a₂` is
-`a c₁` or, when `constFirst` is set, `c₁ a`. It becomes `result a (c₁ ∘ c₂)`, or `result (c₁ ∘ c₂) a`
-when `constFirst` is set, where `fold` computes `c₁ ∘ c₂` and `constOuterLeft` puts `c₂` on the
-left of `root`.
+`a c₁` or, when `constFirst` is set, `c₁ a`, and `constOuterLeft` puts `c₂` on the left of `root`.
+It becomes `result a (c₁ ∘ c₂)`, where `fold` computes `c₁ ∘ c₂`. When exactly one of `constFirst`
+and `constOuterLeft` is set, `a` ends up subtracted and it becomes `result (c₁ ∘ c₂) a` instead.
 -/
 def constant_reassoc_pattern (root inner result : GMIR) (constFirst constOuterLeft : Bool)
     (fold : Int → Int → Int) : Pattern OpCode :=
@@ -437,7 +434,8 @@ def constant_reassoc_pattern (root inner result : GMIR) (constFirst constOuterLe
       let folded ← createConstantWith type (c₁, c₂) fun (c₁, c₂) =>
         fold c₁.bits.toInt c₂.bits.toInt
       CreateProg.operation (.gmir result)
-          (if constFirst then #[folded.res[0]!, a] else #[a, folded.res[0]!]) #[type])
+          (if constFirst != constOuterLeft then #[folded.res[0]!, a] else #[a, folded.res[0]!])
+          #[type])
     (fun op => op)
 
 /-- `(a + c₁) - c₂` → `a + (c₁ - c₂)`. -/
@@ -446,19 +444,7 @@ def APlusC1MinusC2_pattern : Pattern OpCode :=
 
 /-- `c₂ - (a + c₁)` → `(c₂ - c₁) - a`. -/
 def C2MinusAPlusC1_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let a ← MatchProg.value type
-      let c₁ ← matchConstant type
-      let c₂ ← matchConstant type
-      let add ← MatchProg.operation (.gmir .g_add) #[a, c₁.res[0]!] #[type]
-      let _ ← MatchProg.root (.gmir .g_sub) #[c₂.res[0]!, add.res[0]!] #[type]
-      return (type, a, c₁.properties, c₂.properties))
-    (fun (type, a, c₁, c₂) => do
-      let folded ← createConstantWith type (c₁, c₂) fun (c₁, c₂) => c₂.bits.toInt - c₁.bits.toInt
-      CreateProg.operation (.gmir .g_sub) #[folded.res[0]!, a] #[type])
-    (fun op => op)
+  constant_reassoc_pattern .g_sub .g_add .g_sub false true (fun c₁ c₂ => c₂ - c₁)
 
 /-- `(a - c₁) - c₂` → `a - (c₁ + c₂)`. -/
 def AMinusC1MinusC2_pattern : Pattern OpCode :=
@@ -862,9 +848,9 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
 
 /-! ### select_combines
 
-A `g_select` condition wider than `i1` is true when it is nonzero (see `GMIR.selectNonzero`). The
-combines that read the condition as a boolean, as LLVM's `match_selects` and `select_not` do, only
-match an `i1` condition.
+A `g_select` condition wider than `i1` is true when it is nonzero (see `GMIR.selectNonzero`). LLVM's
+`match_selects` and `select_not`, which read the condition as an `i1` boolean, are not ported: RV64
+legalizes `g_select` only with an `s64` condition, so they could never fire.
 -/
 
 /-- `c ? x : x` → `x`. -/
@@ -933,82 +919,14 @@ def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode
       CreateProg.operation (.gmir .g_select) #[c, castX.res[0]!, castY.res[0]!] #[type])
     (fun op => op)
 
-/-- `(c ^ -1) ? x : y` → `c ? y : x` for an `i1` condition `c`. -/
-def select_not_pattern : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
-      let c ← MatchProg.value condType
-      let x ← MatchProg.value type
-      let y ← MatchProg.value type
-      let allOnes ← matchConstant condType (·.bits = -1)
-      let not ← MatchProg.operation (.gmir .g_xor) #[c, allOnes.res[0]!] #[condType]
-      let _ ← MatchProg.root (.gmir .g_select) #[not.res[0]!, x, y] #[type]
-      return (type, c, x, y))
-    (fun (type, c, x, y) => CreateProg.operation (.gmir .g_select) #[c, y, x] #[type])
-    (fun op => op)
-
-/-- `c ? 1 : 0` → `c` and, when `invert` is set, `c ? 0 : 1` → `c ^ 1`, for an `i1` select of an
-    `i1` condition `c`. The `g_xor` must be legal. -/
-def select_bool_pattern (info : LegalizerInfo) (invert : Bool) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
-      let c ← MatchProg.value type
-      let t ← matchConstant type (·.bits.toNat = if invert then 0 else 1)
-      let f ← matchConstant type (·.bits.toNat = if invert then 1 else 0)
-      let _ ← MatchProg.root (.gmir .g_select) #[c, t.res[0]!, f.res[0]!] #[type]
-      if invert then
-        MatchProg.matchNative type fun type => info.isLegal .g_xor #[type] ()
-      return (type, c))
-    (fun (type, c) => do
-      if invert then
-        let one ← createConstant type 1
-        let not ← CreateProg.operation (.gmir .g_xor) #[c, one.res[0]!] #[type]
-        return not.res[0]!
-      return c)
-    (fun v => v)
-
-/-- `c ? e : 0` → `ext c` and, when `invert` is set, `c ? 0 : e` → `ext (c ^ 1)`, for an `i1`
-    condition `c` and a wider select, where `(ext, e)` is `(g_zext, 1)` or `(g_sext, -1)`. The new
-    operations must be legal. -/
-def select_of_bool_constants_pattern (info : LegalizerInfo) (ext : GMIR) (invert : Bool) :
-    Pattern OpCode :=
-  let e : Int := if ext = .g_sext then -1 else 1
-  Pattern.Builder
-    (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth > 1)
-      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
-      let c ← MatchProg.value condType
-      let t ← matchConstant type (·.bits.toInt = if invert then 0 else e)
-      let f ← matchConstant type (·.bits.toInt = if invert then e else 0)
-      let _ ← MatchProg.root (.gmir .g_select) #[c, t.res[0]!, f.res[0]!] #[type]
-      MatchProg.matchNative (type, condType) fun (type, condType) =>
-        info.isLegal ext #[type, condType] (default : propertiesOf ext) &&
-          (!invert || info.isLegal .g_xor #[condType] ())
-      return (type, condType, c))
-    (fun (type, condType, c) => do
-      let cond ← if invert then do
-          let one ← createConstant condType 1
-          let not ← CreateProg.operation (.gmir .g_xor) #[c, one.res[0]!] #[condType]
-          pure not.res[0]!
-        else pure c
-      CreateProg.operation (.gmir ext) #[cond] #[type])
-    (fun op => op)
-
 /-- The select combines, which take the `LegalizerInfo` of the target. -/
 def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
   let patterns : Array (Pattern OpCode) :=
-  #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false,
-    select_not_pattern] ++
+  #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false] ++
   #[(Data.LLVM.IntPred.ugt, GMIR.g_umax), (.uge, .g_umax), (.sgt, .g_smax), (.sge, .g_smax),
     (.ult, .g_umin), (.ule, .g_umin), (.slt, .g_smin), (.sle, .g_smin)].map
       (fun (pred, minmax) => select_to_iminmax_pattern info pred minmax) ++
-  #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc,
-    select_bool_pattern info false, select_bool_pattern info true] ++
-  (#[GMIR.g_zext, .g_sext].flatMap fun ext =>
-      #[false, true].map (select_of_bool_constants_pattern info ext ·))
+  #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc]
   patterns.map (·.compile)
 
 /-! ### Combine list -/
