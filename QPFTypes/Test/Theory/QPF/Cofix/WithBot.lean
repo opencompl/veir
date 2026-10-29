@@ -71,9 +71,15 @@ partial_fixpoint
 
 /-! ## Casting a total stream out of `CofixWithBot` -/
 
-/-- Total streams. -/
-def Stream (a : Type) : Type :=
+/-- Total streams. `@[qpf]` additionally defines their partial analogue, `Stream.__partial`. -/
+@[qpf] def Stream (a : Type) : Type :=
   Cofix (@TypeFun.ofCurried 2 StreamF) #t[a]
+
+#check Stream.__partial
+
+-- `StreamF` is polynomial, so `Stream.__partial` is a `CCPO`, for `partial_fixpoint`.
+#guard_msgs (drop info) in #synth CCPO (Stream.__partial a)
+
 
 @[qpf_elim]
 def Stream.head (xs : Stream a) : a := (Cofix.dest xs).1
