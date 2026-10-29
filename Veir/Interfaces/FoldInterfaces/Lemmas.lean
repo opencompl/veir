@@ -69,7 +69,6 @@ theorem FoldTable.correctAt_int_rhs
       let operands := #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)]
       ∃ replacements,
         FoldDecision.resolveAll decisions operands = some replacements ∧
-        (op.interpret ctx.raw operands memory layout).isFail = false ∧
         Interp.isRefinedBy OperationResult.isRefinedBy
           (op.interpret ctx.raw operands memory layout)
           (.ok (replacements, memory, none))) :

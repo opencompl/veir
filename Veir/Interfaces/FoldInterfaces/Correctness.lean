@@ -64,9 +64,11 @@ def Agrees (known : Array (Option RuntimeValue)) (operands : Array RuntimeValue)
 Typing is required independently of execution, including when the source has UB.
 Semantic correctness quantifies over all well-typed completions of the known
 operands, all memories, and data layouts, using the operation's actual successors.
-Interpreter failure is excluded explicitly for every layout. It uses the operation
-interpreter directly, so it does not rely on the driver's poison handling or
-evaluation fallback. Returning `none` creates no obligation.
+Interpreter failure leaves the replacements unconstrained, as in `Interp.isRefinedBy`;
+that verified operations do not fail is a separate property of the interpreter
+(`interpretOp'_ne_fail`). It uses the operation interpreter directly, so it does
+not rely on the driver's poison handling or evaluation fallback. Returning `none`
+creates no obligation.
 -/
 structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr)
     {opIn : op.InBounds ctx.raw} (_verified : op.Verified ctx opIn) : Prop where
@@ -86,7 +88,6 @@ structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr)
       ∀ operands, RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
         Agrees known operands → ∀ memory layout,
           ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
-            (op.interpret ctx.raw operands memory layout).isFail = false ∧
             Interp.isRefinedBy OperationResult.isRefinedBy
               (op.interpret ctx.raw operands memory layout) (.ok (replacements, memory, none))
 
