@@ -105,6 +105,37 @@ def combineTruncOfTrunc : Pattern OpCode :=
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
     (fun trunc => trunc)
 
+/--
+Combines `ext (g_trunc c)` (when `throughTrunc` is set) or `ext c`, for `ext` ∈ {`g_sext`, `g_zext`}
+and a `g_constant` `c`, to the `g_constant` of the extension: the value of the `g_trunc` (or of `c`)
+read as a signed (`signed`) or unsigned integer. Legalization widens a narrow `g_constant` to a
+wide one and a `g_trunc`, and the `g_sext`/`g_zext` of it remains where its high bits matter, e.g.
+as a `g_icmp` operand. As the folds of constant sources in LLVM's `tryCombineSExt` and
+`tryCombineZExt`. The folded constant refines the poison of a `g_trunc` or `g_zext` flag.
+-/
+def combineExtOfConstant (ext : GMIR) (signed throughTrunc : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let constType ← MatchProg.type (Attr := IntegerType)
+      let c ← MatchProg.operation (.gmir .g_constant) #[] #[constType]
+      let (src, srcType) ← if throughTrunc then do
+          let narrowType ← MatchProg.type (Attr := IntegerType)
+          let trunc ← MatchProg.operation (.gmir .g_trunc) #[c.res[0]!] #[narrowType]
+          pure (trunc.res[0]!, narrowType)
+        else pure (c.res[0]!, constType)
+      let type ← MatchProg.type (Attr := IntegerType)
+      let _ ← MatchProg.root (.gmir ext) #[src] #[type]
+      return (type, srcType, c.properties))
+    (fun (type, srcType, c) => do
+      let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
+          (type, srcType, c) fun (type, srcType, c) => do
+            let .integerType type := type.val | none
+            let .integerType srcType := srcType.val | none
+            let bits := BitVec.ofInt srcType.bitwidth c.value.value
+            return { value := .ofInt (if signed then bits.toInt else bits.toNat) type }
+      CreateProg.operation (.gmir .g_constant) #[] #[type] props)
+    (fun c => c)
+
 public section
 
 /--
@@ -117,7 +148,9 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
       combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
       combineAnyExtOfAnyExt]
-  | .g_zext => [combineZExtOfTruncOfICmp]
+  | .g_zext => [combineZExtOfTruncOfICmp,
+      combineExtOfConstant .g_zext false true, combineExtOfConstant .g_zext false false]
+  | .g_sext => [combineExtOfConstant .g_sext true true, combineExtOfConstant .g_sext true false]
   | .g_trunc => [combineTruncOfTrunc]
   | _ => []
 

@@ -919,6 +919,11 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 
 /-! ### constant_fold_binops -/
 
+/-- The bitwise operation `f` on signed integers, as on their two's complement representations.
+    This is exact for constants of up to 128 bits. -/
+def bitwiseFold (f : BitVec 128 → BitVec 128 → BitVec 128) (a b : Int) : Int :=
+  (f (BitVec.ofInt 128 a) (BitVec.ofInt 128 b)).toInt
+
 /-- `c₁ op c₂` → the constant `fold c₁ c₂`, with both constants read as signed integers. -/
 def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
@@ -930,6 +935,20 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
       return (type, c₁.properties, c₂.properties))
     (fun (type, c₁, c₂) =>
       createConstantWith type (c₁, c₂) fun (c₁, c₂) => fold c₁.bits.toInt c₂.bits.toInt)
+    (fun op => op)
+
+/-- `sext_inreg c, sz` → the constant of the low `sz` bits of `c`, read as a signed integer.
+    Legalization lowers the `g_sext` of a narrow constant to this, e.g. for a `g_icmp` operand. -/
+def constant_fold_sext_inreg_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let c ← matchConstant type
+      let root ← MatchProg.root (.gmir .g_sext_inreg) #[c.res[0]!] #[type]
+      return (type, c.properties, root.properties))
+    (fun (type, c, props) =>
+      createConstantWith type (c, props) fun (c, props) =>
+        (BitVec.ofInt props.sz.toNat c.value.value).toInt)
     (fun op => op)
 
 /-! ### select_combines
@@ -1050,7 +1069,10 @@ def combines : Array (CompiledPattern OpCode) :=
     udiv_by_pow2_pattern, mul_to_shl_pattern, urem_pow2_to_mask_pattern] ++
   sdiv_by_pow2_patterns ++
   #[(GMIR.g_add, fun a b => a + b), (.g_sub, (· - ·)), (.g_mul, (· * ·)),
-    (.g_smin, min), (.g_smax, max)].map (fun (opcode, fold) => constant_fold_binop_pattern opcode fold) ++
+    (.g_smin, min), (.g_smax, max), (.g_and, bitwiseFold (· &&& ·)), (.g_or, bitwiseFold (· ||| ·)),
+    (.g_xor, bitwiseFold (· ^^^ ·))].map
+      (fun (opcode, fold) => constant_fold_binop_pattern opcode fold) ++
+  #[constant_fold_sext_inreg_pattern] ++
   #[sub_minus_one_pattern] ++
   #[GMIR.g_sub, .g_add, .g_or, .g_xor, .g_shl, .g_ashr, .g_lshr].map right_identity_zero_pattern ++
   #[right_identity_one_int_pattern, binop_same_val_pattern .g_and, binop_same_val_pattern .g_or,

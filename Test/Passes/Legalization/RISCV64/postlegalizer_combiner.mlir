@@ -16,8 +16,9 @@
     // A constant that is already on the right, or an operation with two constants, stays.
     // CHECK-NEXT: "gmir.g_xor"(%{{.*}}, %[[C]])
     %xor = "gmir.g_xor"(%x, %c) : (i64, i64) -> i64
-    // CHECK-NEXT: "gmir.g_or"(%[[C]], %[[D]])
-    %or = "gmir.g_or"(%c, %d) : (i64, i64) -> i64
+    // `g_umax` is not constant-folded.
+    // CHECK-NEXT: "gmir.g_umax"(%[[C]], %[[D]])
+    %or = "gmir.g_umax"(%c, %d) : (i64, i64) -> i64
     // Subtraction of a constant becomes the addition of the negated constant.
     // CHECK:      %[[NEG:.*]] = "gmir.g_constant"() <{"value" = -5 : i64}>
     // CHECK-NEXT: "gmir.g_add"(%{{.*}}, %[[NEG]]) : (i64, i64) -> i64

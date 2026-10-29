@@ -2084,12 +2084,18 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
-    fshlConst32Trunc.run, fshrConst32Trunc.run,
+    fshlConst32Trunc.run, fshrConst32Trunc.run]
+  let ctx ← match RewritePattern.applyInContext early ctx with
+  | none => throw "Error while applying early memory-lowering patterns"
+  | some ctx => pure ctx
+  /- Immediate loop: fold a constant operand into the immediate form of an operation before the
+     per-op lowerings select the operation with the constant in a register. -/
+  let immediate := RewritePattern.GreedyRewritePattern <| #[
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirAddiw.run, gmirSlliw.run, gmirSrliw.run, gmirSraiw.run,
     gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
-  let ctx ← match RewritePattern.applyInContext early ctx with
-  | none => throw "Error while applying early memory-lowering patterns"
+  let ctx ← match RewritePattern.applyInContext immediate ctx with
+  | none => throw "Error while applying immediate instruction-selection patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|

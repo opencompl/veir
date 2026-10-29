@@ -28,8 +28,11 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64)}> ({
-    %x = "llvm.mlir.constant"() <{value = 81985529216486895 : i64}> : () -> i64
-    %y = "llvm.mlir.constant"() <{value = -6148914691236517206 : i64}> : () -> i64
+    // `llvm.freeze` hides the inputs from the constant folds of the post-legalizer combiner.
+    %x0 = "llvm.mlir.constant"() <{value = 81985529216486895 : i64}> : () -> i64
+    %y0 = "llvm.mlir.constant"() <{value = -6148914691236517206 : i64}> : () -> i64
+    %x = "llvm.freeze"(%x0) : (i64) -> i64
+    %y = "llvm.freeze"(%y0) : (i64) -> i64
     %m1 = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
     %ny = "llvm.xor"(%y, %m1) : (i64, i64) -> i64
     %r0 = "llvm.and"(%ny, %x) : (i64, i64) -> i64
@@ -56,12 +59,14 @@
     %r8 = "llvm.and"(%x, %nbit) : (i64, i64) -> i64
     %k = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
     %km = "llvm.mlir.constant"() <{value = -2049 : i64}> : () -> i64
-    %v = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
+    %v0 = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
+    %v = "llvm.freeze"(%v0) : (i64) -> i64
+    %m1f = "llvm.freeze"(%m1) : (i64) -> i64
     %q0 = "llvm.icmp"(%v, %k) <{predicate = 3 : i64}> : (i64, i64) -> i1
     %r9 = "llvm.zext"(%q0) : (i1) -> i64
-    %q1 = "llvm.icmp"(%m1, %km) <{predicate = 7 : i64}> : (i64, i64) -> i1
+    %q1 = "llvm.icmp"(%m1f, %km) <{predicate = 7 : i64}> : (i64, i64) -> i1
     %r10 = "llvm.zext"(%q1) : (i1) -> i64
-    %q2 = "llvm.icmp"(%m1, %m1) <{predicate = 7 : i64}> : (i64, i64) -> i1
+    %q2 = "llvm.icmp"(%m1f, %m1) <{predicate = 7 : i64}> : (i64, i64) -> i1
     %r11 = "llvm.zext"(%q2) : (i1) -> i64
     %q3 = "llvm.icmp"(%y, %c5) <{predicate = 5 : i64}> : (i64, i64) -> i1
     %r12 = "llvm.zext"(%q3) : (i1) -> i64
