@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 import Veir.Passes.Matching
+import Veir.Data.LLVM.Int.Lemmas
 import Std
 
 namespace Veir
@@ -95,7 +96,7 @@ def regOf (ip : InsertPoint) (acc : WfIRContext OpCode × Array ValuePtr)
     return (ctx, regs.push (x0.getResult 0))
 
 /-- A conditional RISC-V branch. All of them take `RISCVBrProperties`. -/
-abbrev CondBranch := { op : Riscv_Cf // Riscv_Cf.propertiesOf op = RISCVBrProperties }
+public abbrev CondBranch := { op : Riscv_Cf // Riscv_Cf.propertiesOf op = RISCVBrProperties }
 
 /--
   The RISC-V branch that takes its first successor when `icmp pred lhs rhs` holds, with its two
@@ -103,7 +104,7 @@ abbrev CondBranch := { op : Riscv_Cf // Riscv_Cf.propertiesOf op = RISCVBrProper
   `rhs` if it is a constant. A comparison against `-1` or `1` that is one against `0` compares
   with `x0` instead, and `sgt`, `sle`, `ugt` and `ule` swap the operands.
 -/
-def compareBranch (pred : Data.LLVM.IntPred) (lhs rhs : ValuePtr) (rhsConstant : Option Int) :
+public def compareBranch (pred : Data.LLVM.IntPred) (lhs rhs : ValuePtr) (rhsConstant : Option Int) :
     CondBranch × Option ValuePtr × Option ValuePtr :=
   match pred, rhsConstant with
   -- `x > -1` is `x >= 0`.
@@ -120,6 +121,74 @@ def compareBranch (pred : Data.LLVM.IntPred) (lhs rhs : ValuePtr) (rhsConstant :
   | .sle, _ => (⟨.bge, rfl⟩, some rhs, some lhs)
   | .ugt, _ => (⟨.bltu, rfl⟩, some rhs, some lhs)
   | .ule, _ => (⟨.bgeu, rfl⟩, some rhs, some lhs)
+
+/-- Whether the RISC-V compare-and-branch `op` takes its first successor on `lhs` and `rhs`. -/
+public def compareHolds (op : Riscv_Cf) (lhs rhs : BitVec 64) : Bool :=
+  match op with
+  | .beq => lhs == rhs
+  | .bne => lhs != rhs
+  | .blt => lhs.slt rhs
+  | .bge => !lhs.slt rhs
+  | .bltu => lhs.ult rhs
+  | .bgeu => !lhs.ult rhs
+  | _ => false
+
+@[simp, grind =]
+public theorem compareHolds_beq {lhs rhs : BitVec 64} : compareHolds .beq lhs rhs = (lhs == rhs) := by
+  simp only [compareHolds]
+
+@[simp, grind =]
+public theorem compareHolds_bne {lhs rhs : BitVec 64} : compareHolds .bne lhs rhs = (lhs != rhs) := by
+  simp only [compareHolds]
+
+@[simp, grind =]
+public theorem compareHolds_blt {lhs rhs : BitVec 64} : compareHolds .blt lhs rhs = (lhs.slt rhs) := by
+  simp only [compareHolds]
+
+@[simp, grind =]
+public theorem compareHolds_bge {lhs rhs : BitVec 64} : compareHolds .bge lhs rhs = (!lhs.slt rhs) := by
+  simp only [compareHolds]
+
+@[simp, grind =]
+public theorem compareHolds_bltu {lhs rhs : BitVec 64} : compareHolds .bltu lhs rhs = (lhs.ult rhs) := by
+  simp only [compareHolds]
+
+@[simp, grind =]
+public theorem compareHolds_bgeu {lhs rhs : BitVec 64} : compareHolds .bgeu lhs rhs = (!lhs.ult rhs) := by
+  simp only [compareHolds]
+
+/-- `compareBranch` picks one of the six compare-and-branches. -/
+public theorem compareBranch_mem {pred : Data.LLVM.IntPred} {lhs rhs : ValuePtr}
+    {rhsConstant : Option Int} :
+    (compareBranch pred lhs rhs rhsConstant).1.val ∈
+      [Riscv_Cf.beq, .bne, .blt, .bge, .bltu, .bgeu] := by
+  unfold compareBranch
+  split <;> simp
+
+/--
+  The compare-and-branch that `compareBranch` picks takes its first successor
+  exactly when the comparison it replaces holds, given the values in the
+  registers of its two operands, where `none` is `x0`. A constant `rhs` holds its
+  value.
+-/
+public theorem compareBranch_holds {pred : Data.LLVM.IntPred} {lhs rhs : ValuePtr}
+    {rhsConstant : Option Int} {value : Option ValuePtr → BitVec 64} (hNone : value none = 0)
+    (hConstant : ∀ c, rhsConstant = some c → value (some rhs) = BitVec.ofInt 64 c) :
+    compareHolds (compareBranch pred lhs rhs rhsConstant).1.val
+        (value (compareBranch pred lhs rhs rhsConstant).2.1)
+        (value (compareBranch pred lhs rhs rhsConstant).2.2) =
+      Data.LLVM.IntPred.eval pred (value (some lhs)) (value (some rhs)) := by
+  unfold compareBranch
+  split
+  all_goals simp only [compareHolds, hNone, Data.LLVM.IntPred.eval_eq, Data.LLVM.IntPred.eval_ne,
+    Data.LLVM.IntPred.eval_ugt, Data.LLVM.IntPred.eval_uge, Data.LLVM.IntPred.eval_ult,
+    Data.LLVM.IntPred.eval_ule, Data.LLVM.IntPred.eval_sgt, Data.LLVM.IntPred.eval_sge,
+    Data.LLVM.IntPred.eval_slt, Data.LLVM.IntPred.eval_sle]
+  · rw [hConstant (-1) rfl]
+    bv_decide
+  · rw [hConstant 1 rfl]
+    bv_decide
+  all_goals bv_decide
 
 /-- Whether a value of type `type` fills a register, so that comparing registers compares values. -/
 def fillsRegister (type : TypeAttr) : Bool :=
