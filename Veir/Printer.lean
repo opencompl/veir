@@ -204,12 +204,24 @@ private partial def printOperation (op : OperationPtr) (options : PrinterOptions
 end
 
 /-- Build the reader context used by custom printers. -/
-private partial def makeOpPrinterContext (ctx : IRContext OpCode) (options : PrinterOptions) : OpPrinterContext OpCode :=
-  OpPrinterContext.create ctx fun region printEntryBlockArgs =>
+private partial def makeOpPrinterContext (ctx : IRContext OpCode) (options : PrinterOptions)
+    (sink : String → IO Unit := IO.print) : OpPrinterContext OpCode :=
+  OpPrinterContext.createWithSink ctx (fun region printEntryBlockArgs =>
     ReaderT.run (printRegionImpl region printEntryBlockArgs options)
-      (makeOpPrinterContext ctx options)
+      (makeOpPrinterContext ctx options sink)) sink
 
 /-- Top-level entry: print a module operation. -/
 def printModule (ctx : IRContext OpCode) (op : OperationPtr) (options : PrinterOptions := {}) : IO Unit := do
   OpPrinter.run (makeOpPrinterContext ctx options) 0 (printOperation op options)
+
+/-- Print a module operation into a `String` rather than to stdout.
+
+The same printer, with its output collected: anything that wants the text -- a round-trip test, a
+file to hand to another tool -- would otherwise have to capture stdout. -/
+def printModuleToString (ctx : IRContext OpCode) (op : OperationPtr)
+    (options : PrinterOptions := {}) : IO String := do
+  let buf ← IO.mkRef ""
+  OpPrinter.run (makeOpPrinterContext ctx options (fun s => buf.modify (· ++ s))) 0
+    (printOperation op options)
+  buf.get
 
