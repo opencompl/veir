@@ -67,10 +67,11 @@ public theorem fitsRegister_iff {type : TypeAttr} : fitsRegister type = true ↔
     grind
 
 /-- `op` is one of the two gMIR branches that the pass replaces. -/
-def OperationPtr.IsGmirBranch (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
+@[expose]
+public def OperationPtr.IsGmirBranch (op : OperationPtr) (ctx : IRContext OpCode) : Prop :=
   op.getOpType! ctx = .gmir .g_br ∨ op.getOpType! ctx = .gmir .g_brcond
 
-instance {op : OperationPtr} {ctx : IRContext OpCode} :
+public instance {op : OperationPtr} {ctx : IRContext OpCode} :
     Decidable (op.IsGmirBranch ctx) := by
   unfold OperationPtr.IsGmirBranch; infer_instance
 
@@ -78,7 +79,7 @@ instance {op : OperationPtr} {ctx : IRContext OpCode} :
   Cast `operand` to a register with a cast inserted at `ip`, and append the
   cast to `casts`.
 -/
-def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr)
+public def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr)
     (operand : ValuePtr) : Except String (WfIRContext OpCode × Array OperationPtr) := do
   let (ctx, casts) := acc
   let some (ctx, cast) := WfRewriter.createOp! ctx
@@ -90,7 +91,7 @@ def castToReg (ip : InsertPoint) (acc : WfIRContext OpCode × Array OperationPtr
   Append to `regs` a register holding `operand`: a cast of it to a register inserted at `ip`, or
   `x0` for `none`.
 -/
-def regOf (ip : InsertPoint) (acc : WfIRContext OpCode × Array ValuePtr)
+public def regOf (ip : InsertPoint) (acc : WfIRContext OpCode × Array ValuePtr)
     (operand : Option ValuePtr) : Except String (WfIRContext OpCode × Array ValuePtr) := do
   let (ctx, regs) := acc
   match operand with
@@ -199,7 +200,7 @@ public theorem compareBranch_holds {pred : Data.LLVM.IntPred} {lhs rhs : ValuePt
   all_goals bv_decide
 
 /-- Whether a value of type `type` fills a register, so that comparing registers compares values. -/
-def fillsRegister (type : TypeAttr) : Bool :=
+public def fillsRegister (type : TypeAttr) : Bool :=
   match type.val with
   | .integerType intType => intType.bitwidth = 64
   | .llvmPointerType _ => true
@@ -212,7 +213,7 @@ def fillsRegister (type : TypeAttr) : Bool :=
   `g_icmp` must come right before the branch and must not compare its own result: then the values
   it compared are still those of `lhs` and `rhs`.
 -/
-def matchCompare (ctx : IRContext OpCode) (branch : OperationPtr) :
+public def matchCompare (ctx : IRContext OpCode) (branch : OperationPtr) :
     Option (CondBranch × Option ValuePtr × Option ValuePtr) := do
   guard (branch.getOpType! ctx = OpCode.gmir .g_brcond)
   let cond := branch.getOperand! ctx 0
@@ -229,7 +230,7 @@ def matchCompare (ctx : IRContext OpCode) (branch : OperationPtr) :
   those of the operands of `op`, except that a compare-and-branch takes the two compared values
   in place of the condition.
 -/
-def regOperands (ctx : IRContext OpCode) (op : OperationPtr)
+public def regOperands (ctx : IRContext OpCode) (op : OperationPtr)
     (compare : Option (CondBranch × Option ValuePtr × Option ValuePtr)) : List (Option ValuePtr) :=
   let operands := (List.range (op.getNumOperands! ctx)).map (op.getOperand! ctx ·)
   match compare with
@@ -237,7 +238,7 @@ def regOperands (ctx : IRContext OpCode) (op : OperationPtr)
   | none => operands.map some
 
 /-- Whether `op` is a branch the pass rewrites, or a RISC-V branch that is already lowered. -/
-def isLoweredBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
+public def isLoweredBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
   match op.getOpType! ctx.raw with
   | .gmir .g_br | .gmir .g_brcond | .riscv_cf _ => true
   | _ => false
@@ -246,12 +247,12 @@ def isLoweredBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
   The blocks that a terminator the pass does not rewrite branches to. Their
   arguments keep their types, since that terminator keeps passing them.
 -/
-def blockedTargets (ctx : WfIRContext OpCode) : List BlockPtr :=
+public def blockedTargets (ctx : WfIRContext OpCode) : List BlockPtr :=
   ctx.raw.operations.keys.flatMap fun op =>
     if isLoweredBranch ctx op then [] else (op.getSuccessors! ctx.raw).toList
 
 /-- Whether the arguments of `block` all fit a register, so it can be converted. -/
-def isConvertible (ctx : WfIRContext OpCode) (block : BlockPtr) : Bool :=
+public def isConvertible (ctx : WfIRContext OpCode) (block : BlockPtr) : Bool :=
   (List.range (block.getNumArguments! ctx.raw)).all fun i =>
     fitsRegister ((ValuePtr.blockArgument { block := block, index := i }).getType! ctx.raw)
 
@@ -262,7 +263,7 @@ def isConvertible (ctx : WfIRContext OpCode) (block : BlockPtr) : Bool :=
   converted. Removing a block can leave another branch alone, so this repeats
   until nothing changes, at most `fuel` times.
 -/
-def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) :
+public def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) :
     Nat → List BlockPtr → List BlockPtr
   | 0, convertible => convertible
   | fuel + 1, convertible =>
@@ -284,7 +285,7 @@ def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) 
   alone. A branch to a block that cannot be converted is left alone as well.
   `compareOf` gives the compare-and-branch that replaces a `g_brcond`, if any.
 -/
-def convertBranch (convertible : BlockPtr → Bool)
+public def convertBranch (convertible : BlockPtr → Bool)
     (compareOf : OperationPtr → Option (CondBranch × Option ValuePtr × Option ValuePtr))
     (ctx : WfIRContext OpCode) (op : OperationPtr) : Except String (WfIRContext OpCode) :=
   if op.getOpType! ctx = OpCode.llvm .unreachable then
@@ -326,7 +327,7 @@ def convertBranch (convertible : BlockPtr → Bool)
   Turn argument `i` of `block` into a register. A cast at the start of the
   block gives the rest of the block the value at its original type.
 -/
-def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
+public def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
     : Except String (WfIRContext OpCode) := do
   let bap : BlockArgumentPtr := { block := block, index := i }
 
@@ -344,7 +345,7 @@ def convertBlockArgument (block : BlockPtr) (ctx : WfIRContext OpCode) (i : Nat)
   return WfRewriter.pushOperand! ctx cast bap
 
 /-- Turn the arguments of `block` into registers. -/
-def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
+public def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
     : Except String (WfIRContext OpCode) :=
   -- Add casts in order of block arguments
   (List.range (block.getNumArguments! ctx.raw)).reverse.foldlM (convertBlockArgument block) ctx
@@ -354,7 +355,7 @@ def convertBlock (ctx : WfIRContext OpCode) (block : BlockPtr)
   converted and the compares to fuse with a branch are fixed up front, so the
   operations the pass creates are not visited.
 -/
-def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
+public def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) := do
   let ops := ctx.raw.operations.keys
   let blocks := ctx.raw.blocks.keys
   let blocked := Std.HashSet.ofList (blockedTargets ctx)
