@@ -54,6 +54,17 @@ def createRISCVUnitLocal (ctx : WfIRContext OpCode)
   WfRewriter.createOp! ctx dst #[RegisterType.mk] operands #[] #[]
       (cast h.symm ()) none
 
+/-- The index of the single set bit of `x`, or `none` when `x` is zero or has more
+    than one bit set (`u &&& (u - 1)` clears the lowest set bit; if that leaves `0`,
+    there was at most one). Used for Zbs single-bit immediate selection. -/
+def singleSetBit (x : BitVec 64) : Option Int :=
+  let u := x.toNat
+  if u == 0 || (u &&& (u - 1)) != 0 then none else some (Nat.log2 u)
+
+/-- The mask the `orcb` selection's soundness gate looks for: `0x0101_0101_0101_0101 <<< Y`, whose only
+    set bit in each byte is bit `Y`. -/
+def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
+
 /-! ## Puddle lowering patterns -/
 
 section

@@ -19,6 +19,17 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 
 namespace Veir
 
+open Puddle in
+/-- The power-of-two division combines for the RISC-V word divisions, which read the low 32 bits
+    of their `i64` divisor. Their results are word operations too. -/
+def wordDivCombines : Array (CompiledPattern OpCode) :=
+  let patterns : Array (Pattern OpCode) :=
+    #[udiv_by_pow2_pattern .g_udivw .g_lshrw (some 32)] ++
+    #[false, true].flatMap (fun negative =>
+      #[sdiv_exact_by_pow2_pattern .g_sdivw .g_ashrw .g_subw rfl (some 32) negative,
+        sdiv_by_pow2_pattern .g_sdivw .g_ashrw .g_lshrw .g_addw .g_subw rfl (some 32) negative])
+  patterns.map (·.compile)
+
 public section
 
 def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
@@ -28,7 +39,7 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
       -- The combines come before `sub_to_add`, which would otherwise rewrite the subtractions
       -- some of them match.
       let pattern := RewritePattern.GreedyRewritePattern <|
-        (combines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
+        (combines ++ wordDivCombines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
         #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run, commutativeConstantRHS]
       match RewritePattern.applyInContext pattern ctx with
       | none => throw "Error while applying the post-legalizer combines"

@@ -45,6 +45,22 @@ def GMIRConstantProperties.log2? (props : GMIRConstantProperties) : Option Nat :
   let value := props.bits.toInt
   if 0 < value ∧ value.toNat &&& (value.toNat - 1) = 0 then some value.toNat.log2 else none
 
+/-- `k` when the low `width` bits of the constant, read as an unsigned integer, are `2^k`. -/
+def GMIRConstantProperties.ulog2At? (width : Nat) (props : GMIRConstantProperties) :
+    Option Nat :=
+  let value := (BitVec.ofInt width props.value.value).toNat
+  if value ≠ 0 ∧ value &&& (value - 1) = 0 then some value.log2 else none
+
+/-- `(k, negative)` when the low `width` bits of the constant, read as a signed integer, are
+    `2^k` (`negative = false`) or `-2^k` (`negative = true`). -/
+def GMIRConstantProperties.slog2At? (width : Nat) (props : GMIRConstantProperties) :
+    Option (Nat × Bool) :=
+  let value := (BitVec.ofInt width props.value.value).toInt
+  let magnitude := value.natAbs
+  if magnitude ≠ 0 ∧ magnitude &&& (magnitude - 1) = 0 then
+    some (magnitude.log2, decide (value < 0))
+  else none
+
 /--
 Properties of `gmir.g_sext_inreg`. `sz` is the number of low bits that are kept.
 -/

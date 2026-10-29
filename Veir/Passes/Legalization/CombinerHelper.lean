@@ -787,19 +787,105 @@ def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
 
 /-! ### Power-of-two strength reductions -/
 
-/-- `udiv x, 2^k` → `lshr x, k`. -/
-def udiv_by_pow2_pattern : Pattern OpCode :=
+/-- The width at which a division reads its divisor: `width?`, or else the divisor's own width.
+    The RISC-V word divisions read the low 32 bits of an `i64` divisor. -/
+def divisorWidth (width? : Option Nat) (c : GMIRConstantProperties) : Nat :=
+  width?.getD c.value.type.bitwidth
+
+/-- `udiv x, 2^k` → `lshr x, k`, with the divisor read as an unsigned integer at
+    `divisorWidth width? c`. `udiv` and `lshr` are `g_udiv` and `g_lshr`, or a RISC-V word
+    division and shift. -/
+def udiv_by_pow2_pattern (udiv : GMIR := .g_udiv) (lshr : GMIR := .g_lshr)
+    (width? : Option Nat := none) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value type
-      let c ← matchConstant type (·.log2?.isSome)
-      let _ ← MatchProg.root (.gmir .g_udiv) #[x, c.res[0]!] #[type]
+      let c ← matchConstant type fun c => (c.ulog2At? (divisorWidth width? c)).isSome
+      let _ ← MatchProg.root (.gmir udiv) #[x, c.res[0]!] #[type]
       return (type, x, c.properties))
     (fun (type, x, c) => do
-      let k ← createConstantWith type c fun c => c.log2?.get!
-      CreateProg.operation (.gmir .g_lshr) #[x, k.res[0]!] #[type])
+      let k ← createConstantWith type c fun c => (c.ulog2At? (divisorWidth width? c)).get!
+      CreateProg.operation (.gmir lshr) #[x, k.res[0]!] #[type])
     (fun op => op)
+
+/--
+`sdiv exact x, 2^k` → `ashr x, k`, and `sdiv exact x, -2^k` → `0 - (ashr x, k)` when `negative` is
+set, with the divisor read as a signed integer at `divisorWidth width? c`. An exact division has
+no remainder, so the shift does not need to round toward zero. The opcodes are those of
+`g_sdiv`, `g_ashr` and `g_sub`, or of the RISC-V word operations.
+
+https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp#L6454-L6510
+-/
+def sdiv_exact_by_pow2_pattern (sdiv ashr sub : GMIR)
+    (h : propertiesOf (OpCode.gmir sdiv) = ExactProperties) (width? : Option Nat)
+    (negative : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let c ← matchConstant type fun c =>
+        (c.slog2At? (divisorWidth width? c)).any (·.2 == negative)
+      let _ ← MatchProg.root (.gmir sdiv) #[x, c.res[0]!] #[type] fun props => (cast h props).exact
+      return (type, x, c.properties))
+    (fun (type, x, c) => do
+      let k ← createConstantWith type c fun c => (c.slog2At? (divisorWidth width? c)).get!.1
+      let quotient ← CreateProg.operation (.gmir ashr) #[x, k.res[0]!] #[type]
+      if negative then
+        let zero ← createConstant type 0
+        CreateProg.operation (.gmir sub) #[zero.res[0]!, quotient.res[0]!] #[type]
+      else
+        pure quotient)
+    (fun op => op)
+
+/--
+`sdiv x, ±2^k` with `k ≥ 1` and no `exact` flag, at width `w = divisorWidth width? c`. Negative
+dividends are biased by `2^k - 1` so that the shift rounds toward zero:
+```
+sign   := ashr x, w - 1
+bias   := lshr sign, w - k
+q      := ashr (add x, bias), k
+```
+The result is `q`, or `0 - q` when `negative` is set. The opcodes are those of `g_sdiv`,
+`g_ashr`, `g_lshr`, `g_add` and `g_sub`, or of the RISC-V word operations. A divisor of `±1`
+would need a shift by `w`; the identity combines handle `1`.
+
+https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5294-L5345
+-/
+def sdiv_by_pow2_pattern (sdiv ashr lshr add sub : GMIR)
+    (h : propertiesOf (OpCode.gmir sdiv) = ExactProperties) (width? : Option Nat)
+    (negative : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let c ← matchConstant type fun c =>
+        (c.slog2At? (divisorWidth width? c)).any fun (k, neg) => k ≠ 0 && neg == negative
+      let _ ← MatchProg.root (.gmir sdiv) #[x, c.res[0]!] #[type]
+          fun props => !(cast h props).exact
+      return (type, x, c.properties))
+    (fun (type, x, c) => do
+      let width (c : GMIRConstantProperties) : Int := divisorWidth width? c
+      let log2 (c : GMIRConstantProperties) : Int := (c.slog2At? (divisorWidth width? c)).get!.1
+      let signAmount ← createConstantWith type c fun c => width c - 1
+      let sign ← CreateProg.operation (.gmir ashr) #[x, signAmount.res[0]!] #[type]
+      let biasAmount ← createConstantWith type c fun c => width c - log2 c
+      let bias ← CreateProg.operation (.gmir lshr) #[sign.res[0]!, biasAmount.res[0]!] #[type]
+      let biased ← CreateProg.operation (.gmir add) #[x, bias.res[0]!] #[type]
+      let k ← createConstantWith type c log2
+      let quotient ← CreateProg.operation (.gmir ashr) #[biased.res[0]!, k.res[0]!] #[type]
+      if negative then
+        let zero ← createConstant type 0
+        CreateProg.operation (.gmir sub) #[zero.res[0]!, quotient.res[0]!] #[type]
+      else
+        pure quotient)
+    (fun op => op)
+
+/-- The power-of-two `g_sdiv` combines, for positive and negative divisors. -/
+def sdiv_by_pow2_patterns : Array (Pattern OpCode) :=
+  #[false, true].flatMap (fun negative =>
+    #[sdiv_exact_by_pow2_pattern .g_sdiv .g_ashr .g_sub rfl none negative,
+      sdiv_by_pow2_pattern .g_sdiv .g_ashr .g_lshr .g_add .g_sub rfl none negative])
 
 /-- `x * 2^k` → `x << k`. Both overflow in the same cases, so the flags carry over. -/
 def mul_to_shl_pattern : Pattern OpCode :=
@@ -962,6 +1048,7 @@ def combines : Array (CompiledPattern OpCode) :=
     sub_of_mul_const_pattern, canonicalize_icmp_pattern,
     bitreverse_shift_pattern .g_shl .g_lshr, bitreverse_shift_pattern .g_lshr .g_shl,
     udiv_by_pow2_pattern, mul_to_shl_pattern, urem_pow2_to_mask_pattern] ++
+  sdiv_by_pow2_patterns ++
   #[(GMIR.g_add, fun a b => a + b), (.g_sub, (· - ·)), (.g_mul, (· * ·)),
     (.g_smin, min), (.g_smax, max)].map (fun (opcode, fold) => constant_fold_binop_pattern opcode fold) ++
   #[sub_minus_one_pattern] ++
