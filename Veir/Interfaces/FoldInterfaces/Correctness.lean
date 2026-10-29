@@ -31,6 +31,19 @@ def FoldDecision.HasTypes (decisions : Array FoldDecision)
   decisions.size = resultTypes.size ∧
     ∀ i (h : i < decisions.size), HasType operandTypes decisions[i] resultTypes[i]!
 
+/-- Typing a single replacement reduces to typing its decision. -/
+@[simp, grind =]
+theorem FoldDecision.hasTypes_singleton :
+    HasTypes #[decision] operands #[type] ↔ HasType operands decision type := by
+  simp [HasTypes]
+
+/-- Typing two replacements reduces to their individual typing obligations. -/
+@[simp, grind =]
+theorem FoldDecision.hasTypes_pair :
+    HasTypes #[a, b] operands #[ta, tb] ↔
+      HasType operands a ta ∧ HasType operands b tb := by
+  simp [HasTypes, Nat.forall_lt_succ_left']
+
 /-- Interpret a decision without creating any IR. Invalid operand indices fail. -/
 @[expose]
 def FoldDecision.resolve (operands : Array RuntimeValue) : FoldDecision → Option RuntimeValue

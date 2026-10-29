@@ -38,6 +38,15 @@ theorem OperationPtr.verifyIntegerBinop_eq_ok
   simp only [TypeAttr.inj]
   grind
 
+/-- Recover the complete type arrays of a verified integer binary operation. -/
+theorem OperationPtr.IsVerifiedIntegerBinop.types
+    {ctx : WfIRContext OpInfo} {op : OperationPtr} (h : op.IsVerifiedIntegerBinop ctx) :
+    ∃ type : IntegerType,
+      op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)] ∧
+      op.getResultTypes! ctx.raw = #[(type : TypeAttr)] := by
+  obtain ⟨_, _, _, _, type, _, _, _⟩ := h
+  refine ⟨type, ?_, ?_⟩ <;> apply Array.ext <;> grind
+
 /--
   Structural facts shared by successful select-operation checks.
 -/
