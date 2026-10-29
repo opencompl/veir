@@ -33,6 +33,16 @@ inductive GMIR where
 | g_shl
 | g_lshr
 | g_ashr
+-- RISC-V word operations on i64 values; see `GMIR.interpretWordBinary`.
+| g_addw
+| g_subw
+| g_mulw
+| g_sdivw
+| g_udivw
+| g_uremw
+| g_shlw
+| g_lshrw
+| g_ashrw
 | g_icmp
 | g_select
 | g_anyext
@@ -76,8 +86,10 @@ deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
 def GMIR.propertiesOf : GMIR → Type
-  | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => NswNuwProperties
-  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => ExactProperties
+  | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc
+  | .g_addw | .g_subw | .g_mulw | .g_shlw => NswNuwProperties
+  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr
+  | .g_sdivw | .g_udivw | .g_lshrw | .g_ashrw => ExactProperties
   | .g_or => DisjointProperties
   | .g_icmp => IcmpProperties
   | .g_zext => NnegProperties
@@ -86,7 +98,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_load | .g_store => MachineMemOperand
   | .g_brcond => GMIRBrCondProperties
   | .g_select | .g_anyext | .g_sext
-  | .g_and | .g_xor | .g_srem | .g_urem
+  | .g_and | .g_xor | .g_srem | .g_urem | .g_uremw
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
@@ -98,8 +110,10 @@ def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (GMIR.propertiesOf op) := by
   cases op
-  case g_add | g_sub | g_mul | g_shl | g_trunc => exact NswNuwProperties.fromAttrDict attrDict
-  case g_sdiv | g_udiv | g_lshr | g_ashr => exact ExactProperties.fromAttrDict attrDict
+  case g_add | g_sub | g_mul | g_shl | g_trunc
+     | g_addw | g_subw | g_mulw | g_shlw => exact NswNuwProperties.fromAttrDict attrDict
+  case g_sdiv | g_udiv | g_lshr | g_ashr
+     | g_sdivw | g_udivw | g_lshrw | g_ashrw => exact ExactProperties.fromAttrDict attrDict
   case g_or => exact DisjointProperties.fromAttrDict attrDict
   case g_icmp => exact IcmpProperties.fromAttrDictFor "gmir.g_icmp" attrDict
   case g_zext => exact NnegProperties.fromAttrDict attrDict
@@ -109,7 +123,7 @@ def GMIR.fromAttrDict
   case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
   case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
   case g_select | g_anyext | g_sext
-     | g_and | g_xor | g_srem | g_urem
+     | g_and | g_xor | g_srem | g_urem | g_uremw
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
@@ -121,7 +135,8 @@ def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
   match op with
-  | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => Id.run do
+  | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc
+  | .g_addw | .g_subw | .g_mulw | .g_shlw => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     let val := (if props.nsw then 1 else 0) + (if props.nuw then 2 else 0)
     if val > 0 then
@@ -132,7 +147,8 @@ def GMIR.toAttrDict
     let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
     (Std.HashMap.emptyWithCapacity 1).insert
       "predicate".toUTF8 (Attribute.integerAttr value)
-  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => Id.run do
+  | .g_sdiv | .g_udiv | .g_lshr | .g_ashr
+  | .g_sdivw | .g_udivw | .g_lshrw | .g_ashrw => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.exact then
       dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
@@ -149,7 +165,7 @@ def GMIR.toAttrDict
   | .g_brcond => (Std.HashMap.emptyWithCapacity 1).insert
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .g_select | .g_anyext | .g_sext
-  | .g_and | .g_xor | .g_srem | .g_urem
+  | .g_and | .g_xor | .g_srem | .g_urem | .g_uremw
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
@@ -187,6 +203,10 @@ structure GenericOpInfo where
 deriving Inhabited, Repr
 
 def GMIR.genericOpInfo : GMIR → GenericOpInfo
+  | .g_addw | .g_subw | .g_mulw | .g_sdivw | .g_udivw | .g_uremw
+  | .g_shlw | .g_lshrw | .g_ashrw =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 0, .type 0] }
   | .g_add | .g_sub | .g_mul | .g_and | .g_or | .g_xor
   | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat
@@ -337,11 +357,49 @@ widths of 8, 16, 32 and 64 bits.
 def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
   if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
 
+/--
+Interpret a RISC-V gMIR word operation. Both operands and the result are i64; only the low
+32 bits of each operand are read, and the 32-bit result is any-extended to i64. This deterministic
+interpreter chooses zero for the upper bits, as for `g_anyext`; `interpretOpCTree` allows every
+choice of upper bits. The supplied operation keeps the source's 32-bit poison flags and division UB.
+In particular, shifts by 32 or more (in the low word) are poison, and `exact` division requires a
+zero remainder.
+Instruction selection may refine these cases to the hardware word instruction's behavior.
+-/
+def GMIR.interpretWordBinary
+    (f : Data.LLVM.Int 32 → Data.LLVM.Int 32 → Interp (Data.LLVM.Int 32))
+    (operands : Array RuntimeValue) (mem : MemoryState) :
+    Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) := do
+  let [.int 64 lhs, .int 64 rhs] := operands.toList | none
+  let result ← f (lhs.trunc 32 false false (by decide)) (rhs.trunc 32 false false (by decide))
+  return (#[.int 64 (result.zext 64 false (by decide))], mem, none)
+
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
+  | .g_addw => GMIR.interpretWordBinary
+      (fun x y => pure (Data.LLVM.Int.add x y properties.nsw properties.nuw)) operands mem
+  | .g_subw => GMIR.interpretWordBinary
+      (fun x y => pure (Data.LLVM.Int.sub x y properties.nsw properties.nuw)) operands mem
+  | .g_mulw => GMIR.interpretWordBinary
+      (fun x y => pure (Data.LLVM.Int.mul x y properties.nsw properties.nuw)) operands mem
+  | .g_shlw => GMIR.interpretWordBinary
+      (fun x y => pure (Data.LLVM.Int.shl x y properties.nsw properties.nuw)) operands mem
+  | .g_lshrw => GMIR.interpretWordBinary
+      (fun x y => pure (Data.LLVM.Int.lshr x y properties.exact)) operands mem
+  | .g_ashrw => GMIR.interpretWordBinary
+      (fun x y => pure (Data.LLVM.Int.ashr x y properties.exact)) operands mem
+  | .g_sdivw => GMIR.interpretWordBinary (fun x y => do
+      if Data.LLVM.Int.isSignedDivisionUB x y then Interp.ub none
+      pure (Data.LLVM.Int.sdiv x y properties.exact)) operands mem
+  | .g_udivw => GMIR.interpretWordBinary (fun x y => do
+      if Data.LLVM.Int.isUnsignedDivisionUB y then Interp.ub none
+      pure (Data.LLVM.Int.udiv x y properties.exact)) operands mem
+  | .g_uremw => GMIR.interpretWordBinary (fun x y => do
+      if Data.LLVM.Int.isUnsignedDivisionUB y then Interp.ub none
+      pure (Data.LLVM.Int.urem x y)) operands mem
   | .g_anyext => do
     /- TODO: the semantics need to be updated once we support nondeterminism. -/
     let [.int w val] := operands.toList | none
@@ -721,6 +779,12 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"{instrName}: type mismatch: expected {expected}, got {type}"
   -- Verify opcode-specific type invariants
   match opCode with
+  | .g_addw | .g_subw | .g_mulw | .g_sdivw | .g_udivw | .g_uremw
+  | .g_shlw | .g_lshrw | .g_ashrw =>
+    -- Type-group checking above also requires both operands to have this type.
+    let type := ((opPtr.getResult 0).getType! ctx.raw).val
+    unless type matches .integerType ⟨64, _⟩ do
+      throw "RISC-V gMIR word operations require i64 operands and result"
   | .g_icmp =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRICmp ctx opIn
@@ -812,6 +876,8 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.verifyGMIRIntegerTypes ctx opIn
 
 def GMIR.propagatesPoison : GMIR → Bool
+  | .g_addw | .g_subw | .g_mulw | .g_sdivw | .g_udivw | .g_uremw
+  | .g_shlw | .g_lshrw | .g_ashrw => true
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr
@@ -835,6 +901,7 @@ def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :
   | _, _ => .none
 
 def GMIR.isCommutative : GMIR → Bool
+  | .g_addw | .g_mulw => true
   | .g_add | .g_mul | .g_and | .g_or | .g_xor
   | .g_smin | .g_smax | .g_umin | .g_umax
   | .g_uaddsat | .g_saddsat | .g_uaddo => true

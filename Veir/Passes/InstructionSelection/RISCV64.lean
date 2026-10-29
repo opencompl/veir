@@ -1269,6 +1269,22 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
       riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
 
+/-- Select the RISC-V gMIR word operations introduced by custom legalization. Their i64
+    operands hold the source values in the low 32 bits. Each hardware word instruction chooses
+    sign extension for the unspecified upper result bits. Source poison flags and division UB
+    may also be refined. -/
+def gmirWord : Array (Puddle.CompiledPattern OpCode) :=
+  #[lowerBinary (.gmir .g_addw) (·.bitwidth = 64) .addw () (guard := matchLegal .g_addw),
+    lowerBinary (.gmir .g_subw) (·.bitwidth = 64) .subw () (guard := matchLegal .g_subw),
+    lowerBinary (.gmir .g_mulw) (·.bitwidth = 64) .mulw () (guard := matchLegal .g_mulw),
+    lowerBinary (.gmir .g_sdivw) (·.bitwidth = 64) .divw () (guard := matchLegal .g_sdivw),
+    lowerBinary (.gmir .g_udivw) (·.bitwidth = 64) .divuw () (guard := matchLegal .g_udivw),
+    lowerBinary (.gmir .g_uremw) (·.bitwidth = 64) .remuw () (guard := matchLegal .g_uremw),
+    lowerBinary (.gmir .g_shlw) (·.bitwidth = 64) .sllw () (guard := matchLegal .g_shlw),
+    lowerBinary (.gmir .g_lshrw) (·.bitwidth = 64) .srlw () (guard := matchLegal .g_lshrw),
+    lowerBinary (.gmir .g_ashrw) (·.bitwidth = 64) .sraw () (guard := matchLegal .g_ashrw)].map
+      (·.compile)
+
 /-! ## Zicond branchless `g_select` lowering
 
   The Zicond extension lowers `gmir.g_select` branchlessly, mirroring LLVM's SelectionDAG
@@ -1835,7 +1851,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
     gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
-    gmirIcmp.map (·.run)
+    gmirIcmp.map (·.run) ++ gmirWord.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx

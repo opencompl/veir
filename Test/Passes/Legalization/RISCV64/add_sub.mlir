@@ -3,11 +3,11 @@
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
-    // `i32` -> `riscv.addw`/`riscv.subw` (custom legalization).
+    // `i32` -> `gmir.g_addw`/`gmir.g_subw` (custom legalization).
     %add32 = "gmir.g_add"(%x_i32, %x_i32) <{overflowFlags = 3 : i32}> : (i32, i32) -> i32
-    // CHECK:      "riscv.addw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_addw"({{.*}}) <{"overflowFlags" = 3 : i32}> : (i64, i64) -> i64
     %sub32 = "gmir.g_sub"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.subw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_subw"({{.*}}) : (i64, i64) -> i64
 
     %lhs = "llvm.mlir.constant"() <{value = 1 : i8}> : () -> i8
     %rhs = "llvm.mlir.constant"() <{value = 2 : i8}> : () -> i8

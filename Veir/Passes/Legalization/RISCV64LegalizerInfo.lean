@@ -18,15 +18,30 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 namespace Veir
 
 /--
-  Custom legalization of `i32` binary operations into their RISC-V word variant
-  (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
-  For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
-  later. For `g_sdiv`/`g_udiv`/`g_urem` and the shifts, LLVM custom-legalizes into `RISCV::G_DIVW`,
-  `RISCV::G_SLLW` etc.
+  Custom-legalize an i32 binary operation to a RISC-V gMIR word operation. Its operands are
+  any-extended to i64 and its any-extended i64 result is truncated back to i32. The word
+  operation reads only the low 32 bits and keeps the original properties, including `exact`,
+  for post-legalizer combines and instruction selection.
 -/
-def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
-  lowerBinary (.gmir opcode) (·.bitwidth = 32) riscvOp riscvProps
+def customLegalizeWord (opcode wordOpcode : GMIR)
+    (h : propertiesOf (OpCode.gmir opcode) = propertiesOf (OpCode.gmir wordOpcode)) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let lhs ← Puddle.MatchProg.value type
+      let rhs ← Puddle.MatchProg.value type
+      let root ← Puddle.MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs, root.properties))
+    (fun (type, lhs, rhs, props) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let lhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[lhs] #[wideType]
+      let rhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[rhs] #[wideType]
+      let wordProps ← Puddle.CreateProg.applyNative props (fun props => some (cast h props))
+      let word ← Puddle.CreateProg.operation (.gmir wordOpcode)
+          #[lhs.res[0]!, rhs.res[0]!] #[wideType] (.inr wordProps)
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[word.res[0]!] #[type])
+    (fun trunc => trunc)
 
 /--
   Custom legalization of `i32` unary operations into their RISC-V word variant
@@ -89,6 +104,8 @@ public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
+    | .g_addw | .g_subw | .g_mulw | .g_sdivw | .g_udivw | .g_uremw
+    | .g_shlw | .g_lshrw | .g_ashrw => [.legalFor [s64]]
     | .g_add | .g_sub => [
       .legalFor [s64],
       .customFor [s32],
@@ -210,15 +227,15 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | _ => []
   legalizeCustom
-    | .g_add => customLegalizeWord .g_add .addw ()
-    | .g_sub => customLegalizeWord .g_sub .subw ()
-    | .g_mul => customLegalizeWord .g_mul .mulw ()
-    | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
-    | .g_udiv => customLegalizeWord .g_udiv .divuw ()
-    | .g_urem => customLegalizeWord .g_urem .remuw ()
-    | .g_shl => customLegalizeWord .g_shl .sllw ()
-    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
-    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
+    | .g_add => customLegalizeWord .g_add .g_addw rfl
+    | .g_sub => customLegalizeWord .g_sub .g_subw rfl
+    | .g_mul => customLegalizeWord .g_mul .g_mulw rfl
+    | .g_sdiv => customLegalizeWord .g_sdiv .g_sdivw rfl
+    | .g_udiv => customLegalizeWord .g_udiv .g_udivw rfl
+    | .g_urem => customLegalizeWord .g_urem .g_uremw rfl
+    | .g_shl => customLegalizeWord .g_shl .g_shlw rfl
+    | .g_lshr => customLegalizeWord .g_lshr .g_lshrw rfl
+    | .g_ashr => customLegalizeWord .g_ashr .g_ashrw rfl
     | .g_ctlz => customLegalizeWordUnary .g_ctlz .clzw ()
     | .g_cttz => customLegalizeWordUnary .g_cttz .ctzw ()
     | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()

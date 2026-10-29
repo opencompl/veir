@@ -39,8 +39,8 @@
     // CHECK:      "gmir.g_and"
     // CHECK:      "riscv.clzw"
     // CHECK:      "gmir.g_constant"() <{"value" = 24 : i64}> : () -> i64
-    // CHECK:      "riscv.subw"
-    // CHECK:      "gmir.g_trunc"(%{{.*}}) : (i32) -> i8
+    // CHECK:      "gmir.g_subw"
+    // CHECK:      "gmir.g_trunc"(%{{.*}}) : (i64) -> i8
     %cttz8 = "gmir.g_cttz"(%x_i8) : (i8) -> i8
     // CHECK:      "gmir.g_constant"() <{"value" = 256 : i64}> : () -> i64
     // CHECK:      "gmir.g_or"

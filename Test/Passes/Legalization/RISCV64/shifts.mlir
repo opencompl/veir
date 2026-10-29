@@ -4,11 +4,11 @@
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
     %shl32 = "gmir.g_shl"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.sllw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_shlw"({{.*}}) : (i64, i64) -> i64
     %lshr32 = "gmir.g_lshr"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.srlw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_lshrw"({{.*}}) : (i64, i64) -> i64
     %ashr32 = "gmir.g_ashr"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.sraw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir.g_ashrw"({{.*}}) : (i64, i64) -> i64
 
     %x_i8 = "llvm.mlir.constant"() <{value = 1 : i8}> : () -> i8
     %shl = "gmir.g_shl"(%x_i8, %x_i8) <{overflowFlags = 3 : i32}> : (i8, i8) -> i8
