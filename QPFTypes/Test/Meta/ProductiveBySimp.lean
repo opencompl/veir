@@ -44,4 +44,26 @@ info: QPFTypes.Test.ProductiveBySimp.Stream.consZeroAdd.__dest_partial (x : Nat)
 #guard_msgs in
 #check Stream.consZeroAdd.__dest_partial
 
+/--
+info: QPFTypes.Test.ProductiveBySimp.Stream.consZeroAdd.__partial_injEq (x : Nat) (xs : Stream.__partial Nat) (x' : Nat)
+  (xs' : Stream.__partial Nat) :
+  (Stream.consZeroAdd.__partial x xs = Stream.consZeroAdd.__partial x' xs') = (x = x' ∧ xs = xs')
+-/
+#guard_msgs in
+#check Stream.consZeroAdd.__partial_injEq
+
+-- The injectivity lemma is in `qpf_productive_by`.
+example (x y : Nat) (xs ys : Stream.__partial Nat) :
+    Stream.consZeroAdd.__partial x xs = Stream.consZeroAdd.__partial y ys ↔ x = y ∧ xs = ys := by
+  simp only [qpf_productive_by]
+
+/-- A constructor whose layer is not injective in `x`: it gets no injectivity lemma. -/
+@[qpf_ctor]
+def Stream.consZero (x : Nat) (xs : Stream Nat) : Stream Nat :=
+  Cofix.mk (.cons (0 * x) xs)
+
+/-- error: Unknown constant `_private.Test.Meta.ProductiveBySimp.0.QPFTypes.Test.ProductiveBySimp.Stream.consZero.__partial_injEq` -/
+#guard_msgs in
+#check @Stream.consZero.__partial_injEq
+
 end QPFTypes.Test.ProductiveBySimp

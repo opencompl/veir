@@ -32,7 +32,10 @@ unfolding equations. Finally, if `g.__partial xs` unfolds to a single layer `Cof
 it proves `g.__dest_partial : Cofix.dest (g.__partial xs) = Comp.mk (some L)` and
 `g.__get_dest_partial : Comp.get (Cofix.dest (g.__partial xs)) = some L`, marked with
 `@[simp, qpf_productive_by, grind =]` (the latter as a `simp` pre-lemma, `↓`), for productivity
-proofs: in particular, `productive_by_intro` already rewrites with them.
+proofs: in particular, `productive_by_intro` already rewrites with them. If the layer is
+injective in the explicit arguments `xs` of `g` (the fields), it also proves
+`g.__partial_injEq : (g.__partial xs = g.__partial ys) = (x₁ = y₁ ∧ ... ∧ xₙ = yₙ)`, marked
+with `@[qpf_productive_by]`.
 
 ## Limitations
 
@@ -262,6 +265,89 @@ def addPartialCtorDest (declName : Name) : MetaM Unit := do
       -- `__dest_partial` would already have rewritten `Cofix.dest (g.__partial xs)`.
       addSimpTheorem ext getDestName (post := false) (inv := false) .global (eval_prio default)
 
+/-- The suffix for the injectivity lemma of the partial version of a constructor, see
+`addPartialCtorInjEq`. -/
+def partialInjEqSuffix : Name := `__partial_injEq
+
+/-- If `declName.__get_dest_partial` exists (see `addPartialCtorDest`), add
+```
+declName.__partial_injEq :
+  (declName.__partial ps xs = declName.__partial ps ys) = (x₁ = y₁ ∧ ... ∧ xₙ = yₙ)
+```
+marked with `@[qpf_productive_by]`. Here the fields `xs` are the explicit arguments
+that no other argument and no part of the result type depends on, and the other
+arguments `ps` are shared. This is analogous to the `injEq` lemmas of constructors of
+inductive types.
+
+The lemma is proved by comparing the layers given by `declName.__get_dest_partial`. It is
+only added if the layer is injective in the fields. This holds, e.g., when the layer is
+built from constructors of inductive types up to unfolding, so that `injections` splits it. -/
+def addPartialCtorInjEq (declName : Name) : TermElabM Unit := do
+  let getDestName := declName ++ getDestPartialSuffix
+  unless (← getEnv).contains getDestName do return
+  let pName := declName ++ partialSuffix
+  let pInfo ← getConstInfo pName
+  let p := Expr.const pName (pInfo.levelParams.map mkLevelParam)
+  let name := declName ++ partialInjEqSuffix
+  let some (type, value) ← forallTelescope pInfo.type fun xs R => do
+    let mut fields := #[]
+    for i in [:xs.size] do
+      let x := xs[i]!
+      unless (← x.fvarId!.getBinderInfo).isExplicit do continue
+      if R.containsFVar x.fvarId! then continue
+      if ← xs[i+1:].anyM fun y => return (← inferType y).containsFVar x.fvarId! then continue
+      fields := fields.push x
+    if fields.isEmpty then return none
+    let decls ← fields.mapM fun x => do
+      return ((← x.fvarId!.getUserName).appendAfter "'", ← inferType x)
+    withLocalDeclsDND decls fun ys => do
+      let xs' := xs.map fun x => match fields.idxOf? x with
+        | some i => ys[i]!
+        | none => x
+      let eqs ← (fields.zip ys).mapM fun (x, y) => mkEq x y
+      let rhs := eqs.pop.foldr mkAnd eqs.back!
+      let goal ← mkEq (← mkEq (mkAppN p xs) (mkAppN p xs')) rhs
+      let g ← mkFreshExprSyntheticOpaqueMVar goal
+      let tac ← `(tactic| (
+        apply propext
+        constructor
+        · intro h
+          have h := congrArg (fun z => $(mkCIdent ``QPF.Comp.get) ($(mkCIdent ``QPF.Cofix.dest) z)) h
+          simp only [$(mkCIdent getDestName):ident, Option.some.injEq] at h
+          injections
+          and_intros <;> assumption
+        · intro h
+          simp only [h]))
+      -- The lemma is best-effort: discard any errors the attempt logs.
+      let msgs ← Core.getMessageLog
+      let gs ← try Term.withoutErrToSorry <| Tactic.run g.mvarId! (Tactic.evalTactic tac)
+        catch ex =>
+          trace[QPFTypes] "Not adding {name}:{indentD ex.toMessageData}"
+          return none
+        finally Core.setMessageLog msgs
+      unless gs.isEmpty do
+        trace[QPFTypes] "Not adding {name}, unsolved goals:{goalsToMessageData gs}"
+        return none
+      let binders := xs ++ ys
+      let value ← instantiateMVars (← mkLambdaFVars binders g)
+      if value.hasSorry then
+        trace[QPFTypes] "Not adding {name}, its proof contains `sorry`"
+        return none
+      return some (← instantiateMVars (← mkForallFVars binders goal), value)
+    | return
+  addDecl <| .thmDecl { name, levelParams := pInfo.levelParams, type, value }
+  let some ext ← getSimpExtension? `qpf_productive_by | return
+  -- `addSimpTheorem` would index the type `T.__partial ps` of the equation by its reducible
+  -- unfolding, whose keys (e.g. `.other` for the lambdas in `F.WithBot`) are never matched,
+  -- so we index the type as `_`.
+  let keys ← withExporting (isExporting := !isPrivateName name) <| withNewMCtxDepth do
+    let (_, _, type) ← forallMetaTelescopeReducing type
+    let some (_, lhs, _) := type.eq? | throwError "@[qpf_ctor]: unexpected type of `{name}`"
+    let some (T, a, b) := lhs.eq? | throwError "@[qpf_ctor]: unexpected type of `{name}`"
+    let T ← mkFreshExprMVar (← inferType T)
+    DiscrTree.mkPath (mkApp3 lhs.appFn!.appFn!.appFn! T a b)
+  ext.add (.thm { keys, proof := mkConst name, origin := .decl name, rfl := false }) .global
+
 initialize registerBuiltinAttribute {
   name := `qpf_ctor
   descr := "define the partial version of a constructor of a coinductive type, for `codef`"
@@ -275,6 +361,7 @@ initialize registerBuiltinAttribute {
     MetaM.run' (addPartialCtorDest declName)
     let pName := declName ++ partialSuffix
     MetaM.run' <| Term.TermElabM.run' do
+      addPartialCtorInjEq declName
       addPartialMono `qpf_ctor declName false (← `(tactic| qpf_ctor_mono))
       let step ← mkOfCofixStep (← log.get)
       addPartialOfCofix `qpf_ctor declName <| ← `(tactic|

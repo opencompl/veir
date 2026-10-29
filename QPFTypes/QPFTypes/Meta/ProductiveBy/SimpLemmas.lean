@@ -21,7 +21,11 @@ The simproc `reduceOfCurried` turns applications such as
 open TypeVec in
 attribute [qpf_productive_by] head last tail drop append1
 
-attribute [qpf_productive_by] Option.some_inj exists_eq_left'
+-- Option, Exist & basic props
+attribute [qpf_productive_by]
+  Option.some_inj
+  exists_eq_left' exists_and_left exists_and_right exists_eq'
+  true_and
 
 public meta section
 

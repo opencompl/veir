@@ -91,6 +91,14 @@ def Stream.tail (xs : Stream a) : Stream a := (Cofix.dest xs).2
 def Stream.cons (x : a) (xs : Stream a) : Stream a :=
   Cofix.mk (.cons x xs)
 
+-- The implicit `a` is shared between both sides of the injectivity lemma.
+/--
+info: QPFTypes.Test.WithBot.Stream.cons.__partial_injEq {a : Type} (x : a) (xs : Stream.__partial a) (x' : a)
+  (xs' : Stream.__partial a) : (Stream.cons.__partial x xs = Stream.cons.__partial x' xs') = (x = x' ∧ xs = xs')
+-/
+#guard_msgs in
+#check Stream.cons.__partial_injEq
+
 @[simp, grind =]
 theorem Stream.head_cons : (cons x xs).head = x := by
   simp [cons, head]; rfl
@@ -333,7 +341,7 @@ with_motive
   cons ?x (cursedMap f ?xs).tail
 productive_by
   · right
-    exact ⟨_, _, rfl⟩
+    exact ⟨_, rfl⟩
   · right
     exists f xs.head, xs.tail
     rw [cursedMap.__partial]
