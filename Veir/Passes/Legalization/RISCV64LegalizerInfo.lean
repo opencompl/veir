@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
+import Veir.Passes.Legalization.LegalizerHelper
 import Veir.Passes.InstructionSelection.Common
 
 /-!
@@ -71,9 +72,7 @@ def customLegalizeAbs : Pattern OpCode :=
       let _ ← MatchProg.root (.gmir .g_abs) #[src] #[type]
       return (type, src))
     (fun (type, src) => do
-      let zeroProps ← CreateProg.property (.gmir .g_constant)
-          (GMIRConstantProperties.mk (.ofInt 0 (.signless 64)))
-      let zero ← CreateProg.operation (.gmir .g_constant) #[] #[type] zeroProps
+      let zero ← createConstant type 0
       let neg ← CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, src] #[type]
       CreateProg.operation (.gmir .g_smax) #[src, neg.res[0]!] #[type])
     (fun op => op)

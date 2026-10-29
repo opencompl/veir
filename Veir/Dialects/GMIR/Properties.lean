@@ -35,6 +35,16 @@ def GMIRConstantProperties.isMinSigned (props : GMIRConstantProperties) : Bool :
   let bitwidth := props.value.type.bitwidth
   BitVec.ofInt bitwidth props.value.value = BitVec.intMin bitwidth
 
+/-- The bits of the constant at the width of its type. -/
+def GMIRConstantProperties.bits (props : GMIRConstantProperties) :
+    BitVec props.value.type.bitwidth :=
+  BitVec.ofInt _ props.value.value
+
+/-- `k` when the constant, read as a signed integer, is the positive power of two `2^k`. -/
+def GMIRConstantProperties.log2? (props : GMIRConstantProperties) : Option Nat :=
+  let value := props.bits.toInt
+  if 0 < value ∧ value.toNat &&& (value.toNat - 1) = 0 then some value.toNat.log2 else none
+
 /--
 Properties of `gmir.g_sext_inreg`. `sz` is the number of low bits that are kept.
 -/
