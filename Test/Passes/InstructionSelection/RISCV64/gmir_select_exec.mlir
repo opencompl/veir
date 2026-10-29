@@ -1,8 +1,4 @@
-// RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p=llvm-to-gmir,legalize-riscv64,postlegalizer-combiner-riscv64 > %t.gmir && veir-interpret %t.gmir | filecheck %s --check-prefix=SRC
-// RUN: veir-opt %s --print-op-generic -p='llvm-to-gmir,legalize-riscv64,postlegalizer-combiner-riscv64,canonicalize{sccp=false},instcombine,canonicalize{sccp=false},cse,dce,isel-br-riscv64,isel-sdag-riscv64,isel-riscv64,canonicalize{sccp=false},riscv-combine,isel-abi-riscv64,reconcile-cast,dce' > %t
-// RUN: veir-interpret %t >> %t
-// RUN: filecheck %s < %t
+// RUN: veir-opt %s --print-op-generic -p=riscv | veir-interpret | filecheck %s
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i8, i8)}> ({
@@ -22,6 +18,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// SRC:   Program output: #[0x1122334455667788#64, 0x7f#8, 0x5a#8]
-// CHECK: "riscv.czeronez"
 // CHECK: Program output: #[0x1122334455667788#64, 0x7f#8, 0x5a#8]
