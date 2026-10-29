@@ -1,14 +1,11 @@
 module
 
 public import Veir.Interfaces.FoldInterfaces.Correctness
-public import Veir.Interpreter.Refinement.Lemmas
-public import Veir.Data.LLVM.Int.Lemmas
+import Veir.Interpreter.Refinement.Lemmas
+import Veir.Data.LLVM.Int.Lemmas
 
-import all Veir.IR.Basic
-import all Veir.Interpreter.Basic
 import all Veir.GlobalOpInfo
 import all Veir.Dialects.Arith.OpInfo
-import all Veir.Data.LLVM.Int.Basic
 
 /-!
 # Correctness of the `arith` fold table

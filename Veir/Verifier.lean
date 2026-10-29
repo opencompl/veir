@@ -14,7 +14,6 @@ import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.ModArith.OpInfo
 import all Veir.Dialects.Arith.OpInfo
 import all Veir.Dialects.RISCV.OpInfo
-import all Veir.IR.Attribute
 
 namespace Veir
 

@@ -1,7 +1,7 @@
 module
 
 public import Veir.Interfaces.FoldInterfaces.Correctness
-public import Veir.Interpreter.Refinement.Lemmas
+import Veir.Interpreter.Refinement.Lemmas
 public import Veir.Data.LLVM.Int.Lemmas
 
 import all Veir.IR.Basic
