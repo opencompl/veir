@@ -1,10 +1,8 @@
 module
 
 public import Veir.Interfaces.FoldInterfaces.Correctness
-public import Veir.Interpreter.Refinement.Lemmas
+import Veir.Interpreter.Refinement.Lemmas
 
-import all Veir.IR.Basic
-import all Veir.Interpreter.Basic
 import all Veir.GlobalOpInfo
 import all Veir.Dialects.RISCV.OpInfo
 import all Veir.Dialects.RISCV.Properties
@@ -28,20 +26,19 @@ private theorem riscv_andi_lookup
   simp only [HasOpInfo.tryFold, OpCode.tryFold, Riscv.tryFold] at h
   grind
 
-variable {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
+variable {ctx : WfIRContext OpCode} {op : OperationPtr}
 
 /-- The RISC-V immediate-and-zero entry is correct for every register value.
 The operand and result may have different register allocations. The successful
 lookup itself establishes that the immediate is zero. -/
-theorem Riscv.tryFold_andi_correct (verified : op.Verified ctx opIn)
-    (opType : op.getOpType! ctx.raw = .riscv .andi) :
-    FoldTable.CorrectAt ctx op verified := by
+theorem Riscv.tryFold_andi_correct (opType : op.getOpType! ctx.raw = .riscv .andi) :
+    FoldTable.CorrectAt ctx op := .of_verified fun _ verified => by
   obtain ⟨operandType, resultType, hOperands, hResults⟩ := verified.riscv_andi opType
   constructor
-  · intro known decisions _ hFold
+  · intro _ _ known decisions _ hFold
     obtain ⟨_, rfl⟩ := riscv_andi_lookup (opType ▸ hFold)
     simp [hResults, FoldDecision.HasType]
-  · intro known decisions hFold operands hConform _ memory layout
+  · intro _ _ known decisions hFold operands hConform _ memory layout
     obtain ⟨hZero, rfl⟩ := riscv_andi_lookup (opType ▸ hFold)
     obtain ⟨value, rfl⟩ := by simpa [hOperands] using hConform
     rw [OperationPtr.interpret, opType]

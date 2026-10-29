@@ -71,7 +71,7 @@ def Agrees (known : Array (Option RuntimeValue)) (operands : Array RuntimeValue)
   known.size = operands.size ∧
     ∀ i, i < known.size → ∀ v, known[i]! = some v → operands[i]! = v
 
-/-- Correctness of every successful table lookup for a verified operation.
+/-- Correctness of every successful table lookup, assuming the operation is verified.
 
 Typing is required independently of execution, including when the source has UB.
 Semantic correctness quantifies over all well-typed completions of the known
@@ -82,17 +82,16 @@ that verified operations do not fail is a separate property of the interpreter
 not rely on the driver's poison handling or evaluation fallback. Returning `none`
 creates no obligation.
 -/
-structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr)
-    {opIn : op.InBounds ctx.raw} (_verified : op.Verified ctx opIn) : Prop where
+structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop where
   /-- Every successful lookup returns one replacement of the corresponding type per result. -/
-  hasTypes :
+  hasTypes {opIn : op.InBounds ctx.raw} : op.Verified ctx opIn →
     ∀ known decisions, InputsConform known (op.getOperandTypes! ctx.raw) →
       HasOpInfo.tryFold (op.getOpType! ctx.raw)
         (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
         (op.getResultTypes! ctx.raw) known = some decisions →
       FoldDecision.HasTypes decisions (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw)
   /-- The replacements refine the operation for every well-typed completion of the known operands. -/
-  preservesSemantics :
+  preservesSemantics {opIn : op.InBounds ctx.raw} : op.Verified ctx opIn →
     ∀ known decisions,
       HasOpInfo.tryFold (op.getOpType! ctx.raw)
         (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
@@ -103,13 +102,19 @@ structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr)
             Interp.isRefinedBy OperationResult.isRefinedBy
               (op.interpret ctx.raw operands memory layout) (.ok (replacements, memory, none))
 
+/-- Prove both obligations under a single verification hypothesis, so that facts
+derived from the verifier are available to each of them. -/
+theorem CorrectAt.of_verified {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (h : ∀ opIn, op.Verified ctx opIn → CorrectAt ctx op) : CorrectAt ctx op where
+  hasTypes verified := (h _ verified).hasTypes verified
+  preservesSemantics verified := (h _ verified).preservesSemantics verified
+
 /-- Reduce an integer binary fold with a known right operand to its typing and
 value semantics. The lookup describes which decisions are returned; this helper
 handles width agreement and every consistent runtime completion. The right
 operand may depend on its width, for example zero or all ones. -/
 theorem correctAt_int_rhs
-    {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
-    (verified : op.Verified ctx opIn) {type : IntegerType}
+    {ctx : WfIRContext OpCode} {op : OperationPtr} {type : IntegerType}
     (operandTypes : op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)])
     (rhs : (width : Nat) → Data.LLVM.Int width)
     (lookup : ∀ known results,
@@ -126,11 +131,11 @@ theorem correctAt_int_rhs
         Interp.isRefinedBy OperationResult.isRefinedBy
           (op.interpret ctx.raw operands memory layout)
           (.ok (replacements, memory, none))) :
-    CorrectAt ctx op verified where
-  hasTypes known results _ hFold := by
+    CorrectAt ctx op where
+  hasTypes _ known results _ hFold := by
     obtain ⟨_, _, _, rfl⟩ := lookup known results hFold
     exact typed
-  preservesSemantics known results hFold operands hOperands hAgree memory layout := by
+  preservesSemantics _ known results hFold operands hOperands hAgree memory layout := by
     obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
     obtain ⟨lhs, actualRhs, rfl⟩ := by simpa [operandTypes] using hOperands
     cases hAgree.2 1 (by simp) _ rfl

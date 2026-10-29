@@ -2,13 +2,10 @@ module
 
 public import Veir.Interfaces.FoldInterfaces.Correctness
 import Veir.Interpreter.Refinement.Lemmas
-public import Veir.Data.LLVM.Int.Lemmas
+import Veir.Data.LLVM.Int.Lemmas
 
-import all Veir.IR.Basic
-import all Veir.Interpreter.Basic
 import all Veir.GlobalOpInfo
 import all Veir.Dialects.LLVM.OpInfo
-import all Veir.Data.LLVM.Int.Basic
 
 /-!
 # Correctness of the `llvm` fold table
@@ -22,14 +19,13 @@ public section
 namespace Veir
 open Data
 
-variable {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
+variable {ctx : WfIRContext OpCode} {op : OperationPtr}
 
 /-- Verified LLVM add-zero is correct for every choice of overflow flags. -/
-theorem Llvm.tryFold_add_correct (verified : op.Verified ctx opIn)
-    (opType : op.getOpType! ctx.raw = .llvm .add) :
-    FoldTable.CorrectAt ctx op verified := by
+theorem Llvm.tryFold_add_correct (opType : op.getOpType! ctx.raw = .llvm .add) :
+    FoldTable.CorrectAt ctx op := .of_verified fun _ verified => by
   obtain ⟨type, hOperands, hResults⟩ := (verified.llvm_add opType).types
-  apply FoldTable.correctAt_int_rhs verified hOperands (fun width => .val (0#width))
+  apply FoldTable.correctAt_int_rhs hOperands (fun width => .val (0#width))
     (decisions := #[.useOperand 0]) (fun _ _ h => by
       have h := opType ▸ h
       simp only [HasOpInfo.tryFold, OpCode.tryFold, Llvm.tryFold] at h
