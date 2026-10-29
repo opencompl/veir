@@ -1004,7 +1004,8 @@ def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
   for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
   lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
 -/
-def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
+def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let valType ← MatchProg.type (Attr := TypeAttr)
@@ -1012,9 +1013,16 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
       let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
       let val ← MatchProg.value valType
       let amtOp ← MatchProg.operation (.gmir .g_constant) #[] #[amtType]
+      /- Legalization widens a narrow constant to `g_trunc (g_constant i64)`. Truncation keeps
+         the low bits, so the amount modulo `bw` is unchanged when read from the wide constant. -/
+      let amt ← if throughTrunc then do
+          let truncType ← MatchProg.type (Attr := IntegerType)
+          let truncOp ← MatchProg.operation (.gmir .g_trunc) #[amtOp.res[0]!] #[truncType]
+          pure truncOp.res[0]!
+        else pure amtOp.res[0]!
       let _ ← MatchProg.root
           (.llvm (if rotateLeft then .intr__fshl else .intr__fshr))
-          #[val, val, amtOp.res[0]!] #[resType]
+          #[val, val, amt] #[resType]
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -1051,12 +1059,16 @@ def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).comp
 
 def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
 
+def fshrConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst false 32 true).compile
+
 /-- llvm.intr.fshl with identical data operands and a constant shift amount is a
     constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
     `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
 def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
 
 def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
+
+def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 true).compile
 
 /-! ## General (distinct-operand) funnel shift
 
@@ -1839,6 +1851,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
+    fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"

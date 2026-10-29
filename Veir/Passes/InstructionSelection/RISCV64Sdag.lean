@@ -198,7 +198,8 @@ def orcb (rewriter : PatternRewriter OpCode) (op : OperationPtr)
   emits the immediate-form RISC-V op. The constant is matched only on the right
   operand, since the canonicalizer (run before isel) places it there — mirroring
   `PatGprImm`'s `(OpNode GPR:$rs1, imm)` shape. The reg-reg fallback (non-constant
-  operand, or out-of-range immediate) is handled by the generic `isel-riscv64` pass.
+  operand, or out-of-range immediate) is handled by the generic `isel-riscv64` pass,
+  which also selects the i64 immediate forms (`addi`, `slli`, ...) on gMIR.
 
   See the `PatGprImm`/`PatGprSimm12`/`PatGprUimmLog2XLen` classes:
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1386-L1393
@@ -224,19 +225,6 @@ def selectBinopImmLocal {α} (matchPair : OperationPtr → IRContext OpCode → 
       #[] #[] (cast h.symm immProps) none
   let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
   some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- imm12 binops on i64: `add/or/and/xor x (const ∈ [-2048, 2047])` -> `addi/ori/andi/xori`.
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1467-L1474 -/
-def addi := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAdd .addi rfl 64 (-2048) 2047)
-def ori  := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchOr  .ori  rfl 64 (-2048) 2047)
-def andi := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAnd .andi rfl 64 (-2048) 2047)
-def xori := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchXor .xori rfl 64 (-2048) 2047)
-
-/-- uimm6 shifts on i64: `shl/lshr/ashr x (const ∈ [0, 63])` -> `slli/srli/srai`.
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1475-L1477 -/
-def slli := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchShl  .slli rfl 64 0 63)
-def srli := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchLshr .srli rfl 64 0 63)
-def srai := RewritePattern.fromLocalRewrite (selectBinopImmLocal matchAshr .srai rfl 64 0 63)
 
 /-- Word `*w` immediate forms (best-effort: gated on an i32 result as a proxy for
     LLVM's `binop_allwusers`, which we lack the demanded-bits analysis to model).
@@ -392,54 +380,6 @@ def bexti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite bexti_local rewriter op opInBounds
-
-/-- `fshr x x (const)` on i32 is a constant word rotate-right -> `riscv.roriw`
-    (i32 analogue of `fshrConst` -> `rori`; mirrors `PatGprImm<riscv_rorw, RORIW, uimm5>`).
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L504 -/
-def roriw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshr op ctx.raw | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 32 then return (ctx, none)
-  let sh : Int := ((amtAttr % 32) + 32) % 32
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 sh)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
-      #[] #[] immProps none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[valCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `fshr x x (const)` on i32 -> `riscv.roriw` (see `roriw_local`). -/
-def roriw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite roriw_local rewriter op opInBounds
-
-/-- `fshl x x (const)` on i32 is a constant word rotate-left. There is no `roliw`,
-    so (like `fshlConst` at i64) it lowers to `riscv.roriw` with the negated immediate
-    `(32 - amt) mod 32` (i32 analogue of `fshlConst`). -/
-def roliw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, amt) := matchFshl op ctx.raw | return (ctx, none)
-  if a ≠ b then return (ctx, none)
-  let some amtAttr := matchConstantIntVal amt ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 32 then return (ctx, none)
-  /- rotate-left by `sh` == rotate-right by `32 - sh` (mod 32). -/
-  let sh : Int := ((amtAttr % 32) + 32) % 32
-  let imm : Int := (32 - sh) % 32
-  let (ctx, valCastOp) ← castToRegLocal ctx a
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 imm)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.roriw #[RegisterType.mk] #[valCastOp.getResult 0]
-      #[] #[] immProps none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[valCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `fshl x x (const)` on i32 -> `riscv.roriw` with negated immediate (see `roliw_local`). -/
-def roliw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite roliw_local rewriter op opInBounds
 
 /-- `shl (zext i32->i64 x) (const ∈ [0,31])` -> `riscv.slliuw x shamt`
     (Zba: `(i64 (shl (and GPR, 0xFFFFFFFF), uimm5)) -> SLLI_UW`; our `zext` is the mask).
@@ -685,17 +625,15 @@ def sdivwPow2 := RewritePattern.fromLocalRewrite (sdivPow2GenLocal .sraiw rfl .s
 
 def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  /- Order matters where patterns overlap: the more specific Zbs/Zba rules (`bexti`,
-     `slliuw`) must precede the generic `andi`/`slli` forms they would otherwise be
-     shadowed by. The `bseti`/`bclri`/`binvi` rules are mutually exclusive with
-     `ori`/`andi`/`xori` via their `!isInt<12>` guard, so their order is immaterial.
+  /- The more specific Zbs/Zba rules (`bexti`, `slliuw`) must run before the generic
+     `andi`/`slli` forms, which `isel-riscv64` selects later. The `bseti`/`bclri`/`binvi`
+     rules are mutually exclusive with `ori`/`andi`/`xori` via their `!isInt<12>` guard.
      `sdivPow2Exact`/`sdivwPow2Exact` are listed before `sdivPow2`/`sdivwPow2` to
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
   let pattern := RewritePattern.GreedyRewritePattern #[alloca, andn, orn, xnor, orcb,
-    bexti, bseti, bclri, binvi, slliuw,
-    addi, ori, andi, xori, slli, srli, srai, slti,
-    addiw, slliw, srliw, sraiw, roriw, roliw, zext_1, sext_1,
+    bexti, bseti, bclri, binvi, slliuw, slti,
+    addiw, slliw, srliw, sraiw, zext_1, sext_1,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying SDAG patterns"
