@@ -2,12 +2,13 @@ module
 
 public meta import Lean
 public import QPFTypes.Meta.Codef
+public import QPFTypes.Meta.QPFAttr.Cofix
 
 /-!
 # The `@[qpf_elim]` attribute
 
 `codef` translates a corecursive body from a total coinductive type `T = Cofix F α` into the
-possibly-partial `PT = CofixWithBot F α` (see `QPFTypes.Meta.Codef`). The results of recursive
+possibly-partial `PT = T.__partial` (see `QPFTypes.Meta.Codef`). The results of recursive
 calls are then possibly-partial, and cannot be passed to functions which destruct their
 argument, such as `Stream.tail (f xs)`: there is no `Cofix.dest` for a possibly-partial value,
 since its root may be `⊥`.
@@ -19,16 +20,16 @@ argument in the body of `g` is replaced by the root layer `y` of `x`, with the b
 `CofixWithBot.elim x (fun y => ...)`. Since `elim` sends `⊥` to `⊥`, this needs the result to be
 of a `CofixWithBot` type, which gives two forms:
 
-* if the (translated) result type is a `CofixWithBot` type, as for
+* if the (translated) result type is a partial type `c.__partial ys` (see `@[qpf]`), as for
   `Stream.tail : Stream α → Stream α`, then
   ```
-  Stream.tail.__partial (xs : PStream α) : PStream α :=
+  Stream.tail.__partial (xs : Stream.__partial α) : Stream.__partial α :=
     CofixWithBot.elim xs fun y => y.2
   ```
 * otherwise, as for `Stream.head : Stream α → α`, the partial version is in
   continuation-passing style, into any `CofixWithBot` type:
   ```
-  Stream.head.__partial (xs : PStream α) {m G} [QPF G] {β}
+  Stream.head.__partial (xs : Stream.__partial α) {m G} [QPF G] {β}
       (k : α → CofixWithBot G β) : CofixWithBot G β :=
     CofixWithBot.elim xs fun y => k y.1
   ```
@@ -112,15 +113,6 @@ partial def isCofixType (ty : Expr) : MetaM Bool := do
   | some ty => isCofixType ty
   | none => return false
 
-/-- If `ty` is a `CofixWithBot` type (up to unfolding), its universe level, and its arguments
-`m G [QPF G] β`. -/
-def cofixWithBotArgs? (ty : Expr) : MetaM (Option (Level × Array Expr)) := do
-  let lvl ← mkFreshLevelMVar
-  let c := Expr.const ``QPF.CofixWithBot [lvl]
-  let (args, _, _) ← forallMetaTelescope (← inferType c)
-  unless ← isDefEq ty (mkAppN c args) do return none
-  return some (← instantiateLevelMVars lvl, ← args.mapM instantiateMVars)
-
 /-- Introduce the parameters `xs` again, with their types translated by `ctx`, and call `k` on
 the new parameters. Parameters of type `T` become parameters of type `PT`. `attr` is the
 attribute being applied, for error messages. -/
@@ -144,12 +136,14 @@ def withTranslatedParams (ctx : Ctx) (declName : Name) (xs : Array Expr)
   else
     k ys
 
-/-- Add the definition `pName : ∀ params, _ := fun params => value`, with universe parameters
-`lvls`. -/
-def addPartialDef (pName : Name) (lvls : List Name) (params : Array Expr) (value : Expr) :
-    MetaM Unit := do
+/-- Add the definition `pName : ∀ params, R := fun params => value`, with universe parameters
+`lvls`, where `R` is `resultType?`, if given, and the type of `value` otherwise. -/
+def addPartialDef (pName : Name) (lvls : List Name) (params : Array Expr) (value : Expr)
+    (resultType? : Option Expr := none) : MetaM Unit := do
+  let type ← instantiateMVars <| ← match resultType? with
+    | some R => mkForallFVars params R
+    | none => do inferType (← mkLambdaFVars params value)
   let value ← instantiateMVars (← mkLambdaFVars params value)
-  let type ← instantiateMVars (← inferType value)
   addAndCompile <| .defnDecl {
     name := pName, levelParams := lvls, type, value
     hints := .regular (getMaxHeight (← getEnv) value + 1), safety := .safe
@@ -169,7 +163,7 @@ def addPartialElim (declName : Name) : MetaM Bool := do
     let body := (mkAppN value xs).headBeta
     let some x₀ ← xs.findM? fun x => do isCofixType (← inferType x)
       | throwError "@[qpf_elim]: `{.ofConstName declName}` has no argument of a `Cofix` type"
-    let ctx ← mkCtx declName .anonymous (← inferType x₀)
+    let ctx ← mkCtx declName .anonymous (← inferType x₀) (cmd := "@[qpf_elim]")
     withTranslatedParams ctx declName xs fun xs' => do
       -- The root layers `y` of the possibly-partial arguments.
       let lifted ← (xs.zip xs').filterM fun (x, _) => do ctx.isTotalType (← inferType x)
@@ -199,9 +193,9 @@ def addPartialElim (declName : Name) : MetaM Bool := do
               {indentD ex.toMessageData}"
             return e
         let addDef := addPartialDef pName
-        -- The direct form, if the result type is a `CofixWithBot` type.
-        if let some (lvl, gArgs) ← cofixWithBotArgs? R' then
-          addDef lvlNames xs' (← wrap lvl gArgs body')
+        -- The direct form, if the result type is a partial type `c.__partial ys`.
+        if let some (lvl, gArgs) ← QPFAttr.partialTypeArgs? R' then
+          addPartialDef pName lvlNames xs' (← wrap lvl gArgs body') (resultType? := R')
           return false
         -- Otherwise, the continuation-passing form.
         let v := freshLevelName lvlNames "v"
@@ -226,8 +220,9 @@ def addPartialMono (attr declName : Name) (cps : Bool) (tac : TSyntax `tactic) :
   forallTelescope pInfo.type fun ps _ => do
     let nParams := if cps then ps.size - 5 else ps.size
     let params := ps[:nParams].toArray
-    -- `withTranslatedParams` gave the possibly-partial arguments the type `PT` literally.
-    let PTs ← params.filterM fun p => return (← inferType p).getAppFn.isConstOf ``QPF.CofixWithBot
+    -- `withTranslatedParams` gave the possibly-partial arguments the type `PT = T.__partial xs`
+    -- literally.
+    let PTs ← params.filterM fun p => do QPFAttr.isPartialType (← inferType p)
     withLocalDecl `δ .implicit (.sort (.param w)) fun δ => do
     withLocalDecl `inst .instImplicit (← mkAppM ``Lean.Order.PartialOrder #[δ]) fun instδ => do
     withLocalDeclD `z δ fun z => do
@@ -281,8 +276,8 @@ def addPartialMono (attr declName : Name) (cps : Bool) (tac : TSyntax `tactic) :
       else
         finish #[] args
 
-/-- If `declName` returns a value of a `Cofix` type `T`, and `declName.__partial` takes the
-same arguments, except for those of type `T`, prove and add
+/-- If `declName` returns a value of a coinductive type `T` marked with `@[qpf]`, and
+`declName.__partial` takes the same arguments, except for those of type `T`, prove and add
 `declName.__partial_ofCofix : ofCofix (g xs) = g.__partial (ofCofix xs)`, which `codef` uses
 to prove unfolding equations, see `Codef.addUnfoldEqns`. The proof is by `tac`, and `attr` is
 the attribute being applied. -/
@@ -291,7 +286,8 @@ def addPartialOfCofix (attr declName : Name) (tac : TSyntax `tactic) : TermElabM
   let pName := declName ++ partialSuffix
   let lvls := info.levelParams.map mkLevelParam
   forallTelescope info.type fun xs R => do
-    unless ← isCofixType R do return
+    -- Only for results of a coinductive type marked with `@[qpf]`, see `mkCtx`.
+    if (← QPFAttr.partialType? R).isNone then return
     let ctx ← mkCtx declName .anonymous R
     let ofCofix := ctx.mkConst ``QPF.CofixWithBot.ofCofix
     let args ← xs.mapM fun x => do

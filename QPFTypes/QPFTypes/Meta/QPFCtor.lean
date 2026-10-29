@@ -7,7 +7,7 @@ public import QPFTypes.Meta.QPFElim
 # The `@[qpf_ctor]` attribute
 
 `codef` translates a corecursive body from a total coinductive type `T = Cofix F α` into the
-possibly-partial `PT = CofixWithBot F α` (see `QPFTypes.Meta.Codef`). The results of recursive
+possibly-partial `PT = T.__partial` (see `QPFTypes.Meta.Codef`). The results of recursive
 calls are then possibly-partial, and cannot be passed to the constructors of `T`, such as
 `Stream.cons x (f xs)`.
 
@@ -20,7 +20,8 @@ like the body of a `codef`: in particular, `Cofix.mk` becomes `CofixWithBot.mk`.
 ```
 defines
 ```
-Stream.cons.__partial (x : α) (xs : PStream α) : PStream α := CofixWithBot.mk (x, xs)
+Stream.cons.__partial (x : α) (xs : Stream.__partial α) : Stream.__partial α :=
+  CofixWithBot.mk (x, xs)
 ```
 
 As with `@[qpf_elim]`, the attribute also proves the monotonicity lemma `g.__partial_mono`,
@@ -35,8 +36,8 @@ proofs: in particular, `productive_by_intro` already rewrites with them.
 
 ## Limitations
 
-* The result of `g` must be of a `Cofix` type `T`, and only the arguments of type `T` become
-  possibly-partial.
+* The result of `g` must be of a coinductive type `T` marked with `@[qpf]`, and only the
+  arguments of type `T` become possibly-partial.
 * Arguments whose types depend on an argument of type `T` are not supported.
 * The monotonicity proof (`qpf_mk_mono`) only finds the children of a `CofixWithBot.mk` layer
   through applications, not under binders, and relies on the map of `F` reducing
@@ -72,10 +73,11 @@ def mkFinLit (k j : Nat) : Expr :=
 
 /--
 `qpf_mk_mono` reduces a goal `monotone (fun z => CofixWithBot.mk L[z])` to the monotonicity of
-the children `fun z => vⱼ[z]` of the layer `L[z]`, i.e. its maximal subterms of the type
-`CofixWithBot F α`. It applies `CofixWithBot.mk_map_mono` with `ι := Fin k`, where `k` is the
-number of children: the fixed layer `s` is `L` with the children replaced by their indices, and
-the children are `fun z => Fin.cases v₀[z] (Fin.cases v₁[z] ...)`.
+the children `fun z => vⱼ[z]` of the layer `L[z]`, i.e. its maximal subterms of the codomain of
+the goal, the partial type `T.__partial xs` (see `@[qpf]`). It applies
+`CofixWithBot.mk_map_mono` with `ι := Fin k`, where `k` is the number of children: the fixed
+layer `s` is `L` with the children replaced by their indices, and the children are
+`fun z => Fin.cases v₀[z] (Fin.cases v₁[z] ...)`.
 -/
 syntax (name := qpfMkMono) "qpf_mk_mono" : tactic
 
@@ -86,9 +88,15 @@ def evalQpfMkMono : Tactic.Tactic := fun _ => Tactic.liftMetaTactic fun g => g.w
     throwError "qpf_mk_mono: {msg}{indentExpr tgt}"
   unless tgt.isAppOfArity ``Lean.Order.monotone 5 do
     err m!"expected a goal of the form `monotone (fun z => CofixWithBot.mk _)`, got"
-  let #[γ, _, _, _, fn] := tgt.getAppArgs | unreachable!
+  let #[γ, _, PT, _, fn] := tgt.getAppArgs | unreachable!
   let .lam zn zty b zbi := fn
     | err m!"expected a goal of the form `monotone (fun z => CofixWithBot.mk _)`, got"
+  -- The children are those of the partial type `PT = T.__partial xs` (see `@[qpf]`), the type
+  -- of the partial constructor `g.__partial` that this goal is the unfolding of.
+  unless ← QPFAttr.isPartialType PT do
+    err m!"expected the codomain of the goal to be the possibly-partial analogue \
+      (`{partialSuffix}`) of a coinductive type marked with `@[qpf]`, but it is\
+      {indentExpr PT}\nin"
   -- Compute, under `z`: the universe level and arguments of `CofixWithBot`, the fixed layer
   -- `s : F (α ::: Fin k)`, and the children `fun z => vⱼ[z]`.
   let (lvl, args, k, s, vs) ← withLocalDecl zn zbi zty fun z => do
@@ -97,7 +105,6 @@ def evalQpfMkMono : Tactic.Tactic := fun _ => Tactic.liftMetaTactic fun g => g.w
       err m!"expected a goal of the form `monotone (fun z => CofixWithBot.mk _)`, got"
     let lvl := body.getAppFn.constLevels!.head!
     let args := body.getAppArgs[:4].toArray
-    let PT := mkAppN (.const ``QPF.CofixWithBot [lvl]) args
     let (L, children) ← (abstractChildren PT body.appArg!).run #[]
     let k := children.size
     let ι := mkApp (.const ``Fin []) (mkNatLit k)
@@ -108,7 +115,6 @@ def evalQpfMkMono : Tactic.Tactic := fun _ => Tactic.liftMetaTactic fun g => g.w
         type{indentExpr PT}\nin"
     let vs ← children.mapM fun (_, v) => mkLambdaFVars #[z] v
     return (lvl, args, k, s, vs)
-  let PT := mkAppN (.const ``QPF.CofixWithBot [lvl]) args
   let ι := mkApp (.const ``Fin []) (mkNatLit k)
   -- The children `f := fun z => Fin.cases v₀[z] (... Fin.elim0)`, and the proof of its
   -- monotonicity, with a new goal for the monotonicity of each child.
@@ -165,14 +171,14 @@ def addPartialCtor (declName : Name) (log : IO.Ref (Array Name)) : MetaM Unit :=
     unless ← isCofixType R do
       throwError "@[qpf_ctor]: the result type of `{.ofConstName declName}` should be a \
         `Cofix` type, but it is{indentExpr R}"
-    let ctx ← mkCtx declName .anonymous R (log := log)
+    let ctx ← mkCtx declName .anonymous R (log := log) (cmd := "@[qpf_ctor]")
     let body := (mkAppN value xs).headBeta
     withTranslatedParams ctx declName xs (attr := `qpf_ctor) fun xs' => do
       let body' ← ctx.go (body.replaceFVars xs xs')
       let some body' ← ctx.coerce? body' ctx.PT
         | throwError "@[qpf_ctor]: the translated body of `{.ofConstName declName}`{indentExpr
             body'}\ndoes not have type{indentExpr ctx.PT}"
-      addPartialDef (declName ++ partialSuffix) info.levelParams xs' body'
+      addPartialDef (declName ++ partialSuffix) info.levelParams xs' body' (resultType? := ctx.PT)
 
 /-- Clean up `e` as `simp only [qpf_productive_by]` would, e.g. reducing the types in the layer
 `@StreamF.cons (#t[α] ::: PStream α).head (#t[α] ::: PStream α).tail.head x xs` of

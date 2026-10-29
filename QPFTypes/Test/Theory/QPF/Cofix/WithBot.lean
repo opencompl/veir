@@ -144,7 +144,6 @@ codef Stream.map (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) (map f xs.tail)
 productive_by
   refine ⟨_, rfl, ?_⟩
-
   exact (StreamF.liftPLast_cons _ _ _).2 ⟨_, rfl⟩
 
 
@@ -439,5 +438,37 @@ error: @[qpf_elim]: `noDest` does not destruct any of its arguments of type
 /-- warning: declaration uses `sorry` -/
 #guard_msgs in
 codef Stream.unproductive (xs : Stream α) : Stream α := Stream.unproductive xs.tail
+productive_by
+  sorry
+
+/-- A `Cofix` type without `@[qpf]`, hence without a possibly-partial analogue `__partial`. -/
+def NoQpf (a : Type) : Type := Cofix (@TypeFun.ofCurried 2 StreamF) #t[a]
+
+/--
+error: @[qpf_elim]: the type
+  NoQpf α
+has no possibly-partial analogue (`__partial`); it should be a coinductive type marked with `@[qpf]`, e.g.,
+  @[qpf] def Stream (α : Type) : Type := Cofix StreamF #t[α]
+-/
+#guard_msgs in
+@[qpf_elim] def NoQpf.tail (xs : NoQpf α) : NoQpf α := (Cofix.dest xs).2
+
+/--
+error: @[qpf_ctor]: the type
+  NoQpf α
+has no possibly-partial analogue (`__partial`); it should be a coinductive type marked with `@[qpf]`, e.g.,
+  @[qpf] def Stream (α : Type) : Type := Cofix StreamF #t[α]
+-/
+#guard_msgs in
+@[qpf_ctor] def NoQpf.cons (x : α) (xs : NoQpf α) : NoQpf α := Cofix.mk (.cons x xs)
+
+/--
+error: codef: the type
+  NoQpf α
+has no possibly-partial analogue (`__partial`); it should be a coinductive type marked with `@[qpf]`, e.g.,
+  @[qpf] def Stream (α : Type) : Type := Cofix StreamF #t[α]
+-/
+#guard_msgs in
+codef NoQpf.rep (x : α) : NoQpf α := Cofix.mk (.cons x (NoQpf.rep x))
 productive_by
   sorry

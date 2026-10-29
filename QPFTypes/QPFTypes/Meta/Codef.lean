@@ -2,6 +2,7 @@ module
 
 public meta import Lean
 public import QPFTypes.Theory.QPF.Cofix.WithBot
+public import QPFTypes.Meta.QPFAttr.Cofix
 public import QPFTypes.Meta.ProductiveBy.Intro
 
 /-!
@@ -131,14 +132,15 @@ def evalQpfReduceMaps : Tactic.Tactic := fun _ => Tactic.liftMetaTactic1 fun g =
   if t' == t then throwError "qpf_reduce_maps: no progress"
   g.change t'
 
-/-- The data of a translation from `T = Cofix F α` to `PT = CofixWithBot F α`. -/
+/-- The data of a translation from `T = Cofix F α` to its possibly-partial analogue
+`PT = T.__partial`, see `@[qpf]`. -/
 structure Ctx where
   /-- The universe level, and the arguments `{n} (F) [QPF F] (α)` of `Cofix`. -/
   lvl : Level
   args : Array Expr
   /-- `T = Cofix F α`, as it appears in the declared type. -/
   T : Expr
-  /-- `PT = CofixWithBot F α`. -/
+  /-- `PT = c.__partial xs`, where `T = c xs` for a coinductive type `c` marked with `@[qpf]`. -/
   PT : Expr
   rawName : Name
   /-- Stands for `f.__partial` during the translation (a free variable). -/
@@ -301,9 +303,11 @@ def partialFixpointHints (ref : Syntax) : TerminationHints :=
   { TerminationHints.none with ref, partialFixpoint? := some { ref, term? := none } }
 
 /-- The translation context for a function `fullName` with codomain `T`, which is unified
-with `Cofix ?F ?α`. -/
+with `Cofix ?F ?α`. The partial type `PT` is `c.__partial xs`, where `T = c xs` for a
+coinductive type `c` marked with `@[qpf]`. `cmd` is the command or attribute being elaborated,
+for error messages. -/
 def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default)
-    (log : Option (IO.Ref (Array Name)) := none) : MetaM Ctx := do
+    (log : Option (IO.Ref (Array Name)) := none) (cmd : MessageData := "codef") : MetaM Ctx := do
   let log ← match log with
     | some log => pure log
     | none => IO.mkRef #[]
@@ -312,15 +316,15 @@ def mkCtx (fullName rawName : Name) (T : Expr) (recFn : Expr := default)
   let (args, _, _) ← forallMetaTelescope (← inferType cofix)
   let pattern := mkAppN cofix args
   unless ← isDefEq T pattern do
-    throwError "codef: the type of `{fullName}` should be a `Cofix` type:\n\
+    throwError "{cmd}: the type of `{fullName}` should be a `Cofix` type:\n\
       failed to unify{indentExpr T}\nwith{indentExpr pattern}"
+  let some PT ← QPFAttr.partialType? T
+    | throwError "{cmd}: the type{indentExpr T}\nhas no possibly-partial analogue \
+        (`{partialSuffix}`); it should be a coinductive type marked with `@[qpf]`, e.g.,\
+        {indentD "@[qpf] def Stream (α : Type) : Type := Cofix StreamF #t[α]"}"
   let lvl ← instantiateLevelMVars lvl
   let args ← args.mapM instantiateMVars
-  return {
-    lvl, args, T, recFn, log
-    PT := mkAppN (.const ``QPF.CofixWithBot [lvl]) args
-    rawName
-  }
+  return { lvl, args, T, PT, recFn, log, rawName }
 
 /-- One step of pushing `ofCofix` into a term, with the lemmas `g.__partial_ofCofix` in `log`
 (see `Ctx.log`), `CofixWithBot.ofCofix_mk` and `CofixWithBot.ofCofix_get`, or by reducing the

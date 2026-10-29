@@ -30,15 +30,41 @@ namespace QPFTypes.QPFAttr
 open Lean Meta
 
 /-- The suffix of the possibly-partial analogue `T.__partial` of a coinductive type `T`. -/
-def partialSuffix : String := "__partial"
+def partialSuffix : Name := `__partial
 
 /-- Whether the body of the definition `declName`, under its leading lambdas, is an
 application of `QPF.Cofix`. -/
 def isCofixDef (declName : Name) : MetaM Bool := do
-  let some value := (← getConstInfo declName).value? (allowOpaque := false)
+  let some value := (← getEnv).find? declName |>.bind (·.value? (allowOpaque := false))
     | return false
   lambdaTelescope value fun _ body =>
     return body.isAppOfArity ``QPF.Cofix 4
+
+/-- If `T = c xs`, for a coinductive type `c` marked with `@[qpf]`, its possibly-partial
+analogue `c.__partial xs`. -/
+def partialType? (T : Expr) : MetaM (Option Expr) := do
+  let .const c us := T.getAppFn | return none
+  let pName := c ++ partialSuffix
+  unless (← getEnv).contains pName do return none
+  unless ← isCofixDef c do return none
+  return mkAppN (.const pName us) T.getAppArgs
+
+/-- Whether `ty` is literally of the form `c.__partial xs`, for a coinductive type `c` marked
+with `@[qpf]`. -/
+def isPartialType (ty : Expr) : MetaM Bool := do
+  let .const (.str c s) _ := ty.getAppFn | return false
+  if .str .anonymous s != partialSuffix then return false
+  isCofixDef c
+
+/-- If `PT = c.__partial xs`, for a coinductive type `c` marked with `@[qpf]`, the universe level
+and the arguments `n F [QPF F] α` of `CofixWithBot`, as in the definition
+`c.__partial xs := CofixWithBot F α`. -/
+def partialTypeArgs? (PT : Expr) : MetaM (Option (Level × Array Expr)) := do
+  unless ← isPartialType PT do return none
+  let .const pName us := PT.getAppFn | return none
+  let body := (← instantiateValueLevelParams (← getConstInfo pName) us).beta PT.getAppArgs
+  unless body.isAppOfArity ``QPF.CofixWithBot 4 do return none
+  return some (body.getAppFn.constLevels!.head!, body.getAppArgs)
 
 /--
 Given a definition `T := fun xs => @Cofix n F q α`, add the definition
@@ -62,13 +88,16 @@ def addPartialCofixType (declName : Name) : MetaM Unit := do
       mkApp3 (.const ``QPF.IsPolynomial [u, u]) (mkNatAdd args[0]! (mkNatLit 1)) args[1]! args[2]!
     return (← mkLambdaFVars xs body', isPolynomial.isSome)
   let value ← instantiateMVars value
-  let name := declName.str partialSuffix
+  let name := declName ++ partialSuffix
   trace[QPFTypes] "Defining {name} : {info.type} :=\n{value}"
   let decl := Declaration.defnDecl <| ← mkDefinitionValInferringUnsafe name info.levelParams
     info.type value (.regular (getMaxHeight (← getEnv) value + 1))
   -- Types need to be exposed, see `QPFExpr.addDefn`.
   addDecl decl (forceExpose := true)
   compileDecl decl
+  -- Reducible, so that tactics working up to reducible unfolding (e.g. `simp`) do not
+  -- distinguish `T.__partial xs` from `CofixWithBot F α`, as used by, e.g., `HasNoBot`.
+  setReducibleAttribute name
   if isPolynomial then
     -- The `deriving CCPO` mechanism for definitions, i.e., delta deriving.
     let view : Elab.DerivingClassView :=
