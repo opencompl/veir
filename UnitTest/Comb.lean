@@ -133,3 +133,46 @@ private def testSubAndShifts : String := Id.run do
 #guard_msgs in
 #eval! testSubAndShifts
 
+/-! ### Comparison
+
+CIRCT's `ICmpPredicate` is carried as the integer it prints as, and an off-by-one in that number
+is a silent change of meaning rather than an error. All ten are checked, including the six the
+CircuitHdl backend never emits -- a predicate table is exactly the kind of thing that is wrong in
+one entry.
+
+At width 4, `9` is `-7` signed and `6` is `6`, which separates the signed predicates from the
+unsigned ones.
+-/
+
+private def testIcmp : String := Id.run do
+  let c (p a b : Nat) : Option Nat :=
+    comb .icmp { predicate := IntegerAttr.mk (Int.ofNat p) (IntegerType.signless 64) } #[ity 1]
+      #[i 4 a, i 4 b]
+  if c 0 6 6 != some 1 then return "eq"
+  if c 0 6 9 != some 0 then return "eq false"
+  if c 1 6 9 != some 1 then return "ne"
+  if c 2 9 6 != some 1 then return "slt: -7 < 6"
+  if c 3 9 9 != some 1 then return "sle"
+  if c 4 6 9 != some 1 then return "sgt: 6 > -7"
+  if c 5 6 6 != some 1 then return "sge"
+  if c 6 6 9 != some 1 then return "ult: 6 < 9"
+  if c 6 9 6 != some 0 then return "ult false"
+  if c 7 9 9 != some 1 then return "ule"
+  if c 8 9 6 != some 1 then return "ugt"
+  if c 9 6 6 != some 1 then return "uge"
+  -- The signed and unsigned readings of the same bits disagree, so these are two tests and not
+  -- one written twice. Without this, a table with `slt` and `ult` transposed would pass.
+  if c 2 9 6 == c 6 9 6 then return "slt and ult agree, so the predicate is being ignored"
+  if c 4 6 9 == c 8 6 9 then return "sgt and ugt agree"
+  -- A predicate outside the table is refused rather than defaulted to `eq`.
+  if (comb .icmp { predicate := IntegerAttr.mk 10 (IntegerType.signless 64) } #[ity 1]
+      #[i 4 6, i 4 6]).isSome then return "an unknown predicate was accepted"
+  -- Poison, and arity.
+  if !combIsPoison .icmp { predicate := IntegerAttr.mk 0 (IntegerType.signless 64) } #[ity 1]
+      #[poison 4, i 4 1] then return "icmp poison"
+  return "ok"
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testIcmp
+
