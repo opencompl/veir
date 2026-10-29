@@ -240,11 +240,11 @@ def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
       let rhs ← MatchProg.value type
       let flagIn ← MatchProg.value flagType
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs, flagIn] #[type, flagType]
-      -- The carry-in is zero-extended to the type of the operands, so that type must be wider.
-      MatchProg.matchNative (type, flagType) fun (type, flagType) =>
-        match type.val, flagType.val with
-        | .integerType type, .integerType flagType => flagType.bitwidth < type.bitwidth
-        | _, _ => false
+      -- The `i1` carry-in is zero-extended to the type of the operands, so that type must be wider.
+      MatchProg.matchNative type fun type =>
+        match type.val with
+        | .integerType type => 1 < type.bitwidth
+        | _ => false
       return (type, flagType, lhs, rhs, flagIn))
     (fun (type, flagType, lhs, rhs, flagIn) => do
       let tmp ← CreateProg.operation (.gmir arithOpcode) #[lhs, rhs] #[type]

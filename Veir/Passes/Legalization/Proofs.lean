@@ -141,7 +141,7 @@ private theorem uadde_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (c : LLV
       LLVM.Int.constant, Id.run, IntPred.eval, BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
       BitVec.carry_eq_uaddOverflow_or (by omega : 0 < w), BitVec.uaddOverflow_eq_ult_left x y,
       BitVec.uaddOverflow_setWidth_ofBool (by omega : 0 < w)]
-  -- A poison operand makes both sides poison.
+  -- The other seven cases have a poison operand, so both sides reduce to poison.
   all_goals rfl
 
 /--
@@ -177,7 +177,7 @@ private theorem usube_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (b : LLV
       LLVM.Int.constant, Id.run, IntPred.eval, BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
       BitVec.ult_setWidth_add_ofBool (by omega : 0 < w), BitVec.usubOverflow_eq_ult_sub x y,
       BitVec.usubOverflow_setWidth_ofBool (by omega : 0 < w)]
-  -- A poison operand makes both sides poison.
+  -- The other seven cases have a poison operand, so both sides reduce to poison.
   all_goals rfl
 
 end Veir.Data.LLVM
