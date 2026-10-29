@@ -49,7 +49,7 @@ axiom vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C R) (k' : E i → CT
   Sim RR (CTree.vis i k) (CTree.vis i k')
 
 axiom ub (e : EIn) :
-  UB.hasUB e →
+  HasUB.hasUB e →
   Sim RR t (CTree.vis e k)
 
 axiom bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y) (k' : X' → CTree E C' Y') :

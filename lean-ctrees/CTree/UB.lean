@@ -9,8 +9,7 @@ structure UBEIn : Type u where
 
 /-- Effect representing an immediate undefined behavior -/
 @[expose]
-def UBE (e : UBEIn.{u}) :=
-  match e with
+def UBE : UBEIn.{u} → Type
   | .mk => Empty
 
 /-- Typeclass that recursively looks for a UB effect -/
@@ -25,6 +24,7 @@ instance [UB : HasUB α] [UB' : HasUB β] : HasUB (α ⊕ β) where
 instance : HasUB UBEIn where
   hasUB := fun _ => True
 
+@[default_instance]
 instance (priority := low) : HasUB α where
   hasUB := fun _ => False
 
