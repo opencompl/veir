@@ -72,7 +72,7 @@ theorem recF_eq' {α : TypeVec n} {β : Type u} (g : F (α ::: β) → β) (x : 
   apply q.P.w_cases _ x
   intro a f' f
   erw [recF_eq, q.P.wDest'_wMk, MvPFunctor.map_eq, appendFun_comp_splitFun]
-  erw [TypeVec.id_comp]; rfl
+  erw [TypeVec.id_comp]
 
 /-- Equivalence relation on W-types that represent the same `Fix F`
 value -/

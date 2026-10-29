@@ -57,6 +57,27 @@ def customLegalizeBitreverse8 : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[brev8.res[0]!] #[type])
     (fun op => op)
 
+open Puddle in
+/--
+  Custom legalization of the `i64` `g_abs` into `g_smax x (0 - x)` (Zbb), as LLVM's
+  `LegalizerHelper::lowerAbsToMaxNeg`. The negation of the minimum value wraps back to it, which
+  is then its own absolute value.
+-/
+def customLegalizeAbs : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let src ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir .g_abs) #[src] #[type]
+      return (type, src))
+    (fun (type, src) => do
+      let zeroProps ← CreateProg.property (.gmir .g_constant)
+          (GMIRConstantProperties.mk (.ofInt 0 (.signless 64)))
+      let zero ← CreateProg.operation (.gmir .g_constant) #[] #[type] zeroProps
+      let neg ← CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, src] #[type]
+      CreateProg.operation (.gmir .g_smax) #[src, neg.res[0]!] #[type])
+    (fun op => op)
+
 end
 
 private def s8 : LLT := .scalar 8
@@ -88,6 +109,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalForTypePairs [(s64, s64), (s64, p0)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
+    ]
+    -- LLVM is also legal for `s32`, for floating point, and for `p0`, which `g_select` does not
+    -- accept yet.
+    | .g_select => [
+      .legalForTypePairs [(s64, s64)],
+      .minScalar (.type 0) 64,
+      .minScalar (.type 1) 64,
     ]
     | .g_anyext => [
       .alwaysLegal,
@@ -160,8 +188,23 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_brev8 => [
       .legalFor [s64],
     ]
+    | .g_smin | .g_smax | .g_umin | .g_umax => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_abs => [
+      .customFor [s64],
+      .minScalar (.type 0) 64,
+    ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_br => [
+      .alwaysLegal,
+    ]
+    | .g_brcond => [
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
@@ -180,6 +223,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_cttz => customLegalizeWordUnary .g_cttz .ctzw ()
     | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()
     | .g_bitreverse => customLegalizeBitreverse8
+    | .g_abs => customLegalizeAbs
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=
