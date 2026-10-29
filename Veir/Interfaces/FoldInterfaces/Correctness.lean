@@ -76,11 +76,11 @@ def Agrees (known : Array (Option RuntimeValue)) (operands : Array RuntimeValue)
 Typing is required independently of execution, including when the source has UB.
 Semantic correctness quantifies over all well-typed completions of the known
 operands, all memories, and data layouts, using the operation's actual successors.
-Interpreter failure leaves the replacements unconstrained, as in `Interp.isRefinedBy`;
-that verified operations do not fail is a separate property of the interpreter
-(`interpretOp'_ne_fail`). It uses the operation interpreter directly, so it does
-not rely on the driver's poison handling or evaluation fallback. Returning `none`
-creates no obligation.
+The interpreter must not fail on any such completion: `Interp.isRefinedBy` holds
+vacuously for a failing source, so without this a table entry for an operand
+shape the interpreter does not handle could return arbitrary replacements.
+It uses the operation interpreter directly, so it does not rely on the driver's
+poison handling or evaluation fallback. Returning `none` creates no obligation.
 -/
 structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop where
   /-- Every successful lookup returns one replacement of the corresponding type per result. -/
@@ -90,7 +90,8 @@ structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop where
         (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
         (op.getResultTypes! ctx.raw) known = some decisions →
       FoldDecision.HasTypes decisions (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw)
-  /-- The replacements refine the operation for every well-typed completion of the known operands. -/
+  /-- The operation does not fail, and the replacements refine it, for every well-typed
+  completion of the known operands. -/
   preservesSemantics {opIn : op.InBounds ctx.raw} : op.Verified ctx opIn →
     ∀ known decisions,
       HasOpInfo.tryFold (op.getOpType! ctx.raw)
@@ -98,6 +99,7 @@ structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop where
         (op.getResultTypes! ctx.raw) known = some decisions →
       ∀ operands, RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
         Agrees known operands → ∀ memory layout,
+          (∀ failedOp, op.interpret ctx.raw operands memory layout ≠ .fail failedOp) ∧
           ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
             Interp.isRefinedBy OperationResult.isRefinedBy
               (op.interpret ctx.raw operands memory layout) (.ok (replacements, memory, none))
@@ -126,6 +128,7 @@ theorem correctAt_int_rhs
       (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw))
     (evaluate : ∀ lhs memory layout,
       let operands := #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)]
+      (∀ failedOp, op.interpret ctx.raw operands memory layout ≠ .fail failedOp) ∧
       ∃ replacements,
         FoldDecision.resolveAll decisions operands = some replacements ∧
         Interp.isRefinedBy OperationResult.isRefinedBy
