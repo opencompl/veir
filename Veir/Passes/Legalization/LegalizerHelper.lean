@@ -128,7 +128,8 @@ def widenCtlzSrc (width : Nat) : Pattern OpCode :=
 /--
 Widens the operand of `g_cttz` to `width` bits. The bit just above the operand is set, so that
 the count of a zero operand is still its width, as in LLVM's `LegalizerHelper::widenScalar`. The
-result must already be `width` bits wide, which the rules ensure by widening it first.
+wide operand is never zero, so it is counted with `g_cttz_zero_poison`, as in LLVM. The result
+must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
@@ -142,7 +143,7 @@ def widenCttzSrc (width : Nat) : Pattern OpCode :=
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
       let wideSrc ← CreateProg.operation (.gmir .g_or) #[ext.res[0]!, topBit.res[0]!] #[resType]
-      CreateProg.operation (.gmir .g_cttz) #[wideSrc.res[0]!] #[resType])
+      CreateProg.operation (.gmir .g_cttz_zero_poison) #[wideSrc.res[0]!] #[resType])
     (fun op => op)
 
 /--
@@ -163,6 +164,19 @@ def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
       let diff ← widthConstant type wideType (width - ·)
       let shift ← CreateProg.operation (.gmir .g_lshr) #[wide.res[0]!, diff.res[0]!] #[wideType]
       CreateProg.operation (.gmir .g_trunc) #[shift.res[0]!] #[type])
+    (fun op => op)
+
+/-- Lowers the count `opcode`, whose zero input is poison, to the count `defined`, which is defined
+at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
+def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let src ← MatchProg.value srcType
+      let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
+      return (resType, src))
+    (fun (resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
     (fun op => op)
 
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
@@ -226,6 +240,8 @@ public section
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
   | .g_zext => lowerZext
+  | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
+  | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
