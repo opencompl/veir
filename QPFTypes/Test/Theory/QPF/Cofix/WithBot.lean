@@ -135,34 +135,32 @@ theorem PStream.repeat_hasNoBot (x : a) : (PStream.repeat x).HasNoBot := by
 def Stream.repeat (x : a) : Stream a :=
   CofixWithBot.get (PStream.repeat x) (PStream.repeat_hasNoBot x)
 
+namespace Stream
+
 /-! ### map -/
+section Map
 
-def PStream.map (f : α → β) (xs : Stream α) : PStream β :=
-  .cons (f xs.head) (map f xs.tail)
-partial_fixpoint
-
-def Stream.map' (xs : Stream α) (f : α → β) : Stream β :=
-  CofixWithBot.get (PStream.map f xs) <| by
-    apply CofixWithBot.HasNoBot.coinduct (fun z => ∃ xs, z = PStream.map f xs) _ _ ⟨xs, rfl⟩
-    rintro _ ⟨xs, rfl⟩
-    rw [PStream.map.eq_1]
-    exact ⟨_, PStream.dest_cons _ _, (IsPolynomial.liftPLast_iff _ _).2 fun _ => ⟨_, rfl⟩⟩
-
-codef Stream.map (f : α → β) (xs : Stream α) : Stream β :=
+codef map (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) (map f xs.tail)
 productive_by
   exact ⟨_, rfl⟩
 
 @[simp, grind =]
-theorem Stream.head_map (f : α → β) (xs : Stream α) : (Stream.map f xs).head = f xs.head := by
-  rw [Stream.map, Stream.head_cons]
+theorem head_map (f : α → β) (xs : Stream α) : (map f xs).head = f xs.head := by
+  rw [map, head_cons]
 
 @[simp, grind =]
-theorem Stream.tail_map (f : α → β) (xs : Stream α) :
-    (Stream.map f xs).tail = Stream.map f xs.tail := by
-  rw [Stream.map, Stream.tail_cons]
+theorem tail_map (f : α → β) (xs : Stream α) :
+    (map f xs).tail = map f xs.tail := by
+  rw [map, tail_cons]
 
-namespace Stream
+@[simp, grind =]
+theorem map_map (f : β → γ) (g : α → β) (xs : Stream α) :
+    map f (map g xs) = map (f ∘ g) xs := by
+  -- TODO: prove
+  sorry
+
+end Map
 
 /-! ### filter -/
 section Filter
@@ -355,7 +353,20 @@ for the translation from Stream to partial Stream values to work in general,
 `cursedMap.__partial` ought to take `xs` as a partial Stream argument, too.
 Either way, this makes sense, given that is the transformation that we're
 already doing to constructors in `@[qpf_ctor]`. Further, it would enable us to
-support `map2`
+support `map2` and `nats'`
+-/
+
+/-
+FIXME: the following ought to work
+
+```
+codef Stream.nats' : Stream Nat :=
+  cons 0 <| map (· + 1) nats'
+with_motive
+  map (· + ?i) nats'
+productive_by
+  sorry
+```
 -/
 
 /-
