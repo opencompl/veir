@@ -214,6 +214,21 @@ def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
     let #[x] := operands | none
     let .int w x := x | none
     return (#[.int n (Veir.Data.Comb.extract (w := w) n properties.lowBit.value.toNat x)], none)
+  -- Bit manipulation. `parity` reduces to an `i1`; `replicate` takes its result width from the
+  -- type, like `extract`.
+  | .parity => do
+    let ⟨_, l⟩ ← Comb.sameWidthOperands operands
+    let [x] := l | none
+    return (#[.int 1 (Veir.Data.Comb.parity x)], none)
+  | .replicate => do
+    let n ← Comb.resultWidth resultTypes
+    let #[x] := operands | none
+    let .int w x := x | none
+    return (#[.int n (Veir.Data.Comb.replicate (w := w) n x)], none)
+  | .reverse => do
+    let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+    let [x] := l | none
+    return (#[.int w (Veir.Data.Comb.reverse x)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
