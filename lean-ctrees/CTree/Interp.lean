@@ -32,7 +32,8 @@ def interp (h : (i : EIn) → CTree F C (E i)) : CTree E C X → CTree F C X :=
 /--
 Substitute events with subtrees according to the provided stateful handler `h`
 -/
-def interp_state (h : (i : EIn) → StateT σ (CTree F C) (E i)) : CTree E C X → StateT σ (CTree F C) X :=
+def interp_state (h : (i : EIn) → StateT σ (CTree F C) (E i)) :
+    CTree E C X → StateT σ (CTree F C) X :=
   fun t s =>
     match t.unfold with
     | .ret r => return (r, s)

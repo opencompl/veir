@@ -62,11 +62,17 @@ axiom interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C X) (u : CTr
   Sim RR t u →
   Sim RR (CTree.interp h t) (CTree.interp h u)
 
+/--
+Product of two relations
+-/
 @[expose]
-def prod_rel {A B C D} (RR : A → B → Prop) (RS : C → D → Prop) := fun (x, σ) (y, σ') => RR x y ∧ RS σ σ'
+def ProdRel {A B C D} (RR : A → B → Prop) (RS : C → D → Prop) :
+    A × C → B × D → Prop :=
+  fun (x, σ) (y, σ') => RR x y ∧ RS σ σ'
 
-axiom interp_state {RR RR'} {RS : σ → σ → Prop} (h : (i : EIn) → StateT σ (CTree F C) (E i)) (t : CTree E C X) (u : CTree E C Y) :
-  prod_rel RR RS ⊑ RR' →
+axiom interp_state {RR RR'} {RS : σ → σ → Prop}
+    (h : (i : EIn) → StateT σ (CTree F C) (E i)) (t : CTree E C X) (u : CTree E C Y) :
+  ProdRel RR RS ⊑ RR' →
   Sim RR t u →
   Sim RR' (CTree.interp_state h t s) (CTree.interp_state h u s)
 
