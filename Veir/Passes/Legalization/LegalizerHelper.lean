@@ -114,7 +114,8 @@ def widenCtlzSrc (width : Nat) : Pattern OpCode :=
 /--
 Widens the operand of `g_cttz` to `width` bits. The bit just above the operand is set, so that
 the count of a zero operand is still its width, as in LLVM's `LegalizerHelper::widenScalar`. The
-result must already be `width` bits wide, which the rules ensure by widening it first.
+wide operand is never zero, so it is counted with `g_cttz_zero_poison`, as in LLVM. The result
+must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
@@ -128,7 +129,7 @@ def widenCttzSrc (width : Nat) : Pattern OpCode :=
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
       let wideSrc ← CreateProg.operation (.gmir .g_or) #[ext.res[0]!, topBit.res[0]!] #[resType]
-      CreateProg.operation (.gmir .g_cttz) #[wideSrc.res[0]!] #[resType])
+      CreateProg.operation (.gmir .g_cttz_zero_poison) #[wideSrc.res[0]!] #[resType])
     (fun op => op)
 
 /--
@@ -149,6 +150,19 @@ def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
       let diff ← widthConstant type wideType (width - ·)
       let shift ← CreateProg.operation (.gmir .g_lshr) #[wide.res[0]!, diff.res[0]!] #[wideType]
       CreateProg.operation (.gmir .g_trunc) #[shift.res[0]!] #[type])
+    (fun op => op)
+
+/-- Lowers the count `opcode`, whose zero input is poison, to the count `defined`, which is defined
+at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
+def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let src ← MatchProg.value srcType
+      let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
+      return (resType, src))
+    (fun (resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
     (fun op => op)
 
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
@@ -217,6 +231,8 @@ public section
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
   | .g_zext => lowerZext
+  | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
+  | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -234,6 +250,11 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   -- The high bits matter for the comparison, and sign extension preserves both the signed and
   -- the unsigned order.
   | .g_icmp, .type 1, width => widenTypeGroup .g_icmp (.type 1) .g_sext width
+  -- The high bits of the selected values never reach the low bits of the result.
+  | .g_select, .type 0, width => widenTypeGroup .g_select (.type 0) .g_anyext width
+  -- The condition is true when it is nonzero, so its high bits must be zero, as with LLVM's
+  -- `getBoolExtOp` on a target whose booleans are zero or one.
+  | .g_select, .type 1, width => widenTypeGroup .g_select (.type 1) .g_zext width
   -- As for `g_add`, the high bits of the shifted value never reach the low bits of the result.
   | .g_shl, .type 0, width => widenTypeGroup .g_shl (.type 0) .g_anyext width clearNswNuwProperties
   -- `ashr` shifts copies of the sign bit into the result, so the high bits must be sign bits.
@@ -267,6 +288,14 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
   | .g_bswap, .type 0, width => widenReverse .g_bswap width
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
+  -- Sign extension preserves the signed order, and also the unsigned order. For `g_umin` and
+  -- `g_umax`, LLVM only sign-extends where it is cheaper than zero-extending (from `i32` on
+  -- RISC-V), but both are correct.
+  | .g_smin, .type 0, width => widenTypeGroup .g_smin (.type 0) .g_sext width
+  | .g_smax, .type 0, width => widenTypeGroup .g_smax (.type 0) .g_sext width
+  | .g_umin, .type 0, width => widenTypeGroup .g_umin (.type 0) .g_sext width
+  | .g_umax, .type 0, width => widenTypeGroup .g_umax (.type 0) .g_sext width
+  | .g_abs, .type 0, width => widenTypeGroup .g_abs (.type 0) .g_sext width
   | _, _, _ => none
 
 end

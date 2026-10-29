@@ -111,10 +111,19 @@ def LLZK.Function.functionInterface? (op : LLZK.Function) :
           { props with function_type := functionType } }
   | .return | .call => none
 
+/--
+`function.call` calls the function it names. The arguments are the first operand segment; the rest
+are affine map operands.
+-/
+def LLZK.Function.callInterface : CallOpInterface FunctionCallProperties where
+  getCallableForCallee? props _ := some (.symbol props.callee)
+  getArgOperands props operands :=
+    operands.extract 0 (props.operandSegmentSizes.values[0]?.getD 0).toNat
+
 def LLZK.Function.callOpInterface? (op : LLZK.Function) :
     Option (CallOpInterface (LLZK.Function.propertiesOf op)) :=
   match op with
-  | .call => some { getCallableForCallee? := fun props _ => some (.symbol props.callee) }
+  | .call => some LLZK.Function.callInterface
   | .«def» | .return => none
 
 /-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
