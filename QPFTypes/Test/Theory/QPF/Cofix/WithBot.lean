@@ -143,9 +143,7 @@ def Stream.map' (xs : Stream α) (f : α → β) : Stream β :=
 codef Stream.map (f : α → β) (xs : Stream α) : Stream β :=
   cons (f xs.head) (map f xs.tail)
 productive_by
-  refine ⟨_, rfl, ?_⟩
-  exact (StreamF.liftPLast_cons _ _ _).2 ⟨_, rfl⟩
-
+  exact ⟨_, rfl⟩
 
 @[simp, grind =]
 theorem Stream.head_map (f : α → β) (xs : Stream α) : (Stream.map f xs).head = f xs.head := by
@@ -230,8 +228,6 @@ section Nats
 codef nats (fro : Nat) : Stream Nat :=
   .cons fro (nats <| fro + 1)
 productive_by
-  refine ⟨?y, by rfl, ?_⟩
-  simp only [StreamF.liftPLast_cons]
   exists fro + 1
 
 @[simp, grind =]
@@ -336,13 +332,9 @@ codef cursedMap (f : α → β) (xs : Stream α) : Stream β :=
 with_motive
   cons ?x (cursedMap f ?xs).tail
 productive_by
-  · refine ⟨_, rfl, ?_⟩
-    simp only [StreamF.liftPLast_cons]
-    right
+  · right
     exact ⟨_, _, rfl⟩
-  · refine ⟨_, rfl, ?_⟩
-    simp only [StreamF.liftPLast_cons]
-    right
+  · right
     exists f xs.head, xs.tail
     rw [cursedMap.__partial]
     simp only [tail.__partial, cons.__partial, CofixWithBot.elim_mk]

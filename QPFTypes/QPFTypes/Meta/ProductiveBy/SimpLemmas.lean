@@ -5,6 +5,8 @@ public import QPFTypes.Theory.TypeVec.Basic
 public import QPFTypes.Theory.TypeFun
 public import QPFTypes.Meta.ProductiveBy.SimpSet
 
+namespace QPFTypes
+
 /-!
 # Declarations in the `qpf_productive_by` simp set
 
@@ -16,8 +18,10 @@ The simproc `reduceOfCurried` turns applications such as
 `TypeFun.ofCurried StreamF (TypeVec.nil ::: α ::: β)` into `StreamF α β`.
 -/
 
-attribute [qpf_productive_by] QPFTypes.TypeVec.head QPFTypes.TypeVec.last QPFTypes.TypeVec.tail
-  QPFTypes.TypeVec.drop QPFTypes.TypeVec.append1
+open TypeVec in
+attribute [qpf_productive_by] head last tail drop append1
+
+attribute [qpf_productive_by] Option.some_inj exists_eq_left'
 
 public meta section
 
