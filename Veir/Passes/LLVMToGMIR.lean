@@ -115,6 +115,17 @@ def g_bswap := (lowerUnop .intr__bswap .g_bswap id).compile
 
 def g_bitreverse := (lowerUnop .intr__bitreverse .g_bitreverse id).compile
 
+def g_smax := (lowerBinop .intr__smax .g_smax).compile
+
+def g_smin := (lowerBinop .intr__smin .g_smin).compile
+
+def g_umax := (lowerBinop .intr__umax .g_umax).compile
+
+def g_umin := (lowerBinop .intr__umin .g_umin).compile
+
+/- LLVM translates `abs` to `G_ABS` and drops `is_int_min_poison`, which `g_abs` refines. -/
+def g_abs := (lowerUnop .intr__abs .g_abs fun _ => ()).compile
+
 /--
   GMIR lowerings with Puddle for integer casts.
 -/
@@ -177,6 +188,19 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
   let (ctx', gep) ← WfRewriter.createOp! ctx Llvm.getelementptr (op.getResultTypes! ctx.raw)
       operands #[] #[] props none
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
+
+private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
+  let opType := op.getOpType! ctx.raw
+  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then return (ctx, none)
+  let operands := op.getOperands! ctx.raw
+  let successors := op.getSuccessors! ctx.raw
+  let (ctx', branch) ← if opType = OpCode.llvm .br then
+      WfRewriter.createOp! ctx GMIR.g_br #[] operands successors #[] () none
+    else
+      let props : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
+      WfRewriter.createOp! ctx GMIR.g_brcond #[] operands successors #[]
+        (GMIRBrCondProperties.mk props.operandSegmentSizes) none
+  return (ctx', some (#[branch], #[]))
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -310,8 +334,9 @@ def LLVMToGMIRPass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : Operation
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_ctlz.run, g_cttz.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
+    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices,
+    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx (fold := fold) with

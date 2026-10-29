@@ -1,9 +1,11 @@
 module
 
 public import Veir.IR.OpInfo
+public import Veir.Interfaces.ControlFlowInterfaces
 public import Veir.Verifier.Basic
 public import Veir.Dialects.LLVM.Properties
 public import Veir.Dialects.GMIR.Properties
+public import Veir.ConstantMaterialization
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
@@ -60,6 +62,8 @@ inductive GMIR where
 | g_store
 | g_merge_values
 | g_unmerge_values
+| g_br
+| g_brcond
 | g_uaddo
 | g_uadde
 | g_usubo
@@ -76,13 +80,14 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_sext_inreg => SextInRegProperties
   | .g_constant => GMIRConstantProperties
   | .g_load | .g_store => MachineMemOperand
+  | .g_brcond => GMIRBrCondProperties
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
-  | .g_merge_values | .g_unmerge_values
+  | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube => Unit
 
 def GMIR.fromAttrDict
@@ -98,13 +103,14 @@ def GMIR.fromAttrDict
   case g_constant => exact GMIRConstantProperties.fromAttrDict attrDict
   case g_load => exact MachineMemOperand.fromAttrDict "gmir.g_load" attrDict
   case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
+  case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
   case g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_ctlz | g_cttz | g_ctpop
-     | g_merge_values | g_unmerge_values
+     | g_merge_values | g_unmerge_values | g_br
      | g_uaddo | g_uadde | g_usubo | g_usube => exact .ok ()
 
 def GMIR.toAttrDict
@@ -136,13 +142,15 @@ def GMIR.toAttrDict
   | .g_sext_inreg => (Std.HashMap.emptyWithCapacity 1).insert "sz".toUTF8 (i64Attr props.sz)
   | .g_constant => (Std.HashMap.emptyWithCapacity 1).insert "value".toUTF8 (.integerAttr props.value)
   | .g_load | .g_store => props.toAttrDict
+  | .g_brcond => (Std.HashMap.emptyWithCapacity 1).insert
+      "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
-  | .g_merge_values | .g_unmerge_values
+  | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube => {}
 
 #generate_dialect GMIR
@@ -211,6 +219,12 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_unmerge_values =>
     { outOperandList := #[.type 0, .type 0]
       inOperandList := #[.type 1] }
+  | .g_br =>
+    { outOperandList := #[]
+      inOperandList := #[] }
+  | .g_brcond =>
+    { outOperandList := #[]
+      inOperandList := #[.type 0] }
   | .g_uaddo | .g_usubo =>
     { outOperandList := #[.type 0, .type 1]
       inOperandList := #[.type 0, .type 0] }
@@ -316,7 +330,7 @@ def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
   if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
 
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
-    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
@@ -552,6 +566,23 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     if h : w ≠ half + half then none else
     let (lo, hi) := unmergeValues (w := half) (x.cast (by simp at h; exact h))
     return (#[.int half lo, .int half hi], mem, none)
+  | .g_br => do
+    let [dest] := blockOperands.toList | none
+    return (#[], mem, some (.branch operands dest))
+  | .g_brcond => do
+    let [destTrue, destFalse] := blockOperands.toList | none
+    let some (trueSizeInt : Int) := properties.operandSegmentSizes.values[1]? | none
+    let trueSize := trueSizeInt.toNat
+    /- As for `llvm.cond_br`, but the condition may be wider than `i1`, as legalization widens it
+       with a `g_zext`. Any nonzero value takes the first successor. -/
+    match operands[0]? with
+    | some (RuntimeValue.int _ (.val cond)) =>
+      if cond ≠ 0 then
+        return (#[], mem, some (.branch (operands.extract 1 (trueSize + 1)) destTrue))
+      else
+        return (#[], mem, some (.branch (operands.extract (trueSize + 1) operands.size) destFalse))
+    | some (RuntimeValue.int _ .poison) => Interp.ub none
+    | _ => none
   -- TODO: As for `g_icmp`, a wider carry is assumed to be `0` or `1`, i.e. the target's booleans are
   -- `ZeroOrOneBooleanContent`, as on RISC-V. LLVM leaves the high bits of a wider carry to the target.
   | .g_uaddo => do
@@ -652,8 +683,10 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : opPtr.InBounds ctx.raw) :
     Except String PUnit := do
   let info := opCode.genericOpInfo
-  -- Verify operand and result counts.
-  opPtr.verifyPlainOpCounts ctx opIn info.inOperandList.size info.outOperandList.size
+  -- Verify operand and result counts. Branches forward a variable number of operands, which their
+  -- own checks below verify.
+  if !(opCode matches .g_br | .g_brcond) then
+    opPtr.verifyPlainOpCounts ctx opIn info.inOperandList.size info.outOperandList.size
   -- Verify that every member of a type group has the same concrete type.
   let typedGroups := opCode.getTypedGroups! opPtr ctx.raw
   let canon : Std.HashMap TypeGroup TypeAttr :=
@@ -738,6 +771,18 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
     opPtr.verifyGMIRTotalWidth ctx opIn
+  | .g_br =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyUnconditionalBranch ctx opIn
+  | .g_brcond =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyTerminatorCounts ctx opIn 2
+    if opPtr.getNumOperands ctx.raw opIn = 0 then
+      throw "gmir.g_brcond: Expected a condition operand"
+    ((opPtr.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+      "gmir.g_brcond: Expected the condition to have integer type"
+    let sizes := (opPtr.getProperties! ctx.raw GMIR.g_brcond).operandSegmentSizes
+    opPtr.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
@@ -752,7 +797,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube => true
-  | .g_constant | .g_load | .g_store => false
+  | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
@@ -774,11 +819,46 @@ def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
   | _ => false
 
+/-- Materialize constants produced by folding GMIR operations. -/
+def GMIR.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo GMIR]
+    (_op : GMIR) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
+  match value, type.val with
+  | .int _ (.val value), .integerType intType =>
+    some (.of GMIR.g_constant (GMIRConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
+  | _, _ => none
+
 def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
   true
 
-def GMIR.isTerminator (_op : GMIR) : Bool :=
-  false
+def GMIR.isTerminator : GMIR → Bool
+  | .g_br | .g_brcond => true
+  | _ => false
+
+def GMIR.unconditionalBranch? (op : GMIR) (_props : GMIR.propertiesOf op) :
+    Option (OpKind GMIR) :=
+  match op with
+  | .g_br | .g_brcond => some ⟨.g_br, ()⟩
+  | _ => none
+
+def GMIR.branchOpInterface? (op : GMIR) : Option (BranchOpInterface (GMIR.propertiesOf op)) :=
+  match op with
+  | .g_br =>
+    some {
+      getSuccessorOperandsImpl? := fun _ operands successorIndex => do
+        guard (successorIndex = 0)
+        some { forwardedOperands := operands }
+      getSuccessorIndexForOperandsImpl? := fun _ _ => some 0
+    }
+  | .g_brcond =>
+    some {
+      getSuccessorOperandsImpl? := fun props operands successorIndex =>
+        BranchOpInterface.getSegmentedSuccessorOperands?
+          1 props.operandSegmentSizes.values operands successorIndex
+      getSuccessorIndexForOperandsImpl? := fun _ operands => do
+        let some (.int _ (.val condition)) ← operands[0]? | none
+        some (BranchOpInterface.getConditionalSuccessorIndex (condition ≠ 0))
+    }
+  | _ => none
 
 instance : HasOpInfo GMIR where
   verifyLocalInvariants := GMIR.verifyLocalInvariants
@@ -788,6 +868,8 @@ instance : HasOpInfo GMIR where
   isCommutative := GMIR.isCommutative
   hasSSADominance := GMIR.hasSSADominance
   isTerminator := GMIR.isTerminator
+  unconditionalBranch? := GMIR.unconditionalBranch?
+  branchOpInterface? := GMIR.branchOpInterface?
 
 end
 

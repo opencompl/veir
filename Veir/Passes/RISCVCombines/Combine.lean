@@ -1521,6 +1521,29 @@ def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) (rewriter : PatternRe
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite (drop_slli_srli_boolGen_local boolDst arity) rewriter op opInBounds
 
+/-- Drop `riscv.andi 1 (riscv.srli 63 X)`: the `srli 63` already leaves only bit 0, which the mask
+    keeps. Legalizing a `g_brcond` on an `i1` masks it with a `g_and` of 1, and a cast of that
+    `i1` to a register is reconciled as `srli 63 (slli 63 _)`.
+
+    LLVM: the generic DAGCombiner and the GlobalISel `redundant_and` combine drop the mask through
+    known bits. -/
+def drop_andi_one_srli_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let xType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let x ← Puddle.MatchProg.value xType
+      let srliType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let srli ← Puddle.MatchProg.operation (.riscv .srli) #[x] #[srliType]
+        (fun props => props.value = 63#64)
+      let _ ← Puddle.MatchProg.root (.riscv .andi) #[srli.res[0]!] #[srliType]
+        (fun props => props.value = 1#64)
+      return srli.res[0]!)
+    pure
+    (fun srli => srli)
+
+def drop_andi_one_srli : RewritePattern OpCode :=
+  drop_andi_one_srli_pattern.compile.run
+
 /-- `riscv.slt` produces exactly 0 or 1. -/
 def drop_slli_srli_slt := drop_slli_srli_boolGen .slt 2
 
@@ -3069,6 +3092,7 @@ def Combine.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr) (_
      , drop_slli_srli_snez
      , drop_slli_srli_sltz
      , drop_slli_srli_sgtz
+     , drop_andi_one_srli
      , zextw_zextw
      , zextw_zextb
      , drop_zextw_addw

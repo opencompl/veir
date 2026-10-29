@@ -16,7 +16,21 @@
     // CHECK-NEXT: "gmir.g_bswap"(%{{.*}}) : (i32) -> i32
     %bitreverse = "llvm.intr.bitreverse"(%x) : (i32) -> i32
     // CHECK-NEXT: "gmir.g_bitreverse"(%{{.*}}) : (i32) -> i32
+    %smax = "llvm.intr.smax"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_smax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %smin = "llvm.intr.smin"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_smin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %umax = "llvm.intr.umax"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %umin = "llvm.intr.umin"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %abs = "llvm.intr.abs"(%x) <{is_int_min_poison = false}> : (i32) -> i32
+    // CHECK-NEXT: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
+    // An `abs` whose minimum value is poison becomes the defined `abs`, which refines it.
+    %abs_poison = "llvm.intr.abs"(%x) <{is_int_min_poison = true}> : (i32) -> i32
+    // CHECK-NEXT: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
     "test.test"(%ctlz, %ctlz_poison, %cttz, %ctpop, %bswap, %bitreverse) : (i32, i32, i32, i32, i32, i32) -> ()
+    "test.test"(%smax, %smin, %umax, %umin, %abs, %abs_poison) : (i32, i32, i32, i32, i32, i32) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

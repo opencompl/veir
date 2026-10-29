@@ -27,13 +27,13 @@ namespace LegalizerInfo
 private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCode :=
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    let pattern? := match info.getAction ctx.raw op opcode with
+    let pattern? : Option (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
       | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
-      | .lower => lower? opcode
-      | .custom => info.legalizeCustom opcode
+      | .lower => (lower? opcode).map Puddle.Pattern.interpret
+      | .custom => (info.legalizeCustom opcode).map Puddle.Pattern.interpret
       | .legal | .unsupported => none
     let some pattern := pattern? | return (ctx, none)
-    pattern.interpret ctx op
+    pattern ctx op
 
 /-- Combines the artifact `op` away with the first `tryCombineInstruction` pattern that applies. -/
 private def combineArtifactStep : LocalRewritePattern OpCode :=
