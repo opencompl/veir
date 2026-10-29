@@ -27,7 +27,8 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
     run := fun _ ctx _ _ => do
       -- The combines come before `sub_to_add`, which would otherwise rewrite the subtractions
       -- some of them match.
-      let pattern := RewritePattern.GreedyRewritePattern <| combines.map (·.run) ++
+      let pattern := RewritePattern.GreedyRewritePattern <|
+        (combines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
         #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run, commutativeConstantRHS]
       match RewritePattern.applyInContext pattern ctx with
       | none => throw "Error while applying the post-legalizer combines"

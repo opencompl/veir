@@ -875,6 +875,157 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
       createConstantWith type (c₁, c₂) fun (c₁, c₂) => fold c₁.bits.toInt c₂.bits.toInt)
     (fun op => op)
 
+/-! ### select_combines
+
+A `g_select` condition wider than `i1` is true when it is nonzero (see `GMIR.selectNonzero`). The
+combines that read the condition as a boolean, as LLVM's `match_selects` and `select_not` do, only
+match an `i1` condition.
+-/
+
+/-- `c ? x : x` → `x`. -/
+def select_same_val_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let c ← MatchProg.value condType
+      let x ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir .g_select) #[c, x, x] #[type]
+      return x)
+    pure (fun x => x)
+
+/-- `c ? x : y` → `x` for a nonzero constant `c` when `nonzero` is set, and `0 ? x : y` → `y`
+    otherwise. -/
+def select_constant_cmp_pattern (nonzero : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let c ← matchConstant condType fun c => (c.bits != 0) == nonzero
+      let _ ← MatchProg.root (.gmir .g_select) #[c.res[0]!, x, y] #[type]
+      return if nonzero then x else y)
+    pure (fun v => v)
+
+/-- `(icmp pred x, y) ? x : y` → `minmax x, y`, if `minmax` is legal for the type. -/
+def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) (minmax : GMIR) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[x, y] #[condType] (·.predicate = pred)
+      let _ ← MatchProg.root (.gmir .g_select) #[icmp.res[0]!, x, y] #[type]
+      MatchProg.matchNative type fun type =>
+        info.isLegal minmax #[type] (default : propertiesOf minmax)
+      return (type, x, y))
+    (fun (type, x, y) => CreateProg.operation (.gmir minmax) #[x, y] #[type])
+    (fun op => op)
+
+/-- `cast (c ? x : y)` → `c ? (cast x) : (cast y)` for `cast` ∈ {`g_zext`, `g_trunc`}, if the new
+    `g_select` is legal. As in LLVM, the new casts get no flags. Unlike LLVM, the `g_select` may
+    have other uses. -/
+def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let c ← MatchProg.value condType
+      let x ← MatchProg.value srcType
+      let y ← MatchProg.value srcType
+      let select ← MatchProg.operation (.gmir .g_select) #[c, x, y] #[srcType]
+      let _ ← MatchProg.root (.gmir cast) #[select.res[0]!] #[type]
+      MatchProg.matchNative (type, condType) fun (type, condType) =>
+        info.isLegal .g_select #[type, condType] ()
+      return (type, c, x, y))
+    (fun (type, c, x, y) => do
+      let castX ← CreateProg.operation (.gmir cast) #[x] #[type]
+      let castY ← CreateProg.operation (.gmir cast) #[y] #[type]
+      CreateProg.operation (.gmir .g_select) #[c, castX.res[0]!, castY.res[0]!] #[type])
+    (fun op => op)
+
+/-- `(c ^ -1) ? x : y` → `c ? y : x` for an `i1` condition `c`. -/
+def select_not_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value condType
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let allOnes ← matchConstant condType (·.bits = -1)
+      let not ← MatchProg.operation (.gmir .g_xor) #[c, allOnes.res[0]!] #[condType]
+      let _ ← MatchProg.root (.gmir .g_select) #[not.res[0]!, x, y] #[type]
+      return (type, c, x, y))
+    (fun (type, c, x, y) => CreateProg.operation (.gmir .g_select) #[c, y, x] #[type])
+    (fun op => op)
+
+/-- `c ? 1 : 0` → `c` and, when `invert` is set, `c ? 0 : 1` → `c ^ 1`, for an `i1` select of an
+    `i1` condition `c`. The `g_xor` must be legal. -/
+def select_bool_pattern (info : LegalizerInfo) (invert : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value type
+      let t ← matchConstant type (·.bits.toNat = if invert then 0 else 1)
+      let f ← matchConstant type (·.bits.toNat = if invert then 1 else 0)
+      let _ ← MatchProg.root (.gmir .g_select) #[c, t.res[0]!, f.res[0]!] #[type]
+      if invert then
+        MatchProg.matchNative type fun type => info.isLegal .g_xor #[type] ()
+      return (type, c))
+    (fun (type, c) => do
+      if invert then
+        let one ← createConstant type 1
+        let not ← CreateProg.operation (.gmir .g_xor) #[c, one.res[0]!] #[type]
+        return not.res[0]!
+      return c)
+    (fun v => v)
+
+/-- `c ? e : 0` → `ext c` and, when `invert` is set, `c ? 0 : e` → `ext (c ^ 1)`, for an `i1`
+    condition `c` and a wider select, where `(ext, e)` is `(g_zext, 1)` or `(g_sext, -1)`. The new
+    operations must be legal. -/
+def select_of_bool_constants_pattern (info : LegalizerInfo) (ext : GMIR) (invert : Bool) :
+    Pattern OpCode :=
+  let e : Int := if ext = .g_sext then -1 else 1
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth > 1)
+      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value condType
+      let t ← matchConstant type (·.bits.toInt = if invert then 0 else e)
+      let f ← matchConstant type (·.bits.toInt = if invert then e else 0)
+      let _ ← MatchProg.root (.gmir .g_select) #[c, t.res[0]!, f.res[0]!] #[type]
+      MatchProg.matchNative (type, condType) fun (type, condType) =>
+        info.isLegal ext #[type, condType] (default : propertiesOf ext) &&
+          (!invert || info.isLegal .g_xor #[condType] ())
+      return (type, condType, c))
+    (fun (type, condType, c) => do
+      let cond ← if invert then do
+          let one ← createConstant condType 1
+          let not ← CreateProg.operation (.gmir .g_xor) #[c, one.res[0]!] #[condType]
+          pure not.res[0]!
+        else pure c
+      CreateProg.operation (.gmir ext) #[cond] #[type])
+    (fun op => op)
+
+/-- The select combines, which take the `LegalizerInfo` of the target. -/
+def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
+  let patterns : Array (Pattern OpCode) :=
+  #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false,
+    select_not_pattern] ++
+  #[(Data.LLVM.IntPred.ugt, GMIR.g_umax), (.uge, .g_umax), (.sgt, .g_smax), (.sge, .g_smax),
+    (.ult, .g_umin), (.ule, .g_umin), (.slt, .g_smin), (.sle, .g_smin)].map
+      (fun (pred, minmax) => select_to_iminmax_pattern info pred minmax) ++
+  #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc,
+    select_bool_pattern info false, select_bool_pattern info true] ++
+  (#[GMIR.g_zext, .g_sext].flatMap fun ext =>
+      #[false, true].map (select_of_bool_constants_pattern info ext ·))
+  patterns.map (·.compile)
+
 /-! ### Combine list -/
 
 /-- The combines above, in the order the combiner tries them. -/
