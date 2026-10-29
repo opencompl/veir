@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=riscv-combine | filecheck %s
+// RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
 
 // `(C op x)` becomes `(x op C)` for add/mul/and/or/xor: a constant left operand
 // is commuted to the right. It fires only when exactly the left operand is the
