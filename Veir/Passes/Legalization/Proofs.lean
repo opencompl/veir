@@ -112,14 +112,9 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
 /-- `x` is refined by its low bits after any extension. -/
 private theorem trunc_ext_self {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
     x ⊒ LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h := by
-  cases x with
-  | poison => simp [isRefinedBy]
-  | val v =>
-    simp only [LLVM.Int.ext, LLVM.Int.trunc, Id.run, isRefinedBy]
-    simp
-    apply BitVec.eq_of_getElem_eq
-    intro i hi
-    simp [BitVec.getElem_setWidth, BitVec.getLsbD_append, hi]
+  veir_bv_normalize
+  simp [BitVec.eq_of_getElem_eq_iff]
+  grind
 
 /--
 Prove the correctness of widening the values of `g_select` with `g_anyext`, at every width and
