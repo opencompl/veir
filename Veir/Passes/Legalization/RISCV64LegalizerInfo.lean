@@ -95,6 +95,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
+    | .g_uaddo | .g_uadde | .g_usubo | .g_usube => [
+      .lower,
+    ]
     | .g_shl | .g_lshr | .g_ashr => [
       .legalForTypePairs [(s64, s64)],
       -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
