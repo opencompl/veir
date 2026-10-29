@@ -6,8 +6,6 @@
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64)}> ({
     %i64max = "llvm.mlir.constant"() <{value = 9223372036854775807 : i64}> : () -> i64
     %i64min = "llvm.mlir.constant"() <{value = -9223372036854775808 : i64}> : () -> i64
-    // Round-trip %one through memory so it is not a constant; otherwise the
-    // ops under test are folded away during lowering.
     %n = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %slot = "llvm.alloca"(%n) <{elem_type = i64}> : (i64) -> !llvm.ptr
     "llvm.store"(%n, %slot) : (i64, !llvm.ptr) -> ()

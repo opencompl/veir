@@ -5,8 +5,6 @@
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64, i64)}> ({
-    // Round-trip the inputs through memory so they are not constants; otherwise
-    // the ops under test are folded away during lowering.
     %n = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %x_slot = "llvm.alloca"(%n) <{elem_type = i64}> : (i64) -> !llvm.ptr
     %x_c = "llvm.mlir.constant"() <{value = 0x0123456789abcdef : i64}> : () -> i64
