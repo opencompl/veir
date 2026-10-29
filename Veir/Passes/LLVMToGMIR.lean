@@ -2,6 +2,10 @@ module
 
 public import Veir.Pass
 import Veir.Passes.Legalization.LegalizerInfo
+import Veir.DataLayout.RISCV64
+import Veir.Interfaces.ConstantLikeInterfaces
+import Veir.Interfaces.FunctionInterfaces
+import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -25,6 +29,8 @@ namespace Veir
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
   - GEP indices are normalized here, but GEP address arithmetic remains in the LLVM dialect
     until instruction selection. The currently supported pointer index width is 64 bits.
+  - A static alloca is lowered directly to `riscv_stack.alloca` rather than to a frame index,
+    using the RISC-V 64 data layout; this is the one target-specific lowering here.
 -/
 
 /-! ## Lowering Patterns -/
@@ -201,6 +207,38 @@ private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
         (GMIRBrCondProperties.mk props.operandSegmentSizes) none
   return (ctx', some (#[branch], #[]))
 
+/--
+  Lower a constant-count entry-block allocation to a fixed RISC-V stack object, as
+  `IRTranslator` turns a static alloca into a frame index. Dynamic allocations and
+  `inalloca` need additional stack-lifetime support in the backend. This must run before
+  legalization, which can hide a narrow constant count behind `g_trunc`.
+-/
+private def lowerStaticAlloca (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
+  if properties.inalloca then return (ctx, none)
+  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
+  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
+  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
+  let some entry := funcOp.getEntryBlock? | return (ctx, none)
+  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
+  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
+  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
+  let size := count.toNat * layout.allocSize
+  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
+  if size >= 2 ^ 63 then return (ctx, none)
+  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
+    else properties.alignment.value
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
+    return (ctx, none)
+  let props : RISCVStackAllocaProperties :=
+    { size := BitVec.ofNat 64 size
+      alignment := BitVec.ofInt 64 alignment }
+  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
+      #[] #[] #[] props none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
+  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
+
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -336,6 +374,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
+    .fromLocalRewrite lowerStaticAlloca,
     .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
   ]
   match RewritePattern.applyInContext pattern ctx with
