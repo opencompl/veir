@@ -53,3 +53,29 @@ def or {w : Nat} (l : List (LLVM.Int w)) : LLVM.Int w := variadic 0 (· ||| ·) 
 `comb` has no `not`; complementing against an all-ones constant is CIRCT's idiom for it, so this
 is the operation a `~` in a source language usually becomes. -/
 def xor {w : Nat} (l : List (LLVM.Int w)) : LLVM.Int w := variadic 0 (· ^^^ ·) l
+
+/-- Binary `sub`. Not variadic, unlike the operations above. -/
+def sub {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => .val (x - y)
+  | _, _ => .poison
+
+/-- `comb.shl`. A shift **at or past the operand width is poison**, which is where this differs
+from `BitVec.shiftLeft` giving zero, and from what a hardware shifter would do. -/
+def shl {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y.toNat ≥ w then .poison else .val (x.shiftLeft y.toNat)
+  | _, _ => .poison
+
+/-- `comb.shru`, the logical right shift. Out of range is poison, as for `shl`. -/
+def shru {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y.toNat ≥ w then .poison else .val (x.ushiftRight y.toNat)
+  | _, _ => .poison
+
+/-- `comb.shrs`, the arithmetic right shift. Out of range is poison, as for `shl`. -/
+def shrs {w : Nat} (x y : LLVM.Int w) : LLVM.Int w :=
+  match x, y with
+  | .val x, .val y => if y.toNat ≥ w then .poison else .val (x.sshiftRight y.toNat)
+  | _, _ => .poison
+

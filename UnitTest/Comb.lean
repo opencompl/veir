@@ -98,3 +98,38 @@ private def testMalformed : String := Id.run do
 /-- info: "ok" -/
 #guard_msgs in
 #eval! testMalformed
+
+/-! ### Subtraction and shifts
+
+Binary rather than variadic, so the arity is part of what is checked: a variadic reading of `sub`
+would fold three operands instead of refusing them.
+
+A shift at or past the operand width is **poison** in CIRCT, where `BitVec.shiftLeft` gives zero.
+That is the one place this semantics is not simply Lean's, and the only way to notice is to ask.
+-/
+
+private def testSubAndShifts : String := Id.run do
+  if comb .sub () #[ity 4] #[i 4 3, i 4 5] != some 14 then return "sub"      -- -2 mod 16
+  if comb .shl () #[ity 4] #[i 4 3, i 4 2] != some 12 then return "shl"
+  if comb .shl () #[ity 4] #[i 4 9, i 4 1] != some 2 then return "shl out of the top"
+  if comb .shru () #[ity 4] #[i 4 9, i 4 1] != some 4 then return "shru"
+  if comb .shrs () #[ity 4] #[i 4 9, i 4 1] != some 12 then return "shrs sign extends"
+  -- Logical and arithmetic differ on a negative operand, so both are really being tested.
+  if comb .shru () #[ity 4] #[i 4 9, i 4 1] == comb .shrs () #[ity 4] #[i 4 9, i 4 1] then
+    return "shru and shrs agree"
+  -- At or past the width: poison, not zero.
+  if !combIsPoison .shl () #[ity 4] #[i 4 3, i 4 4] then return "shl at the width"
+  if !combIsPoison .shru () #[ity 4] #[i 4 3, i 4 7] then return "shru past the width"
+  if !combIsPoison .shrs () #[ity 4] #[i 4 3, i 4 4] then return "shrs at the width"
+  -- A shift by zero is in range and is the identity, so the bound is `≥ w` and not `> 0`.
+  if comb .shl () #[ity 4] #[i 4 3, i 4 0] != some 3 then return "shl by zero"
+  -- Poison propagates, and binary arity is enforced.
+  if !combIsPoison .sub () #[ity 4] #[i 4 1, poison 4] then return "sub poison"
+  if (comb .sub () #[ity 4] #[i 4 1, i 4 2, i 4 3]).isSome then return "sub took three"
+  if (comb .shl () #[ity 4] #[i 4 1]).isSome then return "shl took one"
+  return "ok"
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testSubAndShifts
+
