@@ -104,5 +104,38 @@ structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr)
             Interp.isRefinedBy OperationResult.isRefinedBy
               (op.interpret ctx.raw operands memory layout) (.ok (replacements, memory, none))
 
+/-- Reduce an integer binary fold with a known right operand to its typing and
+value semantics. The lookup describes which decisions are returned; this helper
+handles width agreement and every consistent runtime completion. The right
+operand may depend on its width, for example zero or all ones. -/
+theorem correctAt_int_rhs
+    {ctx : WfIRContext OpCode} {op : OperationPtr} {opIn : op.InBounds ctx.raw}
+    (verified : op.Verified ctx opIn) {type : IntegerType}
+    (operandTypes : op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)])
+    (rhs : (width : Nat) → Data.LLVM.Int width)
+    (lookup : ∀ known results,
+      HasOpInfo.tryFold (op.getOpType! ctx.raw)
+        (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
+        (op.getResultTypes! ctx.raw) known = some results →
+      ∃ left width, known = #[left, some (.int width (rhs width))] ∧ results = decisions)
+    (typed : FoldDecision.HasTypes decisions
+      (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw))
+    (evaluate : ∀ lhs memory layout,
+      let operands := #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)]
+      ∃ replacements,
+        FoldDecision.resolveAll decisions operands = some replacements ∧
+        Interp.isRefinedBy OperationResult.isRefinedBy
+          (op.interpret ctx.raw operands memory layout)
+          (.ok (replacements, memory, none))) :
+    CorrectAt ctx op verified where
+  hasTypes known results _ hFold := by
+    obtain ⟨_, _, _, rfl⟩ := lookup known results hFold
+    exact typed
+  preservesSemantics known results hFold operands hOperands hAgree memory layout := by
+    obtain ⟨left, width, rfl, rfl⟩ := lookup known results hFold
+    obtain ⟨lhs, actualRhs, rfl⟩ := by simpa [operandTypes] using hOperands
+    cases hAgree.2 1 (by simp) _ rfl
+    exact evaluate lhs memory layout
+
 end FoldTable
 end Veir
