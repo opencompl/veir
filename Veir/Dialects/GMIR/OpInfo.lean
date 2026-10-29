@@ -819,6 +819,122 @@ def GMIR.isConstantLike : GMIR → Bool
   | .g_constant => true
   | _ => false
 
+/-- Whether `operand` is a known integer, other than poison, whose bits satisfy `p`. -/
+private def knownInt (p : {w : Nat} → BitVec w → Bool) : Option RuntimeValue → Bool
+  | some (.int _ (.val bits)) => p bits
+  | _ => false
+
+private def intZero := knownInt (· == 0)
+private def intOne := knownInt (· == 1#_)
+private def intAllOnes := knownInt fun bits => bits == BitVec.allOnes _
+private def intMin := knownInt fun bits => bits == BitVec.intMin _
+private def intMax := knownInt fun bits => bits == BitVec.intMax _
+
+/--
+A fold to the constant `value`, at the width of `operand`, when `operand` is a
+known integer whose bits satisfy `p`.
+-/
+private def intIf (p : {w : Nat} → BitVec w → Bool) (operand : Option RuntimeValue)
+    (value : (w : Nat) → Data.LLVM.Int w) : Option (Array FoldDecision) :=
+  match operand with
+  | some (.int w (.val bits)) => if p bits then some #[.useConstant (.int w (value w))] else none
+  | _ => none
+
+/--
+The outcome of `g_icmp predicate lhs rhs` when one operand is an extreme value
+that decides the comparison on its own.
+-/
+private def icmpOutcome? (predicate : Data.LLVM.IntPred) (lhs rhs : Option RuntimeValue) :
+    Option Bool :=
+  match predicate with
+  | .ult => if intZero rhs || intAllOnes lhs then some false else none
+  | .uge => if intZero rhs || intAllOnes lhs then some true else none
+  | .ugt => if intAllOnes rhs || intZero lhs then some false else none
+  | .ule => if intAllOnes rhs || intZero lhs then some true else none
+  | .slt => if intMin rhs || intMax lhs then some false else none
+  | .sge => if intMin rhs || intMax lhs then some true else none
+  | .sgt => if intMax rhs || intMin lhs then some false else none
+  | .sle => if intMax rhs || intMin lhs then some true else none
+  | .eq | .ne => none
+
+open FoldDecision in
+/--
+Folds that apply when only some operands are known. Every entry here needs at
+least one unknown operand: when all operands are known, evaluation folds the
+operation anyway. Folding a poison result to anything else is a refinement, so
+these folds may ignore the poison-generating flags.
+-/
+def GMIR.tryFold (op : GMIR) (properties : GMIR.propertiesOf op)
+    (resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
+    Option (Array FoldDecision) :=
+  match op, constantOperands.toList with
+  -- Commutative operations with an identity and possibly an absorbing value
+  | .g_add, [lhs, rhs] | .g_xor, [lhs, rhs] | .g_saddsat, [lhs, rhs] =>
+    useOperandIf (intZero rhs) 0 <|> useOperandIf (intZero lhs) 1
+  | .g_or, [lhs, rhs] | .g_uaddsat, [lhs, rhs] | .g_umax, [lhs, rhs] =>
+    useOperandIf (intZero rhs) 0 <|> useOperandIf (intZero lhs) 1 <|>
+    useOperandIf (intAllOnes rhs) 1 <|> useOperandIf (intAllOnes lhs) 0
+  | .g_and, [lhs, rhs] | .g_umin, [lhs, rhs] =>
+    useOperandIf (intAllOnes rhs) 0 <|> useOperandIf (intAllOnes lhs) 1 <|>
+    useOperandIf (intZero rhs) 1 <|> useOperandIf (intZero lhs) 0
+  | .g_mul, [lhs, rhs] =>
+    useOperandIf (intOne rhs) 0 <|> useOperandIf (intOne lhs) 1 <|>
+    useOperandIf (intZero rhs) 1 <|> useOperandIf (intZero lhs) 0
+  | .g_smax, [lhs, rhs] =>
+    useOperandIf (intMin rhs) 0 <|> useOperandIf (intMin lhs) 1 <|>
+    useOperandIf (intMax rhs) 1 <|> useOperandIf (intMax lhs) 0
+  | .g_smin, [lhs, rhs] =>
+    useOperandIf (intMax rhs) 0 <|> useOperandIf (intMax lhs) 1 <|>
+    useOperandIf (intMin rhs) 1 <|> useOperandIf (intMin lhs) 0
+  -- Subtraction
+  | .g_sub, [_, rhs] | .g_ssubsat, [_, rhs] => useOperandIf (intZero rhs) 0
+  | .g_usubsat, [lhs, rhs] => useOperandIf (intZero rhs) 0 <|> useOperandIf (intZero lhs) 0
+  -- Division by zero is UB, so the result may be poison.
+  | .g_sdiv, [lhs, rhs] | .g_udiv, [lhs, rhs] =>
+    intIf (· == 0) rhs (fun _ => .poison) <|> useOperandIf (intOne rhs) 0 <|>
+    useOperandIf (intZero lhs) 0
+  | .g_srem, [lhs, rhs] =>
+    intIf (· == 0) rhs (fun _ => .poison) <|>
+    intIf (fun bits => bits == 1 || bits == BitVec.allOnes _) rhs (fun _ => .val 0) <|>
+    useOperandIf (intZero lhs) 0
+  | .g_urem, [lhs, rhs] =>
+    intIf (· == 0) rhs (fun _ => .poison) <|> intIf (· == 1) rhs (fun _ => .val 0) <|>
+    useOperandIf (intZero lhs) 0
+  -- Shifting by the bit width or more is poison. The amount has its own type.
+  | .g_shl, [lhs, rhs] | .g_lshr, [lhs, rhs] | .g_sshlsat, [lhs, rhs]
+  | .g_ushlsat, [lhs, rhs] => do
+    let .integerType type := resultTypes[0]!.val | none
+    useConstantIf (knownInt (·.toNat ≥ type.bitwidth) rhs) (.int type.bitwidth .poison) <|>
+    useOperandIf (intZero rhs) 0 <|> useOperandIf (intZero lhs) 0
+  | .g_ashr, [lhs, rhs] => do
+    let .integerType type := resultTypes[0]!.val | none
+    useConstantIf (knownInt (·.toNat ≥ type.bitwidth) rhs) (.int type.bitwidth .poison) <|>
+    useOperandIf (intZero rhs) 0 <|> useOperandIf (intZero lhs) 0 <|>
+    useOperandIf (intAllOnes lhs) 0
+  | .g_icmp, [lhs, rhs] => do
+    let .integerType type := resultTypes[0]!.val | none
+    let outcome ← icmpOutcome? properties.predicate lhs rhs
+    some #[.useConstant (.int type.bitwidth (.val (BitVec.ofNat _ outcome.toNat)))]
+  -- Adding or subtracting zero, with no carry in, has no carry out.
+  | .g_uaddo, [lhs, rhs] => do
+    let .integerType carry := resultTypes[1]!.val | none
+    let noCarry := FoldDecision.useConstant (.int carry.bitwidth (.val 0))
+    if intZero rhs then some #[.useOperand 0, noCarry]
+    else if intZero lhs then some #[.useOperand 1, noCarry]
+    else none
+  -- The carry in, known to be zero, has the type of the carry out.
+  | .g_uadde, [lhs, rhs, carry] =>
+    if intZero rhs && intZero carry then some #[.useOperand 0, .useOperand 2]
+    else if intZero lhs && intZero carry then some #[.useOperand 1, .useOperand 2]
+    else none
+  | .g_usubo, [_, rhs] => do
+    let .integerType borrow := resultTypes[1]!.val | none
+    if intZero rhs then some #[.useOperand 0, .useConstant (.int borrow.bitwidth (.val 0))]
+    else none
+  | .g_usube, [_, rhs, borrow] =>
+    if intZero rhs && intZero borrow then some #[.useOperand 0, .useOperand 2] else none
+  | _, _ => none
+
 /-- Materialize constants produced by folding GMIR operations. -/
 def GMIR.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo GMIR]
     (_op : GMIR) (value : RuntimeValue) (type : TypeAttr) : Option (Materialized OpInfo) :=
@@ -863,6 +979,7 @@ def GMIR.branchOpInterface? (op : GMIR) : Option (BranchOpInterface (GMIR.proper
 instance : HasOpInfo GMIR where
   verifyLocalInvariants := GMIR.verifyLocalInvariants
   propagatesPoison := GMIR.propagatesPoison
+  tryFold := GMIR.tryFold
   getEffects := GMIR.getEffects
   isConstantLike := GMIR.isConstantLike
   isCommutative := GMIR.isCommutative

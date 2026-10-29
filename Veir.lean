@@ -16,6 +16,9 @@ import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.Puddle
 import Veir.Interfaces.FoldInterfaces
+import Veir.Interfaces.FoldInterfaces.Soundness
+import Veir.Dialects.RISCV.FoldProofs
+import Veir.Dialects.GMIR.FoldProofs
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs

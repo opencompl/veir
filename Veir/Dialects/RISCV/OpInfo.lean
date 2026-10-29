@@ -272,12 +272,129 @@ def Riscv.hasSSADominance (_op : Riscv) (_index : Nat) : Bool :=
 
 #generate_dialect Riscv
 
+/-- Whether `operand` is a known register whose value satisfies `p`. -/
+private def knownReg (p : BitVec 64 → Bool) : Option RuntimeValue → Bool
+  | some (.reg r) => p r.val
+  | _ => false
+
+private def regZero := knownReg (· == 0)
+private def regNonzero := knownReg (· != 0)
+private def regOne := knownReg (· == 1)
+private def regAllOnes := knownReg (· == BitVec.allOnes 64)
+private def regIntMin := knownReg (· == BitVec.intMin 64)
+private def regIntMax := knownReg (· == BitVec.intMax 64)
+/-- A shift or rotate amount of zero: only the low 6 bits of the register count. -/
+private def regShamtZero := knownReg (·.setWidth 6 == 0)
+/-- Predicates on the low word, which is all that the `*w` instructions read. -/
+private def wordZero := knownReg (·.setWidth 32 == 0)
+private def wordOne := knownReg (·.setWidth 32 == 1)
+private def wordAllOnes := knownReg (·.setWidth 32 == BitVec.allOnes 32)
+
+open FoldDecision in
+/--
+Folds that apply when only some operands are known, or that depend only on an
+immediate. Every entry here needs at least one unknown register operand: when
+all operands are known, evaluation folds the operation anyway. Operand 0 is
+`rs1` and operand 1 is `rs2`.
+-/
 def Riscv.tryFold (op : Riscv) (properties : Riscv.propertiesOf op)
     (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
     Option (Array FoldDecision) :=
+  let zero : RuntimeValue := .reg ⟨0⟩
+  let allOnes : RuntimeValue := .reg ⟨BitVec.allOnes 64⟩
   match op, constantOperands.toList with
+  -- Immediate forms
+  | .addi, [_] => useOperandIf (properties.value == 0) 0
+  | .xori, [_] => useOperandIf (properties.value == 0) 0
+  | .slli, [_] => useOperandIf (properties.value == 0) 0
+  | .srli, [_] => useOperandIf (properties.value == 0) 0
+  | .srai, [_] => useOperandIf (properties.value == 0) 0
+  | .rori, [_] => useOperandIf (properties.value == 0) 0
   | .andi, [_] =>
-    if properties.value == 0 then some #[.useConstant (.reg ⟨0⟩)] else none
+    useConstantIf (properties.value == 0) zero <|>
+    useOperandIf (properties.value == BitVec.allOnes 64) 0
+  | .ori, [_] =>
+    useOperandIf (properties.value == 0) 0 <|>
+    useConstantIf (properties.value == BitVec.allOnes 64) allOnes
+  -- Nothing is unsigned-less-than zero.
+  | .sltiu, [_] => useConstantIf (properties.value == 0) zero
+  | .mv, [_] => some #[.useOperand 0]
+  -- Commutative operations with an identity and possibly an absorbing value
+  | .add, [lhs, rhs] | .xor, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 0 <|> useOperandIf (regZero lhs) 1
+  | .sub, [_, rhs] => useOperandIf (regZero rhs) 0
+  | .xnor, [lhs, rhs] =>
+    useOperandIf (regAllOnes rhs) 0 <|> useOperandIf (regAllOnes lhs) 1
+  | .or, [lhs, rhs] | .maxu, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 0 <|> useOperandIf (regZero lhs) 1 <|>
+    useOperandIf (regAllOnes rhs) 1 <|> useOperandIf (regAllOnes lhs) 0
+  | .and, [lhs, rhs] | .minu, [lhs, rhs] =>
+    useOperandIf (regAllOnes rhs) 0 <|> useOperandIf (regAllOnes lhs) 1 <|>
+    useOperandIf (regZero rhs) 1 <|> useOperandIf (regZero lhs) 0
+  | .mul, [lhs, rhs] =>
+    useOperandIf (regOne rhs) 0 <|> useOperandIf (regOne lhs) 1 <|>
+    useOperandIf (regZero rhs) 1 <|> useOperandIf (regZero lhs) 0
+  | .max, [lhs, rhs] =>
+    useOperandIf (regIntMin rhs) 0 <|> useOperandIf (regIntMin lhs) 1 <|>
+    useOperandIf (regIntMax rhs) 1 <|> useOperandIf (regIntMax lhs) 0
+  | .min, [lhs, rhs] =>
+    useOperandIf (regIntMax rhs) 0 <|> useOperandIf (regIntMax lhs) 1 <|>
+    useOperandIf (regIntMin rhs) 1 <|> useOperandIf (regIntMin lhs) 0
+  -- High multiplies: a zero factor gives zero, and so does an unsigned factor of one,
+  -- since the product then fits in the low half.
+  | .mulh, [lhs, rhs] => useOperandIf (regZero rhs) 1 <|> useOperandIf (regZero lhs) 0
+  | .mulhu, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 1 <|> useOperandIf (regZero lhs) 0 <|>
+    useConstantIf (regOne lhs || regOne rhs) zero
+  | .mulhsu, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 1 <|> useOperandIf (regZero lhs) 0 <|>
+    useConstantIf (regOne lhs) zero
+  | .mulw, [lhs, rhs] => useConstantIf (wordZero lhs || wordZero rhs) zero
+  -- Division by zero is defined on RISC-V: the quotient is all ones and the remainder
+  -- is the dividend.
+  | .div, [_, rhs] | .divu, [_, rhs] =>
+    useConstantIf (regZero rhs) allOnes <|> useOperandIf (regOne rhs) 0
+  | .divw, [_, rhs] | .divuw, [_, rhs] => useConstantIf (wordZero rhs) allOnes
+  | .rem, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 0 <|> useConstantIf (regOne rhs || regAllOnes rhs) zero <|>
+    useOperandIf (regZero lhs) 0
+  | .remu, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 0 <|> useConstantIf (regOne rhs) zero <|>
+    useOperandIf (regZero lhs) 0
+  | .remw, [lhs, rhs] =>
+    useConstantIf (wordOne rhs || wordAllOnes rhs || wordZero lhs) zero
+  | .remuw, [lhs, rhs] => useConstantIf (wordOne rhs || wordZero lhs) zero
+  -- Shifts and rotates
+  | .sll, [lhs, rhs] | .srl, [lhs, rhs] =>
+    useOperandIf (regShamtZero rhs) 0 <|> useOperandIf (regZero lhs) 0
+  | .sra, [lhs, rhs] | .rol, [lhs, rhs] | .ror, [lhs, rhs] =>
+    useOperandIf (regShamtZero rhs) 0 <|> useOperandIf (regZero lhs || regAllOnes lhs) 0
+  | .sllw, [lhs, _] | .srlw, [lhs, _] => useConstantIf (wordZero lhs) zero
+  | .sraw, [lhs, _] | .rolw, [lhs, _] | .rorw, [lhs, _] =>
+    useConstantIf (wordZero lhs) zero <|> useConstantIf (wordAllOnes lhs) allOnes
+  -- Comparisons against the extreme values
+  | .slt, [lhs, rhs] => useConstantIf (regIntMin rhs || regIntMax lhs) zero
+  | .sltu, [lhs, rhs] => useConstantIf (regZero rhs || regAllOnes lhs) zero
+  -- Shift-and-add with nothing to shift
+  | .adduw, [lhs, _] | .sh1adduw, [lhs, _] | .sh2adduw, [lhs, _] | .sh3adduw, [lhs, _] =>
+    useOperandIf (wordZero lhs) 1
+  | .sh1add, [lhs, _] | .sh2add, [lhs, _] | .sh3add, [lhs, _] => useOperandIf (regZero lhs) 1
+  -- Logic with an inverted operand
+  | .andn, [lhs, rhs] =>
+    useOperandIf (regZero rhs) 0 <|> useConstantIf (regAllOnes rhs) zero <|>
+    useOperandIf (regZero lhs) 0
+  | .orn, [lhs, rhs] =>
+    useOperandIf (regAllOnes rhs) 0 <|> useConstantIf (regZero rhs) allOnes <|>
+    useOperandIf (regAllOnes lhs) 0
+  -- Single-bit operations on a value whose bits are all the same
+  | .bclr, [lhs, _] => useOperandIf (regZero lhs) 0
+  | .bset, [lhs, _] => useOperandIf (regAllOnes lhs) 0
+  | .bext, [lhs, _] => useOperandIf (regZero lhs) 0 <|> useConstantIf (regAllOnes lhs) (.reg ⟨1⟩)
+  -- Conditional zeroing selects between `rs1` and zero on the condition `rs2`.
+  | .czeroeqz, [lhs, rhs] =>
+    useConstantIf (regZero rhs) zero <|> useOperandIf (regNonzero rhs || regZero lhs) 0
+  | .czeronez, [lhs, rhs] =>
+    useConstantIf (regNonzero rhs) zero <|> useOperandIf (regZero rhs || regZero lhs) 0
   | _, _ => none
 
 instance : IsOpCode Riscv where

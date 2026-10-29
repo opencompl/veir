@@ -21,6 +21,15 @@ inductive FoldDecision where
   /-- Use the runtime constant `rv` in place of the result. -/
   | useConstant (rv : RuntimeValue)
 
+/-- A single-result fold to operand `j`, when `condition` holds. -/
+@[expose] def FoldDecision.useOperandIf (condition : Bool) (j : Nat) : Option (Array FoldDecision) :=
+  if condition then some #[.useOperand j] else none
+
+/-- A single-result fold to the constant `rv`, when `condition` holds. -/
+@[expose] def FoldDecision.useConstantIf (condition : Bool) (rv : RuntimeValue) :
+    Option (Array FoldDecision) :=
+  if condition then some #[.useConstant rv] else none
+
 end
 
 end Veir
