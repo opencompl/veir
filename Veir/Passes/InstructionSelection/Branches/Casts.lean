@@ -51,6 +51,11 @@ def RuntimeValue.toReg? : RuntimeValue → Option RISCV.Reg
   | .byte _ value => some (LLVM.Byte.toReg value)
   | _ => none
 
+@[simp]
+theorem RuntimeValue.toReg?_int {w : Nat} {value : LLVM.Int w} :
+    (RuntimeValue.int w value).toReg? = some (LLVM.Int.toReg value) := by
+  simp only [RuntimeValue.toReg?]
+
 /--
   The integer or byte of type `type` that `builtin.unrealized_conversion_cast`
   turns a register into.
@@ -79,6 +84,15 @@ theorem interpretOp'_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value : Run
       successors mem = .ok (#[value], mem, none) := by
   obtain ⟨attr, hattr⟩ := type
   cases attr <;> grind [RuntimeValue.ofReg?, interpretOp']
+
+/-- An integer of a type that `roundTrips` has at most 64 bits. -/
+theorem RuntimeValue.width_le_of_roundTrips {type : TypeAttr} {w : Nat} {x : Data.LLVM.Int w}
+    (hRoundTrips : roundTrips type) (hConforms : (RuntimeValue.int w x).Conforms type) : w ≤ 64 := by
+  obtain ⟨attr, hattr⟩ := type
+  cases attr <;> simp only [roundTrips, Bool.false_eq_true] at hRoundTrips <;>
+    simp only [Conforms] at hConforms
+  have := fitsRegister_iff.mp hRoundTrips
+  grind
 
 /-- A value of a type that `roundTrips` is cast to a register. -/
 theorem RuntimeValue.toReg?_eq_some_of_roundTrips {type : TypeAttr} {value : RuntimeValue}
@@ -291,25 +305,24 @@ theorem interpretOp'_brcond_compare_registers
       icmpMem = .ok (#[cond], icmpMem', icmpAction))
     (hCond : operands[0]? = some cond)
     (hWidth : ∀ w x, a = .int w x → w = 64)
-    {lhs rhs : ValuePtr} {rhsConstant : Option Int} {value : Option ValuePtr → BitVec 64}
-    (hNone : value none = 0)
+    {lhs rhs : ValuePtr} {rhsConstant : Option Int} {branch : CondBranch}
+    {l r : Option ValuePtr}
+    (hCompare : compareBranch icmpProperties.predicate lhs rhs rhsConstant = (branch, l, r))
+    {value : Option ValuePtr → BitVec 64} (hNone : value none = 0)
     (hLhs : ∀ x, a = .int 64 (.val x) → value (some lhs) = x)
     (hRhs : ∀ y, b = .int 64 (.val y) → value (some rhs) = y)
     (hConstant : ∀ c, rhsConstant = some c → b = .int 64 (.val (BitVec.ofInt 64 c)))
     {registers : Array RuntimeValue}
-    (hReg₀ : registers[0]? = some (.reg ⟨value
-      (compareBranch icmpProperties.predicate lhs rhs rhsConstant).2.1⟩))
-    (hReg₁ : registers[1]? = some (.reg ⟨value
-      (compareBranch icmpProperties.predicate lhs rhs rhsConstant).2.2⟩))
+    (hReg₀ : registers[0]? = some (.reg ⟨value l⟩))
+    (hReg₁ : registers[1]? = some (.reg ⟨value r⟩))
     (hRegisters : RegistersOf (operands.extract 1) (registers.extract 2))
     {segments : DenseArrayAttr}
     (hSegments : segments.values = #[1] ++ properties.operandSegmentSizes.values)
     (resultTypes' : Array TypeAttr) :
     ∃ values values' dest, results = #[] ∧ mem' = mem ∧
       action = some (.branch values dest) ∧
-      interpretOp' (.riscv_cf (compareBranch icmpProperties.predicate lhs rhs rhsConstant).1.val)
-        (cast (compareBranch icmpProperties.predicate lhs rhs rhsConstant).1.property.symm
-          (⟨segments⟩ : RISCVBrProperties)) resultTypes' registers successors mem =
+      interpretOp' (.riscv_cf branch.val) (cast branch.property.symm
+        (⟨segments⟩ : RISCVBrProperties)) resultTypes' registers successors mem =
         .ok (#[], mem, some (.branch values' dest)) ∧
       RegistersOf values values' := by
   obtain ⟨destTrue, destFalse, w, c, n, rfl, hC, hSize, rfl, rfl, rfl⟩ :=
@@ -327,7 +340,11 @@ theorem interpretOp'_brcond_compare_registers
       have := hConstant k hk
       simp only [RuntimeValue.int.injEq, heq_eq_eq, true_and, Data.LLVM.Int.val.injEq] at this
       rw [hRhs y' rfl, this])
-  rw [hLhs x' rfl, hRhs y' rfl] at hHolds'
+  rw [hLhs x' rfl, hRhs y' rfl, hCompare] at hHolds'
+  have hMem : branch.val ∈ [Riscv_Cf.beq, .bne, .blt, .bge, .bltu, .bgeu] := by
+    have := compareBranch_mem (pred := icmpProperties.predicate) (lhs := lhs) (rhs := rhs)
+      (rhsConstant := rhsConstant)
+    rwa [hCompare] at this
   have hSize' : segments.values[2]? = some n := by
     rw [hSegments]
     simpa [Array.getElem?_append_right] using hSize
@@ -338,7 +355,7 @@ theorem interpretOp'_brcond_compare_registers
     have := (Array.getElem?_eq_some_iff.mp hReg₁).1
     simp only [Array.size_extract] at *
     omega
-  rw [interpretOp'_riscv_cf_compare compareBranch_mem hReg₀ hReg₁ hSize', hHolds']
+  rw [interpretOp'_riscv_cf_compare hMem hReg₀ hReg₁ hSize', hHolds']
   by_cases hc : c = 0
   · have hEval : Data.LLVM.IntPred.eval icmpProperties.predicate x' y' = false := by
       simpa [hc] using hIff

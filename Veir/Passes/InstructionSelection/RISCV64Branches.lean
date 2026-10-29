@@ -174,6 +174,15 @@ public theorem compareBranch_mem {pred : Data.LLVM.IntPred} {lhs rhs : ValuePtr}
   unfold compareBranch
   split <;> simp
 
+/-- `compareBranch` compares `lhs`, `rhs` or `x0`. -/
+public theorem compareBranch_operands {pred : Data.LLVM.IntPred} {lhs rhs : ValuePtr}
+    {rhsConstant : Option Int} {value : Option ValuePtr} :
+    (value = (compareBranch pred lhs rhs rhsConstant).2.1 ∨
+      value = (compareBranch pred lhs rhs rhsConstant).2.2) →
+    value = none ∨ value = some lhs ∨ value = some rhs := by
+  unfold compareBranch
+  split <;> simp <;> grind
+
 /--
   The compare-and-branch that `compareBranch` picks takes its first successor
   exactly when the comparison it replaces holds, given the values in the
@@ -206,6 +215,14 @@ public def fillsRegister (type : TypeAttr) : Bool :=
   | .llvmPointerType _ => true
   | _ => false
 
+/-- The types that fill a register: an integer of 64 bits, or a pointer. -/
+public theorem fillsRegister_iff {type : TypeAttr} : fillsRegister type = true ↔
+    (∃ t : IntegerType, type = .of IntegerType t ∧ t.bitwidth = 64) ∨
+    (∃ t : LLVM.PointerType, type = .of LLVM.PointerType t) := by
+  obtain ⟨attr, hattr⟩ := type
+  cases attr <;> simp only [fillsRegister, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] <;>
+    grind
+
 /--
   Match the condition of the `g_brcond` `branch` against `g_icmp pred lhs rhs`, and return the
   compare-and-branch that replaces both. The operands must fill a register, as they do once the
@@ -236,6 +253,20 @@ public def regOperands (ctx : IRContext OpCode) (op : OperationPtr)
   match compare with
   | some (_, lhs, rhs) => lhs :: rhs :: (operands.drop 1).map some
   | none => operands.map some
+
+/-- Without a compare, the registers are those of the operands. -/
+public theorem regOperands_none {ctx : IRContext OpCode} {op : OperationPtr} :
+    regOperands ctx op none =
+      (List.range (op.getNumOperands! ctx)).map (fun i => some (op.getOperand! ctx i)) := by
+  simp [regOperands]
+
+/-- With a compare, the registers are those of the compared values and of the other operands. -/
+public theorem regOperands_some {ctx : IRContext OpCode} {op : OperationPtr}
+    {branch : CondBranch} {lhs rhs : Option ValuePtr} :
+    regOperands ctx op (some (branch, lhs, rhs)) =
+      lhs :: rhs :: (((List.range (op.getNumOperands! ctx)).map (op.getOperand! ctx ·)).drop 1).map
+        some := by
+  rfl
 
 /-- Whether `op` is a branch the pass rewrites, or a RISC-V branch that is already lowered. -/
 public def isLoweredBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
