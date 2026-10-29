@@ -45,12 +45,12 @@
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
-    // Single-bit mask that DOES fit imm12: handled by ori, not bseti.
+    // Single-bit mask that DOES fit imm12: not bseti (left for isel-riscv64's ori).
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f4"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 1024 : i64}> : () -> i64
         %r = "llvm.or"(%a, %c) : (i64, i64) -> i64
-        // CHECK:      %{{.*}} = "riscv.ori"(%{{.*}}) <{"value" = 1024 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:      %{{.*}} = "llvm.or"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 }) : () -> ()

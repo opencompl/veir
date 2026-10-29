@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // Shifts by a constant in [0, 63] select to their immediate form
 // (PatGprUimmLog2XLen<{shl,srl,sra}, ...>).
@@ -31,12 +31,13 @@
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
-    // Shift amount out of [0,63]: not selected here (stays `llvm.shl`).
+    // Shift amount out of [0,63]: materialized with `li`, then reg-reg `sll`.
     "func.func"() <{function_type = (i64) -> i64, sym_name = "f3"}> ({
     ^bb(%a: i64):
         %c = "llvm.mlir.constant"() <{value = 64 : i64}> : () -> i64
         %r = "llvm.shl"(%a, %c) : (i64, i64) -> i64
-        // CHECK:      %{{.*}} = "llvm.shl"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+        // CHECK:      %{{.*}} = "riscv.li"() <{"value" = 64 : i64}> : () -> !riscv.reg
+        // CHECK:      %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 }) : () -> ()

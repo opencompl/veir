@@ -374,34 +374,6 @@ theorem fshr_ror_refinement_32 {a c : LLVM.Int 32} :
       (RISCV.Reg.toInt (Data.RISCV.rorw (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 32) := by
   veir_bv_decide
 
-theorem select_czeroeqz_refinement_32 {c : LLVM.Int 1} {t : LLVM.Int 32} :
-    (Data.LLVM.Int.select c t (LLVM.Int.constant 32 0)) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t)) 32) := by
-  veir_bv_decide
-
-theorem select_czeronez_refinement_32 {c : LLVM.Int 1} {f : LLVM.Int 32} :
-    (Data.LLVM.Int.select c (LLVM.Int.constant 32 0) f) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f)) 32) := by
-  veir_bv_decide
-
-theorem select_refinement_32 {c : LLVM.Int 1} {t f : LLVM.Int 32} :
-    (Data.LLVM.Int.select c t f) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.or
-          (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
-          (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 32) := by
-  veir_bv_decide
-
-theorem select_refinement_1 {c : LLVM.Int 1} {t f : LLVM.Int 1} :
-    (Data.LLVM.Int.select c t f) ⊒
-      (RISCV.Reg.toInt
-        (Data.RISCV.or
-          (Data.RISCV.czeronez (LLVM.Int.toReg c) (LLVM.Int.toReg f))
-          (Data.RISCV.czeroeqz (LLVM.Int.toReg c) (LLVM.Int.toReg t))) 1) := by
-  veir_bv_decide
-
 theorem freeze_refinement_32 {a : LLVM.Int 32} :
     (Data.LLVM.Int.freeze a) ⊒
       (RISCV.Reg.toInt (LLVM.Int.toReg a) 32) := by
