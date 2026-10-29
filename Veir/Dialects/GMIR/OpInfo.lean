@@ -735,8 +735,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
   -- TODO: Also accept a `g_select` of pointers, as LLVM does.
-  | .g_select =>
-  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop =>
+  | .g_select | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
   | .g_bswap =>
@@ -819,14 +818,11 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
-  | .g_sext_inreg
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
   | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
-  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
-  | .g_merge_values | .g_unmerge_values => true
-  | .g_constant | .g_load | .g_store => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
