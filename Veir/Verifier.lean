@@ -12,8 +12,6 @@ public import Veir.IR.Dominance
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.ModArith.OpInfo
-import all Veir.Dialects.Arith.OpInfo
-import all Veir.Dialects.RISCV.OpInfo
 
 namespace Veir
 
@@ -760,50 +758,6 @@ theorem OperationPtr.Verified.arith_xori {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .xori) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
   simp [← getOpType!_eq_getOpType, opType]
-
-/-- The operand and result types of a verified `arith.addui_extended`: two operands and a sum of
-one integer type, and an `i1` carry. -/
-theorem OperationPtr.Verified.arith_addui_extended {ctx : WfIRContext OpCode} {op : OperationPtr}
-    {opInBounds} (opVerify : op.Verified ctx opInBounds)
-    (opType : op.getOpType! ctx.raw = .arith .addui_extended) :
-    ∃ type carry : IntegerType, carry.bitwidth = 1 ∧
-      op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)] ∧
-      op.getResultTypes! ctx.raw = #[(type : TypeAttr), (carry : TypeAttr)] := by
-  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
-    HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
-    ← OperationPtr.getOpType!_eq_getOpType, opType, Arith.verifyLocalInvariants,
-    OperationPtr.verifyArithExtendedOp, OperationPtr.verifyPlainOpCounts,
-    OperationPtr.verifyOperandTypesMatch, OperationPtr.verifyResultTypeMatches,
-    TypeAttr.verifyIntegerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure, ite_true] at opVerify
-  have hCounts : op.getNumOperands! ctx.raw = 2 ∧ op.getNumResults! ctx.raw = 2 := by grind
-  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.integerType_eq_of,
-    OperationPtr.getOperandTypes!.size_eq_getNumOperands!,
-    OperationPtr.getResultTypes!.size_eq_getNumResults!, hCounts, Nat.forall_lt_succ_left']
-  grind
-
-/-- The operand and result types of a verified `riscv.andi`: one register each, possibly with
-different allocations. -/
-theorem OperationPtr.Verified.riscv_andi {ctx : WfIRContext OpCode} {op : OperationPtr}
-    {opInBounds} (opVerify : op.Verified ctx opInBounds)
-    (opType : op.getOpType! ctx.raw = .riscv .andi) :
-    ∃ operandType resultType : RegisterType,
-      op.getOperandTypes! ctx.raw = #[(operandType : TypeAttr)] ∧
-      op.getResultTypes! ctx.raw = #[(resultType : TypeAttr)] := by
-  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
-    HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
-    ← OperationPtr.getOpType!_eq_getOpType, opType, Riscv.verifyLocalInvariants] at opVerify
-  obtain ⟨_, hTypes, hCounts⟩ := Except.bind_eq_ok.mp opVerify
-  simp only [OperationPtr.verifyRISCVimm12, OperationPtr.verifyPlainOpCounts, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at hCounts
-  have hCounts : (op.getOperandTypes! ctx.raw).size = 1 ∧
-      op.getNumResults ctx.raw opInBounds = 1 := by grind
-  simp [OperationPtr.verifyRISCVRegisterTypes, hCounts, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at hTypes
-  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.registerType_eq_of, hCounts,
-    OperationPtr.getResultTypes!.size_eq_getNumResults!,
-    OperationPtr.getNumResults!_eq_getNumResults opInBounds]
-  grind
 
 theorem OperationPtr.Verified.llvm_and {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .and) :

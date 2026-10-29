@@ -5,6 +5,8 @@ import Veir.Interpreter.Refinement.Lemmas
 import Veir.Data.LLVM.Int.FoldLemmas
 
 import all Veir.GlobalOpInfo
+import all Veir.Verifier
+import all Veir.Verifier.Basic
 import all Veir.Dialects.Arith.OpInfo
 
 /-!
@@ -19,6 +21,41 @@ public section
 namespace Veir
 open Data
 
+/-- The operand and result types of a verified `arith.addui_extended`: two operands and a sum of
+one integer type, and an `i1` carry. -/
+theorem OperationPtr.Verified.arith_addui_extended {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds} (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .arith .addui_extended) :
+    ∃ type carry : IntegerType, carry.bitwidth = 1 ∧
+      op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)] ∧
+      op.getResultTypes! ctx.raw = #[(type : TypeAttr), (carry : TypeAttr)] := by
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
+    ← OperationPtr.getOpType!_eq_getOpType, opType, Arith.verifyLocalInvariants,
+    OperationPtr.verifyArithExtendedOp, OperationPtr.verifyPlainOpCounts,
+    OperationPtr.verifyOperandTypesMatch, OperationPtr.verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure, ite_true] at opVerify
+  have hCounts : op.getNumOperands! ctx.raw = 2 ∧ op.getNumResults! ctx.raw = 2 := by grind
+  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.integerType_eq_of,
+    OperationPtr.getOperandTypes!.size_eq_getNumOperands!,
+    OperationPtr.getResultTypes!.size_eq_getNumResults!, hCounts, Nat.forall_lt_succ_left']
+  grind
+
+private theorem arith_addi_lookup
+    (h : HasOpInfo.tryFold (OpCode.arith .addi) properties types known = some decisions) :
+    ∃ left width, known = #[left, some (.int width (.val (0#width)))] ∧
+      decisions = #[.useOperand 0] := by
+  simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
+  grind [Array.toList_inj]
+
+private theorem arith_addui_extended_lookup
+    (h : HasOpInfo.tryFold (OpCode.arith .addui_extended) properties types known = some decisions) :
+    ∃ left width, known = #[left, some (.int width (.val (0#width)))] ∧
+      decisions = #[.useOperand 0, .useConstant (.int 1 (.val 0))] := by
+  simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
+  grind [Array.toList_inj]
+
 variable {ctx : WfIRContext OpCode} {op : OperationPtr}
 
 /-- The verified arithmetic add-zero entry, including arbitrary overflow flags and poison inputs. -/
@@ -26,10 +63,8 @@ theorem Arith.tryFold_addi_correct (opType : op.getOpType! ctx.raw = .arith .add
     FoldTable.CorrectAt ctx op := .of_verified fun _ verified => by
   obtain ⟨type, hOperands, hResults⟩ := (verified.arith_addi opType).types
   apply FoldTable.correctAt_int_rhs hOperands (fun width => .val (0#width))
-    (decisions := #[.useOperand 0]) (fun _ _ h => by
-      have h := opType ▸ h
-      simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
-      grind [Array.toList_inj])
+    (decisions := #[.useOperand 0])
+    (fun _ _ h => arith_addi_lookup (opType ▸ h))
   · grind [FoldDecision.HasType]
   · simp only [OperationPtr.interpret]
     rw [opType]
@@ -43,10 +78,8 @@ theorem Arith.tryFold_addui_extended_correct
     FoldTable.CorrectAt ctx op := .of_verified fun _ verified => by
   obtain ⟨type, carry, hCarry, hOperands, hResults⟩ := verified.arith_addui_extended opType
   apply FoldTable.correctAt_int_rhs hOperands (fun width => .val (0#width))
-    (decisions := #[.useOperand 0, .useConstant (.int 1 (.val 0))]) (fun _ _ h => by
-      have h := opType ▸ h
-      simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold] at h
-      grind [Array.toList_inj])
+    (decisions := #[.useOperand 0, .useConstant (.int 1 (.val 0))])
+    (fun _ _ h => arith_addui_extended_lookup (opType ▸ h))
   · grind [FoldDecision.HasType]
   · simp only [OperationPtr.interpret]
     rw [opType]
