@@ -53,6 +53,8 @@ local macro "riscv_fold_entry" : tactic => `(tactic| (
     RISCV.czeronez, -BitVec.shiftLeft_eq', -BitVec.ushiftRight_eq', -BitVec.sshiftRight_eq']
   all_goals intros
   all_goals first
+    -- Substitute known constants before bit-blasting, especially for signed division by one.
+    | (rename_i h; solve | simp [h, srem_allOnes, BitVec.sdiv_one])
     | bv_decide
     | (rename_i h; rcases h with h | h <;> simp [h, srem_allOnes])))
 

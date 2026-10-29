@@ -92,7 +92,7 @@ theorem conforms_int {ty : TypeAttr} (h : ty.val = Attribute.of IntegerType t) :
   simp only at h
   subst h
   rfl
-theorem setWidth_one (h : 1 < w) : BitVec.setWidth w 1#1 = 1#w := by
+theorem setWidth_one (_h : 1 < w) : BitVec.setWidth w 1#1 = 1#w := by
   ext i hi; simp [BitVec.getElem_setWidth]
 theorem ite_zero_allOnes (w : Nat) : (if 0 < w then 0#w else BitVec.allOnes w) = 0#w := by
   cases w <;> simp
