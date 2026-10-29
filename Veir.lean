@@ -31,6 +31,7 @@ import Veir.Dialects.RISCV_Cf.Lemmas
 import Veir.Dialects.GMIR.Lemmas
 import Veir.Dialects.RV64.Lemmas
 import Veir.Passes.InstructionSelection.Branches.Simulation
+import Veir.Passes.InstructionSelection.Branches.Frame
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
 
