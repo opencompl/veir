@@ -14,6 +14,7 @@ particular *non-productive* — functions into a coinductive type built with `Co
 
 * `Cofix.le`          - the order on `Cofix F α`, pulled back along `Cofix.repr`
 * `Cofix.bot`         - the least element
+* `Cofix.ReprChainClosed` - the hypothesis under which `Cofix F α` is chain-complete
 * instances `Lean.Order.PartialOrder (Cofix F α)` and `Lean.Order.CCPO (Cofix F α)`
 * `Cofix.mk_mono`     - the `@[partial_fixpoint_monotone]` lemma for the constructor
 * `Cofix.mk_map_mono` - the same, stated at the level of `F`; concrete constructors are
@@ -32,9 +33,9 @@ into one step of `QPF.repr ∘ Cofix.dest`.
 
 Injectivity of `Cofix.repr` is all that `PartialOrder` needs, so that instance is
 unconditional. Chain-completeness needs more: the supremum is built in `q.P.M α` and has to
-be carried back, which requires `Cofix.repr` to be onto as well — i.e.
-`QPF.IsPolynomial F`. This mirrors the reference implementation, whose `PF` class likewise
-demands an isomorphism to a polynomial functor and explicitly does not support quotients.
+be carried back, which requires `QPF.repr` applied to the supremum of a chain of representatives to be in the codomain of `QPF.repr` again; this condition is
+formalized in the `Cofix.ReprChainClosed` type class. The condition holds,
+in particular, for every polynomial `F` (`QPF.IsPolynomial F`).
 
 ## Reference
 
@@ -66,10 +67,6 @@ theorem Cofix.repr_injective : Function.Injective (Cofix.repr : Cofix F α → q
   intro x y h
   rw [← Cofix.abs_repr x, ← Cofix.abs_repr y, h]
 
-@[simp]
-theorem Cofix.abs_repr_eq (x : Cofix F α) : Cofix.abs (Cofix.repr x) = x :=
-  Cofix.abs_repr x
-
 /-- One step of `Cofix.repr`. This is the bridge between the two destructors: the M-type's
 `M.dest` on the representative, and `Cofix`'s own `Cofix.dest`. -/
 theorem Cofix.dest_repr (y : Cofix F α) :
@@ -96,56 +93,71 @@ instance Cofix.instPartialOrder [HasBot F α] : PartialOrder (Cofix F α) where
   rel_antisymm h₁ h₂ := Cofix.repr_injective (M.le_antisymm q.P h₁ h₂)
 
 @[simp]
-theorem Cofix.rel_eq_le [HasBot F α] (x y : Cofix F α) :
-    (x ⊑ y) = M.le q.P (Cofix.repr x) (Cofix.repr y) :=
+theorem Cofix.rel_eq [HasBot F α] (x y : Cofix F α) :
+    (x ⊑ y) ↔ (Cofix.repr x) ⊑ (Cofix.repr y) := by
   rfl
+
+variable (F α) in
+/--
+An instance of `ReprChainClosed F` asserts the condition under which the partial
+order on `Cofix F α` is chain-complete.
+-/
+class Cofix.ReprChainClosed extends HasBot F α where
+  /--
+  The supremum of a chain whose elements are all representatives of some
+  equivalence class of must itself be the representative of another equivalence
+  class.
+  -/
+  csup_mem (c : q.P.M α → Prop) (hc : chain c)
+    (h : ∀ m, c m → ∃ x : Cofix F α, x.repr = m) :
+    ∃ x : Cofix F α, x.repr = M.csup q.P c
+
+instance [HasBot F α] [IsPolynomial F] : Cofix.ReprChainClosed F α where
+  csup_mem c _ _ := ⟨Cofix.abs (M.csup q.P c), Cofix.repr_abs _⟩
 
 /-! ## The bottom element -/
 
-/-- The least element of `Cofix F α`: corecursively repeat `botShape` forever. -/
+/-- The least element of `Cofix F α`. -/
 def Cofix.bot (F : TypeVec.{u} (n + 1) → Type u) [q : QPF F] {α : TypeVec.{u} n}
     [HasBot F α] : Cofix F α :=
-  Cofix.corec (fun _ : PUnit => (botShape : F (α ::: PUnit))) ⟨⟩
+  Cofix.abs (M.bot q.P)
 
-theorem Cofix.bot_eq_abs [HasBot F α] :
-    Cofix.bot F (α := α) = Cofix.abs (M.bot q.P) :=
-  rfl
+theorem Cofix.repr_bot [Cofix.ReprChainClosed F α] :
+    (bot F (α := α)).repr = M.bot q.P := by
+  obtain ⟨z, hz⟩ := Cofix.ReprChainClosed.csup_mem (F := F) (α := α) (fun _ => False)
+    (fun _ _ h => h.elim) (fun _ h => h.elim)
+  rw [M.csup_eq_bot q.P (by simp)] at hz
+  rw [bot, ← hz, Cofix.abs_repr, hz]
 
-theorem Cofix.repr_bot [HasBot F α] [IsPolynomial F] :
-    Cofix.repr (Cofix.bot F (α := α)) = M.bot q.P := by
-  rw [Cofix.bot_eq_abs, Cofix.repr_abs]
-
-theorem Cofix.bot_le [HasBot F α] [IsPolynomial F] (y : Cofix F α) :
-    Cofix.bot F ⊑ y := by
-  rw [Cofix.rel_eq_le, Cofix.repr_bot]
+theorem Cofix.bot_le [Cofix.ReprChainClosed F α] (y : Cofix F α) :
+    bot F ⊑ y := by
+  rw [Cofix.rel_eq, Cofix.repr_bot]
   exact M.bot_le q.P _
 
 /-! ## `Cofix F α` is chain-complete -/
 
-theorem Cofix.chain_comap [HasBot F α] [IsPolynomial F]
-    {c : Cofix F α → Prop} (hc : chain c) : chain (fun m : q.P.M α => c (Cofix.abs m)) := by
-  intro m₁ m₂ h₁ h₂
-  rcases hc _ _ h₁ h₂ with h | h
-  · exact Or.inl (by simpa [Cofix.repr_abs] using h)
-  · exact Or.inr (by simpa [Cofix.repr_abs] using h)
-
-/-- `Cofix F α` is a chain-complete partial order, which is what lets Lean's
-`partial_fixpoint` target a coinductive type built with `Cofix`.
-
-The supremum is computed in `q.P.M α` and carried back along the bijection; this is where
-`IsPolynomial` is needed, since without it `Cofix.repr` need not be onto. -/
+/--
+The CCPO instance on `Cofix F α`, which enables the definition of functions via
+`partial_fixpoint`.
+-/
 instance (priority := default + 100) Cofix.instCCPO
-    [HasBot F α] [IsPolynomial F] : CCPO (Cofix F α) where
+    [Cofix.ReprChainClosed F α] : CCPO (Cofix F α) where
   has_csup {c} hc := by
-    refine ⟨Cofix.abs (M.csup q.P (fun m => c (Cofix.abs m))), fun x => ?_⟩
-    rw [Cofix.rel_eq_le, Cofix.repr_abs]
-    refine (M.csup_spec q.P (Cofix.chain_comap hc) (Cofix.repr x)).trans ⟨?_, ?_⟩
+    let c' := fun m => ∃ m', c m' ∧ Cofix.repr m' = m
+    have hc' : chain c' := by
+      rintro _ _ ⟨x, hx, rfl⟩ ⟨y, hy, rfl⟩
+      exact hc _ _ hx hy
+    obtain ⟨z, hz⟩ := Cofix.ReprChainClosed.csup_mem c' hc'
+      (by rintro _ ⟨x, -, rfl⟩; exact ⟨x, rfl⟩)
+    exists z
+    intro x
+    rw [Cofix.rel_eq, hz, M.csup_spec q.P hc']
+    constructor
     · intro h y hy
-      rw [Cofix.rel_eq_le]
-      exact h (Cofix.repr y) (by rwa [Cofix.abs_repr_eq])
-    · intro h m hm
-      have hm' := h (Cofix.abs m) hm
-      rwa [Cofix.rel_eq_le, Cofix.repr_abs] at hm'
+      exact h _ ⟨y, hy, rfl⟩
+    · rintro h _ ⟨m', hm', rfl⟩
+      exact h m' hm'
+
 /-! ## Coinduction for the order
 
 These are what make the order usable without dropping down to `q.P.M α`: one step of
@@ -183,25 +195,24 @@ def Cofix.LeStep [HasBot F α] (pred : Cofix F α → Cofix F α → Prop)
 
 /-- Coinduction for `⊑`: a relation closed under `Cofix.LeStep` is contained in the
 order. -/
-theorem Cofix.le_coinduct [HasBot F α] [IsPolynomial F]
+theorem Cofix.le_coinduct [Cofix.ReprChainClosed F α]
     (pred : Cofix F α → Cofix F α → Prop)
     (step : ∀ x y, pred x y → Cofix.LeStep pred x y)
     {x y : Cofix F α} (h : pred x y) : x ⊑ y := by
-  rw [Cofix.rel_eq_le]
-  apply M.le.coinduct q.P
-    (fun u v => ∃ x y : Cofix F α, pred x y ∧ u = Cofix.repr x ∧ v = Cofix.repr y)
-    _ _ _ ⟨x, y, h, rfl, rfl⟩
-  rintro u v ⟨x', y', hp, rfl, rfl⟩
-  rcases step x' y' hp with hb | ⟨a, fd, g, g', hx, hy, h₃⟩
-  · exact Or.inl (by rw [hb, Cofix.repr_bot])
+  rw [Cofix.rel_eq]
+  let R (u v) := ∃ x y, pred x y ∧ u = Cofix.repr x ∧ v = Cofix.repr y
+  apply M.le.coinduct q.P R ?_ _ _ ⟨x, y, h, rfl, rfl⟩
+  rintro _ _ ⟨x, y, hp, rfl, rfl⟩
+  rcases step _ _ hp with rfl | ⟨a, fd, g, g', hx, hy, h₃⟩
+  · exact Or.inl Cofix.repr_bot
   · exact Or.inr ⟨a, fd, _, _, Cofix.dest_repr_split hx, Cofix.dest_repr_split hy,
       fun i => ⟨g i, g' i, h₃ i, rfl, rfl⟩⟩
 
 /-- The converse of `Cofix.le_coinduct`: the order itself satisfies one step. -/
-theorem Cofix.le_step [HasBot F α] [IsPolynomial F] {x y : Cofix F α}
+theorem Cofix.le_step [Cofix.ReprChainClosed F α] {x y : Cofix F α}
     (h : x ⊑ y) : Cofix.LeStep (· ⊑ ·) x y := by
   obtain ⟨a, fd, g, hx⟩ := Cofix.exists_repr_dest x
-  rw [Cofix.rel_eq_le] at h
+  rw [Cofix.rel_eq] at h
   rcases M.le_dest q.P h (Cofix.dest_repr_split hx) with hb | ⟨k', hy, h₃⟩
   · exact Or.inl (Cofix.repr_injective (hb.trans Cofix.repr_bot.symm))
   · obtain ⟨b, fd', g', hy'⟩ := Cofix.exists_repr_dest y
@@ -230,7 +241,7 @@ theorem Cofix.mk_mono {γ : Type v} [PartialOrder γ]
     (hfl : monotone fl) :
     monotone (fun x => Cofix.mk (QPF.abs ⟨a, splitFun fd (fl x)⟩) : γ → Cofix F α) := by
   intro x y hxy
-  rw [Cofix.rel_eq_le]
+  rw [Cofix.rel_eq]
   refine M.le.step q.P (f := fd) (g := fun i => Cofix.repr (fl x i))
     (g' := fun i => Cofix.repr (fl y i)) ?_ ?_ fun i => hfl x y hxy i
   · erw [Cofix.dest_repr, Cofix.dest_mk, IsPolynomial.repr_abs]
