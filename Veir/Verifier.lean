@@ -11,6 +11,7 @@ public import Veir.IR.Dominance
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
+import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.ModArith.OpInfo
 
 namespace Veir
@@ -567,6 +568,41 @@ private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {
   cases hb : op.verifyLLVMICmp ctx opInBounds with
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- A terminator that passes its count check has no results and no regions. -/
+theorem OperationPtr.verifyTerminatorCounts_ok {ctx : WfIRContext OpInfo} {op : OperationPtr}
+    {opIn : op.InBounds ctx.raw} {n : Nat}
+    (h : op.verifyTerminatorCounts ctx opIn n = .ok ()) :
+    op.getNumResults! ctx.raw = 0 ∧ op.getNumRegions! ctx.raw = 0 := by
+  simp only [verifyTerminatorCounts, bind, Except.bind, throw, throwThe,
+    MonadExceptOf.throw, pure, Except.pure] at h
+  split at h
+  · simp at h
+  split at h
+  · simp at h
+  rename_i h1 h2
+  rw [← OperationPtr.getNumRegions!_eq_getNumRegions opIn] at h2
+  rw [OperationPtr.getNumResults!_eq_getNumResults opIn]
+  exact ⟨by simpa using h1, by simpa using h2⟩
+
+/-- A verified `g_br` or `g_brcond` has no results and no regions. -/
+theorem OperationPtr.Verified.gmir_branch {op : OperationPtr} {opIn : op.InBounds ctx.raw}
+    (opVerify : op.Verified ctx opIn)
+    (hBranch : op.getOpType! ctx.raw = .gmir .g_br ∨ op.getOpType! ctx.raw = .gmir .g_brcond) :
+    op.getNumResults! ctx.raw = 0 ∧ op.getNumRegions! ctx.raw = 0 := by
+  rw [Verified, OperationPtr.verifyLocalInvariants,
+    ← OperationPtr.getOpType!_eq_getOpType opIn] at opVerify
+  rcases hBranch with hB | hB <;> rw [hB] at opVerify <;>
+    simp only [OpCode.verifyLocalInvariants, HasOpInfo.verifyLocalInvariants] at opVerify <;>
+    unfold GMIR.verifyLocalInvariants at opVerify <;>
+    simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte] at opVerify <;>
+    obtain ⟨_, -, opVerify⟩ := Except.bind_eq_ok.mp opVerify <;>
+    obtain ⟨_, -, opVerify⟩ := Except.bind_eq_ok.mp opVerify
+  · simp only [OperationPtr.verifyUnconditionalBranch] at opVerify
+    obtain ⟨v, hT, -⟩ := Except.bind_eq_ok.mp opVerify
+    cases v; exact OperationPtr.verifyTerminatorCounts_ok hT
+  · obtain ⟨v, hT, -⟩ := Except.bind_eq_ok.mp opVerify
+    cases v; exact OperationPtr.verifyTerminatorCounts_ok hT
 
 /-- Structural facts from the verifier for a verified `llvm.icmp`. -/
 theorem OperationPtr.Verified.llvm_icmp {op : OperationPtr} {opInBounds}
