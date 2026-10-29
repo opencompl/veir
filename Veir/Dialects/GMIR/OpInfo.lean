@@ -10,6 +10,7 @@ public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.Memory
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Dialects.GMIR.Semantics
 import Veir.Dialects.Builtin.Properties
 meta import Veir.Meta.OpCode
 
@@ -33,6 +34,7 @@ inductive GMIR where
 | g_lshr
 | g_ashr
 | g_icmp
+| g_select
 | g_anyext
 | g_sext
 | g_zext
@@ -81,7 +83,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_constant => GMIRConstantProperties
   | .g_load | .g_store => MachineMemOperand
   | .g_brcond => GMIRBrCondProperties
-  | .g_anyext | .g_sext
+  | .g_select | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
@@ -104,7 +106,7 @@ def GMIR.fromAttrDict
   case g_load => exact MachineMemOperand.fromAttrDict "gmir.g_load" attrDict
   case g_store => exact MachineMemOperand.fromAttrDict "gmir.g_store" attrDict
   case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
-  case g_anyext | g_sext
+  case g_select | g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
@@ -144,7 +146,7 @@ def GMIR.toAttrDict
   | .g_load | .g_store => props.toAttrDict
   | .g_brcond => (Std.HashMap.emptyWithCapacity 1).insert
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
-  | .g_anyext | .g_sext
+  | .g_select | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
@@ -195,6 +197,9 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_icmp =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
+  | .g_select =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 1, .type 0, .type 0] }
   | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_inttoptr | .g_ptrtoint | .g_ctlz | .g_cttz | .g_ctpop =>
     { outOperandList := #[.type 0]
@@ -356,6 +361,11 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     /- LLVM leaves the value of true in a wider result to the target; it is 1, as on RISC-V. -/
     if h : 1 < resBw.bitwidth then return (#[.int resBw.bitwidth (cmp.zext _ false h)], mem, none)
     return (#[.int 1 cmp], mem, none)
+  | .g_select => do
+    let [.int _ cond, .int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    return (#[.int bw (GMIR.selectNonzero cond lhs rhs)], mem, none)
   | .g_sub => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -711,7 +721,9 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_shl | .g_lshr | .g_ashr
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
-  | .g_ctlz | .g_cttz | .g_ctpop =>
+  | .g_ctlz | .g_cttz | .g_ctpop
+  -- TODO: Also accept a `g_select` of pointers, as LLVM does.
+  | .g_select =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
   | .g_bswap =>
@@ -797,7 +809,8 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube => true
-  | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
+  -- Poison on the arm that `g_select` does not select does not reach its result.
+  | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and

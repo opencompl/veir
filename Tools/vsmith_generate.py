@@ -34,12 +34,9 @@ INTRINSIC_SAT_BINARY = (
 )
 BSWAP_WIDTHS = (16, 32, 64)
 
-# Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
-# the result of an icmp, and that result may feed only a conditional branch or
-# the condition of an llvm.select: icmps take i32 or i64 operands (never i1),
-# and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
-# or further comparisons.
-RISCV_WIDTHS = (32, 64)
+MAX_WIDTH = 95
+# The RISC-V backend does not lower integers wider than a register.
+RISCV_MAX_WIDTH = 64
 
 # Memory: allocate aggregates and derive pointers through different type paths.
 # Every pointer has an eight-byte access window, possibly overlapping another.
@@ -47,9 +44,8 @@ RISCV_WIDTHS = (32, 64)
 # wrong aggregate offset cannot hide behind matching stores and loads. Sparse
 # windows keep large allocations inexpensive. All accesses use alignment 1.
 # Loads and stores use only the widths the interpreter can move to and from
-# memory (and, in RISC-V mode, those the backend selects).
+# memory.
 MEM_WIDTHS = (8, 16, 32, 64)
-RISCV_MEM_WIDTHS = (32, 64)
 MEM_MAX_BYTES = 8192
 MEM_MAX_POINTERS = 12
 MEM_ALIGN_PROPS = ' <{"alignment" = 1 : i64}>'
@@ -110,14 +106,12 @@ def bitwidth(typ: str) -> int:
     return int(typ[1:])
 
 
-def rand_int_type(rng: random.Random, riscv: bool = False) -> str:
-    if riscv:
-        return f"i{rng.choice(RISCV_WIDTHS)}"
+def rand_int_type(rng: random.Random, max_width: int = MAX_WIDTH) -> str:
     if rng.random() < 0.5:
         common = ("i1", "i8", "i16", "i32", "i64")
         return rng.choice(common)
     else:
-        return f"i{rng.randint(1, 95)}"
+        return f"i{rng.randint(1, max_width)}"
 
 
 def laplace_bias(rng: random.Random, scale: float, clip: int) -> int:
@@ -161,6 +155,7 @@ class Generator:
     def __init__(self, rng: random.Random, riscv: bool = False) -> None:
         self.rng = rng
         self.riscv = riscv
+        self.max_width = RISCV_MAX_WIDTH if riscv else MAX_WIDTH
         self.counter = 0
         self.lines: list[str] = []
         self.imported: dict[str, list[str]] = defaultdict(list)
@@ -196,7 +191,7 @@ class Generator:
             self.local_all.append((name, typ))
 
     def rand_type(self) -> str:
-        return rand_int_type(self.rng, self.riscv)
+        return rand_int_type(self.rng, self.max_width)
 
     def random_dominating_value(self, width: int) -> str:
         typ = f"i{width}"
@@ -207,24 +202,8 @@ class Generator:
         else:
             pool = local or imported
         if not pool:
-            if width == 1:
-                # Never inject a fresh i1 literal: i1 constants have no RISC-V
-                # lowering. Every boolean must originate from a comparison.
-                return self.make_bool()
             return self.add_const(typ, rand_const_val(self.rng, width))
         return self.rng.choice(pool)
-
-    def make_bool(self) -> str:
-        """Materialize an i1 value via an icmp rather than a fresh literal."""
-        typ = self.rand_type()
-        while bitwidth(typ) == 1:
-            typ = self.rand_type()
-        width = bitwidth(typ)
-        lhs = self.random_dominating_value(width)
-        rhs = self.random_dominating_value(width)
-        pred = self.rng.choice(ICMP_PREDS)
-        props = f' <{{"predicate" = {pred} : i64}}>'
-        return self.add_operation("llvm.icmp", [lhs, rhs], [typ, typ], "i1", props)
 
     def nsw_nuw_props(self) -> str:
         flags = self.rng.choice((0, 1, 2, 3))
@@ -322,10 +301,6 @@ class Generator:
 
     def random_return_value(self) -> tuple[str, str]:
         pool = self.local_all + self.imported_all
-        if self.riscv:
-            # i1 values may only feed icmps, never casts or the xor combine, so
-            # keep them out of the returned set entirely.
-            pool = [(name, typ) for name, typ in pool if bitwidth(typ) in RISCV_WIDTHS]
         if not pool:
             typ = self.rand_type()
             return self.add_const(typ, rand_const_val(self.rng, bitwidth(typ))), typ
@@ -351,12 +326,10 @@ class Generator:
     def emit_intrinsic(self) -> None:
         """Emit a random integer intrinsic. All operands share the result type.
 
-        `bswap` is restricted to widths it is defined on; in RISC-V mode every
-        intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
+        `bswap` is restricted to widths it is defined on.
 
-        Note: the saturating arithmetic intrinsics and `llvm.intr.abs` are only
-        lowered at i64 in RISC-V mode (there is no i32 isel yet), so `--riscv`
-        mode pins them to i64 rather than letting `rand_type` also pick i32.
+        Note: the saturating arithmetic intrinsics are only lowered at i64 in
+        RISC-V mode, so `--riscv` mode pins them to i64.
         """
         if self.rng.random() < 0.30:
             if self.rng.random() < 0.85:
@@ -369,7 +342,7 @@ class Generator:
             else:
                 # `abs` carries an `is_int_min_poison` i1 flag deciding whether
                 # abs(INT_MIN) is poison (true) or INT_MIN (false).
-                typ = "i64" if self.riscv else self.rand_type()
+                typ = self.rand_type()
                 operand = self.random_dominating_value(bitwidth(typ))
                 poison = "true" if self.rng.random() < 0.5 else "false"
                 self.add_operation("llvm.intr.abs", [operand], [typ], typ,
@@ -405,7 +378,7 @@ class Generator:
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation(op, [operand], [typ], typ)
         else:
-            typ = self.rand_type() if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
+            typ = f"i{self.rng.choice(BSWAP_WIDTHS)}"
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
 
@@ -565,13 +538,10 @@ class Generator:
             result = self.add_operation("llvm.xor", [result, value], ["i64", "i64"], "i64")
         return result
 
-    def mem_widths(self) -> tuple[int, ...]:
-        return RISCV_MEM_WIDTHS if self.riscv else MEM_WIDTHS
-
     def mem_access(self) -> tuple[str, int]:
         """Pick an access within an initialized eight-byte window."""
         ptr, _ = self.rng.choice(self.ptrs)
-        return ptr, self.rng.choice(self.mem_widths())
+        return ptr, self.rng.choice(MEM_WIDTHS)
 
     def emit_store(self) -> None:
         ptr, width = self.mem_access()
@@ -631,37 +601,22 @@ class Generator:
                 src = self.rand_type()
                 src_w = bitwidth(src)
                 op = self.rng.choice(("llvm.sext", "llvm.zext"))
-                if self.riscv:
-                    wider = [w for w in RISCV_WIDTHS if w > src_w]
-                    if not wider:
-                        continue
-                    dst = f"i{self.rng.choice(wider)}"
-                else:
-                    if src_w >= 95:
-                        continue
-                    dst = f"i{self.rng.randint(src_w + 1, 95)}"
+                if src_w >= self.max_width:
+                    continue
+                dst = f"i{self.rng.randint(src_w + 1, self.max_width)}"
                 props = " <{nonNeg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
                 operand = self.random_dominating_value(src_w)
                 self.add_operation(op, [operand], [src], dst, props)
             elif choice < 0.82:
                 src = self.rand_type()
                 src_w = bitwidth(src)
-                if self.riscv:
-                    narrower = [w for w in RISCV_WIDTHS if w < src_w]
-                    if not narrower:
-                        continue
-                    dst = f"i{self.rng.choice(narrower)}"
-                else:
-                    if src_w <= 1:
-                        continue
-                    dst = f"i{self.rng.randint(1, src_w - 1)}"
+                if src_w <= 1:
+                    continue
+                dst = f"i{self.rng.randint(1, src_w - 1)}"
                 props = self.nsw_nuw_props()
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
-                # icmp operands are ordinary integer values; in RISC-V mode that
-                # means i32 or i64 (rand_type never yields i1 there), so an icmp
-                # result is never fed back into another comparison.
                 typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
@@ -699,7 +654,7 @@ def generate(path: Path, rng: random.Random, riscv: bool = False, memory_only: b
 
     for block_id in range(1, num_blocks):
         arg_count = rng.randint(0, 5)
-        arg_types = [rand_int_type(rng, riscv) for _ in range(arg_count)]
+        arg_types = [rand_int_type(rng, gen.max_width) for _ in range(arg_count)]
         arg_names = [f"%arg{block_id}_{arg_idx}" for arg_idx in range(arg_count)]
         block_arg_types.append(arg_types)
         block_arg_names.append(arg_names)
@@ -812,7 +767,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("output", type=Path, help="path for the generated MLIR file")
     parser.add_argument("--seed", type=int, default=None, help="random seed; defaults to fresh system entropy")
     parser.add_argument("--riscv", action="store_true",
-                        help="restrict bitwidths to those the RISC-V backend supports (32, 64)")
+                        help="stay within what the RISC-V backend supports (widths up to 64, i64 alloca count)")
     parser.add_argument("--memory-only", action="store_true",
                         help="generate only defined GEP/load/store programs returning a memory checksum")
     args = parser.parse_args(argv)
