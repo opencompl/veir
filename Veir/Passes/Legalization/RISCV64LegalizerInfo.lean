@@ -107,6 +107,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
+    -- LLVM is also legal for `s32`, for floating point, and for `p0`, which `g_select` does not
+    -- accept yet.
+    | .g_select => [
+      .legalForTypePairs [(s64, s64)],
+      .minScalar (.type 0) 64,
+      .minScalar (.type 1) 64,
+    ]
     | .g_anyext => [
       .alwaysLegal,
     ]
@@ -196,14 +203,15 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 64,
       .lower,
     ]
-    | .g_select => [
-      .legalForTypePairs [(s32, s64), (s64, s64)],
-      .widenScalarToNextPow2 (.type 0),
-      .minScalar (.type 0) 32,
-      .minScalar (.type 1) 64,
-    ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_br => [
+      .alwaysLegal,
+    ]
+    | .g_brcond => [
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]

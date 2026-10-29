@@ -1,4 +1,4 @@
-// RUN: not veir-opt %s -p=isel-br-riscv64 2>&1 | filecheck %s
+// RUN: not veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 2>&1 | filecheck %s
 
 // A float has no meaning in an integer register.
 // CHECK: isel-br-riscv64: a branch operand does not fit a register

@@ -521,151 +521,6 @@ def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
 
-/-! ## Zicond branchless `select` lowering
-
-  The Zicond extension lowers `llvm.select` branchlessly (mirroring LLVM's
-  SelectionDAG lowering of `ISD::SELECT` when `Zicond` is available):
-  ```
-    (select c, t, 0) -> (czero.eqz t, c)
-    (select c, 0, f) -> (czero.nez f, c)
-    (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
-  ```
-  The single-instruction zero-arm cases take priority over the general form;
-  the greedy driver tries patterns in array order, so `selectCzeroeqz` and
-  `selectCzeronez` are registered before `selectGeneral`.
-
-  `gmir.g_select` is lowered the same way. LLVM's GlobalISel instead selects `G_SELECT` to a
-  pseudo that is expanded into a branch, which would need the block to be split.
-
-  The patterns are built for the select operation `opcode`, and `guard` decides, given the result
-  type, the condition type and the properties, whether an operation is selected.
--/
-
-/--
-  `select c t 0` -> `riscv.czeroeqz t c`.
--/
-def lowerSelectCzeroeqz (opcode : OpCode)
-    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop opcode) →
-      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let condType ← MatchProg.type (Attr := TypeAttr)
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let zeroType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
-      let cond ← MatchProg.value condType
-      let val ← MatchProg.value valType
-      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[zeroType]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
-      let root ← MatchProg.root opcode #[cond, val, zeroOp.res[0]!] #[resType]
-      guard resType condType root.properties
-      return (resType, cond, val))
-    (fun (resType, cond, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType]
-      let czOp ← CreateProg.operation (.riscv .czeroeqz)
-          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType]
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  `select c t 0` -> `riscv.czeroeqz t c`.
--/
-def selectCzeroeqz : Puddle.CompiledPattern OpCode := (lowerSelectCzeroeqz (.llvm .select)).compile
-
-/--
-  `select c 0 f` -> `riscv.czeronez f c`.
--/
-def lowerSelectCzeronez (opcode : OpCode)
-    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop opcode) →
-      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let condType ← MatchProg.type (Attr := TypeAttr)
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let zeroType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32)
-      let cond ← MatchProg.value condType
-      let val ← MatchProg.value valType
-      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[zeroType]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
-      let root ← MatchProg.root opcode #[cond, zeroOp.res[0]!, val] #[resType]
-      guard resType condType root.properties
-      return (resType, cond, val))
-    (fun (resType, cond, val) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType]
-      let czProps ← CreateProg.property (.riscv .czeronez) ()
-      let czOp ← CreateProg.operation (.riscv .czeronez)
-          #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[czOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  `select c 0 f` -> `riscv.czeronez f c`.
--/
-def selectCzeronez : Puddle.CompiledPattern OpCode := (lowerSelectCzeronez (.llvm .select)).compile
-
-/--
-  General branchless select:
-  `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
--/
-def lowerSelectGeneral (opcode : OpCode)
-    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop opcode) →
-      MatchProg.Builder Unit := fun _ _ _ => pure ()) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let condType ← MatchProg.type (Attr := TypeAttr)
-      let tType ← MatchProg.type (Attr := TypeAttr)
-      let fType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType)
-          (fun t => t.bitwidth = 64 ∨ t.bitwidth = 32 ∨ t.bitwidth = 1)
-      let cond ← MatchProg.value condType
-      let tval ← MatchProg.value tType
-      let fval ← MatchProg.value fType
-      let root ← MatchProg.root opcode #[cond, tval, fval] #[resType]
-      guard resType condType root.properties
-      return (resType, cond, tval, fval))
-    (fun (resType, cond, tval, fval) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[tval] #[regType]
-      let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[fval] #[regType]
-      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[cond] #[regType]
-      let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
-      let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
-          #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
-      let nezProps ← CreateProg.property (.riscv .czeronez) ()
-      let nezOp ← CreateProg.operation (.riscv .czeronez)
-          #[fCastOp.res[0]!, condCastOp.res[0]!] #[regType] nezProps
-      let orProps ← CreateProg.property (.riscv .or) ()
-      let orOp ← CreateProg.operation (.riscv .or)
-          #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/--
-  General branchless select:
-  `select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
--/
-def selectGeneral : Puddle.CompiledPattern OpCode := (lowerSelectGeneral (.llvm .select)).compile
-
 /-! ## Zbb min/max and rotate intrinsics
 
   These mirror the simple one-to-one patterns in LLVM's RISC-V backend
@@ -693,7 +548,8 @@ def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
   for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
   lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
 -/
-def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
+def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let valType ← MatchProg.type (Attr := TypeAttr)
@@ -701,9 +557,16 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) : Pattern OpCode :=
       let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
       let val ← MatchProg.value valType
       let amtOp ← MatchProg.operation (.gmir .g_constant) #[] #[amtType]
+      /- Legalization widens a narrow constant to `g_trunc (g_constant i64)`. Truncation keeps
+         the low bits, so the amount modulo `bw` is unchanged when read from the wide constant. -/
+      let amt ← if throughTrunc then do
+          let truncType ← MatchProg.type (Attr := IntegerType)
+          let truncOp ← MatchProg.operation (.gmir .g_trunc) #[amtOp.res[0]!] #[truncType]
+          pure truncOp.res[0]!
+        else pure amtOp.res[0]!
       let _ ← MatchProg.root
           (.llvm (if rotateLeft then .intr__fshl else .intr__fshr))
-          #[val, val, amtOp.res[0]!] #[resType]
+          #[val, val, amt] #[resType]
       return (resType, val, amtType, amtOp.properties))
     (fun (resType, val, amtType, amtProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -740,12 +603,16 @@ def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).comp
 
 def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
 
+def fshrConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst false 32 true).compile
+
 /-- llvm.intr.fshl with identical data operands and a constant shift amount is a
     constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
     `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
 def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
 
 def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
+
+def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 true).compile
 
 /-! ## General (distinct-operand) funnel shift
 
@@ -1076,6 +943,97 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
       riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
 
+/-! ## Zicond branchless `g_select` lowering
+
+  The Zicond extension lowers `gmir.g_select` branchlessly, mirroring LLVM's SelectionDAG
+  lowering of `ISD::SELECT` when `Zicond` is available (LLVM's GlobalISel selects `G_SELECT` with
+  a branch instead):
+  ```
+    (select c, t, 0) -> (czero.eqz t, c)
+    (select c, 0, f) -> (czero.nez f, c)
+    (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
+  ```
+  A legal `g_select` selects `i64` values with an `i64` condition, which is true when it is
+  nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the `g_constant`,
+  so they run in the early loop, before `gmirConstant` lowers it.
+-/
+
+/--
+  `gmir.g_select c t 0` -> `riscv.czeroeqz t c` when `zeroFalse` is set, and
+  `gmir.g_select c 0 f` -> `riscv.czeronez f c` otherwise.
+-/
+def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let cond ← MatchProg.value condType
+      let val ← MatchProg.value type
+      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+      let operands :=
+        if zeroFalse then #[cond, val, zeroOp.res[0]!] else #[cond, zeroOp.res[0]!, val]
+      let root ← MatchProg.root (.gmir .g_select) operands #[type]
+      matchLegal .g_select type root.properties (type₁ := condType)
+      return (type, cond, val))
+    (fun (type, cond, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType]
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType]
+      let czOp ← if zeroFalse then do
+          let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+          CreateProg.operation (.riscv .czeroeqz)
+            #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
+        else do
+          let czProps ← CreateProg.property (.riscv .czeronez) ()
+          CreateProg.operation (.riscv .czeronez)
+            #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[czOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+/-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
+def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
+  #[true, false].map (gmirSelectZero_pattern · |>.compile)
+
+/--
+  General branchless select:
+  `gmir.g_select c t f` -> `or (czero.eqz t c) (czero.nez f c)`.
+-/
+def gmirSelect_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let cond ← MatchProg.value condType
+      let tval ← MatchProg.value type
+      let fval ← MatchProg.value type
+      let root ← MatchProg.root (.gmir .g_select) #[cond, tval, fval] #[type]
+      matchLegal .g_select type root.properties (type₁ := condType)
+      return (type, cond, tval, fval))
+    (fun (type, cond, tval, fval) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let tCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[tval] #[regType]
+      let fCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[fval] #[regType]
+      let condCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[cond] #[regType]
+      let eqzProps ← CreateProg.property (.riscv .czeroeqz) ()
+      let eqzOp ← CreateProg.operation (.riscv .czeroeqz)
+          #[tCastOp.res[0]!, condCastOp.res[0]!] #[regType] eqzProps
+      let nezProps ← CreateProg.property (.riscv .czeronez) ()
+      let nezOp ← CreateProg.operation (.riscv .czeronez)
+          #[fCastOp.res[0]!, condCastOp.res[0]!] #[regType] nezProps
+      let orProps ← CreateProg.property (.riscv .or) ()
+      let orOp ← CreateProg.operation (.riscv .or)
+          #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[orOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+def gmirSelect : Puddle.CompiledPattern OpCode := gmirSelect_pattern.compile
+
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_add) (·.bitwidth = 64) .add () (guard := matchLegal .g_add)
@@ -1391,23 +1349,6 @@ def gmirUmax_pattern : Pattern OpCode :=
 def gmirUmin_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_umin) (·.bitwidth = 64) .minu () (guard := matchLegal .g_umin)
 
-/-- The legality guard of the `gmir.g_select` lowerings. -/
-def gmirSelectGuard (resType condType : Handle OpCode .type)
-    (props : Handle OpCode (.prop (.gmir .g_select))) : MatchProg.Builder Unit :=
-  matchLegal .g_select resType props (type₁ := condType)
-
-/-- `gmir.g_select c t 0` -> `riscv.czeroeqz t c`. -/
-def gmirSelectCzeroeqz : Puddle.CompiledPattern OpCode :=
-  (lowerSelectCzeroeqz (.gmir .g_select) gmirSelectGuard).compile
-
-/-- `gmir.g_select c 0 f` -> `riscv.czeronez f c`. -/
-def gmirSelectCzeronez : Puddle.CompiledPattern OpCode :=
-  (lowerSelectCzeronez (.gmir .g_select) gmirSelectGuard).compile
-
-/-- `gmir.g_select c t f` -> `or (czero.eqz t c) (czero.nez f c)`. -/
-def gmirSelectGeneral : Puddle.CompiledPattern OpCode :=
-  (lowerSelectGeneral (.gmir .g_select) gmirSelectGuard).compile
-
 def gmirSmax : Puddle.CompiledPattern OpCode := gmirSmax_pattern.compile
 def gmirSmin : Puddle.CompiledPattern OpCode := gmirSmin_pattern.compile
 def gmirUmax : Puddle.CompiledPattern OpCode := gmirUmax_pattern.compile
@@ -1543,16 +1484,16 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
-    store.map (·.run) ++ #[selectCzeroeqz.run, selectCzeronez.run,
-    gmirSelectCzeroeqz.run, gmirSelectCzeronez.run,
+    store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
+    fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
-    #[selectGeneral.run,
+    #[gmirSelect.run,
     constant.run, addressof] ++
     #[
     sext32.run, sext16.run, .fromLocalRewrite sextInReg_local,
@@ -1566,7 +1507,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
-    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run, gmirSelectGeneral.run] ++
+    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
     gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"

@@ -66,6 +66,30 @@ def combineAnyExtOfAnyExt : Pattern OpCode :=
     (fun ext => ext)
 
 /--
+Combines `g_zext (g_trunc (g_icmp lhs rhs))` to the `g_icmp` when it has the type of the `g_zext`.
+A `g_icmp` yields 0 or 1, so truncating it and zero-extending it back keeps its value. LLVM's
+`tryCombineZExt` finds this with known bits, which we do not have.
+-/
+def combineZExtOfTruncOfICmp : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let operandType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value operandType
+      let rhs ← MatchProg.value operandType
+      let wideType ← MatchProg.type (Attr := IntegerType)
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType]
+      let narrowType ← MatchProg.type (Attr := IntegerType)
+      let trunc ← MatchProg.operation (.gmir .g_trunc) #[icmp.res[0]!] #[narrowType]
+      let type ← MatchProg.type (Attr := IntegerType)
+      MatchProg.matchNative (wideType, type) fun (wideType, type) =>
+        match wideType.val, type.val with
+        | .integerType wideType, .integerType type => wideType = type
+        | _, _ => false
+      let _ ← MatchProg.root (.gmir .g_zext) #[trunc.res[0]!] #[type]
+      return icmp.res[0]!)
+    pure (fun x => x)
+
+/--
 Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has no flags.
 -/
 def combineTruncOfTrunc : Pattern OpCode :=
@@ -81,26 +105,6 @@ def combineTruncOfTrunc : Pattern OpCode :=
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
     (fun trunc => trunc)
 
-/--
-Combines `g_zext (g_trunc x)` to `x` when `x` is the result of a `g_icmp` of the same type. LLVM's
-`tryCombineZExt` does this whenever the known bits of `x` show that the truncation drops only zeros,
-which holds for the result of a `g_icmp` on targets whose booleans are `0` or `1`, as on RISC-V. We
-do not have known bits, so we only match the `g_icmp`.
--/
-def combineZExtOfTruncOfICmp : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let operandType ← MatchProg.type (Attr := IntegerType)
-      let lhs ← MatchProg.value operandType
-      let rhs ← MatchProg.value operandType
-      let type ← MatchProg.type (Attr := IntegerType)
-      let cmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
-      let narrowType ← MatchProg.type (Attr := IntegerType)
-      let trunc ← MatchProg.operation (.gmir .g_trunc) #[cmp.res[0]!] #[narrowType]
-      let _ ← MatchProg.root (.gmir .g_zext) #[trunc.res[0]!] #[type]
-      return cmp.res[0]!)
-    pure (fun x => x)
-
 public section
 
 /--
@@ -113,8 +117,8 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
       combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
       combineAnyExtOfAnyExt]
-  | .g_trunc => [combineTruncOfTrunc]
   | .g_zext => [combineZExtOfTruncOfICmp]
+  | .g_trunc => [combineTruncOfTrunc]
   | _ => []
 
 end

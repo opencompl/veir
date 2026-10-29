@@ -40,13 +40,13 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
     if waitsForOperand info ctx.raw op opcode then return (ctx, none)
     let some query := LegalityQuery.of? ctx.raw op opcode | return (ctx, none)
-    let pattern? := match info.getActionFor query with
+    let pattern? : Option (LocalRewritePattern OpCode) := match info.getActionFor query with
       | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
-      | .lower => lower? info opcode query
-      | .custom => info.legalizeCustom opcode
+      | .lower => (lower? info opcode query).map Puddle.Pattern.interpret
+      | .custom => (info.legalizeCustom opcode).map Puddle.Pattern.interpret
       | .legal | .unsupported => none
     let some pattern := pattern? | return (ctx, none)
-    pattern.interpret ctx op
+    pattern ctx op
 
 /-- Combines the artifact `op` away with the first `tryCombineInstruction` pattern that applies. -/
 private def combineArtifactStep : LocalRewritePattern OpCode :=

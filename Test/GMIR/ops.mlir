@@ -28,6 +28,7 @@
   %umin = "gmir.g_umin"(%a, %b) : (i32, i32) -> i32
   %umax = "gmir.g_umax"(%a, %b) : (i32, i32) -> i32
   %abs = "gmir.g_abs"(%a) : (i32) -> i32
+  %select = "gmir.g_select"(%c, %d, %d) : (i64, i8, i8) -> i8
   %ctlz = "gmir.g_ctlz"(%a) : (i32) -> i8
   %cttz = "gmir.g_cttz"(%a) : (i32) -> i32
   %ctpop = "gmir.g_ctpop"(%c) : (i64) -> i32
@@ -43,7 +44,6 @@
   %usube, %usube_borrow = "gmir.g_usube"(%a, %b, %usubo_borrow) : (i32, i32, i1) -> (i32, i1)
   %saddo, %saddo_overflow = "gmir.g_saddo"(%a, %b) : (i32, i32) -> (i32, i1)
   %ssubo, %ssubo_overflow = "gmir.g_ssubo"(%a, %b) : (i32, i32) -> (i32, i1)
-  %select = "gmir.g_select"(%saddo_overflow, %a, %b) : (i1, i32, i32) -> i32
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -72,6 +72,7 @@
 // CHECK: "gmir.g_umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
+// CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i8, i8) -> i8
 // CHECK: "gmir.g_ctlz"(%{{.*}}) : (i32) -> i8
 // CHECK: "gmir.g_cttz"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_ctpop"(%{{.*}}) : (i64) -> i32
@@ -87,4 +88,3 @@
 // CHECK: "gmir.g_usube"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
 // CHECK: "gmir.g_saddo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK: "gmir.g_ssubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
-// CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i1, i32, i32) -> i32

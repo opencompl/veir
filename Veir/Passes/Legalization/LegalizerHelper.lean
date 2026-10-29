@@ -2,7 +2,9 @@ module
 
 public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.Passes.Legalization.LegalizerInfo
+public import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 /-!
 # Legalization Actions
@@ -411,6 +413,25 @@ private def lowerAddSubSat (info : LegalizerInfo) (opcode : GMIR) (type : LLT)
   if minMaxLegal then lowerAddSubSatToMinMax opcode signed isAdd
   else lowerAddSubSatToAddoSubo opcode signed isAdd
 
+/--
+Widens the condition of `g_brcond` to `width` bits with a `g_zext`, which is what LLVM's
+`LegalizerHelper::widenScalar` extends it with on a target whose booleans are 0 or 1, as on RISC-V.
+`g_brcond` forwards a variable number of operands to its successors, which a Puddle pattern cannot
+match, so this is a local rewrite.
+-/
+def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx op => do
+  -- Read `ctx` before creating operations: any later read makes the first one copy the context.
+  let operands := op.getOperands! ctx.raw
+  let successors := op.getSuccessors! ctx.raw
+  let props := op.getProperties! ctx.raw GMIR.g_brcond
+  let .integerType type := (operands[0]!.getType! ctx.raw).val | return (ctx, none)
+  if width ≤ type.bitwidth then return (ctx, none)
+  let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_zext #[IntegerType.signless width]
+    #[operands[0]!] #[] #[] (NnegProperties.mk false) none
+  let (ctx, branch) ← WfRewriter.createOp! ctx GMIR.g_brcond #[]
+    (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
+  return (ctx, some (#[ext, branch], #[]))
+
 public section
 
 /-- The pattern that lowers `query`, an `opcode` operation, if it can be lowered. -/
@@ -430,7 +451,11 @@ def lower? (info : LegalizerInfo) : (opcode : GMIR) → LegalityQuery opcode →
   | _, _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
+    Option (LocalRewritePattern OpCode)
+  | .g_brcond, .type 0, width => widenBrcondCondition width
+  | opcode, typeIdx, width => Option.map Puddle.Pattern.interpret <|
+  match opcode, typeIdx, width with
   -- The high bits of the operands never reach the low bits of the result, so any extension is
   -- fine.
   | .g_add, .type 0, width => widenTypeGroup .g_add (.type 0) .g_anyext width clearNswNuwProperties
@@ -440,6 +465,11 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   -- The high bits matter for the comparison, and sign extension preserves both the signed and
   -- the unsigned order.
   | .g_icmp, .type 1, width => widenTypeGroup .g_icmp (.type 1) .g_sext width
+  -- The high bits of the selected values never reach the low bits of the result.
+  | .g_select, .type 0, width => widenTypeGroup .g_select (.type 0) .g_anyext width
+  -- The condition is true when it is nonzero, so its high bits must be zero, as with LLVM's
+  -- `getBoolExtOp` on a target whose booleans are zero or one.
+  | .g_select, .type 1, width => widenTypeGroup .g_select (.type 1) .g_zext width
   -- As for `g_add`, the high bits of the shifted value never reach the low bits of the result.
   | .g_shl, .type 0, width => widenTypeGroup .g_shl (.type 0) .g_anyext width clearNswNuwProperties
   -- `ashr` shifts copies of the sign bit into the result, so the high bits must be sign bits.
@@ -483,10 +513,6 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (
   | .g_abs, .type 0, width => widenTypeGroup .g_abs (.type 0) .g_sext width
   | .g_saddo, .type 0, width => widenAddSubOverflow .g_saddo width
   | .g_ssubo, .type 0, width => widenAddSubOverflow .g_ssubo width
-  -- The high bits of the selected values never reach the low bits of the result.
-  | .g_select, .type 0, width => widenTypeGroup .g_select (.type 0) .g_anyext width
-  -- The condition is true when it is non-zero, so its high bits must be zero.
-  | .g_select, .type 1, width => widenTypeGroup .g_select (.type 1) .g_zext width
   | _, _, _ => none
 
 end

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-br-riscv64 --print-op-generic | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 --print-op-generic | filecheck %s
 
 // A RISC-V branch and a register block argument are already lowered, and the
 // pass leaves them alone.
