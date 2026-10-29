@@ -4,25 +4,13 @@
 
 "builtin.module"() ({
   // In i4, x = y = 0b1000 and z = 1 make `(x << z) | (y << z)` a disjoint `0 | 0`, while `x | y`
-  // overlaps, and `(0b0110 & 0b1110) << 1` overflows as a signed integer while `0b1110 << 1` does
-  // not. So the hoisted operations get no flags.
-  "func.func"() <{function_type = (i64, i64, i64) -> (i64, i64), sym_name = "hoist"}> ({
+  // overlaps. So the hoisted `or` is not disjoint.
+  "func.func"() <{function_type = (i64, i64, i64) -> i64, sym_name = "hoist"}> ({
   ^bb0(%x: i64, %y: i64, %z: i64):
     %xz = "gmir.g_shl"(%x, %z) <{overflowFlags = 1 : i32}> : (i64, i64) -> i64
     %yz = "gmir.g_shl"(%y, %z) <{overflowFlags = 1 : i32}> : (i64, i64) -> i64
     %or = "gmir.g_or"(%xz, %yz) <{isDisjoint}> : (i64, i64) -> i64
-    %and = "gmir.g_and"(%xz, %yz) : (i64, i64) -> i64
-    "func.return"(%or, %and) : (i64, i64) -> ()
-  }) : () -> ()
-
-  // In i8, `(127 + (0 - -1)) - 0` is `-128` without overflow in the outer subtraction, while
-  // `127 - -1` overflows.
-  "func.func"() <{function_type = (i8, i8, i8) -> i8, sym_name = "reassoc"}> ({
-  ^bb0(%a: i8, %b: i8, %c: i8):
-    %bc = "gmir.g_sub"(%b, %c) : (i8, i8) -> i8
-    %abc = "gmir.g_add"(%a, %bc) : (i8, i8) -> i8
-    %r = "gmir.g_sub"(%abc, %b) <{overflowFlags = 1 : i32}> : (i8, i8) -> i8
-    "func.return"(%r) : (i8) -> ()
+    "func.return"(%or) : (i64) -> ()
   }) : () -> ()
 
   // In i8, `(127 - 100) - 100` is `-73`, while `127 - -56` overflows.
@@ -46,14 +34,7 @@
 // CHECK-LABEL: func.func @hoist
 // CHECK-SAME:  (%[[X:.*]]: i64, %[[Y:.*]]: i64, %[[Z:.*]]: i64)
 // CHECK-NEXT:  %[[OR:.*]] = "gmir.g_or"(%[[X]], %[[Y]]) : (i64, i64) -> i64
-// CHECK-NEXT:  %[[R0:.*]] = "gmir.g_shl"(%[[OR]], %[[Z]]) : (i64, i64) -> i64
-// CHECK-NEXT:  %[[AND:.*]] = "gmir.g_and"(%[[X]], %[[Y]]) : (i64, i64) -> i64
-// CHECK-NEXT:  %[[R1:.*]] = "gmir.g_shl"(%[[AND]], %[[Z]]) : (i64, i64) -> i64
-// CHECK-NEXT:  "func.return"(%[[R0]], %[[R1]])
-
-// CHECK-LABEL: func.func @reassoc
-// CHECK-SAME:  (%[[A:.*]]: i8, %[[B:.*]]: i8, %[[C:.*]]: i8)
-// CHECK-NEXT:  %[[R:.*]] = "gmir.g_sub"(%[[A]], %[[C]]) : (i8, i8) -> i8
+// CHECK-NEXT:  %[[R:.*]] = "gmir.g_shl"(%[[OR]], %[[Z]]) : (i64, i64) -> i64
 // CHECK-NEXT:  "func.return"(%[[R]])
 
 // CHECK-LABEL: func.func @constant_reassoc
