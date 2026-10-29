@@ -70,6 +70,8 @@ inductive GMIR where
 | g_uadde
 | g_usubo
 | g_usube
+| g_saddo
+| g_ssubo
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -90,7 +92,8 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
   | .g_merge_values | .g_unmerge_values | .g_br
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => Unit
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_saddo | .g_ssubo => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -113,7 +116,8 @@ def GMIR.fromAttrDict
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_ctlz | g_cttz | g_ctpop
      | g_merge_values | g_unmerge_values | g_br
-     | g_uaddo | g_uadde | g_usubo | g_usube => exact .ok ()
+     | g_uaddo | g_uadde | g_usubo | g_usube
+     | g_saddo | g_ssubo => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -153,7 +157,8 @@ def GMIR.toAttrDict
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
   | .g_merge_values | .g_unmerge_values | .g_br
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => {}
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_saddo | .g_ssubo => {}
 
 #generate_dialect GMIR
 
@@ -230,7 +235,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_brcond =>
     { outOperandList := #[]
       inOperandList := #[.type 0] }
-  | .g_uaddo | .g_usubo =>
+  | .g_uaddo | .g_usubo | .g_saddo | .g_ssubo =>
     { outOperandList := #[.type 0, .type 1]
       inOperandList := #[.type 0, .type 0] }
   | .g_uadde | .g_usube =>
@@ -623,6 +628,22 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
     return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
+  | .g_saddo => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let some overflowType := resultTypes[1]? | none
+    let .integerType overflowBw := overflowType.val | none
+    return (#[.int bw (Data.LLVM.Int.add lhs rhs),
+      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.saddOverflowFlag lhs rhs))], mem, none)
+  | .g_ssubo => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let some overflowType := resultTypes[1]? | none
+    let .integerType overflowBw := overflowType.val | none
+    return (#[.int bw (Data.LLVM.Int.sub lhs rhs),
+      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.ssubOverflowFlag lhs rhs))], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -795,7 +816,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       "gmir.g_brcond: Expected the condition to have integer type"
     let sizes := (opPtr.getProperties! ctx.raw GMIR.g_brcond).operandSegmentSizes
     opPtr.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube =>
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
 
@@ -808,7 +829,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => true
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
   | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
 
@@ -825,7 +846,7 @@ def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :
 def GMIR.isCommutative : GMIR → Bool
   | .g_add | .g_mul | .g_and | .g_or | .g_xor
   | .g_smin | .g_smax | .g_umin | .g_umax
-  | .g_uaddsat | .g_saddsat | .g_uaddo => true
+  | .g_uaddsat | .g_saddsat | .g_uaddo | .g_saddo => true
   | _ => false
 
 def GMIR.isConstantLike : GMIR → Bool

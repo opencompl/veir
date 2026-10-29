@@ -29,8 +29,21 @@
     // An `abs` whose minimum value is poison becomes the defined `abs`, which refines it.
     %abs_poison = "llvm.intr.abs"(%x) <{is_int_min_poison = true}> : (i32) -> i32
     // CHECK-NEXT: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
+    %saddsat = "llvm.intr.sadd.sat"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_saddsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %uaddsat = "llvm.intr.uadd.sat"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_uaddsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %ssubsat = "llvm.intr.ssub.sat"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_ssubsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %usubsat = "llvm.intr.usub.sat"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_usubsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %sshlsat = "llvm.intr.sshl.sat"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_sshlsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    %ushlsat = "llvm.intr.ushl.sat"(%x, %x) : (i32, i32) -> i32
+    // CHECK-NEXT: "gmir.g_ushlsat"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     "test.test"(%ctlz, %ctlz_poison, %cttz, %ctpop, %bswap, %bitreverse) : (i32, i32, i32, i32, i32, i32) -> ()
     "test.test"(%smax, %smin, %umax, %umin, %abs, %abs_poison) : (i32, i32, i32, i32, i32, i32) -> ()
+    "test.test"(%saddsat, %uaddsat, %ssubsat, %usubsat, %sshlsat, %ushlsat) : (i32, i32, i32, i32, i32, i32) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

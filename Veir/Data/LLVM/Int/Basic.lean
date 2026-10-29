@@ -139,6 +139,17 @@ def uaddOverflowFlag {w : Nat} (x y : Int w) : Int 1 := Id.run do
   val (BitVec.ofBool (BitVec.uaddOverflow x' y'))
 
 /--
+The overflow bit of a signed addition, as produced by the second result of
+`llvm.sadd.with.overflow`: the result is `1` when the signed sum of `x` and `y`
+does not fit in `w` bits, and `0` otherwise. If either operand is poison, the
+result is poison.
+-/
+def saddOverflowFlag {w : Nat} (x y : Int w) : Int 1 := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (BitVec.ofBool (BitVec.saddOverflow x' y'))
+
+/--
 The `sub` instruction returns the difference of its two operands.
 
 Note that the `sub` instruction is used to represent the `neg` instruction
@@ -180,6 +191,17 @@ def usubOverflowFlag {w : Nat} (x y : Int w) : Int 1 := Id.run do
   let val x' := x | poison
   let val y' := y | poison
   val (BitVec.ofBool (BitVec.usubOverflow x' y'))
+
+/--
+The overflow bit of a signed subtraction, as produced by the second result of
+`llvm.ssub.with.overflow`: the result is `1` when the signed difference of `x`
+and `y` does not fit in `w` bits, and `0` otherwise. If either operand is
+poison, the result is poison.
+-/
+def ssubOverflowFlag {w : Nat} (x y : Int w) : Int 1 := Id.run do
+  let val x' := x | poison
+  let val y' := y | poison
+  val (BitVec.ofBool (BitVec.ssubOverflow x' y'))
 
 /--
 `llvm.sadd.sat`: signed saturating addition. The result is the mathematical sum
