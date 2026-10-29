@@ -324,12 +324,13 @@ The recursive call is destructed with `Stream.tail`, which is translated to its 
 `Stream.tail.__partial` (see `@[qpf_elim]` on `Stream.tail`).
 
 The default motive set up by `productive_by_intro` only covers the recursive calls
-`cursedMap.__partial f xs`, but the second layer is
-`cons.__partial (f xs.head) (tail.__partial (cursedMap.__partial f xs.tail))`. The
+`cursedMap.__partial f (ofCofix xs)`, but the second layer is
+`cons.__partial (f xs.head) (tail.__partial (cursedMap.__partial f (ofCofix xs.tail)))`. The
 `with_motive` clause adds this shape to the motive: its term is elaborated at the total type
 `Stream β`, translated like the body, and its named holes `?x` become existentials. The motive
 is then
-  `(∃ xs, z = cursedMap.__partial f xs) ∨ (∃ x xs, z = cons.__partial x (tail.__partial (cursedMap.__partial f xs)))`
+  `(∃ xs, z = cursedMap.__partial f (ofCofix xs)) ∨
+    (∃ x xs, z = cons.__partial x (tail.__partial (cursedMap.__partial f (ofCofix xs))))`
 and `productive_by_intro` produces one goal per disjunct: `rec`, and `with_motive_1`.
 -/
 
@@ -343,31 +344,70 @@ productive_by
   · right
     exists f xs.head, xs.tail
     rw [cursedMap.__partial]
+    -- `cursedMap.__partial` destructs its argument with `head.__partial` and `tail.__partial`,
+    -- which `qpf_productive_by` eliminates on the total value `ofCofix xs`.
+    simp only [qpf_productive_by]
     simp only [tail.__partial, cons.__partial, CofixWithBot.elim_mk]
     rfl
 
 /-!
 FIXME: the `cursedMap` example should work with a `cons ?x ?xs` motive.
-The `?xs : Stream _` existential should be translated to a partial stream, but
-for the translation from Stream to partial Stream values to work in general,
-`cursedMap.__partial` ought to take `xs` as a partial Stream argument, too.
-Either way, this makes sense, given that is the transformation that we're
-already doing to constructors in `@[qpf_ctor]`. Further, it would enable us to
-support `map2` and `nats'`
+The `?xs : Stream _` existential should be translated to a partial stream, rather than to
+`ofCofix xs` for a total `xs`. Note that `cursedMap.__partial` already takes `xs` as a partial
+stream, like the partial versions of constructors (see `@[qpf_ctor]`).
 -/
 
 /-
-FIXME: the following ought to work
+Since `map.__partial` takes its argument as a partial stream (and is monotone in it, see
+`map.__partial_mono`), `map` can be applied to the recursive call.
 
-```
-codef Stream.nats' : Stream Nat :=
+TODO: prove productivity
+-/
+/-- warning: declaration uses `sorry` -/
+#guard_msgs in
+codef nats' : Stream Nat :=
   cons 0 <| map (· + 1) nats'
 with_motive
   map (· + ?i) nats'
 productive_by
-  sorry
-```
+  · right
+    exists (fun _ => 1)
+  · refine ⟨_, by unfold nats'.__partial, ?_⟩
+
+#check filter.__partial
+#check map.__partial
+#check nats'.__partial
+
+/--
+info: QPFTypes.Test.WithBot.Stream.map.__partial_mono.{w} {δ : Sort w} [inst : PartialOrder δ] {α β : Type} (f : α → β)
+  (xs_fn : δ → __partial α) (hx0 : monotone xs_fn) : monotone fun z => map.__partial f (xs_fn z)
 -/
+#guard_msgs in
+#check map.__partial_mono
+
+/-- info: QPFTypes.Test.WithBot.Stream.nats'.__unfold : nats' = cons 0 (map (fun x => x + 1) nats') -/
+#guard_msgs in
+#check nats'.__unfold
+
+-- Several possibly-partial arguments.
+codef zipWith (f : α → β → γ) (xs : Stream α) (ys : Stream β) : Stream γ :=
+  cons (f xs.head ys.head) (zipWith f xs.tail ys.tail)
+productive_by
+  exact ⟨_, _, rfl⟩
+
+-- TODO: prove productivity
+/-- warning: declaration uses `sorry` -/
+#guard_msgs in
+codef fibs : Stream Nat :=
+  cons 0 (cons 1 (zipWith (· + ·) fibs (tail fibs)))
+productive_by
+  all_goals sorry
+
+/--
+info: QPFTypes.Test.WithBot.Stream.fibs.__unfold : fibs = cons 0 (cons 1 (zipWith (fun x1 x2 => x1 + x2) fibs fibs.tail))
+-/
+#guard_msgs in
+#check fibs.__unfold
 
 /-
 FIXME: the following ought to work
@@ -400,7 +440,7 @@ productive_by
 
 /--
 error: codef: nested recursive calls are not supported
-  Stream.nested.__codef_raw (Stream.nested.__codef_raw xs.tail)
+  Stream.nested.__codef_raw (Stream.nested.__codef_raw (tail xs))
 -/
 #guard_msgs in
 codef Stream.nested (xs : Stream α) : Stream α :=
@@ -413,7 +453,7 @@ def tail' (xs : Stream α) : Stream α := (Cofix.dest xs).2
 
 /--
 error: codef: cannot translate
-  (tailOfRec.__codef_raw xs.tail).tail'
+  (tailOfRec.__codef_raw (tail xs)).tail'
 `tail'` is applied to a possibly-partial value, but has no partial version (`__partial`); mark it with `@[qpf_ctor]` if it is a constructor, or with `@[qpf_elim]` if it is an eliminator
 -/
 #guard_msgs in
@@ -422,12 +462,9 @@ codef tailOfRec (xs : Stream α) : Stream α :=
 productive_by
   sorry
 
--- `Stream.head.__partial` is in continuation-passing style, which `codef` does not use yet.
-/--
-error: codef: cannot use `head.__partial`, the partial version of `head`, in
-  (headOfRec.__codef_raw xs.tail).head
-it should have the same universe parameters as `head`. Note that partial versions in continuation-passing style, for eliminators whose result is not of a coinductive type, are not supported yet
--/
+-- `Stream.head.__partial` is in continuation-passing style: the recursive call is destructed as
+-- `head.__partial (headOfRec.__partial (tail.__partial xs)) (fun head => cons.__partial head xs)`.
+/-- warning: declaration uses `sorry` -/
 #guard_msgs in
 codef headOfRec (xs : Stream α) : Stream α :=
   cons (headOfRec xs.tail).head xs

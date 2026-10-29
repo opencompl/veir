@@ -364,7 +364,7 @@ initialize registerBuiltinAttribute {
       addPartialCtorInjEq declName
       addPartialMono `qpf_ctor declName false (← `(tactic| qpf_ctor_mono))
       let step ← mkOfCofixStep (← log.get)
-      addPartialOfCofix `qpf_ctor declName <| ← `(tactic|
+      discard <| addPartialOfCofix `qpf_ctor declName <| ← `(tactic|
         (delta $(mkCIdent declName):ident $(mkCIdent pName):ident
          repeat ($step:tactic)
          try rfl))

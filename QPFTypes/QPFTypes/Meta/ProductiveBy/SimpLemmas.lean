@@ -3,6 +3,7 @@ module
 public meta import Lean
 public import QPFTypes.Theory.TypeVec.Basic
 public import QPFTypes.Theory.TypeFun
+public import QPFTypes.Theory.QPF.Comp
 public import QPFTypes.Meta.ProductiveBy.SimpSet
 
 namespace QPFTypes
@@ -26,6 +27,10 @@ attribute [qpf_productive_by]
   Option.some_inj
   exists_eq_left' exists_and_left exists_and_right exists_eq'
   true_and
+
+-- E.g. for `Comp.get (Cofix.dest (g.__partial xs))`, once `g.__dest_partial` has rewritten the
+-- inner `Cofix.dest`, rather than `g.__get_dest_partial` the whole term.
+attribute [qpf_productive_by] QPF.Comp.get_mk
 
 public meta section
 

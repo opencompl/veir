@@ -33,13 +33,16 @@ of a `CofixWithBot` type, which gives two forms:
       (k : α → CofixWithBot G β) : CofixWithBot G β :=
     CofixWithBot.elim xs fun y => k y.1
   ```
-  `codef` does not yet use partial versions of this form.
+  `codef` uses partial versions of this form by passing the rest of the term as the
+  continuation, see `Codef.Ctx.liftCPS?`.
 
 The attribute also proves the monotonicity lemma `g.__partial_mono`, and registers it with
 `@[partial_fixpoint_monotone]`, so that `partial_fixpoint` accepts recursive calls under `g`.
-For the direct form, if `g` returns a value of type `T`, it also proves
-`g.__partial_ofCofix : ofCofix (g xs) = g.__partial (ofCofix xs)`, which `codef` uses to prove
-unfolding equations.
+It also proves `g.__partial_ofCofix`, which `codef` uses to prove unfolding equations:
+`ofCofix (g xs) = g.__partial (ofCofix xs)` for the direct form, if `g` returns a value of type
+`T`, and `g.__partial (ofCofix xs) k = k (g xs)` for the continuation-passing form. These are
+also added to `qpf_productive_by` (the former right-to-left), so that productivity proofs see
+the total eliminators on the inputs `ofCofix xs` of `codef` functions.
 
 ## Limitations
 
@@ -55,9 +58,6 @@ public meta section
 namespace QPFTypes.Codef
 
 open Lean Meta Elab
-
-/-- The suffix for the monotonicity lemma of a partial eliminator. -/
-def partialMonoSuffix : Name := `__partial_mono
 
 /--
 `qpf_reduce_projs` reduces projections (such as `((TypeVec.id ::: g) <$$> s).2`) in the goal
@@ -95,15 +95,6 @@ macro_rules
     | (apply Lean.Order.monotone_apply; assumption)
     -- `monotonicity` may apply `elim_mono` itself, leaving its premises open.
     | (monotonicity; done))
-
-/-- A universe level name which is not among `lvls`. -/
-def freshLevelName (lvls : List Name) (base : String) : Name := Id.run do
-  let mut i := 0
-  let mut n := Name.mkSimple base
-  while lvls.contains n do
-    i := i + 1
-    n := Name.mkSimple s!"{base}_{i}"
-  return n
 
 /-- Whether `ty` unfolds to a `Cofix` type. -/
 partial def isCofixType (ty : Expr) : MetaM Bool := do
@@ -171,7 +162,10 @@ def addPartialElim (declName : Name) : MetaM Bool := do
           (k : Array (Expr × Expr) → MetaM γ) : MetaM γ := do
         if h : i < lifted.size then
           let (x, x') := lifted[i]
-          let yTy ← ctx.go (← inferType (mkApp (ctx.mkConst ``QPF.Cofix.dest) x))
+          let dest ← if ← isDefEq (← inferType x) ctx.T then
+              pure (mkApp (ctx.mkConst ``QPF.Cofix.dest) x)
+            else mkAppM ``QPF.Cofix.dest #[x]
+          let yTy ← ctx.go (← inferType dest)
           withLocalDeclD `y yTy fun y => withRoots (i + 1) (dests.push (x', y)) k
         else k dests
       withRoots 0 #[] fun dests => do
@@ -186,8 +180,12 @@ def addPartialElim (declName : Name) : MetaM Bool := do
         -- `elim x₁ fun y₁ => ... elim xₙ fun yₙ => b`, into `CofixWithBot.{lvl} gArgs`.
         let wrap (lvl : Level) (gArgs : Array Expr) (b : Expr) : MetaM Expr :=
           used.foldrM (init := b) fun (x', y) b => do
-            let e := mkAppN (.const ``QPF.CofixWithBot.elim [ctx.lvl, lvl])
-              (ctx.args ++ gArgs ++ #[x', ← mkLambdaFVars #[y] b])
+            -- The arguments of `x' : CofixWithBot F α` (e.g. `Stream.__partial α`, besides
+            -- `T.__partial`).
+            let (xLvl, xArgs) := (← QPFAttr.partialTypeArgs? (← inferType x')).getD
+              (ctx.lvl, ctx.args)
+            let e := mkAppN (.const ``QPF.CofixWithBot.elim [xLvl, lvl])
+              (xArgs ++ gArgs ++ #[x', ← mkLambdaFVars #[y] b])
             try check e
             catch ex => throwError "@[qpf_elim]: failed to construct `{.ofConstName pName}`:\
               {indentD ex.toMessageData}"
@@ -276,39 +274,60 @@ def addPartialMono (attr declName : Name) (cps : Bool) (tac : TSyntax `tactic) :
       else
         finish #[] args
 
-/-- If `declName` returns a value of a coinductive type `T` marked with `@[qpf]`, and
-`declName.__partial` takes the same arguments, except for those of type `T`, prove and add
-`declName.__partial_ofCofix : ofCofix (g xs) = g.__partial (ofCofix xs)`, which `codef` uses
-to prove unfolding equations, see `Codef.addUnfoldEqns`. The proof is by `tac`, and `attr` is
-the attribute being applied. -/
-def addPartialOfCofix (attr declName : Name) (tac : TSyntax `tactic) : TermElabM Unit := do
+/-- Prove and add `declName.__partial_ofCofix`, which relates `declName.__partial` on total
+values (lifted with `ofCofix`) to `declName`, see the module docstring. `codef` uses it to prove
+unfolding equations, see `Codef.addUnfoldEqns`. The proof is by `tac`, and `attr` is the
+attribute being applied.
+* If `declName` returns a value of a coinductive type `T` marked with `@[qpf]`, and
+  `declName.__partial` takes the same arguments, except for those of type `T`, the lemma is
+  `ofCofix (g xs) = g.__partial (ofCofix xs)`.
+* If `cps`, i.e. `declName.__partial` is in continuation-passing style, the lemma is
+  `g.__partial (ofCofix xs) k = k (g xs)`.
+
+Returns whether the lemma was added. -/
+def addPartialOfCofix (attr declName : Name) (tac : TSyntax `tactic) (cps : Bool := false) :
+    TermElabM Bool := do
   let info ← getConstInfo declName
   let pName := declName ++ partialSuffix
+  let pInfo ← getConstInfo pName
   let lvls := info.levelParams.map mkLevelParam
   forallTelescope info.type fun xs R => do
+    let some x₀ ← xs.findM? fun x => do isCofixType (← inferType x) | return false
     -- Only for results of a coinductive type marked with `@[qpf]`, see `mkCtx`.
-    if (← QPFAttr.partialType? R).isNone then return
-    let ctx ← mkCtx declName .anonymous R
-    let ofCofix := ctx.mkConst ``QPF.CofixWithBot.ofCofix
+    unless cps do
+      if (← QPFAttr.partialType? R).isNone then return false
+    let ctx ← mkCtx declName .anonymous (← if cps then inferType x₀ else pure R)
+      (cmd := m!"@[{attr}]")
     let args ← xs.mapM fun x => do
-      return if ← ctx.isTotalType (← inferType x) then mkApp ofCofix x else x
-    let rhs := mkAppN (.const pName lvls) args
+      if ← ctx.isTotalType (← inferType x) then ctx.mkOfCofix x else pure x
+    -- The continuation-passing form has the extra universe parameter `v` of its result.
+    let pLvls := pInfo.levelParams.map mkLevelParam
+    let rhs := mkAppN (.const pName pLvls) args
     -- Only if `g.__partial` takes the other arguments unchanged.
-    unless (← observing? (check rhs)).isSome do return
-    let goal ← mkEq (mkApp ofCofix (mkAppN (.const declName lvls) xs)) rhs
-    let g ← mkFreshExprSyntheticOpaqueMVar goal
-    let gs ← try Tactic.run g.mvarId! (Tactic.evalTactic tac)
-      catch ex => throwError "@[{attr}]: failed to prove `{.ofConstName pName}` commutes \
-        with `ofCofix`:{indentD ex.toMessageData}"
-    unless gs.isEmpty do
-      throwError "@[{attr}]: failed to prove `{.ofConstName pName}` commutes with \
-        `ofCofix`, unsolved goals:{goalsToMessageData gs}"
-    addDecl <| .thmDecl {
-      name := declName ++ partialOfCofixSuffix
-      levelParams := info.levelParams
-      type := ← mkForallFVars xs goal
-      value := ← instantiateMVars (← mkLambdaFVars xs g)
-    }
+    unless (← observing? (check rhs)).isSome do return false
+    let prove (goal : Expr) (binders : Array Expr) (lvlNames : List Name) : TermElabM Bool := do
+      let g ← mkFreshExprSyntheticOpaqueMVar goal
+      let gs ← try Tactic.run g.mvarId! (Tactic.evalTactic tac)
+        catch ex => throwError "@[{attr}]: failed to prove `{.ofConstName pName}` commutes \
+          with `ofCofix`:{indentD ex.toMessageData}"
+      unless gs.isEmpty do
+        throwError "@[{attr}]: failed to prove `{.ofConstName pName}` commutes with \
+          `ofCofix`, unsolved goals:{goalsToMessageData gs}"
+      addDecl <| .thmDecl {
+        name := declName ++ partialOfCofixSuffix
+        levelParams := lvlNames
+        type := ← instantiateMVars (← mkForallFVars binders goal)
+        value := ← instantiateMVars (← mkLambdaFVars binders g)
+      }
+      return true
+    unless cps do
+      let lhs ← ctx.mkOfCofix (mkAppN (.const declName lvls) xs)
+      return ← prove (← mkEq lhs rhs) xs info.levelParams
+    -- `{m G} [QPF G] {β} (k : R → CofixWithBot G β)`.
+    forallBoundedTelescope (← inferType rhs) (some 5) fun gs _ => do
+      let k := gs.back!
+      prove (← mkEq (mkAppN rhs gs) (mkApp k (mkAppN (.const declName lvls) xs)))
+        (xs ++ gs) pInfo.levelParams
 
 initialize registerBuiltinAttribute {
   name := `qpf_elim
@@ -322,10 +341,17 @@ initialize registerBuiltinAttribute {
     MetaM.run' <| Term.TermElabM.run' do
       addPartialMono `qpf_elim declName cps (← `(tactic| qpf_elim_mono))
       let pName := declName ++ partialSuffix
-      addPartialOfCofix `qpf_elim declName <| ← `(tactic|
+      let added ← addPartialOfCofix `qpf_elim declName (cps := cps) <| ← `(tactic|
         (delta $(mkCIdent pName):ident
          simp only [$(mkCIdent ``QPF.CofixWithBot.elim_ofCofix):ident]
          try rfl))
+      -- In productivity proofs, eliminate partial eliminators on total values, e.g.
+      -- `tail.__partial (ofCofix xs)` to `ofCofix xs.tail` (hence the inverse of the direct
+      -- form), as they arise from the possibly-partial arguments of `codef` functions.
+      if added then
+        if let some ext ← getSimpExtension? `qpf_productive_by then
+          addSimpTheorem ext (declName ++ partialOfCofixSuffix) (post := true) (inv := !cps)
+            .global (eval_prio default)
     Attribute.add (declName ++ partialMonoSuffix) `partial_fixpoint_monotone .missing
   erase := fun declName =>
     throwError "@[qpf_elim] cannot be erased from '{.ofConstName declName}'"

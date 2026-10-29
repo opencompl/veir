@@ -61,16 +61,24 @@ def fixedParams (declName : Name) (arity : Nat) : MetaM (Array Bool) := do
         then fixed := fixed.set! j false
       return fixed
 
+/-- If `p` is `CofixWithBot.ofCofix x`, the total value `x`. -/
+def ofCofixArg? (p : Expr) : Option Expr :=
+  if p.isAppOfArity ``QPF.CofixWithBot.ofCofix 5 then some p.appArg! else none
+
 /-- `∃ ys, z = c args`, where `args` is `ps` with the changing (non-`fixed`) positions
-replaced by the bound variables `ys`. -/
+replaced by the bound variables `ys`. Where `ps` passes a total value `ofCofix x` (to a
+possibly-partial parameter of `c`), the variable is total as well, and passed as `ofCofix y`. -/
 partial def mkExistsEq (z c : Expr) (ps : Array Expr) (fixed : Array Bool) (i : Nat := 0)
     (args : Array Expr := #[]) : MetaM Expr := do
   if h : i < ps.size then
     if fixed[i]! then return ← mkExistsEq z c ps fixed (i + 1) (args.push ps[i])
     let .forallE n d _ _ ← whnf (← inferType (mkAppN c args))
       | throwError "productive_by_intro: unexpected type of{indentExpr c}"
+    let (d, wrap) ← match ofCofixArg? ps[i] with
+      | some x => pure (← inferType x, mkApp ps[i].appFn!)
+      | none => pure (d, id)
     withLocalDeclD n d fun y => do
-      let body ← mkExistsEq z c ps fixed (i + 1) (args.push y)
+      let body ← mkExistsEq z c ps fixed (i + 1) (args.push (wrap y))
       mkAppM ``Exists #[← mkLambdaFVars #[y] body]
   else
     mkEq z (mkAppN c args)
@@ -113,7 +121,8 @@ partial def destructExistsEq (g : MVarId) (h : FVarId) : MetaM MVarId := g.withC
 
 It applies `CofixWithBot.HasNoBot.coinduct` with the motive
 `fun z => ∃ ys, z = f.__partial xs[ys]`, where `ys` replaces those arguments which are
-changed by some recursive call of `f.__partial`. It then introduces `z` and the motive,
+changed by some recursive call of `f.__partial`. Total values `ofCofix x` passed to
+possibly-partial parameters are replaced by `ofCofix y`, for a total `y`. It then introduces `z` and the motive,
 unfolds `f.__partial` in the latter, and destructs it, substituting `z` away. The
 arguments `ys` are named after the parameters of `f`, and replace the original `xs`. Finally,
 it cleans up the goal with `simp only [qpf_productive_by]`.
@@ -146,7 +155,8 @@ def evalProductiveByIntro : Tactic.Tactic := fun _ => Tactic.withMainContext do
   let motive ← withLocalDeclD `z (← inferType p) fun z => do
     let ds := #[← mkExistsEq z c ps fixed] ++ extras.map (·.beta #[z])
     mkLambdaFVars #[z] (ds.pop.foldr mkOr ds.back!)
-  let ws := (ps.zip fixed).filterMap fun (x, b) => if b then none else some x
+  let ws := (ps.zip fixed).filterMap fun (x, b) =>
+    if b then none else some ((ofCofixArg? x).getD x)
   let mp := motive.beta #[p]
   let init ← if extras.isEmpty then proveExistsEq mp p ws.toList else
     pure <| mkApp3 (mkConst ``Or.inl) mp.appFn!.appArg! mp.appArg!

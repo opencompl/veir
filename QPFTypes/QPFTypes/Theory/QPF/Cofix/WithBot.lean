@@ -3,6 +3,7 @@ module
 public import QPFTypes.Theory.QPF.Cofix.Order
 public import QPFTypes.Theory.QPF.Comp
 public import QPFTypes.Instances.Option
+import all Init.Internal.Order.Basic
 
 /-!
 # Coinductive types with a freely added bottom element
@@ -250,6 +251,19 @@ theorem monotone_finCases {γ : Sort v} [Lean.Order.PartialOrder γ] {β : Sort 
   induction i using Fin.cases with
   | zero => simpa using hv
   | succ i => simpa using Lean.Order.monotone_apply i f hf
+
+/-- Monotone functions into a `CCPO` form an admissible predicate. `codef` uses this to prove,
+by fixpoint induction, that the functions it defines with `partial_fixpoint` are monotone in
+their possibly-partial arguments, see `QPFTypes.Meta.Codef`. -/
+theorem admissible_monotone {γ : Sort v} [Lean.Order.PartialOrder γ] {β : Sort w}
+    [Lean.Order.CCPO β] : Lean.Order.admissible (fun f : γ → β => Lean.Order.monotone f) := by
+  unfold Lean.Order.admissible Lean.Order.monotone
+  intro c hc h a b hab
+  rw [← Lean.Order.fun_csup_eq]
+  apply Lean.Order.csup_le
+  rintro _ ⟨f, hf, rfl⟩
+  exact Lean.Order.PartialOrder.rel_trans (h f hf a b hab)
+    (Lean.Order.le_csup (Lean.Order.chain_apply hc b) ⟨f, hf, rfl⟩)
 
 /-! ## Eliminator -/
 
