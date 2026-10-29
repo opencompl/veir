@@ -5,11 +5,13 @@
   ^bb0(%x: i32):
     %ctlz = "llvm.intr.ctlz"(%x) <{is_zero_poison = false}> : (i32) -> i32
     // CHECK:      "gmir.g_ctlz"(%{{.*}}) : (i32) -> i32
-    // A zero-poison count becomes the defined count, which refines it.
+    // A count whose zero input is poison becomes a zero-poison count.
     %ctlz_poison = "llvm.intr.ctlz"(%x) <{is_zero_poison = true}> : (i32) -> i32
-    // CHECK-NEXT: "gmir.g_ctlz"(%{{.*}}) : (i32) -> i32
-    %cttz = "llvm.intr.cttz"(%x) <{is_zero_poison = true}> : (i32) -> i32
+    // CHECK-NEXT: "gmir.g_ctlz_zero_poison"(%{{.*}}) : (i32) -> i32
+    %cttz = "llvm.intr.cttz"(%x) <{is_zero_poison = false}> : (i32) -> i32
     // CHECK-NEXT: "gmir.g_cttz"(%{{.*}}) : (i32) -> i32
+    %cttz_poison = "llvm.intr.cttz"(%x) <{is_zero_poison = true}> : (i32) -> i32
+    // CHECK-NEXT: "gmir.g_cttz_zero_poison"(%{{.*}}) : (i32) -> i32
     %ctpop = "llvm.intr.ctpop"(%x) : (i32) -> i32
     // CHECK-NEXT: "gmir.g_ctpop"(%{{.*}}) : (i32) -> i32
     %bswap = "llvm.intr.bswap"(%x) : (i32) -> i32
@@ -29,8 +31,8 @@
     // An `abs` whose minimum value is poison becomes the defined `abs`, which refines it.
     %abs_poison = "llvm.intr.abs"(%x) <{is_int_min_poison = true}> : (i32) -> i32
     // CHECK-NEXT: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
-    "test.test"(%ctlz, %ctlz_poison, %cttz, %ctpop, %bswap, %bitreverse) : (i32, i32, i32, i32, i32, i32) -> ()
     "test.test"(%smax, %smin, %umax, %umin, %abs, %abs_poison) : (i32, i32, i32, i32, i32, i32) -> ()
+    "test.test"(%ctlz, %ctlz_poison, %cttz, %cttz_poison, %ctpop, %bswap, %bitreverse) : (i32, i32, i32, i32, i32, i32, i32) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

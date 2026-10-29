@@ -2,7 +2,7 @@ module
 
 public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.PatternRewriter.Basic
-import Veir.PatternRewriter.Puddle.Builders
+public import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
 /-!
@@ -17,6 +17,25 @@ https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/CodeGen/GlobalI
 namespace Veir
 
 open Puddle
+
+public section
+
+/-- Create a `g_constant` of `type` whose value `value` computes from the metadata `inputs`. -/
+def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
+    (type : Handle OpCode .type) (inputs : Inputs)
+    (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
+      (type, inputs) fun (type, inputs) => do
+        let .integerType type := type.val | none
+        return { value := .ofInt (value inputs) type }
+  CreateProg.operation (.gmir .g_constant) #[] #[type] props
+
+/-- Create a `g_constant` of `type` with the value `value`. -/
+def createConstant (type : Handle OpCode .type) (value : Int) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type () fun () => value
+
+end
 
 /--
 Widens type group `typeIdx` of `opcode` to `width` bits. Its operands are extended with `extOpcode`
@@ -80,13 +99,8 @@ def widenConstant (width : Nat) : Pattern OpCode :=
 /-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
 integer type `srcType`. -/
 private def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
-    CreateProg.Builder CreatedOpHandle := do
-  let props ← CreateProg.applyNative (srcType, type) fun (srcType, type) =>
-    match srcType.val, type.val with
-    | .integerType srcType, .integerType type =>
-      some (GMIRConstantProperties.mk (.ofInt (value srcType.bitwidth) type))
-    | _, _ => none
-  CreateProg.operation (.gmir .g_constant) #[] #[type] (.inr props)
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
 
 /--
 Widens the operand of `g_ctlz` to `width` bits. The operand is zero-extended, so the count is too
@@ -114,7 +128,8 @@ def widenCtlzSrc (width : Nat) : Pattern OpCode :=
 /--
 Widens the operand of `g_cttz` to `width` bits. The bit just above the operand is set, so that
 the count of a zero operand is still its width, as in LLVM's `LegalizerHelper::widenScalar`. The
-result must already be `width` bits wide, which the rules ensure by widening it first.
+wide operand is never zero, so it is counted with `g_cttz_zero_poison`, as in LLVM. The result
+must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
@@ -128,7 +143,7 @@ def widenCttzSrc (width : Nat) : Pattern OpCode :=
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
       let wideSrc ← CreateProg.operation (.gmir .g_or) #[ext.res[0]!, topBit.res[0]!] #[resType]
-      CreateProg.operation (.gmir .g_cttz) #[wideSrc.res[0]!] #[resType])
+      CreateProg.operation (.gmir .g_cttz_zero_poison) #[wideSrc.res[0]!] #[resType])
     (fun op => op)
 
 /--
@@ -149,6 +164,19 @@ def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
       let diff ← widthConstant type wideType (width - ·)
       let shift ← CreateProg.operation (.gmir .g_lshr) #[wide.res[0]!, diff.res[0]!] #[wideType]
       CreateProg.operation (.gmir .g_trunc) #[shift.res[0]!] #[type])
+    (fun op => op)
+
+/-- Lowers the count `opcode`, whose zero input is poison, to the count `defined`, which is defined
+at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
+def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType)
+      let resType ← MatchProg.type (Attr := IntegerType)
+      let src ← MatchProg.value srcType
+      let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
+      return (resType, src))
+    (fun (resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
     (fun op => op)
 
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
@@ -183,12 +211,7 @@ def lowerZext : Pattern OpCode :=
       return (srcType, resType, src))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
-      let maskProps ← CreateProg.applyNative (srcType, resType) fun (srcType, resType) =>
-        match srcType.val, resType.val with
-        | .integerType srcType, .integerType resType =>
-          some (GMIRConstantProperties.mk (.ofInt (2 ^ srcType.bitwidth - 1) resType))
-        | _, _ => none
-      let mask ← CreateProg.operation (.gmir .g_constant) #[] #[resType] (.inr maskProps)
+      let mask ← widthConstant srcType resType (2 ^ · - 1)
       CreateProg.operation (.gmir .g_and) #[ext.res[0]!, mask.res[0]!] #[resType])
     (fun op => op)
 
@@ -217,6 +240,8 @@ public section
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
   | .g_zext => lowerZext
+  | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
+  | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -234,6 +259,11 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   -- The high bits matter for the comparison, and sign extension preserves both the signed and
   -- the unsigned order.
   | .g_icmp, .type 1, width => widenTypeGroup .g_icmp (.type 1) .g_sext width
+  -- The high bits of the selected values never reach the low bits of the result.
+  | .g_select, .type 0, width => widenTypeGroup .g_select (.type 0) .g_anyext width
+  -- The condition is true when it is nonzero, so its high bits must be zero, as with LLVM's
+  -- `getBoolExtOp` on a target whose booleans are zero or one.
+  | .g_select, .type 1, width => widenTypeGroup .g_select (.type 1) .g_zext width
   -- As for `g_add`, the high bits of the shifted value never reach the low bits of the result.
   | .g_shl, .type 0, width => widenTypeGroup .g_shl (.type 0) .g_anyext width clearNswNuwProperties
   -- `ashr` shifts copies of the sign bit into the result, so the high bits must be sign bits.

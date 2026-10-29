@@ -26,7 +26,10 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
   { name := "postlegalizer-combiner-riscv64"
     description := "Combine legalized gMIR operations for RISC-V 64."
     run := fun _ ctx _ _ => do
-      let pattern := RewritePattern.GreedyRewritePattern
+      -- The combines come before `sub_to_add`, which would otherwise rewrite the subtractions
+      -- some of them match.
+      let pattern := RewritePattern.GreedyRewritePattern <|
+        (combines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
         #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run, commutativeConstantRHS]
       -- Folding legalized gMIR can produce constants of illegal width, which isel cannot select.
       match RewritePattern.applyInContext pattern ctx (fold := false) with

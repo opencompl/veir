@@ -4,6 +4,7 @@
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
+// The operands are loaded from stack slots so that the combiner does not fold the min/max away.
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i32, i32, i32, i32, i8, i8, i64, i32, i8)}> ({
     %n = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64

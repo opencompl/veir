@@ -89,10 +89,11 @@ def g_urem := (lowerBinop .urem .g_urem).compile
 
 /--
   GMIR lowerings with Puddle for unary operations on values that gMIR can represent, whose
-  properties are converted with `convert`.
+  properties satisfy `guard` and are converted with `convert`.
 -/
 def lowerUnop (lOp : Llvm) (gOp : GMIR)
-    (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp)) :
+    (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp))
+    (guard : propertiesOf (OpCode.llvm lOp) → Bool := fun _ => true) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -100,20 +101,23 @@ def lowerUnop (lOp : Llvm) (gOp : GMIR)
       let resultType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
       let operand ← Puddle.MatchProg.value operandType
       let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[resultType]
+      Puddle.MatchProg.matchNative root.properties guard
       return (resultType, operand, root))
     (fun (resultType, operand, root) => do
       let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (convert p))
       Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] (.inr props))
     (fun newOp => newOp)
 
-/-
-  LLVM translates a `ctlz`/`cttz` whose zero input is poison to `G_CTLZ_ZERO_POISON`/
-  `G_CTTZ_ZERO_POISON`. We do not have these opcodes yet, and `g_ctlz`/`g_cttz`, which are
-  defined at zero, refine them.
--/
-def g_ctlz := (lowerUnop .intr__ctlz .g_ctlz fun _ => ()).compile
+/- As in LLVM, a `ctlz`/`cttz` whose zero input is poison becomes a `_zero_poison` count. -/
+def g_ctlz := (lowerUnop .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison)).compile
 
-def g_cttz := (lowerUnop .intr__cttz .g_cttz fun _ => ()).compile
+def g_cttz := (lowerUnop .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison)).compile
+
+def g_ctlz_zero_poison :=
+  (lowerUnop .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison)).compile
+
+def g_cttz_zero_poison :=
+  (lowerUnop .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison)).compile
 
 def g_ctpop := (lowerUnop .intr__ctpop .g_ctpop id).compile
 
@@ -131,6 +135,27 @@ def g_umin := (lowerBinop .intr__umin .g_umin).compile
 
 /- LLVM translates `abs` to `G_ABS` and drops `is_int_min_poison`, which `g_abs` refines. -/
 def g_abs := (lowerUnop .intr__abs .g_abs fun _ => ()).compile
+
+/--
+  `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
+  selects as `g_select` does, see `GMIR.selectNonzero_one`.
+  TODO: Also translate selects of pointers, once `g_select` accepts them.
+-/
+def lowerSelect : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let condType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let cond ← Puddle.MatchProg.value condType
+      let tval ← Puddle.MatchProg.value type
+      let fval ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm .select) #[cond, tval, fval] #[type]
+      return (type, cond, tval, fval))
+    (fun (type, cond, tval, fval) =>
+      Puddle.CreateProg.operation (.gmir .g_select) #[cond, tval, fval] #[type])
+    (fun newOp => newOp)
+
+def g_select := lowerSelect.compile
 
 /--
   GMIR lowerings with Puddle for integer casts.
@@ -368,11 +393,12 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
 def LLVMToGMIRPass.impl (fold : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
-    g_add.run, g_sub.run, g_icmp.run, g_sext.run, g_zext.run, g_trunc.run,
+    g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
-    g_ctlz.run, g_cttz.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
+    g_bswap.run, g_bitreverse.run,
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run,
+    g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
     .fromLocalRewrite lowerStaticAlloca,

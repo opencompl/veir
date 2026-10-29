@@ -3,6 +3,7 @@
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // smin(-1, 1) = -1 (signed); distinct from umin. -> riscv.min
+// The operands are loaded from stack slots so that the combiner does not fold the min/max away.
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
     %n = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
