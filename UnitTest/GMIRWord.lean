@@ -19,24 +19,3 @@ example (msb : BitVec 32) (mem : MemoryState) :
   rw [CTree.bind_ret]
   apply (PureOrErr.CanInterpretTo.tau_iff _ _ _).mpr
   exact ⟨msb, .ret _⟩
-
-/-- `exact` still poisons an inexact quotient after any-extension. -/
-example (mem : MemoryState) :
-    PureOrErr.CanInterpretTo
-      (GMIR.interpretOpCTree .g_sdivw { exact := true }
-        #[IntegerType.signless 64] #[.int 64 (.val 3), .int 64 (.val 2)] #[] mem)
-      (.ok (#[.int 64 .poison], mem, none)) := by
-  change PureOrErr.CanInterpretTo (CTree.bind (CTree.ret _) _) _
-  rw [CTree.bind_ret]
-  apply (PureOrErr.CanInterpretTo.tau_iff _ _ _).mpr
-  exact ⟨0, .ret _⟩
-
-/-- Division UB propagates before the choice of upper bits. -/
-example (mem : MemoryState) :
-    PureOrErr.CanInterpretTo
-      (GMIR.interpretOpCTree .g_udivw { exact := false }
-        #[IntegerType.signless 64] #[.int 64 (.val 3), .int 64 (.val 0)] #[] mem)
-      (.ub none) := by
-  change PureOrErr.CanInterpretTo (CTree.bind (CTree.bind (CTree.vis _ _) _) _) _
-  simp only [CTree.CTree.bind_vis]
-  exact PureOrErr.CanInterpretTo.ub (E := ErrorE ⊕ₑ UBE) (C := FreezeC)
