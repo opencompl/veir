@@ -74,7 +74,7 @@ public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withConte
   let g ← applySimp g eqThms { decide := false, singlePass := true }
   -- Create simp set to push the `setWidth`s in
   let thms := ← addPushTheorems g (← read).blastWidth
-           <| ← addBvInfos g
+          --  <| ← addBvInfos g
            <| ← addWidthInfosSimpLemmas g #[]
   -- Run simp
   applySimp g thms

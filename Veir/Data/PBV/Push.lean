@@ -350,14 +350,14 @@ theorem setWidth_signExtend {o t v : Nat} (hvo : v ≤ o) (a : BitVec v) :
 @[pbv_push]
 theorem setWidth_append {o w v : Nat} (h : w ≤ o) (a : BitVec v) (b : BitVec w) (hvw : v + w ≤ o) :
     (a ++ b).setWidth o
-      = ((a.setWidth o) <<< BitVec.cpop (maskOfWidth o w)) ||| b.setWidth o := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_or, BitVec.toNat_setWidth_of_le, hvw, h,
-      BitVec.toNat_append, BitVec.shiftLeft_eq', BitVec.toNat_shiftLeft]
-  congr 1
-  rw [toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
-  have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
-  grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
+      = (((a.setWidth o) <<< BitVec.cpop (maskOfWidth o w)) ||| b.setWidth o) &&& maskOfWidth o (v + w) := by sorry
+  -- refine setWidth_eq_and_maskOfWidth hvw ?_
+  -- simp only [BitVec.toNat_or, BitVec.toNat_setWidth_of_le, hvw, h,
+  --     BitVec.toNat_append, BitVec.shiftLeft_eq', BitVec.toNat_shiftLeft]
+  -- congr 1
+  -- rw [toNat_cpop_maskOfWidth_eq_width h, BitVec.toNat_setWidth_of_le (by lia), Nat.mod_eq_of_lt]
+  -- have a_lt_vw := Nat.mul_lt_mul_of_lt_of_le a.isLt (Nat.le_refl _) (Nat.two_pow_pos w)
+  -- grind [Nat.pow_le_pow_right (n := 2) (by lia) hvw]
 
 /-- `setWidth` of a constant is the constant anded with the mask. -/
 @[pbv_push]

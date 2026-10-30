@@ -41,7 +41,7 @@ meta def pbvTranslate (g : MVarId) : TranslateM MVarId := g.withContext do
   -- Lift the goal to the blast width and push the `setWidth`s in
   let g ← liftToBlastWidth g
   -- Drop references to `Nat` width variables
-  let g ← dropNatReferences g
+  -- let g ← dropNatReferences g
   return g
 
 /--
