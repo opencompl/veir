@@ -1103,11 +1103,35 @@ def select_of_constants_pattern (negative : Bool) : Pattern OpCode :=
         CreateProg.operation (.gmir .g_add) #[shl.res[0]!, c₂Value] #[type])
     (fun op => op)
 
+/-- `(icmp ne v, 0) ? x : y` → `v ? x : y`, and `(icmp eq v, 0) ? x : y` → `v ? y : x` when
+    `swap` is set: a condition wider than `i1` is already true when it is nonzero. The new
+    `g_select` must be legal with the condition type of `v`. -/
+def select_icmp_zero_pattern (info : LegalizerInfo) (swap : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let vType ← MatchProg.type (Attr := IntegerType)
+      let v ← MatchProg.value vType
+      let zero ← matchConstant vType (·.bits = 0)
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[v, zero.res[0]!] #[condType]
+          (·.predicate = if swap then .eq else .ne)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir .g_select) #[icmp.res[0]!, x, y] #[type]
+      MatchProg.matchNative (type, vType) fun (type, vType) =>
+        info.isLegal .g_select #[type, vType] ()
+      return (type, v, x, y))
+    (fun (type, v, x, y) =>
+      CreateProg.operation (.gmir .g_select) (if swap then #[v, y, x] else #[v, x, y]) #[type])
+    (fun op => op)
+
 /-- The select combines, which take the `LegalizerInfo` of the target. -/
 def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
   let patterns : Array (Pattern OpCode) :=
   #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false,
-    select_of_constants_pattern false, select_of_constants_pattern true] ++
+    select_of_constants_pattern false, select_of_constants_pattern true,
+    select_icmp_zero_pattern info false, select_icmp_zero_pattern info true] ++
   #[(Data.LLVM.IntPred.ugt, GMIR.g_umax), (.uge, .g_umax), (.sgt, .g_smax), (.sge, .g_smax),
     (.ult, .g_umin), (.ule, .g_umin), (.slt, .g_smin), (.sle, .g_smin)].map
       (fun (pred, minmax) => select_to_iminmax_pattern info pred minmax) ++

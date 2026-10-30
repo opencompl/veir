@@ -2201,15 +2201,17 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
     (fun castBackOp => castBackOp)
 
 /--
-  `gmir.g_icmp` -> riscv comparison sequence. The `eq`/`ne`-against-zero
-  peepholes come first so they take priority over the generic arms.
+  The `eq`/`ne`-against-zero peepholes of `gmir.g_icmp`. Like the immediate forms, they run before
+  the main loop, where `gmirConstant` could select their `0` into a register first.
 -/
+def gmirIcmpZero : Array (Puddle.CompiledPattern OpCode) :=
+  #[Data.LLVM.IntPred.eq, .ne].map (gmirIcmp_pattern · true |>.compile)
+
+/-- `gmir.g_icmp` -> riscv comparison sequence. -/
 def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
   let preds : Array Data.LLVM.IntPred :=
     #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
-  let peepholes := #[Data.LLVM.IntPred.eq, .ne].map (gmirIcmp_pattern · true)
-  let generic := preds.map (gmirIcmp_pattern · false)
-  (peepholes ++ generic).map (·.compile)
+  preds.map (gmirIcmp_pattern · false |>.compile)
 
 /-! # Pass implementation -/
 
@@ -2241,7 +2243,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let immediate := RewritePattern.GreedyRewritePattern <| #[
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirAddiw.run, gmirSlliw.run, gmirSrliw.run, gmirSraiw.run,
-    gmirBseti.run, gmirBinvi.run, gmirBclri.run, gmirBsetZero.run] ++ gmirSlti.map (·.run)
+    gmirBseti.run, gmirBinvi.run, gmirBclri.run, gmirBsetZero.run] ++ gmirSlti.map (·.run) ++
+    gmirIcmpZero.map (·.run)
   let ctx ← match RewritePattern.applyInContext immediate ctx with
   | none => throw "Error while applying immediate instruction-selection patterns"
   | some ctx => pure ctx

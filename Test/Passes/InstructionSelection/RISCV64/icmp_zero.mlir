@@ -28,4 +28,16 @@
         // CHECK: "riscv.sltu"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NOT: "riscv.xor"
     }) : () -> ()
+
+    // eq at i32: legalization creates a fresh `0`, which the peephole must see before
+    // `gmirConstant` selects it into a register.
+    "func.func"() <{function_type = (i32) -> (i1), sym_name = "baz"}> ({
+    ^bb0(%a: i32):
+        %z = "llvm.mlir.constant"() <{value = 0 : i32}> : () -> i32
+        %r = "llvm.icmp"(%a, %z) <{predicate = 0 : i64}> : (i32, i32) -> i1
+        "func.return"(%r) : (i1) -> ()
+        // CHECK-LABEL: func.func @baz(%{{.*}}: i32) -> i1 {
+        // CHECK-NOT: "riscv.xor"
+        // CHECK: "riscv.sltiu"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+    }) : () -> ()
 }) : () -> ()

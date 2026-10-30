@@ -363,6 +363,20 @@ theorem select_of_constants_sub (c : LLVM.Int 1) (c₂ : BitVec 64) (k : BitVec 
         (LLVM.Int.shl (LLVM.Int.zext c 64 false (by decide)) (LLVM.Int.val (k.setWidth 64))) := by
   veir_bv_decide
 
+/-- Prove the correctness of `select_icmp_zero_pattern` for `ne`: `(v != 0) ? x : y` → `v ? x : y`. -/
+theorem select_icmp_ne_zero (v x y : LLVM.Int 64) :
+    GMIR.selectNonzero
+        (LLVM.Int.zext (LLVM.Int.icmp v (LLVM.Int.constant 64 0) .ne) 64 false (by decide)) x y ⊒
+      GMIR.selectNonzero v x y := by
+  veir_bv_decide
+
+/-- Prove the correctness of `select_icmp_zero_pattern` for `eq`: `(v == 0) ? x : y` → `v ? y : x`. -/
+theorem select_icmp_eq_zero (v x y : LLVM.Int 64) :
+    GMIR.selectNonzero
+        (LLVM.Int.zext (LLVM.Int.icmp v (LLVM.Int.constant 64 0) .eq) 64 false (by decide)) x y ⊒
+      GMIR.selectNonzero v y x := by
+  veir_bv_decide
+
 /-! ### Negation combines
 
 The created subtraction has no flags, so it is never more poisonous than the source.
