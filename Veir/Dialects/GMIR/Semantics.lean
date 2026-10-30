@@ -48,6 +48,18 @@ theorem selectNonzero_one {w : Nat} (c : Int 1) (x y : Int w) :
     rcases BitVec.eq_zero_or_eq_one c' with rfl | rfl <;>
       simp [selectNonzero, Int.select, Id.run]
 
+/--
+ The value of a RISC-V word operation (see `GMIR.wordBase?`) whose operation is `f`: `f` of the
+ low 32 bits of the `i64` operands, sign-extended to 64 bits.
+-/
+def word (f : Int 32 → Int 32 → Int 32) (x y : Int 64) : Int 64 :=
+  Int.sext (f (x.trunc 32 false false (by decide)) (y.trunc 32 false false (by decide))) 64
+    (by decide)
+
+/-- The amount of a word shift, which reads only the low 5 bits of `y`. -/
+def wordShiftAmount (y : Int 32) : Int 32 :=
+  Int.and y (.val 31#32)
+
 end
 
 end Veir.GMIR

@@ -1596,6 +1596,37 @@ def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
 def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
 def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
 
+/-- `gmir.g_sdivw` (`i64`) -> `riscv.divw`. -/
+def gmirSdivw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_sdivw) (·.bitwidth = 64) .divw () (guard := matchLegal .g_sdivw)
+
+/-- `gmir.g_udivw` (`i64`) -> `riscv.divuw`. -/
+def gmirUdivw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_udivw) (·.bitwidth = 64) .divuw () (guard := matchLegal .g_udivw)
+
+/-- `gmir.g_uremw` (`i64`) -> `riscv.remuw`. -/
+def gmirUremw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_uremw) (·.bitwidth = 64) .remuw () (guard := matchLegal .g_uremw)
+
+/-- `gmir.g_shlw` (`i64`) -> `riscv.sllw`. -/
+def gmirShlw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_shlw) (·.bitwidth = 64) .sllw () (guard := matchLegal .g_shlw)
+
+/-- `gmir.g_lshrw` (`i64`) -> `riscv.srlw`. -/
+def gmirLshrw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_lshrw) (·.bitwidth = 64) .srlw () (guard := matchLegal .g_lshrw)
+
+/-- `gmir.g_ashrw` (`i64`) -> `riscv.sraw`. -/
+def gmirAshrw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_ashrw) (·.bitwidth = 64) .sraw () (guard := matchLegal .g_ashrw)
+
+def gmirSdivw : Puddle.CompiledPattern OpCode := gmirSdivw_pattern.compile
+def gmirUdivw : Puddle.CompiledPattern OpCode := gmirUdivw_pattern.compile
+def gmirUremw : Puddle.CompiledPattern OpCode := gmirUremw_pattern.compile
+def gmirShlw : Puddle.CompiledPattern OpCode := gmirShlw_pattern.compile
+def gmirLshrw : Puddle.CompiledPattern OpCode := gmirLshrw_pattern.compile
+def gmirAshrw : Puddle.CompiledPattern OpCode := gmirAshrw_pattern.compile
+
 /-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
   Pattern.Builder
@@ -1832,6 +1863,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
+    gmirSdivw.run, gmirUdivw.run, gmirUremw.run, gmirShlw.run, gmirLshrw.run, gmirAshrw.run,
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
     gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++

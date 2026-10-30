@@ -18,15 +18,27 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 namespace Veir
 
 /--
-  Custom legalization of `i32` binary operations into their RISC-V word variant
-  (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
-  For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
-  later. For `g_sdiv`/`g_udiv`/`g_urem` and the shifts, LLVM custom-legalizes into `RISCV::G_DIVW`,
-  `RISCV::G_SLLW` etc.
+  Custom legalization of `i32` binary operations into their gMIR word variant
+  (`g_sdiv` -> `g_sdivw`, `g_udiv` -> `g_udivw`, `g_urem` -> `g_uremw`, `g_shl` -> `g_shlw`,
+  `g_lshr` -> `g_lshrw`, `g_ashr` -> `g_ashrw`). LLVM custom-legalizes them into `RISCV::G_DIVW`,
+  `RISCV::G_DIVUW`, `RISCV::G_REMUW`, `RISCV::G_SLLW`, `RISCV::G_SRLW` and `RISCV::G_SRAW`.
 -/
-def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
-  lowerBinary (.gmir opcode) (·.bitwidth = 32) riscvOp riscvProps
+def customLegalizeWordBinary (wordOpcode : GMIR) : Option (Puddle.Pattern OpCode) :=
+  wordOpcode.wordBase?.map fun opcode => Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let lhs ← Puddle.MatchProg.value type
+      let rhs ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let lhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[lhs] #[wideType]
+      let rhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[rhs] #[wideType]
+      let word ← Puddle.CreateProg.operation (.gmir wordOpcode)
+          #[lhs.res[0]!, rhs.res[0]!] #[wideType]
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[word.res[0]!] #[type])
+    (fun trunc => trunc)
 
 /--
   Custom legalization of `i32` unary operations into their RISC-V word variant
@@ -89,6 +101,9 @@ public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
   rules
+    | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw => [
+      .legalFor [s64],
+    ]
     | .g_add | .g_sub => [
       .legalFor [s64],
       .customFor [s32],
@@ -96,7 +111,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | .g_shl | .g_lshr | .g_ashr => [
       .legalForTypePairs [(s64, s64)],
-      -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
+      -- Unlike LLVM, we also custom-legalize a shift by a constant into a word shift. LLVM widens
+      -- it to an `s64` shift of the `G_SEXT` (`G_ASHR`), `G_ZEXT` (`G_LSHR`) or `G_ANYEXT`
+      -- (`G_SHL`) of the value, and selects `sraiw`/`srliw` from the extension and the shift. A
+      -- widened `G_SHL` becomes `slli`, whose result is not sign-extended; LLVM turns it into
+      -- `slliw` only in `RISCVOptWInstrs`, which we don't have. A word shift is sign-extended in
+      -- every case.
       .customForTypePairs [(s32, s32)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
@@ -210,15 +230,15 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | _ => []
   legalizeCustom
-    | .g_add => customLegalizeWord .g_add .addw ()
-    | .g_sub => customLegalizeWord .g_sub .subw ()
-    | .g_mul => customLegalizeWord .g_mul .mulw ()
-    | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
-    | .g_udiv => customLegalizeWord .g_udiv .divuw ()
-    | .g_urem => customLegalizeWord .g_urem .remuw ()
-    | .g_shl => customLegalizeWord .g_shl .sllw ()
-    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
-    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
+    | .g_add => lowerBinary (.gmir .g_add) (·.bitwidth = 32) .addw ()
+    | .g_sub => lowerBinary (.gmir .g_sub) (·.bitwidth = 32) .subw ()
+    | .g_mul => lowerBinary (.gmir .g_mul) (·.bitwidth = 32) .mulw ()
+    | .g_sdiv => customLegalizeWordBinary .g_sdivw
+    | .g_udiv => customLegalizeWordBinary .g_udivw
+    | .g_urem => customLegalizeWordBinary .g_uremw
+    | .g_shl => customLegalizeWordBinary .g_shlw
+    | .g_lshr => customLegalizeWordBinary .g_lshrw
+    | .g_ashr => customLegalizeWordBinary .g_ashrw
     | .g_ctlz => customLegalizeWordUnary .g_ctlz .clzw ()
     | .g_cttz => customLegalizeWordUnary .g_cttz .ctzw ()
     | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()
