@@ -12,7 +12,7 @@ open Veir
 /-! Fresh stack starts at index 0 -/
 #guard (default : RegisterStack).next = 0
 
-/-! First allocated registers have indices -1 and -2, stack remeins empty -/
+/-! First allocated registers have indices -1 and -2, stack remains empty -/
 #guard Id.run do
   let (first, stack) := (default : RegisterStack).pop
   let (second, stack) := stack.pop
