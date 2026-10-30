@@ -14,19 +14,19 @@ def UBE : UBEIn.{u} → Type
 
 /-- Typeclass that recursively looks for a UB effect -/
 class HasUB (α : Type u) where
-  hasUB : α → Prop
+  isUB : α → Prop
 
 instance [UB : HasUB α] [UB' : HasUB β] : HasUB (α ⊕ β) where
-  hasUB := fun
-    | .inl x => UB.hasUB x
-    | .inr x => UB'.hasUB x
+  isUB := fun
+    | .inl x => UB.isUB x
+    | .inr x => UB'.isUB x
 
 instance : HasUB UBEIn where
-  hasUB := fun _ => True
+  isUB := fun _ => True
 
 @[default_instance]
 instance (priority := low) : HasUB α where
-  hasUB := fun _ => False
+  isUB := fun _ => False
 
 end CTree
 

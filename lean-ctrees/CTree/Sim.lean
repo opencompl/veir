@@ -13,7 +13,7 @@ open Coinductive Lean.Order Tower
 
 variable {EIn FIn CIn C'In DIn X Y X' Y' : Type u}
   {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u}
-  {R R' : Type u} [UB : HasUB EIn] (RR : R → R' → Prop)
+  {R R' : Type u} (RR : R → R' → Prop)
 
 /--
 Simulation between ctrees: the rhs should have at least all
@@ -49,7 +49,7 @@ axiom vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C R) (k' : E i → CT
   Sim RR (CTree.vis i k) (CTree.vis i k')
 
 axiom ub (e : EIn) :
-  HasUB.hasUB e →
+  @HasUB.isUB _ UB e →
   Sim RR t (CTree.vis e k)
 
 axiom bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y) (k' : X' → CTree E C' Y') :
