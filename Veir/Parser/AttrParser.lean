@@ -1049,6 +1049,28 @@ def parseOptionalSeqFirMemType : AttrParserM (Option Seq.FirMemType) := do
   parsePunctuation ">"
   return some { depth := depth.toNat, width := width.toNat, maskWidth }
 
+/-
+  Parse an SMT sort type, if present.
+  Its syntax is `!smt.bool` or `!smt.bv<width>`.
+-/
+def parseOptionalSMTSortType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  let isBool := typeName == "smt.bool".toByteArray
+  let isBv := typeName == "smt.bv".toByteArray
+  if !isBool && !isBv then return none
+  let _ ← consumeToken
+  if isBool then
+    return some (TypeAttr.of SMT.SortType .bool)
+  parsePunctuation "<"
+  let width ← parseInteger false false
+  parsePunctuation ">"
+  if width ≤ 0 then
+    throwAtCurrentPos "SMT bit-vector width must be positive"
+  return some (TypeAttr.of SMT.SortType (.bv width.toNat))
+
 /-- A parsed entry in an LLVM function type's parameter list. -/
 inductive LLVMFuncParam
   | type (ty : TypeAttr)
@@ -1351,6 +1373,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some seqClockType
   if let some seqFirMemType ← parseOptionalSeqFirMemType then
     return some seqFirMemType
+  if let some smtSortType ← parseOptionalSMTSortType then
+    return some smtSortType
   if let some pdlRangeType ← parseOptionalPDLRangeType then
     return some pdlRangeType
   if let some pdlAttributeType ← parseOptionalPDLAttributeType then

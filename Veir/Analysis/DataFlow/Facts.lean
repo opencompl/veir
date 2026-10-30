@@ -6,7 +6,7 @@ public import Veir.Analysis.DataFlow.Domains.LivenessDomain
 public import Veir.Rewriter.InsertPoint
 public import Veir.Analysis.DataFlow.Domains.ConstantDomain
 
-open Std (HashMap HashSet Queue)
+open Std (HashSet Queue)
 
 public section
 
@@ -68,7 +68,6 @@ deriving BEq, DecidableEq, Repr
 Tags to match on for different `DataFlowAnalysis` types.
 -/
 inductive AnalysisKind where
-  | dominance
   | deadCode
   /-- Analysis tag reserved for dataflow framework unit tests. -/
   | test
@@ -82,7 +81,6 @@ Tags to match on for different fact types.
 -/
 inductive FactKind where
   | dominator
-  | regionMetadata
   | liveness
   /-- Sparse fact tag reserved for dataflow framework unit tests. -/
   | test
@@ -135,19 +133,10 @@ def dequeue? (workList : WorkList) : Option WorkItem × WorkList :=
 
 end WorkList
 
-/--
-The immediate dominator fact attached to a block entry.
--/
+/-- Dominance information attached to a block. -/
 structure DominatorPayload where
   iDom : Option BlockPtr := none
-
-/--
-Caches the post ordering of a region's blocks.
-
-Stored in the entry block of each region.
--/
-structure RegionMetadataPayload where
-  postOrderIndex : HashMap BlockPtr Nat := {}
+  nextInReversePostOrder : Option BlockPtr := none
 
 /-- A sparse dataflow fact payload with analysis specific metadata. -/
 structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
@@ -166,7 +155,6 @@ The fact specific data stored for each fact kind.
 -/
 @[expose] def FactPayload : FactKind → Type
   | .dominator => DominatorPayload
-  | .regionMetadata => RegionMetadataPayload
   | .liveness => LivenessPayload
   | .test => SparsePayload TestDomain Unit
   | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
@@ -178,8 +166,8 @@ A dataflow fact stored by the framework.
 
 Each fact associates with a lattice anchor (some location in the program), has
 an array of dependents (other facts that "depend" on this fact's current state in
-some fashion), has an array of analysis subscribers (similar to dependents except 
-it's entire analyses that depend on this fact's current state), and has the fact 
+some fashion), has an array of analysis subscribers (similar to dependents except
+it's entire analyses that depend on this fact's current state), and has the fact
 specific payload determined by its `FactKind`.
 -/
 structure Fact (kind : FactKind) where
@@ -227,15 +215,16 @@ def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
 def iDom (fact : Fact .dominator) : Option BlockPtr :=
   fact.payload.iDom
 
-def setIDom (fact : Fact .dominator) (iDom : Option BlockPtr) : Fact .dominator :=
-  { fact with payload := { fact.payload with iDom := iDom } }
+def setIDom (fact : Fact .dominator) (iDom : BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with iDom := some iDom } }
 
-def postOrderIndex (fact : Fact .regionMetadata) : HashMap BlockPtr Nat :=
-  fact.payload.postOrderIndex
+def nextInReversePostOrder (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.nextInReversePostOrder
 
-def setPostOrderIndex (fact : Fact .regionMetadata)
-    (postOrderIndex : HashMap BlockPtr Nat) : Fact .regionMetadata :=
-  { fact with payload := { fact.payload with postOrderIndex := postOrderIndex } }
+def setNextInReversePostOrder
+    (fact : Fact .dominator)
+    (next : Option BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with nextInReversePostOrder := next } }
 
 def live (fact : Fact .liveness) : Bool :=
   match fact.payload.latticeElement with
@@ -251,8 +240,6 @@ def setToLive (fact : Fact .liveness) : Fact .liveness :=
 end Fact
 
 abbrev DominatorFact := Fact .dominator
-
-abbrev RegionMetadataFact := Fact .regionMetadata
 
 abbrev LivenessFact := Fact .liveness
 
