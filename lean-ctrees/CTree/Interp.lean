@@ -30,6 +30,20 @@ def interp (h : (i : EIn) → CTree F C (E i)) : CTree E C X → CTree F C X :=
         return (.inl (k o))
 
 /--
+Substitute events with subtrees according to the provided stateful handler `h`
+-/
+def interp_state (h : (i : EIn) → StateT σ (CTree F C) (E i)) :
+    CTree E C X → StateT σ (CTree F C) X :=
+  fun t s =>
+    match t.unfold with
+    | .ret r => return (r, s)
+    | .tau i k => .tauG i (fun x => interp_state h (k x) s)
+    | .vis i k => do
+        let (o, s) ← h i s
+        .tau1 (interp_state h (k o) s)
+partial_fixpoint
+
+/--
 The `interp_mrec` combinator interprets effects whose interpretation can generate more of these effects,
 starting from the given CTree. This is typically useful for function call effects.
 -/

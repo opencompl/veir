@@ -768,18 +768,6 @@ partial def parseOptionalPDLTypeType : AttrParserM (Option TypeAttr) := do
   return some PDL.TypeType.mk
 
 /--
-  Parse an LLVM pointer type `!llvm.ptr`, if present.
--/
-partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.ptr".toByteArray then return none
-  let _ ← consumeToken
-  return some LLVM.PointerType.mk
-
-/--
   Parse cuda-tile's pointer type, if present
   Its syntax is `!cuda_tile.ptr<type>`, where type will be a CudaTileNumberType
   At present, this is just integer types.
@@ -1061,6 +1049,28 @@ def parseOptionalSeqFirMemType : AttrParserM (Option Seq.FirMemType) := do
   parsePunctuation ">"
   return some { depth := depth.toNat, width := width.toNat, maskWidth }
 
+/-
+  Parse an SMT sort type, if present.
+  Its syntax is `!smt.bool` or `!smt.bv<width>`.
+-/
+def parseOptionalSMTSortType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  let isBool := typeName == "smt.bool".toByteArray
+  let isBv := typeName == "smt.bv".toByteArray
+  if !isBool && !isBv then return none
+  let _ ← consumeToken
+  if isBool then
+    return some (TypeAttr.of SMT.SortType .bool)
+  parsePunctuation "<"
+  let width ← parseInteger false false
+  parsePunctuation ">"
+  if width ≤ 0 then
+    throwAtCurrentPos "SMT bit-vector width must be positive"
+  return some (TypeAttr.of SMT.SortType (.bv width.toNat))
+
 /-- A parsed entry in an LLVM function type's parameter list. -/
 inductive LLVMFuncParam
   | type (ty : TypeAttr)
@@ -1087,6 +1097,19 @@ partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
   let elementType ← parseType "vector element type expected"
   parsePunctuation ">"
   return some (VectorType.mk shape elementType)
+
+/--
+  Parse an LLVM pointer type, if present.
+  Its syntax is `!llvm.ptr` or `!llvm.ptr<addressSpace>`.
+  At present, this is just natural numbers.
+-/
+partial def parseOptionalLLVMPointerType (short := false) : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalTypeName "llvm.ptr" short) then return none
+  let mut addressSpace := 0
+  if ← parseOptionalPunctuation "<" then
+    addressSpace := (← parseInteger false false).toNat
+    parsePunctuation ">"
+  return some (LLVM.PointerType.mk addressSpace)
 
 /--
   Parse an LLVM array type, if present.
@@ -1205,8 +1228,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   if ← parseOptionalKeyword "void".toByteArray then
     return LLVM.VoidType.mk
-  if ← parseOptionalKeyword "ptr".toByteArray then
-    return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalLLVMPointerType true then
+    return type
   if let some type ← parseOptionalByteType true then
     return type
   if let some type ← parseOptionalLLVMArrayType true then
@@ -1350,6 +1373,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some seqClockType
   if let some seqFirMemType ← parseOptionalSeqFirMemType then
     return some seqFirMemType
+  if let some smtSortType ← parseOptionalSMTSortType then
+    return some smtSortType
   if let some pdlRangeType ← parseOptionalPDLRangeType then
     return some pdlRangeType
   if let some pdlAttributeType ← parseOptionalPDLAttributeType then
