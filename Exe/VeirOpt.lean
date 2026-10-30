@@ -17,6 +17,7 @@ import Veir.Passes.DCE.dce
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.RISCVCombines.Combine
+import Veir.Passes.RegisterAllocation.RegisterAllocation
 import Veir.Passes.ModArithToArith
 import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
@@ -49,6 +50,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CoerceModArithFunctionBoundariesPass,
      CoerceCirFunctionBoundariesPass,
      RISCV.Combine,
+     RegisterAllocationPass,
      ModArithToArithPass,
      ArithToLLVMPass,
      CanonicalizePass,

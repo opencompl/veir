@@ -9,6 +9,7 @@ import UnitTest.IR.Operation
 import UnitTest.Dialect
 import UnitTest.BuiltinProperties
 import UnitTest.Verifier
+import UnitTest.RegisterAllocation
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
 import UnitTest.DataFlowFramework.Dominance
