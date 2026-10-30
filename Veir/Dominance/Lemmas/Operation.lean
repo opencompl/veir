@@ -519,24 +519,26 @@ grind_pattern OperationPtr.ProperlyDominatesInRegion.next =>
     op₂.getNextOp! ctx.raw, some nextOp where
   guard op₂.getNextOp! ctx.raw = some nextOp
 
-/-- An operation properly dominates its next operation in their containing region. -/
-theorem OperationPtr.properlyDominatesInRegion_of_next {nextOp : OperationPtr}
+/-- An operation properly dominates its next operation. -/
+theorem OperationPtr.properlyDominates_of_next {nextOp : OperationPtr}
     (parentRegion : op.getParentRegion! ctx.raw = some region)
     (next : op.getNextOp! ctx.raw = some nextOp) :
-    op.ProperlyDominatesInRegion nextOp region ctx := by
+    op.ProperlyDominates nextOp ctx enclosingOk := by
   obtain ⟨parent, opParent, blockParent⟩ :=
     OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
   obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
   have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
   have nextIndex := OperationPtr.idxInParent_next_eq op ctx.raw nextOp next
     (by grind) (by grind) ctx.wellFormed
+  apply OperationPtr.ProperlyDominates.AncestorDominatedInRegion .refl (region := region)
   apply OperationPtr.ProperlyDominatesInRegion.SameBlock (block := parent)
   cases regionSSA : region.hasSSADominance ctx with
   | false => exact .Graph (by grind [OperationPtr.ProperlyDominatesInGraphBlock])
   | true => exact .Ssa (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock])
 
-grind_pattern OperationPtr.properlyDominatesInRegion_of_next =>
-  op.getParentRegion! ctx.raw, some region, op.getNextOp! ctx.raw, some nextOp where
+grind_pattern OperationPtr.properlyDominates_of_next =>
+  op.ProperlyDominates nextOp ctx enclosingOk, op.getParentRegion! ctx.raw, some region,
+  op.getNextOp! ctx.raw, some nextOp where
   guard op.getParentRegion! ctx.raw = some region
   guard op.getNextOp! ctx.raw = some nextOp
 
@@ -555,8 +557,7 @@ theorem OperationPtr.dominates_next
   obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
   have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
   rcases dominance with rfl | dominance
-  · exact Or.inr (.AncestorDominatedInRegion .refl
-      (OperationPtr.properlyDominatesInRegion_of_next parentRegion next) enclosingOk)
+  · exact Or.inr (OperationPtr.properlyDominates_of_next parentRegion next)
   · cases dominance with
     | Ancestor ancestry distinct =>
       by_cases same : op₁ = op₂Next
@@ -591,8 +592,7 @@ theorem OperationPtr.Dominates.properlyDominates_next {nextOp : OperationPtr}
   obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
   have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
   rcases dominance with rfl | dominance
-  · exact .AncestorDominatedInRegion .refl
-      (OperationPtr.properlyDominatesInRegion_of_next parentRegion next) false
+  · exact OperationPtr.properlyDominates_of_next parentRegion next
   · cases dominance with | @AncestorDominatedInRegion ancestor localRegion ancestry dominance _ =>
       by_cases same : ancestor = op₂
       · subst ancestor
@@ -619,16 +619,12 @@ theorem OperationPtr.Dominates.properlyDominates_next_of_rooted {nextOp : Operat
   obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
   have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
   rcases dominance with rfl | dominance
-  · exact .AncestorDominatedInRegion .refl
-      (OperationPtr.properlyDominatesInRegion_of_next parentRegion next) enclosingOk
+  · exact OperationPtr.properlyDominates_of_next parentRegion next
   · cases dominance with
     | Ancestor ancestry distinct =>
       have distinctNext : op₁ ≠ nextOp := by
-        intro same
-        subst nextOp
-        have sourceParentRegion : op₁.getParentRegion! ctx.raw = some region := by grind
-        exact distinct (OperationPtr.Ancestor.eq_of_parentRegion_ancestor ancestry rooted
-          parentRegion (IRNode.Ancestor.of_getParentRegion!_eq_some sourceParentRegion))
+        grind [OperationPtr.Ancestor.eq_of_parentRegion_ancestor,
+          IRNode.Ancestor.of_getParentRegion!_eq_some]
       exact .Ancestor
         (IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .block parent)
           (ancestry.toProperAncestor (by simpa using distinct)) (by grind) (by grind)) distinctNext
