@@ -223,7 +223,8 @@ theorem RuntimeValue.Conforms.of_isRefinedBy {source target : RuntimeValue}
     target.Conforms type := by
   obtain ⟨attr, hattr⟩ := type
   cases source <;> cases target <;> simp only [RuntimeValue.isRefinedBy] at hRefined <;>
-    cases attr <;> simp_all [RuntimeValue.Conforms] <;> grind
+    cases attr <;>
+    simp_all only [RuntimeValue.Conforms, Ptr.isRefinedBy, dite_false_right, true_and] <;> grind
 
 /-! ## Interp refinements -/
 
