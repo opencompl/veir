@@ -219,6 +219,22 @@ theorem and_xor_icmp_odd (c c' : LLVM.Int 1) (k : BitVec 64) (hk : k &&& 1#64 = 
         (LLVM.Int.zext c' 64 false (by decide)) := by
   veir_bv_decide
 
+/-- Prove the correctness of `redundant_and_pattern` for a `g_select` between two `g_icmp`s. -/
+theorem and_select_icmp_odd (c : LLVM.Int 64) (b b' : LLVM.Int 1) (k : BitVec 64)
+    (hk : k &&& 1#64 = 1#64) :
+    LLVM.Int.and (GMIR.selectNonzero c (LLVM.Int.zext b 64 false (by decide))
+        (LLVM.Int.zext b' 64 false (by decide))) (LLVM.Int.val k) ⊒
+      GMIR.selectNonzero c (LLVM.Int.zext b 64 false (by decide))
+        (LLVM.Int.zext b' 64 false (by decide)) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `redundant_and_mask_pattern`: `(x & C₁) & C₂` → `x & C₁` when `C₂`
+    keeps every bit of `C₁`. -/
+theorem and_and_mask (x : LLVM.Int 64) (c₁ c₂ : BitVec 64) (h : c₁ &&& ~~~c₂ = 0#64) :
+    LLVM.Int.and (LLVM.Int.and x (LLVM.Int.val c₁)) (LLVM.Int.val c₂) ⊒
+      LLVM.Int.and x (LLVM.Int.val c₁) := by
+  veir_bv_decide
+
 /-! ### Power-of-two division combines
 
 The created shift amounts are the constants `k`, `w - 1` and `w - k`, and the created operations

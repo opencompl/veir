@@ -57,6 +57,15 @@ def matchLogicBool (logic : GMIR) (boolLhs : Bool) (type : Handle OpCode .type) 
   let op ← MatchProg.operation (.gmir logic) (if boolLhs then #[b, other] else #[other, b]) #[type]
   return op.res[0]!
 
+/-- Match a `g_select` of `type` between two `g_icmp`s, which is 0 or 1. -/
+def matchSelectBool (type : Handle OpCode .type) : MatchProg.Builder (Handle OpCode .value) := do
+  let condType ← MatchProg.type (Attr := IntegerType)
+  let c ← MatchProg.value condType
+  let x ← matchBool type
+  let y ← matchBool type
+  let select ← MatchProg.operation (.gmir .g_select) #[c, x, y] #[type]
+  return select.res[0]!
+
 /-! ### sub_to_add : (sub x, C) → (add x, -C) -/
 
 /--
@@ -130,9 +139,27 @@ def redundant_and_pattern
       return b)
     pure (fun x => x)
 
-/-- The `redundant_and` combines, for a `g_icmp` and for each logic operation of them. -/
+/-- `g_and (g_and x, C₁), C₂` becomes the inner `g_and x, C₁` when `C₂` keeps every bit of `C₁`, so
+    the outer mask keeps every bit the inner one can leave set. This is the case of LLVM's
+    `redundant_and` where the known bits come from a mask. -/
+def redundant_and_mask_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let c₁ ← matchConstant type
+      let inner ← MatchProg.operation (.gmir .g_and) #[x, c₁.res[0]!] #[type]
+      let c₂ ← matchConstant type
+      let _ ← MatchProg.root (.gmir .g_and) #[inner.res[0]!, c₂.res[0]!] #[type]
+      MatchProg.matchNative (c₁.properties, c₂.properties) fun (c₁, c₂) =>
+        (c₁.bits &&& ~~~BitVec.ofInt _ c₂.value.value) == 0
+      return inner.res[0]!)
+    pure (fun x => x)
+
+/-- The `redundant_and` combines: for a mask, and for 0-or-1 values (a `g_icmp`, each logic
+    operation of them, and a `g_select` between two of them). -/
 def redundant_and : Array (CompiledPattern OpCode) :=
-  (#[redundant_and_pattern] ++
+  (#[redundant_and_mask_pattern, redundant_and_pattern, redundant_and_pattern matchSelectBool] ++
     #[GMIR.g_and, .g_or, .g_xor].flatMap (fun logic =>
       #[true, false].map fun boolLhs => redundant_and_pattern (matchLogicBool logic boolLhs))).map
     (·.compile)

@@ -216,57 +216,96 @@ def zextw_zextb_pattern : Puddle.Pattern OpCode :=
 def zextw_zextb : RewritePattern OpCode :=
   zextw_zextb_pattern.compile.run
 
-/-- `riscv.zextb (riscv.lbu addr) -> riscv.lbu addr`.  An `lbu` has already
-    cleared bits 63:8, so the additional byte extension is redundant.
-    Forwarding its existing SSA result preserves the load's position and memory
-    snapshot, including for shared or volatile loads.
-
-    LLVM: DAGCombiner removes the redundant mask through demanded-bits
-    simplification before folding extended loads.
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7872-L7897 -/
-def zextb_lbu_pattern : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let addr ← Puddle.MatchProg.value addrType
-      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[resultType]
-      let _ ← Puddle.MatchProg.root (.riscv .zextb) #[lbu.res[0]!] #[resultType]
-      return lbu.res[0]!)
-    pure
-    (fun lbu => lbu)
-
-def zextb_lbu : RewritePattern OpCode :=
-  zextb_lbu_pattern.compile.run
-
-/-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
-abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+/-- Apply the extension `ext` (such as `Data.RISCV.sextw`) to the register results of an
+    interpreted operation. -/
+abbrev extResults (ext : Data.RISCV.Reg → Data.RISCV.Reg) :
+    Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
     Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   Functor.map fun (values, mem, action) =>
-    (values.map fun | .reg r => .reg (Data.RISCV.sextw r) | value => value, mem, action)
+    (values.map fun | .reg r => .reg (ext r) | value => value, mem, action)
 
-/-- On an operation that returns the single register `r`, `sextwResults` changes
-    nothing iff `sextw r = r`. -/
-theorem sextwResults_reg_eq_self_iff :
-    sextwResults (.ok (#[.reg r], mem, action)) = .ok (#[.reg r], mem, action) ↔
-      Data.RISCV.sextw r = r := by
-  simp [sextwResults, Functor.map]
+/-- On an operation that returns the single register `r`, `extResults ext` changes
+    nothing iff `ext r = r`. -/
+theorem extResults_reg_eq_self_iff :
+    extResults ext (.ok (#[.reg r], mem, action)) = .ok (#[.reg r], mem, action) ↔
+      ext r = r := by
+  simp [extResults, Functor.map]
 
 /-- `op`, with `arity` register operands and properties accepted by `property`, always returns a
-    sign-extended 32-bit value. Applying `riscv.sextw` to its result has no effect. -/
-def IsSignExtendingOpW (op : Riscv) (arity : Nat)
+    value that the extension `ext` leaves unchanged. -/
+def IsExtendedBy (ext : Data.RISCV.Reg → Data.RISCV.Reg) (op : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv op)) : Prop :=
   match arity with
   | 0 => ∀ props resultTypes blockOperands mem, property props →
       let run := Riscv.interpretOp' op props resultTypes #[] blockOperands mem
-      sextwResults run = run
+      extResults ext run = run
   | 1 => ∀ props resultTypes rs1 blockOperands mem, property props →
       let run := Riscv.interpretOp' op props resultTypes #[.reg rs1] blockOperands mem
-      sextwResults run = run
+      extResults ext run = run
   | 2 => ∀ props resultTypes rs1 rs2 blockOperands mem, property props →
       let run := Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem
-      sextwResults run = run
+      extResults ext run = run
   | _ => False
+
+/-- `op`, with `arity` register operands and properties accepted by `property`, always returns a
+    sign-extended 32-bit value. Applying `riscv.sextw` to its result has no effect. -/
+abbrev IsSignExtendingOpW := IsExtendedBy Data.RISCV.sextw
+
+/-- `riscv.<ext> (op …) -> op …` when `op` already returns a value that the extension `ext`
+    (`riscv.sextb`, `riscv.zexth`, ...) leaves unchanged; `extSemantics` is the semantics of
+    `ext`.
+
+    `_extended` proves the combine correct on the semantics of `producer`.
+    Currently, the rewrite does not use it. -/
+def redundant_ext_pattern (ext : Riscv) (extSemantics : Data.RISCV.Reg → Data.RISCV.Reg)
+    (producer : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
+    (_extended : IsExtendedBy extSemantics producer arity property) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operands ← (Array.range arity).mapM fun _ => do
+        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
+        Puddle.MatchProg.value operandType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let inner ← Puddle.MatchProg.operation (.riscv producer) operands #[resultType] property
+      let _ ← Puddle.MatchProg.root (.riscv ext) #[inner.res[0]!] #[resultType]
+      return inner.res[0]!)
+    pure
+    (fun inner => inner)
+
+def redundant_ext (ext : Riscv) (extSemantics : Data.RISCV.Reg → Data.RISCV.Reg)
+    (producer : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
+    (extended : IsExtendedBy extSemantics producer arity property := by
+      simp only [IsExtendedBy, Riscv.interpretOp', riscvLoad, extResults_reg_eq_self_iff,
+        Interp.pure_eq, Interp.bind_ok, bind_assoc, map_bind,
+        Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
+    RewritePattern OpCode :=
+  (redundant_ext_pattern ext extSemantics producer arity property extended).compile.run
+
+/-- Narrow loads already extend their result, so a byte or half-word extension of the same kind
+    (and a sign extension of a narrower zero-extending load) is redundant. Forwarding the load's
+    existing SSA result preserves its position and memory snapshot, including for shared or
+    volatile loads.
+
+    LLVM: DAGCombiner removes the redundant mask through demanded-bits
+    simplification before folding extended loads.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7872-L7897 -/
+def zextb_lbu := redundant_ext .zextb Data.RISCV.zextb .lbu 1
+def zexth_lbu := redundant_ext .zexth Data.RISCV.zexth .lbu 1
+def zexth_lhu := redundant_ext .zexth Data.RISCV.zexth .lhu 1
+def sextb_lb := redundant_ext .sextb Data.RISCV.sextb .lb 1
+def sexth_lb := redundant_ext .sexth Data.RISCV.sexth .lb 1
+def sexth_lh := redundant_ext .sexth Data.RISCV.sexth .lh 1
+def sexth_lbu := redundant_ext .sexth Data.RISCV.sexth .lbu 1
+
+/-- An `andi` with a non-negative immediate that fits in the low 7 (15) bits leaves bit 7 (15) and
+    above clear, so a byte (half-word) sign extension of it is redundant; `sextw_andi` is the word
+    case. -/
+def sextb_andi :=
+  redundant_ext .sextb Data.RISCV.sextb .andi 1 (fun p => (p.immField 12).ult 128#12)
+def sexth_andi := redundant_ext .sexth Data.RISCV.sexth .andi 1 (fun p => !(p.immField 12).msb)
 
 /-- `riscv.sextw (op …) -> op …` when `op` already returns a sign-extended
     32-bit value.
@@ -278,34 +317,15 @@ def IsSignExtendingOpW (op : Riscv) (arity : Nat)
     Detection of sign extending word-variant operations:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L381-L388
     Deletion:
-    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751
-
-    `_signExtending` proves the combine correct on the semantics of `producer`.
-    Currently, the rewrite does not use it. -/
-def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
-    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
-    (_signExtending : IsSignExtendingOpW producer arity property) :
-    Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let operands ← (Array.range arity).mapM fun _ => do
-        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
-        Puddle.MatchProg.value operandType
-      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let inner ← Puddle.MatchProg.operation (.riscv producer) operands #[resultType] property
-      let _ ← Puddle.MatchProg.root (.riscv .sextw) #[inner.res[0]!] #[resultType]
-      return inner.res[0]!)
-    pure
-    (fun inner => inner)
-
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751 -/
 def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
     (signExtending : IsSignExtendingOpW producer arity property := by
-      simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_self_iff,
-        Interp.pure_eq, Interp.bind_ok, bind_assoc, map_bind,
+      simp only [IsSignExtendingOpW, IsExtendedBy, Riscv.interpretOp', riscvLoad,
+        extResults_reg_eq_self_iff, Interp.pure_eq, Interp.bind_ok, bind_assoc, map_bind,
         Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
     RewritePattern OpCode :=
-  (sextw_signExtendingOpW_pattern producer arity property signExtending).compile.run
+  redundant_ext .sextw Data.RISCV.sextw producer arity property signExtending
 
 /-- Loads. `lw`, `lh` and `lb` sign-extend the loaded word, half or byte, and
     `lhu` and `lbu` zero-extend a value of at most 16 bits.
@@ -1145,6 +1165,14 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , packh_high_bytes
      , packh_high_bytes_commuted
      , zextb_lbu
+     , zexth_lbu
+     , zexth_lhu
+     , sextb_lb
+     , sexth_lb
+     , sexth_lh
+     , sexth_lbu
+     , sextb_andi
+     , sexth_andi
      , zextw_slliw_lbu 8
      , zextw_slliw_lbu 16
      , zextw_slliw_lbu 24
