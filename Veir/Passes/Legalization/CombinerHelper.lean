@@ -44,33 +44,49 @@ def matchConstant (type : Handle OpCode .type)
 `g_sub x, C` becomes `g_add x, -C` if `g_add` and `g_constant` are legal for the type. As in LLVM,
 the result drops `nuw`, and drops `nsw` when `C` is the minimum signed value.
 
+`sub` and `add` are `g_sub` and `g_add`, or the RISC-V word operations `g_subw` and `g_addw`, which
+read the low 32 bits of `C` (`width? = some 32`).
+
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/include/llvm/Target/GlobalISel/Combine.td#L397-L403
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L2209
 -/
-def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
+def sub_to_add_pattern (info : LegalizerInfo) (sub add : GMIR)
+    (hSub : propertiesOf (OpCode.gmir sub) = NswNuwProperties)
+    (hAdd : propertiesOf (OpCode.gmir add) = NswNuwProperties) (width? : Option Nat) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value type
       let constant ← matchConstant type
-      let root ← MatchProg.root (.gmir .g_sub) #[x, constant.res[0]!] #[type]
+      let root ← MatchProg.root (.gmir sub) #[x, constant.res[0]!] #[type]
       MatchProg.matchNative (type, constant.properties) fun (ty, props) =>
-        info.isLegal .g_add #[ty] { nsw := false, nuw := false } &&
+        info.isLegal add #[ty] (cast hAdd.symm { nsw := false, nuw := false }) &&
           info.isLegal .g_constant #[ty] props.neg
       return (type, x, constant.properties, root.properties))
     (fun (type, x, constantProps, subProps) => do
-      let negOp ← createConstantWith type constantProps fun c => -c.bits.toInt
+      -- The negation is sign-extended from `width?`, which keeps `-C` a cheap constant.
+      let negOp ← createConstantWith type constantProps fun c =>
+        (BitVec.ofInt (width?.getD c.value.type.bitwidth) (-c.value.value)).toInt
       -- `x - C` and `x + -C` wrap as signed integers in the same cases, unless `C` is the
       -- minimum signed value, which is its own negation. As unsigned integers, a nonzero `C`
       -- negates to the large value `2^n - C`, so `x + -C` wraps whenever `x - C` does not, and
       -- `nuw` is dropped.
       let addProps ← CreateProg.applyNative
-          (Outputs := Handle OpCode (.prop (.gmir .g_add))) (constantProps, subProps)
-          fun (constant, sub) => some { nsw := sub.nsw && !constant.isMinSigned, nuw := false }
-      CreateProg.operation (.gmir .g_add) #[x, negOp.res[0]!] #[type] addProps)
+          (Outputs := Handle OpCode (.prop (.gmir add))) (constantProps, subProps)
+          fun (constant, subProps) =>
+            let width := width?.getD constant.value.type.bitwidth
+            some (cast hAdd.symm
+              { nsw := (cast hSub subProps).nsw && !constant.isMinSignedAt width, nuw := false })
+      CreateProg.operation (.gmir add) #[x, negOp.res[0]!] #[type] addProps)
     (fun addOp => addOp)
 
-def sub_to_add (info : LegalizerInfo) : CompiledPattern OpCode := (sub_to_add_pattern info).compile
+def sub_to_add (info : LegalizerInfo) : CompiledPattern OpCode :=
+  (sub_to_add_pattern info .g_sub .g_add rfl rfl none).compile
+
+/-- `sub_to_add` for the RISC-V word subtraction `g_subw`. -/
+def sub_to_addw (info : LegalizerInfo) : CompiledPattern OpCode :=
+  (sub_to_add_pattern info .g_subw .g_addw rfl rfl (some 32)).compile
 
 /-! ### redundant_and : (and (icmp x, y), C) → (icmp x, y) -/
 

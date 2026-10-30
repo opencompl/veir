@@ -47,10 +47,31 @@ def customLegalizeWord (opcode wordOpcode : GMIR)
   Custom legalization of `i32` unary operations into their RISC-V word variant
   (`g_ctlz` -> `riscv.clzw`, `g_cttz` -> `riscv.ctzw`, `g_ctpop` -> `riscv.cpopw`). For `g_ctlz`
   and `g_cttz`, LLVM custom-legalizes into `RISCV::G_CLZW` and `RISCV::G_CTZW`.
+
+  As for the binary word operations, the operand is any-extended to i64 and the i64 result is
+  truncated back to i32. The word instruction reads only the low 32 bits of its operand, so the
+  register casts are of i64 values, whose round trips need no zero-extension.
 -/
 def customLegalizeWordUnary (opcode : GMIR) (riscvOp : Riscv)
     (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
-  lowerUnary (.gmir opcode) 32 riscvOp riscvProps
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let x ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.gmir opcode) #[x] #[type]
+      return (type, x))
+    (fun (type, x) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let regType ← Puddle.CreateProg.type (RegisterType.mk none)
+      let ext ← Puddle.CreateProg.operation (.gmir .g_anyext) #[x] #[wideType]
+      let toReg ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[ext.res[0]!] #[regType]
+      let word ← Puddle.CreateProg.operation (.riscv riscvOp) #[toReg.res[0]!] #[regType]
+          (.inl riscvProps)
+      let fromReg ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[word.res[0]!] #[wideType]
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[fromReg.res[0]!] #[type])
+    (fun trunc => trunc)
 
 section
 open Puddle in

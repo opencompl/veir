@@ -1764,6 +1764,21 @@ def gmirBinopNot_pattern (opcode : GMIR) (riscvOp : Riscv)
     (fun (type, x, y) => createRegOp type #[x, y] riscvOp riscvProps)
     (fun castBackOp => castBackOp)
 
+/-- `xor (xor x, y), -1` (`i64`) -> `riscv.xnor x y`: the `not` of an `xor`. -/
+def gmirNotXor_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let xorOp ← MatchProg.operation (.gmir .g_xor) #[x, y] #[type]
+      let allOnes ← matchConstant64 type (-1)
+      let root ← MatchProg.root (.gmir .g_xor) #[xorOp.res[0]!, allOnes.res[0]!] #[type]
+      matchLegal .g_xor type root.properties
+      return (type, x, y))
+    (fun (type, x, y) => createRegOp type #[x, y] .xnor (.inl ()))
+    (fun castBackOp => castBackOp)
+
 /--
   `sub (shl M, 8 - Y) (lshr M, Y)` (`i64`) -> `riscv.orcb M`, where `M = and Z, (0x0101…01 <<< Y)`
   and `0 ≤ Y < 8`; for `Y = 0`, the rhs is `M` itself. Each byte of `M` holds at most bit `Y`, and
@@ -1834,7 +1849,7 @@ def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
     #[gmirBinopNot_pattern .g_and .andn () notLhs, gmirBinopNot_pattern .g_or .orn () notLhs,
       gmirBinopNot_pattern .g_xor .xnor () notLhs]
   (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++
-    #[gmirBexti_pattern, gmirSlliuw_pattern]).map (·.compile)
+    #[gmirNotXor_pattern, gmirBexti_pattern, gmirSlliuw_pattern]).map (·.compile)
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=

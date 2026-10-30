@@ -30,10 +30,13 @@ def GMIRConstantProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attrib
 def GMIRConstantProperties.neg (props : GMIRConstantProperties) : GMIRConstantProperties :=
   { value := IntegerAttr.ofInt (-props.value.value) props.value.type }
 
+/-- Whether the low `width` bits of the constant are the minimum signed value of that width. -/
+def GMIRConstantProperties.isMinSignedAt (width : Nat) (props : GMIRConstantProperties) : Bool :=
+  BitVec.ofInt width props.value.value = BitVec.intMin width
+
 /-- Whether the constant is the minimum signed value of its type. -/
 def GMIRConstantProperties.isMinSigned (props : GMIRConstantProperties) : Bool :=
-  let bitwidth := props.value.type.bitwidth
-  BitVec.ofInt bitwidth props.value.value = BitVec.intMin bitwidth
+  props.isMinSignedAt props.value.type.bitwidth
 
 /-- The bits of the constant at the width of its type. -/
 def GMIRConstantProperties.bits (props : GMIRConstantProperties) :

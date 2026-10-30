@@ -218,6 +218,21 @@ constrain. Each word operation that the combines create chooses its own high bit
 and the final choice is also one for the source division.
 -/
 
+/-- Prove the correctness of `sub_to_add` for `i64`: `nuw` is dropped, and `nsw` is dropped when
+    `C` is the minimum signed value. -/
+theorem sub_to_add (x : LLVM.Int 64) (c : BitVec 64) (nsw nuw : Bool) :
+    LLVM.Int.sub x (LLVM.Int.val c) nsw nuw ⊒
+      LLVM.Int.add x (LLVM.Int.val (-c)) (nsw && c != BitVec.intMin 64) false := by
+  veir_bv_decide
+
+/-- Prove the correctness of `sub_to_addw`: the negation of the low 32 bits of `C` is
+    sign-extended, and the flags are those of `sub_to_add` at 32 bits. -/
+theorem subw_to_addw (x : LLVM.Int 64) (c : BitVec 64) (nsw nuw : Bool) (e : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.sub · · nsw nuw) x (LLVM.Int.val c) e' ⊒
+      GMIR.word (LLVM.Int.add · · (nsw && c.setWidth 32 != BitVec.intMin 32) false) x
+        (LLVM.Int.val ((-c.setWidth 32).signExtend 64)) e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
 /-- Prove the correctness of `udiv_by_pow2_pattern` for `g_udivw`, whatever the `exact` flag. -/
 theorem udivw_by_pow2 (x : LLVM.Int 64) (c : BitVec 64) (k : BitVec 5)
     (hc : c.setWidth 32 = 1#32 <<< k) (exact : Bool) (e : BitVec 32) :

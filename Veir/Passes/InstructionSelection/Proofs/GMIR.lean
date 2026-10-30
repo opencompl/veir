@@ -30,7 +30,8 @@ set_option Elab.async false
 
 /-!
   The correctness of the instruction selection of the RISC-V gMIR word operations, and of the
-  `slti`/`sltiu` selection of `g_icmp`, whose result is the `i64` zero-extension of the comparison.
+  `slti`/`sltiu` selection of `g_icmp`, whose result is the `i64` zero-extension of the comparison,
+  and of the word-instruction legalization of the `i32` counts.
 
   A word operation (`GMIR.word`) any-extends its 32-bit result, so its refinement holds for the
   high bits that the hardware word instruction chooses: the sign extension of the result, which is
@@ -164,6 +165,36 @@ theorem gmir_icmp_ule_imm_refinement (x : LLVM.Int 64) (imm : BitVec 12) (h : im
     LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule) 64 false
         (by decide) ⊒
       RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 64 := by
+  veir_bv_decide
+
+/-! ### `i32` counts
+
+  `customLegalizeWordUnary` any-extends the `i32` operand to `i64`, applies the word instruction
+  to it, and truncates the `i64` result: whatever the high bits of the operand, the word
+  instruction reads only the low 32. -/
+
+/-- `g_ctlz` (`i32`) -> `riscv.clzw` on the any-extended operand. -/
+theorem gmir_ctlz_word_refinement (x : LLVM.Int 32) (e : BitVec 32) (is_zero_poison : Bool) :
+    Data.LLVM.Int.ctlz x is_zero_poison ⊒
+      LLVM.Int.trunc (RISCV.Reg.toInt
+        (Data.RISCV.clzw (LLVM.Int.toReg (LLVM.Int.ext x 64 e (by decide)))) 64) 32 false false
+        (by decide) := by
+  veir_bv_decide
+
+/-- `g_cttz` (`i32`) -> `riscv.ctzw` on the any-extended operand. -/
+theorem gmir_cttz_word_refinement (x : LLVM.Int 32) (e : BitVec 32) (is_zero_poison : Bool) :
+    Data.LLVM.Int.cttz x is_zero_poison ⊒
+      LLVM.Int.trunc (RISCV.Reg.toInt
+        (Data.RISCV.ctzw (LLVM.Int.toReg (LLVM.Int.ext x 64 e (by decide)))) 64) 32 false false
+        (by decide) := by
+  veir_bv_decide
+
+/-- `g_ctpop` (`i32`) -> `riscv.cpopw` on the any-extended operand. -/
+theorem gmir_ctpop_word_refinement (x : LLVM.Int 32) (e : BitVec 32) :
+    Data.LLVM.Int.ctpop x ⊒
+      LLVM.Int.trunc (RISCV.Reg.toInt
+        (Data.RISCV.cpopw (LLVM.Int.toReg (LLVM.Int.ext x 64 e (by decide)))) 64) 32 false false
+        (by decide) := by
   veir_bv_decide
 
 end Veir.Data.RISCV

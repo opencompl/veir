@@ -488,6 +488,14 @@ theorem xnor_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `xnor` lowering of the `not` of an `xor` (`gmirNotXor_pattern`).
+-/
+theorem not_xor_refinement {x y : LLVM.Int 64} :
+    (Data.LLVM.Int.xor (Data.LLVM.Int.xor x y) (LLVM.Int.constant 64 (-1))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xnor (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/--
   Prove the correctness of the `g_select c t 0` -> `czero.eqz t c` lowering pattern. The `i64`
   condition is true when it is nonzero, as `czero.eqz` tests it.
 -/
