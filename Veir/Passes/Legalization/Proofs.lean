@@ -29,6 +29,17 @@ theorem add_widening_32_64 (i i' : LLVM.Int 32) (ext ext' : BitVec 32) (nuw nsw 
   veir_bv_decide
 
 /--
+Prove the correctness of `widenBlockArguments`: a block argument of width `n` that is widened to
+`64` bits carries the `g_anyext` of the value its predecessor passes, whatever the high bits, and
+the `g_trunc` at the start of the block recovers that value.
+-/
+theorem block_argument_widening (n : Nat) (h : n < 64) (x : LLVM.Int n) (e : BitVec (64 - n)) :
+    x ⊒ LLVM.Int.trunc (LLVM.Int.ext x 64 e h) n false false h := by
+  veir_bv_normalize
+  simp [BitVec.eq_of_getElem_eq_iff]
+  grind
+
+/--
 Prove the correctness of combining `g_anyext (g_trunc x)` to `x`, at every width and whatever the
 `nsw` and `nuw` flags of the `g_trunc`.
 -/
