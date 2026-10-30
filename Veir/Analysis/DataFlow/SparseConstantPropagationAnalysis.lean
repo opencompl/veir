@@ -71,7 +71,8 @@ def SparseConstantPropagationAnalysis : DataFlowAnalysis :=
   { SparseForwardDataFlowAnalysis.new
       .sparseConstant
       SparseConstantPropagation.kind
-      SparseConstantPropagation.transfer with
+      SparseConstantPropagation.transfer
+      (entryState := fun _ _ => ⊤) with
     printer? := some printer }
 
 end Veir
