@@ -23,6 +23,16 @@ example : HasDialect OpCode Builtin := inferInstance
 #guard OpCode.fromName "cir.add".toUTF8 = some (.cir .add)
 #guard OpCode.name (.cir .unreachable) = "cir.unreachable".toUTF8
 
+/-! A `__` in a constructor name becomes a `.` in the operation name, which is how a dialect
+spells an operation whose name has more than two segments. -/
+#guard Seq.fromName "seq.firmem.read_port".toUTF8 = some .firmem__read_port
+#guard Seq.name .firmem__read_port = "seq.firmem.read_port".toUTF8
+#guard Seq.fromName "seq.firmem__read_port".toUTF8 = none
+#guard OpCode.fromName "seq.firmem.read_write_port".toUTF8
+  = some (.seq .firmem__read_write_port)
+#guard OpCode.name (.seq .firmem__write_port) = "seq.firmem.write_port".toUTF8
+#guard OpCode.name (.seq .firmem) = "seq.firmem".toUTF8
+
 /-! Dialects can define conversion functions to and from the global opcode type. -/
 abbrev Veir.Arith.from? (op : OpInfo) [HasOpInfo OpInfo] [HasDialect OpInfo Arith]
     : Option Arith :=

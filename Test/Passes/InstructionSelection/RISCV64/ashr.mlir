@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 "builtin.module"() ({
     "func.func"()  <{function_type = (i64, i64) -> (), sym_name = "foo"}> ({
@@ -14,6 +14,7 @@
     "func.func"()  <{function_type = (i32, i32) -> (), sym_name = "bar"}> ({
     ^bb(%a: i32, %b: i32):
         %ashr32 = "llvm.ashr"(%a, %b) : (i32, i32) -> i32
+        // For the word variant:
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i32) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sraw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
@@ -24,10 +25,13 @@
     "func.func"()  <{function_type = (i8, i8) -> (), sym_name = "baz"}> ({
     ^bb(%a: i8, %b: i8):
         %ashr8 = "llvm.ashr"(%a, %b) : (i8, i8) -> i8
+        // The shift is widened to `i64`: the amount is zero-extended and the shifted value
+        // is sign-extended.
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
+        // CHECK-NEXT: %[[AMT:.*]] = "riscv.andi"(%{{.*}}) <{"value" = 255 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sextb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sra"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %[[VAL:.*]] = "riscv.sextb"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.sra"(%[[VAL]], %[[AMT]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i8
         "test.test"(%ashr8) : (i8) -> ()
         "func.return"() : () -> ()

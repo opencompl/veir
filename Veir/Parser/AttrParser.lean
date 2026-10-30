@@ -171,7 +171,9 @@ def parseOptionalByteType (short := false) : AttrParserM (Option LLVM.ByteType) 
 /--
   Parse an optional register type, which is fundamentally a wrapper for `i64`.
   An unallocated register type is represented as `!riscv.reg`.
-  Allocated register types range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
+  Allocated register types should be of the form xID, i.e. only architectural,
+  and range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
+  Virtually allocated register of the form jID is rejected.
 -/
 def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
   let token ← peekToken
@@ -188,7 +190,7 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
       if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'x'.toUInt8 then
         let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
         let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-        let some reg := (String.fromUTF8? identifier).bind String.toNat? | return none
+        let some reg := (String.fromUTF8? identifier).bind String.toInt? | return none
         if reg > 31 then throwAtCurrentPos "RV64 registers range from x0 to x31"
         let _ ← consumeToken
         parsePunctuation ">"
@@ -766,18 +768,6 @@ partial def parseOptionalPDLTypeType : AttrParserM (Option TypeAttr) := do
   return some PDL.TypeType.mk
 
 /--
-  Parse an LLVM pointer type `!llvm.ptr`, if present.
--/
-partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
-  let token ← peekToken
-  let .exclamationIdent := token.kind | return none
-  let input := (← getThe ParserState).input
-  let typeName := { token.slice with start := token.slice.start + 1 }.of input
-  if typeName ≠ "llvm.ptr".toByteArray then return none
-  let _ ← consumeToken
-  return some LLVM.PointerType.mk
-
-/--
   Parse cuda-tile's pointer type, if present
   Its syntax is `!cuda_tile.ptr<type>`, where type will be a CudaTileNumberType
   At present, this is just integer types.
@@ -1039,6 +1029,26 @@ def parseOptionalSeqClockType : AttrParserM (Option Seq.ClockType) := do
   let _ ← consumeToken
   return some {}
 
+/--
+  Parse CIRCT's `seq` dialect's `FirMemType` type.
+  Its syntax is `!seq.firmem<depth x width>`, with an optional `, mask maskWidth` for a
+  masked memory.
+-/
+def parseOptionalSeqFirMemType : AttrParserM (Option Seq.FirMemType) := do
+  if !(← parseOptionalTypeName "seq.firmem" false) then return none
+  parsePunctuation "<"
+  let depth ← parseInteger false false "memory depth expected"
+  parseShapeSeparator
+  let width ← parseInteger false false "memory word width expected"
+  let maskWidth ←
+    if ← parseOptionalPunctuation "," then
+      parseKeyword "mask".toByteArray
+      pure (some (← parseInteger false false "mask width expected").toNat)
+    else
+      pure none
+  parsePunctuation ">"
+  return some { depth := depth.toNat, width := width.toNat, maskWidth }
+
 /-- A parsed entry in an LLVM function type's parameter list. -/
 inductive LLVMFuncParam
   | type (ty : TypeAttr)
@@ -1065,6 +1075,19 @@ partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
   let elementType ← parseType "vector element type expected"
   parsePunctuation ">"
   return some (VectorType.mk shape elementType)
+
+/--
+  Parse an LLVM pointer type, if present.
+  Its syntax is `!llvm.ptr` or `!llvm.ptr<addressSpace>`.
+  At present, this is just natural numbers.
+-/
+partial def parseOptionalLLVMPointerType (short := false) : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalTypeName "llvm.ptr" short) then return none
+  let mut addressSpace := 0
+  if ← parseOptionalPunctuation "<" then
+    addressSpace := (← parseInteger false false).toNat
+    parsePunctuation ">"
+  return some (LLVM.PointerType.mk addressSpace)
 
 /--
   Parse an LLVM array type, if present.
@@ -1183,8 +1206,8 @@ partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option T
 partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   if ← parseOptionalKeyword "void".toByteArray then
     return LLVM.VoidType.mk
-  if ← parseOptionalKeyword "ptr".toByteArray then
-    return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalLLVMPointerType true then
+    return type
   if let some type ← parseOptionalByteType true then
     return type
   if let some type ← parseOptionalLLVMArrayType true then
@@ -1326,6 +1349,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some hwModuleType
   if let some seqClockType ← parseOptionalSeqClockType then
     return some seqClockType
+  if let some seqFirMemType ← parseOptionalSeqFirMemType then
+    return some seqFirMemType
   if let some pdlRangeType ← parseOptionalPDLRangeType then
     return some pdlRangeType
   if let some pdlAttributeType ← parseOptionalPDLAttributeType then

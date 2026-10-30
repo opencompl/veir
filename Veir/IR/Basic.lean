@@ -1577,6 +1577,32 @@ theorem getFirstUse!_eq_getFirstUse {block : BlockPtr} (hin : block.InBounds ctx
 private theorem getFirstUse!_def {block : BlockPtr} :
     block.getFirstUse! ctx = (block.get! ctx).firstUse := by rfl
 
+/--
+Returns true if some terminator branches to the block.
+-/
+def hasPredecessor (block : BlockPtr) (ctx : IRContext OpInfo)
+    (blockIn : block.InBounds ctx := by grind) : Bool :=
+  (block.getFirstUse ctx (by grind)).isSome
+
+theorem hasPredecessor_def {block : BlockPtr} (blockIn : block.InBounds ctx) :
+    block.hasPredecessor ctx = (block.getFirstUse ctx).isSome := by
+  rfl
+
+/--
+Returns true if some terminator branches to the block.
+-/
+def hasPredecessor! (block : BlockPtr) (ctx : IRContext OpInfo) : Bool :=
+  (block.getFirstUse! ctx).isSome
+
+@[grind =_, eq_bang ←]
+theorem hasPredecessor!_eq_hasPredecessor {block : BlockPtr} (hin : block.InBounds ctx) :
+    block.hasPredecessor! ctx = block.hasPredecessor ctx hin := by
+  unfold hasPredecessor hasPredecessor!; grind
+
+theorem hasPredecessor!_def {block : BlockPtr} :
+    block.hasPredecessor! ctx = (block.getFirstUse! ctx).isSome := by
+  grind [hasPredecessor!]
+
 def getFirstOp (block : BlockPtr) (ctx : IRContext OpInfo) (inBounds : block.InBounds ctx := by grind) : Option OperationPtr :=
   (block.get ctx (by grind)).firstOp
 

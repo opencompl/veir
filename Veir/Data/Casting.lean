@@ -6,6 +6,7 @@ public import Veir.Data.LLVM.Byte.Basic
 public import Veir.Data.RISCV.Reg.Basic
 
 import all Veir.Data.LLVM.Int.Bitblast
+import all Veir.Data.LLVM.Byte.Basic
 meta import Veir.Meta.Tactic.BVDecide
 
 public section
@@ -60,6 +61,14 @@ theorem toReg_toInt_64 {r : Veir.Data.RISCV.Reg} :
   simp [LLVM.Int.toReg, RISCV.Reg.toInt]
 
 /--
+  An integer of at most 64 bits is refined by its round trip through a register.
+-/
+@[grind .]
+theorem LLVM.Int.isRefinedBy_toInt_toReg {w : Nat} (hw : w ≤ 64) (i : Veir.Data.LLVM.Int w) :
+    i ⊒ RISCV.Reg.toInt (LLVM.Int.toReg i) w := by
+  grind [BitVec.setWidth_setWidth_of_le _ hw]
+
+/--
   Cast `LLVM.Byte` to `RISCV.Reg`.
 -/
 def LLVM.Byte.toReg (b : Veir.Data.LLVM.Byte w) : Veir.Data.RISCV.Reg :=
@@ -81,3 +90,27 @@ theorem toByte_eq_val {r : Veir.Data.RISCV.Reg} :
 theorem toByte_val {w : Nat} {r : Veir.Data.RISCV.Reg} :
     (RISCV.Reg.toByte r w).val = (r.val).zeroExtend w := by
   simp [RISCV.Reg.toByte]
+
+/--
+  A byte of at most 64 bits is refined by its round trip through a register.
+-/
+@[grind .]
+theorem LLVM.Byte.isRefinedBy_toByte_toReg {w : Nat} (hw : w ≤ 64) (b : Veir.Data.LLVM.Byte w) :
+    b ⊒ RISCV.Reg.toByte (LLVM.Byte.toReg b) w := by
+  grind [LLVM.Byte.toReg, BitVec.setWidth_setWidth_of_le _ hw]
+
+/--
+  Cast `LLVM.Byte` to `LLVM.Int`. The result is poison only if every bit is poison, otherwise
+  poison bits become zero.
+-/
+def LLVM.Byte.toFrozenInt (b : Veir.Data.LLVM.Byte w) : Veir.Data.LLVM.Int w :=
+  if b.poison = BitVec.allOnes w then .poison else .val b.val
+
+/--
+  An integer cast to a byte and back is unchanged.
+-/
+@[simp, grind =]
+theorem LLVM.Byte.toFrozenInt_fromInt {w : Nat} (h : 0 < w) (x : Veir.Data.LLVM.Int w) :
+    LLVM.Byte.toFrozenInt (Veir.Data.LLVM.Byte.fromInt x) = x := by
+  cases x <;> simp [LLVM.Byte.toFrozenInt, Veir.Data.LLVM.Byte.fromInt,
+    Veir.Data.LLVM.Int.isPoison] <;> grind

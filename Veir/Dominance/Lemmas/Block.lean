@@ -89,6 +89,22 @@ namespace BlockPtr.ProperlyDominatesInRegion
 
 variable {dominator dominated source predecessor successor : BlockPtr} {region : RegionPtr}
 
+/-- Regional proper dominance is transitive when the final block is locally reachable. -/
+theorem trans_of_reachable {middle : BlockPtr}
+    (first : dominator.ProperlyDominatesInRegion middle region ctx)
+    (second : middle.ProperlyDominatesInRegion dominated region ctx)
+    (reachable : dominated.LocallyReachable region ctx) :
+    dominator.ProperlyDominatesInRegion dominated region ctx := by
+  cases first with
+  | Ssa first =>
+    cases second with
+    | Ssa second => exact .Ssa (first.trans_of_reachable second reachable)
+    | Graph second => grind [ProperlyDominatesInSSACFGRegion, ProperlyDominatesInGraphRegion]
+  | Graph first =>
+    cases second with
+    | Ssa second => grind [ProperlyDominatesInSSACFGRegion, ProperlyDominatesInGraphRegion]
+    | Graph second => exact .Graph (by grind [ProperlyDominatesInGraphRegion])
+
 @[grind →]
 theorem parent_dominator :
     dominator.ProperlyDominatesInRegion dominated region ctx →
@@ -145,6 +161,37 @@ namespace BlockPtr.Dominates
 
 variable {source predecessor successor : BlockPtr} {region : RegionPtr}
 
+/-- Every proper enclosing region of a block dominator encloses the dominated block. -/
+@[grind →]
+theorem ancestor_parent {target : BlockPtr}
+    (dominance : source.Dominates target ctx)
+    (regionAncestry : (IRNode.region region).ProperAncestor source ctx) :
+    region.Ancestor target ctx := by
+  rcases dominance with rfl | dominance
+  · exact regionAncestry.toAncestor
+  · cases dominance with
+    | Ancestor targetAncestry _ => exact regionAncestry.toAncestor.trans targetAncestry
+    | AncestorDominatedInRegion ancestor localRegion targetAncestry localDominance =>
+      exact (IRNode.Ancestor.of_same_parent_of_properAncestor regionAncestry
+        (parent := .region localRegion) (by grind) (by grind)).trans targetAncestry
+
+/-- Dominance between rooted blocks in one region reduces to equality or regional proper dominance. -/
+theorem eq_or_properlyDominatesInRegion_of_same_parent_region {target : BlockPtr}
+    (dominance : source.Dominates target ctx)
+    (rooted : target.RootedAt root ctx)
+    (sourceParent : source.getParent! ctx.raw = some region)
+    (targetParent : target.getParent! ctx.raw = some region) :
+    source = target ∨ source.ProperlyDominatesInRegion target region ctx := by
+  rcases dominance with same | dominance
+  · exact Or.inl same
+  · cases dominance <;> grind
+
+grind_pattern eq_or_properlyDominatesInRegion_of_same_parent_region =>
+  source.Dominates target ctx, target.RootedAt root ctx,
+  source.getParent! ctx.raw, target.getParent! ctx.raw, some region where
+  guard source.getParent! ctx.raw = some region
+  guard target.getParent! ctx.raw = some region
+
 /--
 If a distinct block dominates a successor, it also dominates the predecessor
 of that successor edge.
@@ -178,6 +225,28 @@ theorem predecessor_of_dominates_successor
         properAncestry (by grind) (by grind)
 
 end BlockPtr.Dominates
+
+/-- Proper regional SSA dominance excludes reverse global dominance of a rooted, reachable target. -/
+@[grind →]
+theorem BlockPtr.ProperlyDominatesInRegion.not_dominates_reverse
+    {source target : BlockPtr} {region : RegionPtr}
+    (dominance : source.ProperlyDominatesInRegion target region ctx)
+    (ssa : region.hasSSADominance ctx)
+    (rooted : target.RootedAt root ctx)
+    (reachable : target.LocallyReachable region ctx) :
+    ¬ target.Dominates source ctx := by
+  cases dominance with
+  | Graph dominance => grind [BlockPtr.ProperlyDominatesInGraphRegion]
+  | Ssa dominance =>
+    intro reverse
+    have sourceRooted := (BlockPtr.ProperlyDominatesInRegion.Ssa dominance).rootedAt_iff.mpr rooted
+    rcases reverse.eq_or_properlyDominatesInRegion_of_same_parent_region
+        sourceRooted dominance.2.1 dominance.1 with same | reverse
+    · exact dominance.2.2.2.1 same.symm
+    · cases reverse with
+      | Ssa reverse => exact dominance.not_dominated_of_locallyReachable_dominated reachable reverse
+      | Graph reverse => grind [BlockPtr.ProperlyDominatesInGraphRegion,
+          BlockPtr.ProperlyDominatesInSSACFGRegion]
 
 /-! ## Block reachability -/
 
@@ -225,6 +294,21 @@ theorem BlockPtr.ProperlyDominatesInSSACFGRegion.hierarchicallyReachable_dominat
   exact reachable.of_same_region
     (dominance.locallyReachable_dominator_of_locallyReachable_dominated localReachable)
     dominance.2.1
+
+/-- A regional dominator of a hierarchically reachable block is hierarchically reachable. -/
+@[grind →]
+theorem BlockPtr.ProperlyDominatesInRegion.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+    {dominator dominated : BlockPtr}
+    (dominance : dominator.ProperlyDominatesInRegion dominated region ctx)
+    (reachable : dominated.HierarchicallyReachable ctx) :
+    dominator.HierarchicallyReachable ctx := by
+  cases dominance with
+  | Ssa dominance =>
+    exact dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+      reachable
+  | Graph dominance =>
+    obtain ⟨dominatorParent, dominatedParent, noSSA⟩ := dominance
+    grind
 
 /-! ## Dominance at block insertion points -/
 
@@ -304,6 +388,12 @@ theorem OperationPtr.DominatesIp.properlyDominatesBlock_of_atStart
     | Before dominance =>
       exact dominance.properlyDominatesBlock_of_firstOp blockParent regionSSA first
 
+grind_pattern OperationPtr.DominatesIp.properlyDominatesBlock_of_atStart =>
+  op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx false,
+  block.getParent! ctx.raw, some region, region.hasSSADominance ctx where
+  guard block.getParent! ctx.raw = some region
+  guard region.hasSSADominance ctx = true
+
 /-- In an SSA region, an operation dominating a successor block's entry also dominates
 the predecessor's exit. No CFG reachability is required. -/
 theorem OperationPtr.DominatesIp.predecessor_exit_of_successor_entry
@@ -357,17 +447,5 @@ theorem BlockPtr.argument_dominatesIp_atStart
     value.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx := by
   exact BlockPtr.argument_dominatesIp
     (InsertPoint.block!_atStart!_eq (by grind) blockInBounds) hMem
-
-/-- An argument of a rooted, locally reachable block in an SSA region cannot dominate
-the point before an operation that dominates the block entry. Reachability in enclosing
-regions is not required. -/
-@[grind →]
-axiom BlockPtr.argument_not_dominatesIp_before_of_dominatesIp_atStart
-    (regionSSA : region.hasSSADominance ctx)
-    (blockRooted : block.RootedAt root ctx)
-    (blockReachable : block.LocallyReachable region ctx)
-    (opDom : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
-    (hMem : value ∈ block.getArguments! ctx.raw) :
-    ¬ value.DominatesIp (.before op) ctx
 
 end Veir

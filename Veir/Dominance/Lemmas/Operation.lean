@@ -257,13 +257,6 @@ theorem OperationPtr.LocallyReachable.parentRegion
 
 grind_pattern OperationPtr.LocallyReachable.parentRegion => op.LocallyReachable region ctx
 
-/-- A dominator of a hierarchically reachable operation is hierarchically reachable. -/
-@[grind →]
-axiom OperationPtr.HierarchicallyReachable.of_dominates :
-    op₁.HierarchicallyReachable ctx →
-    op₂.Dominates op₁ ctx enclosingOk →
-    op₂.HierarchicallyReachable ctx
-
 /-- A hierarchically reachable operation is locally reachable in some parent region. -/
 @[grind .]
 theorem OperationPtr.HierarchicallyReachable.exists_locallyReachable :
@@ -286,16 +279,148 @@ theorem OperationPtr.HierarchicallyReachable.of_ancestor_block
       simp only [IRNode.parent!_operation, opParent, Option.map_some])
   exact reachable.of_ancestor (parentAncestry.trans ancestry)
 
+/-- Every ancestor operation of a hierarchically reachable operation is hierarchically reachable. -/
+theorem OperationPtr.HierarchicallyReachable.of_ancestor
+    {ancestor : OperationPtr}
+    (reachable : op.HierarchicallyReachable ctx)
+    (ancestry : ancestor.Ancestor op ctx) :
+    ancestor.HierarchicallyReachable ctx := by
+  by_cases same : ancestor = op
+  · simpa [same] using reachable
+  cases parent : op.getParent! ctx.raw with
+  | none =>
+    obtain ⟨nodes, path⟩ := ancestry.exists_parentPath
+    cases path <;> grind
+  | some block =>
+    apply OperationPtr.HierarchicallyReachable.of_ancestor_block (reachable.parent_block parent)
+    exact (ancestry.toProperAncestor (by simpa using same)).ancestor_of_parent_descendant
+      (by grind)
+
+grind_pattern OperationPtr.HierarchicallyReachable.of_ancestor =>
+  op.HierarchicallyReachable ctx, (IRNode.operation ancestor).Ancestor op ctx
+
+namespace OperationPtr.ProperlyDominatesInRegion
+
+/-- Regional proper dominance is transitive when the final operation is locally reachable. -/
+theorem trans_of_reachable {op₃ : OperationPtr}
+    (first : op₁.ProperlyDominatesInRegion op₂ region ctx)
+    (second : op₂.ProperlyDominatesInRegion op₃ region ctx)
+    (reachable : op₃.LocallyReachable region ctx) :
+    op₁.ProperlyDominatesInRegion op₃ region ctx := by
+  cases first with
+  | @SameBlock firstBlock first =>
+    cases second with
+    | @SameBlock secondBlock second =>
+      cases first <;> cases second
+      · exact .SameBlock (block := firstBlock) (.Ssa (by
+          grind [OperationPtr.ProperlyDominatesInSSACFGBlock]))
+      · grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+          OperationPtr.ProperlyDominatesInGraphBlock]
+      · grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+          OperationPtr.ProperlyDominatesInGraphBlock]
+      · exact .SameBlock (block := firstBlock) (.Graph (by
+          grind [OperationPtr.ProperlyDominatesInGraphBlock]))
+    | BlockDominance middleParent targetParent second =>
+      cases first <;>
+        exact .BlockDominance (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+          OperationPtr.ProperlyDominatesInGraphBlock]) targetParent second
+  | @BlockDominance firstBlock middleBlock firstParent middleParent first =>
+    cases second with
+    | @SameBlock secondBlock second =>
+      cases second <;>
+        exact .BlockDominance firstParent (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+          OperationPtr.ProperlyDominatesInGraphBlock]) first
+    | @BlockDominance secondBlock targetBlock secondParent targetParent second =>
+      exact .BlockDominance firstParent targetParent
+        (first.trans_of_reachable (by grind) (by grind [OperationPtr.LocallyReachable]))
+
+/-- A proper ancestor of a regional dominator properly dominates the rooted target. -/
+theorem of_properAncestor_dominator {ancestor : OperationPtr}
+    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
+    (ancestry : (ancestor : IRNode).ProperAncestor op₁ ctx)
+    (rooted : op₂.RootedAt root ctx) :
+    ancestor.ProperlyDominates op₂ ctx true := by
+  have ancestorOfRegion :=
+    ancestry.ancestor_of_parentRegion_descendant dominance.parentRegion_dominator
+  have regionOfTarget :=
+    IRNode.Ancestor.of_getParentRegion!_eq_some dominance.parentRegion_dominated
+  refine OperationPtr.ProperlyDominates.Ancestor (ancestorOfRegion.trans regionOfTarget) ?_
+  grind
+
+/-- A regional dominator of a hierarchically reachable operation is hierarchically reachable. -/
+@[grind →]
+theorem hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
+    (reachable : op₂.HierarchicallyReachable ctx) :
+    op₁.HierarchicallyReachable ctx := by
+  cases dominance with
+  | SameBlock dominance =>
+    cases dominance <;> rename_i dominance <;>
+      obtain ⟨dominatorParent, dominatedParent, _⟩ := dominance <;>
+      exact OperationPtr.HierarchicallyReachable.of_parent_block
+        (reachable.parent_block dominatedParent) dominatorParent
+  | BlockDominance dominatorParent dominatedParent dominance =>
+    exact OperationPtr.HierarchicallyReachable.of_parent_block
+      (dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+        (reachable.parent_block dominatedParent)) dominatorParent
+
+end OperationPtr.ProperlyDominatesInRegion
+
+/-- Proper dominance extends to descendants of a rooted dominated operation. -/
+theorem OperationPtr.ProperlyDominates.of_ancestor_dominated {op₃ : OperationPtr}
+    (dominance : op₁.ProperlyDominates op₂ ctx enclosingOk)
+    (ancestry : op₂.Ancestor op₃ ctx)
+    (rooted : op₃.RootedAt root ctx) :
+    op₁.ProperlyDominates op₃ ctx enclosingOk := by
+  cases dominance with
+  | Ancestor dominatorAncestry distinct =>
+    refine OperationPtr.ProperlyDominates.Ancestor (dominatorAncestry.trans ancestry) ?_
+    grind
+  | AncestorDominatedInRegion targetAncestry localDominance enclosingOk =>
+    exact .AncestorDominatedInRegion (targetAncestry.trans ancestry) localDominance enclosingOk
+
+/-- A dominator of a hierarchically reachable operation is hierarchically reachable. -/
+@[grind →]
+theorem OperationPtr.HierarchicallyReachable.of_dominates :
+    op₁.HierarchicallyReachable ctx →
+    op₂.Dominates op₁ ctx enclosingOk →
+    op₂.HierarchicallyReachable ctx := by
+  intro reachable dominance
+  rcases dominance with same | dominance
+  · simpa [same] using reachable
+  · cases dominance with
+    | Ancestor ancestry _ => exact reachable.of_ancestor ancestry
+    | AncestorDominatedInRegion ancestry dominance =>
+      exact dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+        (reachable.of_ancestor ancestry)
+
+/-- A dominator of a hierarchically reachable block is hierarchically reachable. -/
+@[grind →]
+theorem OperationPtr.HierarchicallyReachable.of_properlyDominatesBlock
+    (reachable : block.HierarchicallyReachable ctx)
+    (dominance : op.ProperlyDominatesBlock block ctx enclosingOk) :
+    op.HierarchicallyReachable ctx := by
+  cases dominance with
+  | Ancestor ancestry => exact OperationPtr.HierarchicallyReachable.of_ancestor_block reachable ancestry
+  | SameRegion parent dominance =>
+    exact OperationPtr.HierarchicallyReachable.of_parent_block
+      (dominance.hierarchicallyReachable_dominator_of_hierarchicallyReachable_dominated
+        reachable) parent
+  | AncestorOpDominated ancestry dominance =>
+    exact (OperationPtr.HierarchicallyReachable.of_ancestor_block reachable ancestry).of_dominates
+      (OperationPtr.dominates_of_properlyDominates dominance)
+
 /-- An operation dominating the entry of a hierarchically reachable block in an SSA region
 is itself hierarchically reachable. -/
 @[grind →]
-axiom OperationPtr.HierarchicallyReachable.of_dominatesIp_atStart
-    (blockInBounds : block.InBounds ctx.raw)
+theorem OperationPtr.HierarchicallyReachable.of_dominatesIp_atStart
     (blockParent : block.getParent! ctx.raw = some region)
     (regionSSA : region.hasSSADominance ctx)
     (reachable : block.HierarchicallyReachable ctx)
     (dominance : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx) :
-    op.HierarchicallyReachable ctx
+    op.HierarchicallyReachable ctx := by
+  exact OperationPtr.HierarchicallyReachable.of_properlyDominatesBlock reachable
+    (dominance.properlyDominatesBlock_of_atStart blockParent regionSSA)
 
 /-! ## Dominance and rootedness -/
 
@@ -326,26 +451,119 @@ theorem OperationPtr.Dominates.rootedAt_iff
 
 /--
 Proper dominance between operations is transitive when the final operation is reachable: its
-chain of enclosing nodes ends at a root, and every enclosing block of an SSACFG region is
+chain of enclosing nodes ends at a root, and every enclosing block is
 reachable from the region entry.
 -/
-axiom OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
+theorem OperationPtr.ProperlyDominates.trans_of_reachable {op₃ : OperationPtr}
     (rooted : ∃ root, IRNode.RootedAt op₃ root ctx)
-    (reachable : ∀ block region, (IRNode.block block).Ancestor op₃ ctx →
-      block.getParent! ctx.raw = some region → region.hasSSADominance ctx = true →
-      block.LocallyReachable region ctx) :
+    (reachable : op₃.HierarchicallyReachable ctx) :
     op₁.ProperlyDominates op₂ ctx true →
     op₂.ProperlyDominates op₃ ctx true →
-    op₁.ProperlyDominates op₃ ctx true
+    op₁.ProperlyDominates op₃ ctx true := by
+  obtain ⟨root, rooted⟩ := rooted
+  intro first second
+  cases second with
+  | Ancestor ancestry _ =>
+    exact first.of_ancestor_dominated ancestry rooted
+  | @AncestorDominatedInRegion target region targetAncestry localSecond enclosingOk =>
+    have targetRooted := rooted.of_ancestor targetAncestry
+    cases first with
+    | Ancestor ancestry distinct =>
+      exact (localSecond.of_properAncestor_dominator
+        (ancestry.toProperAncestor (by simpa using distinct)) targetRooted).of_ancestor_dominated
+        targetAncestry rooted
+    | @AncestorDominatedInRegion middle middleRegion middleAncestry localFirst _ =>
+      by_cases same : middle = op₂
+      · subst middle
+        have sameRegion : middleRegion = region := by grind
+        subst middleRegion
+        have composed := localFirst.trans_of_reachable localSecond
+          (by grind)
+        exact .AncestorDominatedInRegion targetAncestry composed true
+      · have middleOfRegion :=
+          (middleAncestry.toProperAncestor (by simpa using same)).ancestor_of_parentRegion_descendant
+            localSecond.parentRegion_dominator
+        have regionOfTarget :=
+          IRNode.Ancestor.of_getParentRegion!_eq_some localSecond.parentRegion_dominated
+        exact .AncestorDominatedInRegion
+          ((middleOfRegion.trans regionOfTarget).trans targetAncestry) localFirst true
 
 /--
-If an operation `op₁` dominates an operation `op₂`, it dominates the operation after `op₂`,
-if it exists.
+Proper dominance in a region is preserved when advancing the dominated operation to its next
+operation in the same block.
 -/
-axiom OperationPtr.dominates_next :
-  op₁.Dominates op₂ ctx enclosingOk →
-  op₂.getNextOp! ctx.raw = some op₂Next →
-  op₁.Dominates op₂Next ctx enclosingOk
+theorem OperationPtr.ProperlyDominatesInRegion.next {nextOp : OperationPtr}
+    (dominance : op₁.ProperlyDominatesInRegion op₂ region ctx)
+    (next : op₂.getNextOp! ctx.raw = some nextOp) :
+    op₁.ProperlyDominatesInRegion nextOp region ctx := by
+  obtain ⟨parent, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp dominance.parentRegion_dominated
+  obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
+  have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
+  cases dominance with
+  | SameBlock dominance =>
+    cases dominance with
+    | Ssa dominance =>
+      have nextIndex := OperationPtr.idxInParent_next_eq op₂ ctx.raw nextOp next
+        (by grind) (by grind) ctx.wellFormed
+      exact .SameBlock (block := parent)
+        (.Ssa (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock]))
+    | Graph dominance =>
+      exact .SameBlock (block := parent)
+        (.Graph (by grind [OperationPtr.ProperlyDominatesInGraphBlock]))
+  | BlockDominance dominatorParent dominatedParent dominance =>
+    exact .BlockDominance dominatorParent (by grind) dominance
+
+grind_pattern OperationPtr.ProperlyDominatesInRegion.next =>
+    op₁.ProperlyDominatesInRegion op₂ region ctx,
+    op₂.getNextOp! ctx.raw, some nextOp where
+  guard op₂.getNextOp! ctx.raw = some nextOp
+
+/--
+If an operation `op₁` dominates an operation `op₂` in a region, it dominates the operation after
+`op₂`, if it exists.
+-/
+theorem OperationPtr.dominates_next
+    (parentRegion : op₂.getParentRegion! ctx.raw = some region) :
+    op₁.Dominates op₂ ctx enclosingOk →
+    op₂.getNextOp! ctx.raw = some op₂Next →
+    op₁.Dominates op₂Next ctx enclosingOk := by
+  intro dominance next
+  obtain ⟨parent, opParent, blockParent⟩ :=
+    OperationPtr.getParentRegion!_eq_some_iff.mp parentRegion
+  obtain ⟨array, chain⟩ := ctx.wellFormed.opChain parent (by grind)
+  have nextParent := chain.parent!_nextOp_eq (by grind) opParent next
+  rcases dominance with rfl | dominance
+  · have nextIndex := OperationPtr.idxInParent_next_eq op₁ ctx.raw op₂Next next
+      (by grind) (by grind) ctx.wellFormed
+    apply Or.inr
+    apply OperationPtr.ProperlyDominates.AncestorDominatedInRegion .refl (region := region)
+    apply OperationPtr.ProperlyDominatesInRegion.SameBlock (block := parent)
+    cases regionSSA : region.hasSSADominance ctx with
+    | false => exact .Graph (by grind [OperationPtr.ProperlyDominatesInGraphBlock])
+    | true => exact .Ssa (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock])
+  · cases dominance with
+    | Ancestor ancestry distinct =>
+      by_cases same : op₁ = op₂Next
+      · exact Or.inl same
+      · exact Or.inr (.Ancestor
+          (IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .block parent)
+            (ancestry.toProperAncestor (by simpa using distinct)) (by grind) (by grind)) same)
+    | @AncestorDominatedInRegion ancestor localRegion ancestry localDominance enclosingOk =>
+      by_cases same : ancestor = op₂
+      · subst ancestor
+        exact Or.inr (.AncestorDominatedInRegion .refl (localDominance.next next) enclosingOk)
+      · exact Or.inr (.AncestorDominatedInRegion
+          (IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .block parent)
+            (ancestry.toProperAncestor (by simpa using same)) (by grind) (by grind))
+          localDominance enclosingOk)
+
+grind_pattern OperationPtr.dominates_next =>
+    op₁.Dominates op₂ ctx enclosingOk,
+    op₂.getParentRegion! ctx.raw, some region,
+    op₂.getNextOp! ctx.raw, some op₂Next where
+  guard op₂.getParentRegion! ctx.raw = some region
+  guard op₂.getNextOp! ctx.raw = some op₂Next
 
 /-- A dominator is rooted at the same root as the operation it dominates. -/
 @[grind →]
@@ -422,6 +640,62 @@ grind_pattern OperationPtr.RootedAt.of_dominator =>
   dominated.HierarchicallyReachable ctx
 
 /-! ## Dominance at operation insertion points -/
+
+/-- If the target block's region encloses the dominator, its known parent properly dominates
+the target block in that region. -/
+theorem OperationPtr.ProperlyDominatesBlock.properlyDominatesInRegion_of_ancestor_region
+    {parent : BlockPtr}
+    (dominance : op.ProperlyDominatesBlock block ctx false)
+    (rooted : block.RootedAt root ctx)
+    (blockParent : block.getParent! ctx.raw = some region)
+    (opParent : op.getParent! ctx.raw = some parent)
+    (regionAncestry : region.Ancestor op ctx) :
+    parent.ProperlyDominatesInRegion block region ctx := by
+  cases dominance with
+  | SameRegion _ dominance => grind
+  | @AncestorOpDominated _ ancestor ancestry dominance =>
+    cases dominance with
+    | @AncestorDominatedInRegion middle localRegion middleAncestry localDominance _ =>
+      have middleOfRegion :=
+        ((middleAncestry.trans ancestry).toProperAncestor (by simp)).ancestor_of_parent_descendant
+          (show (IRNode.block block).parent! ctx = some (.region region) by grind)
+      have regionRooted : region.RootedAt root ctx :=
+        rooted.of_ancestor (IRNode.Ancestor.of_parent (by grind))
+      have opRooted := regionAncestry.rootedAt_iff.mp regionRooted
+      have same := OperationPtr.Ancestor.eq_of_parentRegion_ancestor
+        (middleOfRegion.trans regionAncestry) opRooted localDominance.parentRegion_dominator
+        (IRNode.Ancestor.of_getParentRegion!_eq_some localDominance.parentRegion_dominated)
+      subst middle
+      cases (middleOfRegion.antisymm_of_rooted regionAncestry regionRooted)
+
+grind_pattern OperationPtr.ProperlyDominatesBlock.properlyDominatesInRegion_of_ancestor_region =>
+  op.ProperlyDominatesBlock block ctx false, block.RootedAt root ctx,
+  op.getParent! ctx.raw, some parent, block.getParent! ctx.raw, some region,
+  (IRNode.region region).Ancestor op ctx where
+  guard op.getParent! ctx.raw = some parent
+  guard block.getParent! ctx.raw = some region
+
+/-- An argument of a rooted, locally reachable SSA block cannot dominate the point before
+an operation that dominates the block entry. Reachability in enclosing regions is not required. -/
+@[grind →]
+theorem OperationPtr.DominatesIp.not_dominatesIp_before_of_mem_arguments
+    (regionSSA : region.hasSSADominance ctx)
+    (blockRooted : block.RootedAt root ctx)
+    (blockReachable : block.LocallyReachable region ctx)
+    (opDom : op.DominatesIp (InsertPoint.atStart! block ctx.raw) ctx)
+    (hMem : value ∈ block.getArguments! ctx.raw) :
+    ¬ value.DominatesIp (.before op) ctx := by
+  obtain ⟨index, _, rfl⟩ := BlockPtr.getArguments!.mem_iff_exists_index.mp hMem
+  intro valueDominance
+  cases valueDominance with | BlockArg argumentInBounds ipParent dominance =>
+    rename_i parent
+    have opParent : op.getParent! ctx.raw = some parent := by grind
+    have blockDominance : block.Dominates parent ctx := by grind
+    have regionOfOp : region.Ancestor op ctx :=
+      (blockDominance.ancestor_parent (IRNode.ProperAncestor.of_parent
+        (show (IRNode.block block).parent! ctx = some (.region region) by grind))).trans
+          (IRNode.Ancestor.of_parent (by grind))
+    grind
 
 /-- Dominating a block while excluding enclosing operations witnesses a parent region. -/
 theorem OperationPtr.ProperlyDominatesBlock.exists_parentRegion

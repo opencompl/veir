@@ -111,6 +111,21 @@ def LLZK.Function.functionInterface? (op : LLZK.Function) :
           { props with function_type := functionType } }
   | .return | .call => none
 
+/--
+`function.call` calls the function it names. The arguments are the first operand segment; the rest
+are affine map operands.
+-/
+def LLZK.Function.callInterface : CallOpInterface FunctionCallProperties where
+  getCallableForCallee? props _ := some (.symbol props.callee)
+  getArgOperands props operands :=
+    operands.extract 0 (props.operandSegmentSizes.values[0]?.getD 0).toNat
+
+def LLZK.Function.callOpInterface? (op : LLZK.Function) :
+    Option (CallOpInterface (LLZK.Function.propertiesOf op)) :=
+  match op with
+  | .call => some LLZK.Function.callInterface
+  | .«def» | .return => none
+
 /-- The currently representable subset of the types checked by LLZK's `FuncDefOp::verify`:
 https://github.com/project-llzk/llzk-lib/blob/265d68f678ab15018e3f6253b85557fbaeac9c0d/lib/Dialect/Function/IR/Ops.cpp#L338-L383
 
@@ -275,6 +290,7 @@ instance : HasOpInfo LLZK.Function where
   isConstantLike := LLZK.Function.isConstantLike
   symbolInterface? := LLZK.Function.symbolInterface?
   functionInterface? := LLZK.Function.functionInterface?
+  callOpInterface? := LLZK.Function.callOpInterface?
   hasSSADominance := LLZK.Function.hasSSADominance
   isTerminator := LLZK.Function.isTerminator
   isIsolatedFromAbove := LLZK.Function.isIsolatedFromAbove

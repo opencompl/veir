@@ -49,13 +49,6 @@ def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (FunctionOp ctx op
   | some functionInterface => some { functionInterface, functionInterface?_eq := h }
   | none => none
 
-@[simp]
-theorem of?_eq_some {op : OperationPtr} {ctx : IRContext OpCode} (funcOp : FunctionOp ctx op) :
-    of? op ctx = some funcOp := by
-  rcases funcOp with ⟨⟨⟩⟩; grind [of?]
-
-grind_pattern of?_eq_some => of? op ctx, funcOp.functionInterface
-
 /--
 The `FunctionOp` view of a function-like operation.
 
@@ -153,6 +146,37 @@ def getNumResults (funcOp : FunctionOp ctx op) : Nat :=
 /-- Returns the result types of the function. -/
 def getResultTypes (funcOp : FunctionOp ctx op) : Array Attribute :=
   funcOp.getFunctionType.outputs
+
+/-!
+## Verification
+-/
+
+/--
+Check that the entry block of the function has one argument per function argument, of the same
+type. External functions have no entry block and always pass.
+
+This is equivalent to the default `FunctionOpInterface::verifyBody` in MLIR.
+-/
+def verifyBody (funcOp : FunctionOp ctx op) : Except String Unit := do
+  let some entry := funcOp.getEntryBlock? | return
+  let inputs := funcOp.getArgumentTypes
+  if entry.getNumArguments! ctx ≠ inputs.size then
+    throw s!"entry block must have {inputs.size} arguments to match function signature"
+  for h : i in [0:inputs.size] do
+    let argType := ((entry.getArgument i : ValuePtr).getType! ctx).val
+    if argType ≠ inputs[i] then
+      throw s!"type of entry block argument #{i}({argType}) must match the type of the \
+        corresponding argument in function signature({inputs[i]})"
+
+/--
+Check the invariants that every function-like operation shares.
+
+This is equivalent to `function_interface_impl::verifyTrait` in MLIR.
+
+TODO: also check `arg_attrs` and `res_attrs`, once `FunctionOpInterface` exposes them.
+-/
+def verifyTrait (funcOp : FunctionOp ctx op) : Except String Unit :=
+  funcOp.verifyBody
 
 end FunctionOp
 

@@ -33,7 +33,7 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
     { value := { props.value with value := canonicalValue } }
   return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
-def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+public def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let opType := op.getOpType! rewriter.ctx.raw
   if ¬ opType.isCommutative then return rewriter
@@ -82,7 +82,7 @@ def simplifyConstantBranch (rewriter : PatternRewriter OpCode) (op : OperationPt
 private def replaceKnownConstant (ctx : WfIRContext OpCode)
     (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
     Option (WfIRContext OpCode) := do
-  if (value.getFirstUse! ctx.raw).isNone || value.isConstantLike ctx.raw then
+  if !value.hasUses! ctx.raw || value.isConstantLike ctx.raw then
     return ctx
   let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return ctx
   let .constant constant := fact.payload.latticeElement | return ctx

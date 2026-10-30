@@ -6,13 +6,14 @@
 // single 16-byte `riscv_stack.alloca` addressed at offsets 0 and 8, which is
 // the shape upstream LLVM produces for the same program: one `stack` object
 // folded into the base operand of each access as `%stack.0`.
+// An i32 count exercises allocation lowering before constant legalization.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 (i64)>}> ({
   ^bb0(%x: i64):
-    %two = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
+    %two = "llvm.mlir.constant"() <{value = 2 : i32}> : () -> i32
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
-    %cell = "llvm.alloca"(%two) <{elem_type = i64, alignment = 8 : i64}> : (i64) -> !llvm.ptr
+    %cell = "llvm.alloca"(%two) <{elem_type = i64, alignment = 8 : i64}> : (i32) -> !llvm.ptr
     "llvm.store"(%x, %cell) : (i64, !llvm.ptr) -> ()
     %hi = "llvm.getelementptr"(%cell, %one) <{elem_type = i64, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
     "llvm.store"(%x, %hi) : (i64, !llvm.ptr) -> ()

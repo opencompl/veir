@@ -4,6 +4,7 @@ public import Veir.ForLean
 public import Veir.Interpreter.RuntimeValue.Basic
 public import Veir.Interpreter.Interp
 public import Std.Data.ExtHashMap
+import Veir.Data.Casting
 
 public section
 
@@ -135,8 +136,9 @@ def memorySize (n : Nat) : Interp UInt64 :=
 def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState × Pointer) :=
   let base := mem.nextBase
   if base + size.toNat + 1 > 2 ^ 64 then Interp.fail none else
+  let index := mem.objects.size
   return ({ mem with objects := mem.objects.push ⟨base.toUInt64, size.toNat⟩ },
-    ⟨mem.objects.size, base.toUInt64⟩)
+    ⟨index, base.toUInt64⟩)
 
 /--
   Check if an access of `size` bytes at `p` is allowed.
@@ -243,12 +245,14 @@ def MemoryState.hasPoison (mem : MemoryState) (p : Pointer) (size : UInt64) : In
       break
   return poison
 
-/-- Load the 64 bits at `p`, poison bits included. Yields UB if the access is out of bounds. -/
-def MemoryState.loadByte64 (mem : MemoryState) (p : Pointer) : Interp (Data.LLVM.Byte 64) := do
-  let ba ← mem.load p 8
-  let baPoison ← mem.loadPoison p 8
-  let poison := baPoison.toUInt64LE!.toBitVec
-  return ⟨ba.toUInt64LE!.toBitVec &&& ~~~poison, poison, by bv_decide⟩
+/-- Load the `w` bits at `p`, poison bits included. Yields UB if the access is out of bounds. -/
+def MemoryState.loadByte (mem : MemoryState) (p : Pointer) (w : Nat)
+    : Interp (Data.LLVM.Byte w) := do
+  if w % 8 ≠ 0 then none else
+  let size := (w / 8).toUInt64
+  let poison := (← mem.loadPoison p size).toBitVecLE w
+  let val := (← mem.load p size).toBitVecLE w
+  return ⟨val &&& ~~~poison, poison, by ext; simp⟩
 
 /--
   Load an LLVM value from the given memory address.
@@ -286,14 +290,23 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
       if ← mem.hasPoison p 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
   | Attribute.byteType { bitwidth := 8 } =>
-      let ba ← mem.load p 1
-      let poison := BitVec.ofNat 8 (← mem.loadPoison p 1)[0]!.toNat
-      return .byte 8 ⟨BitVec.ofNat 8 ba[0]!.toNat &&& ~~~poison, poison, by bv_decide⟩
+      return .byte 8 (← mem.loadByte p 8)
   | Attribute.byteType { bitwidth := 64 } =>
-      return .byte 64 (← mem.loadByte64 p)
+      return .byte 64 (← mem.loadByte p 64)
   | Attribute.llvmPointerType _ =>
-      return .addr (mem.ptrOfByte (← mem.loadByte64 p))
+      return .addr (mem.ptrOfByte (← mem.loadByte p 64))
   | _ => none
+
+/--
+  Loads a `w`-bit integer from `p`, poison only if every bit is (see `LLVM.Byte.toFrozenInt`).
+  Yields UB if the access is out of bounds or `p` is null.
+
+  TODO: With CTrees, freeze the poison bits nondeterministically.
+-/
+def MemoryState.frozenLoad (mem : MemoryState) (p : Pointer) (w : Nat)
+    : Interp (Data.LLVM.Int w) := do
+  if p = .null then Interp.ub none else
+  return LLVM.Byte.toFrozenInt (← mem.loadByte p w)
 
 /-- The type `b8`, which keeps the poison bits of a byte loaded from memory. -/
 def byte8Type : TypeAttr := TypeAttr.of LLVM.ByteType ⟨8⟩

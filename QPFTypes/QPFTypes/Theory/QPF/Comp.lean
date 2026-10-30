@@ -19,17 +19,17 @@ and show that it preserves the QPF structure
 @[expose] public section
 
 
-universe u
+universe u v
 
 namespace QPFTypes.QPF
 
 open MvFunctor
 
-variable {n m : Nat} (F : TypeVec.{u} n → Type _) (G : Fin n → TypeVec.{u} m → Type u)
+variable {n m : Nat} (F : TypeVec.{u} n → Type v) (G : Fin n → TypeVec.{u} m → Type u)
 
 /-- Composition of an `n`-ary functor with `n` `m`-ary
 functors gives us one `m`-ary functor -/
-def Comp (v : TypeVec.{u} m) : Type _ :=
+def Comp (v : TypeVec.{u} m) : Type v :=
   F fun i : Fin n ↦ G i v
 
 namespace Comp
@@ -90,7 +90,7 @@ instance inst [QPF F] [∀ i, QPF <| G i] : QPF (Comp F G) where
       abs_map, map_mk]
 
 /-- Composition preserves polynomiality. -/
-instance instIsPolynomial {F : TypeVec.{u} n → Type u} {G : Fin n → TypeVec.{u} m → Type u}
+instance instIsPolynomial {F : TypeVec.{u} n → Type v} {G : Fin n → TypeVec.{u} m → Type u}
     [QPF F] [∀ i, QPF (G i)] [IsPolynomial F] [∀ i, IsPolynomial (G i)] :
     IsPolynomial (Comp F G) where
   repr_abs {β} p := by

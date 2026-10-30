@@ -543,6 +543,8 @@ macro "#assert " e:term : command =>
 
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
+#assert expectSuccessType "!llvm.ptr<1>" (LLVM.PointerType.mk 1)
+#assert expectSuccessType "!llvm.ptr<200>" (LLVM.PointerType.mk 200)
 
 /-! ## LLVM Void type -/
 #assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
@@ -599,16 +601,16 @@ macro "#assert " e:term : command =>
   (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
     UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
 -- Fields unsupported by the type parser retain the entire struct as text.
-#assert expectSuccessType "!llvm.struct<(ptr<1>, i32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(ptr<1>, i32)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.struct<(foo<1>, i32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(foo<1>, i32)>" true none, by grind⟩
 #assert expectSuccessType "!llvm.struct<(vector<[4]xi32>)>"
   ⟨UnregisteredAttr.mk "!llvm.struct<(vector<[4]xi32>)>" true none, by grind⟩
-#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, ptr<1>)>>"
+#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, foo<1>)>>"
   (LLVM.ArrayType.mk 2
-    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, ptr<1>)>" true none : Attribute))
+    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, foo<1>)>" true none : Attribute))
 -- The opaque fallback still requires balanced delimiters.
-#assert !(testType "!llvm.struct<(ptr<1>, i32]>").isOk
-#assert !(testType "!llvm.struct<(ptr<1>, i32)").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32]>").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32)").isOk
 
 
 /-! ## LLVM parameterless types -/
@@ -742,6 +744,10 @@ macro "#assert " e:term : command =>
 /-! ## RISCV Register type -/
 #assert expectSuccessType "!riscv.reg" (RegisterType.mk)
 #assert expectSuccessType "!riscv.reg<x13>" (RegisterType.mk (some 13))
+#assert expectSuccessType "!riscv.reg<x0>" (RegisterType.mk (some 0))
+#assert expectErrorType "!riscv.reg<j3>" "expected RV64 register of the form xID" (some 11)
+#assert ToString.toString (RegisterType.mk (some (-1))) = "!riscv.reg<j0>"
+#assert ToString.toString (RegisterType.mk (some (-12))) = "!riscv.reg<j11>"
 
 /-! ## Flat symbol reference attribute -/
 #assert expectSuccessAttr "@foo" (FlatSymbolRefAttr.mk "@foo")
@@ -759,3 +765,16 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "!hw.modty<foo>" "module port expected" (some 10)
 #assert expectErrorType "!hw.modty<input : foo>" "identifier expected" (some 16)
 #assert expectErrorType "!hw.modty<input a : foo>" "integer type expected" (some 20)
+
+/-! ## Seq clock and FIRRTL memory types -/
+#assert expectSuccessType "!seq.clock" Seq.ClockType.mk
+#assert expectSuccessType "!seq.firmem<4 x 8>" (Seq.FirMemType.mk 4 8 none)
+/- The lexer fuses `x8` into one identifier, so the separator is re-lexed rather than matched as
+   a keyword; both spellings have to give the same type. -/
+#assert expectSuccessType "!seq.firmem<4x8>" (Seq.FirMemType.mk 4 8 none)
+#assert expectSuccessType "!seq.firmem<16 x 32, mask 8>" (Seq.FirMemType.mk 16 32 (some 8))
+#assert expectSuccessType "!seq.firmem<1 x 1>" (Seq.FirMemType.mk 1 1 none)
+#assert expectErrorType "!seq.firmem<4>" "expected keyword 'x'" (some 13)
+#assert expectErrorType "!seq.firmem<4 y 8>" "expected keyword 'x'" (some 14)
+#assert expectErrorType "!seq.firmem<4 x 8, 2>" "expected keyword 'mask'" (some 19)
+#assert expectErrorType "!seq.firmem<x x 8>" "memory depth expected" (some 12)

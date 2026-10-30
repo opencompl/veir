@@ -55,6 +55,22 @@ structure FunctionOpInterface (Properties : Type) where
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
+/-- The callee of a call: a symbol, or one of its operands. -/
+inductive CallInterfaceCallable (α : Type) where
+  | symbol (ref : FlatSymbolRefAttr)
+  | value (value : α)
+deriving Inhabited, Repr, DecidableEq
+
+/--
+Information exposed by call-like operations. It only selects among the operands, so it works for
+any operand type `α`: the IR uses it on SSA values, and the interpreter on runtime values.
+-/
+structure CallOpInterface (Properties : Type) where
+  /-- Return the callee of the call, given its operands. -/
+  getCallableForCallee? : {α : Type} → Properties → Array α → Option (CallInterfaceCallable α)
+  /-- Return the operands passed as arguments to the callee. -/
+  getArgOperands : {α : Type} → Properties → Array α → Array α
+
 /-- The SSA values forwarded from a branch operation to one of its successors. -/
 structure SuccessorOperands where
   /-- The SSA values forwarded to the successor. -/
@@ -116,6 +132,13 @@ class HasOpInfo (opCode: Type)
   -/
   isConstantLike : opCode → Bool := fun _ => false
   /--
+  Whether permuting an operation's operands preserves all its results with
+  its properties unchanged. For binary operations this means `op x y` and
+  `op y x` compute the same results, including poison behavior. Defaults to
+  `false` for opcodes whose commutativity has not been declared.
+  -/
+  isCommutative : opCode → Bool := fun _ => false
+  /--
   Whether an operation with this opcode produces a wholly poisoned result
   whenever any one of its operands is wholly poison, mirroring LLVM's
   `propagatesPoison`. Defaults to `false` for every opcode, which
@@ -150,10 +173,23 @@ class HasOpInfo (opCode: Type)
     intro op f symbolInterface hf hs props
     cases op <;> cases hf <;> cases hs <;> rfl
   /--
+  Information about call-like operations.
+  -/
+  callOpInterface? : (op : opCode) → Option (CallOpInterface (propertiesOf op)) :=
+    fun _ => none
+  /--
   Information about operations that branch to successor blocks.
   -/
   branchOpInterface? : (op : opCode) → Option (BranchOpInterface (propertiesOf op)) :=
     fun _ => none
+  /--
+  The unconditional branch and properties to use when a branch's selected
+  successor is known. The caller supplies that successor and its forwarded
+  operands. Preserve properties that still apply to the unconditional branch;
+  return `none` for non-branches or unsupported conversions.
+  -/
+  unconditionalBranch? : (op : opCode) → propertiesOf op → Option (OpKind opCode) :=
+    fun _ _ => none
   /--
   Return the kind of the indexed region inside an operation with this opcode.
   This mirrors MLIR's `RegionKindInterface` default: regions are SSACFG unless

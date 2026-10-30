@@ -1,7 +1,7 @@
 module
 
 public import Veir.Pass
-import Veir.IR.SymbolRef
+import Veir.Interfaces.CallInterfaces
 import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.Matching
@@ -101,22 +101,6 @@ private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
 private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
   !(abiAttrEntries ctx op).any isUnsupportedAbiAttr
 
-/-- Resolve a flat callee name in the nearest enclosing module. Do not look through
-    nested modules: a same-named function there belongs to a different symbol scope. -/
-private partial def lookupCallee? (ctx : IRContext OpCode) (op : OperationPtr)
-    (name : ByteArray) : Option OperationPtr := do
-  let parent ← op.getParentOp! ctx
-  if parent.getOpType! ctx != .builtin .module then
-    return ← lookupCallee? ctx parent name
-  let body := parent.getRegion! ctx 0
-  let block ← body.getFirstBlock! ctx
-  let mut candidate := block.getFirstOp! ctx
-  while let some target := candidate do
-    if let some func := FunctionOp.of? target ctx then
-      if func.getSymName.value == name then return target
-    candidate := target.getNextOp! ctx
-  none
-
 /-- Whether a value of type `t` is passed in a single integer register. -/
 def isRegPassed (t : TypeAttr) : Bool :=
   (BoundaryCoercion.riscvReg.target t).isSome
@@ -185,11 +169,11 @@ def lowerCall (callee : Option FlatSymbolRefAttr) (extra : DictionaryAttr) :
   if hasUnsupportedAttrs extra.entries (op.getAttributes! ctx.raw).entries isUnsupportedCallAttr then
     return (ctx, none)
   let mut calleeEntries := #[]
-  if let some callee := callee then
-    let some name := callee.getName? | return (ctx, none)
-    if let some target := lookupCallee? ctx.raw op name then
-      if !supportsFunctionAbi ctx.raw target then return (ctx, none)
-      calleeEntries := abiAttrEntries ctx.raw target
+  if callee.isSome then
+    let some callOp := CallOp.of? op ctx.raw | none
+    let some target := callOp.resolveCallable? | return (ctx, none)
+    if !supportsFunctionAbi ctx.raw target then return (ctx, none)
+    calleeEntries := abiAttrEntries ctx.raw target
   let operands := op.getOperands! ctx.raw
   -- Stack arguments are not lowered yet; an indirect target is not an argument.
   let numTargets := if callee.isSome then 0 else 1
