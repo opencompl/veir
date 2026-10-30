@@ -517,7 +517,7 @@ theorem toInt_sshiftRight'' {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂
 /-- An exact `sdiv` by a power of two (i.e. one where the dividend has no fractional part to
     round, witnessed by `x.smod (2^k) = 0`) agrees with the arithmetic shift `x.sshiftRight' k`.
     `k` must leave room for a sign bit (`k.toNat + 1 < w`, i.e. `2^k` isn't `x`'s own `intMin`),
-    matching the range for which `sdivPow2Exact`/`sdivwPow2Exact` are selected. -/
+    matching the range for which `sdiv_exact_by_pow2_pattern` fires. -/
 @[veir_bv_normalize_post]
 theorem sdiv_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
     (hk : k.toNat + 1 < w₁) (h : x.smod ((1#w₁) <<< k) = 0#w₁) :
@@ -580,7 +580,7 @@ theorem sdiv_neg_one_shl_of_smod_eq_zero {w₁ w₂ : Nat} (x : BitVec w₁) (k 
 
 end BitVec
 
-/-- The Hacker's-Delight bias/shift identity underlying `sdivPow2`/`sdivwPow2`: truncating
+/-- The Hacker's-Delight bias/shift identity underlying `sdiv_by_pow2_pattern`: truncating
     division by a positive `p` equals floor division of the dividend biased by `p - 1` when the
     dividend is negative (so the floor rounds toward zero instead of toward `-∞`). -/
 theorem Int.tdiv_eq_ediv_add_of_pos {a p : Int} (hp : 0 < p) :
@@ -640,7 +640,7 @@ namespace BitVec
 /-- The bias term added before the arithmetic shift in the Hacker's-Delight bias/shift sequence
     for signed division by `2^k`: `2^k - 1` when `x` is negative, `0` otherwise, computed as a
     plain arithmetic-then-logical shift (mirroring `sign := srai 63 x; corr := srli (64-k) sign`
-    in the `sdivPow2`/`sdivwPow2` lowering). -/
+    in the `sdiv_by_pow2_pattern` combine). -/
 theorem toNat_sign_mask_shift {w₁ : Nat} (x : BitVec w₁) (k : Nat) (hk : k < w₁) :
     (x.sshiftRight (w₁ - 1) >>> (w₁ - k)).toNat = if x.msb then 2 ^ k - 1 else 0 := by
   have hdouble : 2 ^ (w₁ - 1) * 2 = 2 ^ w₁ := by
@@ -665,7 +665,7 @@ theorem toNat_sign_mask_shift {w₁ : Nat} (x : BitVec w₁) (k : Nat) (hk : k <
       exact Nat.div_eq_of_lt hxlt
     rw [hinner, Nat.zero_shiftRight]
 
-/-- `sdivPow2` (general, non-`exact` positive divisor): dividing by `2^k` equals arithmetic-shifting
+/-- `sdiv_by_pow2_pattern` (general, non-`exact` positive divisor): dividing by `2^k` equals arithmetic-shifting
     `x` biased by `2^k - 1` when `x` is negative (so truncation rounds toward zero instead of
     toward `-∞`). Unlike `sdiv_one_shl_of_smod_eq_zero`, this holds for *every* `x` (no `smod = 0`
     side condition), but — like it — needs `k.toNat + 1 < w₁` to keep `2^k` off `x`'s own `intMin`.
@@ -734,8 +734,8 @@ theorem sdiv_one_shl_eq_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (
     ← Int.shiftRight_eq_div_pow, ← toInt_sshiftRight'']
   exact BitVec.toInt_bmod_cancel _
 
-/-- Negative-divisor analogue of `sdiv_one_shl_eq_biased_sshiftRight` (`sdivPow2`, negative
-    divisor): negate the biased-shift result. Like `sdiv_neg_one_shl_of_smod_eq_zero`, no bound
+/-- Negative-divisor analogue of `sdiv_one_shl_eq_biased_sshiftRight` (`sdiv_by_pow2_pattern`,
+    negative divisor): negate the biased-shift result. Like `sdiv_neg_one_shl_of_smod_eq_zero`, no bound
     relating `k` to `w` is needed beyond `k < w`: `-2^(w-1)` is itself a valid divisor here too.
     Stated with plain `Nat`-indexed shifts; see `sdiv_neg_one_shl_eq_neg_biased_sshiftRight_bv`. -/
 theorem sdiv_neg_one_shl_eq_neg_biased_sshiftRight {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂)
@@ -806,7 +806,7 @@ theorem toNat_neg_eq_sub {w : Nat} (v : BitVec w) (hv : 0 < v.toNat) :
   exact Nat.mod_eq_of_lt (Nat.sub_lt (Nat.two_pow_pos w) hv)
 
 /-- `BitVec`-typed-shift-amount form of `sdiv_one_shl_eq_biased_sshiftRight`, matching the shape
-    `sdivPow2`/`sdivwPow2` actually lower to: RISC-V immediates are register-width-sized (`w₂` bits
+    the selected `sdiv_by_pow2_pattern` sequence takes: RISC-V immediates are register-width-sized (`w₂` bits
     for a `2^w₂`-bit register), so the source's `srai (w₁-1) x`/`srli (w₁-k) sign` are literally
     `sshiftRight' (-1)`/`ushiftRight (-k)` once the `w₁`-valued immediate wraps to `0` in `w₂` bits.
     `bv_decide` can only bitblast a shift by a genuine `BitVec` value (not a symbolic `Nat`

@@ -1,10 +1,10 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64,isel-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // LLVM models `not y` as `xor y -1`. The Zbb logic-with-negate forms fuse a
 // `not` feeding an `and`/`or`/`xor` into a single instruction (mirroring LLVM's
-// TableGen patterns `(and X, (not Y)) -> ANDN`, etc.). These run in the SDAG
-// pass, before the bulk per-op lowering would otherwise consume the `not` and
-// the logic op separately. Each function should produce the fused op.
+// TableGen patterns `(and X, (not Y)) -> ANDN`, etc.). These are composed isel
+// patterns over gMIR, which run before the per-op lowering would otherwise
+// consume the `not` and the logic op separately. Each function should produce the fused op.
 
 "builtin.module"() ({
     // and x (not y) -> riscv.andn

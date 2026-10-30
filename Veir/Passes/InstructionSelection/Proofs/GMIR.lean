@@ -36,7 +36,7 @@ set_option Elab.async false
   high bits that the hardware word instruction chooses: the sign extension of the result, which is
   the witness of each proof below.
 
-  The other selections that replaced `isel-sdag-riscv64` match gMIR operations with the semantics
+  The other selections of `isel-riscv64` over composed or constant operands match gMIR operations with the semantics
   of the LLVM operations, so the lemmas of `Veir.Passes.InstructionSelection.Proofs` cover them:
   `andn_refinement`, `orn_refinement`, `xnor_refinement`, `orcb_refinement_y*`, and the
   `fold_*_sound` lemmas of the immediate forms composed with the register-register lowerings.

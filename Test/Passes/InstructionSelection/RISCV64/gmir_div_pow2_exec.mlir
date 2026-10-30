@@ -3,8 +3,7 @@
 // RUN: veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=SEL < %t
 
-// Power-of-two divisions, selected through the post-legalizer combines rather than
-// `isel-sdag-riscv64`: negative dividends, negative and minimum-value divisors, `exact`, and the
+// Power-of-two divisions, selected through the post-legalizer combines: negative dividends, negative and minimum-value divisors, `exact`, and the
 // i32 word forms, including the unsigned `2^31` and `2^63` divisors.
 
 // SEL-NOT: "riscv.div

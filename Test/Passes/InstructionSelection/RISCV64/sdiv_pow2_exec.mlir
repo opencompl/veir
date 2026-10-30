@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,riscv > %t && veir-interpret %t | filecheck %s
 
-// Functional check for `sdivPow2` (general, non-`exact`, positive and negative
+// Functional check for `sdiv_by_pow2_pattern` (general, non-`exact`, positive and negative
 // divisor): truncating (round-toward-zero) division by a constant power of two.
 // `-15 sdiv 4` exercises the bias correction (a plain arithmetic shift would give
 // the floor, `-4`, instead of the truncated `-3`); the `y < 0` cases exercise the

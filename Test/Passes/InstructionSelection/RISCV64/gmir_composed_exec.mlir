@@ -3,8 +3,7 @@
 // RUN: veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=SEL < %t
 
-// The composed and immediate selections that `isel-riscv64` took over from
-// `isel-sdag-riscv64`, on legalized gMIR: `andn`/`orn`/`xnor` with the `not` on either side,
+// The composed and immediate selections of `isel-riscv64` on legalized gMIR: `andn`/`orn`/`xnor` with the `not` on either side,
 // `orcb`, `bexti`, `slliuw`, the Zbs single-bit immediates, and `slti`/`sltiu` at the
 // immediate boundaries (including `ule` against `-1`, which must not use `sltiu`).
 

@@ -1,9 +1,9 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
-// Best-effort word (`*w`) immediate selection. LLVM triggers these via
-// `binop_allwusers` (an i64 op all of whose users demand only the low 32 bits),
-// which we cannot model without demanded-bits analysis; we approximate it by
-// gating on an i32 result type. These therefore only fire on i32 arithmetic.
+// Word (`*w`) immediate selection. Legalization widens i32 arithmetic to the gMIR
+// word operations (`g_addw`, `g_shlw`, ...), and isel selects their immediate forms.
+// LLVM also selects these via `binop_allwusers` (an i64 op all of whose users demand
+// only the low 32 bits), which needs demanded-bits analysis that we do not have.
 
 "builtin.module"() ({
     // i32 add x (const imm12) -> riscv.addiw x imm

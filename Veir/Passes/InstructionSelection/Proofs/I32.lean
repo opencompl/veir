@@ -62,28 +62,29 @@ theorem udiv_refinement_32 {x y : LLVM.Int 32} :
       (RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
-/-- `i32` analogue of `udivPow2_refinement` (`udivwPow2`). -/
+/-- `i32` analogue of `udivPow2_refinement` (`udiv_by_pow2_pattern` on `g_udivw`). -/
 theorem udivwPow2_refinement {x : LLVM.Int 32} (k : BitVec 5) :
     (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#32) <<< k))) ⊒
       (RISCV.Reg.toInt (Data.RISCV.srliw k (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
-/-- `i32` analogue of `sdivPow2Exact_pos_refinement` (`sdivwPow2Exact`, positive
-    divisor): a genuine positive `i32` divisor `2^k` needs `k < 31`. -/
+/-- `i32` analogue of `sdivPow2Exact_pos_refinement` (`sdiv_exact_by_pow2_pattern` on
+    `g_sdivw`, positive divisor): a genuine positive `i32` divisor `2^k` needs `k < 31`. -/
 theorem sdivwPow2Exact_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk : k < 31) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) true) ⊒
       (RISCV.Reg.toInt (Data.RISCV.sraiw k (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
-/-- `i32` analogue of `sdivPow2Exact_neg_refinement` (`sdivwPow2Exact`, negative
-    divisor): `-2^31` (`k = 31`) is itself a valid `i32` divisor, so no upper bound
+/-- `i32` analogue of `sdivPow2Exact_neg_refinement` (`sdiv_exact_by_pow2_pattern` on
+    `g_sdivw`, negative divisor): `-2^31` (`k = 31`) is itself a valid `i32` divisor, so no upper bound
     on `k` is needed. -/
 theorem sdivwPow2Exact_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) true) ⊒
       (RISCV.Reg.toInt (Data.RISCV.negw (Data.RISCV.sraiw k (LLVM.Int.toReg x))) 32) := by
   veir_bv_decide
 
-/-- `i32` analogue of `sdivPow2_pos_refinement` (`sdivwPow2`, positive divisor). -/
+/-- `i32` analogue of `sdivPow2_pos_refinement` (`sdiv_by_pow2_pattern` on `g_sdivw`,
+    positive divisor). -/
 theorem sdivwPow2_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) (hk31 : k < 31) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#32) <<< k)) false) ⊒
       (RISCV.Reg.toInt
@@ -93,7 +94,8 @@ theorem sdivwPow2_pos_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) 
          Data.RISCV.sraiw k biased) 32) := by
   veir_bv_decide
 
-/-- `i32` analogue of `sdivPow2_neg_refinement` (`sdivwPow2`, negative divisor). -/
+/-- `i32` analogue of `sdivPow2_neg_refinement` (`sdiv_by_pow2_pattern` on `g_sdivw`,
+    negative divisor). -/
 theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) :
     (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#32) <<< k))) false) ⊒
       (RISCV.Reg.toInt

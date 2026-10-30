@@ -355,10 +355,14 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.udiv x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
-/-! ### `sdiv`/`udiv` by a constant power of two -/
+/-! ### `sdiv`/`udiv` by a constant power of two
+
+  The end-to-end RISC-V sequences of the power-of-two division combines of
+  `postlegalizer-combiner-riscv64` and the shift selection of `isel-riscv64`. The combines
+  themselves are proved on gMIR in `Veir.Passes.Legalization.Proofs`. -/
 
 /--
-  `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
+  `udiv x, 2^k` -> `riscv.srli x, k` (`udiv_by_pow2_pattern`). Mirrors `DAGCombiner::visitUDIVLike`'s
   `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440
 -/
@@ -368,7 +372,7 @@ theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
   veir_bv_decide
 
 /--
-  `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdivPow2Exact`, positive divisor).
+  `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdiv_exact_by_pow2_pattern`, positive divisor).
   Since `exact` makes the source poison whenever `x` isn't a multiple of `2^k`, this
   only has to hold when the arithmetic right shift and the truncating division
   agree, i.e. when there is no fractional part to round differently.
@@ -379,8 +383,8 @@ theorem sdivPow2Exact_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk : k < 
   veir_bv_decide
 
 /--
-  `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)` (`sdivPow2Exact`, negative
-  divisor). No upper bound on `k` is needed here: `-2^63` (`k = 63`) is itself a
+  `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)` (`sdiv_exact_by_pow2_pattern`,
+  negative divisor). No upper bound on `k` is needed here: `-2^63` (`k = 63`) is itself a
   valid `i64` divisor.
 -/
 theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
@@ -390,7 +394,7 @@ theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
 
 /--
   General (non-`exact`) `sdiv x, 2^k` -> the Hacker's-Delight bias/shift sequence
-  (`sdivPow2`, positive divisor): bias a negative dividend by `2^k - 1` before the
+  (`sdiv_by_pow2_pattern`, positive divisor): bias a negative dividend by `2^k - 1` before the
   arithmetic shift, so truncation rounds toward zero. `k = 0` is excluded because the
   correction shift `64 - k` would then need a full 64-bit shift, which has no legal
   RISC-V immediate encoding (`sdiv x, ±1` never reaches instruction selection as
