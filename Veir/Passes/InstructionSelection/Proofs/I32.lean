@@ -4,6 +4,7 @@ public import Veir.Data.RISCV.Reg.Basic
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
 public import Veir.Data.Refinement
+public import Veir.Dialects.GMIR.Semantics
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
@@ -17,6 +18,7 @@ import all Veir.Data.LLVM.Int.Lemmas
 import all Veir.Data.LLVM.Int.Bitblast
 import all Veir.Data.Casting
 import all Veir.Data.Refinement
+import all Veir.Dialects.GMIR.Semantics
 
 public section
 
@@ -34,6 +36,66 @@ set_option Elab.async false
 
 namespace Veir.Data.RISCV
 
+/-! ## Word operations
+
+  A gMIR word operation (`GMIR.word`) and its RISC-V instruction both apply the operation to the
+  low 32 bits of the operands and sign-extend the result.
+-/
+
+/--
+  Prove the correctness of the `gmir.g_sdivw` lowering pattern.
+-/
+theorem gmir_sdivw_refinement {x y : LLVM.Int 64} :
+    GMIR.word (Data.LLVM.Int.sdiv · ·) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR.word
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir.g_udivw` lowering pattern.
+-/
+theorem gmir_udivw_refinement {x y : LLVM.Int 64} :
+    GMIR.word (Data.LLVM.Int.udiv · ·) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR.word
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir.g_uremw` lowering pattern.
+-/
+theorem gmir_uremw_refinement {x y : LLVM.Int 64} :
+    GMIR.word Data.LLVM.Int.urem x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.remuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR.word
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir.g_shlw` lowering pattern.
+-/
+theorem gmir_shlw_refinement {x y : LLVM.Int 64} :
+    GMIR.word (fun x y => Data.LLVM.Int.shl x (GMIR.wordShiftAmount y)) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.sllw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR.word GMIR.wordShiftAmount
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir.g_lshrw` lowering pattern.
+-/
+theorem gmir_lshrw_refinement {x y : LLVM.Int 64} :
+    GMIR.word (fun x y => Data.LLVM.Int.lshr x (GMIR.wordShiftAmount y)) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.srlw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR.word GMIR.wordShiftAmount
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir.g_ashrw` lowering pattern.
+-/
+theorem gmir_ashrw_refinement {x y : LLVM.Int 64} :
+    GMIR.word (fun x y => Data.LLVM.Int.ashr x (GMIR.wordShiftAmount y)) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.sraw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR.word GMIR.wordShiftAmount
+  veir_bv_decide
+
 /-! ## i32 lowering refinement proofs
 
   These proofs cover all operations added to the i32 isel path.
@@ -42,24 +104,9 @@ namespace Veir.Data.RISCV
   bit must first `sextw`-extend the low 32 bits.
 -/
 
-theorem ashr_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.ashr x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sraw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
 theorem mul_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.mul x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem sdiv_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.sdiv x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem udiv_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.udiv x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.divuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 /-- `i32` analogue of `udivPow2_refinement` (`udivwPow2`). -/
@@ -106,11 +153,6 @@ theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) 
 theorem srem_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.srem x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.remw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem urem_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.urem x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.remuw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 theorem ctlz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :

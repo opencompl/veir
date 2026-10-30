@@ -33,6 +33,13 @@ inductive GMIR where
 | g_shl
 | g_lshr
 | g_ashr
+-- RISC-V word operations; see `GMIR.wordBase?`.
+| g_sdivw
+| g_udivw
+| g_uremw
+| g_shlw
+| g_lshrw
+| g_ashrw
 | g_icmp
 | g_select
 | g_anyext
@@ -87,6 +94,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_brcond => GMIRBrCondProperties
   | .g_select | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
+  | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
@@ -110,6 +118,7 @@ def GMIR.fromAttrDict
   case g_brcond => exact GMIRBrCondProperties.fromAttrDict attrDict
   case g_select | g_anyext | g_sext
      | g_and | g_xor | g_srem | g_urem
+     | g_sdivw | g_udivw | g_uremw | g_shlw | g_lshrw | g_ashrw
      | g_inttoptr | g_ptrtoint | g_bswap | g_bitreverse | g_brev8
      | g_saddsat | g_uaddsat | g_ssubsat | g_usubsat | g_sshlsat | g_ushlsat
      | g_smin | g_smax | g_umin | g_umax | g_abs
@@ -150,6 +159,7 @@ def GMIR.toAttrDict
       "operandSegmentSizes".toUTF8 (.denseArrayAttr props.operandSegmentSizes)
   | .g_select | .g_anyext | .g_sext
   | .g_and | .g_xor | .g_srem | .g_urem
+  | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
@@ -189,6 +199,7 @@ deriving Inhabited, Repr
 def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_add | .g_sub | .g_mul | .g_and | .g_or | .g_xor
   | .g_sdiv | .g_udiv | .g_srem | .g_urem
+  | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat
   | .g_smin | .g_smax | .g_umin | .g_umax =>
     { outOperandList := #[.type 0]
@@ -337,11 +348,44 @@ widths of 8, 16, 32 and 64 bits.
 def brev8 {w : Nat} (x : Data.LLVM.Int w) : Data.LLVM.Int w :=
   if w = 8 then Data.LLVM.Int.bitreverse x else Data.LLVM.Int.bitreverse (Data.LLVM.Int.bswap x)
 
+/--
+The operation that a RISC-V word operation applies to the low 32 bits of its `i64` operands. The
+word operations are LLVM's `G_DIVW`, `G_DIVUW`, `G_REMUW`, `G_SLLW`, `G_SRLW` and `G_SRAW`, which
+have the semantics of the RISC-V instructions of the same name: the 32-bit result is sign-extended,
+and a shift reads only the low 5 bits of its amount, so it is never poison. As in LLVM, division by
+zero and signed overflow are UB, and the word operations carry no flags.
+-/
+def GMIR.wordBase? : GMIR → Option GMIR
+  | .g_sdivw => some .g_sdiv
+  | .g_udivw => some .g_udiv
+  | .g_uremw => some .g_urem
+  | .g_shlw => some .g_shl
+  | .g_lshrw => some .g_lshr
+  | .g_ashrw => some .g_ashr
+  | _ => none
+
+theorem GMIR.wordBase?_wordBase? {op base : GMIR} (h : op.wordBase? = some base) :
+    base.wordBase? = none := by
+  cases op <;> cases h <;> rfl
+
 def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) :=
   match opType with
+  | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw =>
+    match h : opType.wordBase? with
+    | none => none
+    | some base => do
+      let [.int 64 lhs, .int 64 rhs] := operands.toList | none
+      let lhs := Data.LLVM.Int.trunc lhs 32 false false (by decide)
+      let rhs := Data.LLVM.Int.trunc rhs 32 false false (by decide)
+      let rhs := if base matches .g_shl | .g_lshr | .g_ashr then GMIR.wordShiftAmount rhs else rhs
+      -- The default properties have no flags.
+      let (results, mem, _) ← GMIR.interpretOp' base (@IsOpCode.propertiesDefault GMIR _ base).default
+          #[IntegerType.signless 32] #[.int 32 lhs, .int 32 rhs] #[] mem
+      let [.int 32 result] := results.toList | none
+      return (#[.int 64 (Data.LLVM.Int.sext result 64 (by decide))], mem, none)
   | .g_anyext => do
     /- TODO: the semantics need to be updated once we support nondeterminism. -/
     let [.int w val] := operands.toList | none
@@ -636,6 +680,8 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
     return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
+termination_by opType.wordBase?.isSome.toNat
+decreasing_by all_goals (rw [GMIR.wordBase?_wordBase? h]; decide)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -721,6 +767,11 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"{instrName}: type mismatch: expected {expected}, got {type}"
   -- Verify opcode-specific type invariants
   match opCode with
+  | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    -- The type-group check above makes the operands the same type as the result.
+    unless ((opPtr.getResult 0).getType! ctx.raw).val matches .integerType ⟨64, _⟩ do
+      throw "RISC-V gMIR word operations require i64 operands and result"
   | .g_icmp =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRICmp ctx opIn
@@ -815,6 +866,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_add | .g_sub | .g_icmp | .g_anyext | .g_sext | .g_zext | .g_trunc
   | .g_mul | .g_and | .g_or | .g_xor | .g_sdiv | .g_udiv | .g_srem | .g_urem
   | .g_shl | .g_lshr | .g_ashr
+  | .g_sdivw | .g_udivw | .g_uremw | .g_shlw | .g_lshrw | .g_ashrw
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs

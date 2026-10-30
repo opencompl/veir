@@ -96,6 +96,16 @@ def widenConstant (width : Nat) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type])
     (fun trunc => trunc)
 
+/-- Matches the unary `opcode` with an operand of type `srcType` and a result of type `resType`,
+whose widths satisfy `srcWidth` and `resWidth`. -/
+private def matchUnary (opcode : GMIR) (srcWidth resWidth : Nat → Bool := fun _ => true) :
+    MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
+  let srcType ← MatchProg.type (Attr := IntegerType) (srcWidth ·.bitwidth)
+  let resType ← MatchProg.type (Attr := IntegerType) (resWidth ·.bitwidth)
+  let src ← MatchProg.value srcType
+  let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
+  return (srcType, resType, src)
+
 /-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
 integer type `srcType`. -/
 private def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
@@ -110,12 +120,7 @@ ensure by widening it first.
 -/
 def widenCtlzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = width)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_ctlz) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_ctlz (· < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_zext) #[src] #[resType]
       let ctlz ← CreateProg.operation (.gmir .g_ctlz) #[ext.res[0]!] #[resType]
@@ -133,12 +138,7 @@ must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = width)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_cttz) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_cttz (· < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
@@ -170,25 +170,15 @@ def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
 at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
 def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
-      return (resType, src))
-    (fun (resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
+    (matchUnary opcode)
+    (fun (_, resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
     (fun op => op)
 
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
 LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. -/
 def lowerSext : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_sext) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_sext)
     (fun (srcType, resType, src) => do
       let extProps ← CreateProg.property (.gmir .g_anyext) default
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps
@@ -203,12 +193,7 @@ def lowerSext : Pattern OpCode :=
 is what LLVM's artifact combiner makes of a `g_zext` of a `g_trunc`. -/
 def lowerZext : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_zext) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_zext)
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let mask ← widthConstant srcType resType (2 ^ · - 1)
