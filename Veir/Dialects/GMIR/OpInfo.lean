@@ -72,6 +72,10 @@ inductive GMIR where
 | g_uadde
 | g_usubo
 | g_usube
+| g_fshl
+| g_fshr
+| g_rotl
+| g_rotr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -92,7 +96,8 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
-  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop => Unit
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -115,7 +120,8 @@ def GMIR.fromAttrDict
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_merge_values | g_unmerge_values | g_br
      | g_uaddo | g_uadde | g_usubo | g_usube
-     | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop  => exact .ok ()
+     | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop
+     | g_fshl | g_fshr | g_rotl | g_rotr => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -155,6 +161,7 @@ def GMIR.toAttrDict
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr
   | .g_merge_values | .g_unmerge_values => {}
 
 #generate_dialect GMIR
@@ -193,9 +200,12 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_smin | .g_smax | .g_umin | .g_umax =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 0] }
-  | .g_shl | .g_lshr | .g_ashr | .g_sshlsat | .g_ushlsat =>
+  | .g_shl | .g_lshr | .g_ashr | .g_sshlsat | .g_ushlsat | .g_rotl | .g_rotr =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0, .type 1] }
+  | .g_fshl | .g_fshr =>
+    { outOperandList := #[.type 0]
+      inOperandList := #[.type 0, .type 0, .type 1] }
   | .g_icmp =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 1, .type 1] }
@@ -262,15 +272,6 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
       s!"{instrName}: Expected operand {i} to have integer or pointer type"
   let resultType := (op.getResult 0).getType! ctx.raw
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
-
-/--
-Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
-An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
-which is also out of range and hence yields the same (poison) result.
--/
-private def shiftAmount {w' : Nat} (w : Nat) : Data.LLVM.Int w' → Data.LLVM.Int w
-  | .val v => .val (if v.toNat < w then BitVec.ofNat w v.toNat else BitVec.allOnes w)
-  | .poison => .poison
 
 /--
 Zero-extends or truncates `x` to width `w`, as LLVM's `zextOrTrunc`. This converts the bit counts of
@@ -448,23 +449,23 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     return (#[.int bw (Data.LLVM.Int.urem lhs rhs)], mem, none)
   | .g_shl => do
     let [.int bw lhs, .int _ rhs] := operands.toList | none
-    let rhs := shiftAmount bw rhs
+    let rhs := GMIR.shiftAmount bw rhs
     return (#[.int bw (Data.LLVM.Int.shl lhs rhs properties.nsw properties.nuw)], mem, none)
   | .g_lshr => do
     let [.int bw lhs, .int _ rhs] := operands.toList | none
-    let rhs := shiftAmount bw rhs
+    let rhs := GMIR.shiftAmount bw rhs
     return (#[.int bw (Data.LLVM.Int.lshr lhs rhs properties.exact)], mem, none)
   | .g_ashr => do
     let [.int bw lhs, .int _ rhs] := operands.toList | none
-    let rhs := shiftAmount bw rhs
+    let rhs := GMIR.shiftAmount bw rhs
     return (#[.int bw (Data.LLVM.Int.ashr lhs rhs properties.exact)], mem, none)
   | .g_sshlsat => do
     let [.int bw lhs, .int _ rhs] := operands.toList | none
-    let rhs := shiftAmount bw rhs
+    let rhs := GMIR.shiftAmount bw rhs
     return (#[.int bw (Data.LLVM.Int.sshlSat lhs rhs)], mem, none)
   | .g_ushlsat => do
     let [.int bw lhs, .int _ rhs] := operands.toList | none
-    let rhs := shiftAmount bw rhs
+    let rhs := GMIR.shiftAmount bw rhs
     return (#[.int bw (Data.LLVM.Int.ushlSat lhs rhs)], mem, none)
   | .g_saddsat => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
@@ -636,6 +637,22 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
     return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
+  | .g_fshl => do
+    let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let y := y.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.fshl x y (GMIR.funnelShiftAmount bw z))], mem, none)
+  | .g_fshr => do
+    let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let y := y.cast (by simp at h; exact h)
+    return (#[.int bw (Data.LLVM.Int.fshr x y (GMIR.funnelShiftAmount bw z))], mem, none)
+  | .g_rotl => do
+    let [.int bw x, .int _ z] := operands.toList | none
+    return (#[.int bw (GMIR.rotl x z)], mem, none)
+  | .g_rotr => do
+    let [.int bw x, .int _ z] := operands.toList | none
+    return (#[.int bw (GMIR.rotr x z)], mem, none)
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -735,7 +752,8 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
   -- TODO: Also accept a `g_select` of pointers, as LLVM does.
-  | .g_select | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop =>
+  | .g_select | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
   | .g_bswap =>
@@ -820,7 +838,8 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube => true
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
   | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
 

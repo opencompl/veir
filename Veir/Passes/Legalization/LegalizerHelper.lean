@@ -234,15 +234,192 @@ def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx o
     (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
   return (ctx, some (#[ext, branch], #[]))
 
+/-- The constant amount `c` of a funnel shift or rotate, read as an unsigned integer, modulo the
+width of the shifted values of type `type`. -/
+public def constantAmountModWidth (type : TypeAttr) (c : GMIRConstantProperties) : Nat :=
+  c.bits.toNat % (type.cast? IntegerType).get!.bitwidth
+
+/--
+Lowers `g_fshl x, y, z` (`left`) or `g_fshr x, y, z` to shifts, as LLVM's
+`LegalizerHelper::lowerFunnelShiftAsShifts` does for a constant amount `C = z % w` that is not zero,
+where `w` is the width of `x`:
+
+    fshl x, y, z = (x << C) | (y >> (w - C))
+    fshr x, y, z = (x << (w - C)) | (y >> C)
+
+LLVM builds `C` and `w - C` with a `g_urem` and a `g_sub`, which its builder constant-folds; they are
+constants here directly. The `g_or` is disjoint, as both shifts are by less than `w`.
+-/
+def lowerFunnelShiftConstant (left : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let c ← MatchProg.operation (.gmir .g_constant) #[] #[amtType]
+      let _ ← MatchProg.root (.gmir (if left then .g_fshl else .g_fshr)) #[x, y, c.res[0]!] #[type]
+      MatchProg.matchNative (type, c.properties) fun (type, c) => constantAmountModWidth type c ≠ 0
+      return (type, amtType, x, y, c.properties))
+    (fun (type, amtType, x, y, c) => do
+      let shAmt ← createConstantWith amtType (type, c) fun (type, c) => constantAmountModWidth type c
+      let invShAmt ← createConstantWith amtType (type, c) fun (type, c) =>
+        (type.cast? IntegerType).get!.bitwidth - constantAmountModWidth type c
+      let shX ← CreateProg.operation (.gmir .g_shl)
+        #[x, (if left then shAmt else invShAmt).res[0]!] #[type]
+      let shY ← CreateProg.operation (.gmir .g_lshr)
+        #[y, (if left then invShAmt else shAmt).res[0]!] #[type]
+      let orProps ← CreateProg.property (.gmir .g_or) { disjoint := true }
+      CreateProg.operation (.gmir .g_or) #[shX.res[0]!, shY.res[0]!] #[type] orProps)
+    (fun op => op)
+
+/--
+Lowers `g_fshl x, y, z` (`left`) or `g_fshr x, y, z` to shifts, as LLVM's
+`LegalizerHelper::lowerFunnelShiftAsShifts` does for an amount that may be zero modulo the width `w`
+of `x`. An extra shift by one keeps every shift amount below `w`:
+
+    fshl x, y, z = (x << (z % w)) | ((y >> 1) >> (w - 1 - (z % w)))
+    fshr x, y, z = ((x << 1) << (w - 1 - (z % w))) | (y >> (z % w))
+
+For a power-of-two `w` (`pow2`), `z % w` is `z & (w - 1)` and `w - 1 - (z % w)` is `~z & (w - 1)`;
+otherwise, they are computed with a `g_urem` and a `g_sub`. The `g_or` is disjoint, as the first
+shift clears the bits that the second one sets. The shift by one is out of range for `w = 1`, which
+`lowerFunnelShiftWidthOne` lowers instead.
+-/
+def lowerFunnelShiftGeneral (left pow2 : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) fun t =>
+        2 ≤ t.bitwidth ∧ (t.bitwidth.nextPowerOfTwo = t.bitwidth) = pow2
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let z ← MatchProg.value amtType
+      let _ ← MatchProg.root (.gmir (if left then .g_fshl else .g_fshr)) #[x, y, z] #[type]
+      return (type, amtType, x, y, z))
+    (fun (type, amtType, x, y, z) => do
+      let mask ← widthConstant type amtType fun w => (w : Int) - 1
+      let (shAmt, invShAmt) ← if pow2 then do
+          let shAmt ← CreateProg.operation (.gmir .g_and) #[z, mask.res[0]!] #[amtType]
+          let allOnes ← createConstant amtType (-1)
+          let notZ ← CreateProg.operation (.gmir .g_xor) #[z, allOnes.res[0]!] #[amtType]
+          let invShAmt ← CreateProg.operation (.gmir .g_and) #[notZ.res[0]!, mask.res[0]!] #[amtType]
+          pure (shAmt, invShAmt)
+        else do
+          let width ← widthConstant type amtType fun w => (w : Int)
+          let shAmt ← CreateProg.operation (.gmir .g_urem) #[z, width.res[0]!] #[amtType]
+          let invShAmt ← CreateProg.operation (.gmir .g_sub) #[mask.res[0]!, shAmt.res[0]!]
+            #[amtType]
+          pure (shAmt, invShAmt)
+      let one ← createConstant amtType 1
+      let (shX, shY) ← if left then do
+          let shX ← CreateProg.operation (.gmir .g_shl) #[x, shAmt.res[0]!] #[type]
+          let shY1 ← CreateProg.operation (.gmir .g_lshr) #[y, one.res[0]!] #[type]
+          let shY ← CreateProg.operation (.gmir .g_lshr) #[shY1.res[0]!, invShAmt.res[0]!] #[type]
+          pure (shX, shY)
+        else do
+          let shX1 ← CreateProg.operation (.gmir .g_shl) #[x, one.res[0]!] #[type]
+          let shX ← CreateProg.operation (.gmir .g_shl) #[shX1.res[0]!, invShAmt.res[0]!] #[type]
+          let shY ← CreateProg.operation (.gmir .g_lshr) #[y, shAmt.res[0]!] #[type]
+          pure (shX, shY)
+      let orProps ← CreateProg.property (.gmir .g_or) { disjoint := true }
+      CreateProg.operation (.gmir .g_or) #[shX.res[0]!, shY.res[0]!] #[type] orProps)
+    (fun op => op)
+
+/--
+Lowers the `i1` `g_fshl x, y, z` (`left`) to `x` and the `i1` `g_fshr x, y, z` to `y`: the amount
+modulo 1 is always zero. (LLVM's `lowerFunnelShiftAsShifts` emits a shift by one here, which is out
+of range.)
+-/
+def lowerFunnelShiftWidthOne (left : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let z ← MatchProg.value amtType
+      let _ ← MatchProg.root (.gmir (if left then .g_fshl else .g_fshr)) #[x, y, z] #[type]
+      return if left then x else y)
+    pure (fun x => x)
+
+/--
+Lowers `g_rotl x, z` (`left`) or `g_rotr x, z` to shifts, as LLVM's `LegalizerHelper::lowerRotate`
+does when no rotate or funnel shift is legal, for `w` the width of `x`. For a power-of-two `w`
+(`pow2`):
+
+    rotl x, z = (x << (z & (w - 1))) | (x >> (-z & (w - 1)))
+    rotr x, z = (x >> (z & (w - 1))) | (x << (-z & (w - 1)))
+
+and otherwise, with an extra shift by one that keeps every shift amount below `w`:
+
+    rotl x, z = (x << (z % w)) | ((x >> 1) >> (w - 1 - (z % w)))
+    rotr x, z = (x >> (z % w)) | ((x << 1) << (w - 1 - (z % w)))
+
+Unlike in LLVM, the `g_or` of the power-of-two case is not disjoint: both shifts are by zero, and so
+overlap, if `z % w` is zero.
+-/
+def lowerRotateGeneral (left pow2 : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) fun t =>
+        (t.bitwidth.nextPowerOfTwo = t.bitwidth) = pow2
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let z ← MatchProg.value amtType
+      let _ ← MatchProg.root (.gmir (if left then .g_rotl else .g_rotr)) #[x, z] #[type]
+      return (type, amtType, x, z))
+    (fun (type, amtType, x, z) => do
+      let shOpcode : GMIR := if left then .g_shl else .g_lshr
+      let revShOpcode : GMIR := if left then .g_lshr else .g_shl
+      let mask ← widthConstant type amtType fun w => (w : Int) - 1
+      if pow2 then do
+        let zero ← createConstant amtType 0
+        let negZ ← CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, z] #[amtType]
+        let shAmt ← CreateProg.operation (.gmir .g_and) #[z, mask.res[0]!] #[amtType]
+        let shVal ← CreateProg.operation (.gmir shOpcode) #[x, shAmt.res[0]!] #[type]
+        let revAmt ← CreateProg.operation (.gmir .g_and) #[negZ.res[0]!, mask.res[0]!] #[amtType]
+        let revVal ← CreateProg.operation (.gmir revShOpcode) #[x, revAmt.res[0]!] #[type]
+        CreateProg.operation (.gmir .g_or) #[shVal.res[0]!, revVal.res[0]!] #[type]
+      else do
+        let width ← widthConstant type amtType fun w => (w : Int)
+        let shAmt ← CreateProg.operation (.gmir .g_urem) #[z, width.res[0]!] #[amtType]
+        let shVal ← CreateProg.operation (.gmir shOpcode) #[x, shAmt.res[0]!] #[type]
+        let revAmt ← CreateProg.operation (.gmir .g_sub) #[mask.res[0]!, shAmt.res[0]!] #[amtType]
+        let one ← createConstant amtType 1
+        let inner ← CreateProg.operation (.gmir revShOpcode) #[x, one.res[0]!] #[type]
+        let revVal ← CreateProg.operation (.gmir revShOpcode) #[inner.res[0]!, revAmt.res[0]!]
+          #[type]
+        let orProps ← CreateProg.property (.gmir .g_or) { disjoint := true }
+        CreateProg.operation (.gmir .g_or) #[shVal.res[0]!, revVal.res[0]!] #[type] orProps)
+    (fun op => op)
+
+/--
+The patterns that lower a funnel shift (`left` for `g_fshl`) or a rotate (`rotate`), in the order
+they are tried: a funnel shift by a constant first, then any amount. They compute the shift amounts in the
+type of the amount, so it must be at least as wide as the shifted values, which the legalization
+rules ensure first (in LLVM IR, both types are the same).
+-/
+private def funnelShiftLowerings (left rotate : Bool) : Array (Pattern OpCode) :=
+  if rotate then
+    #[lowerRotateGeneral left true, lowerRotateGeneral left false]
+  else
+    #[lowerFunnelShiftConstant left, lowerFunnelShiftWidthOne left,
+      lowerFunnelShiftGeneral left true, lowerFunnelShiftGeneral left false]
+
 public section
 
-/-- The pattern that lowers `opcode`, if it can be lowered. -/
-def lower? : GMIR → Option (Pattern OpCode)
-  | .g_sext => lowerSext
-  | .g_zext => lowerZext
-  | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
-  | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
-  | _ => none
+/-- The patterns that lower `opcode`, in the order they are tried. -/
+def lowerings : GMIR → Array (Pattern OpCode)
+  | .g_sext => #[lowerSext]
+  | .g_zext => #[lowerZext]
+  | .g_ctlz_zero_poison => #[lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz]
+  | .g_cttz_zero_poison => #[lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz]
+  | .g_fshl => funnelShiftLowerings true false
+  | .g_fshr => funnelShiftLowerings false false
+  | .g_rotl => funnelShiftLowerings true true
+  | .g_rotr => funnelShiftLowerings false true
+  | _ => #[]
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
@@ -305,6 +482,11 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_umin, .type 0, width => widenTypeGroup .g_umin (.type 0) .g_sext width
   | .g_umax, .type 0, width => widenTypeGroup .g_umax (.type 0) .g_sext width
   | .g_abs, .type 0, width => widenTypeGroup .g_abs (.type 0) .g_sext width
+  -- The amount of a funnel shift or rotate is unsigned, so it is zero-extended.
+  | .g_fshl, .type 1, width => widenTypeGroup .g_fshl (.type 1) .g_zext width
+  | .g_fshr, .type 1, width => widenTypeGroup .g_fshr (.type 1) .g_zext width
+  | .g_rotl, .type 1, width => widenTypeGroup .g_rotl (.type 1) .g_zext width
+  | .g_rotr, .type 1, width => widenTypeGroup .g_rotr (.type 1) .g_zext width
   | _, _, _ => none
 
 end

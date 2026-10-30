@@ -31,44 +31,6 @@ def getIntByteTypeBitwidth (t : TypeAttr) : Option Nat :=
   | .byteType ⟨bw⟩ => some bw
   | _ => none
 
-/--
-  RISC-V lowerings for funnel-shift rotates (`fshl`/`fshr` whose two data operands are
-  identical).
--/
-def lowerRotate (llvmOp : Llvm) (bw : Nat) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let opType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let a ← MatchProg.value opType
-      let amt ← MatchProg.value opType
-      let _ ← MatchProg.root (.llvm llvmOp) #[a, a, amt] #[opType]
-      return (opType, a, amt))
-    (fun (opType, a, amt) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let aCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[a] #[regType]
-      let amtCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[amt] #[regType]
-      let rotOp ← CreateProg.operation (.riscv riscvOp)
-          #[aCastOp.res[0]!, amtCastOp.res[0]!] #[regType] riscvProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[rotOp.res[0]!] #[opType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- `llvm.intr.fshl` with identical data operands (`i64`) -> `riscv.rol`. -/
-def fshl64_pattern : Pattern OpCode := lowerRotate .intr__fshl 64 .rol ()
-
-/-- `llvm.intr.fshl` with identical data operands (`i32`) -> `riscv.rolw`. -/
-def fshl32_pattern : Pattern OpCode := lowerRotate .intr__fshl 32 .rolw ()
-
-/-- `llvm.intr.fshr` with identical data operands (`i64`) -> `riscv.ror`. -/
-def fshr64_pattern : Pattern OpCode := lowerRotate .intr__fshr 64 .ror ()
-
-/-- `llvm.intr.fshr` with identical data operands (`i32`) -> `riscv.rorw`. -/
-def fshr32_pattern : Pattern OpCode := lowerRotate .intr__fshr 32 .rorw ()
-
 
 /-- llvm.constant -> riscv.li. Any width up to 64 fits in one register: the constant is
   sign-extended to the 64-bit immediate (see `constant_refinement_le64`). -/
@@ -521,22 +483,6 @@ def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite getelementptr_local rewriter op opInBounds
 
-/-! ## Zbb min/max and rotate intrinsics
-
-  These mirror the simple one-to-one patterns in LLVM's RISC-V backend
-  (`RISCVInstrInfoZb.td`): `smin/smax/umin/umax` select to `MIN/MAX/MINU/MAXU`,
-  and a funnel shift whose two data operands are identical is a rotate, which
-  selects to `ROL`/`ROR`. The general (distinct-operand) funnel shift needs a
-  multi-instruction expansion and is intentionally left unselected.
--/
-
-
-/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshl64 : Puddle.CompiledPattern OpCode := fshl64_pattern.compile
-
-def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
-
 /-! ## Saturating integer intrinsics
 
   These mirror LLVM's RV64+Zbb+Zicond lowering for scalar i64 saturating
@@ -863,234 +809,6 @@ def ushlSat_pattern : Pattern OpCode :=
     at 12630-12633). -/
 def ushlSat : Puddle.CompiledPattern OpCode := ushlSat_pattern.compile
 
-/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
-
-def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
-/--
-  `llvm.intr.fshl`/`llvm.intr.fshr` (`rotateLeft` set/unset) on `bw`-bit values with identical
-  data operands and a constant shift amount is a constant rotate: -> `riscv.rori` (`riscv.roriw`
-  for `i32`), mirroring `PatGprImm<rotr, RORI>`. There is no `roli`, so (like LLVM) a rotate-left
-  lowers to `rori` with the negated immediate `(bw - amt) mod bw`.
--/
-def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) :
-    Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let valType ← MatchProg.type (Attr := TypeAttr)
-      let amtType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let val ← MatchProg.value valType
-      let amtOp ← MatchProg.operation (.gmir .g_constant) #[] #[amtType]
-      /- Legalization widens a narrow constant to `g_trunc (g_constant i64)`. Truncation keeps
-         the low bits, so the amount modulo `bw` is unchanged when read from the wide constant. -/
-      let amt ← if throughTrunc then do
-          let truncType ← MatchProg.type (Attr := IntegerType)
-          let truncOp ← MatchProg.operation (.gmir .g_trunc) #[amtOp.res[0]!] #[truncType]
-          pure truncOp.res[0]!
-        else pure amtOp.res[0]!
-      let _ ← MatchProg.root
-          (.llvm (if rotateLeft then .intr__fshl else .intr__fshr))
-          #[val, val, amt] #[resType]
-      return (resType, val, amtType, amtOp.properties))
-    (fun (resType, val, amtType, amtProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[val] #[regType]
-      let imm := fun (type : TypeAttr) (props : GMIRConstantProperties) => do
-        let .integerType t := type.val | none
-        let amt := props.value
-        /- The funnel-shift amount is taken modulo the bit width. -/
-        let sh : Int := (((BitVec.ofInt t.bitwidth amt.value).toInt % bw) + bw) % bw
-        /- rotate-left by `sh` = rotate-right by `bw - sh` (mod bw). -/
-        let imm : Int := if rotateLeft then (bw - sh) % bw else sh
-        some (RISCVImmediateProperties.mk (BitVec.ofInt 64 imm))
-      let roriOp ← if bw = 32 then do
-          let roriProps ← CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv .roriw))) (amtType, amtProps)
-              fun (type, props) => imm type props
-          CreateProg.operation (.riscv .roriw)
-              #[valCastOp.res[0]!] #[regType] roriProps
-        else do
-          let roriProps ← CreateProg.applyNative
-              (Outputs := Handle OpCode (.prop (.riscv .rori))) (amtType, amtProps)
-              fun (type, props) => imm type props
-          CreateProg.operation (.riscv .rori)
-              #[valCastOp.res[0]!] #[regType] roriProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[roriOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- llvm.intr.fshr with identical data operands and a constant shift amount is a
-    constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
-def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).compile
-
-def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
-
-def fshrConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst false 32 true).compile
-
-/-- llvm.intr.fshl with identical data operands and a constant shift amount is a
-    constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
-    `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
-def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
-
-def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
-
-def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 true).compile
-
-/-! ## General (distinct-operand) funnel shift
-
-  A funnel shift whose two data operands differ is a true funnel shift, not a
-  rotate, so there is no single Zbb instruction for it. We mirror LLVM's generic
-  `TargetLowering::expandFunnelShift` (`SelectionDAG/TargetLowering.cpp`), which
-  is the path RV64 baseline takes since `FSHL`/`FSHR` are marked `Expand`. For a
-  power-of-two bit width `w` and a variable shift amount `z` (the case a register
-  operand always lands in), the expansion is
-
-    fshl x y z = (x << (z % w)) | ((y >> 1) >> ((w-1) - (z % w)))
-    fshr x y z = ((x << 1) << ((w-1) - (z % w))) | (y >> (z % w))
-
-  The RISC-V shifts already reduce their amount modulo the register width, so
-  `z % w` is just `z` and `(w-1) - (z % w)` is `~z` (both masked by the hardware).
-  The `>> 1` / `<< 1` pre-shifts keep the `z % w = 0` case correct (they push the
-  inverse shift to a full-width shift-out of zero). i32 uses the `w`-suffixed
-  shifts; only the low `w` bits of the `or` matter, so their sign-extension is
-  harmless.
-
-  These run after the rotate/const-rotate matchers, so the identical-operand and
-  constant-amount special cases still select the cheaper `rol`/`ror`/`rori`. -/
-
-/-- General `llvm.intr.fshl x y z` -> `(x << z) | ((y >> 1) >> ~z)` (see the
-    section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
-def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let xType ← MatchProg.type (Attr := TypeAttr)
-      let yType ← MatchProg.type (Attr := TypeAttr)
-      let zType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let x ← MatchProg.value xType
-      let y ← MatchProg.value yType
-      let z ← MatchProg.value zType
-      let _ ← MatchProg.root (.llvm .intr__fshl) #[x, y, z] #[resType]
-      return (resType, x, y, z))
-    (fun (resType, x, y, z) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType]
-      let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[y] #[regType]
-      let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[z] #[regType]
-      /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-      let notzProps ← CreateProg.property (.riscv .xori)
-          (RISCVImmediateProperties.mk (-1#64))
-      let notzOp ← CreateProg.operation (.riscv .xori)
-          #[zCastOp.res[0]!] #[regType] notzProps
-      /- shx = x << z ; shy = (y >> 1) >> ~z ; result = shx | shy. The i32 form uses
-         the `w` shifts (only the low 32 bits of the `or` are observed). -/
-      let (shxOp, shyOp) ← if bw = 32 then do
-          let shxProps ← CreateProg.property (.riscv .sllw) ()
-          let shxOp ← CreateProg.operation (.riscv .sllw)
-              #[xCastOp.res[0]!, zCastOp.res[0]!] #[regType] shxProps
-          let y1Props ← CreateProg.property (.riscv .srliw) (RISCVImmediateProperties.mk 1#64)
-          let y1Op ← CreateProg.operation (.riscv .srliw)
-              #[yCastOp.res[0]!] #[regType] y1Props
-          let shyProps ← CreateProg.property (.riscv .srlw) ()
-          let shyOp ← CreateProg.operation (.riscv .srlw)
-              #[y1Op.res[0]!, notzOp.res[0]!] #[regType] shyProps
-          pure (shxOp, shyOp)
-        else do
-          let shxProps ← CreateProg.property (.riscv .sll) ()
-          let shxOp ← CreateProg.operation (.riscv .sll)
-              #[xCastOp.res[0]!, zCastOp.res[0]!] #[regType] shxProps
-          let y1Props ← CreateProg.property (.riscv .srli) (RISCVImmediateProperties.mk 1#64)
-          let y1Op ← CreateProg.operation (.riscv .srli)
-              #[yCastOp.res[0]!] #[regType] y1Props
-          let shyProps ← CreateProg.property (.riscv .srl) ()
-          let shyOp ← CreateProg.operation (.riscv .srl)
-              #[y1Op.res[0]!, notzOp.res[0]!] #[regType] shyProps
-          pure (shxOp, shyOp)
-      let orProps ← CreateProg.property (.riscv .or) ()
-      let orOp ← CreateProg.operation (.riscv .or)
-          #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- General `llvm.intr.fshl` (`i64`) -> shift/or expansion (see `lowerFshlGeneral`). -/
-def fshlGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 64).compile
-
-/-- General `llvm.intr.fshl` (`i32`) -> shift/or expansion (see `lowerFshlGeneral`). -/
-def fshlGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 32).compile
-
-/-- General `llvm.intr.fshr x y z` -> `((x << 1) << ~z) | (y >> z)` (see the
-    section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
-def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
-  Pattern.Builder
-    (do
-      let xType ← MatchProg.type (Attr := TypeAttr)
-      let yType ← MatchProg.type (Attr := TypeAttr)
-      let zType ← MatchProg.type (Attr := TypeAttr)
-      let resType ← MatchProg.type (Attr := IntegerType) (fun t => t.bitwidth = bw)
-      let x ← MatchProg.value xType
-      let y ← MatchProg.value yType
-      let z ← MatchProg.value zType
-      let _ ← MatchProg.root (.llvm .intr__fshr) #[x, y, z] #[resType]
-      return (resType, x, y, z))
-    (fun (resType, x, y, z) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let xCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[x] #[regType]
-      let yCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[y] #[regType]
-      let zCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[z] #[regType]
-      /- ~z, the inverse shift amount; the shift instruction masks it modulo `w`. -/
-      let notzProps ← CreateProg.property (.riscv .xori)
-          (RISCVImmediateProperties.mk (-1#64))
-      let notzOp ← CreateProg.operation (.riscv .xori)
-          #[zCastOp.res[0]!] #[regType] notzProps
-      /- shx = (x << 1) << ~z ; shy = y >> z ; result = shx | shy. The i32 form uses
-         the `w` shifts (only the low 32 bits of the `or` are observed). -/
-      let (shxOp, shyOp) ← if bw = 32 then do
-          let x1Props ← CreateProg.property (.riscv .slliw) (RISCVImmediateProperties.mk 1#64)
-          let x1Op ← CreateProg.operation (.riscv .slliw)
-              #[xCastOp.res[0]!] #[regType] x1Props
-          let shxProps ← CreateProg.property (.riscv .sllw) ()
-          let shxOp ← CreateProg.operation (.riscv .sllw)
-              #[x1Op.res[0]!, notzOp.res[0]!] #[regType] shxProps
-          let shyProps ← CreateProg.property (.riscv .srlw) ()
-          let shyOp ← CreateProg.operation (.riscv .srlw)
-              #[yCastOp.res[0]!, zCastOp.res[0]!] #[regType] shyProps
-          pure (shxOp, shyOp)
-        else do
-          let x1Props ← CreateProg.property (.riscv .slli) (RISCVImmediateProperties.mk 1#64)
-          let x1Op ← CreateProg.operation (.riscv .slli)
-              #[xCastOp.res[0]!] #[regType] x1Props
-          let shxProps ← CreateProg.property (.riscv .sll) ()
-          let shxOp ← CreateProg.operation (.riscv .sll)
-              #[x1Op.res[0]!, notzOp.res[0]!] #[regType] shxProps
-          let shyProps ← CreateProg.property (.riscv .srl) ()
-          let shyOp ← CreateProg.operation (.riscv .srl)
-              #[yCastOp.res[0]!, zCastOp.res[0]!] #[regType] shyProps
-          pure (shxOp, shyOp)
-      let orProps ← CreateProg.property (.riscv .or) ()
-      let orOp ← CreateProg.operation (.riscv .or)
-          #[shxOp.res[0]!, shyOp.res[0]!] #[regType] orProps
-      let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
-          #[orOp.res[0]!] #[resType]
-      return castBackOp)
-    (fun castBackOp => castBackOp)
-
-/-- General `llvm.intr.fshr` (`i64`) -> shift/or expansion (see `lowerFshrGeneral`). -/
-def fshrGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 64).compile
-
-/-- General `llvm.intr.fshr` (`i32`) -> shift/or expansion (see `lowerFshrGeneral`). -/
-def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compile
 
 
 /-- llvm.mlir.poison -> riscv.li 0 -/
@@ -1680,6 +1398,45 @@ def gmirSmin : Puddle.CompiledPattern OpCode := gmirSmin_pattern.compile
 def gmirUmax : Puddle.CompiledPattern OpCode := gmirUmax_pattern.compile
 def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
 
+/-- `gmir.g_rotl` (`i64`) -> `riscv.rol` (Zbb). -/
+def gmirRotl_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_rotl) (·.bitwidth = 64) .rol () (guard := matchLegal .g_rotl)
+
+/-- `gmir.g_rotr` (`i64`) -> `riscv.ror` (Zbb). -/
+def gmirRotr_pattern : Pattern OpCode :=
+  lowerBinary (.gmir .g_rotr) (·.bitwidth = 64) .ror () (guard := matchLegal .g_rotr)
+
+/--
+  `gmir.g_rotl` (`left`) or `gmir.g_rotr` (`i64`) by a `gmir.g_constant` -> `riscv.rori`, mirroring
+  `PatGprImm<rotr, RORI>`. The amount is taken modulo 64. There is no `roli`, so, as in LLVM, a
+  rotate left by `C` is a rotate right by `(64 - C) % 64`.
+-/
+def lowerRotateImm (left : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      let root ← MatchProg.root (.gmir (if left then .g_rotl else .g_rotr))
+        #[x, constant.res[0]!] #[type]
+      matchLegal _ type root.properties
+      return (type, x, constant.properties))
+    (fun (type, x, constProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let immProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .rori))) constProps fun c =>
+        let amt := c.bits.toNat % 64
+        some (RISCVImmediateProperties.mk (BitVec.ofNat 64 (if left then (64 - amt) % 64 else amt)))
+      let roriOp ← CreateProg.operation (.riscv .rori) #[castOp.res[0]!] #[regType] immProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[roriOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+def gmirRotl : Puddle.CompiledPattern OpCode := gmirRotl_pattern.compile
+def gmirRotr : Puddle.CompiledPattern OpCode := gmirRotr_pattern.compile
+def gmirRotlImm : Puddle.CompiledPattern OpCode := (lowerRotateImm true).compile
+def gmirRotrImm : Puddle.CompiledPattern OpCode := (lowerRotateImm false).compile
+
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
 def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
@@ -1811,8 +1568,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
     store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
-    fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
-    fshlConst32Trunc.run, fshrConst32Trunc.run,
+    gmirRotlImm.run, gmirRotrImm.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
@@ -1827,14 +1583,13 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     bitcast.run] ++
     load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     saddSat.run, ssubSat.run, uaddSat.run, usubSat.run, sshlSat.run, ushlSat.run,
-    fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
-    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
+    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run, gmirRotl.run, gmirRotr.run] ++
     gmirIcmp.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying main instruction-selection patterns"

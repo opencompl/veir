@@ -77,6 +77,40 @@ def customLegalizeAbs : Pattern OpCode :=
       CreateProg.operation (.gmir .g_smax) #[src, neg.res[0]!] #[type])
     (fun op => op)
 
+open Puddle in
+/--
+  Custom legalization of the `i32` `g_rotl` (`left`) and `g_rotr` by a constant into
+  `riscv.roriw`, as LLVM custom-legalizes them into `RISCV::G_ROLW` and `RISCV::G_RORW` and selects
+  those with `PatGprImm<riscv_rorw, RORIW>`. There is no `roliw`, so a rotate left by `C` is a
+  rotate right by `(32 - C) % 32`. If `throughTrunc`, the amount is the `g_trunc` of a wider
+  `g_constant`, which is how legalization widens it; its low bits, and so its value modulo 32,
+  are the same.
+-/
+def customLegalizeRotateWordConstant (left throughTrunc : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let constType ← if throughTrunc then MatchProg.type (Attr := IntegerType) else pure amtType
+      let c ← MatchProg.operation (.gmir .g_constant) #[] #[constType]
+      let amt ← if throughTrunc then do
+          let trunc ← MatchProg.operation (.gmir .g_trunc) #[c.res[0]!] #[amtType]
+          pure trunc.res[0]!
+        else pure c.res[0]!
+      let _ ← MatchProg.root (.gmir (if left then .g_rotl else .g_rotr)) #[x, amt] #[type]
+      return (type, x, c.properties))
+    (fun (type, x, c) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let immProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .roriw)))
+          (type, c) fun (type, c) =>
+        let amt := constantAmountModWidth type c
+        some (RISCVImmediateProperties.mk (BitVec.ofNat 64 (if left then (32 - amt) % 32 else amt)))
+      let rori ← CreateProg.operation (.riscv .roriw) #[xCast.res[0]!] #[regType] immProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[rori.res[0]!] #[type])
+    (fun op => op)
+
 end
 
 private def s8 : LLT := .scalar 8
@@ -201,6 +235,19 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    -- As in LLVM, funnel shifts are always lowered, and so are the rotates that are not `s64`
+    -- (Zbb's `rol`, `ror` and `rori`) or `s32` (`rolw`, `rorw` and `roriw`). The lowerings need an
+    -- amount at least as wide as the shifted values, which LLVM IR always has.
+    | .g_fshl | .g_fshr => [
+      .scalarSameSizeAs (.type 1) (.type 0),
+      .lower,
+    ]
+    | .g_rotl | .g_rotr => [
+      .legalForTypePairs [(s64, s64)],
+      .customForTypePairs [(s32, s32)],
+      .scalarSameSizeAs (.type 1) (.type 0),
+      .lower,
+    ]
     | .g_br => [
       .alwaysLegal,
     ]
@@ -210,21 +257,25 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | _ => []
   legalizeCustom
-    | .g_add => customLegalizeWord .g_add .addw ()
-    | .g_sub => customLegalizeWord .g_sub .subw ()
-    | .g_mul => customLegalizeWord .g_mul .mulw ()
-    | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
-    | .g_udiv => customLegalizeWord .g_udiv .divuw ()
-    | .g_urem => customLegalizeWord .g_urem .remuw ()
-    | .g_shl => customLegalizeWord .g_shl .sllw ()
-    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
-    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
-    | .g_ctlz => customLegalizeWordUnary .g_ctlz .clzw ()
-    | .g_cttz => customLegalizeWordUnary .g_cttz .ctzw ()
-    | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()
-    | .g_bitreverse => customLegalizeBitreverse8
-    | .g_abs => customLegalizeAbs
-    | _ => none
+    | .g_add => #[customLegalizeWord .g_add .addw ()]
+    | .g_sub => #[customLegalizeWord .g_sub .subw ()]
+    | .g_mul => #[customLegalizeWord .g_mul .mulw ()]
+    | .g_sdiv => #[customLegalizeWord .g_sdiv .divw ()]
+    | .g_udiv => #[customLegalizeWord .g_udiv .divuw ()]
+    | .g_urem => #[customLegalizeWord .g_urem .remuw ()]
+    | .g_shl => #[customLegalizeWord .g_shl .sllw ()]
+    | .g_lshr => #[customLegalizeWord .g_lshr .srlw ()]
+    | .g_ashr => #[customLegalizeWord .g_ashr .sraw ()]
+    | .g_ctlz => #[customLegalizeWordUnary .g_ctlz .clzw ()]
+    | .g_cttz => #[customLegalizeWordUnary .g_cttz .ctzw ()]
+    | .g_ctpop => #[customLegalizeWordUnary .g_ctpop .cpopw ()]
+    | .g_bitreverse => #[customLegalizeBitreverse8]
+    | .g_abs => #[customLegalizeAbs]
+    | .g_rotl => #[customLegalizeRotateWordConstant true false,
+        customLegalizeRotateWordConstant true true, customLegalizeWord .g_rotl .rolw ()]
+    | .g_rotr => #[customLegalizeRotateWordConstant false false,
+        customLegalizeRotateWordConstant false true, customLegalizeWord .g_rotr .rorw ()]
+    | _ => #[]
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"

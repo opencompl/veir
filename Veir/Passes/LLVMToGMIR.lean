@@ -107,6 +107,46 @@ def lowerUnop (lOp : Llvm) (gOp : GMIR)
       Puddle.CreateProg.operation (.gmir gOp) #[operand] #[resultType] (.inr props))
     (fun newOp => newOp)
 
+/--
+  GMIR lowerings with Puddle for the funnel shifts `llvm.intr.fshl` and `llvm.intr.fshr`. As in
+  LLVM's IRTranslator, they become `g_fshl` and `g_fshr`.
+-/
+def lowerFunnelShift (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let x ← Puddle.MatchProg.value type
+      let y ← Puddle.MatchProg.value type
+      let z ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm lOp) #[x, y, z] #[type]
+      return (type, x, y, z))
+    (fun (type, x, y, z) => Puddle.CreateProg.operation (.gmir gOp) #[x, y, z] #[type])
+    (fun newOp => newOp)
+
+/--
+  A funnel shift whose data operands are identical is a rotate: `llvm.intr.fshl x, x, z` becomes
+  `g_rotl x, z` and `llvm.intr.fshr x, x, z` becomes `g_rotr x, z`, as in LLVM's
+  `SelectionDAGBuilder`. (GlobalISel does this with its `funnel_shift_to_rotate` combine.)
+-/
+def lowerRotate (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let x ← Puddle.MatchProg.value type
+      let z ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm lOp) #[x, x, z] #[type]
+      return (type, x, z))
+    (fun (type, x, z) => Puddle.CreateProg.operation (.gmir gOp) #[x, z] #[type])
+    (fun newOp => newOp)
+
+def g_fshl := (lowerFunnelShift .intr__fshl .g_fshl).compile
+
+def g_fshr := (lowerFunnelShift .intr__fshr .g_fshr).compile
+
+def g_rotl := (lowerRotate .intr__fshl .g_rotl).compile
+
+def g_rotr := (lowerRotate .intr__fshr .g_rotr).compile
+
 /- As in LLVM, a `ctlz`/`cttz` whose zero input is poison becomes a `_zero_poison` count. -/
 def g_ctlz := (lowerUnop .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison)).compile
 
@@ -397,6 +437,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_bswap.run, g_bitreverse.run,
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run,
+    g_rotl.run, g_rotr.run, g_fshl.run, g_fshr.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,

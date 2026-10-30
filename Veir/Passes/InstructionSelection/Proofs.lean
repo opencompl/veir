@@ -908,163 +908,126 @@ theorem abs_refinement {x : LLVM.Int 64} {is_int_min_poison : Bool} :
   veir_bv_decide
 
 /-!
-  ## Funnel-shift lowerings
+  ## Rotate lowerings
 
-  These cover both the rotate special cases (identical data operands, selecting
-  `rol`/`ror`/`rori`/`roriw`) and the general distinct-operand funnel shifts
-  (selecting LLVM's `expandFunnelShift` shift/or sequence).
+  Funnel shifts are lowered to shifts during legalization (see
+  `Veir.Passes.Legalization.Proofs`), except for rotates: `g_rotl` and `g_rotr` are legal at
+  `i64`, where they select to Zbb's `rol`/`ror`/`rori`, and custom-legalized at `i32` into
+  `rolw`/`rorw`/`roriw`. Their amounts have the width of the rotated value, so a rotate is a
+  funnel shift of the value with itself (`GMIR.rotl_eq_fshl`), which `veir_bv_decide` bit-blasts.
 
-  `veir_bv_decide` closes all of them directly. Its `veir_bv_normalize` phase
-  rewrites the funnel-shift semantics (via `getValue_fshl`/`getValue_fshr`) into a
-  BitVec shift by the `BitVec` amount `c.getValue % w` on the `2*w`-bit
-  concatenation `a ++ b`, which `bv_decide` bit-blasts as a barrel shifter and
-  proves equal to the RISC-V register expression. No manual reduction is needed.
+  There is no `roli`/`roliw`: a rotate left by `C` selects to a rotate right by `(w - C) % w`. The
+  immediate the patterns build is that amount, whose low bits `rori`/`roriw` read (`immField`).
 -/
 
-/--
-  Prove the correctness of the `fshl` rotate lowering: a funnel shift with
-  identical data operands is a rotate-left, lowered to `rol`.
--/
-theorem fshl_rol_refinement {a c : LLVM.Int 64} :
-    (Data.LLVM.Int.fshl a a c) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.rol (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 64) := by
+/-- Prove the correctness of the `i64` `g_rotl` selection to `rol`. -/
+theorem gmirRotl_refinement {x z : LLVM.Int 64} :
+    GMIR.rotl x z ⊒ (RISCV.Reg.toInt (Data.RISCV.rol (LLVM.Int.toReg z) (LLVM.Int.toReg x)) 64) := by
+  rw [GMIR.rotl_eq_fshl]
   veir_bv_decide
 
-/--
-  Prove the correctness of the `fshr` rotate lowering: a funnel shift with
-  identical data operands is a rotate-right, lowered to `ror`.
--/
-theorem fshr_ror_refinement {a c : LLVM.Int 64} :
-    (Data.LLVM.Int.fshr a a c) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.ror (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 64) := by
+/-- Prove the correctness of the `i64` `g_rotr` selection to `ror`. -/
+theorem gmirRotr_refinement {x z : LLVM.Int 64} :
+    GMIR.rotr x z ⊒ (RISCV.Reg.toInt (Data.RISCV.ror (LLVM.Int.toReg z) (LLVM.Int.toReg x)) 64) := by
+  rw [GMIR.rotr_eq_fshr]
   veir_bv_decide
 
+/-- The 6-bit `rori` immediate of a rotate right by the constant `c`. -/
+private theorem rotr_imm6 (c : BitVec 64) :
+    (BitVec.ofNat 64 (c.toNat % 64)).setWidth 6 = c.setWidth 6 := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_setWidth] <;> omega
+
+/-- The 6-bit `rori` immediate of a rotate left by the constant `c`. -/
+private theorem rotl_imm6 (c : BitVec 64) :
+    (BitVec.ofNat 64 ((64 - c.toNat % 64) % 64)).setWidth 6 = -(c.setWidth 6) := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_setWidth, BitVec.toNat_neg] <;> omega
+
 /--
-  Prove the correctness of the constant-amount `fshr` lowering: a rotate-right is
-  lowered to `rori a, (c mod 64)`. The immediate `c mod 64` is the low six bits of
-  the (constant) shift amount.
+  Prove the correctness of the `i64` `g_rotr` by a constant `c` selection to `rori`, whose
+  immediate is `c % 64` (`lowerRotateImm`).
 -/
-theorem fshr_rori_refinement {a c : LLVM.Int 64} :
-    (Data.LLVM.Int.fshr a a c) ⊒
+theorem gmirRotrImm_refinement {x : LLVM.Int 64} {c : BitVec 64} :
+    GMIR.rotr x (.val c) ⊒
       (RISCV.Reg.toInt
-        (Data.RISCV.rori (BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val) (LLVM.Int.toReg a)) 64) := by
+        (Data.RISCV.rori ((BitVec.ofNat 64 (c.toNat % 64)).setWidth 6) (LLVM.Int.toReg x)) 64) := by
+  rw [GMIR.rotr_eq_fshr, rotr_imm6]
   veir_bv_decide
 
 /--
-  Prove the correctness of the constant-amount `fshl` lowering: a rotate-left by
-  `c` is a rotate-right by `64 - c`, lowered to `rori a, (-(c mod 64))` (there is no
-  `roli`, so the immediate is negated mod 64).
+  Prove the correctness of the `i64` `g_rotl` by a constant `c` selection to `rori`, whose
+  immediate is `(64 - c % 64) % 64` (`lowerRotateImm`).
 -/
-theorem fshl_rori_refinement {a c : LLVM.Int 64} :
-    (Data.LLVM.Int.fshl a a c) ⊒
+theorem gmirRotlImm_refinement {x : LLVM.Int 64} {c : BitVec 64} :
+    GMIR.rotl x (.val c) ⊒
       (RISCV.Reg.toInt
-        (Data.RISCV.rori (-(BitVec.extractLsb 5 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 64) := by
+        (Data.RISCV.rori ((BitVec.ofNat 64 ((64 - c.toNat % 64) % 64)).setWidth 6)
+          (LLVM.Int.toReg x)) 64) := by
+  rw [GMIR.rotl_eq_fshl, rotl_imm6]
+  veir_bv_decide
+
+/-- Prove the correctness of the custom legalization of the `i32` `g_rotl` into `rolw`. -/
+theorem gmirRotlw_refinement {x z : LLVM.Int 32} :
+    GMIR.rotl x z ⊒ (RISCV.Reg.toInt (Data.RISCV.rolw (LLVM.Int.toReg z) (LLVM.Int.toReg x)) 32) := by
+  rw [GMIR.rotl_eq_fshl]
+  veir_bv_decide
+
+/-- Prove the correctness of the custom legalization of the `i32` `g_rotr` into `rorw`. -/
+theorem gmirRotrw_refinement {x z : LLVM.Int 32} :
+    GMIR.rotr x z ⊒ (RISCV.Reg.toInt (Data.RISCV.rorw (LLVM.Int.toReg z) (LLVM.Int.toReg x)) 32) := by
+  rw [GMIR.rotr_eq_fshr]
+  veir_bv_decide
+
+/-- The 5-bit `roriw` immediate `c % 32` of a rotate right by the constant `c`, of any width. -/
+private theorem rotr_imm5 {m : Nat} (c : BitVec m) :
+    (BitVec.ofNat 64 (c.toNat % 32)).setWidth 5 = (BitVec.ofNat 5 c.toNat) := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_setWidth] <;> omega
+
+/-- The 5-bit `roriw` immediate `(32 - c % 32) % 32` of a rotate left by the constant `c`. -/
+private theorem rotl_imm5 {m : Nat} (c : BitVec m) :
+    (BitVec.ofNat 64 ((32 - c.toNat % 32) % 32)).setWidth 5 = -(BitVec.ofNat 5 c.toNat) := by
+  apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_setWidth, BitVec.toNat_neg] <;> omega
+
+/--
+  Prove the correctness of the custom legalization of the `i32` `g_rotr` by a constant `c` into
+  `roriw`, whose immediate is `c % 32` (`customLegalizeRotateWordConstant`).
+-/
+theorem gmirRotrwImm_refinement {x : LLVM.Int 32} {c : BitVec 32} :
+    GMIR.rotr x (.val c) ⊒
+      (RISCV.Reg.toInt
+        (Data.RISCV.roriw ((BitVec.ofNat 64 (c.toNat % 32)).setWidth 5) (LLVM.Int.toReg x)) 32) := by
+  rw [GMIR.rotr_eq_fshr, rotr_imm5, show BitVec.ofNat 5 c.toNat = c.setWidth 5 by simp]
   veir_bv_decide
 
 /--
-  Prove the correctness of the constant-amount i32 `fshr` lowering (`roriw` selection):
-  a 32-bit rotate-right is lowered to `roriw a, (c mod 32)`. The immediate is the low
-  five bits of the (constant) shift amount.
+  Prove the correctness of the custom legalization of the `i32` `g_rotl` by a constant `c` into
+  `roriw`, whose immediate is `(32 - c % 32) % 32` (`customLegalizeRotateWordConstant`).
 -/
-theorem fshr_roriw_refinement {a c : LLVM.Int 32} :
-    (Data.LLVM.Int.fshr a a c) ⊒
+theorem gmirRotlwImm_refinement {x : LLVM.Int 32} {c : BitVec 32} :
+    GMIR.rotl x (.val c) ⊒
       (RISCV.Reg.toInt
-        (Data.RISCV.roriw (BitVec.extractLsb 4 0 (LLVM.Int.toReg c).val) (LLVM.Int.toReg a)) 32) := by
+        (Data.RISCV.roriw ((BitVec.ofNat 64 ((32 - c.toNat % 32) % 32)).setWidth 5)
+          (LLVM.Int.toReg x)) 32) := by
+  rw [GMIR.rotl_eq_fshl, rotl_imm5, show BitVec.ofNat 5 c.toNat = c.setWidth 5 by simp]
   veir_bv_decide
 
 /--
-  Prove the correctness of the constant-amount i32 `fshl` lowering (`roliw` selection):
-  a 32-bit rotate-left by `c` is a rotate-right by `32 - c`, lowered to
-  `roriw a, (-(c mod 32))` (there is no `roliw`, so the immediate is negated mod 32).
+  As `gmirRotrwImm_refinement`, for an amount that legalization has widened into the `g_trunc` of
+  an `i64` constant `c`, whatever the flags of the `g_trunc`. The immediate is computed from `c`.
 -/
-theorem fshl_roriw_refinement {a c : LLVM.Int 32} :
-    (Data.LLVM.Int.fshl a a c) ⊒
+theorem gmirRotrwImmTrunc_refinement {x : LLVM.Int 32} {c : BitVec 64} {nsw nuw : Bool} :
+    GMIR.rotr x (LLVM.Int.trunc (.val c) 32 nsw nuw (by omega)) ⊒
       (RISCV.Reg.toInt
-        (Data.RISCV.roriw (-(BitVec.extractLsb 4 0 (LLVM.Int.toReg c).val)) (LLVM.Int.toReg a)) 32) := by
+        (Data.RISCV.roriw ((BitVec.ofNat 64 (c.toNat % 32)).setWidth 5) (LLVM.Int.toReg x)) 32) := by
+  rw [GMIR.rotr_eq_fshr, rotr_imm5, show BitVec.ofNat 5 c.toNat = c.setWidth 5 by simp]
   veir_bv_decide
 
-/--
-  Prove the correctness of the general (distinct-operand) i64 `fshl` lowering,
-  mirroring LLVM's generic `expandFunnelShift`:
-
-    fshl a b c = (a << c) | ((b >> 1) >> ~c)
-
-  The RISC-V shifts mask their amount modulo 64, so `c` stands for `c % 64` and
-  `~c` (the `xori a, -1`) stands for `(63 - c % 64)`; the `>> 1` pre-shift keeps
-  the `c % 64 = 0` case (where `shy` shifts fully out to zero) correct.
--/
-theorem fshlGeneral_refinement {a b c : LLVM.Int 64} :
-    (Data.LLVM.Int.fshl a b c) ⊒
+/-- As `gmirRotlwImm_refinement`, for an amount that is the `g_trunc` of an `i64` constant `c`. -/
+theorem gmirRotlwImmTrunc_refinement {x : LLVM.Int 32} {c : BitVec 64} {nsw nuw : Bool} :
+    GMIR.rotl x (LLVM.Int.trunc (.val c) 32 nsw nuw (by omega)) ⊒
       (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg a
-         let y0 := LLVM.Int.toReg b
-         let z0 := LLVM.Int.toReg c
-         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
-         let shx := Data.RISCV.sll z0 x0
-         let y1 := Data.RISCV.srli 1#6 y0
-         let shy := Data.RISCV.srl notz y1
-         Data.RISCV.or shx shy) 64) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the general (distinct-operand) i64 `fshr` lowering,
-  mirroring LLVM's generic `expandFunnelShift`:
-
-    fshr a b c = ((a << 1) << ~c) | (b >> c)
-
-  The RISC-V shifts mask their amount modulo 64, so `c` stands for `c % 64` and
-  `~c` (the `xori a, -1`) stands for `(63 - c % 64)`; the `<< 1` pre-shift keeps
-  the `c % 64 = 0` case (where `shx` shifts fully out to zero) correct.
--/
-theorem fshrGeneral_refinement {a b c : LLVM.Int 64} :
-    (Data.LLVM.Int.fshr a b c) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg a
-         let y0 := LLVM.Int.toReg b
-         let z0 := LLVM.Int.toReg c
-         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
-         let x1 := Data.RISCV.slli 1#6 x0
-         let shx := Data.RISCV.sll notz x1
-         let shy := Data.RISCV.srl z0 y0
-         Data.RISCV.or shx shy) 64) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the general (distinct-operand) i32 `fshl` lowering: the
-  i64 expansion using the `w`-suffixed shifts (`sllw`/`srliw`/`srlw`), which mask
-  their amount modulo 32. Only the low 32 bits of the `or` are observed (`toInt …
-  32`), so the sign-extension the `w` shifts produce is harmless.
--/
-theorem fshlGeneralw_refinement {a b c : LLVM.Int 32} :
-    (Data.LLVM.Int.fshl a b c) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg a
-         let y0 := LLVM.Int.toReg b
-         let z0 := LLVM.Int.toReg c
-         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
-         let shx := Data.RISCV.sllw z0 x0
-         let y1 := Data.RISCV.srliw 1#5 y0
-         let shy := Data.RISCV.srlw notz y1
-         Data.RISCV.or shx shy) 32) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the general (distinct-operand) i32 `fshr` lowering: the
-  i64 expansion using the `w`-suffixed shifts (`slliw`/`sllw`/`srlw`), which mask
-  their amount modulo 32. Only the low 32 bits of the `or` are observed (`toInt …
-  32`), so the sign-extension the `w` shifts produce is harmless.
--/
-theorem fshrGeneralw_refinement {a b c : LLVM.Int 32} :
-    (Data.LLVM.Int.fshr a b c) ⊒
-      (RISCV.Reg.toInt
-        (let x0 := LLVM.Int.toReg a
-         let y0 := LLVM.Int.toReg b
-         let z0 := LLVM.Int.toReg c
-         let notz := Data.RISCV.xori (BitVec.ofInt 12 (-1)) z0
-         let x1 := Data.RISCV.slliw 1#5 x0
-         let shx := Data.RISCV.sllw notz x1
-         let shy := Data.RISCV.srlw z0 y0
-         Data.RISCV.or shx shy) 32) := by
+        (Data.RISCV.roriw ((BitVec.ofNat 64 ((32 - c.toNat % 32) % 32)).setWidth 5)
+          (LLVM.Int.toReg x)) 32) := by
+  rw [GMIR.rotl_eq_fshl, rotl_imm5, show BitVec.ofNat 5 c.toNat = c.setWidth 5 by simp]
   veir_bv_decide
 
 /--

@@ -44,6 +44,10 @@
   %uadde, %uadde_carry = "gmir.g_uadde"(%a, %b, %uaddo_carry) : (i32, i32, i1) -> (i32, i1)
   %usubo, %usubo_borrow = "gmir.g_usubo"(%a, %b) : (i32, i32) -> (i32, i1)
   %usube, %usube_borrow = "gmir.g_usube"(%a, %b, %usubo_borrow) : (i32, i32, i1) -> (i32, i1)
+  %fshl = "gmir.g_fshl"(%a, %b, %c) : (i32, i32, i64) -> i32
+  %fshr = "gmir.g_fshr"(%d, %d, %d) : (i8, i8, i8) -> i8
+  %rotl = "gmir.g_rotl"(%a, %d) : (i32, i8) -> i32
+  %rotr = "gmir.g_rotr"(%c, %c) : (i64, i64) -> i64
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -88,3 +92,7 @@
 // CHECK: "gmir.g_uadde"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
 // CHECK: "gmir.g_usubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK: "gmir.g_usube"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
+// CHECK: "gmir.g_fshl"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i64) -> i32
+// CHECK: "gmir.g_fshr"(%{{.*}}, %{{.*}}, %{{.*}}) : (i8, i8, i8) -> i8
+// CHECK: "gmir.g_rotl"(%{{.*}}, %{{.*}}) : (i32, i8) -> i32
+// CHECK: "gmir.g_rotr"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64

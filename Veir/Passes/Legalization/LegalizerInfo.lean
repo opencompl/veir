@@ -212,8 +212,9 @@ end LegalizeRule
 structure LegalizerInfo where
   /-- The rules of each opcode, in the order they are tried. -/
   rules : (opcode : GMIR) → List (LegalizeRule opcode)
-  /-- The pattern that legalizes an operation whose action is `custom`, if any. -/
-  legalizeCustom : (opcode : GMIR) → Option (Puddle.Pattern OpCode) := fun _ => none
+  /-- The patterns that legalize an operation whose action is `custom`, in the order they are
+  tried. -/
+  legalizeCustom : (opcode : GMIR) → Array (Puddle.Pattern OpCode) := fun _ => #[]
 
 /-- The action of the first rule of `opcode` that applies to `query`. -/
 def LegalizerInfo.getActionFor (info : LegalizerInfo) (query : LegalityQuery opcode) :

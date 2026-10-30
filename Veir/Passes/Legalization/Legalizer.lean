@@ -22,17 +22,22 @@ public section
 
 namespace LegalizerInfo
 
-/-- Applies the action of the rules to `op`. Does not match legal operations or illegal ones. -/
+/--
+Applies the action of the rules to `op`, with the first of its patterns that applies. Does not match
+legal operations or illegal ones.
+-/
 private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCode :=
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    let pattern? : Option (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
-      | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
-      | .lower => (lower? opcode).map Puddle.Pattern.interpret
+    let patterns : Array (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
+      | .widenScalar typeIdx width => (widenScalar? opcode typeIdx width).toArray
+      | .lower => (lowerings opcode).map Puddle.Pattern.interpret
       | .custom => (info.legalizeCustom opcode).map Puddle.Pattern.interpret
-      | .legal | .unsupported => none
-    let some pattern := pattern? | return (ctx, none)
-    pattern ctx op
+      | .legal | .unsupported => #[]
+    for pattern in patterns do
+      if let (ctx, some rewrite) ← pattern ctx op then
+        return (ctx, some rewrite)
+    return (ctx, none)
 
 /-- Combines the artifact `op` away with the first `tryCombineInstruction` pattern that applies. -/
 private def combineArtifactStep : LocalRewritePattern OpCode :=
