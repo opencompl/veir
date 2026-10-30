@@ -38,6 +38,25 @@ def matchConstant (type : Handle OpCode .type)
     MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
   MatchProg.operation (.gmir .g_constant) #[] #[type] pred
 
+/-- Match the result of a `g_icmp` of `type`. A `g_icmp` wider than `i1` is 0 or 1 (see
+    `and_icmp_one`); LLVM finds such values with known bits, which we do not have. -/
+def matchBool (type : Handle OpCode .type) : MatchProg.Builder (Handle OpCode .value) := do
+  let operandType ← MatchProg.type (Attr := TypeAttr)
+  let lhs ← MatchProg.value operandType
+  let rhs ← MatchProg.value operandType
+  let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
+  return icmp.res[0]!
+
+/-- Match a `logic` operation of `type` that is 0 or 1 because of its `g_icmp` operands: a
+    `g_and` with a `g_icmp` operand (the lhs when `boolLhs` is set), or a `g_or` or `g_xor` of two
+    `g_icmp`s. -/
+def matchLogicBool (logic : GMIR) (boolLhs : Bool) (type : Handle OpCode .type) :
+    MatchProg.Builder (Handle OpCode .value) := do
+  let b ← matchBool type
+  let other ← if logic == .g_and then MatchProg.value type else matchBool type
+  let op ← MatchProg.operation (.gmir logic) (if boolLhs then #[b, other] else #[other, b]) #[type]
+  return op.res[0]!
+
 /-! ### sub_to_add : (sub x, C) → (add x, -C) -/
 
 /--
@@ -91,26 +110,32 @@ def sub_to_addw (info : LegalizerInfo) : CompiledPattern OpCode :=
 /-! ### redundant_and : (and (icmp x, y), C) → (icmp x, y) -/
 
 /--
-`g_and (g_icmp x, y), C` becomes the `g_icmp` when the low bit of `C` is set: the `g_icmp` yields 0
-or 1, so the mask keeps it. LLVM's `redundant_and` finds this, and other redundant masks, with known
-bits, which we do not have; the `g_icmp` is the case that legalizing a `g_brcond` leaves behind.
+`g_and b, C` becomes `b` when `b` is 0 or 1 and the low bit of `C` is set, so the mask keeps `b`.
+`matchInput` matches `b`: a `g_icmp` (`matchBool`), the case that legalizing a `g_brcond` leaves
+behind, or a logic operation of them (`matchLogicBool`), as legalizing a `g_brcond` on an `&&` leaves
+behind. LLVM's `redundant_and` finds these, and other redundant masks, with known bits, which we do
+not have.
 
 https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L3497
 -/
-def redundant_and_pattern : Pattern OpCode :=
+def redundant_and_pattern
+    (matchInput : Handle OpCode .type → MatchProg.Builder (Handle OpCode .value) := matchBool) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
-      let operandType ← MatchProg.type (Attr := TypeAttr)
-      let lhs ← MatchProg.value operandType
-      let rhs ← MatchProg.value operandType
       let type ← MatchProg.type (Attr := IntegerType)
-      let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
+      let b ← matchInput type
       let constant ← matchConstant type (·.value.value % 2 = 1)
-      let _ ← MatchProg.root (.gmir .g_and) #[icmp.res[0]!, constant.res[0]!] #[type]
-      return icmp.res[0]!)
+      let _ ← MatchProg.root (.gmir .g_and) #[b, constant.res[0]!] #[type]
+      return b)
     pure (fun x => x)
 
-def redundant_and : CompiledPattern OpCode := redundant_and_pattern.compile
+/-- The `redundant_and` combines, for a `g_icmp` and for each logic operation of them. -/
+def redundant_and : Array (CompiledPattern OpCode) :=
+  (#[redundant_and_pattern] ++
+    #[GMIR.g_and, .g_or, .g_xor].flatMap (fun logic =>
+      #[true, false].map fun boolLhs => redundant_and_pattern (matchLogicBool logic boolLhs))).map
+    (·.compile)
 
 /-! ### identity_combines -/
 
@@ -973,17 +998,8 @@ def constant_fold_sext_inreg_pattern : Pattern OpCode :=
 
 /-! ### Boolean combines
 
-A `g_icmp` wider than `i1` is 0 or 1 (see `and_icmp_one`), which these combines exploit. LLVM finds
-such values with known bits, which we do not have.
+These combines exploit values that `matchBool` knows to be 0 or 1.
 -/
-
-/-- Match the result of a `g_icmp` of the `i64` `type`, which is 0 or 1. -/
-def matchBool (type : Handle OpCode .type) : MatchProg.Builder (Handle OpCode .value) := do
-  let operandType ← MatchProg.type (Attr := TypeAttr)
-  let lhs ← MatchProg.value operandType
-  let rhs ← MatchProg.value operandType
-  let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
-  return icmp.res[0]!
 
 /-- `sext_inreg c, 1` → `0 - c` for a 0-or-1 `c`, which legalizing the `g_sext` of an `i1` leaves
     behind. The negation then folds into an addition (`APlusZeroMinusB_pattern`). -/

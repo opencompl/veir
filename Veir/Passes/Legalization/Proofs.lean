@@ -176,6 +176,49 @@ theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
 
+/-! ### `redundant_and` with an odd mask
+
+`redundant_and_pattern` drops a mask `C` whose low bit is set from a 0-or-1 value: a `g_icmp`, the
+`g_and` of a `g_icmp` with anything, or the `g_or` or `g_xor` of two `g_icmp`s.
+-/
+
+/-- Prove the correctness of `redundant_and_pattern` for a `g_icmp`. -/
+theorem and_icmp_odd (c : LLVM.Int 1) (k : BitVec 64) (hk : k &&& 1#64 = 1#64) :
+    LLVM.Int.and (LLVM.Int.zext c 64 false (by decide)) (LLVM.Int.val k) ⊒
+      LLVM.Int.zext c 64 false (by decide) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `redundant_and_pattern` for a `g_and` with a `g_icmp` lhs. -/
+theorem and_and_icmp_lhs_odd (c : LLVM.Int 1) (y : LLVM.Int 64) (k : BitVec 64)
+    (hk : k &&& 1#64 = 1#64) :
+    LLVM.Int.and (LLVM.Int.and (LLVM.Int.zext c 64 false (by decide)) y) (LLVM.Int.val k) ⊒
+      LLVM.Int.and (LLVM.Int.zext c 64 false (by decide)) y := by
+  veir_bv_decide
+
+/-- Prove the correctness of `redundant_and_pattern` for a `g_and` with a `g_icmp` rhs. -/
+theorem and_and_icmp_rhs_odd (c : LLVM.Int 1) (y : LLVM.Int 64) (k : BitVec 64)
+    (hk : k &&& 1#64 = 1#64) :
+    LLVM.Int.and (LLVM.Int.and y (LLVM.Int.zext c 64 false (by decide))) (LLVM.Int.val k) ⊒
+      LLVM.Int.and y (LLVM.Int.zext c 64 false (by decide)) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `redundant_and_pattern` for a `g_or` of two `g_icmp`s. -/
+theorem and_or_icmp_odd (c c' : LLVM.Int 1) (k : BitVec 64) (hk : k &&& 1#64 = 1#64)
+    (disjoint : Bool) :
+    LLVM.Int.and (LLVM.Int.or (LLVM.Int.zext c 64 false (by decide))
+        (LLVM.Int.zext c' 64 false (by decide)) disjoint) (LLVM.Int.val k) ⊒
+      LLVM.Int.or (LLVM.Int.zext c 64 false (by decide))
+        (LLVM.Int.zext c' 64 false (by decide)) disjoint := by
+  veir_bv_decide
+
+/-- Prove the correctness of `redundant_and_pattern` for a `g_xor` of two `g_icmp`s. -/
+theorem and_xor_icmp_odd (c c' : LLVM.Int 1) (k : BitVec 64) (hk : k &&& 1#64 = 1#64) :
+    LLVM.Int.and (LLVM.Int.xor (LLVM.Int.zext c 64 false (by decide))
+        (LLVM.Int.zext c' 64 false (by decide))) (LLVM.Int.val k) ⊒
+      LLVM.Int.xor (LLVM.Int.zext c 64 false (by decide))
+        (LLVM.Int.zext c' 64 false (by decide)) := by
+  veir_bv_decide
+
 /-! ### Power-of-two division combines
 
 The created shift amounts are the constants `k`, `w - 1` and `w - k`, and the created operations
