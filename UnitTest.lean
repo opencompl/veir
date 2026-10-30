@@ -11,7 +11,7 @@ import UnitTest.BuiltinProperties
 import UnitTest.Verifier
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
-import UnitTest.DataFlowFramework.Dominance
+import UnitTest.Dominance
 import UnitTest.DataFlowFramework.DominanceFrontier
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.DataFlowFramework.EntryState
@@ -32,3 +32,4 @@ import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
 import UnitTest.DataLayout
+import UnitTest.RegisterAllocation

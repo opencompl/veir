@@ -12,7 +12,8 @@ private structure Query where
   expected : Array String
 
 private def run (mlir : String) (queries : Array Query) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] fun top dfCtx ctx => Id.run do
+  runWithAnalyses mlir #[] fun top _ ctx => Id.run do
+    let dfCtx := Veir.DominanceAnalysis top .empty ctx
     let .ok names := recoverNames top ctx mlir
       | return #["failed to recover block names"]
     let mut report := #[]
@@ -173,8 +174,9 @@ private def nested : String := r#""func.func"() <{sym_name = "f", function_type 
 
 /-- info: "ok" -/
 #guard_msgs in
-#eval! runWithAnalyses r#""test.test"() ({}) : () -> ()"# #[Veir.DominanceAnalysis]
-  fun top dfCtx ctx =>
+#eval! runWithAnalyses r#""test.test"() ({}) : () -> ()"# #[]
+  fun top _ ctx =>
+    let dfCtx := Veir.DominanceAnalysis top .empty ctx
     let frontier := DominanceFrontier.compute (top.getRegion! ctx.raw 0) dfCtx ctx
     if frontier.blocks.isEmpty && (frontier.iterated #[]).isEmpty then #[]
     else #["expected an empty frontier for an empty region"]

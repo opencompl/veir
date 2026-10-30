@@ -1,6 +1,6 @@
 module
 
-public import Veir.Analysis.DataFlow.DominanceAnalysis
+public import Veir.Analysis.DominanceAnalysis
 
 public section
 
