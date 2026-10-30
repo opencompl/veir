@@ -293,32 +293,36 @@ def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
     (fun (type, a, b) => CreateProg.operation (.gmir .g_sub) #[a, b] #[type])
     (fun op => op)
 
-/-- `(0 - a) + b` → `b - a`. -/
-def ZeroMinusAPlusB_pattern : Pattern OpCode :=
+/-- `(0 - a) + b` → `b - a`. `(add, sub)` is `(g_add, g_sub)`, or the RISC-V word operations
+    `(g_addw, g_subw)`, which read only the low 32 bits of the negation `neg`, so it may then be
+    `g_sub` or `g_subw`. -/
+def ZeroMinusAPlusB_pattern (add : GMIR := .g_add) (sub : GMIR := .g_sub) (neg : GMIR := .g_sub) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
-      let neg ← MatchProg.operation (.gmir .g_sub) #[zero.res[0]!, a] #[type]
-      let _ ← MatchProg.root (.gmir .g_add) #[neg.res[0]!, b] #[type]
+      let negOp ← MatchProg.operation (.gmir neg) #[zero.res[0]!, a] #[type]
+      let _ ← MatchProg.root (.gmir add) #[negOp.res[0]!, b] #[type]
       return (type, a, b))
-    (fun (type, a, b) => CreateProg.operation (.gmir .g_sub) #[b, a] #[type])
+    (fun (type, a, b) => CreateProg.operation (.gmir sub) #[b, a] #[type])
     (fun op => op)
 
-/-- `a + (0 - b)` → `a - b`. -/
-def APlusZeroMinusB_pattern : Pattern OpCode :=
+/-- `a + (0 - b)` → `a - b`, for the same `(add, sub, neg)` as `ZeroMinusAPlusB_pattern`. -/
+def APlusZeroMinusB_pattern (add : GMIR := .g_add) (sub : GMIR := .g_sub) (neg : GMIR := .g_sub) :
+    Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
-      let neg ← MatchProg.operation (.gmir .g_sub) #[zero.res[0]!, b] #[type]
-      let _ ← MatchProg.root (.gmir .g_add) #[a, neg.res[0]!] #[type]
+      let negOp ← MatchProg.operation (.gmir neg) #[zero.res[0]!, b] #[type]
+      let _ ← MatchProg.root (.gmir add) #[a, negOp.res[0]!] #[type]
       return (type, a, b))
-    (fun (type, a, b) => CreateProg.operation (.gmir .g_sub) #[a, b] #[type])
+    (fun (type, a, b) => CreateProg.operation (.gmir sub) #[a, b] #[type])
     (fun op => op)
 
 /-- `(a - b) + (c - a)` → `c - b`. -/
@@ -967,6 +971,34 @@ def constant_fold_sext_inreg_pattern : Pattern OpCode :=
         (BitVec.ofInt props.sz.toNat c.value.value).toInt)
     (fun op => op)
 
+/-! ### Boolean combines
+
+A `g_icmp` wider than `i1` is 0 or 1 (see `and_icmp_one`), which these combines exploit. LLVM finds
+such values with known bits, which we do not have.
+-/
+
+/-- Match the result of a `g_icmp` of the `i64` `type`, which is 0 or 1. -/
+def matchBool (type : Handle OpCode .type) : MatchProg.Builder (Handle OpCode .value) := do
+  let operandType ← MatchProg.type (Attr := TypeAttr)
+  let lhs ← MatchProg.value operandType
+  let rhs ← MatchProg.value operandType
+  let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
+  return icmp.res[0]!
+
+/-- `sext_inreg c, 1` → `0 - c` for a 0-or-1 `c`, which legalizing the `g_sext` of an `i1` leaves
+    behind. The negation then folds into an addition (`APlusZeroMinusB_pattern`). -/
+def sext_inreg_bool_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let c ← matchBool type
+      let _ ← MatchProg.root (.gmir .g_sext_inreg) #[c] #[type] (·.sz = 1)
+      return (type, c))
+    (fun (type, c) => do
+      let zero ← createConstant type 0
+      CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, c] #[type])
+    (fun op => op)
+
 /-! ### select_combines
 
 A `g_select` condition wider than `i1` is true when it is nonzero (see `GMIR.selectNonzero`). LLVM's
@@ -1040,10 +1072,42 @@ def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode
       CreateProg.operation (.gmir .g_select) #[c, castX.res[0]!, castY.res[0]!] #[type])
     (fun op => op)
 
+/-- `k` when `c₁ - c₂` (`c₂ - c₁` when `negative` is set), read as an unsigned 64-bit integer, is
+    `2^k`. -/
+def diffLog2? (negative : Bool) (c₁ c₂ : GMIRConstantProperties) : Option Nat :=
+  let d := (BitVec.ofInt 64 (if negative then c₂.value.value - c₁.value.value
+    else c₁.value.value - c₂.value.value)).toNat
+  if d ≠ 0 ∧ d &&& (d - 1) = 0 then some d.log2 else none
+
+/-- `c ? C₁ : C₂` → `(c << k) + C₂` when `C₁ - C₂ = 2^k`, and `C₂ - (c << k)` when `C₂ - C₁ = 2^k`
+    (`negative`), for a 0-or-1 `c`. A shift by 0 and an addition of 0 fold away. This generalizes
+    LLVM's `tryFoldSelectOfConstants`, which folds the differences `1` and `-1`, and a power of two
+    against `0`, of an `i1` condition. -/
+def select_of_constants_pattern (negative : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let c ← matchBool type
+      let c₁ ← matchConstant type
+      let c₂ ← matchConstant type
+      let _ ← MatchProg.root (.gmir .g_select) #[c, c₁.res[0]!, c₂.res[0]!] #[type]
+      MatchProg.matchNative (c₁.properties, c₂.properties) fun (c₁, c₂) =>
+        (diffLog2? negative c₁ c₂).isSome
+      return (type, c, c₁.properties, c₂.properties, c₂.res[0]!))
+    (fun (type, c, c₁, c₂, c₂Value) => do
+      let k ← createConstantWith type (c₁, c₂) fun (c₁, c₂) => (diffLog2? negative c₁ c₂).get!
+      let shl ← CreateProg.operation (.gmir .g_shl) #[c, k.res[0]!] #[type]
+      if negative then
+        CreateProg.operation (.gmir .g_sub) #[c₂Value, shl.res[0]!] #[type]
+      else
+        CreateProg.operation (.gmir .g_add) #[shl.res[0]!, c₂Value] #[type])
+    (fun op => op)
+
 /-- The select combines, which take the `LegalizerInfo` of the target. -/
 def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
   let patterns : Array (Pattern OpCode) :=
-  #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false] ++
+  #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false,
+    select_of_constants_pattern false, select_of_constants_pattern true] ++
   #[(Data.LLVM.IntPred.ugt, GMIR.g_umax), (.uge, .g_umax), (.sgt, .g_smax), (.sge, .g_smax),
     (.ult, .g_umin), (.ule, .g_umin), (.slt, .g_smin), (.sle, .g_smin)].map
       (fun (pred, minmax) => select_to_iminmax_pattern info pred minmax) ++
@@ -1096,7 +1160,7 @@ def combines : Array (CompiledPattern OpCode) :=
     mul_by_neg_one_pattern, or_and_xor_to_or_pattern .g_or .g_and,
     or_and_xor_to_or_pattern .g_and .g_or, add_sub_reg_0_pattern, add_sub_reg_1_pattern,
     APlusBMinusCMinusB_pattern, AMinusBMinusCMinusC_pattern, ZeroMinusAPlusB_pattern,
-    APlusZeroMinusB_pattern, AMinusBPlusCMinusA_pattern, AMinusBPlusBMinusC_pattern,
+    APlusZeroMinusB_pattern, sext_inreg_bool_pattern, AMinusBPlusCMinusA_pattern, AMinusBPlusBMinusC_pattern,
     APlusBMinusAPlusC_pattern true, APlusBMinusAPlusC_pattern false, AMinusZeroMinusB_pattern,
     AMinusBMinusA_pattern]
   patterns.map (·.compile)

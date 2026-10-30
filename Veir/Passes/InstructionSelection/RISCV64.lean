@@ -1823,6 +1823,124 @@ def gmirBexti_pattern : Pattern OpCode :=
       createRegOp type #[x] .bexti props)
     (fun castBackOp => castBackOp)
 
+/-- `and (lshr x, y) 1` (`i64`) -> `riscv.bext x y`, the register form of `gmirBexti_pattern`.
+    `bext` reads the low 6 bits of `y`; a larger `y` makes the `lshr` poison. -/
+def gmirBext_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let lshr ← MatchProg.operation (.gmir .g_lshr) #[x, y] #[type]
+      let one ← matchConstant64 type 1
+      let root ← MatchProg.root (.gmir .g_and) #[lshr.res[0]!, one.res[0]!] #[type]
+      matchLegal .g_and type root.properties
+      return (type, x, y))
+    (fun (type, x, y) => createRegOp type #[x, y] .bext (.inl ()))
+    (fun castBackOp => castBackOp)
+
+/-- Match `shl 1, x` (`i64`), returning the shift and `x`. -/
+def matchSingleBitAmount (type : Handle OpCode .type) :
+    MatchProg.Builder (Handle OpCode .value × Handle OpCode .value) := do
+  let x ← MatchProg.value type
+  let one ← matchConstant64 type 1
+  let shl ← MatchProg.operation (.gmir .g_shl) #[one.res[0]!, x] #[type]
+  return (shl.res[0]!, x)
+
+/--
+  Zbs register forms: `opcode y, (shl 1, x)` (`i64`) -> `riscvOp y x`, for `or`/`bset`,
+  `xor`/`binv`, and `and`/`bclr` when the single bit is inverted (`xor (shl 1, x), -1`). When
+  `bitLhs` is set, the single bit is the lhs instead. The instructions read the low 6 bits of `x`;
+  a larger `x` makes the `shl` poison.
+-/
+def gmirSingleBitReg_pattern (opcode : GMIR) (riscvOp : Riscv)
+    (h : Riscv.propertiesOf riscvOp = Unit) (inverted bitLhs : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let y ← MatchProg.value type
+      let (bit, x) ← matchSingleBitAmount type
+      let bit ← if inverted then do
+          let minusOne ← matchConstant64 type (-1)
+          let not ← MatchProg.operation (.gmir .g_xor) #[bit, minusOne.res[0]!] #[type]
+          pure not.res[0]!
+        else pure bit
+      let root ← MatchProg.root (.gmir opcode) (if bitLhs then #[bit, y] else #[y, bit]) #[type]
+      matchLegal opcode type root.properties
+      return (type, x, y))
+    (fun (type, x, y) => createRegOp type #[y, x] riscvOp (.inl (cast h.symm ())))
+    (fun castBackOp => castBackOp)
+
+/-- `shl 1, x` (`i64`) -> `riscv.bset x0, x`: the single bit set in zero. The `riscv.li 0` becomes
+    `x0` under `riscv-combine`. -/
+def gmirBsetZero_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let one ← matchConstant64 type 1
+      let root ← MatchProg.root (.gmir .g_shl) #[one.res[0]!, x] #[type]
+      matchLegal .g_shl type root.properties
+      return (type, x))
+    (fun (type, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let zeroProps ← CreateProg.property (.riscv .li) (mkRISCVImm 0)
+      let zero ← CreateProg.operation (.riscv .li) #[] #[regType] zeroProps
+      let bset ← CreateProg.operation (.riscv .bset) #[zero.res[0]!, xCast.res[0]!] #[regType]
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[bset.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+/- It runs with the immediate forms, after the composed `gmirSingleBitReg_pattern`s have taken the
+   single bits they fold into `bset`, `binv` and `bclr`. -/
+def gmirBsetZero : Puddle.CompiledPattern OpCode := gmirBsetZero_pattern.compile
+
+/-- `gmir.g_and x, 2^k - 1` (`i64`) -> `riscvOp x`, the zero-extension of the low `k` bits:
+    `zexth` (Zbb) for `k = 16` and `zextw` (Zba `add.uw`) for `k = 32`. -/
+def gmirAndZext_pattern (k : Nat) (riscvOp : Riscv) (h : Riscv.propertiesOf riscvOp = Unit) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let mask ← matchConstant64 type (BitVec.ofNat 64 (2 ^ k - 1))
+      let root ← MatchProg.root (.gmir .g_and) #[x, mask.res[0]!] #[type]
+      matchLegal .g_and type root.properties
+      return (type, x))
+    (fun (type, x) => createRegOp type #[x] riscvOp (.inl (cast h.symm ())))
+    (fun castBackOp => castBackOp)
+
+/-- `64 - k` when `c`, read as a 64-bit integer, is the mask `2^k - 1` of the low `k` bits, for a
+    `k` that neither `andi` (`k < 12`), `zexth`, `zextw` nor `bclri` (`k = 63`) selects. -/
+def lowMaskShift? (c : Int) : Option Int :=
+  let m := (BitVec.ofInt 64 c).toNat
+  let k := (m + 1).log2
+  if m + 1 = 2 ^ k ∧ 12 ≤ k ∧ k < 63 ∧ k ≠ 16 ∧ k ≠ 32 then some (64 - k) else none
+
+/-- `gmir.g_and x, 2^k - 1` (`i64`) -> `riscv.srli (riscv.slli x (64 - k)) (64 - k)`, which keeps
+    the low `k` bits of `x` without materializing the mask. -/
+def gmirAndLowMask_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let mask ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+          fun ⟨const⟩ => (lowMaskShift? const.value).isSome
+      let root ← MatchProg.root (.gmir .g_and) #[x, mask.res[0]!] #[type]
+      matchLegal .g_and type root.properties
+      return (type, x, mask.properties))
+    (fun (type, x, mask) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let xCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let slliProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .slli)))
+          mask fun ⟨const⟩ => (lowMaskShift? const.value).map mkRISCVImm
+      let slli ← CreateProg.operation (.riscv .slli) #[xCast.res[0]!] #[regType] slliProps
+      let srliProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .srli)))
+          mask fun ⟨const⟩ => (lowMaskShift? const.value).map mkRISCVImm
+      let srli ← CreateProg.operation (.riscv .srli) #[slli.res[0]!] #[regType] srliProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[srli.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
 /-- `shl (zext x), n` (`i32` `x`, `0 ≤ n < 32`) -> `riscv.slliuw x n` (Zba).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
 def gmirSlliuw_pattern : Pattern OpCode :=
@@ -1843,13 +1961,23 @@ def gmirSlliuw_pattern : Pattern OpCode :=
       createRegOp type #[x] .slliuw props)
     (fun castBackOp => castBackOp)
 
+/-- The `bclr` register forms. They run before the composed patterns, where `binv` and `andn` would
+    otherwise take apart the inverted single bit `xor (shl 1, x), -1` they match. -/
+def gmirBitClear : Array (Puddle.CompiledPattern OpCode) :=
+  (#[false, true].map (gmirSingleBitReg_pattern .g_and .bclr rfl true ·)).map (·.compile)
+
 /-- The composed patterns, in the order they are tried. -/
 def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
   let binopNot := #[false, true].flatMap fun notLhs =>
     #[gmirBinopNot_pattern .g_and .andn () notLhs, gmirBinopNot_pattern .g_or .orn () notLhs,
       gmirBinopNot_pattern .g_xor .xnor () notLhs]
-  (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++
-    #[gmirNotXor_pattern, gmirBexti_pattern, gmirSlliuw_pattern]).map (·.compile)
+  let singleBit := #[false, true].flatMap fun bitLhs =>
+    #[gmirSingleBitReg_pattern .g_or .bset rfl false bitLhs,
+      gmirSingleBitReg_pattern .g_xor .binv rfl false bitLhs]
+  (singleBit ++ binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++
+    #[gmirNotXor_pattern, gmirBexti_pattern, gmirBext_pattern,
+      gmirAndZext_pattern 16 .zexth rfl, gmirAndZext_pattern 32 .zextw rfl,
+      gmirAndLowMask_pattern, gmirSlliuw_pattern]).map (·.compile)
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
@@ -2087,6 +2215,11 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  /- Bit-clear loop: select `bclr` before the composed loop takes apart its inverted single bit. -/
+  let bitClear := RewritePattern.GreedyRewritePattern <| gmirBitClear.map (·.run)
+  let ctx ← match RewritePattern.applyInContext bitClear ctx with
+  | none => throw "Error while applying bit-clear instruction-selection patterns"
+  | some ctx => pure ctx
   /- Composed loop: select expressions of several gMIR operations before the immediate forms
      and the per-op lowerings select their inner operations. -/
   let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
@@ -2108,7 +2241,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let immediate := RewritePattern.GreedyRewritePattern <| #[
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirAddiw.run, gmirSlliw.run, gmirSrliw.run, gmirSraiw.run,
-    gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
+    gmirBseti.run, gmirBinvi.run, gmirBclri.run, gmirBsetZero.run] ++ gmirSlti.map (·.run)
   let ctx ← match RewritePattern.applyInContext immediate ctx with
   | none => throw "Error while applying immediate instruction-selection patterns"
   | some ctx => pure ctx

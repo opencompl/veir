@@ -1198,3 +1198,80 @@ theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
     veir_bv_normalize
     simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
     grind⟩
+
+/-! ### Zbs register forms
+
+The instructions read the low 6 bits of the bit index `x`; an `x` of 64 or more makes the `shl`
+of the source poison.
+-/
+
+/-- Prove the correctness of the `bset` lowering of `or y, (shl 1, x)`. -/
+theorem bset_refinement {x y : LLVM.Int 64} {nsw nuw disjoint : Bool} :
+    (Data.LLVM.Int.or y (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw) disjoint) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.bset (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `bset` lowering of `or (shl 1, x), y`. -/
+theorem bset_lhs_refinement {x y : LLVM.Int 64} {nsw nuw disjoint : Bool} :
+    (Data.LLVM.Int.or (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw) y disjoint) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.bset (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `binv` lowering of `xor y, (shl 1, x)`. -/
+theorem binv_refinement {x y : LLVM.Int 64} {nsw nuw : Bool} :
+    (Data.LLVM.Int.xor y (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.binv (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `binv` lowering of `xor (shl 1, x), y`. -/
+theorem binv_lhs_refinement {x y : LLVM.Int 64} {nsw nuw : Bool} :
+    (Data.LLVM.Int.xor (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw) y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.binv (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `bclr` lowering of `and y, (xor (shl 1, x), -1)`. -/
+theorem bclr_refinement {x y : LLVM.Int 64} {nsw nuw : Bool} :
+    (Data.LLVM.Int.and y (Data.LLVM.Int.xor
+      (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw) (LLVM.Int.constant 64 (-1)))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.bclr (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `bclr` lowering of `and (xor (shl 1, x), -1), y`. -/
+theorem bclr_lhs_refinement {x y : LLVM.Int 64} {nsw nuw : Bool} :
+    (Data.LLVM.Int.and (Data.LLVM.Int.xor
+      (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw) (LLVM.Int.constant 64 (-1))) y) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.bclr (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `bext` lowering of `and (lshr y, x), 1`. -/
+theorem bext_refinement {x y : LLVM.Int 64} {exact : Bool} :
+    (Data.LLVM.Int.and (Data.LLVM.Int.lshr y x exact) (LLVM.Int.constant 64 1)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.bext (LLVM.Int.toReg x) (LLVM.Int.toReg y)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `bset x0` lowering of `shl 1, x`. -/
+theorem bset_zero_refinement {x : LLVM.Int 64} {nsw nuw : Bool} :
+    (Data.LLVM.Int.shl (LLVM.Int.constant 64 1) x nsw nuw) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.bset (LLVM.Int.toReg x) (Data.RISCV.li 0#64)) 64) := by
+  veir_bv_decide
+
+/-! ### Low-bit masks -/
+
+/-- Prove the correctness of the `zext.w` lowering of `and x, 2^32 - 1`. -/
+theorem and_mask32_zextw_refinement {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 (2 ^ 32 - 1))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zextw (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `zext.h` lowering of `and x, 2^16 - 1`. -/
+theorem and_mask16_zexth_refinement {x : LLVM.Int 64} :
+    (Data.LLVM.Int.and x (LLVM.Int.constant 64 (2 ^ 16 - 1))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.zexth (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/-- Prove the correctness of the `srli (slli x s) s` lowering of `and x, 2^(64 - s) - 1`, for every
+    shift `s`: the mask is all ones shifted right by `s`. -/
+theorem and_lowmask_shifts_refinement {x : LLVM.Int 64} (s : BitVec 6) :
+    (Data.LLVM.Int.and x (LLVM.Int.val (BitVec.allOnes 64 >>> s))) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.srli s (Data.RISCV.slli s (LLVM.Int.toReg x))) 64) := by
+  veir_bv_decide

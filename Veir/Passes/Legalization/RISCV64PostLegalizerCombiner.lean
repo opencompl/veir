@@ -30,6 +30,14 @@ def wordDivCombines : Array (CompiledPattern OpCode) :=
         sdiv_by_pow2_pattern .g_sdivw .g_ashrw .g_lshrw .g_addw .g_subw rfl (some 32) negative])
   patterns.map (·.compile)
 
+open Puddle in
+/-- The negation combines for the RISC-V word addition, which reads the low 32 bits of a `g_sub` or
+    `g_subw` negation alike. -/
+def wordNegCombines : Array (CompiledPattern OpCode) :=
+  let patterns : Array (Pattern OpCode) := #[GMIR.g_sub, .g_subw].flatMap fun neg =>
+    #[ZeroMinusAPlusB_pattern .g_addw .g_subw neg, APlusZeroMinusB_pattern .g_addw .g_subw neg]
+  patterns.map (·.compile)
+
 public section
 
 def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
@@ -39,7 +47,7 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
       -- The combines come before `sub_to_add` and `sub_to_addw`, which would otherwise rewrite
       -- the subtractions some of them match.
       let pattern := RewritePattern.GreedyRewritePattern <|
-        (combines ++ wordDivCombines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
+        (combines ++ wordDivCombines ++ wordNegCombines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
         #[(sub_to_add riscv64LegalizerInfo).run, (sub_to_addw riscv64LegalizerInfo).run,
           redundant_and.run, commutativeConstantRHS]
       match RewritePattern.applyInContext pattern ctx with

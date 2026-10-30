@@ -333,6 +333,83 @@ theorem xor_constant (w : Nat) (a b : BitVec w) :
     LLVM.Int.xor (LLVM.Int.val a) (LLVM.Int.val b) ⊒ LLVM.Int.val (a ^^^ b) := by
   simp [LLVM.Int.xor, Id.run, isRefinedBy]
 
+/-! ### Boolean combines
+
+A `g_icmp` of `i64` is its `i1` comparison `c` zero-extended (see `and_icmp_one`).
+-/
+
+/-- Prove the correctness of `sext_inreg_bool_pattern`: `sext_inreg (zext c), 1` → `0 - zext c`.
+    `GMIR.interpretOp'` defines `g_sext_inreg` as the `sext` of the `trunc`. -/
+theorem sext_inreg_bool (c : LLVM.Int 1) (nsw nuw : Bool) :
+    LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.zext c 64 false (by decide)) 1 nsw nuw (by decide)) 64
+        (by decide) ⊒
+      LLVM.Int.sub (LLVM.Int.constant 64 0) (LLVM.Int.zext c 64 false (by decide)) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `select_of_constants_pattern` when `C₁ - C₂ = 2^k`. -/
+theorem select_of_constants_add (c : LLVM.Int 1) (c₂ : BitVec 64) (k : BitVec 6) :
+    GMIR.selectNonzero (LLVM.Int.zext c 64 false (by decide))
+        (LLVM.Int.val (c₂ + 1#64 <<< k)) (LLVM.Int.val c₂) ⊒
+      LLVM.Int.add
+        (LLVM.Int.shl (LLVM.Int.zext c 64 false (by decide)) (LLVM.Int.val (k.setWidth 64)))
+        (LLVM.Int.val c₂) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `select_of_constants_pattern` when `C₂ - C₁ = 2^k` (`negative`). -/
+theorem select_of_constants_sub (c : LLVM.Int 1) (c₂ : BitVec 64) (k : BitVec 6) :
+    GMIR.selectNonzero (LLVM.Int.zext c 64 false (by decide))
+        (LLVM.Int.val (c₂ - 1#64 <<< k)) (LLVM.Int.val c₂) ⊒
+      LLVM.Int.sub (LLVM.Int.val c₂)
+        (LLVM.Int.shl (LLVM.Int.zext c 64 false (by decide)) (LLVM.Int.val (k.setWidth 64))) := by
+  veir_bv_decide
+
+/-! ### Negation combines
+
+The created subtraction has no flags, so it is never more poisonous than the source.
+-/
+
+/-- Prove the correctness of `APlusZeroMinusB_pattern`: `a + (0 - b)` → `a - b`. -/
+theorem a_plus_zero_minus_b (a b : LLVM.Int 64) (nsw nuw nsw' nuw' : Bool) :
+    LLVM.Int.add a (LLVM.Int.sub (LLVM.Int.constant 64 0) b nsw' nuw') nsw nuw ⊒
+      LLVM.Int.sub a b := by
+  veir_bv_decide
+
+/-- Prove the correctness of `ZeroMinusAPlusB_pattern`: `(0 - a) + b` → `b - a`. -/
+theorem zero_minus_a_plus_b (a b : LLVM.Int 64) (nsw nuw nsw' nuw' : Bool) :
+    LLVM.Int.add (LLVM.Int.sub (LLVM.Int.constant 64 0) a nsw' nuw') b nsw nuw ⊒
+      LLVM.Int.sub b a := by
+  veir_bv_decide
+
+/-- Prove the correctness of `APlusZeroMinusB_pattern` for `g_addw` of a `g_sub` negation. -/
+theorem a_plusw_zero_minus_b (a b : LLVM.Int 64) (nsw nuw nsw' nuw' : Bool) (e : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.add · · nsw nuw) a
+        (LLVM.Int.sub (LLVM.Int.constant 64 0) b nsw' nuw') e' ⊒
+      GMIR.word (LLVM.Int.sub · ·) a b e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `ZeroMinusAPlusB_pattern` for `g_addw` of a `g_sub` negation. -/
+theorem zero_minus_a_plusw_b (a b : LLVM.Int 64) (nsw nuw nsw' nuw' : Bool) (e : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.add · · nsw nuw)
+        (LLVM.Int.sub (LLVM.Int.constant 64 0) a nsw' nuw') b e' ⊒
+      GMIR.word (LLVM.Int.sub · ·) b a e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `APlusZeroMinusB_pattern` for `g_addw` of a `g_subw` negation,
+    whatever the high bits `e₁` the negation chose. -/
+theorem a_plusw_zero_minusw_b (a b : LLVM.Int 64) (nsw nuw nsw' nuw' : Bool) (e e₁ : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.add · · nsw nuw) a
+        (GMIR.word (LLVM.Int.sub · · nsw' nuw') (LLVM.Int.constant 64 0) b e₁) e' ⊒
+      GMIR.word (LLVM.Int.sub · ·) a b e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `ZeroMinusAPlusB_pattern` for `g_addw` of a `g_subw` negation,
+    whatever the high bits `e₁` the negation chose. -/
+theorem zero_minusw_a_plusw_b (a b : LLVM.Int 64) (nsw nuw nsw' nuw' : Bool) (e e₁ : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.add · · nsw nuw)
+        (GMIR.word (LLVM.Int.sub · · nsw' nuw') (LLVM.Int.constant 64 0) a e₁) b e' ⊒
+      GMIR.word (LLVM.Int.sub · ·) b a e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
 end Veir.Data.LLVM
 
 end
