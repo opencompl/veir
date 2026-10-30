@@ -265,8 +265,8 @@ theorem icmp_refinement_uge {x y : LLVM.Int 64} :
 
 /-! ### Immediate-constant refinements for ordered comparisons
 
-  Each theorem justifies one arm of the `slti` immediate-form selection in
-  `isel-sdag-riscv64`, comparing `x` against a constant that equals the
+  Each theorem justifies one arm of the `slti` immediate-form selection (`sltiImm?`;
+  see `Proofs.GMIR` for its `i64`-result `g_icmp` form), comparing `x` against a constant that equals the
   sign-extension of the 12-bit immediate `imm` actually encoded in the emitted
   instruction. For the `≤` predicates the constant is `sext(imm) - 1`, capturing
   the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the immediate). The
@@ -1088,11 +1088,11 @@ theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
 
 /-! ### Immediate-selection folds
 
-  Each lemma below states that the immediate-form RISC-V instruction selected by
-  `isel-sdag-riscv64` computes the same value as materializing the constant with
-  `li` and using the reg-reg form. Composed with the reg-reg lowering refinements
-  above (and `constant_refinement`), this is the soundness obligation for selecting
-  the immediate form directly from the LLVM op, mirroring LLVM's `PatGprImm` family.
+  Each lemma below states that an immediate-form RISC-V instruction (`lowerBinaryImm`,
+  `lowerBinaryImmWith` and the composed patterns of `isel-riscv64`) computes the same value as
+  materializing the constant with `li` and using the reg-reg form. Composed with the reg-reg
+  lowering refinements above (and `constant_refinement`), this is the soundness obligation for
+  selecting the immediate form directly, mirroring LLVM's `PatGprImm` family.
 -/
 
 /-- imm12 binops: `OP (li imm.sext) rs1 = OPi imm rs1` (sign-extended immediate). -/

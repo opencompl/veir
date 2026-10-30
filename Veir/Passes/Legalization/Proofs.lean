@@ -165,6 +165,148 @@ theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
 
+/-! ### Power-of-two division combines
+
+The created shift amounts are the constants `k`, `w - 1` and `w - k`, and the created operations
+have no flags. The `i64` divisor `2^k` (or `-2^k`) is the one that `slog2At? 64`/`ulog2At? 64`
+recognizes.
+-/
+
+/-- Prove the correctness of `udiv_by_pow2_pattern` at `i64`, whatever the `exact` flag. -/
+theorem udiv_by_pow2 (x : LLVM.Int 64) (k : BitVec 6) (exact : Bool) :
+    LLVM.Int.udiv x (LLVM.Int.val (1#64 <<< k)) exact ⊒ LLVM.Int.lshr x (LLVM.Int.val (k.setWidth 64)) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` at `i64` for a positive divisor. -/
+theorem sdiv_exact_by_pow2_pos (x : LLVM.Int 64) (k : BitVec 6) (hk : k < 63) :
+    LLVM.Int.sdiv x (LLVM.Int.val (1#64 <<< k)) true ⊒ LLVM.Int.ashr x (LLVM.Int.val (k.setWidth 64)) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` at `i64` for a negative divisor,
+    including `-2^63`. -/
+theorem sdiv_exact_by_pow2_neg (x : LLVM.Int 64) (k : BitVec 6) :
+    LLVM.Int.sdiv x (LLVM.Int.val (-(1#64 <<< k))) true ⊒
+      LLVM.Int.sub (LLVM.Int.constant 64 0) (LLVM.Int.ashr x (LLVM.Int.val (k.setWidth 64))) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `sdiv_by_pow2_pattern` at `i64` for a positive divisor. -/
+theorem sdiv_by_pow2_pos (x : LLVM.Int 64) (k : BitVec 6) (hk0 : 0 < k) (hk : k < 63) :
+    LLVM.Int.sdiv x (LLVM.Int.val (1#64 <<< k)) false ⊒
+      LLVM.Int.ashr
+        (LLVM.Int.add x
+          (LLVM.Int.lshr (LLVM.Int.ashr x (LLVM.Int.constant 64 63))
+            (LLVM.Int.val (64 - k.setWidth 64))))
+        (LLVM.Int.val (k.setWidth 64)) := by
+  veir_bv_decide
+
+/-- Prove the correctness of `sdiv_by_pow2_pattern` at `i64` for a negative divisor, including
+    `-2^63`. -/
+theorem sdiv_by_pow2_neg (x : LLVM.Int 64) (k : BitVec 6) (hk0 : 0 < k) :
+    LLVM.Int.sdiv x (LLVM.Int.val (-(1#64 <<< k))) false ⊒
+      LLVM.Int.sub (LLVM.Int.constant 64 0)
+        (LLVM.Int.ashr
+          (LLVM.Int.add x
+            (LLVM.Int.lshr (LLVM.Int.ashr x (LLVM.Int.constant 64 63))
+              (LLVM.Int.val (64 - k.setWidth 64))))
+          (LLVM.Int.val (k.setWidth 64))) := by
+  veir_bv_decide
+
+/-! ### Power-of-two word division combines
+
+The word divisions read the low 32 bits of their `i64` divisor `c`, which is all the hypotheses
+constrain. Each word operation that the combines create chooses its own high bits `e₁`, `e₂`, ...,
+and the final choice is also one for the source division.
+-/
+
+/-- Prove the correctness of `udiv_by_pow2_pattern` for `g_udivw`, whatever the `exact` flag. -/
+theorem udivw_by_pow2 (x : LLVM.Int 64) (c : BitVec 64) (k : BitVec 5)
+    (hc : c.setWidth 32 = 1#32 <<< k) (exact : Bool) (e : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.udiv · · exact) x (LLVM.Int.val c) e' ⊒
+      GMIR.word (LLVM.Int.lshr · ·) x (LLVM.Int.val (k.setWidth 64)) e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` for `g_sdivw` and a positive divisor. -/
+theorem sdivw_exact_by_pow2_pos (x : LLVM.Int 64) (c : BitVec 64) (k : BitVec 5) (hk : k < 31)
+    (hc : c.setWidth 32 = 1#32 <<< k) (e : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.sdiv · · true) x (LLVM.Int.val c) e' ⊒
+      GMIR.word (LLVM.Int.ashr · ·) x (LLVM.Int.val (k.setWidth 64)) e :=
+  ⟨e, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` for `g_sdivw` and a negative divisor,
+    including `-2^31`. -/
+theorem sdivw_exact_by_pow2_neg (x : LLVM.Int 64) (c : BitVec 64) (k : BitVec 5)
+    (hc : c.setWidth 32 = -(1#32 <<< k)) (e₁ e₂ : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.sdiv · · true) x (LLVM.Int.val c) e' ⊒
+      GMIR.word (LLVM.Int.sub · ·) (LLVM.Int.constant 64 0)
+        (GMIR.word (LLVM.Int.ashr · ·) x (LLVM.Int.val (k.setWidth 64)) e₁) e₂ :=
+  ⟨e₂, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `sdiv_by_pow2_pattern` for `g_sdivw` and a positive divisor. -/
+theorem sdivw_by_pow2_pos (x : LLVM.Int 64) (c : BitVec 64) (k : BitVec 5) (hk0 : 0 < k)
+    (hk : k < 31) (hc : c.setWidth 32 = 1#32 <<< k) (e₁ e₂ e₃ e₄ : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.sdiv · · false) x (LLVM.Int.val c) e' ⊒
+      (let sign := GMIR.word (LLVM.Int.ashr · ·) x (LLVM.Int.constant 64 31) e₁
+       let bias := GMIR.word (LLVM.Int.lshr · ·) sign (LLVM.Int.val (32 - k.setWidth 64)) e₂
+       let sum := GMIR.word (LLVM.Int.add · ·) x bias e₃
+       GMIR.word (LLVM.Int.ashr · ·) sum (LLVM.Int.val (k.setWidth 64)) e₄) :=
+  ⟨e₄, by unfold GMIR.word; veir_bv_decide⟩
+
+/-- Prove the correctness of `sdiv_by_pow2_pattern` for `g_sdivw` and a negative divisor, including
+    `-2^31`. -/
+theorem sdivw_by_pow2_neg (x : LLVM.Int 64) (c : BitVec 64) (k : BitVec 5) (hk0 : 0 < k)
+    (hc : c.setWidth 32 = -(1#32 <<< k)) (e₁ e₂ e₃ e₄ e₅ : BitVec 32) :
+    ∃ e', GMIR.word (LLVM.Int.sdiv · · false) x (LLVM.Int.val c) e' ⊒
+      (let sign := GMIR.word (LLVM.Int.ashr · ·) x (LLVM.Int.constant 64 31) e₁
+       let bias := GMIR.word (LLVM.Int.lshr · ·) sign (LLVM.Int.val (32 - k.setWidth 64)) e₂
+       let sum := GMIR.word (LLVM.Int.add · ·) x bias e₃
+       let quotient := GMIR.word (LLVM.Int.ashr · ·) sum (LLVM.Int.val (k.setWidth 64)) e₄
+       GMIR.word (LLVM.Int.sub · ·) (LLVM.Int.constant 64 0) quotient e₅) :=
+  ⟨e₅, by unfold GMIR.word; veir_bv_decide⟩
+
+/-! ### Constant folds -/
+
+/--
+Prove the correctness of combining `g_sext (g_trunc c)` to a constant, at every width and whatever
+the flags of the `g_trunc`. With `m = w`, this is also the folding of `g_sext_inreg c, n`, which
+`GMIR.interpretOp'` defines as the `sext` of the `trunc`.
+-/
+theorem sext_trunc_constant (w n m : Nat) (hn : n < w) (hm : n < m) (c : BitVec w)
+    (nsw nuw : Bool) :
+    LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.val c) n nsw nuw hn) m hm ⊒
+      LLVM.Int.val ((c.setWidth n).signExtend m) := by
+  veir_bv_normalize
+
+/-- Prove the correctness of combining `g_zext (g_trunc c)` to a constant, at every width and
+    whatever the flags. -/
+theorem zext_trunc_constant (w n m : Nat) (hn : n < w) (hm : n < m) (c : BitVec w)
+    (nsw nuw nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.trunc (LLVM.Int.val c) n nsw nuw hn) m nneg hm ⊒
+      LLVM.Int.val ((c.setWidth n).setWidth m) := by
+  veir_bv_normalize
+
+/-- Prove the correctness of combining `g_sext c` to a constant, at every width. -/
+theorem sext_constant (n m : Nat) (hm : n < m) (c : BitVec n) :
+    LLVM.Int.sext (LLVM.Int.val c) m hm ⊒ LLVM.Int.val (c.signExtend m) := by
+  simp [LLVM.Int.sext, Id.run, isRefinedBy]
+
+/-- Prove the correctness of combining `g_zext c` to a constant, at every width. -/
+theorem zext_constant (n m : Nat) (hm : n < m) (c : BitVec n) (nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.val c) m nneg hm ⊒ LLVM.Int.val (c.setWidth m) := by
+  veir_bv_normalize
+
+/-- Prove the correctness of folding `g_and`, `g_or` and `g_xor` of two constants. -/
+theorem and_constant (w : Nat) (a b : BitVec w) :
+    LLVM.Int.and (LLVM.Int.val a) (LLVM.Int.val b) ⊒ LLVM.Int.val (a &&& b) := by
+  simp [LLVM.Int.and, Id.run, isRefinedBy]
+
+theorem or_constant (w : Nat) (a b : BitVec w) (disjoint : Bool) :
+    LLVM.Int.or (LLVM.Int.val a) (LLVM.Int.val b) disjoint ⊒ LLVM.Int.val (a ||| b) := by
+  veir_bv_normalize
+
+theorem xor_constant (w : Nat) (a b : BitVec w) :
+    LLVM.Int.xor (LLVM.Int.val a) (LLVM.Int.val b) ⊒ LLVM.Int.val (a ^^^ b) := by
+  simp [LLVM.Int.xor, Id.run, isRefinedBy]
+
 end Veir.Data.LLVM
 
 end

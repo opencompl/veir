@@ -48,6 +48,16 @@ theorem selectNonzero_one {w : Nat} (c : Int 1) (x y : Int w) :
     rcases BitVec.eq_zero_or_eq_one c' with rfl | rfl <;>
       simp [selectNonzero, Int.select, Id.run]
 
+/--
+ The value of a RISC-V gMIR word operation (`g_addw`, `g_sdivw`, ...) whose 32-bit operation is `f`:
+ `f` of the low 32 bits of the `i64` operands `x` and `y`, any-extended to 64 bits with the high
+ bits `ext` (see `GMIR.interpretWordBinary` and `GMIR.interpretOpCTree`). A refinement of it must
+ hold for some choice of `ext`.
+-/
+def word (f : Int 32 → Int 32 → Int 32) (x y : Int 64) (ext : BitVec 32) : Int 64 :=
+  Int.ext (f (x.trunc 32 false false (by decide)) (y.trunc 32 false false (by decide))) 64 ext
+    (by decide)
+
 end
 
 end Veir.GMIR
