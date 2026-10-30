@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.ForLean
 import Veir.IR.SymbolRef
 import Veir.Passes.Matching.GMIR.Basic
 import Veir.Passes.Matching.LLVM.Basic
@@ -1912,10 +1913,10 @@ def gmirAndZext_pattern (k : Nat) (riscvOp : Riscv) (h : Riscv.propertiesOf risc
 
 /-- `64 - k` when `c`, read as a 64-bit integer, is the mask `2^k - 1` of the low `k` bits, for a
     `k` that neither `andi` (`k < 12`), `zexth`, `zextw` nor `bclri` (`k = 63`) selects. -/
-def lowMaskShift? (c : Int) : Option Int :=
+def lowMaskShift? (c : Int) : Option Int := do
   let m := (BitVec.ofInt 64 c).toNat
-  let k := (m + 1).log2
-  if m + 1 = 2 ^ k ∧ 12 ≤ k ∧ k < 63 ∧ k ≠ 16 ∧ k ≠ 32 then some (64 - k) else none
+  let k ← (m + 1).log2Exact?
+  if 12 ≤ k ∧ k < 63 ∧ k ≠ 16 ∧ k ≠ 32 then some (64 - k) else none
 
 /-- `gmir.g_and x, 2^k - 1` (`i64`) -> `riscv.srli (riscv.slli x (64 - k)) (64 - k)`, which keeps
     the low `k` bits of `x` without materializing the mask. -/

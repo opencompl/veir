@@ -5,6 +5,10 @@ public import Veir.Meta.Tactic.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
 
+/-- `k` when `n` is exactly `2^k`, or `none` for zero and non-powers of two. -/
+def Nat.log2Exact? (n : Nat) : Option Nat :=
+  if n ≠ 0 ∧ n &&& (n - 1) = 0 then some n.log2 else none
+
 /--
   We compare `ByteArray`s by with lexicographic ordering.
 -/

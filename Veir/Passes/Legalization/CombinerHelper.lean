@@ -5,6 +5,7 @@ public import Veir.PatternRewriter.Puddle.Execution
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Passes.Legalization.LegalizerHelper
+import Veir.ForLean
 
 /-!
 # Combines
@@ -160,8 +161,8 @@ def redundant_and_mask_pattern : Pattern OpCode :=
     operation of them, and a `g_select` between two of them). -/
 def redundant_and : Array (CompiledPattern OpCode) :=
   (#[redundant_and_mask_pattern, redundant_and_pattern, redundant_and_pattern matchSelectBool] ++
-    #[GMIR.g_and, .g_or, .g_xor].flatMap (fun logic =>
-      #[true, false].map fun boolLhs => redundant_and_pattern (matchLogicBool logic boolLhs))).map
+    (#[true, false].map fun boolLhs => redundant_and_pattern (matchLogicBool .g_and boolLhs)) ++
+    (#[GMIR.g_or, .g_xor].map fun logic => redundant_and_pattern (matchLogicBool logic true))).map
     (·.compile)
 
 /-! ### identity_combines -/
@@ -991,13 +992,13 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 
 /-! ### constant_fold_binops -/
 
-/-- The bitwise operation `f` on signed integers, as on their two's complement representations.
-    This is exact for constants of up to 128 bits. -/
-def bitwiseFold (f : BitVec 128 → BitVec 128 → BitVec 128) (a b : Int) : Int :=
-  (f (BitVec.ofInt 128 a) (BitVec.ofInt 128 b)).toInt
+/-- The bitwise operation `f` on integers at the matched operation's width. -/
+def bitwiseFold (f : {w : Nat} → BitVec w → BitVec w → BitVec w)
+    (width : Nat) (a b : Int) : Int :=
+  (f (BitVec.ofInt width a) (BitVec.ofInt width b)).toInt
 
-/-- `c₁ op c₂` → the constant `fold c₁ c₂`, with both constants read as signed integers. -/
-def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
+/-- `c₁ op c₂` → the constant `fold width c₁ c₂`, with both constants read as signed integers. -/
+def constant_fold_binop_pattern (opcode : GMIR) (fold : Nat → Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
@@ -1006,7 +1007,8 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
       let _ ← MatchProg.root (.gmir opcode) #[c₁.res[0]!, c₂.res[0]!] #[type]
       return (type, c₁.properties, c₂.properties))
     (fun (type, c₁, c₂) =>
-      createConstantWith type (c₁, c₂) fun (c₁, c₂) => fold c₁.bits.toInt c₂.bits.toInt)
+      createConstantWith type (c₁, c₂) fun (c₁, c₂) =>
+        fold c₁.value.type.bitwidth c₁.bits.toInt c₂.bits.toInt)
     (fun op => op)
 
 /-- `sext_inreg c, sz` → the constant of the low `sz` bits of `c`, read as a signed integer.
@@ -1120,7 +1122,7 @@ def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode
 def diffLog2? (negative : Bool) (c₁ c₂ : GMIRConstantProperties) : Option Nat :=
   let d := (BitVec.ofInt 64 (if negative then c₂.value.value - c₁.value.value
     else c₁.value.value - c₂.value.value)).toNat
-  if d ≠ 0 ∧ d &&& (d - 1) = 0 then some d.log2 else none
+  d.log2Exact?
 
 /-- `c ? C₁ : C₂` → `(c << k) + C₂` when `C₁ - C₂ = 2^k`, and `C₂ - (c << k)` when `C₂ - C₁ = 2^k`
     (`negative`), for a 0-or-1 `c`. A shift by 0 and an addition of 0 fold away. This generalizes
@@ -1215,8 +1217,9 @@ def combines : Array (CompiledPattern OpCode) :=
     bitreverse_shift_pattern .g_shl .g_lshr, bitreverse_shift_pattern .g_lshr .g_shl,
     udiv_by_pow2_pattern, mul_to_shl_pattern, urem_pow2_to_mask_pattern] ++
   sdiv_by_pow2_patterns ++
-  #[(GMIR.g_add, fun a b => a + b), (.g_sub, (· - ·)), (.g_mul, (· * ·)),
-    (.g_smin, min), (.g_smax, max), (.g_and, bitwiseFold (· &&& ·)), (.g_or, bitwiseFold (· ||| ·)),
+  #[(GMIR.g_add, fun _ a b => a + b), (.g_sub, fun _ => (· - ·)), (.g_mul, fun _ => (· * ·)),
+    (.g_smin, fun _ => min), (.g_smax, fun _ => max),
+    (.g_and, bitwiseFold (· &&& ·)), (.g_or, bitwiseFold (· ||| ·)),
     (.g_xor, bitwiseFold (· ^^^ ·))].map
       (fun (opcode, fold) => constant_fold_binop_pattern opcode fold) ++
   #[constant_fold_sext_inreg_pattern] ++

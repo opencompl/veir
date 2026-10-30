@@ -1,8 +1,6 @@
 // RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
 
-// `binop(C1, C2)` with two constant operands folds to a single constant. Only
-// opcodes well-defined over unbounded integers are folded here: add, sub, mul,
-// smin, smax.
+// `binop(C1, C2)` with two constant operands folds to a single constant.
 
 "builtin.module"() ({
   // add(5, 7) = 12
