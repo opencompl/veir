@@ -73,8 +73,9 @@ def ProdRel {A B C D} (RR : A → B → Prop) (RS : C → D → Prop) :
 axiom interp_state {RR RR'} {RS : σ → σ → Prop}
     (h : (i : EIn) → StateT σ (CTree F C) (E i)) (t : CTree E C X) (u : CTree E C Y) :
   ProdRel RR RS ⊑ RR' →
+  RS s s' →
   Sim RR t u →
-  Sim RR' (CTree.interp_state h t s) (CTree.interp_state h u s)
+  Sim RR' (CTree.interp_state h t s) (CTree.interp_state h u s')
 
 end Sim
 
