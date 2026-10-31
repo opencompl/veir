@@ -39,6 +39,23 @@ theorem getValue_selectNonzero {wc w : Nat} (x y : Int w) (c : Int wc)
   | poison => simp [selectNonzero, Id.run, Int.isPoison] at h
   | val c' => by_cases hc : c' = 0#wc <;> simp [selectNonzero, Id.run, hc]
 
+/--
+ The amount `z` of a `w`-bit funnel shift or rotate, reduced modulo `w`. In gMIR, the amount (type
+ group 1) may be wider or narrower than the shifted values (type group 0), and is read as an
+ unsigned integer, as in LLVM's `G_FSHL`, `G_FSHR`, `G_ROTL` and `G_ROTR`.
+-/
+def funnelShiftAmount {w' : Nat} (w : Nat) : Int w' → Int w
+  | .val z => .val (BitVec.ofNat w (z.toNat % w))
+  | .poison => .poison
+
+/-- gMIR's `G_ROTL`: the funnel shift left of `x` with itself by `z`. -/
+def rotl {w w' : Nat} (x : Int w) (z : Int w') : Int w :=
+  Int.fshl x x (funnelShiftAmount w z)
+
+/-- gMIR's `G_ROTR`: the funnel shift right of `x` with itself by `z`. -/
+def rotr {w w' : Nat} (x : Int w) (z : Int w') : Int w :=
+  Int.fshr x x (funnelShiftAmount w z)
+
 /-- For an `i1` condition, `selectNonzero` is `select`. -/
 theorem selectNonzero_one {w : Nat} (c : Int 1) (x y : Int w) :
     selectNonzero c x y = Int.select c x y := by
