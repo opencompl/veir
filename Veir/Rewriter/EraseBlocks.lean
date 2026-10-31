@@ -46,20 +46,6 @@ def Rewriter.dropOperands (ctx : IRContext OpInfo) (op : OperationPtr)
   let ctx := op.setOperands! ctx #[]
   op.setBlockOperands! ctx #[]
 
-/--
-`dropOperands` removes the operands and block operands of `op`. Every pointer
-that is not an operand of `op` keeps its in-bounds status.
--/
-theorem Rewriter.dropOperands_inBounds (ptr : GenericPtr)
-    (hPtr : match ptr with
-      | .opOperand oo => oo.op ≠ op
-      | .blockOperand bo => bo.op ≠ op
-      | .opOperandPtr (.operandNextUse oo) => oo.op ≠ op
-      | .blockOperandPtr (.blockOperandNextUse oo) => oo.op ≠ op
-      | _ => True) :
-    ptr.InBounds (dropOperands ctx op hCtx hOp) ↔ ptr.InBounds ctx := by
-  sorry
-
 @[irreducible, inline]
 def Rewriter.detachRegions.loop (ctx : IRContext OpInfo) (op : OperationPtr) (index : Nat)
     (hCtx : ctx.FieldsInBounds := by grind)

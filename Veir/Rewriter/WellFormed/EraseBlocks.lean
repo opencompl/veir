@@ -30,10 +30,6 @@ theorem Rewriter.dropOperands_WellFormed (ctx : IRContext OpInfo) (wf : ctx.Well
     (Rewriter.dropOperands ctx op hctx hOp).WellFormed := by
   sorry
 
-theorem Rewriter.dropOperands_fieldsInBounds (wf : ctx.WellFormed) :
-    (Rewriter.dropOperands ctx op hctx hOp).FieldsInBounds := by
-  sorry
-
 theorem Rewriter.detachRegions_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr) (hOp : op.InBounds ctx) :
     (Rewriter.detachRegions ctx op hctx hOp).WellFormed := by
