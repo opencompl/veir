@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-riscv64 > %t.partial
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-riscv64 > %t.partial
 // RUN: filecheck %s --input-file=%t.partial --check-prefix=ABSENT
 // RUN: veir-interpret %t.partial | filecheck %s --check-prefix=EXEC
 // RUN: veir-opt %s -p=riscv > %t

@@ -28,13 +28,24 @@
   %umin = "gmir.g_umin"(%a, %b) : (i32, i32) -> i32
   %umax = "gmir.g_umax"(%a, %b) : (i32, i32) -> i32
   %abs = "gmir.g_abs"(%a) : (i32) -> i32
+  %select = "gmir.g_select"(%c, %d, %d) : (i64, i8, i8) -> i8
   %ctlz = "gmir.g_ctlz"(%a) : (i32) -> i8
   %cttz = "gmir.g_cttz"(%a) : (i32) -> i32
+  %ctlz_zero_poison = "gmir.g_ctlz_zero_poison"(%a) : (i32) -> i8
+  %cttz_zero_poison = "gmir.g_cttz_zero_poison"(%a) : (i32) -> i32
   %ctpop = "gmir.g_ctpop"(%c) : (i64) -> i32
   %sext_inreg = "gmir.g_sext_inreg"(%c) <{sz = 32 : i64}> : (i64) -> i64
   %constant = "gmir.g_constant"() <{value = -1 : i8}> : () -> i8
+  %load = "gmir.g_load"(%p) <{alignment = 4 : i64, invariant, size = 32 : i64}> : (!llvm.ptr) -> i32
+  "gmir.g_store"(%a, %p) <{alignment = 4 : i64, nontemporal, size = 32 : i64, volatile_}> : (i32, !llvm.ptr) -> ()
   %merge = "gmir.g_merge_values"(%a, %b) : (i32, i32) -> i64
   %lo, %hi = "gmir.g_unmerge_values"(%c) : (i64) -> (i32, i32)
+  %uaddo, %uaddo_carry = "gmir.g_uaddo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %uadde, %uadde_carry = "gmir.g_uadde"(%a, %b, %uaddo_carry) : (i32, i32, i1) -> (i32, i1)
+  %usubo, %usubo_borrow = "gmir.g_usubo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %usube, %usube_borrow = "gmir.g_usube"(%a, %b, %usubo_borrow) : (i32, i32, i1) -> (i32, i1)
+  %fshl = "gmir.g_fshl"(%a, %b, %c) : (i32, i32, i64) -> i32
+  %rotl = "gmir.g_rotl"(%a, %d) : (i32, i8) -> i32
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -63,10 +74,21 @@
 // CHECK: "gmir.g_umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
+// CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i8, i8) -> i8
 // CHECK: "gmir.g_ctlz"(%{{.*}}) : (i32) -> i8
 // CHECK: "gmir.g_cttz"(%{{.*}}) : (i32) -> i32
+// CHECK: "gmir.g_ctlz_zero_poison"(%{{.*}}) : (i32) -> i8
+// CHECK: "gmir.g_cttz_zero_poison"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_ctpop"(%{{.*}}) : (i64) -> i32
 // CHECK: "gmir.g_sext_inreg"(%{{.*}}) <{"sz" = 32 : i64}> : (i64) -> i64
 // CHECK: "gmir.g_constant"() <{"value" = -1 : i8}> : () -> i8
+// CHECK: "gmir.g_load"(%{{.*}}) <{"alignment" = 4 : i64, invariant, "size" = 32 : i64}> : (!llvm.ptr) -> i32
+// CHECK: "gmir.g_store"(%{{.*}}, %{{.*}}) <{"alignment" = 4 : i64, nontemporal, "size" = 32 : i64, volatile_}> : (i32, !llvm.ptr) -> ()
 // CHECK: "gmir.g_merge_values"(%{{.*}}, %{{.*}}) : (i32, i32) -> i64
 // CHECK: "gmir.g_unmerge_values"(%{{.*}}) : (i64) -> (i32, i32)
+// CHECK: "gmir.g_uaddo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_uadde"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
+// CHECK: "gmir.g_usubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_usube"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
+// CHECK: "gmir.g_fshl"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i64) -> i32
+// CHECK: "gmir.g_rotl"(%{{.*}}, %{{.*}}) : (i32, i8) -> i32

@@ -48,15 +48,16 @@ structure SourceInfo where
 def SourceInfo.formatAt (info : SourceInfo) (op : OperationPtr) (severity msg : String) : String :=
   ParserError.formatLabel info.sourceName info.content severity info.opLocations[op]? msg
 
-/-- Parse program bytes into a well-formed IR context and its top-level
+/-- Parse program bytes starting at `start` into a well-formed IR context and its top-level
     operation, formatting parse errors caret-style against `sourceName`.
     Unless `verifyAfterParse` is false, the program is also verified. -/
 def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
-    (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true) :
+    (allowUnregisteredDialect : Bool := false) (verifyAfterParse : Bool := true)
+    (start : Parser.Location := { byteOffset := 0 }) :
     Except String (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
-  match ParserState.fromInput content with
+  match ParserState.fromInput content start with
   | .ok parser =>
     let state := MlirParserState.fromContext ctx allowUnregisteredDialect
     match parseTopLevelOp.run state parser with
@@ -97,6 +98,17 @@ def inputSourceOfArgs (positional : List String) : Except String (Option String)
   | [] => .ok none
   | [filename] => .ok (some filename)
   | _ => .error "Expected at most one positional argument for the input filename."
+
+/-- The marker separating the chunks of a split input by default. -/
+def defaultSplitMarker : String := "// -----"
+
+/-- The start and end byte offsets of the chunks of `content` separated by `splitMarker`.
+    Without `splitMarker`, all of `content` is one chunk. -/
+def splitInput (content : ByteArray) : (splitMarker : Option String) → Array (Nat × Nat)
+  | none => #[(0, content.size)]
+  | some marker =>
+    ((String.fromUTF8! content).split marker).toArray.map fun chunk =>
+      (chunk.startInclusive.offset.byteIdx, chunk.endExclusive.offset.byteIdx)
 
 end Veir.Input
 

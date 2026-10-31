@@ -1,13 +1,15 @@
 module
 
+public import CTree.Order
 public import CTree.Defs
+public import CTree.UB
 public import CTree.Iter
 public import CTree.Interp
 
 public section
 
 namespace CTree
-open Coinductive Lean.Order
+open Coinductive Lean.Order Tower
 
 variable {EIn FIn CIn C'In DIn X Y X' Y' : Type u}
   {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u}
@@ -18,7 +20,7 @@ Simulation between ctrees: the rhs should have at least all
 the behaviors of the lhs.
 The simulation is parameterized by a relation on return values.
 -/
-axiom Sim (RR : R → R' → Prop) (t : CTree E C R) (u : CTree E C' R') : Prop
+axiom Sim [UB : HasUB EIn] (RR : R → R' → Prop) (t : CTree E C R) (u : CTree E C' R') : Prop
 
 namespace Sim
 
@@ -46,6 +48,10 @@ axiom vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C R) (k' : E i → CT
   (∀ x, Sim RR (k x) (k' x)) →
   Sim RR (CTree.vis i k) (CTree.vis i k')
 
+axiom ub (e : EIn) :
+  @HasUB.isUB _ UB e →
+  Sim RR t (CTree.vis e k)
+
 axiom bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y) (k' : X' → CTree E C' Y') :
   Sim RR t u →
   (∀ x y, RR x y → Sim RR' (k x) (k' y)) →
@@ -60,6 +66,21 @@ axiom iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
 axiom interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C X) (u : CTree E C Y) :
   Sim RR t u →
   Sim RR (CTree.interp h t) (CTree.interp h u)
+
+/--
+Product of two relations
+-/
+@[expose]
+def ProdRel {A B C D} (RR : A → B → Prop) (RS : C → D → Prop) :
+    A × C → B × D → Prop :=
+  fun (x, σ) (y, σ') => RR x y ∧ RS σ σ'
+
+axiom interp_state {RR RR'} {RS : σ → σ → Prop}
+    (h : (i : EIn) → StateT σ (CTree F C) (E i)) (t : CTree E C X) (u : CTree E C Y) :
+  ProdRel RR RS ⊑ RR' →
+  RS s s' →
+  Sim RR t u →
+  Sim RR' (CTree.interp_state h t s) (CTree.interp_state h u s')
 
 end Sim
 

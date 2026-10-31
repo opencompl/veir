@@ -158,6 +158,9 @@ def VariableState.setArgumentValues? (state : VariableState ctx)
     (block : BlockPtr) (values : Array RuntimeValue)
     (blockInBounds : block.InBounds ctx.raw := by grind)
     : Option (VariableState ctx) :=
-  VariableState.setArgumentValues?_loop state block values (block.getNumArguments! ctx.raw)
+  if values.size = block.getNumArguments! ctx.raw then
+    VariableState.setArgumentValues?_loop state block values (block.getNumArguments! ctx.raw)
+  else
+    none
 
 end Veir

@@ -8,6 +8,7 @@ import random
 import secrets
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -33,38 +34,84 @@ INTRINSIC_SAT_BINARY = (
 )
 BSWAP_WIDTHS = (16, 32, 64)
 
-# Widths the RISC-V backend can compute on. In RISC-V mode, i1 appears only as
-# the result of an icmp, and that result may feed only a conditional branch or
-# the condition of an llvm.select: icmps take i32 or i64 operands (never i1),
-# and i1 values are never consumed by arithmetic/bitwise/shift/cast operations
-# or further comparisons.
-RISCV_WIDTHS = (32, 64)
+MAX_WIDTH = 95
+# The RISC-V backend does not lower integers wider than a register.
+RISCV_MAX_WIDTH = 64
 
-# Memory: the entry block allocates one byte region and derives a handful of
-# constant-offset pointers into it, which dominate every block. Offsets are
-# arbitrary bytes, so accesses may be misaligned and may overlap one another;
-# every access says `alignment = 1` to keep a misaligned one well defined.
+# Memory: allocate aggregates and derive pointers through different type paths.
+# Every pointer has an eight-byte access window, possibly overlapping another.
+# Initialize and checksum these windows through independent byte GEPs, so a
+# wrong aggregate offset cannot hide behind matching stores and loads. Sparse
+# windows keep large allocations inexpensive. All accesses use alignment 1.
 # Loads and stores use only the widths the interpreter can move to and from
-# memory (and, in RISC-V mode, those the backend selects).
+# memory.
 MEM_WIDTHS = (8, 16, 32, 64)
-RISCV_MEM_WIDTHS = (32, 64)
-MEM_MAX_BYTES = 64
-MEM_MAX_POINTERS = 6
+MEM_MAX_BYTES = 8192
+MEM_MAX_POINTERS = 12
 MEM_ALIGN_PROPS = ' <{"alignment" = 1 : i64}>'
+
+
+def align_to(size: int, alignment: int) -> int:
+    return (size + alignment - 1) // alignment * alignment
+
+
+@dataclass(frozen=True)
+class MemoryType:
+    """An LLVM type and its RV64 allocation stride, alignment and GEP paths.
+
+    Only addresses use these types; memory transfers remain scalar integers.
+    Vectors are leaves because indexing vector elements is not implemented.
+    """
+
+    text: str
+    size: int
+    alignment: int
+    element: MemoryType | None = None
+    count: int = 0
+    fields: tuple[tuple[int, MemoryType], ...] = ()
+
+
+def random_memory_type(rng: random.Random, depth: int = 3) -> MemoryType:
+    kind = rng.random() if depth else 0.0
+    if kind < 0.30:
+        width = rng.choice((1, 8, 16, 24, 32, 40, 64, 128, 200))
+        alignment = next(a for a in (1, 2, 4, 8, 16) if width <= a * 8 or a == 16)
+        return MemoryType(f"i{width}", align_to((width + 7) // 8, alignment), alignment)
+    if kind < 0.40:
+        count, width = rng.choice(((17, 1), (5, 24), (3, 32), (2, 64)))
+        size = (count * width + 7) // 8
+        alignment = 1 << (size - 1).bit_length()
+        return MemoryType(f"vector<{count}xi{width}>", alignment, alignment)
+    if kind < 0.65:
+        elem = random_memory_type(rng, depth - 1)
+        count = rng.choice((0, 1, 2, 3, 5, 8, 17))
+        return MemoryType(f"!llvm.array<{count} x {elem.text}>",
+                          count * elem.size, elem.alignment, elem, count)
+    packed = rng.choice((False, True))
+    members = [random_memory_type(rng, depth - 1) for _ in range(rng.randint(0, 4))]
+    fields = []
+    offset, alignment = 0, 1
+    for member in members:
+        field_alignment = 1 if packed else member.alignment
+        offset = align_to(offset, field_alignment)
+        fields.append((offset, member))
+        offset += member.size
+        alignment = max(alignment, field_alignment)
+    body = ", ".join(member.text for member in members)
+    text = f"!llvm.struct<{'packed ' if packed else ''}({body})>"
+    return MemoryType(text, align_to(offset, alignment), alignment, fields=tuple(fields))
 
 
 def bitwidth(typ: str) -> int:
     return int(typ[1:])
 
 
-def rand_int_type(rng: random.Random, riscv: bool = False) -> str:
-    if riscv:
-        return f"i{rng.choice(RISCV_WIDTHS)}"
+def rand_int_type(rng: random.Random, max_width: int = MAX_WIDTH) -> str:
     if rng.random() < 0.5:
         common = ("i1", "i8", "i16", "i32", "i64")
         return rng.choice(common)
     else:
-        return f"i{rng.randint(1, 95)}"
+        return f"i{rng.randint(1, max_width)}"
 
 
 def laplace_bias(rng: random.Random, scale: float, clip: int) -> int:
@@ -108,6 +155,7 @@ class Generator:
     def __init__(self, rng: random.Random, riscv: bool = False) -> None:
         self.rng = rng
         self.riscv = riscv
+        self.max_width = RISCV_MAX_WIDTH if riscv else MAX_WIDTH
         self.counter = 0
         self.lines: list[str] = []
         self.imported: dict[str, list[str]] = defaultdict(list)
@@ -119,6 +167,8 @@ class Generator:
         # passed to blocks, only used as load/store addresses.
         self.mem_size = 0
         self.ptrs: list[tuple[str, int]] = []
+        self.check_ptrs: list[str] = []
+        self.index_slot = ""
 
     def name(self, prefix: str) -> str:
         self.counter += 1
@@ -141,7 +191,7 @@ class Generator:
             self.local_all.append((name, typ))
 
     def rand_type(self) -> str:
-        return rand_int_type(self.rng, self.riscv)
+        return rand_int_type(self.rng, self.max_width)
 
     def random_dominating_value(self, width: int) -> str:
         typ = f"i{width}"
@@ -152,24 +202,8 @@ class Generator:
         else:
             pool = local or imported
         if not pool:
-            if width == 1:
-                # Never inject a fresh i1 literal: i1 constants have no RISC-V
-                # lowering. Every boolean must originate from a comparison.
-                return self.make_bool()
             return self.add_const(typ, rand_const_val(self.rng, width))
         return self.rng.choice(pool)
-
-    def make_bool(self) -> str:
-        """Materialize an i1 value via an icmp rather than a fresh literal."""
-        typ = self.rand_type()
-        while bitwidth(typ) == 1:
-            typ = self.rand_type()
-        width = bitwidth(typ)
-        lhs = self.random_dominating_value(width)
-        rhs = self.random_dominating_value(width)
-        pred = self.rng.choice(ICMP_PREDS)
-        props = f' <{{"predicate" = {pred} : i64}}>'
-        return self.add_operation("llvm.icmp", [lhs, rhs], [typ, typ], "i1", props)
 
     def nsw_nuw_props(self) -> str:
         flags = self.rng.choice((0, 1, 2, 3))
@@ -267,10 +301,6 @@ class Generator:
 
     def random_return_value(self) -> tuple[str, str]:
         pool = self.local_all + self.imported_all
-        if self.riscv:
-            # i1 values may only feed icmps, never casts or the xor combine, so
-            # keep them out of the returned set entirely.
-            pool = [(name, typ) for name, typ in pool if bitwidth(typ) in RISCV_WIDTHS]
         if not pool:
             typ = self.rand_type()
             return self.add_const(typ, rand_const_val(self.rng, bitwidth(typ))), typ
@@ -296,12 +326,10 @@ class Generator:
     def emit_intrinsic(self) -> None:
         """Emit a random integer intrinsic. All operands share the result type.
 
-        `bswap` is restricted to widths it is defined on; in RISC-V mode every
-        intrinsic uses i32 or i64 (the only widths `rand_type` yields there).
+        `bswap` is restricted to widths it is defined on.
 
-        Note: the saturating arithmetic intrinsics and `llvm.intr.abs` are only
-        lowered at i64 in RISC-V mode (there is no i32 isel yet), so `--riscv`
-        mode pins them to i64 rather than letting `rand_type` also pick i32.
+        Note: the saturating arithmetic intrinsics are only lowered at i64 in
+        RISC-V mode, so `--riscv` mode pins them to i64.
         """
         if self.rng.random() < 0.30:
             if self.rng.random() < 0.85:
@@ -314,7 +342,7 @@ class Generator:
             else:
                 # `abs` carries an `is_int_min_poison` i1 flag deciding whether
                 # abs(INT_MIN) is poison (true) or INT_MIN (false).
-                typ = "i64" if self.riscv else self.rand_type()
+                typ = self.rand_type()
                 operand = self.random_dominating_value(bitwidth(typ))
                 poison = "true" if self.rng.random() < 0.5 else "false"
                 self.add_operation("llvm.intr.abs", [operand], [typ], typ,
@@ -350,81 +378,170 @@ class Generator:
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation(op, [operand], [typ], typ)
         else:
-            typ = self.rand_type() if self.riscv else f"i{self.rng.choice(BSWAP_WIDTHS)}"
+            typ = f"i{self.rng.choice(BSWAP_WIDTHS)}"
             operand = self.random_dominating_value(bitwidth(typ))
             self.add_operation("llvm.intr.bswap", [operand], [typ], typ)
 
     def emit_alloca(self) -> None:
-        """Allocate 1-64 bytes and derive pointers into them (entry block only).
-
-        Offsets are usually uniform over the region; the rest of the time they
-        sit a few bytes from an existing pointer so that accesses overlap.
-        The region and every offset leave room for the narrowest access, so
-        that an in-bounds access always exists (RISC-V has no 1-byte one).
-        """
-        min_bytes = min(self.mem_widths()) // 8
-        self.mem_size = self.rng.randint(min_bytes, MEM_MAX_BYTES)
-        max_offset = self.mem_size - min_bytes
-        size = self.add_const("i64", self.mem_size)
+        """Allocate up to 8 KiB and construct GEPs with known byte offsets."""
+        while True:
+            elem = random_memory_type(self.rng)
+            if 0 < elem.size <= MEM_MAX_BYTES // 2:
+                break
+        target = self.rng.choice((64, 128, 256, 512, 2048, 4096, MEM_MAX_BYTES))
+        count = max((8 + elem.size - 1) // elem.size,
+                    self.rng.choice((1, 2, 3, max(1, target // elem.size))))
+        count = min(count, MEM_MAX_BYTES // elem.size)
+        self.mem_size = count * elem.size
+        # The full RISC-V pipeline currently selects an i32 count before
+        # alloca lowering can recover its constant value. Keep counts i64 there.
+        size_type = "i64" if self.riscv else self.rng.choice(("i32", "i64"))
+        size = self.add_const(size_type, count)
         base = self.name("mem")
+        alignment = self.rng.choice(("", ", alignment = 1 : i64", ", alignment = 16 : i64"))
         self.lines.append(
-            f'  {base} = "llvm.alloca"({size}) <{{"elem_type" = i8}}> : (i64) -> !llvm.ptr'
+            f'  {base} = "llvm.alloca"({size}) <{{elem_type = {elem.text}{alignment}}}> '
+            f': ({size_type}) -> !llvm.ptr'
         )
+        one = self.add_const("i64", 1)
+        self.index_slot = self.name("index_slot")
+        self.lines.append(
+            f'  {self.index_slot} = "llvm.alloca"({one}) <{{elem_type = i64}}> : (i64) -> !llvm.ptr'
+        )
+        max_offset = self.mem_size - 8
         self.ptrs = [(base, 0)]
-        self.init_region(base)
-        for _ in range(self.rng.randint(0, MEM_MAX_POINTERS - 1)):
-            if self.rng.random() < 0.4:
-                _, near = self.rng.choice(self.ptrs)
-                offset = near + self.rng.randint(-7, 7)
-                offset = max(0, min(max_offset, offset))
+        for _ in range(self.rng.randint(6, MEM_MAX_POINTERS) - 1):
+            if self.rng.random() < 0.65:
+                # Walk the allocated type, keeping struct indices constant.
+                # The first index steps over complete allocated objects.
+                index = self.rng.randrange(count)
+                if self.rng.random() < 0.25:
+                    index = self.rng.choice((-1, count))
+                indices = [(index, True)]
+                offset = index * elem.size
+                current = elem
+                while self.rng.random() < 0.85:
+                    if current.element is not None and current.count:
+                        index = self.rng.randrange(current.count)
+                        if self.rng.random() < 0.25:
+                            index = self.rng.choice((-1, current.count))
+                        indices.append((index, True))
+                        offset += index * current.element.size
+                        current = current.element
+                    elif current.fields:
+                        index = self.rng.randrange(len(current.fields))
+                        field_offset, current = current.fields[index]
+                        indices.append((index, False))
+                        offset += field_offset
+                    else:
+                        break
+                # Non-inbounds GEPs may step outside an array's nominal bounds.
+                # Rebase so the final pointer has eight accessible bytes, even
+                # for negative indices, empty members and fields near the end.
+                adjustment = max(0, min(max_offset, offset)) - offset
+                start = self.byte_gep(base, adjustment) if adjustment else base
+                ptr = self.gep(start, elem.text, indices)
+                offset += adjustment
             else:
-                offset = self.rng.randint(0, max_offset)
-            self.ptrs.append((self.gep(base, offset), offset))
+                # Rebase an existing pointer, including backwards steps and
+                # immediate-boundary offsets, without leaving the allocation.
+                start, old_offset = self.rng.choice(self.ptrs)
+                candidates = [0, max_offset, self.rng.randint(0, max_offset)]
+                candidates += [old_offset + d for d in (-2049, -2048, -1, 1, 2047, 2048)]
+                offset = self.rng.choice([o for o in candidates if 0 <= o <= max_offset])
+                delta = offset - old_offset
+                if delta == 0 and self.rng.random() < 0.5:
+                    ptr = self.gep(start, elem.text, [])
+                else:
+                    ptr = self.gep(start, "i8", [(delta, True)])
+            self.ptrs.append((ptr, offset))
+        self.init_region(base)
 
-    def gep(self, base: str, offset: int) -> str:
-        idx = self.add_const("i64", offset)
+    def gep(self, base: str, elem_type: str, indices: list[tuple[int, bool]]) -> str:
+        """Emit a type path; the bool says whether an index may be dynamic.
+
+        Use both signed and unsigned spellings of raw i32 indices. Dynamic
+        operands include i32 and i64 constants and initialized volatile loads,
+        which keep runtime index scaling alive through constant propagation.
+        No inbounds/no-wrap promises are made for the rebased paths.
+        """
+        operands, types, raw = [base], ["!llvm.ptr"], []
+        all_constant = self.rng.random() < 0.25
+        for value, can_be_dynamic in indices:
+            if can_be_dynamic and not all_constant and self.rng.random() < 0.75:
+                typ = self.rng.choice(("i32", "i64"))
+                idx = self.add_const(typ, value)
+                if self.rng.random() < 0.5:
+                    self.lines.append(
+                        f'  "llvm.store"({idx}, {self.index_slot}){MEM_ALIGN_PROPS} '
+                        f': ({typ}, !llvm.ptr) -> ()'
+                    )
+                    idx = self.add_operation("llvm.load", [self.index_slot], ["!llvm.ptr"], typ,
+                                             ' <{alignment = 1 : i64, volatile_}>')
+                operands.append(idx)
+                types.append(typ)
+                value = -2147483648
+            if value < 0 and self.rng.random() < 0.5:
+                value &= 0xffffffff
+            raw.append(str(value))
+        raw_attr = "array<i32" + (": " + ", ".join(raw) if raw else "") + ">"
         ptr = self.name("p")
         self.lines.append(
-            f'  {ptr} = "llvm.getelementptr"({base}, {idx}) '
-            f'<{{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}}> '
-            f': (!llvm.ptr, i64) -> !llvm.ptr'
+            f'  {ptr} = "llvm.getelementptr"({", ".join(operands)}) '
+            f'<{{elem_type = {elem_type}, rawConstantIndices = {raw_attr}}}> '
+            f': ({", ".join(types)}) -> !llvm.ptr'
+        )
+        return ptr
+
+    def byte_gep(self, base: str, offset: int) -> str:
+        """A simple, independent address for initialization and observation."""
+        ptr = self.name("byte")
+        self.lines.append(
+            f'  {ptr} = "llvm.getelementptr"({base}) '
+            f'<{{elem_type = i8, rawConstantIndices = array<i32: {offset}>}}> '
+            f': (!llvm.ptr) -> !llvm.ptr'
         )
         return ptr
 
     def init_region(self, base: str) -> None:
-        """Store random constants over every byte of the region.
-
-        Fresh memory is poison, so without this most loads would be too. Each
-        store is the widest that fits; when the tail is narrower than every
-        width (RISC-V has no 1-byte access), the last store ends at the region's
-        end, overlapping the previous one.
-        """
-        widths = self.mem_widths()
-        offset = 0
-        while offset < self.mem_size:
-            fitting = [w for w in widths if offset + w // 8 <= self.mem_size]
-            if fitting:
-                width = max(fitting)
+        """Initialize all reachable windows, including overlapping accesses."""
+        intervals: list[tuple[int, int]] = []
+        for _, offset in sorted(self.ptrs, key=lambda p: p[1]):
+            if intervals and offset <= intervals[-1][1]:
+                lo, hi = intervals[-1]
+                intervals[-1] = (lo, max(hi, offset + 8))
             else:
-                width = min(widths)
-                offset = self.mem_size - width // 8
-            typ = f"i{width}"
-            val = self.add_const(typ, rand_const_val(self.rng, width))
-            ptr = base if offset == 0 else self.gep(base, offset)
-            self.lines.append(f'  "llvm.store"({val}, {ptr}){MEM_ALIGN_PROPS} : ({typ}, !llvm.ptr) -> ()')
-            offset += width // 8
+                intervals.append((offset, offset + 8))
+        for lo, hi in intervals:
+            offset = lo
+            while offset < hi:
+                # Each interval contains at least eight bytes. Overlap the
+                # last store when necessary, keeping checksum loads at i64.
+                offset = min(offset, hi - 8)
+                val = self.add_const("i64", rand_const_val(self.rng, 64))
+                ptr = self.byte_gep(base, offset)
+                self.lines.append(f'  "llvm.store"({val}, {ptr}){MEM_ALIGN_PROPS} : (i64, !llvm.ptr) -> ()')
+                self.check_ptrs.append(ptr)
+                offset += 8
 
-    def mem_widths(self) -> tuple[int, ...]:
-        return RISCV_MEM_WIDTHS if self.riscv else MEM_WIDTHS
+    def memory_checksum(self) -> str:
+        """Observe every accessed byte and every generated GEP in an i64 hash.
+
+        Multiplying between XORs makes order matter: duplicate addresses or
+        equal values do not simply cancel. Use unflagged wrapping arithmetic.
+        """
+        result = self.add_const("i64", 0x123456789abcdef)
+        factor = self.add_const("i64", 0x100000001b3)
+        for ptr in self.check_ptrs + [ptr for ptr, _ in self.ptrs]:
+            value = self.add_operation("llvm.load", [ptr], ["!llvm.ptr"], "i64", MEM_ALIGN_PROPS)
+            result = self.add_operation("llvm.mul", [result, factor], ["i64", "i64"], "i64")
+            result = self.add_operation("llvm.xor", [result, value], ["i64", "i64"], "i64")
+        return result
 
     def mem_access(self) -> tuple[str, int]:
-        """Pick a pointer and an access width, almost always in bounds."""
-        ptr, offset = self.rng.choice(self.ptrs)
-        widths = self.mem_widths()
-        fitting = [w for w in widths if offset + w // 8 <= self.mem_size]
-        if self.rng.random() < 0.99:
-            return ptr, self.rng.choice(fitting)
-        return ptr, self.rng.choice(widths)
+        """Pick an access within an initialized eight-byte window."""
+        ptr, _ = self.rng.choice(self.ptrs)
+        return ptr, self.rng.choice(MEM_WIDTHS)
 
     def emit_store(self) -> None:
         ptr, width = self.mem_access()
@@ -484,37 +601,22 @@ class Generator:
                 src = self.rand_type()
                 src_w = bitwidth(src)
                 op = self.rng.choice(("llvm.sext", "llvm.zext"))
-                if self.riscv:
-                    wider = [w for w in RISCV_WIDTHS if w > src_w]
-                    if not wider:
-                        continue
-                    dst = f"i{self.rng.choice(wider)}"
-                else:
-                    if src_w >= 95:
-                        continue
-                    dst = f"i{self.rng.randint(src_w + 1, 95)}"
+                if src_w >= self.max_width:
+                    continue
+                dst = f"i{self.rng.randint(src_w + 1, self.max_width)}"
                 props = " <{nonNeg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
                 operand = self.random_dominating_value(src_w)
                 self.add_operation(op, [operand], [src], dst, props)
             elif choice < 0.82:
                 src = self.rand_type()
                 src_w = bitwidth(src)
-                if self.riscv:
-                    narrower = [w for w in RISCV_WIDTHS if w < src_w]
-                    if not narrower:
-                        continue
-                    dst = f"i{self.rng.choice(narrower)}"
-                else:
-                    if src_w <= 1:
-                        continue
-                    dst = f"i{self.rng.randint(1, src_w - 1)}"
+                if src_w <= 1:
+                    continue
+                dst = f"i{self.rng.randint(1, src_w - 1)}"
                 props = self.nsw_nuw_props()
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
             elif choice < 0.90:
-                # icmp operands are ordinary integer values; in RISC-V mode that
-                # means i32 or i64 (rand_type never yields i1 there), so an icmp
-                # result is never fed back into another comparison.
                 typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
@@ -538,18 +640,21 @@ class Generator:
                 self.add_const(typ, rand_const_val(self.rng, bitwidth(typ)))
 
 
-def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
+def generate(path: Path, rng: random.Random, riscv: bool = False, memory_only: bool = False) -> None:
     """Write a random closed MLIR module to path."""
     gen = Generator(rng, riscv)
     lines: list[str] = []
     return_type: str | None = None
-    num_blocks = rng.randint(1, 20)
+    # Keep a substantial fraction free of unrelated poison/UB so the memory
+    # checksum remains informative, while retaining mixed arithmetic/CFG cases.
+    memory_only = memory_only or rng.random() < 0.5
+    num_blocks = 1 if memory_only else rng.randint(1, 20)
     block_arg_types: list[list[str]] = [[]]
     block_arg_names: list[list[str]] = [[]]
 
     for block_id in range(1, num_blocks):
         arg_count = rng.randint(0, 5)
-        arg_types = [rand_int_type(rng, riscv) for _ in range(arg_count)]
+        arg_types = [rand_int_type(rng, gen.max_width) for _ in range(arg_count)]
         arg_names = [f"%arg{block_id}_{arg_idx}" for arg_idx in range(arg_count)]
         block_arg_types.append(arg_types)
         block_arg_names.append(arg_names)
@@ -580,17 +685,32 @@ def generate(path: Path, rng: random.Random, riscv: bool = False) -> None:
         gen.set_state(lines, imported, imported_all, local_args)
         if block_id == 0:
             gen.emit_alloca()
-        gen.seed_block()
-        gen.add_block_body(rng.randint(3, 18))
+        if memory_only:
+            for _ in range(rng.randint(6, 20)):
+                if rng.random() < 0.5:
+                    gen.emit_store()
+                else:
+                    gen.emit_load()
+        else:
+            gen.seed_block()
+            gen.add_block_body(rng.randint(3, 18))
 
         snap_values[block_id] = {t: list(vs) for t, vs in gen.local.items()}
         snap_all[block_id] = list(gen.local_all)
 
         successors = [f"^bb{succ}" for succ in range(block_id + 1, num_blocks)]
         if not successors:
-            returned, typ = gen.random_return_value()
-            return_type = typ
-            lines.append(f'  "llvm.return"({returned}) : ({typ}) -> ()')
+            arithmetic = None if memory_only else gen.random_return_value()
+            returned = gen.memory_checksum()
+            if arithmetic is not None:
+                value, typ = arithmetic
+                if bitwidth(typ) < 64:
+                    value = gen.add_operation("llvm.zext", [value], [typ], "i64")
+                elif bitwidth(typ) > 64:
+                    value = gen.add_operation("llvm.trunc", [value], [typ], "i64")
+                returned = gen.add_operation("llvm.xor", [returned, value], ["i64", "i64"], "i64")
+            return_type = "i64"
+            lines.append(f'  "llvm.return"({returned}) : (i64) -> ()')
             continue
 
         if rng.random() < 0.20:
@@ -647,10 +767,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("output", type=Path, help="path for the generated MLIR file")
     parser.add_argument("--seed", type=int, default=None, help="random seed; defaults to fresh system entropy")
     parser.add_argument("--riscv", action="store_true",
-                        help="restrict bitwidths to those the RISC-V backend supports (32, 64)")
+                        help="stay within what the RISC-V backend supports (widths up to 64, i64 alloca count)")
+    parser.add_argument("--memory-only", action="store_true",
+                        help="generate only defined GEP/load/store programs returning a memory checksum")
     args = parser.parse_args(argv)
     seed = args.seed if args.seed is not None else secrets.randbits(64)
-    generate(args.output, random.Random(seed), args.riscv)
+    generate(args.output, random.Random(seed), args.riscv, args.memory_only)
     return 0
 
 

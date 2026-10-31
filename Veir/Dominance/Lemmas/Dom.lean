@@ -52,7 +52,7 @@ theorem operand_dominatesIp_before (ctxDom : ctx.Dom root)
     value ∈ op.getOperands! ctx.raw → value.DominatesIp (.before op) ctx := by
   intro operand
   exact ValuePtr.DominatesIp.before_iff.mpr
-    (ctxDom.operand_properlyDominates opInRoot opReachable operand)
+    ⟨by grind, ctxDom.operand_properlyDominates opInRoot opReachable operand⟩
 
 /-- A result used by a locally reachable operation under the dominance root is defined by an
 operation that properly dominates its user with `enclosingOk = false`. -/

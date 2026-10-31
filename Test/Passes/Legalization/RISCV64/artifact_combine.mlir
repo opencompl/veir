@@ -39,7 +39,26 @@
     // CHECK-NEXT: %[[OR:.*]] = "gmir.g_or"(%[[A]], %[[B]]) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"(%[[OR]]) : (i64) -> i8
 
-    "test.test"(%ext, %and, %narrower, %wider, %or) : (i64, i8, i32, i64, i8) -> ()
+    // A `g_anyext (g_anyext x)` is a `g_anyext` of `x`.
+    %x_i1 = "llvm.mlir.constant"() <{value = true}> : () -> i1
+    %ext_i32 = "gmir.g_anyext"(%x_i1) : (i1) -> i32
+    %ext_ext = "gmir.g_anyext"(%ext_i32) : (i32) -> i64
+    // CHECK-NEXT: %[[X_I1:.*]] = "llvm.mlir.constant"() <{"value" = true}> : () -> i1
+    // CHECK-NEXT: "gmir.g_anyext"(%[[X_I1]]) : (i1) -> i64
+
+    // A `g_trunc (g_trunc x)` is a `g_trunc` of `x`. As in LLVM, the new `g_trunc` has no flags.
+    %trunc_i16 = "gmir.g_trunc"(%x_i64) <{overflowFlags = 3 : i32}> : (i64) -> i16
+    %trunc_trunc = "gmir.g_trunc"(%trunc_i16) <{overflowFlags = 3 : i32}> : (i16) -> i8
+    // CHECK-NEXT: "gmir.g_trunc"(%[[X_I64]]) : (i64) -> i8
+
+    // A `g_zext (g_trunc (g_icmp x, y))` back to the `g_icmp` type is the `g_icmp`, which is 0 or 1.
+    %cmp = "gmir.g_icmp"(%a, %b) <{predicate = 2 : i64}> : (i64, i64) -> i64
+    %cmp_i1 = "gmir.g_trunc"(%cmp) : (i64) -> i1
+    %cmp_ext = "gmir.g_zext"(%cmp_i1) : (i1) -> i64
+    // CHECK-NEXT: %[[CMP:.*]] = "gmir.g_icmp"(%[[A]], %[[B]]) <{"predicate" = 2 : i64}> : (i64, i64) -> i64
+    // CHECK-NEXT: "test.test"({{.*}}, %[[CMP]])
+
+    "test.test"(%ext, %and, %narrower, %wider, %or, %ext_ext, %trunc_trunc, %cmp_ext) : (i64, i8, i32, i64, i8, i64, i8, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

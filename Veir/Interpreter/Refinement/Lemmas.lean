@@ -191,6 +191,12 @@ theorem RuntimeValue.addr_val_isRefinedBy_iff {p : Data.Pointer} {tv : RuntimeVa
     RuntimeValue.addr (.val p) ⊒ tv ↔ tv = RuntimeValue.addr (.val p) := by
   cases tv <;> grind [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy, cases Data.LLVM.Ptr]
 
+/-- A non-poison integer value is refined only by itself. -/
+@[simp]
+theorem RuntimeValue.int_val_isRefinedBy_iff {bw : Nat} {v : BitVec bw} {tv : RuntimeValue} :
+    RuntimeValue.int bw (.val v) ⊒ tv ↔ tv = RuntimeValue.int bw (.val v) := by
+  cases tv <;> grind [RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq, cases Data.LLVM.Int]
+
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
     (h : RuntimeValue.reg v ⊒ tv) :
@@ -210,6 +216,15 @@ registers are refined only by themselves.
 theorem RuntimeValue.eq_of_arrayIsRefinedBy_of_regs {a b : Array RuntimeValue}
     (h : a ⊒ b) (hregs : ∀ v ∈ a, ∃ r, v = .reg r) : b = a := by
   grind [arrayIsRefinedBy, reg_of_isRefinedBy, Array.getElem_mem]
+
+/-- `target`, a refinement of `source`, conforms to every type `source` conforms to. -/
+theorem RuntimeValue.Conforms.of_isRefinedBy {source target : RuntimeValue}
+    {type : TypeAttr} (hConforms : source.Conforms type) (hRefined : source ⊒ target) :
+    target.Conforms type := by
+  obtain ⟨attr, hattr⟩ := type
+  cases source <;> cases target <;> simp only [RuntimeValue.isRefinedBy] at hRefined <;>
+    cases attr <;>
+    simp_all only [RuntimeValue.Conforms, Ptr.isRefinedBy, dite_false_right, true_and] <;> grind
 
 /-! ## Interp refinements -/
 

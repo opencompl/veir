@@ -361,6 +361,12 @@ theorem isPoison_bswap {w : Nat} (x : Int w) :
           · simp [bswap, isPoison, Id.run, h16, h32, h64]
 
 @[veir_bv_normalize, grind =]
+theorem getValue_bswap_16 (x : Int 16) (h : (bswap x).isPoison = false) :
+    (bswap x).getValue h =
+      x.getValue.extractLsb 7 0 ++ x.getValue.extractLsb 15 8 := by
+  cases x <;> simp [bswap, bswap16BV, getValue, Id.run, pure] at h ⊢
+
+@[veir_bv_normalize, grind =]
 theorem getValue_bswap_32 (x : Int 32) (h : (bswap x).isPoison = false) :
     (bswap x).getValue h =
       x.getValue.extractLsb 7 0 ++ x.getValue.extractLsb 15 8 ++

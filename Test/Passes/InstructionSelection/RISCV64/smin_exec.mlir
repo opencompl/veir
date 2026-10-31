@@ -3,10 +3,13 @@
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 // smin(-1, 1) = -1 (signed); distinct from umin. -> riscv.min
+// The constants are frozen so that the combiner does not fold the min/max away.
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i64}> ({
-    %a = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
-    %b = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %a_c = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
+    %a = "llvm.freeze"(%a_c) : (i64) -> i64
+    %b_c = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
+    %b = "llvm.freeze"(%b_c) : (i64) -> i64
     %r = "llvm.intr.smin"(%a, %b) : (i64, i64) -> i64
     "func.return"(%r) : (i64) -> ()
   }) : () -> ()

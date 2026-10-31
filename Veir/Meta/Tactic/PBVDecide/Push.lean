@@ -2,7 +2,7 @@ module
 
 public meta import Lean
 public import Veir.Meta.Tactic.PBVDecide.PBVPushSimp
-public meta import Veir.Meta.Tactic.PBVDecide.Info
+public meta import Veir.Meta.Tactic.PBVDecide.Basic
 
 open Lean Meta
 
@@ -34,20 +34,18 @@ Add the mask hypotheses of the translated `BitVec`s to the Simp theorem context.
 These simplify the final formula by removing redundant masking operations; they
 are not strictly necessary for `bv_decide` to decide the resulting formula.
 -/
-meta def addBvInfos (g : MVarId) (bvInfos : BitVecInfos)
-  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
+meta def addBvInfos (g : MVarId) (simp : SimpTheoremsArray) : TranslateM SimpTheoremsArray := g.withContext do
   let mut simp := simp
-  for info in bvInfos.infos do
+  for info in (← get).bitvecInfos do
       simp ← simp.addTheorem (.other info.bvHyp.name) (mkFVar info.bvHyp)
   return simp
 
 /--
 Add the hypotheses bounding each width by the blast width to the simp set.
 -/
-meta def addWidthInfosSimpLemmas (g : MVarId) (widthInfos : WidthInfos)
-  (simp : SimpTheoremsArray) : MetaM SimpTheoremsArray := g.withContext do
+meta def addWidthInfosSimpLemmas (g : MVarId) (simp : SimpTheoremsArray) : TranslateM SimpTheoremsArray := g.withContext do
   let mut simp := simp
-  for (_wexpr, widthInfo) in widthInfos.infos do
+  for (_wexpr, widthInfo) in (← get).widthInfos do
     simp ← simp.addTheorem (.other widthInfo.hypWidthLeBoundNote.name)
         (mkFVar widthInfo.hypWidthLeBoundNote)
     simp ← simp.addTheorem (.other widthInfo.widthMaskHypFvar.name)
@@ -68,17 +66,16 @@ meta def applySimp (g : MVarId) (simp : SimpTheoremsArray)
 Lift the goal to the blast width, then push the resulting `setWidth`s in so
 that `bv_decide` can decide it.
 -/
-public meta def liftToBlastWidth (g : MVarId) (blastWidth : Nat) (widthInfos : WidthInfos)
-    (bvInfos : BitVecInfos) : MetaM MVarId := g.withContext do
+public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withContext do
   -- Lift equalities to the blast width. A single pass applies the `pbv_lift`
   -- theorems once: otherwise the lifted equality, now at the blast width, gets
   -- lifted again.
-  let eqThms ← addLiftThms g blastWidth <| ← addWidthInfosSimpLemmas g widthInfos #[]
+  let eqThms ← addLiftThms g (← read).blastWidth <| ← addWidthInfosSimpLemmas g #[]
   let g ← applySimp g eqThms { decide := false, singlePass := true }
   -- Create simp set to push the `setWidth`s in
-  let thms := ← addPushTheorems g blastWidth
-           <| ← addBvInfos g bvInfos
-           <| ← addWidthInfosSimpLemmas g widthInfos #[]
+  let thms := ← addPushTheorems g (← read).blastWidth
+           <| ← addBvInfos g
+           <| ← addWidthInfosSimpLemmas g #[]
   -- Run simp
   applySimp g thms
 

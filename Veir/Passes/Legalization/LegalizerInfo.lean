@@ -42,12 +42,11 @@ deriving Inhabited, Repr, DecidableEq
 
 /--
 The low-level type of `type`. Returns `none` if `type` is neither an integer nor a pointer type.
-A `!llvm.ptr` has no address space, so it is in address space 0.
 -/
 def LLT.ofType? (type : TypeAttr) : Option LLT :=
   match type.val with
   | .integerType type => some (.scalar type.bitwidth)
-  | .llvmPointerType _ => some (.pointer 0)
+  | .llvmPointerType type => some (.pointer type.addressSpace)
   | _ => none
 
 /--
@@ -189,6 +188,23 @@ def widenScalarIf (predicate : LegalityPredicate opcode)
 /-- Ensure the scalar of type group `typeIdx` is at least `width` bits wide. -/
 def minScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule opcode :=
   widenScalarIf (.scalarNarrowerThan typeIdx width) fun _ => (typeIdx, width)
+
+/-- Widen the scalar of type group `typeIdx` to the next power of two, if it is not one. -/
+def widenScalarToNextPow2 (typeIdx : TypeGroup) : LegalizeRule opcode :=
+  fun query => match query.getLLT! typeIdx with
+    | .scalar width =>
+      if width.nextPowerOfTwo = width then none
+      else some (.widenScalar typeIdx width.nextPowerOfTwo)
+    | .pointer _ => none
+
+/--
+Ensure the scalar of type group `typeIdx` is as wide as the scalar of type group `sameAs`.
+Unlike LLVM's `scalarSameSizeAs`, this only widens, as narrowing is not implemented yet.
+-/
+def scalarSameSizeAs (typeIdx sameAs : TypeGroup) : LegalizeRule opcode :=
+  fun query => match query.getLLT! sameAs with
+    | .scalar width => minScalar typeIdx width query
+    | .pointer _ => none
 
 end LegalizeRule
 

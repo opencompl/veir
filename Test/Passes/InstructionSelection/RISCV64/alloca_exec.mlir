@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=EXEC
-// RUN: veir-opt %s -p=isel-riscv64 > %t.partial
+// RUN: veir-opt %s -p=llvm-to-gmir > %t.partial
 // RUN: veir-interpret %t.partial | filecheck %s --check-prefix=EXEC
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir-interpret %t | filecheck %s --check-prefix=EXEC
@@ -12,11 +12,12 @@
 
 // i24 occupies four bytes per element. Keep a second object live and store it
 // first, so omitting padding would let the subsequent array store corrupt it.
+// The i32 count must be consumed before legalization widens it and adds a trunc.
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
-    %three = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
+    %three = "llvm.mlir.constant"() <{value = 3 : i32}> : () -> i32
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
-    %array = "llvm.alloca"(%three) <{elem_type = i24, alignment = 16 : i64}> : (i64) -> !llvm.ptr
+    %array = "llvm.alloca"(%three) <{elem_type = i24, alignment = 16 : i64}> : (i32) -> !llvm.ptr
     // CHECK: %[[ARRAY:.*]] = "riscv_stack.alloca"() <{"alignment" = 16 : i64, "size" = 12 : i64}>
     %slot = "llvm.alloca"(%one) <{elem_type = i64}> : (i64) -> !llvm.ptr
     // CHECK: %[[SLOT:.*]] = "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 8 : i64}>
