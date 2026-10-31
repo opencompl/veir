@@ -14,6 +14,7 @@ import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.InstructionSelection.RISCV64Abi
 import Veir.Passes.DCE.dce
+import Veir.Passes.EraseUnreachableBlocks
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.RISCVCombines.Combine
@@ -45,6 +46,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      IselBrRISCV64,
      IselAbiRISCV64,
      DCEPass,
+     EraseUnreachableBlocksPass,
      CastReconcilePass,
      CoerceModArithFunctionBoundariesPass,
      CoerceCirFunctionBoundariesPass,
