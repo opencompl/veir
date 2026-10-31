@@ -56,6 +56,9 @@ structure MemoryState where
 -/
 def MemoryState.empty : MemoryState := { bytes := {}, objects := #[⟨0, 0⟩] }
 
+instance : Inhabited MemoryState where
+  default := MemoryState.empty
+
 /-- The byte at `addr`. -/
 def MemoryState.byte (mem : MemoryState) (addr : UInt64) : MemoryByte :=
   mem.bytes.getD addr .poisoned
