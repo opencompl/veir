@@ -49,6 +49,12 @@ def testParseOp (s : String) : IO Unit :=
 #eval! testParseOp "%x = \"test.test\"() : () -> vector<2 x 4 x i32>"
 
 /--
+  info: %3 = "test.test"() : () -> tensor<2x4xf32>
+-/
+#guard_msgs in
+#eval! testParseOp "%x = \"test.test\"() : () -> tensor<2 x 4 x f32>"
+
+/--
   info: "arith.addi"() ({
   ^4():
     %5:2 = "arith.muli"() : () -> (i32, i32)
