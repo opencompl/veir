@@ -10,9 +10,7 @@ namespace Veir
 
 /-- `riscv_cf.branch` branches to its only successor with all of its operands. -/
 @[simp]
-theorem interpretOp'_riscv_cf_branch {properties : propertiesOf (OpCode.riscv_cf .branch)}
-    {resultTypes : Array TypeAttr} {operands : Array RuntimeValue} {dest : BlockPtr}
-    {mem : MemoryState} {layout : DataLayout} :
+theorem interpretOp'_riscv_cf_branch :
     interpretOp' (.riscv_cf .branch) properties resultTypes operands #[dest] mem layout =
       .ok (#[], mem, some (.branch operands dest)) := by
   grind [interpretOp', Riscv_Cf.interpretOp']
@@ -23,9 +21,7 @@ theorem interpretOp'_riscv_cf_branch {properties : propertiesOf (OpCode.riscv_cf
   with the rest otherwise.
 -/
 theorem interpretOp'_riscv_cf_bnez {properties : propertiesOf (OpCode.riscv_cf .bnez)}
-    {resultTypes : Array TypeAttr} {operands : Array RuntimeValue} {cond : Data.RISCV.Reg} {n : Int}
-    {destTrue destFalse : BlockPtr} {mem : MemoryState} {layout : DataLayout}
-    (hCond : operands[0]? = some (.reg cond))
+    {cond : Data.RISCV.Reg} (hCond : operands[0]? = some (.reg cond))
     (hSize : properties.operandSegmentSizes.values[1]? = some n) :
     interpretOp' (.riscv_cf .bnez) properties resultTypes operands #[destTrue, destFalse] mem
         layout =
