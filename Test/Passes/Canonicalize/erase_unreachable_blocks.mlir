@@ -1,10 +1,15 @@
-// RUN: veir-opt %s -p=erase-unreachable-blocks | filecheck %s
-// The output verifies, and the pass leaves it unchanged.
-// RUN: veir-opt %s -p=erase-unreachable-blocks --print-op-generic | veir-opt -p=erase-unreachable-blocks | filecheck %s
+// RUN: veir-opt %s -p='canonicalize{sccp=false constant-branch=false mod-arith-constant=false commutative-constant-rhs=false unique-constants=false}' | filecheck %s
+// The output verifies, and erasing unreachable blocks again leaves it unchanged.
+// RUN: veir-opt %s -p='canonicalize{sccp=false constant-branch=false mod-arith-constant=false commutative-constant-rhs=false unique-constants=false}' --print-op-generic | veir-opt -p='canonicalize{sccp=false constant-branch=false mod-arith-constant=false commutative-constant-rhs=false unique-constants=false}' | filecheck %s
+// Erasing unreachable blocks can be disabled.
+// RUN: veir-opt %s -p='canonicalize{erase-unreachable-blocks=false}' | filecheck %s --check-prefix=OFF
 
 "builtin.module"() ({
 
   // A single block without predecessors is erased.
+  // OFF-LABEL: func.func @no_predecessors
+  // OFF:       "func.return"() : () -> ()
+  // OFF:       "func.return"() : () -> ()
   // CHECK-LABEL: func.func @no_predecessors
   // CHECK-NEXT:    "test.test"() : () -> ()
   // CHECK-NEXT:    "func.return"() : () -> ()
