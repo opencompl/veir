@@ -169,6 +169,27 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
 #assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
 
+/-! ## Tensor types -/
+
+#assert expectSuccessType "tensor<4xf32>" (TensorType.mk #[4] FloatType.f32)
+#assert expectSuccessType "tensor<2x4xi32>" (TensorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "tensor<2 x 4 x i32>" (TensorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "tensor<f32>" (TensorType.mk #[] FloatType.f32)
+#assert expectSuccessAttr "tensor<4xf32>" (TensorType.mk #[4] FloatType.f32)
+#assert ToString.toString (TensorType.mk #[2, 4] (IntegerType.signless 32) : TensorType) ==
+  "tensor<2x4xi32>"
+#assert ToString.toString (TensorType.mk #[] FloatType.f32 : TensorType) == "tensor<f32>"
+#assert expectSuccessType "tensor<0xf32>" (TensorType.mk #[0] FloatType.f32)
+#assert expectSuccessType "tensor<4x0xi32>" (TensorType.mk #[4, 0] (IntegerType.signless 32))
+#assert expectErrorType "tensor<4x>" "tensor element type expected" (some 9)
+#assert expectErrorType "tensor<?xf32>" "dynamic and unranked tensor types are not supported" (some 7)
+#assert expectErrorType "tensor<4x?xf32>" "dynamic and unranked tensor types are not supported"
+  (some 9)
+#assert expectErrorType "tensor<*xf32>" "dynamic and unranked tensor types are not supported" (some 7)
+#assert expectErrorType "tensor<4xtensor<2xf32>>" "invalid tensor element type" (some 9)
+#assert expectErrorType "tensor<4x() -> ()>" "invalid tensor element type" (some 9)
+#assert expectErrorType "vector<4xtensor<2xf32>>" "invalid vector element type" (some 9)
+
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)

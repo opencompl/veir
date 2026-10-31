@@ -74,12 +74,13 @@ private def parseShapeSeparator : AttrParserM Unit := do
   resetToken (token.slice.start + 1)
 
 /--
-Parse one decimal vector dimension, if present.
+Parse one decimal shape dimension, if present.
 
-Numbers in the form `0x...` are parsed as `0`, since `x` is the separator for the next vector
-dimension, rather than a hexadecimal prefix.
+Numbers in the form `0x...` are parsed as `0`, since `x` is the separator for the next
+dimension, rather than a hexadecimal prefix. Zero-sized dimensions are only accepted if
+`allowZero` is set, as they are valid for tensors but not for vectors.
 -/
-private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
+private def parseOptionalShapeDimension (allowZero := false) : AttrParserM (Option Nat) := do
   let token ← peekToken
   let .intLit := token.kind | return none
   let spelling := token.slice.of (← getThe ParserState).input
@@ -91,8 +92,8 @@ private def parseOptionalVectorDimension : AttrParserM (Option Nat) := do
       break
   let decimalSpelling := spelling.extract 0 decimalLength
   let some dimension := (String.fromUTF8? decimalSpelling).bind String.toNat?
-    | throwAtCurrentPos "vector dimension must be a decimal integer"
-  if dimension = 0 then
+    | throwAtCurrentPos "dimension must be a decimal integer"
+  if dimension = 0 && !allowZero then
     throwAt token.slice.start "0 is not a supported dimension"
   resetToken (token.slice.start + decimalLength)
   return some dimension
@@ -1101,6 +1102,27 @@ private def opaqueStructError := "opaque LLVM struct types are not supported"
 mutual
 
 /--
+  Parse the body of a shaped type, `<dim x ... x element-type>`, after its keyword.
+  `kind` names the type in error messages. Zero-sized dimensions are only accepted if
+  `allowZero` is set, and the element type must satisfy `isValidElementType`.
+-/
+partial def parseShapedTypeBody (kind : String) (allowZero : Bool)
+    (isValidElementType : Attribute → Bool) : AttrParserM (Array Nat × TypeAttr) := do
+  parsePunctuation "<"
+  let mut shape := #[]
+  while let some dim ← parseOptionalShapeDimension allowZero do
+    shape := shape.push dim
+    parseShapeSeparator
+  if (← peekToken).kind matches .question | .star then
+    throwAtCurrentPos s!"dynamic and unranked {kind} types are not supported"
+  let elementTypePos := (← peekToken).slice.start
+  let elementType ← parseType s!"{kind} element type expected"
+  if !isValidElementType elementType.val then
+    throwAt elementTypePos s!"invalid {kind} element type"
+  parsePunctuation ">"
+  return (shape, elementType)
+
+/--
   Parse a builtin fixed-size vector type, if present.
   Its syntax is `vector<dimension-list x element-type>`, e.g. `vector<2x4xi32>`;
   the dimension list may be empty, as in `vector<i32>`.
@@ -1108,14 +1130,18 @@ mutual
 partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
   if !(← parseOptionalKeyword "vector".toByteArray) then
     return none
-  parsePunctuation "<"
-  let mut shape := #[]
-  while let some dim ← parseOptionalVectorDimension do
-    shape := shape.push dim
-    parseShapeSeparator
-  let elementType ← parseType "vector element type expected"
-  parsePunctuation ">"
+  let (shape, elementType) ← parseShapedTypeBody "vector" false VectorType.isValidElementType
   return some (VectorType.mk shape elementType)
+
+/--
+  Parse a ranked tensor type with a static shape, if present.
+  Its syntax is `tensor<dim x ... x type>`, e.g., `tensor<4xf32>` or `tensor<2x4xi32>`.
+-/
+partial def parseOptionalTensorType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalKeyword "tensor".toByteArray) then
+    return none
+  let (shape, elementType) ← parseShapedTypeBody "tensor" true TensorType.isValidElementType
+  return some (TensorType.mk shape elementType)
 
 /--
   Parse an LLVM pointer type, if present.
@@ -1353,6 +1379,8 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some floatType
   if let some vectorType ← parseOptionalVectorType then
     return some vectorType
+  if let some tensorType ← parseOptionalTensorType then
+    return some tensorType
   if let some byteType ← parseOptionalByteType then
     return some byteType
   if let some registerType ← parseOptionalRegisterType then
