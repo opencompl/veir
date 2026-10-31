@@ -38,6 +38,10 @@ def ErrorE (e : ErrorEIn.{u}) :=
   match e with
   | .mk => Empty
 
+/-- Interpreter errors allow any behavior in simulation, just like explicit UB. -/
+instance : HasUB ErrorEIn where
+  isUB := fun _ => True
+
 /-- Emit an effect materializing an ill-formed program -/
 def fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} {R} [ErrorE -< E] : CTree E C R := do
   let x ← CTree.trigger (SubE := ErrorE) ErrorEIn.mk
