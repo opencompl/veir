@@ -224,6 +224,60 @@ theorem predecessor_of_dominates_successor
       exact IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .region region)
         properAncestry (by grind) (by grind)
 
+/-- Block dominance extends to descendants of the dominated block. -/
+theorem of_ancestor_dominated {a b c : BlockPtr}
+    (dominance : a.Dominates b ctx) (ancestry : b.Ancestor c ctx) :
+    a.Dominates c ctx := by
+  by_cases same : a = c
+  · exact Or.inl same
+  apply Or.inr
+  rcases dominance with rfl | dominance
+  · exact .Ancestor ancestry same
+  · cases dominance with
+    | Ancestor upper _ => exact .Ancestor (upper.trans ancestry) same
+    | AncestorDominatedInRegion ancestor region upper localDominance =>
+      exact .AncestorDominatedInRegion ancestor region (upper.trans ancestry) localDominance true
+
+grind_pattern of_ancestor_dominated =>
+  a.Dominates b ctx, (IRNode.block b).Ancestor c ctx
+
+/-- Block dominance is transitive when the final block is hierarchically reachable. -/
+theorem trans_of_reachable {a b c : BlockPtr}
+    (first : a.Dominates b ctx) (second : b.Dominates c ctx)
+    (reachable : c.HierarchicallyReachable ctx) : a.Dominates c ctx := by
+  rcases first with rfl | first
+  · exact second
+  rcases second with rfl | second
+  · exact Or.inr first
+  cases second with
+  | Ancestor ancestry _ => exact BlockPtr.Dominates.of_ancestor_dominated (Or.inr first) ancestry
+  | AncestorDominatedInRegion target region targetAncestry localSecond =>
+    cases first with
+    | Ancestor ancestry distinct =>
+      have ancestorOfRegion :=
+        (ancestry.toProperAncestor (by simpa using distinct)).ancestor_of_parent_descendant
+          (show (IRNode.block b).parent! ctx = some (.region region) by grind)
+      have regionOfTarget : region.Ancestor target ctx := .of_parent (by grind)
+      exact (show a.Dominates a ctx from Or.inl rfl).of_ancestor_dominated
+        ((ancestorOfRegion.trans regionOfTarget).trans targetAncestry)
+    | AncestorDominatedInRegion middle middleRegion middleAncestry localFirst =>
+      by_cases same : middle = b
+      · subst middle
+        have sameRegion : middleRegion = region := by grind
+        subst middleRegion
+        exact Or.inr (.AncestorDominatedInRegion target region targetAncestry
+          (localFirst.trans_of_reachable localSecond
+            ((reachable.of_ancestor targetAncestry).locallyReachable localSecond.parent_dominated)) true)
+      · have middleOfRegion :=
+          (middleAncestry.toProperAncestor (by simpa using same)).ancestor_of_parent_descendant
+            (show (IRNode.block b).parent! ctx = some (.region region) by grind)
+        have regionOfTarget : region.Ancestor target ctx := .of_parent (by grind)
+        exact Or.inr (.AncestorDominatedInRegion middle middleRegion
+          ((middleOfRegion.trans regionOfTarget).trans targetAncestry) localFirst true)
+
+grind_pattern trans_of_reachable =>
+  a.Dominates c ctx, a.Dominates b ctx, b.Dominates c ctx, c.HierarchicallyReachable ctx
+
 end BlockPtr.Dominates
 
 /-- Proper regional SSA dominance excludes reverse global dominance of a rooted, reachable target. -/
