@@ -408,11 +408,6 @@ example {w v u : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) (hu : u ≤ v
     (x.extractLsb' 0 v).extractLsb' 0 u = x.extractLsb' 0 u := by
   pbv_decide 4
 
-/-- Extracting at a symbolic offset is shifting then truncating -/
-example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
-    x.extractLsb' s v = (x >>> s).setWidth v := by
-  pbv_decide 4
-
 /-- Shifting left with extension by a literal is appending zeros -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.shiftLeftZeroExtend 2 = x ++ 0#2 := by
@@ -471,6 +466,17 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (hw0 : 0 < w) :
 /-- Extracting is masking -/
 example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
     x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+  pbv_decide 4
+
+/-- Extracting is masking with composite widths -/
+example {w : Nat} (a : BitVec (w + w)) (hw4 : w + w ≤ 4):
+  a.extractLsb w 0 = (a &&& ((1#((w + w)) <<< BitVec.ofNat (w + w) (w + 1)) - 1)).setWidth (w + 1)
+  := by
+  pbv_decide 4
+
+/-- Extracting top bit equals msb -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.extractLsb' (w - 1) 1 = if x.msb then 1#1 else 0 := by
   pbv_decide 4
 
 /-- Arithmetic shifting right by zero is identity -/

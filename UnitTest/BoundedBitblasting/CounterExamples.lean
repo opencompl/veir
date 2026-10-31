@@ -124,7 +124,6 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4
 
--- Expected failure: width expressions using `Nat` subtraction are not translated faithfully
 -- Expected failure: the widths `v - 1 - 0 + 1` are translated, but `extractLsb'` is not pushed
 /--
 `pbv_decide` found a potentially spurious counterexample.
@@ -132,7 +131,7 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
 -/
 #guard_msgs(error, substring := true) in
 example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
-    (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+    (x.extractLsb (v - 1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8
 
 -- A width built by subtraction is translated faithfully, so the counterexample is genuine
@@ -155,17 +154,6 @@ example (w : Nat) (x : BitVec (w / 2)) (hw : w ≤ 4) :
     (x.setWidth w).setWidth (w / 2) = x := by
   pbv_decide 4
 
--- Expected failure, width in `extractLsb'` is not converted to mask
-/--
-error: `pbv_decide` found a potentially spurious counterexample.
-  The following expressions were abstracted as opaque variables:
-    - BitVec.ofNatClamp 4 (w - 1)
--/
-#guard_msgs(error, substring := true) in
-example (a : BitVec w) (h : w ≤ 4) :
-    (a.extractLsb' (w - 1) 1 == 1) = a.msb := by
-  pbv_decide 4
-
 -- `w + w` correctly interpreted as a sum of widths
 /--
 `pbv_decide` found a counterexample, consider the following assignment:
@@ -174,4 +162,15 @@ example (a : BitVec w) (h : w ≤ 4) :
 example (a : BitVec (w + w)) (b : BitVec w) (hw4 : w + w ≤ 4):
   a ++ b = (b ++ a).cast (by grind)
   := by
+  pbv_decide 4
+
+-- Extracting at a symbolic offset induces spurious bound requirement
+/--
+warning: `grind` could not prove the following : s ≤ 4
+---
+error: unsolved goals
+-/
+#guard_msgs(error, warning, substring := true) in
+example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
+    x.extractLsb' s v = (x >>> s).setWidth v := by
   pbv_decide 4

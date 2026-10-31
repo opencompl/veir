@@ -117,6 +117,13 @@ meta partial def visitExprRec (e : Expr) : ReifyM Unit := do
   visitExprNonrec e
   if e.isApp then
     let (f, args) := (e.getAppFn, e.getAppArgs)
+    -- ExtractLsb takes a width expression as input which does not appear as a
+    -- `w` in a `BitVec w` type, hence it needs to be reified separately.
+    match f, args with
+    | .const ``BitVec.extractLsb' _, #[_, start, _, _] =>
+      let startTm ← Tm.reifyWidth start
+      modify fun s => { s with widthTms := s.widthTms.insert startTm }
+    | _, _ => pure ()
     args.forM fun arg =>
       visitExprRec arg
     visitExprRec f
