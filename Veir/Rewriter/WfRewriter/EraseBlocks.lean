@@ -54,18 +54,6 @@ def WfRewriter.detachBlock! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
     panic! "WfRewriter.detachBlock! failed: block is out of bounds"
 
 /--
-Unlink a block from its parent region if it has one, panicking if the block is
-out of bounds. If it has no parent, return the context unchanged.
--/
-def WfRewriter.detachBlockIfAttached! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
-    : WfIRContext OpInfo :=
-  if hIn : block.InBounds wfCtx.raw then
-    ⟨Rewriter.detachBlockIfAttached wfCtx block (by grind) hIn,
-      by grind [Rewriter.detachBlockIfAttached_WellFormed]⟩
-  else
-    panic! "WfRewriter.detachBlockIfAttached! failed: block is out of bounds"
-
-/--
 Deallocate a block, panicking if the block is out of bounds, has a parent,
 contains operations, has predecessors, or has arguments with uses.
 -/

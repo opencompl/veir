@@ -81,4 +81,20 @@
     "cf.br"() [^loop] : () -> ()
   }) : () -> ()
 
+  // An unreachable cycle whose blocks have arguments, and whose values are used
+  // across the back edge, is erased.
+  // CHECK-LABEL: func.func @args_cycle
+  // CHECK-NEXT:    "func.return"() : () -> ()
+  // CHECK-NEXT:  }
+  "func.func"() <{function_type = (i32) -> (), sym_name = "args_cycle"}> ({
+  ^entry(%a : i32):
+    "func.return"() : () -> ()
+  ^p(%x : i32):
+    %y = "test.test"(%x, %z) : (i32, i32) -> i32
+    "cf.br"(%y) [^q] : (i32) -> ()
+  ^q(%w : i32):
+    %z = "test.test"(%w) : (i32) -> i32
+    "cf.br"(%w) [^p] : (i32) -> ()
+  }) : () -> ()
+
 }) : () -> ()

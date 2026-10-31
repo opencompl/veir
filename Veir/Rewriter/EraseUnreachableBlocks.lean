@@ -104,10 +104,12 @@ structure DeadBlockSet where
   nestedRegions : Array RegionPtr := #[]
 
 /--
-  Fold `f` over the nodes in `worklist` and everything nested in them, in
-  preorder. An operation node stands for itself and the operations that follow
-  it in its block, a block node for itself and the blocks that follow it in its
-  region. A region is always visited before the regions nested in it.
+  Fold `f` over the nodes in `worklist` and everything nested in them. An
+  operation node stands for itself and the operations that follow it in its
+  block, a block node for itself and the blocks that follow it in its region.
+  The order is depth first, but not strictly preorder: the operation (or block)
+  that follows a node is visited before the nodes nested in it. The only
+  ordering guarantee is that a region is visited before the regions nested in it.
   Panic if `fuel` runs out before the worklist is empty.
 -/
 def IRNode.foldNested {β : Type} (ctx : IRContext OpInfo) (f : β → IRNode → β) :
@@ -174,7 +176,7 @@ def WfRewriter.eraseDeadBlockSet! (ctx : WfIRContext OpInfo) (dead : DeadBlockSe
   let ctx := dead.ops.foldl (init := ctx) fun ctx op =>
     WfRewriter.eraseOp! (WfRewriter.detachRegions! ctx op) op
   let ctx := dead.nestedBlocks.foldl (init := ctx) fun ctx block =>
-    WfRewriter.deallocBlock! (WfRewriter.detachBlockIfAttached! ctx block) block
+    WfRewriter.deallocBlock! (WfRewriter.detachBlock! ctx block) block
   let ctx := dead.nestedRegions.foldl WfRewriter.deallocRegion! ctx
   -- Phase 4: erase the now empty unreachable blocks.
   dead.deadBlocks.foldl (init := ctx) fun ctx block =>

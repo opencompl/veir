@@ -150,26 +150,4 @@ theorem Rewriter.detachBlock_fieldsInBounds (hctx : ctx.FieldsInBounds) :
   simp only [detachBlock]
   grind
 
-/--
-  Detach a block from its parent region if it has one.
-  If it has no parent, return the context unchanged.
--/
-@[irreducible, inline]
-def Rewriter.detachBlockIfAttached (ctx : IRContext OpInfo) (block : BlockPtr)
-    (hctx : ctx.FieldsInBounds := by grind)
-    (hIn : block.InBounds ctx := by grind) : IRContext OpInfo :=
-  match h : block.getParent ctx hIn with
-  | some _ => Rewriter.detachBlock ctx block hctx hIn (by grind)
-  | none => ctx
-
-@[grind .]
-theorem Rewriter.detachBlockIfAttached_inBounds (ptr : GenericPtr) :
-    ptr.InBounds (detachBlockIfAttached ctx block hctx hIn) ↔ ptr.InBounds ctx := by
-  grind [detachBlockIfAttached]
-
-@[grind .]
-theorem Rewriter.detachBlockIfAttached_fieldsInBounds (hctx : ctx.FieldsInBounds) :
-    (detachBlockIfAttached ctx block hctx hIn).FieldsInBounds := by
-  grind [detachBlockIfAttached]
-
 end Veir

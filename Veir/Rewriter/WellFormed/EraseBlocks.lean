@@ -41,12 +41,6 @@ theorem Rewriter.detachBlock_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellF
     (Rewriter.detachBlock ctx block hctx hIn hasParent).WellFormed := by
   sorry
 
-theorem Rewriter.detachBlockIfAttached_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
-    (hctx : ctx.FieldsInBounds) (block : BlockPtr) (hIn : block.InBounds ctx) :
-    (Rewriter.detachBlockIfAttached ctx block hctx hIn).WellFormed := by
-  simp only [Rewriter.detachBlockIfAttached]
-  grind [Rewriter.detachBlock_WellFormed]
-
 /--
 A block can be deallocated when it is detached from its region, contains no
 operations, is not the successor of any operation, and its arguments are unused.
