@@ -1,6 +1,7 @@
 module
 
 public import CTree.Defs
+public import CTree.UB
 public import CTree.Iter
 public import CTree.Interp
 
@@ -20,15 +21,6 @@ open CTree
 namespace Veir
 
 /-! ## Undefined Behavior Effect -/
-
-/-- Effect representing an immediate undefined behavior -/
-structure UBEIn : Type u where
-
-/-- Effect representing an immediate undefined behavior -/
-@[expose]
-def UBE (e : UBEIn.{u}) :=
-  match e with
-  | .mk => Empty
 
 /-- Emit an immediate undefined behavior -/
 def ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} {R} [UBE -< E] : CTree E C R := do

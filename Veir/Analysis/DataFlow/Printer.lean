@@ -69,12 +69,11 @@ partial def printDataFlowFacts
       (.ValuePtr (op.getResult i))
       analyses dfCtx irCtx
 
-  if let some source := op.getParent! irCtx.raw then
+  if (op.getParent! irCtx.raw).isSome then
     for i in [0:op.getNumSuccessors! irCtx.raw] do
-      let target := op.getSuccessor! irCtx.raw i
       printDataFlowAnchor
         s!"{opName} successor {i}"
-        (.CFGEdge { source, target })
+        (.CFGEdge { terminator := op, successorIndex := i })
         analyses dfCtx irCtx
 
   for region in op.getRegions! irCtx.raw do
