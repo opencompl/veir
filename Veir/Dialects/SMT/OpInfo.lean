@@ -3,6 +3,9 @@ module
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
 public import Veir.Verifier.Basic
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+public import Veir.Dialects.SMT.Properties
 
 meta import Veir.Meta.OpCode
 
@@ -59,19 +62,11 @@ instance : IsOpCode SMT where
   fromAttrDict := SMT.fromAttrDict
   toAttrDict := SMT.toAttrDict
 
-/-- The SMT sort named by a type attribute, if it is an SMT sort at all. -/
 def TypeAttr.smtSort? (ty : TypeAttr) : Option SMT.SortType :=
   match ty.val with
   | .smtSortType sortType => some sortType
   | _ => none
 
-/--
-  Verify the local invariants of an `smt` operation in any operation-info type
-  containing the `smt` dialect.
-
-  `smt.bv.add` and `smt.bv.neg` preserve the sort of their operands, while
-  `smt.eq` takes two terms of the same sort and produces an `!smt.bool`.
--/
 @[expose]
 def SMT.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo SMT]
     (opType : SMT) (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -110,6 +105,55 @@ def SMT.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     let expected : TypeAttr := TypeAttr.of SMT.SortType .bool
     op.verifyResultTypeMatches ctx expected
       s!"{instrName}: Expected result 0 to have type !smt.bool"
+
+/--
+  Builders of smt terms.
+-/
+def SMT.bvAddTerm? : (lhsSort : SMT.SortType) → (lhs : SMT.Term lhsSort) →
+    (rhsSort : SMT.SortType) → (rhs : SMT.Term rhsSort) →
+    Option ((sort : SMT.SortType) × SMT.Term sort)
+  | .bv w, lhs, .bv w', rhs =>
+    if h : w = w' then some ⟨.bv w, .bvAdd lhs (h ▸ rhs)⟩ else none
+  | _, _, _, _ => none
+
+def SMT.bvNegTerm? : (operandSort : SMT.SortType) → (operand : SMT.Term operandSort) →
+    Option ((sort : SMT.SortType) × SMT.Term sort)
+  | .bv w, operand => some ⟨.bv w, .bvNeg operand⟩
+  | .bool, _ => none
+
+def SMT.eqTerm? : (lhsSort : SMT.SortType) → (lhs : SMT.Term lhsSort) →
+    (rhsSort : SMT.SortType) → (rhs : SMT.Term rhsSort) →
+    Option ((sort : SMT.SortType) × SMT.Term sort)
+  | s, lhs, s', rhs => if h : s = s' then some ⟨.bool, .eq s lhs (h ▸ rhs)⟩ else none
+
+/--
+  Build a symbolic expression.
+
+  We must re-check the invariants, since the operands arrive with their types erased.
+-/
+def SMT.interpretOp' (opType : SMT) (_properties : SMT.propertiesOf opType)
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr)
+    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
+  match opType with
+  | .bv__add => do
+    let [.smt lhsSort lhs, .smt rhsSort rhs] := operands.toList | none
+    let some ⟨sort, term⟩ := SMT.bvAddTerm? lhsSort lhs rhsSort rhs | none
+    let some resultType := resultTypes[0]? | none
+    if resultType.smtSort? ≠ some sort then none
+    return (#[.smt sort term], none)
+  | .bv__neg => do
+    let [.smt operandSort operand] := operands.toList | none
+    let some ⟨sort, term⟩ := SMT.bvNegTerm? operandSort operand | none
+    let some resultType := resultTypes[0]? | none
+    if resultType.smtSort? ≠ some sort then none
+    return (#[.smt sort term], none)
+  | .eq => do
+    let [.smt lhsSort lhs, .smt rhsSort rhs] := operands.toList | none
+    let some ⟨sort, term⟩ := SMT.eqTerm? lhsSort lhs rhsSort rhs | none
+    let some resultType := resultTypes[0]? | none
+    if resultType.smtSort? ≠ some sort then none
+    return (#[.smt sort term], none)
 
 instance : HasOpInfo SMT where
   verifyLocalInvariants := SMT.verifyLocalInvariants

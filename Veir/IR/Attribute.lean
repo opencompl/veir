@@ -385,7 +385,7 @@ namespace SMT
 inductive SortType where
 | bool
 | bv (width : Nat)
-deriving Inhabited, Repr, DecidableEq, Hashable
+deriving Inhabited, Repr, DecidableEq, Hashable, BEq, ReflBEq, LawfulBEq
 
 /-- The width of a bit-vector sort, if this sort is one. -/
 def SortType.bvWidth? : SortType → Option Nat

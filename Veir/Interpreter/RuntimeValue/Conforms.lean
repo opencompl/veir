@@ -30,6 +30,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
+  | .smt sort _, ⟨.smtSortType sortType, _⟩ => sort = sortType
   | _, _ => False
 
 instance : Decidable (Conforms val ty) := by
@@ -77,6 +78,24 @@ theorem Conforms.llvmPointerType :
     ∃ val, runtimeValue = .addr val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
   cases runtimeValue <;> grind
+
+@[simp, grind =]
+theorem Conforms.smtSortType {runtimeValue sortTy} :
+    Conforms runtimeValue (.of SMT.SortType sortTy) ↔
+    ∃ term : Data.SMT.Term sortTy, runtimeValue = .smt sortTy term := by
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
+  cases runtimeValue with
+  | smt sort term =>
+    simp only
+    constructor
+    · intro h
+      subst h
+      exact ⟨term, rfl⟩
+    · rintro ⟨term', h⟩
+      have hs : some sort = some sortTy :=
+        congrArg (fun v => match v with | .smt sort _ => some sort | _ => none) h
+      exact Option.some.inj hs
+  | _ => simp
 
 @[simp, grind =]
 theorem Conforms.feltType {runtimeValue feltTy} :
