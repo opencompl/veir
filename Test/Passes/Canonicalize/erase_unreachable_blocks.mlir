@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=canonicalize | filecheck %s
+// RUN: veir-opt %s -p=canonicalize --allow-unregistered-dialect | filecheck %s
 
 "builtin.module"() ({
 
@@ -95,6 +95,28 @@
   ^q(%w : i32):
     %z = "test.test"(%w) : (i32) -> i32
     "cf.br"(%w) [^p] : (i32) -> ()
+  }) : () -> ()
+
+  // The blocks of a region of an unregistered operation need not be connected
+  // by branches, so none of them are erased.
+  // CHECK-LABEL: func.func @unregistered
+  // CHECK-NEXT:    "test.switch"() ({
+  // CHECK-NEXT:    ^{{.*}}():
+  // CHECK-NEXT:      "llvm.unreachable"() : () -> ()
+  // CHECK-NEXT:    ^{{.*}}():
+  // CHECK-NEXT:      "llvm.unreachable"() : () -> ()
+  // CHECK-NEXT:    }) : () -> ()
+  // CHECK-NEXT:    "func.return"() : () -> ()
+  // CHECK-NEXT:  }
+  "func.func"() <{function_type = () -> (), sym_name = "unregistered"}> ({
+  ^entry():
+    "test.switch"() ({
+    ^a():
+      "llvm.unreachable"() : () -> ()
+    ^b():
+      "llvm.unreachable"() : () -> ()
+    }) : () -> ()
+    "func.return"() : () -> ()
   }) : () -> ()
 
 }) : () -> ()

@@ -2,6 +2,7 @@ module
 
 public import Veir.Rewriter.WfRewriter.EraseBlocks
 public import Veir.IRNesting
+public import Veir.Interfaces.RegionKindInterfaces
 
 /-!
 # Erasing unreachable blocks
@@ -196,7 +197,10 @@ def WfRewriter.eraseUnreachableBlocks! (ctx : WfIRContext OpInfo) (region : Regi
     WfRewriter.eraseDeadBlockSet! ctx dead
 
 /--
-  Erase the unreachable blocks of every region nested in `root`.
+  Erase the unreachable blocks of every SSACFG region nested in `root`.
+  Graph regions are left unchanged: their blocks need not be connected by
+  branches, and an unregistered operation, whose regions are graph regions,
+  makes no promise about them.
   Regions are processed outermost first, so regions nested in an erased block are
   skipped.
 -/
@@ -209,7 +213,7 @@ def WfRewriter.eraseUnreachableBlocksIn! (ctx : WfIRContext OpInfo) (root : Oper
       | _ => regions)
     ctx.raw.numNodes worklist #[]
   regions.foldl (init := ctx) fun ctx region =>
-    if region.InBounds ctx.raw then
+    if region.InBounds ctx.raw && region.getRegionKind ctx = .SSACFG then
       WfRewriter.eraseUnreachableBlocks! ctx region
     else
       ctx
