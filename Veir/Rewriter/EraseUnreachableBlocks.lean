@@ -35,6 +35,17 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 def IRContext.numNodes (ctx : IRContext OpInfo) : Nat :=
   ctx.operations.size + ctx.blocks.size + ctx.regions.size + 1
 
+/-- Add each of `successors` that is not in `reached` to `reached` and to the worklist. -/
+def RegionPtr.reachableBlocks.visit :
+    (successors : List BlockPtr) → (worklist : List BlockPtr) → (reached : Std.HashSet BlockPtr) →
+    List BlockPtr × Std.HashSet BlockPtr
+  | [], worklist, reached => (worklist, reached)
+  | successor :: successors, worklist, reached =>
+    if reached.contains successor then
+      RegionPtr.reachableBlocks.visit successors worklist reached
+    else
+      RegionPtr.reachableBlocks.visit successors (successor :: worklist) (reached.insert successor)
+
 /--
   Explore the CFG from the blocks in `worklist`, adding each newly found
   successor to `reached` and to the worklist.
@@ -46,12 +57,8 @@ def RegionPtr.reachableBlocks.loop (ctx : IRContext OpInfo) :
   | _, [], reached => some reached
   | 0, _ :: _, _ => none
   | fuel + 1, block :: worklist, reached =>
-    let (worklist, reached) := (block.getSuccessors! ctx).foldl (init := (worklist, reached))
-      fun (worklist, reached) successor =>
-        if reached.contains successor then
-          (worklist, reached)
-        else
-          (successor :: worklist, reached.insert successor)
+    let (worklist, reached) :=
+      RegionPtr.reachableBlocks.visit (block.getSuccessors! ctx).toList worklist reached
     RegionPtr.reachableBlocks.loop ctx fuel worklist reached
 
 /--
