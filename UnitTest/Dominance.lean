@@ -1,11 +1,12 @@
 import UnitTest.DataFlowFramework.Helpers
 
-import Veir.Analysis.DataFlow.DominanceAnalysis
+import Veir.Analysis.DominanceAnalysis
 import Veir.IR.Dominance
 import Veir.Rewriter.WfRewriter.Basic
 
 open Std (HashSet)
 open Veir
+open Veir.Input
 
 /-- Expected dominance information for one named block in the test harness. -/
 private structure ExpectedBlockDominators where
@@ -87,9 +88,13 @@ Compare `BlockPtr.immediateDominator?` against the expected block label.
 private def compareImmediateDominator
     (recovered : RecoveredNames)
     (expected : ExpectedBlockDominators)
-    (dfCtx : DataFlowContext) : MismatchReport := Id.run do
+    (dfCtx : DataFlowContext)
+    (_irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some block := recovered.blocks[expected.name]?
     | return #[s!"idom {expected.name}: missing block label"]
+  if expected.doms.isEmpty then
+    return if (block.immediateDominator? dfCtx).isNone then #[]
+      else #[s!"idom {expected.name}: unreachable block has an immediate dominator"]
   let some observedIDom := block.immediateDominator? dfCtx
     | return #[s!"idom {expected.name}: expected immediate dominator {expected.immediateDom}, observed none"]
   let some expectedIDom := recovered.blocks[expected.immediateDom]?
@@ -127,8 +132,7 @@ private def compareReachableDominators
 Compare the observed dominator information against the
 expected dominator information for one named block.
 
-An empty expected dominator set means the block should be unreachable and
-therefore should not have an initialized dominator fact.
+An empty expected dominator set means the block should be unreachable.
 -/
 private def compareDominators
     (recovered : RecoveredNames)
@@ -137,15 +141,15 @@ private def compareDominators
     (irCtx : WfIRContext OpCode) : MismatchReport := Id.run do
   let some block := recovered.blocks[expected.name]?
     | return #[s!"dominators {expected.name}: missing block label"]
-  let observedFact? := block.getDominatorFact? dfCtx
-  match expected.doms.isEmpty, observedFact? with
-  | true, none =>
+  let observedReachable := block.isReachable dfCtx
+  match expected.doms.isEmpty, observedReachable with
+  | true, false =>
       return #[]
-  | true, some _ =>
+  | true, true =>
       return #[s!"dominators {expected.name}: expected unreachable block, observed initialized state"]
-  | false, none =>
+  | false, false =>
       return #[s!"dominators {expected.name}: expected initialized state, observed unreachable block"]
-  | false, some _ =>
+  | false, true =>
       return compareReachableDominators block recovered expected dfCtx irCtx
 
 /--
@@ -160,7 +164,7 @@ private def compareNamedDominators
   let mut report := #[]
   for expected in expectations do
     report := report ++ compareDominators recovered expected dfCtx irCtx
-    report := report ++ compareImmediateDominator recovered expected dfCtx
+    report := report ++ compareImmediateDominator recovered expected dfCtx irCtx
   report
 
 /-- Resolve a named SSA value to the operation that defines it. -/
@@ -213,36 +217,33 @@ private def compareNamedOperationDominance
 
 namespace DominanceAnalysis
 
+/-- The two kinds of result checked by the dominance test harness. -/
+private inductive Expectations where
+  | blocks (expected : Array ExpectedBlockDominators)
+  | operations (expected : Array ExpectedOperationDominance)
+
 /--
 Run the dominance analysis test harness on one MLIR snippet.
-
-The expected data associates each block label with the full set of blocks that
-should dominate it. An empty set means the block should remain unreachable.
 -/
-def run
+private def run
     (mlir : String)
-    (expected : Array ExpectedBlockDominators) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
+    (expected : Expectations)
+    (verifyAfterParse : Bool := true) : String := Id.run do
+  match parseSourceString mlir.toUTF8 (verifyAfterParse := verifyAfterParse) with
+  | .error err =>
+      return s!"parse failed: {err}"
+  | .ok (ctx, top, _) =>
+    let dfCtx := Veir.DominanceAnalysis top .empty ctx
     match recoverNames top ctx mlir with
     | Except.error err =>
-        return #[err]
+        return renderReport #[err]
     | Except.ok recovered =>
-        compareNamedDominators recovered expected dfCtx ctx)
-
-/--
-Run the operation dominance test harness on one MLIR snippet.
-
-Operations are referenced by the SSA names of one of their results.
--/
-def runOperationDominance
-    (mlir : String)
-    (expected : Array ExpectedOperationDominance) : String :=
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
-    match recoverNames top ctx mlir with
-    | Except.error err =>
-        return #[err]
-    | Except.ok recovered =>
-        compareNamedOperationDominance recovered expected dfCtx ctx)
+        let report :=
+          match expected with
+          | .blocks expected => compareNamedDominators recovered expected dfCtx ctx
+          | .operations expected =>
+              compareNamedOperationDominance recovered expected dfCtx ctx
+        return renderReport report
 
 /-
   Test: loop with a backedge
@@ -270,10 +271,11 @@ def testDomLoop : String :=
 ^bb2:
   "cf.br"() [^bb1] : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb1", "bb2" }, immediateDom := "bb1" }
-     ]
+     ])
 
 /-
   Test: diamond
@@ -300,11 +302,12 @@ def testDomDiamond : String :=
 ^bb3:
   "func.return"() : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },        immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" }, immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb2" }, immediateDom := "bb0" }
      , { name := "bb3", doms := { "bb0", "bb3" }, immediateDom := "bb0" }
-     ]
+     ])
 
 /-
   Test: straight line
@@ -336,11 +339,12 @@ def testDomLine : String :=
 ^bb3:
   "func.return"() : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },                      immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },               immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb1", "bb2" },        immediateDom := "bb1" }
      , { name := "bb3", doms := { "bb0", "bb1", "bb2", "bb3" }, immediateDom := "bb2" }
-     ]
+     ])
 
 /-
   Test: entry branches to a while-loop or to an if-statement, then join.
@@ -383,6 +387,7 @@ def testDomIfLoopIf : String :=
 ^bb7:
   "func.return"() : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
@@ -391,7 +396,7 @@ def testDomIfLoopIf : String :=
      , { name := "bb5", doms := { "bb0", "bb1", "bb5" }, immediateDom := "bb1" }
      , { name := "bb6", doms := { "bb0", "bb2", "bb6" }, immediateDom := "bb2" }
      , { name := "bb7", doms := { "bb0", "bb7" },        immediateDom := "bb0" }
-     ]
+     ])
 
 /-
   Test: nested sibling regions inside the same outer block.
@@ -417,10 +422,11 @@ def testDomNestedRegions : String :=
     "test.test"() : () -> ()
   }) : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },        immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" }, immediateDom := "bb1" }
      , { name := "bb2", doms := { "bb0", "bb2" }, immediateDom := "bb2" }
-     ]
+     ])
 
 /-
   Test: diamond, nested region inside the join block.
@@ -453,12 +459,13 @@ def testDomDiamondNestedJoin : String :=
   }) : () -> ()
   "func.return"() : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
      , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
      , { name := "bb3", doms := { "bb0", "bb3" },        immediateDom := "bb0" }
      , { name := "bb4", doms := { "bb0", "bb3", "bb4" }, immediateDom := "bb4" }
-     ]
+     ])
 
 /-
   Test: two levels of nesting.
@@ -485,10 +492,11 @@ def testDomTwoLevelNested : String :=
     }) : () -> ()
   }) : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
      , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb1" }
      , { name := "bb2", doms := { "bb0", "bb1", "bb2" }, immediateDom := "bb2" }
-     ]
+     ])
 /-
   Test: Diamond with a loop
   ┌────────┐
@@ -520,19 +528,52 @@ def testDomDiamondLoop: String :=
 ^bb4:
   "func.return"() : () -> ()
 }) : () -> ()"#
+    (.blocks
     #[ { name := "entry", doms := { "entry" },                      immediateDom := "entry" }
      , { name := "bb0",   doms := { "entry", "bb0" },               immediateDom := "entry" }
      , { name := "bb1",   doms := { "entry", "bb0", "bb1" },        immediateDom := "bb0" }
      , { name := "bb2",   doms := { "entry", "bb0", "bb2" },        immediateDom := "bb0" }
      , { name := "bb3",   doms := { "entry", "bb0", "bb3" },        immediateDom := "bb0" }
      , { name := "bb4",   doms := { "entry", "bb0", "bb2", "bb4" }, immediateDom := "bb2" }
-     ]
+     ])
+
+/-
+  Test: changing an ancestor in an immediate dominator chain revisits every
+  computation that read that ancestor.
+-/
+def testDomAncestorUpdate : String :=
+  run r#""func.func"() <{sym_name = "f", function_type = (i1, i1, i1) -> ()}> ({
+^entry(%a : i1, %b : i1, %c : i1):
+  "cf.cond_br"(%a, %a) [^left, ^def] <{operandSegmentSizes = array<i32: 1, 0, 1>}> : (i1, i1) -> ()
+^left:
+  "cf.br"() [^join] : () -> ()
+^def(%v : i1):
+  "cf.br"() [^use] : () -> ()
+^mid(%unused : i1):
+  "cf.br"() [^tail] : () -> ()
+^use:
+  "cf.br"(%v) [^mid] : (i1) -> ()
+^join:
+  "cf.cond_br"(%b, %a) [^mid, ^left] <{operandSegmentSizes = array<i32: 1, 1, 0>}> : (i1, i1) -> ()
+^tail:
+  "cf.cond_br"(%c) [^join, ^use] <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+}) : () -> ()"#
+    (.blocks
+    #[ { name := "entry", doms := { "entry" },                immediateDom := "entry" }
+     , { name := "left",  doms := { "entry", "left" },        immediateDom := "entry" }
+     , { name := "def",   doms := { "entry", "def" },         immediateDom := "entry" }
+     , { name := "mid",   doms := { "entry", "mid" },         immediateDom := "entry" }
+     , { name := "use",   doms := { "entry", "use" },         immediateDom := "entry" }
+     , { name := "join",  doms := { "entry", "join" },        immediateDom := "entry" }
+     , { name := "tail",  doms := { "entry", "mid", "tail" }, immediateDom := "mid" }
+     ])
+    (verifyAfterParse := false)
 
 /-
   Test: operation dominance across nested regions
 -/
 def testOpDomNestedRegions : String :=
-  runOperationDominance r#""builtin.module"() ({
+  run r#""builtin.module"() ({
 ^bb0:
   %outer = "test.test"() ({
   ^bb1:
@@ -543,6 +584,7 @@ def testOpDomNestedRegions : String :=
     %siblingInner = "test.test"() : () -> i32
   }) : () -> i32
 }) : () -> ()"#
+    (.operations
     #[ { dominator := "outer",      dominated := "outer",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "outer",      dominated := "otherOuter",   dominates := true,  properDom := true  }
@@ -550,13 +592,13 @@ def testOpDomNestedRegions : String :=
      , { dominator := "inner",      dominated := "siblingInner", dominates := false, properDom := false }
      , { dominator := "otherOuter", dominated := "inner",        dominates := true,  properDom := true  }
      , { dominator := "otherOuter", dominated := "siblingInner", dominates := true,  properDom := true  }
-     ]
+     ])
 
 /-
   Test: two levels of nested operation dominance.
 -/
 def testOpDomTwoLevelNested : String :=
-  runOperationDominance r#""builtin.module"() ({
+  run r#""builtin.module"() ({
 ^bb0:
   %top = "test.test"() ({
   ^bb1:
@@ -566,17 +608,18 @@ def testOpDomTwoLevelNested : String :=
     }) : () -> i32
   }) : () -> i32
 }) : () -> ()"#
+    (.operations
     #[ { dominator := "top",    dominated := "middle", dominates := true, properDom := true  }
      , { dominator := "top",    dominated := "leaf",   dominates := true, properDom := true  }
      , { dominator := "middle", dominated := "leaf",   dominates := true, properDom := true  }
      , { dominator := "leaf",   dominated := "leaf",   dominates := true, properDom := true  }
-     ]
+     ])
 
 /-
   Test: operation dominance across two blocks in the same nested function region.
 -/
 def testOpDomSameRegionTwoBlocks : String :=
-  runOperationDominance r#""builtin.module"() ({
+  run r#""builtin.module"() ({
 ^bb0:
   %outer = "test.test"() ({
   ^nested:
@@ -590,12 +633,13 @@ def testOpDomSameRegionTwoBlocks : String :=
     }) : () -> ()
   }) : () -> i32
 }) : () -> ()"#
+    (.operations
     #[ { dominator := "entry", dominated := "entry", dominates := true,  properDom := false }
      , { dominator := "entry", dominated := "exit",  dominates := true,  properDom := true  }
      , { dominator := "exit",  dominated := "entry", dominates := false, properDom := false }
      , { dominator := "outer", dominated := "entry", dominates := true,  properDom := true  }
      , { dominator := "outer", dominated := "exit",  dominates := true,  properDom := true  }
-     ]
+     ])
 
 /-
   Test: an operation in the entry block properly dominates an operation in an
@@ -603,7 +647,7 @@ def testOpDomSameRegionTwoBlocks : String :=
   and an operation in the unreachable block dominates itself only non-properly.
 -/
 def testOpDomUnreachableBlock : String :=
-  runOperationDominance r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+  run r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
 ^bb0:
   %entry = "test.test"() : () -> i32
   "func.return"() : () -> ()
@@ -611,10 +655,11 @@ def testOpDomUnreachableBlock : String :=
   %dead = "test.test"() : () -> i32
   "func.return"() : () -> ()
 }) : () -> ()"#
+    (.operations
     #[ { dominator := "entry", dominated := "dead",  dominates := true,  properDom := true  }
      , { dominator := "dead",  dominated := "entry", dominates := false, properDom := false }
      , { dominator := "dead",  dominated := "dead",  dominates := true,  properDom := false }
-     ]
+     ])
 
 /-
   Test: dominance facts remain usable after deleting the first operation of an
@@ -632,27 +677,33 @@ def testDomAfterFirstOpErasure : String :=
   %dominated = "test.test"() : () -> i32
   "func.return"() : () -> ()
 }) : () -> ()"#
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
-    let .ok recovered := recoverNames top ctx mlir
-      | return #["failed to recover names"]
-    let some dominator := getNamedOperation? recovered "dominator"
-      | return #["missing dominator operation"]
-    let some erased := getNamedOperation? recovered "erased"
-      | return #["missing operation to erase"]
-    let some dominated := getNamedOperation? recovered "dominated"
-      | return #["missing dominated operation"]
-    let some entryBlock := recovered.blocks["bb0"]?
-      | return #["missing entry block"]
-    let some middleBlock := recovered.blocks["bb1"]?
-      | return #["missing intermediate block"]
+  Id.run do
+    match parseSourceString mlir.toUTF8 with
+    | .error err =>
+        return s!"parse failed: {err}"
+    | .ok (ctx, top, _) =>
+      let dfCtx := Veir.DominanceAnalysis top .empty ctx
+      let .ok recovered := recoverNames top ctx mlir
+        | return renderReport #["failed to recover names"]
+      let some dominator := getNamedOperation? recovered "dominator"
+        | return renderReport #["missing dominator operation"]
+      let some erased := getNamedOperation? recovered "erased"
+        | return renderReport #["missing operation to erase"]
+      let some dominated := getNamedOperation? recovered "dominated"
+        | return renderReport #["missing dominated operation"]
+      let some entryBlock := recovered.blocks["bb0"]?
+        | return renderReport #["missing entry block"]
+      let some middleBlock := recovered.blocks["bb1"]?
+        | return renderReport #["missing intermediate block"]
 
-    let newCtx := WfRewriter.eraseOp! ctx erased
-    let mut report := #[]
-    if !dominator.properlyDominates dominated dfCtx newCtx then
-      report := report.push "operation dominance was invalidated by erasing the first op of a block"
-    if middleBlock.immediateDominator? dfCtx ≠ some entryBlock then
-      report := report.push "intermediate block lost its immediate dominator fact"
-    report)
+      let newCtx := WfRewriter.eraseOp! ctx erased
+      let mut report := #[]
+      if !dominator.properlyDominates dominated dfCtx newCtx then
+        report := report.push
+          "operation dominance was invalidated by erasing the first op of a block"
+      if middleBlock.immediateDominator? dfCtx ≠ some entryBlock then
+        report := report.push "intermediate block lost its immediate dominator fact"
+      return renderReport report
 
 /-
   Test: the verifier's use check orders two operations of the same block by the
@@ -670,24 +721,133 @@ def testUseDomSameBlockPositions : String :=
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()"#
-  runWithAnalyses mlir #[Veir.DominanceAnalysis] (fun top dfCtx ctx => Id.run do
-    let .ok recovered := recoverNames top ctx mlir
-      | return #["failed to recover names"]
-    let some value := recovered.values["def"]?
-      | return #["missing defined value"]
-    let some defOp := getNamedOperation? recovered "def"
-      | return #["missing defining operation"]
-    let some useOp := getNamedOperation? recovered "use"
-      | return #["missing using operation"]
+  Id.run do
+    match parseSourceString mlir.toUTF8 with
+    | .error err =>
+        return s!"parse failed: {err}"
+    | .ok (ctx, top, _) =>
+      let dfCtx := Veir.DominanceAnalysis top .empty ctx
+      let .ok recovered := recoverNames top ctx mlir
+        | return renderReport #["failed to recover names"]
+      let some value := recovered.values["def"]?
+        | return renderReport #["missing defined value"]
+      let some defOp := getNamedOperation? recovered "def"
+        | return renderReport #["missing defining operation"]
+      let some useOp := getNamedOperation? recovered "use"
+        | return renderReport #["missing using operation"]
 
-    let positions := ctx.opPositions
-    let swapped := (positions.insert defOp positions[useOp]!).insert useOp positions[defOp]!
-    let mut report := #[]
-    if !value.properlyDominatesUse useOp dfCtx positions ctx then
-      report := report.push "a value does not dominate a later use in its block"
-    if value.properlyDominatesUse useOp dfCtx swapped ctx then
-      report := report.push "same-block order did not come from the positions"
-    report)
+      let positions := ctx.opPositions
+      let swapped :=
+        (positions.insert defOp positions[useOp]!).insert useOp positions[defOp]!
+      let mut report := #[]
+      if !value.properlyDominatesUse useOp dfCtx positions ctx then
+        report := report.push "a value does not dominate a later use in its block"
+      if value.properlyDominatesUse useOp dfCtx swapped ctx then
+        report := report.push "same-block order did not come from the positions"
+      return renderReport report
+
+/--
+An irreducible CFG where changing an ancestor's immediate dominator must
+trigger another full sweep. With successor-only worklist propagation, bb2
+incorrectly retains bb4 as its immediate dominator: bb3's chain changes when
+bb5's immediate dominator changes, but bb3's own immediate dominator does not.
+-/
+def testDomIrreducibleAncestorChange : String :=
+  run r#""func.func"() <{sym_name = "f", function_type = (i1) -> ()}> ({
+^bb0(%cond : i1):
+  "cf.cond_br"(%cond) [^bb1, ^bb4]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb1:
+  "cf.br"() [^bb5] : () -> ()
+^bb2:
+  "cf.br"() [^bb1] : () -> ()
+^bb3:
+  "cf.cond_br"(%cond) [^bb2, ^bb4]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb4:
+  "cf.cond_br"(%cond) [^bb2, ^bb5]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb5:
+  "cf.cond_br"(%cond) [^bb3, ^bb5]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+}) : () -> ()"#
+    (.blocks
+    #[ { name := "bb0", doms := { "bb0" },               immediateDom := "bb0" }
+     , { name := "bb1", doms := { "bb0", "bb1" },        immediateDom := "bb0" }
+     , { name := "bb2", doms := { "bb0", "bb2" },        immediateDom := "bb0" }
+     , { name := "bb3", doms := { "bb0", "bb5", "bb3" }, immediateDom := "bb5" }
+     , { name := "bb4", doms := { "bb0", "bb4" },        immediateDom := "bb0" }
+     , { name := "bb5", doms := { "bb0", "bb5" },        immediateDom := "bb0" }
+     ])
+
+/-- Ignore unreachable predecessors, including a dead cycle, and handle repeated edges. -/
+def testDomUnreachablePredecessors : String :=
+  run r#""func.func"() <{sym_name = "f", function_type = (i1) -> ()}> ({
+^entry(%cond : i1):
+  "cf.br"() [^live] : () -> ()
+^dead:
+  "cf.cond_br"(%cond) [^dead, ^join]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^join:
+  "func.return"() : () -> ()
+^live:
+  "cf.cond_br"(%cond) [^join, ^join]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+}) : () -> ()"#
+    (.blocks
+    #[ { name := "entry", doms := { "entry" },                 immediateDom := "entry" }
+     , { name := "dead",  doms := {},                          immediateDom := "" }
+     , { name := "live",  doms := { "entry", "live" },         immediateDom := "entry" }
+     , { name := "join",  doms := { "entry", "live", "join" }, immediateDom := "live" }
+     ])
+
+/-- Empty regions produce no block dominance facts. -/
+def testDomEmptyRegion : String := Id.run do
+  let mlir := r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({}) : () -> ()"#
+  match parseSourceString mlir.toUTF8 with
+  | .error err =>
+      return s!"parse failed: {err}"
+  | .ok (ctx, top, _) =>
+      let dfCtx := Veir.DominanceAnalysis top .empty ctx
+      for region in top.getRegions! ctx.raw do
+        if let some entry := region.getFirstBlock! ctx.raw then
+          if (entry.getDominatorFact? dfCtx).isSome then
+            return renderReport #["empty region has a dominance fact"]
+      return renderReport #[]
+
+/-- Check immediate dominators in a long chain of self-loops. -/
+def testDomSelfLoopChain : String := Id.run do
+  let count := 256
+  let mut lines := #[
+    "\"func.func\"() <{sym_name = \"f\", function_type = (i1) -> ()}> ({",
+    "^bb0(%cond : i1):",
+    "  \"cf.br\"() [^bb1] : () -> ()"]
+  for offset in [:count - 1] do
+    let block := count - 1 - offset
+    lines := lines.push s!"^bb{block}:"
+    if block = count - 1 then
+      lines := lines.push "  \"func.return\"() : () -> ()"
+    else
+      lines := lines.push
+        (s!"  \"cf.cond_br\"(%cond) [^bb{block}, ^bb{block + 1}] " ++
+          "<{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()")
+  let mlir := String.intercalate "\n" (lines.push "}) : () -> ()").toList
+  match parseSourceString mlir.toUTF8 with
+  | .error err =>
+      return s!"parse failed: {err}"
+  | .ok (ctx, top, _) =>
+      let dfCtx := Veir.DominanceAnalysis top .empty ctx
+      let .ok recovered := recoverNames top ctx mlir
+        | return renderReport #["failed to recover names"]
+      let mut report := #[]
+      for block in [:count] do
+        let some blockPtr := recovered.blocks[s!"bb{block}"]?
+          | return renderReport #[s!"missing block bb{block}"]
+        let some expectedIDom := recovered.blocks[s!"bb{block - 1}"]?
+          | return renderReport #[s!"missing block bb{block - 1}"]
+        if blockPtr.immediateDominator? dfCtx ≠ some expectedIDom then
+          report := report.push s!"idom bb{block}: expected bb{block - 1}"
+      return renderReport report
 /--
 info: "ok"
 -/
@@ -740,6 +900,12 @@ info: "ok"
 info: "ok"
 -/
 #guard_msgs in
+#eval! testDomAncestorUpdate
+
+/--
+info: "ok"
+-/
+#guard_msgs in
 #eval! testOpDomNestedRegions
 
 /--
@@ -771,5 +937,21 @@ info: "ok"
 -/
 #guard_msgs in
 #eval! testUseDomSameBlockPositions
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testDomIrreducibleAncestorChange
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testDomUnreachablePredecessors
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testDomEmptyRegion
+
+/-- info: "ok" -/
+#guard_msgs in
+#eval! testDomSelfLoopChain
 
 end DominanceAnalysis
