@@ -104,40 +104,48 @@ structure DeadBlockSet where
   nestedRegions : Array RegionPtr := #[]
 
 /--
-  Add the nodes in `worklist` to `acc`, together with everything nested in them.
-  An operation node stands for itself and the operations that follow it in its
-  block, a block node for itself and the blocks that follow it in its region.
+  Fold `f` over the nodes in `worklist` and everything nested in them, in
+  preorder. An operation node stands for itself and the operations that follow
+  it in its block, a block node for itself and the blocks that follow it in its
+  region. A region is always visited before the regions nested in it.
   Panic if `fuel` runs out before the worklist is empty.
 -/
-def DeadBlockSet.collectNested (ctx : IRContext OpInfo) :
-    (fuel : Nat) → (worklist : List IRNode) → (acc : DeadBlockSet) → DeadBlockSet
+def IRNode.foldNested {β : Type} (ctx : IRContext OpInfo) (f : β → IRNode → β) :
+    (fuel : Nat) → (worklist : List IRNode) → (acc : β) → β
   | _, [], acc => acc
   | 0, _ :: _, acc =>
-    haveI : Inhabited DeadBlockSet := ⟨acc⟩
-    panic! "DeadBlockSet.collectNested: out of fuel"
+    haveI : Inhabited β := ⟨acc⟩
+    panic! "IRNode.foldNested: out of fuel"
   | fuel + 1, node :: worklist, acc =>
-    match node with
-    | .operation op =>
-      let worklist := (op.getRegions! ctx).toList.map IRNode.region ++ worklist
-      let worklist := match op.getNextOp! ctx with
+    let worklist := match node with
+      | .operation o =>
+        let worklist := (o.getRegions! ctx).toList.map IRNode.region ++ worklist
+        match o.getNextOp! ctx with
         | some next => .operation next :: worklist
         | none => worklist
-      DeadBlockSet.collectNested ctx fuel worklist { acc with ops := acc.ops.push op }
-    | .region region =>
-      let worklist := match region.getFirstBlock! ctx with
-        | some block => .block block :: worklist
+      | .region r =>
+        match r.getFirstBlock! ctx with
+        | some b => .block b :: worklist
         | none => worklist
-      DeadBlockSet.collectNested ctx fuel worklist
-        { acc with nestedRegions := acc.nestedRegions.push region }
-    | .block block =>
-      let worklist := match block.getFirstOp! ctx with
-        | some op => .operation op :: worklist
-        | none => worklist
-      let worklist := match block.getNextBlock! ctx with
+      | .block b =>
+        let worklist := match b.getFirstOp! ctx with
+          | some o => .operation o :: worklist
+          | none => worklist
+        match b.getNextBlock! ctx with
         | some next => .block next :: worklist
         | none => worklist
-      DeadBlockSet.collectNested ctx fuel worklist
-        { acc with nestedBlocks := acc.nestedBlocks.push block }
+    IRNode.foldNested ctx f fuel worklist (f acc node)
+
+/-- Add a node to the operations, nested blocks, or nested regions of `acc`. -/
+def DeadBlockSet.add (acc : DeadBlockSet) : IRNode → DeadBlockSet
+  | .operation op => { acc with ops := acc.ops.push op }
+  | .block block => { acc with nestedBlocks := acc.nestedBlocks.push block }
+  | .region region => { acc with nestedRegions := acc.nestedRegions.push region }
+
+/-- Add the nodes in `worklist` to `acc`, together with everything nested in them. -/
+def DeadBlockSet.collectNested (ctx : IRContext OpInfo) (worklist : List IRNode)
+    (acc : DeadBlockSet) : DeadBlockSet :=
+  IRNode.foldNested ctx DeadBlockSet.add ctx.numNodes worklist acc
 
 /--
   Compute the unreachable blocks of `region`, and everything nested in them.
@@ -151,7 +159,7 @@ def DeadBlockSet.compute! (ctx : IRContext OpInfo) (region : RegionPtr) : DeadBl
   | some reachable =>
     let deadBlocks := (region.getBlocks! ctx).filter (!reachable.contains ·)
     let worklist := deadBlocks.toList.filterMap fun block => (block.getFirstOp! ctx).map .operation
-    DeadBlockSet.collectNested ctx ctx.numNodes worklist { deadBlocks }
+    DeadBlockSet.collectNested ctx worklist { deadBlocks }
 
 /--
   Erase the blocks of `dead` and everything nested in them.
@@ -193,8 +201,12 @@ def WfRewriter.eraseUnreachableBlocks! (ctx : WfIRContext OpInfo) (region : Regi
 def WfRewriter.eraseUnreachableBlocksIn! (ctx : WfIRContext OpInfo) (root : OperationPtr) :
     WfIRContext OpInfo :=
   let worklist := (root.getRegions! ctx.raw).toList.map IRNode.region
-  let nested := DeadBlockSet.collectNested ctx.raw ctx.raw.numNodes worklist {}
-  nested.nestedRegions.foldl (init := ctx) fun ctx region =>
+  let regions := IRNode.foldNested ctx.raw (fun regions node =>
+      match node with
+      | .region region => regions.push region
+      | _ => regions)
+    ctx.raw.numNodes worklist #[]
+  regions.foldl (init := ctx) fun ctx region =>
     if region.InBounds ctx.raw then
       WfRewriter.eraseUnreachableBlocks! ctx region
     else

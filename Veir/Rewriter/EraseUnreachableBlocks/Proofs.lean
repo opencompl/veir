@@ -90,11 +90,19 @@ theorem RegionPtr.mem_reachableBlocks_of_locallyReachable {ctx : WfIRContext OpI
   | Single => exact hentryIn
   | Cons _ successor _ ih => exact ih (hclosed _ hentryIn _ successor)
 
+/-- `add` does not change the unreachable blocks of the accumulator. -/
+theorem DeadBlockSet.add_deadBlocks {acc : DeadBlockSet} {node : IRNode} :
+    (acc.add node).deadBlocks = acc.deadBlocks := by
+  cases node <;> rfl
+
 /-- `collectNested` does not change the unreachable blocks of the accumulator. -/
-theorem DeadBlockSet.collectNested_deadBlocks {ctx : IRContext OpInfo} {fuel : Nat}
+theorem DeadBlockSet.collectNested_deadBlocks {ctx : IRContext OpInfo}
     {worklist : List IRNode} {acc : DeadBlockSet} :
-    (collectNested ctx fuel worklist acc).deadBlocks = acc.deadBlocks := by
-  fun_induction collectNested <;> simp_all [panicWithPosWithDecl, panic, panicCore]
+    (collectNested ctx worklist acc).deadBlocks = acc.deadBlocks := by
+  unfold collectNested
+  generalize ctx.numNodes = fuel
+  fun_induction IRNode.foldNested <;>
+    simp_all [add_deadBlocks, panicWithPosWithDecl, panic, panicCore]
 
 /--
   Soundness of the unreachable block analysis: every block reported as
