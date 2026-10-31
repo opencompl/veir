@@ -307,19 +307,34 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ":"
   let startPos ← getPos
 
-  -- Build the integer attribute from the parsed literal.
-  let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
+  -- Parse the literal as an integer, rejecting values for which `inRange` fails
+  -- unless `raw` is set.
+  let parseIntLiteral (attrKind : String) (raw : Bool) (inRange : Int → Bool) :
+      AttrParserM Int := do
     if isFloatLit then
-      throwAtCurrentPos "integer literal expected in integer attribute"
+      throwAtCurrentPos s!"integer literal expected in {attrKind} attribute"
     let some n := numericValueToNat? value
       | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
     let literal := if isNegative then Int.negOfNat n else Int.ofNat n
-    if (← get).rawIntegerLiterals then
-      return IntegerAttr.mk literal integerType
-    let bits := BitVec.ofInt integerType.bitwidth literal
-    if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
+    if !raw && ((isNegative && n == 0) || !inRange literal) then
       throwAt valueStartPos "integer constant out of range for attribute"
-    return IntegerAttr.ofInt literal integerType
+    return literal
+
+  -- Build the integer attribute from the parsed literal.
+  let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
+    let raw := (← get).rawIntegerLiterals
+    let literal ← parseIntLiteral "integer" raw fun literal =>
+      let bits := BitVec.ofInt integerType.bitwidth literal
+      literal == bits.toInt || literal == bits.toNat
+    return if raw then IntegerAttr.mk literal integerType else IntegerAttr.ofInt literal integerType
+
+  -- Build the index attribute from the parsed literal. MLIR stores index
+  -- attributes as signed `IndexType.bitwidth`-bit integers, so the literal is
+  -- always range-checked, even with raw integer literals.
+  let indexAttr : AttrParserM Attribute := do
+    let literal ← parseIntLiteral "index" false fun literal =>
+      literal == (BitVec.ofInt IndexType.bitwidth literal).toInt
+    return IndexAttr.mk (BitVec.ofInt IndexType.bitwidth literal)
 
   -- Compute the floating-point value from the parsed literal.
   let floatValue (floatType : FloatType) :
@@ -347,6 +362,8 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   -- Determine the type after ':'.
   if let some integerType ← parseOptionalIntegerType then
     return some (← integerAttr integerType)
+  else if (← parseOptionalIndexType).isSome then
+    return some (← indexAttr)
   else if let some floatType ← parseOptionalFloatType then
     return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
@@ -354,6 +371,8 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
     if let some integerType := typeAttr.cast? IntegerType then
       return some (← integerAttr integerType)
+    else if (typeAttr.cast? IndexType).isSome then
+      return some (← indexAttr)
     else if let some floatType := typeAttr.cast? FloatType then
       return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else

@@ -121,6 +121,9 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 structure IndexType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
+/-- The bitwidth of `index` values, matching MLIR's 64-bit index attributes. -/
+def IndexType.bitwidth : Nat := 64
+
 /--
   An integer literal with an associated integer type.
 -/
@@ -155,6 +158,14 @@ def isNormalized (attr : IntegerAttr) : Bool :=
   attr.value = normalizeValue attr.type attr.value
 
 end IntegerAttr
+
+/--
+  Integer literal of the builtin `index` type. MLIR stores index attributes as
+  `IndexType.bitwidth`-bit integers, so the value cannot be out of range.
+-/
+structure IndexAttr where
+  value : BitVec IndexType.bitwidth
+deriving Inhabited, Repr, DecidableEq, Hashable
 
 /--
  Floating point fastmath flags attribute.
@@ -724,6 +735,8 @@ inductive Attribute
 | vectorType (type : VectorType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
+/-- Index attribute -/
+| indexAttr (attr : IndexAttr)
 /-- Float attribute -/
 | floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
@@ -1004,6 +1017,9 @@ instance : ToString IntegerAttr where
       if attr.value % 2 = 0 then "false" else "true"
     else s!"{attr.value} : {attr.type}"
 
+instance : ToString IndexAttr where
+  toString attr := s!"{attr.value.toInt} : index"
+
 instance : ToString FloatAttr where
   toString attr :=
   -- Of the form 0x<bits>#<bitwidth>, e.g. 0xff#8
@@ -1265,6 +1281,7 @@ partial def Attribute.toString (attr : Attribute) : String :=
   | .targetFeaturesAttr attr => ToString.toString attr
   | .dlSpecAttr attr => ToString.toString attr
   | .integerAttr attr => ToString.toString attr
+  | .indexAttr attr => ToString.toString attr
   | .floatAttr attr => ToString.toString attr
   | .registerType type => ToString.toString type
   | .registerAttr attr => ToString.toString attr
@@ -1740,6 +1757,8 @@ def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := 
     exact IsAttr.decEqAgainst x attr2 (VectorType.decEq x)
   case integerAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
+  case indexAttr x =>
+    exact IsAttr.decEqAgainst x attr2 (decEq x)
   case floatAttr x =>
     exact IsAttr.decEqAgainst x attr2 (decEq x)
   case fastMathFlagsAttr x =>
@@ -1898,6 +1917,7 @@ def isType (attr : Attribute) : Bool :=
   | .targetFeaturesAttr _ => false
   | .dlSpecAttr _ => false
   | .integerAttr _ => false
+  | .indexAttr _ => false
   | .floatAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false

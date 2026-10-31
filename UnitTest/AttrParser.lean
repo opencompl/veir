@@ -183,6 +183,20 @@ macro "#assert " e:term : command =>
       "integer constant out of range for attribute" (some 1) &&
     expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.signless width))
 
+/-! ## Index attributes -/
+
+#assert expectSuccessAttr "4 : index" (IndexAttr.mk 4)
+#assert expectRoundTripAttr "-1 : index"
+-- MLIR stores index attributes as 64-bit integers, so only [-2^63, 2^63) fits.
+#assert expectSuccessAttr "9223372036854775807 : index" (IndexAttr.mk (2 ^ 63 - 1))
+#assert expectSuccessAttr "-9223372036854775808 : index" (IndexAttr.mk (-2 ^ 63))
+#assert expectErrorAttr "9223372036854775808 : index"
+  "integer constant out of range for attribute" (some 0)
+#assert expectErrorAttr "-9223372036854775809 : index"
+  "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "-0 : index" "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "1.5 : index" "integer literal expected in index attribute" (some 11)
+
 /-! ## Integer overflow flags attributes -/
 
 #assert expectSuccessAttr "#arith.overflow<none>" (ArithIntegerOverflowFlagsAttr.mk false false)
@@ -424,6 +438,7 @@ macro "#assert " e:term : command =>
 -- Aliases also resolve where a specific builtin type is required.
 #assert (testAttrWithAliases "1 : !int" [("int", (IntegerType.signless 32))]
   = .ok (IntegerAttr.mk 1 (IntegerType.signless 32)))
+#assert (testAttrWithAliases "4 : !idx" [("idx", IndexType.mk)] = .ok (IndexAttr.mk 4))
 #assert (testAttrWithAliases "array<!int: 1, 2>" [("int", (IntegerType.signless 32))]
   = .ok (DenseArrayAttr.mk (IntegerType.signless 32) #[1, 2]))
 #assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", (IntegerType.signless 32))]
