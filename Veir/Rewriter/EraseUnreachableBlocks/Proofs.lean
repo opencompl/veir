@@ -9,7 +9,7 @@ import all Veir.Dominance.Basic
 /-!
 # Soundness of the unreachable block analysis
 
-Every block that `DeadBlockSet.compute?` reports as unreachable is not locally
+Every block that `DeadBlockSet.compute!` reports as unreachable is not locally
 reachable from the entry of its region (`BlockPtr.LocallyReachable`).
 
 The proof shows that the set returned by `RegionPtr.reachableBlocks` contains
@@ -92,25 +92,25 @@ theorem RegionPtr.mem_reachableBlocks_of_locallyReachable {ctx : WfIRContext OpI
 
 /-- `collectNested` does not change the unreachable blocks of the accumulator. -/
 theorem DeadBlockSet.collectNested_deadBlocks {ctx : IRContext OpInfo} {fuel : Nat}
-    {worklist : List IRNode} {acc result : DeadBlockSet}
-    (h : collectNested ctx fuel worklist acc = some result) :
-    result.deadBlocks = acc.deadBlocks := by
-  fun_induction collectNested <;> grind
+    {worklist : List IRNode} {acc : DeadBlockSet} :
+    (collectNested ctx fuel worklist acc).deadBlocks = acc.deadBlocks := by
+  fun_induction collectNested <;> simp_all [panicWithPosWithDecl, panic, panicCore]
 
 /--
   Soundness of the unreachable block analysis: every block reported as
   unreachable is not locally reachable from the entry of its region.
 -/
 theorem DeadBlockSet.not_locallyReachable_of_mem_deadBlocks {ctx : WfIRContext OpInfo}
-    {region : RegionPtr} {dead : DeadBlockSet} {block : BlockPtr}
-    (h : compute? ctx.raw region = some dead)
-    (hdead : block ∈ dead.deadBlocks) :
+    {region : RegionPtr} {block : BlockPtr}
+    (hdead : block ∈ (compute! ctx.raw region).deadBlocks) :
     ¬ block.LocallyReachable region ctx := by
   intro hreach
-  simp only [compute?, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-  obtain ⟨reachable, hreachable, blocks, -, h⟩ := h
-  have := collectNested_deadBlocks h
-  have := RegionPtr.mem_reachableBlocks_of_locallyReachable hreachable hreach
-  grind
+  unfold compute! at hdead
+  split at hdead
+  · simp [panicWithPosWithDecl, panic, panicCore] at hdead
+  · rename_i reachable hreachable
+    rw [collectNested_deadBlocks] at hdead
+    have := RegionPtr.mem_reachableBlocks_of_locallyReachable hreachable hreach
+    grind
 
 end Veir

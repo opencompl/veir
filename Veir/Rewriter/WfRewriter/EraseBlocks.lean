@@ -10,8 +10,7 @@ import Veir.Rewriter.WellFormed.EraseBlocks
 # Well-formed wrappers for block and region erasure
 
 Each operation comes in two variants: one taking its preconditions as
-hypotheses, and a `?` variant that checks them and returns `none` if they do
-not hold.
+hypotheses, and a `!` variant that checks them and panics if they do not hold.
 -/
 
 public section
@@ -28,15 +27,15 @@ def WfRewriter.dropOperands (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
     by grind [Rewriter.dropOperands_WellFormed]⟩
 
 /--
-Remove the operands and successors of an operation, returning `none` if the
-operation is out of bounds.
+Remove the operands and successors of an operation, panicking if the operation
+is out of bounds.
 -/
-def WfRewriter.dropOperands? (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    : Option (WfIRContext OpInfo) :=
+def WfRewriter.dropOperands! (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
+    : WfIRContext OpInfo :=
   if hOp : op.InBounds wfCtx.raw then
-    some (WfRewriter.dropOperands wfCtx op hOp)
+    WfRewriter.dropOperands wfCtx op hOp
   else
-    none
+    panic! "WfRewriter.dropOperands! failed: operation is out of bounds"
 
 /-- Detach all regions from an operation. -/
 @[inline]
@@ -46,30 +45,13 @@ def WfRewriter.detachRegions (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
   ⟨Rewriter.detachRegions wfCtx op (by grind) hOp,
     by grind [Rewriter.detachRegions_WellFormed]⟩
 
-/-- Detach all regions from an operation, returning `none` if the operation is out of bounds. -/
-def WfRewriter.detachRegions? (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    : Option (WfIRContext OpInfo) :=
+/-- Detach all regions from an operation, panicking if the operation is out of bounds. -/
+def WfRewriter.detachRegions! (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
+    : WfIRContext OpInfo :=
   if hOp : op.InBounds wfCtx.raw then
-    some (WfRewriter.detachRegions wfCtx op hOp)
+    WfRewriter.detachRegions wfCtx op hOp
   else
-    none
-
-/--
-Erase an operation, returning `none` if the operation is out of bounds, has
-regions, or has uses.
--/
-def WfRewriter.eraseOp? (wfCtx : WfIRContext OpInfo) (op : OperationPtr)
-    : Option (WfIRContext OpInfo) :=
-  if hOp : op.InBounds wfCtx.raw then
-    if opRegions : op.getNumRegions! wfCtx.raw = 0 then
-      if opUses : !op.hasUses! wfCtx.raw then
-        some (WfRewriter.eraseOp wfCtx op opRegions opUses hOp)
-      else
-        none
-    else
-      none
-  else
-    none
+    panic! "WfRewriter.detachRegions! failed: operation is out of bounds"
 
 /-- Unlink a block from its parent region. -/
 @[inline]
@@ -81,18 +63,18 @@ def WfRewriter.detachBlock (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
     by grind [Rewriter.detachBlock_WellFormed]⟩
 
 /--
-Unlink a block from its parent region, returning `none` if the block is out of
-bounds or does not have a parent.
+Unlink a block from its parent region, panicking if the block is out of bounds
+or does not have a parent.
 -/
-def WfRewriter.detachBlock? (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
-    : Option (WfIRContext OpInfo) :=
+def WfRewriter.detachBlock! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+    : WfIRContext OpInfo :=
   if hIn : block.InBounds wfCtx.raw then
     if hasParent : (block.getParent! wfCtx.raw).isSome then
-      some (WfRewriter.detachBlock wfCtx block hIn hasParent)
+      WfRewriter.detachBlock wfCtx block hIn hasParent
     else
-      none
+      panic! "WfRewriter.detachBlock! failed: block does not have a parent"
   else
-    none
+    panic! "WfRewriter.detachBlock! failed: block is out of bounds"
 
 /--
 Unlink a block from its parent region if it has one.
@@ -106,15 +88,15 @@ def WfRewriter.detachBlockIfAttached (wfCtx : WfIRContext OpInfo) (block : Block
     by grind [Rewriter.detachBlockIfAttached_WellFormed]⟩
 
 /--
-Unlink a block from its parent region if it has one, returning `none` if the
-block is out of bounds.
+Unlink a block from its parent region if it has one, panicking if the block is
+out of bounds.
 -/
-def WfRewriter.detachBlockIfAttached? (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
-    : Option (WfIRContext OpInfo) :=
+def WfRewriter.detachBlockIfAttached! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+    : WfIRContext OpInfo :=
   if hIn : block.InBounds wfCtx.raw then
-    some (WfRewriter.detachBlockIfAttached wfCtx block hIn)
+    WfRewriter.detachBlockIfAttached wfCtx block hIn
   else
-    none
+    panic! "WfRewriter.detachBlockIfAttached! failed: block is out of bounds"
 
 /-- Deallocate a detached, empty, and unused block. -/
 @[inline]
@@ -129,27 +111,27 @@ def WfRewriter.deallocBlock (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
     IRContext.wellFormed_BlockPtr_dealloc wfCtx.wellFormed noParent noOps noPreds noArgUses⟩
 
 /--
-Deallocate a block, returning `none` if the block is out of bounds, has a parent,
+Deallocate a block, panicking if the block is out of bounds, has a parent,
 contains operations, has predecessors, or has arguments with uses.
 -/
-def WfRewriter.deallocBlock? (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
-    : Option (WfIRContext OpInfo) :=
+def WfRewriter.deallocBlock! (wfCtx : WfIRContext OpInfo) (block : BlockPtr)
+    : WfIRContext OpInfo :=
   if hIn : block.InBounds wfCtx.raw then
     if noParent : block.getParent! wfCtx.raw = none then
       if noOps : block.getFirstOp! wfCtx.raw = none then
         if noPreds : block.hasPredecessor! wfCtx.raw = false then
           if noArgUses : block.hasArgumentUses! wfCtx.raw = false then
-            some (WfRewriter.deallocBlock wfCtx block hIn noParent noOps noPreds noArgUses)
+            WfRewriter.deallocBlock wfCtx block hIn noParent noOps noPreds noArgUses
           else
-            none
+            panic! "WfRewriter.deallocBlock! failed: block arguments have uses"
         else
-          none
+          panic! "WfRewriter.deallocBlock! failed: block has predecessors"
       else
-        none
+        panic! "WfRewriter.deallocBlock! failed: block contains operations"
     else
-      none
+      panic! "WfRewriter.deallocBlock! failed: block has a parent"
   else
-    none
+    panic! "WfRewriter.deallocBlock! failed: block is out of bounds"
 
 /-- Deallocate a detached and empty region. -/
 @[inline]
@@ -162,20 +144,20 @@ def WfRewriter.deallocRegion (wfCtx : WfIRContext OpInfo) (region : RegionPtr)
     IRContext.wellFormed_RegionPtr_dealloc wfCtx.wellFormed noParent noBlocks⟩
 
 /--
-Deallocate a region, returning `none` if the region is out of bounds, has a
-parent, or contains blocks.
+Deallocate a region, panicking if the region is out of bounds, has a parent, or
+contains blocks.
 -/
-def WfRewriter.deallocRegion? (wfCtx : WfIRContext OpInfo) (region : RegionPtr)
-    : Option (WfIRContext OpInfo) :=
+def WfRewriter.deallocRegion! (wfCtx : WfIRContext OpInfo) (region : RegionPtr)
+    : WfIRContext OpInfo :=
   if hIn : region.InBounds wfCtx.raw then
     if noParent : region.getParent! wfCtx.raw = none then
       if noBlocks : region.getFirstBlock! wfCtx.raw = none then
-        some (WfRewriter.deallocRegion wfCtx region hIn noParent noBlocks)
+        WfRewriter.deallocRegion wfCtx region hIn noParent noBlocks
       else
-        none
+        panic! "WfRewriter.deallocRegion! failed: region contains blocks"
     else
-      none
+      panic! "WfRewriter.deallocRegion! failed: region has a parent"
   else
-    none
+    panic! "WfRewriter.deallocRegion! failed: region is out of bounds"
 
 end Veir

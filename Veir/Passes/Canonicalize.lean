@@ -132,9 +132,7 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
     | throw "Error while applying canonicalization patterns"
   ctx := result
   if (options.get? "erase-unreachable-blocks").getD true then
-    let some erased := WfRewriter.eraseUnreachableBlocksIn? ctx op
-      | throw "Error while erasing unreachable blocks"
-    ctx := erased
+    ctx := WfRewriter.eraseUnreachableBlocksIn! ctx op
   if (options.get? "unique-constants").getD true then
     ctx := UniqueConstants.run ctx op
   return ctx

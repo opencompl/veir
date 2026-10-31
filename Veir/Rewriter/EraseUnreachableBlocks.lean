@@ -11,7 +11,7 @@ its region (see `BlockPtr.LocallyReachable`). The unreachable blocks of a region
 are erased all at once, in four phases:
 
 1. Compute the unreachable blocks of the region, and every operation, block, and
-   region nested in them (`DeadBlockSet.compute?`). Nothing is modified.
+   region nested in them (`DeadBlockSet.compute!`). Nothing is modified.
 2. Drop the operands and successors of every operation in the set. Since every
    predecessor of an unreachable block is itself unreachable, and an unreachable
    definition does not dominate any reachable use, nothing outside the set
@@ -19,8 +19,8 @@ are erased all at once, in four phases:
 3. Erase the operations in the set, along with their nested blocks and regions.
 4. Erase the unreachable blocks, which are now empty.
 
-Each step checks its own preconditions and returns `none` if they do not hold,
-so the context stays well formed whether or not the set was computed correctly.
+Each step checks its own preconditions and panics if they do not hold, so a
+bug in the computation of the set is reported rather than hidden.
 -/
 
 public section
@@ -64,6 +64,10 @@ def RegionPtr.reachableBlocks.loop (ctx : IRContext OpInfo) :
 /--
   The blocks of `region` that are reachable from its entry block, following the
   successors of block terminators (as in `RegionPtr.Path`).
+  Return `none` if the traversal runs out of fuel. Unlike the other traversals,
+  this one does not panic itself: no fallback set is both computable here and
+  closed under successors, so the caller (`DeadBlockSet.compute!`) panics instead,
+  falling back to reporting no unreachable blocks, which keeps the analysis sound.
 -/
 def RegionPtr.reachableBlocks (region : RegionPtr) (ctx : IRContext OpInfo) :
     Option (Std.HashSet BlockPtr) :=
@@ -71,16 +75,21 @@ def RegionPtr.reachableBlocks (region : RegionPtr) (ctx : IRContext OpInfo) :
   | none => some ∅
   | some entry => RegionPtr.reachableBlocks.loop ctx ctx.numNodes [entry] {entry}
 
-/-- Collect `block` and the blocks that follow it in its region. -/
+/--
+  Collect `block` and the blocks that follow it in its region.
+  Panic if `fuel` runs out before the end of the region.
+-/
 def BlockPtr.collectBlockChain (ctx : IRContext OpInfo) :
-    (fuel : Nat) → (block : Option BlockPtr) → (acc : Array BlockPtr) → Option (Array BlockPtr)
-  | _, none, acc => some acc
-  | 0, some _, _ => none
+    (fuel : Nat) → (block : Option BlockPtr) → (acc : Array BlockPtr) → Array BlockPtr
+  | _, none, acc => acc
+  | 0, some _, acc =>
+    haveI : Inhabited (Array BlockPtr) := ⟨acc⟩
+    panic! "BlockPtr.collectBlockChain: out of fuel"
   | fuel + 1, some block, acc =>
     BlockPtr.collectBlockChain ctx fuel (block.getNextBlock! ctx) (acc.push block)
 
 /-- The blocks of `region`, in order. -/
-def RegionPtr.getBlocks? (region : RegionPtr) (ctx : IRContext OpInfo) : Option (Array BlockPtr) :=
+def RegionPtr.getBlocks! (region : RegionPtr) (ctx : IRContext OpInfo) : Array BlockPtr :=
   BlockPtr.collectBlockChain ctx ctx.numNodes (region.getFirstBlock! ctx) #[]
 
 /-- The unreachable blocks of a region, and everything nested in them. -/
@@ -98,12 +107,14 @@ structure DeadBlockSet where
   Add the nodes in `worklist` to `acc`, together with everything nested in them.
   An operation node stands for itself and the operations that follow it in its
   block, a block node for itself and the blocks that follow it in its region.
-  Return `none` if `fuel` runs out before the worklist is empty.
+  Panic if `fuel` runs out before the worklist is empty.
 -/
 def DeadBlockSet.collectNested (ctx : IRContext OpInfo) :
-    (fuel : Nat) → (worklist : List IRNode) → (acc : DeadBlockSet) → Option DeadBlockSet
-  | _, [], acc => some acc
-  | 0, _ :: _, _ => none
+    (fuel : Nat) → (worklist : List IRNode) → (acc : DeadBlockSet) → DeadBlockSet
+  | _, [], acc => acc
+  | 0, _ :: _, acc =>
+    haveI : Inhabited DeadBlockSet := ⟨acc⟩
+    panic! "DeadBlockSet.collectNested: out of fuel"
   | fuel + 1, node :: worklist, acc =>
     match node with
     | .operation op =>
@@ -128,58 +139,65 @@ def DeadBlockSet.collectNested (ctx : IRContext OpInfo) :
       DeadBlockSet.collectNested ctx fuel worklist
         { acc with nestedBlocks := acc.nestedBlocks.push block }
 
-/-- Compute the unreachable blocks of `region`, and everything nested in them. -/
-def DeadBlockSet.compute? (ctx : IRContext OpInfo) (region : RegionPtr) : Option DeadBlockSet := do
-  let reachable ← region.reachableBlocks ctx
-  let blocks ← region.getBlocks? ctx
-  let deadBlocks := blocks.filter (!reachable.contains ·)
-  let worklist := deadBlocks.toList.filterMap fun block => (block.getFirstOp! ctx).map .operation
-  DeadBlockSet.collectNested ctx ctx.numNodes worklist { deadBlocks }
+/--
+  Compute the unreachable blocks of `region`, and everything nested in them.
+  Panic, reporting no unreachable blocks, if the reachability analysis runs out of fuel.
+-/
+def DeadBlockSet.compute! (ctx : IRContext OpInfo) (region : RegionPtr) : DeadBlockSet :=
+  match region.reachableBlocks ctx with
+  | none =>
+    haveI : Inhabited DeadBlockSet := ⟨{}⟩
+    panic! "DeadBlockSet.compute!: reachability analysis out of fuel"
+  | some reachable =>
+    let deadBlocks := (region.getBlocks! ctx).filter (!reachable.contains ·)
+    let worklist := deadBlocks.toList.filterMap fun block => (block.getFirstOp! ctx).map .operation
+    DeadBlockSet.collectNested ctx ctx.numNodes worklist { deadBlocks }
 
 /--
   Erase the blocks of `dead` and everything nested in them.
-  Return `none` if any step finds that its preconditions do not hold, which
-  happens only if `dead` is not closed under uses, successors, and nesting.
+  Panic if any step finds that its preconditions do not hold, which happens
+  only if `dead` is not closed under uses, successors, and nesting.
 -/
-def WfRewriter.eraseDeadBlockSet? (ctx : WfIRContext OpInfo) (dead : DeadBlockSet) :
-    Option (WfIRContext OpInfo) := do
+def WfRewriter.eraseDeadBlockSet! (ctx : WfIRContext OpInfo) (dead : DeadBlockSet) :
+    WfIRContext OpInfo :=
   -- Phase 2: no operation in the set uses a value or a block anymore.
-  let ctx ← dead.ops.foldlM WfRewriter.dropOperands? ctx
+  let ctx := dead.ops.foldl WfRewriter.dropOperands! ctx
   -- Phase 3: erase the operations in the set, then their nested blocks and regions.
-  let ctx ← dead.ops.foldlM (init := ctx) fun ctx op => do
-    WfRewriter.eraseOp? (← WfRewriter.detachRegions? ctx op) op
-  let ctx ← dead.nestedBlocks.foldlM (init := ctx) fun ctx block => do
-    WfRewriter.deallocBlock? (← WfRewriter.detachBlockIfAttached? ctx block) block
-  let ctx ← dead.nestedRegions.foldlM WfRewriter.deallocRegion? ctx
+  let ctx := dead.ops.foldl (init := ctx) fun ctx op =>
+    WfRewriter.eraseOp! (WfRewriter.detachRegions! ctx op) op
+  let ctx := dead.nestedBlocks.foldl (init := ctx) fun ctx block =>
+    WfRewriter.deallocBlock! (WfRewriter.detachBlockIfAttached! ctx block) block
+  let ctx := dead.nestedRegions.foldl WfRewriter.deallocRegion! ctx
   -- Phase 4: erase the now empty unreachable blocks.
-  dead.deadBlocks.foldlM (init := ctx) fun ctx block => do
-    WfRewriter.deallocBlock? (← WfRewriter.detachBlock? ctx block) block
+  dead.deadBlocks.foldl (init := ctx) fun ctx block =>
+    WfRewriter.deallocBlock! (WfRewriter.detachBlock! ctx block) block
 
 /--
   Erase the blocks of `region` that are unreachable from its entry block,
   together with everything nested in them.
   Blocks in regions nested in reachable blocks are left unchanged.
 -/
-def WfRewriter.eraseUnreachableBlocks? (ctx : WfIRContext OpInfo) (region : RegionPtr) :
-    Option (WfIRContext OpInfo) := do
-  let dead ← DeadBlockSet.compute? ctx.raw region
+def WfRewriter.eraseUnreachableBlocks! (ctx : WfIRContext OpInfo) (region : RegionPtr) :
+    WfIRContext OpInfo :=
+  let dead := DeadBlockSet.compute! ctx.raw region
   if dead.deadBlocks.isEmpty then
-    return ctx
-  WfRewriter.eraseDeadBlockSet? ctx dead
+    ctx
+  else
+    WfRewriter.eraseDeadBlockSet! ctx dead
 
 /--
   Erase the unreachable blocks of every region nested in `root`.
   Regions are processed outermost first, so regions nested in an erased block are
   skipped.
 -/
-def WfRewriter.eraseUnreachableBlocksIn? (ctx : WfIRContext OpInfo) (root : OperationPtr) :
-    Option (WfIRContext OpInfo) := do
+def WfRewriter.eraseUnreachableBlocksIn! (ctx : WfIRContext OpInfo) (root : OperationPtr) :
+    WfIRContext OpInfo :=
   let worklist := (root.getRegions! ctx.raw).toList.map IRNode.region
-  let nested ← DeadBlockSet.collectNested ctx.raw ctx.raw.numNodes worklist {}
-  nested.nestedRegions.foldlM (init := ctx) fun ctx region =>
+  let nested := DeadBlockSet.collectNested ctx.raw ctx.raw.numNodes worklist {}
+  nested.nestedRegions.foldl (init := ctx) fun ctx region =>
     if region.InBounds ctx.raw then
-      WfRewriter.eraseUnreachableBlocks? ctx region
+      WfRewriter.eraseUnreachableBlocks! ctx region
     else
-      some ctx
+      ctx
 
 end Veir
