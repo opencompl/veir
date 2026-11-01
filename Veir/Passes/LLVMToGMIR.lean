@@ -233,36 +233,56 @@ private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
   return (ctx', some (#[branch], #[]))
 
 /--
+  The properties of the fixed RISC-V stack object for the `llvm.alloca` `op`, or `none` if it is
+  not a constant-count allocation in the entry block of its function, or its size or alignment
+  does not fit the object. The checks on its own opcode, operand and result counts, `inalloca`,
+  and result type are made by `lowerStaticAlloca_pattern`.
+-/
+private def staticAllocaProperties? (ctx : IRContext OpCode) (op : OperationPtr) :
+    Option RISCVStackAllocaProperties := do
+  let properties := op.getProperties! ctx Llvm.alloca
+  let some parentOp := op.getParentOp! ctx | none
+  let some funcOp := FunctionOp.of? parentOp ctx | none
+  let some entry := funcOp.getEntryBlock? | none
+  if (op.getParent! ctx) != some entry then none
+  let some (.int _ (.val count)) := (op.getOperands! ctx)[0]!.constantValue ctx | none
+  let some layout := DataLayout.riscv64.query properties.elem_type.val | none
+  let size := count.toNat * layout.allocSize
+  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
+  if size >= 2 ^ 63 then none
+  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
+    else properties.alignment.value
+  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then none
+  return { size := BitVec.ofNat 64 size
+           alignment := BitVec.ofInt 64 alignment }
+
+/--
   Lower a constant-count entry-block allocation to a fixed RISC-V stack object, as
   `IRTranslator` turns a static alloca into a frame index. Dynamic allocations and
   `inalloca` need additional stack-lifetime support in the backend. This must run before
   legalization, which can hide a narrow constant count behind `g_trunc`.
 -/
-private def lowerStaticAlloca (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (operands, properties) := matchOp op ctx.raw Llvm.alloca 1 | return (ctx, none)
-  if properties.inalloca then return (ctx, none)
-  let .llvmPointerType _ := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  let some parentOp := op.getParentOp! ctx.raw | return (ctx, none)
-  let some funcOp := FunctionOp.of? parentOp ctx.raw | return (ctx, none)
-  let some entry := funcOp.getEntryBlock? | return (ctx, none)
-  if (op.getParent! ctx.raw) != some entry then return (ctx, none)
-  let some (.int _ (.val count)) := operands[0]!.constantValue ctx.raw | return (ctx, none)
-  let some layout := DataLayout.riscv64.query properties.elem_type.val | return (ctx, none)
-  let size := count.toNat * layout.allocSize
-  /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
-  if size >= 2 ^ 63 then return (ctx, none)
-  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
-    else properties.alignment.value
-  if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then
-    return (ctx, none)
-  let props : RISCVStackAllocaProperties :=
-    { size := BitVec.ofNat 64 size
-      alignment := BitVec.ofInt 64 alignment }
-  let (ctx, stackOp) ← WfRewriter.createOp! ctx Riscv_Stack.alloca #[RegisterType.mk]
-      #[] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (stackOp.getResult 0)
-  some (ctx, some (#[stackOp, castBackOp], #[castBackOp.getResult 0]))
+private def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let countType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
+          fun t => t.val matches .llvmPointerType _
+      let count ← Puddle.MatchProg.value countType
+      let root ← Puddle.MatchProg.root (.llvm .alloca) #[count] #[resultType]
+          fun props => !props.inalloca
+      let props ← Puddle.MatchProg.inspectOperation
+          (Outputs := Puddle.Handle OpCode (.prop (.riscv_stack .alloca))) root.op
+          staticAllocaProperties?
+      return (resultType, props))
+    (fun (resultType, props) => do
+      let regType ← Puddle.CreateProg.type (RegisterType.mk none)
+      let stackOp ← Puddle.CreateProg.operation (.riscv_stack .alloca) #[] #[regType] (.inr props)
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[stackOp.res[0]!] #[resultType])
+    (fun castBackOp => castBackOp)
+
+private def lowerStaticAlloca := lowerStaticAlloca_pattern.compile
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -387,6 +407,8 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
   | .integerType i, .byteType b => i.bitwidth = b.bitwidth && 0 < i.bitwidth
   | _, _ => false
 
+def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
+
 /-! ## Pass implementation -/
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
@@ -400,8 +422,8 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
-    .fromLocalRewrite lowerStaticAlloca,
-    .fromLocalRewrite (reconcilePairingCastLocal isIntToByteRoundTrip)
+    lowerStaticAlloca.run,
+    intToByteRoundTrip.run
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying llvm-to-gmir translation"
