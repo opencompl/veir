@@ -70,7 +70,7 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .comb combOp => do
-    let (vals, act) ← Comb.interpretOp' combOp properties operands blockOperands
+    let (vals, act) ← Comb.interpretOp' combOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .hw hwOp => do
     let (vals, act) ← HW.interpretOp' hwOp properties resultTypes blockOperands
