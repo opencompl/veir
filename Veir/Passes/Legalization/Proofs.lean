@@ -3,6 +3,7 @@ module
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.Casting
 public import Veir.Dialects.GMIR.Semantics
+public import Veir.Dialects.GMIR_RISCV.Semantics
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
@@ -11,6 +12,7 @@ import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
 import all Veir.Dialects.GMIR.Semantics
+import all Veir.Dialects.GMIR_RISCV.Semantics
 
 public section
 
@@ -164,6 +166,62 @@ theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
   veir_bv_normalize
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
+
+/-! ### Word operations -/
+
+/-- `x` is its low bits after any extension. -/
+private theorem trunc_ext {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
+    LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h = x := by
+  cases x <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run,
+    BitVec.eq_of_getElem_eq_iff]
+  grind
+
+/-- `x` is its low bits after a sign extension. -/
+private theorem trunc_sext {n m : Nat} (h : n < m) (x : LLVM.Int n) :
+    LLVM.Int.trunc (LLVM.Int.sext x m h) n false false h = x := by
+  cases x <;> simp [LLVM.Int.sext, LLVM.Int.trunc, Id.run, BitVec.eq_of_getElem_eq_iff]
+  grind
+
+/--
+Prove that legalizing an `i32` operation `f` into the word operation `word g` on any-extended
+operands is correct when `g` refines `f` (see the lemmas below).
+-/
+theorem word_legalization (f g : LLVM.Int 32 → LLVM.Int 32 → LLVM.Int 32)
+    (hfg : ∀ x y, f x y ⊒ g x y) (x y : LLVM.Int 32) (ext ext' : BitVec 32) :
+    f x y ⊒
+      LLVM.Int.trunc
+        (GMIR_RISCV.word g (LLVM.Int.ext x 64 ext (by decide))
+          (LLVM.Int.ext y 64 ext' (by decide)))
+        32 false false (by decide) := by
+  rw [GMIR_RISCV.word, trunc_ext, trunc_ext, trunc_sext]
+  exact hfg x y
+
+/--
+Prove that `g_divw` and `g_divuw` may drop the `exact` flag.
+-/
+theorem sdiv_drop_exact (x y : LLVM.Int 32) (exact : Bool) :
+    LLVM.Int.sdiv x y exact ⊒ LLVM.Int.sdiv x y := by
+  veir_bv_decide
+
+theorem udiv_drop_exact (x y : LLVM.Int 32) (exact : Bool) :
+    LLVM.Int.udiv x y exact ⊒ LLVM.Int.udiv x y := by
+  veir_bv_decide
+
+/-- Prove that the word shifts may drop the flags and read only the low 5 bits of the amount. -/
+theorem shl_wordShiftAmount (x y : LLVM.Int 32) (nsw nuw : Bool) :
+    LLVM.Int.shl x y nsw nuw ⊒ LLVM.Int.shl x (GMIR_RISCV.wordShiftAmount y) := by
+  unfold GMIR_RISCV.wordShiftAmount
+  veir_bv_decide
+
+theorem lshr_wordShiftAmount (x y : LLVM.Int 32) (exact : Bool) :
+    LLVM.Int.lshr x y exact ⊒ LLVM.Int.lshr x (GMIR_RISCV.wordShiftAmount y) := by
+  unfold GMIR_RISCV.wordShiftAmount
+  veir_bv_decide
+
+theorem ashr_wordShiftAmount (x y : LLVM.Int 32) (exact : Bool) :
+    LLVM.Int.ashr x y exact ⊒ LLVM.Int.ashr x (GMIR_RISCV.wordShiftAmount y) := by
+  unfold GMIR_RISCV.wordShiftAmount
+  veir_bv_decide
 
 end Veir.Data.LLVM
 
