@@ -8,6 +8,8 @@ import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.Canonicalize.UniqueConstants
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
@@ -33,9 +35,46 @@ def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : Opera
     { value := { props.value with value := canonicalValue } }
   return rewriter.setProperties! op Mod_Arith.constant canonicalProps
 
+open Puddle in
+/-- Commute a constant-like left operand on a fixed-shape GMIR operation, retaining all results. -/
+private def commuteGmirConstantPattern (opcode : GMIR) (numResults : Nat := 1) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhs ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let rhs ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let resultTypes ← (Array.range numResults).mapM fun _ => MatchProg.type (Attr := TypeAttr)
+      let root ← MatchProg.root (.gmir opcode) #[lhs, rhs] resultTypes
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op fun ctx op => do
+        guard ((op.getOperand! ctx 0).isConstantLike ctx &&
+          !(op.getOperand! ctx 1).isConstantLike ctx)
+      return (lhs, rhs, resultTypes, root.properties))
+    (fun (lhs, rhs, resultTypes, props) =>
+      CreateProg.operation (.gmir opcode) #[rhs, lhs] resultTypes (.inr props))
+    (fun op => op)
+
+/-- Closed patterns for GMIR's commutative binary operations; g_uaddo has two results. -/
+private def commuteGmirConstant : GMIR → Option (Puddle.CompiledPattern OpCode)
+  | .g_add => some (commuteGmirConstantPattern .g_add).compile
+  | .g_mul => some (commuteGmirConstantPattern .g_mul).compile
+  | .g_and => some (commuteGmirConstantPattern .g_and).compile
+  | .g_or => some (commuteGmirConstantPattern .g_or).compile
+  | .g_xor => some (commuteGmirConstantPattern .g_xor).compile
+  | .g_smin => some (commuteGmirConstantPattern .g_smin).compile
+  | .g_smax => some (commuteGmirConstantPattern .g_smax).compile
+  | .g_umin => some (commuteGmirConstantPattern .g_umin).compile
+  | .g_umax => some (commuteGmirConstantPattern .g_umax).compile
+  | .g_uaddsat => some (commuteGmirConstantPattern .g_uaddsat).compile
+  | .g_saddsat => some (commuteGmirConstantPattern .g_saddsat).compile
+  | .g_uaddo => some (commuteGmirConstantPattern .g_uaddo 2).compile
+  | _ => none
+
 public def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let opType := op.getOpType! rewriter.ctx.raw
+  if let .gmir opcode := opType then
+    if let some pattern := commuteGmirConstant opcode then
+      return ← pattern.run rewriter op opInBounds
+  -- Other dialects retain the generic stable partition, including variable operand counts.
   if ¬ opType.isCommutative then return rewriter
   let operands := op.getOperands! rewriter.ctx.raw
   let reordered :=

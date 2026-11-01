@@ -1183,13 +1183,52 @@ def memAccesses (len align : Nat) : Array (Nat × Nat) := Id.run do
         offset := offset + width
   return accesses
 
-/--
-  Lower `llvm.intr.memcpy` and `llvm.intr.memset`. A constant length that takes at most
-  `memMaxStores` accesses is expanded into loads and stores; anything else becomes a
-  `riscv_cf.call` to the C library function. Accesses are never wider than the known
-  alignment, so the expansion never introduces a misaligned access.
--/
-def memIntrinsic_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+/-- The accesses for an inline expansion, or none when the intrinsic needs a libcall. -/
+private def memIntrinsicAccesses? (ctx : IRContext OpCode) (isMemset : Bool)
+    (props : LLVMMemIntrinsicProperties) (len : ValuePtr) : Option (Array (Nat × Nat)) := do
+  let align := if isMemset then memArgAlign props 0
+    else min (memArgAlign props 0) (memArgAlign props 1)
+  let len ← matchGConstantIntVal len ctx
+  guard (0 ≤ len ∧ len ≤ 8 * memMaxStores)
+  let accesses := memAccesses len.toNat align
+  guard (accesses.size ≤ memMaxStores)
+  return accesses
+
+/-- Lower a memcpy/memset that cannot be expanded inline to its C library call. -/
+private def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let dst ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let src ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let len ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let root ← MatchProg.root
+          (.llvm (if isMemset then .intr__memset else .intr__memcpy)) #[dst, src, len] #[]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op fun ctx op => do
+        let props : LLVMMemIntrinsicProperties :=
+          if isMemset then op.getProperties! ctx Llvm.intr__memset
+          else op.getProperties! ctx Llvm.intr__memcpy
+        guard (memIntrinsicAccesses? ctx isMemset props (op.getOperand! ctx 2)).isNone
+      return (dst, src, len))
+    (fun (dst, src, len) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let dstCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[dst] #[regType]
+      let srcCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
+      -- memset takes its fill byte as an int, so zero-extend the i8.
+      let srcReg ← if isMemset then do
+          let ext ← CreateProg.operation (.riscv .zextb) #[srcCast.res[0]!] #[regType]
+          pure ext.res[0]!
+        else pure srcCast.res[0]!
+      let lenCast ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[len] #[regType]
+      let callee : FlatSymbolRefAttr := ⟨if isMemset then "@memset" else "@memcpy"⟩
+      CreateProg.operation (.riscv_cf .call) #[dstCast.res[0]!, srcReg, lenCast.res[0]!] #[]
+        (.inl (RISCVCallProperties.mk (some callee))))
+    (fun call => call)
+
+private def memIntrinsicCalls : Array (CompiledPattern OpCode) :=
+  #[memIntrinsicCallPattern false, memIntrinsicCallPattern true].map (·.compile)
+
+/-- Expand a constant-length memcpy/memset into at most memMaxStores aligned accesses. -/
+def memIntrinsicInline_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
   let isMemset := op.getOpType! ctx.raw = Llvm.intr__memset
   if !isMemset && op.getOpType! ctx.raw ≠ Llvm.intr__memcpy then return (ctx, none)
@@ -1197,67 +1236,45 @@ def memIntrinsic_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     if isMemset then op.getProperties! ctx.raw Llvm.intr__memset
     else op.getProperties! ctx.raw Llvm.intr__memcpy
   let operands := op.getOperands! ctx.raw
-  /- `src` is the source pointer of a `memcpy` and the fill byte of a `memset`. -/
+  /- src is the source pointer of a memcpy and the fill byte of a memset. -/
   let (dst, src, len) := (operands[0]!, operands[1]!, operands[2]!)
-  let align := if isMemset then memArgAlign props 0
-    else min (memArgAlign props 0) (memArgAlign props 1)
-  let accesses? : Option (Array (Nat × Nat)) := do
-    let len ← matchGConstantIntVal len ctx.raw
-    guard (0 ≤ len ∧ len ≤ 8 * memMaxStores)
-    let accesses := memAccesses len.toNat align
-    guard (accesses.size ≤ memMaxStores)
-    return accesses
+  let some accesses := memIntrinsicAccesses? ctx.raw isMemset props len | return (ctx, none)
   let (ctx, dstCast) ← castToRegLocal ctx dst
   let dstReg := dstCast.getResult 0
-  match accesses? with
-  | none =>
-    let (ctx, srcCast) ← castToRegLocal ctx src
-    let (ctx, lenCast) ← castToRegLocal ctx len
-    /- `memset` takes its fill byte as an `int`, so zero-extend the `i8`. -/
-    let (ctx, argOps) ← if isMemset then do
-        let (ctx, ext) ← createRISCVUnitLocal ctx .zextb rfl #[srcCast.getResult 0]
-        pure (ctx, #[srcCast, ext])
-      else pure (ctx, #[srcCast])
-    let callee : FlatSymbolRefAttr := ⟨if isMemset then "@memset" else "@memcpy"⟩
-    let (ctx, callOp) ← WfRewriter.createOp! ctx Riscv_Cf.call #[]
-        #[dstReg, argOps.back!.getResult 0, lenCast.getResult 0] #[] #[]
-        (RISCVCallProperties.mk (some callee)) none
-    return (ctx, some (#[dstCast] ++ argOps ++ #[lenCast, callOp], #[]))
-  | some accesses =>
-    let mut ctx := ctx
-    let mut ops := #[dstCast]
-    /- The source register of a `memcpy`; the value to store for a `memset`. Narrower stores
-       take the low bits of the 64-bit splat of the fill byte. -/
-    let mut srcReg := dstReg
-    if isMemset && !accesses.all (·.2 = 1) then
-      match matchGConstantIntVal src ctx.raw with
-      | some c =>
-        let (ctx', li) ← createRISCVImmLocal ctx .li rfl #[] ((c % 256) * 0x0101010101010101)
-        ctx := ctx'; ops := ops.push li; srcReg := li.getResult 0
-      | none =>
-        let (ctx', srcCast) ← castToRegLocal ctx src
-        let (ctx', ext) ← createRISCVUnitLocal ctx' .zextb rfl #[srcCast.getResult 0]
-        let (ctx', ones) ← createRISCVImmLocal ctx' .li rfl #[] 0x0101010101010101
-        let (ctx', splat) ← createRISCVUnitLocal ctx' .mul rfl
-            #[ext.getResult 0, ones.getResult 0]
-        ctx := ctx'; ops := ops ++ #[srcCast, ext, ones, splat]; srcReg := splat.getResult 0
-    else
+  let mut ctx := ctx
+  let mut ops := #[dstCast]
+  /- The source register of a `memcpy`; the value to store for a `memset`. Narrower stores
+     take the low bits of the 64-bit splat of the fill byte. -/
+  let mut srcReg := dstReg
+  if isMemset && !accesses.all (·.2 = 1) then
+    match matchGConstantIntVal src ctx.raw with
+    | some c =>
+      let (ctx', li) ← createRISCVImmLocal ctx .li rfl #[] ((c % 256) * 0x0101010101010101)
+      ctx := ctx'; ops := ops.push li; srcReg := li.getResult 0
+    | none =>
       let (ctx', srcCast) ← castToRegLocal ctx src
-      ctx := ctx'; ops := ops.push srcCast; srcReg := srcCast.getResult 0
-    for (offset, width) in accesses do
-      let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.isVolatile
-      let mut val := srcReg
-      if !isMemset then
-        let (ctx', ld) ← createLoadLocal ctx width srcReg memProps
-        ctx := ctx'; ops := ops.push ld; val := ld.getResult 0
-      let (ctx', st) ← createStoreLocal ctx width val dstReg memProps
-      ctx := ctx'; ops := ops.push st
-    return (ctx, some (ops, #[]))
+      let (ctx', ext) ← createRISCVUnitLocal ctx' .zextb rfl #[srcCast.getResult 0]
+      let (ctx', ones) ← createRISCVImmLocal ctx' .li rfl #[] 0x0101010101010101
+      let (ctx', splat) ← createRISCVUnitLocal ctx' .mul rfl
+          #[ext.getResult 0, ones.getResult 0]
+      ctx := ctx'; ops := ops ++ #[srcCast, ext, ones, splat]; srcReg := splat.getResult 0
+  else
+    let (ctx', srcCast) ← castToRegLocal ctx src
+    ctx := ctx'; ops := ops.push srcCast; srcReg := srcCast.getResult 0
+  for (offset, width) in accesses do
+    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.isVolatile
+    let mut val := srcReg
+    if !isMemset then
+      let (ctx', ld) ← createLoadLocal ctx width srcReg memProps
+      ctx := ctx'; ops := ops.push ld; val := ld.getResult 0
+    let (ctx', st) ← createStoreLocal ctx width val dstReg memProps
+    ctx := ctx'; ops := ops.push st
+  return (ctx, some (ops, #[]))
 
-/-- `llvm.intr.memcpy` / `llvm.intr.memset` -> loads and stores, or a libcall. -/
-def memIntrinsic (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite memIntrinsic_local rewriter op opInBounds
+/-- llvm.intr.memcpy / llvm.intr.memset -> loads and stores, or a libcall. -/
+def memIntrinsic : RewritePattern OpCode :=
+  .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
+    #[.fromLocalRewrite memIntrinsicInline_local]
 
 /-! # gMIR Lowering Patterns
 

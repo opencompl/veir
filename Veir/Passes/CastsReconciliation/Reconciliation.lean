@@ -2,7 +2,6 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Puddle.Builders
-import Veir.Passes.Matching
 import Veir.Passes.DCE.dce
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -76,62 +75,58 @@ def reconcileRegToPtr := (reconcilePairingCast isRiscvRegToPtrCast).compile
 def reconcileModArithToInt := (reconcilePairingCast isPreservingModArithToIntCast).compile
 def reconcileCirToInt := (reconcilePairingCast isCirToIntRoundTrip).compile
 
-/-- Reconciles round-trip casts of the form !riscv.reg->iX->!riscv.reg
-   using zext.b/w/h for 8/16/32-bit values, or slli+slri for other bitwidths.
+open Puddle in
+/-- Match an unallocated-register round trip through an integer of an accepted width. -/
+private def matchRegIntCast (widthMatches : Nat → Bool) :
+    MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
+  let regType ← MatchProg.type (Attr := RegisterType) (·.index.isNone)
+  let interType ← MatchProg.type (Attr := IntegerType) (fun t => widthMatches t.bitwidth)
+  let input ← MatchProg.value regType
+  let parent ← MatchProg.operation (.builtin .unrealized_conversion_cast) #[input] #[interType]
+  let _ ← MatchProg.root (.builtin .unrealized_conversion_cast) #[parent.res[0]!] #[regType]
+  return (regType, interType, input)
 
-  As in `reconcilePairingCastLocal`, the now-dead parent cast is left to DCE. -/
-def reconcileRegIntCastLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some input := matchCastOp op ctx.raw | return (ctx, none)
-  /- Note that reconciliation matches on the second casting operation, so the input type of this op would be the intermediate type -/
-  let interType := input.getType! ctx.raw
-  let resultType := (op.getResult 0).getType! ctx.raw
-  /- If the operand's parent is a cast operation -/
-  let .opResult op' := input | return (ctx, none)
-  let some parentInput := matchCastOp op'.op ctx.raw | return (ctx, none)
-  /- And the result's type coincides with the parent operation operand's type -/
-  let inputType := parentInput.getType! ctx.raw
-  if resultType ≠ inputType then return (ctx, none)
-  /- And the reconciliation involves the right types -/
-  if inputType ≠ RegisterType.mk then return (ctx, none)
-  let .integerType ⟨ interBw, _ ⟩ := interType.val | return (ctx, none)
-  /- Replace the initial operation's output with a zero-extension of the parent's input -/
-  match interBw with
-  | 8 =>
-      let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.zextb #[RegisterType.mk] #[parentInput]
-        #[] #[] () none
-      return (ctx, some (#[newOp], #[newOp.getResult 0]))
-  | 16 =>
-      let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.zexth #[RegisterType.mk] #[parentInput]
-        #[] #[] () none
-      return (ctx, some (#[newOp], #[newOp.getResult 0]))
-  | 32 =>
-      let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.zextw #[RegisterType.mk] #[parentInput]
-        #[] #[] () none
-      return (ctx, some (#[newOp], #[newOp.getResult 0]))
-  | bw =>
-      /- `i0` has no bits to preserve: the round trip is the constant zero, which neither
-         `slli`/`srli` (whose 6-bit shift amount would wrap `64 - 0` to `0`) nor any other
-         two-shift sequence computes. Leave such casts alone. -/
-      if bw = 0 then return (ctx, none)
-      /- for bitwidths with no dedicated instruction, shift left then right -/
-      if bw >= 64 then none else
-      let imm := BitVec.ofInt 64 (64-bw)
-      let (ctx, shlOp) ← WfRewriter.createOp! ctx Riscv.slli #[RegisterType.mk] #[parentInput]
-        #[] #[] (⟨imm⟩ : RISCVImmediateProperties) none
-      let (ctx, srlOp) ← WfRewriter.createOp! ctx Riscv.srli #[RegisterType.mk]
-        #[shlOp.getResult 0] #[] #[] (⟨imm⟩ : RISCVImmediateProperties) none
-      return (ctx, some (#[shlOp, srlOp], #[srlOp.getResult 0]))
+open Puddle in
+/-- Reconcile an 8/16/32-bit register round trip with its dedicated zero extension. -/
+private def reconcileRegIntExt (width : Nat) (opcode : Riscv)
+    (props : propertiesOf (OpCode.riscv opcode)) : Pattern OpCode :=
+  Pattern.Builder
+    (matchRegIntCast (· = width))
+    (fun (regType, _, input) =>
+      CreateProg.operation (.riscv opcode) #[input] #[regType] props)
+    (fun op => op)
+
+open Puddle in
+/-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE. -/
+private def reconcileRegIntShift : Pattern OpCode :=
+  Pattern.Builder
+    -- i0 needs a constant zero, which this two-shift sequence cannot compute.
+    (matchRegIntCast fun bw => bw ≠ 0 && bw ≠ 8 && bw ≠ 16 && bw ≠ 32)
+    (fun (regType, interType, input) => do
+      let (leftProps, rightProps) ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .slli)) ×
+            Handle OpCode (.prop (.riscv .srli))) interType fun type => do
+        let type ← type.cast? IntegerType
+        -- Preserve the existing error on over-wide casts. The identity rule handles i64 first.
+        guard (type.bitwidth < 64)
+        let props : RISCVImmediateProperties := ⟨BitVec.ofNat 64 (64 - type.bitwidth)⟩
+        return (props, props)
+      let left ← CreateProg.operation (.riscv .slli) #[input] #[regType] (.inr leftProps)
+      CreateProg.operation (.riscv .srli) #[left.res[0]!] #[regType] (.inr rightProps))
+    (fun op => op)
+
+private def reconcileRegIntCasts : Array (Puddle.CompiledPattern OpCode) :=
+  #[reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (),
+    reconcileRegIntExt 32 .zextw (), reconcileRegIntShift].map (·.compile)
 
 
 def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[
+  let pattern := RewritePattern.GreedyRewritePattern <| #[
     reconcileRegToI64.run,
     reconcileRegToPtr.run,
     reconcileModArithToInt.run,
-    reconcileCirToInt.run,
-    .fromLocalRewrite reconcileRegIntCastLocal]
+    reconcileCirToInt.run] ++ reconcileRegIntCasts.map (·.run)
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying cast reconciliation"
   -- The patterns leave the (now dead) parent casts behind: `LocalRewritePattern` can only erase
