@@ -15,10 +15,14 @@ public section
 /--
 The RISC-V generic operations, LLVM's `RISCV::G_*`, which the legalizer creates and treats as legal.
 Each has the semantics of its RISC-V instruction: its gMIR operation (`GMIR_RISCV.base`) on the low
-32 bits, sign-extended, where a shift reads only the low 5 bits of its amount.
+32 bits, sign-extended, where a shift reads only the low 5 bits of its amount. LLVM has no
+`G_ADDW`/`G_SUBW`/`G_MULW`: it selects `addw` etc. when every user reads only the low 32 bits.
 -/
 @[opcodes]
 inductive GMIR_RISCV where
+| g_addw
+| g_subw
+| g_mulw
 | g_divw
 | g_divuw
 | g_remuw
@@ -84,6 +88,9 @@ def GMIR_RISCV.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
 
 /-- The gMIR operation that a word operation applies to the low 32 bits of its operands. -/
 def GMIR_RISCV.base : GMIR_RISCV → GMIR
+  | .g_addw => .g_add
+  | .g_subw => .g_sub
+  | .g_mulw => .g_mul
   | .g_divw => .g_sdiv
   | .g_divuw => .g_udiv
   | .g_remuw => .g_urem

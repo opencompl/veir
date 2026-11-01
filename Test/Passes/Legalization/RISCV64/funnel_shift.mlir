@@ -11,7 +11,7 @@
     // CHECK:      "gmir.g_constant"() <{"value" = 32 : i64}> : () -> i64
     // CHECK:      "gmir.g_constant"() <{"value" = 31 : i64}> : () -> i64
     // CHECK:      "gmir_riscv.g_remuw"
-    // CHECK:      "riscv.subw"
+    // CHECK:      "gmir_riscv.g_subw"
     // CHECK:      "gmir_riscv.g_sllw"
     // CHECK:      "gmir_riscv.g_srlw"
     // CHECK:      "gmir_riscv.g_srlw"

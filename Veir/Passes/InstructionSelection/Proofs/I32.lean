@@ -43,6 +43,33 @@ namespace Veir.Data.RISCV
 -/
 
 /--
+  Prove the correctness of the `gmir_riscv.g_addw` lowering pattern.
+-/
+theorem gmir_riscv_addw_refinement {x y : LLVM.Int 64} :
+    GMIR_RISCV.word (Data.LLVM.Int.add · ·) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.addw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR_RISCV.word
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir_riscv.g_subw` lowering pattern.
+-/
+theorem gmir_riscv_subw_refinement {x y : LLVM.Int 64} :
+    GMIR_RISCV.word (Data.LLVM.Int.sub · ·) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.subw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR_RISCV.word
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir_riscv.g_mulw` lowering pattern.
+-/
+theorem gmir_riscv_mulw_refinement {x y : LLVM.Int 64} :
+    GMIR_RISCV.word (Data.LLVM.Int.mul · ·) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR_RISCV.word
+  veir_bv_decide
+
+/--
   Prove the correctness of the `gmir_riscv.g_divw` lowering pattern.
 -/
 theorem gmir_riscv_divw_refinement {x y : LLVM.Int 64} :
@@ -129,11 +156,6 @@ theorem gmir_cpopw_refinement {x : LLVM.Int 32} {nneg : Bool} :
   register (`LLVM.Int.toReg`), so signed operations that inspect the sign
   bit must first `sextw`-extend the low 32 bits.
 -/
-
-theorem mul_refinement_32 {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.mul x y) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.mulw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
 
 /-- `i32` analogue of `udivPow2_refinement` (`udivwPow2`). -/
 theorem udivwPow2_refinement {x : LLVM.Int 32} (k : BitVec 5) :
