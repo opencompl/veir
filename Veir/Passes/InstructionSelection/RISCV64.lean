@@ -1329,6 +1329,18 @@ def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
 def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
 def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
 
+/-- `gmir_riscv.g_addw` (`i64`) -> `riscv.addw`. -/
+def gmirRiscvAddw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_addw) (·.bitwidth = 64) .addw ()
+
+/-- `gmir_riscv.g_subw` (`i64`) -> `riscv.subw`. -/
+def gmirRiscvSubw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_subw) (·.bitwidth = 64) .subw ()
+
+/-- `gmir_riscv.g_mulw` (`i64`) -> `riscv.mulw`. -/
+def gmirRiscvMulw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_mulw) (·.bitwidth = 64) .mulw ()
+
 /-- `gmir_riscv.g_divw` (`i64`) -> `riscv.divw`. -/
 def gmirRiscvDivw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_divw) (·.bitwidth = 64) .divw ()
@@ -1361,6 +1373,9 @@ def gmirRiscvClzw_pattern : Pattern OpCode :=
 def gmirRiscvCtzw_pattern : Pattern OpCode :=
   lowerUnary (.gmir_riscv .g_ctzw) 64 .ctzw ()
 
+def gmirRiscvAddw : Puddle.CompiledPattern OpCode := gmirRiscvAddw_pattern.compile
+def gmirRiscvSubw : Puddle.CompiledPattern OpCode := gmirRiscvSubw_pattern.compile
+def gmirRiscvMulw : Puddle.CompiledPattern OpCode := gmirRiscvMulw_pattern.compile
 def gmirRiscvDivw : Puddle.CompiledPattern OpCode := gmirRiscvDivw_pattern.compile
 def gmirRiscvDivuw : Puddle.CompiledPattern OpCode := gmirRiscvDivuw_pattern.compile
 def gmirRiscvRemuw : Puddle.CompiledPattern OpCode := gmirRiscvRemuw_pattern.compile
@@ -1628,6 +1643,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
+    gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
     gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
     gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
     gmirConstant.run,

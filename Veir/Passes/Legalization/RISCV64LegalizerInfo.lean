@@ -4,7 +4,6 @@ public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
 import Veir.Passes.Legalization.LegalizerHelper
-import Veir.Passes.InstructionSelection.Common
 
 /-!
 # RISC-V 64 Legalization
@@ -110,6 +109,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
       .legalFor [s64],
+      -- LLVM custom-legalizes `s32` into the `s64` operation and a `G_SEXT_INREG` of 32 bits, and
+      -- selects `addw`/`subw` later (see `GMIR_RISCV`).
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
@@ -166,6 +167,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
       ]
     | .g_mul => [
       .legalFor [s64],
+      -- LLVM widens `s32` to `s64`, and selects `mulw` later (see `GMIR_RISCV`).
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
@@ -260,9 +262,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
     ]
     | _ => []
   legalizeCustom
-    | .g_add => lowerBinary (.gmir .g_add) (·.bitwidth = 32) .addw ()
-    | .g_sub => lowerBinary (.gmir .g_sub) (·.bitwidth = 32) .subw ()
-    | .g_mul => lowerBinary (.gmir .g_mul) (·.bitwidth = 32) .mulw ()
+    | .g_add => customLegalizeWordBinary .g_addw
+    | .g_sub => customLegalizeWordBinary .g_subw
+    | .g_mul => customLegalizeWordBinary .g_mulw
     | .g_sdiv => customLegalizeWordBinary .g_divw
     | .g_udiv => customLegalizeWordBinary .g_divuw
     | .g_urem => customLegalizeWordBinary .g_remuw

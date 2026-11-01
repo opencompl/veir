@@ -209,6 +209,21 @@ theorem word_unary_legalization (f g : LLVM.Int 32 → LLVM.Int 32) (hfg : ∀ x
   exact hfg x
 
 /--
+Prove that `g_addw`, `g_subw` and `g_mulw` may drop the no-wrap flags.
+-/
+theorem add_drop_flags (x y : LLVM.Int 32) (nsw nuw : Bool) :
+    LLVM.Int.add x y nsw nuw ⊒ LLVM.Int.add x y := by
+  veir_bv_decide
+
+theorem sub_drop_flags (x y : LLVM.Int 32) (nsw nuw : Bool) :
+    LLVM.Int.sub x y nsw nuw ⊒ LLVM.Int.sub x y := by
+  veir_bv_decide
+
+theorem mul_drop_flags (x y : LLVM.Int 32) (nsw nuw : Bool) :
+    LLVM.Int.mul x y nsw nuw ⊒ LLVM.Int.mul x y := by
+  veir_bv_decide
+
+/--
 Prove that `g_divw` and `g_divuw` may drop the `exact` flag.
 -/
 theorem sdiv_drop_exact (x y : LLVM.Int 32) (exact : Bool) :
