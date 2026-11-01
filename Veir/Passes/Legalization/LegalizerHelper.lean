@@ -234,12 +234,56 @@ def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx o
     (#[ValuePtr.opResult (ext.getResult 0)] ++ operands.extract 1) successors #[] props none
   return (ctx, some (#[ext, branch], #[]))
 
+/--
+Lowers the `w`-bit funnel shift `g_fshl` (`isLeft`) or `g_fshr` to shifts, as the generic case of
+LLVM's `LegalizerHelper::lowerFunnelShiftAsShifts`:
+
+  fshl x y z = (x << (z % w)) | ((y >> 1) >> (w - 1 - z % w))
+  fshr x y z = ((x << 1) << (w - 1 - z % w)) | (y >> (z % w))
+
+Splitting the shift of the other operand into a shift by one and one by `w - 1 - z % w` keeps both
+amounts below `w`. The amount computation is done in the amount's type, which must be at least `w`
+bits wide so that `w` fits in it; the rules ensure this by widening the amount first.
+-/
+def lowerFunnelShift (isLeft : Bool) : Pattern OpCode :=
+  let opcode : GMIR := if isLeft then .g_fshl else .g_fshr
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let z ← MatchProg.value amtType
+      let _ ← MatchProg.root (.gmir opcode) #[x, y, z] #[type]
+      return (type, amtType, x, y, z))
+    (fun (type, amtType, x, y, z) => do
+      let width ← widthConstant type amtType (·)
+      let widthMinusOne ← widthConstant type amtType (· - 1)
+      let one ← createConstant amtType 1
+      let amt ← CreateProg.operation (.gmir .g_urem) #[z, width.res[0]!] #[amtType]
+      let invAmt ← CreateProg.operation (.gmir .g_sub)
+        #[widthMinusOne.res[0]!, amt.res[0]!] #[amtType]
+      let (shX, shY) ← if isLeft then do
+          let shX ← CreateProg.operation (.gmir .g_shl) #[x, amt.res[0]!] #[type]
+          let y1 ← CreateProg.operation (.gmir .g_lshr) #[y, one.res[0]!] #[type]
+          let shY ← CreateProg.operation (.gmir .g_lshr) #[y1.res[0]!, invAmt.res[0]!] #[type]
+          pure (shX, shY)
+        else do
+          let x1 ← CreateProg.operation (.gmir .g_shl) #[x, one.res[0]!] #[type]
+          let shX ← CreateProg.operation (.gmir .g_shl) #[x1.res[0]!, invAmt.res[0]!] #[type]
+          let shY ← CreateProg.operation (.gmir .g_lshr) #[y, amt.res[0]!] #[type]
+          pure (shX, shY)
+      CreateProg.operation (.gmir .g_or) #[shX.res[0]!, shY.res[0]!] #[type])
+    (fun op => op)
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
   | .g_sext => lowerSext
   | .g_zext => lowerZext
+  | .g_fshl => lowerFunnelShift true
+  | .g_fshr => lowerFunnelShift false
   | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
   | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | _ => none
@@ -305,6 +349,9 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_umin, .type 0, width => widenTypeGroup .g_umin (.type 0) .g_sext width
   | .g_umax, .type 0, width => widenTypeGroup .g_umax (.type 0) .g_sext width
   | .g_abs, .type 0, width => widenTypeGroup .g_abs (.type 0) .g_sext width
+  -- The amount is an unsigned number of bits, so its value must be kept as such.
+  | .g_fshl, .type 1, width => widenTypeGroup .g_fshl (.type 1) .g_zext width
+  | .g_fshr, .type 1, width => widenTypeGroup .g_fshr (.type 1) .g_zext width
   | _, _, _ => none
 
 end
