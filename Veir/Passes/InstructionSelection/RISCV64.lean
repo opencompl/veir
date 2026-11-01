@@ -1642,6 +1642,88 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
   let generic := preds.map (gmirIcmp_pattern · false)
   (peepholes ++ generic).map (·.compile)
 
+/--
+  Immediate-form integer comparison selection (`PatGprSimm12` family). When the
+  rhs is a constant that fits a signed 12-bit immediate, lower `g_icmp` directly to
+  `slti`/`sltiu`, inverting the sense with `xori _ 1` for the `≥` predicates and
+  using the identity `x ≤ C  ==  x < C+1` for the `≤` predicates:
+
+      slt  x C  ->       slti  x C
+      ult  x C  ->       sltiu x C
+      sge  x C  -> xori (slti  x C)      1
+      uge  x C  -> xori (sltiu x C)      1
+      sle  x C  ->       slti  x (C+1)
+      ule  x C  ->       sltiu x (C+1)              (requires C ≠ -1)
+
+  The post-legalizer combiner moves the constant to the rhs, so we only match
+  there. Each emitted immediate (`C` or `C+1`) must still land in `[-2048, 2047]`,
+  otherwise we bail and defer to the reg-reg `g_icmp` lowering.
+  For the unsigned `≤` off-by-one form, `C = -1` (unsigned `UINT_MAX`) is
+  excluded: there `C+1` wraps to `0` and `x < 0` would not equal `x ≤ UINT_MAX`.
+
+  The `>` predicates (`sgt`/`ugt`) are deliberately *not* handled: their reg-reg
+  lowering (`slt`/`sltu` with swapped operands, no `xori`) is already the same
+  instruction count, and folding the constant is strictly worse for `x > 0`,
+  which the reg-reg path plus the `li 0 -> x0` combine lowers to a single
+  `slt x0, x`.
+
+  LLVM correspondence (commit d9906882fc61):
+  * `slt`/`ult` immediate: `PatGprSimm12<setlt, SLTI>` / `<setult, SLTIU>`
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1638
+  * `sle`/`ule` off-by-one (`x <= C == x < C+1`, plus the `x <= MAX -> true`
+    fold that motivates the `C = -1` guard): generic `SimplifySetCC`
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp#L5273-L5290
+  * `sge`/`uge` `xori`-inversion: `SETGE`/`SETUGE` are `Expand`ed (legalized to
+    `xor (setlt ...), 1`)
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L326-L332
+-/
+def sltiImm? (pred : Data.LLVM.IntPred) (c : Int) : Option Int :=
+  let value := (BitVec.ofInt 64 c).toInt
+  let imm? : Option Int := match pred with
+    | .slt | .ult | .sge | .uge => some value
+    | .sle => some (value + 1)
+    | .ule => if value = -1 then none else some (value + 1)
+    | _ => none
+  imm?.filter fun imm => -2048 ≤ imm && imm ≤ 2047
+
+/-- `gmir.g_icmp pred x, c` (`i64`) -> `slti`/`sltiu` with the immediate `sltiImm? pred c`,
+    inverted with `xori _ 1` for `sge`/`uge` (see `sltiImm?`). -/
+def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
+  let unsigned := pred matches .ult | .uge | .ule
+  let invert := pred matches .sge | .uge
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value type
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+          fun ⟨const⟩ => (sltiImm? pred const.value).isSome
+      let root ← MatchProg.root (.gmir .g_icmp) #[lhs, constant.res[0]!] #[resType]
+          (fun props => props.predicate = pred)
+      matchLegal .g_icmp resType root.properties (type₁ := type)
+      return (resType, lhs, constant.properties))
+    (fun (resType, lhs, constProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[lhs] #[regType]
+      let cmpOp ← if unsigned then do
+          let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .sltiu)))
+              constProps fun ⟨const⟩ => (sltiImm? pred const.value).map mkRISCVImm
+          CreateProg.operation (.riscv .sltiu) #[castOp.res[0]!] #[regType] props
+        else do
+          let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .slti)))
+              constProps fun ⟨const⟩ => (sltiImm? pred const.value).map mkRISCVImm
+          CreateProg.operation (.riscv .slti) #[castOp.res[0]!] #[regType] props
+      let resOp ← if invert then do
+          let xoriProps ← CreateProg.property (.riscv .xori) (mkRISCVImm 1)
+          CreateProg.operation (.riscv .xori) #[cmpOp.res[0]!] #[regType] xoriProps
+        else pure cmpOp
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[resOp.res[0]!] #[resType])
+    (fun castBackOp => castBackOp)
+
+/-- The `slti`/`sltiu` selections of `gmir.g_icmp` (see `gmirSlti_pattern`). -/
+def gmirSlti : Array (Puddle.CompiledPattern OpCode) :=
+  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map (gmirSlti_pattern · |>.compile)
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -1655,7 +1737,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
-    gmirCpopw.run]
+    gmirCpopw.run] ++ gmirSlti.map (·.run)
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
