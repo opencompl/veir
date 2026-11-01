@@ -1058,7 +1058,7 @@ theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
 /-! ### Immediate-selection folds
 
   Each lemma below states that the immediate-form RISC-V instruction selected by
-  `isel-sdag-riscv64` computes the same value as materializing the constant with
+  `isel-riscv64` or `isel-sdag-riscv64` computes the same value as materializing the constant with
   `li` and using the reg-reg form. Composed with the reg-reg lowering refinements
   above (and `constant_refinement`), this is the soundness obligation for selecting
   the immediate form directly from the LLVM op, mirroring LLVM's `PatGprImm` family.
