@@ -2,7 +2,7 @@ module
 
 public import Veir.Interfaces.FoldInterfaces.Correctness
 import Veir.Interpreter.Refinement.Lemmas
-import Veir.Data.LLVM.Int.FoldLemmas
+import Veir.Data.LLVM.Int.Lemmas
 
 import all Veir.GlobalOpInfo
 import all Veir.Dialects.LLVM.OpInfo

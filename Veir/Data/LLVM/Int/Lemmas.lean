@@ -1,6 +1,7 @@
 module
 
 public import Veir.Data.LLVM.Int.Basic
+public import Veir.Data.Refinement
 import all Veir.Data.LLVM.Int.Basic
 import Veir.ForLean
 
@@ -55,5 +56,19 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
   simp only [Id.run, Veir.Data.LLVM.Int.mul]
   cases x <;> cases y <;>
   simp [BitVec.mul_comm, BitVec.smulOverflow_comm, BitVec.umulOverflow_comm]
+
+/- # fold-table lemmas -/
+
+@[simp]
+theorem add_zero {w : Nat} (x : Int w) (nsw nuw : Bool) :
+    add x (.val (0#w)) nsw nuw = x := by
+  cases x <;> simp [add, Id.run, BitVec.saddOverflow_eq, BitVec.uaddOverflow, BitVec.isLt]
+
+/-- Adding zero never overflows, so the carry may be refined to concrete false. -/
+@[simp]
+theorem uaddOverflowFlag_zero {w : Nat} (x : Int w) :
+    uaddOverflowFlag x (.val (0#w)) ⊒ .val (0#1) := by
+  cases x <;> simp [uaddOverflowFlag, Id.run, BitVec.uaddOverflow_eq, isRefinedBy_eq,
+    BitVec.msb_eq_getLsbD_last]
 
 end Int
