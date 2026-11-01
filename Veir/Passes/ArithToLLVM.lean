@@ -66,21 +66,29 @@ def intBitwidth (rewriter : PatternRewriter OpCode) (v : ValuePtr) : Option Nat 
 /--
   Lower an `arith` op `aOp` (with `numOperands` operands) to the `llvm` op
   `lOp`, carrying over operands and result types unchanged and mapping the
-  properties with `convert`.
+  properties with `convert`. Ops for which `convert` returns `none` are left alone.
 -/
-def lower1to1 (aOp : Arith) (lOp : Llvm)
-    (convert : propertiesOf (OpCode.arith aOp) → propertiesOf (OpCode.llvm lOp)) (numOperands : Nat)
+def lower1to1? (aOp : Arith) (lOp : Llvm)
+    (convert : propertiesOf (OpCode.arith aOp) → Option (propertiesOf (OpCode.llvm lOp)))
+    (numOperands : Nat)
     (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (_opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
   let some (operands, props) := matchOp op rewriter.ctx.raw aOp numOperands
     | return rewriter
+  let some props := convert props
+    | return rewriter
   let ip := InsertPoint.before op
   let (rewriter, results) ← rewriter.createOrFold! (.llvm lOp)
-    (op.getResultTypes! rewriter.ctx.raw) operands #[] #[] (convert props) ip
+    (op.getResultTypes! rewriter.ctx.raw) operands #[] #[] props ip
   let mut rewriter := rewriter
   for (result, index) in results.zipIdx do
     rewriter := rewriter.replaceValue! (op.getResult index) result
   return rewriter.eraseOp! op
+
+/-- `lower1to1?` for a `convert` that always succeeds. -/
+def lower1to1 (aOp : Arith) (lOp : Llvm)
+    (convert : propertiesOf (OpCode.arith aOp) → propertiesOf (OpCode.llvm lOp)) :=
+  lower1to1? aOp lOp (some ∘ convert)
 
 /-- Translate `arith` integer-overflow flags to the `llvm` `nsw`/`nuw` properties. -/
 def flagsToNswNuw (p : ArithIntegerOverflowFlagsProperties) : NswNuwProperties :=
@@ -88,8 +96,9 @@ def flagsToNswNuw (p : ArithIntegerOverflowFlagsProperties) : NswNuwProperties :
 
 /-! ### The 1:1 patterns -/
 
-def lowerConstant := lower1to1 .constant .mlir__constant
-  (fun ⟨attr⟩ => LLVMConstantProperties.mk (.integer attr)) 0
+/-- TODO: Index constants are left alone, as lowering them needs an index → i64 conversion. -/
+def lowerConstant := lower1to1? .constant .mlir__constant
+  (fun props => props.intAttr?.map (LLVMConstantProperties.mk ∘ .integer)) 0
 
 def lowerAddI := lower1to1 .addi .add flagsToNswNuw 2
 def lowerSubI := lower1to1 .subi .sub flagsToNswNuw 2

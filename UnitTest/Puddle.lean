@@ -17,16 +17,17 @@ open Veir.Data
 private theorem constant_iff (ty : IntegerType) (props : propertiesOf (.arith .constant : OpCode))
     (v : RuntimeValue) :
     InterpretsTo (.arith .constant) props #[ty] #[] #[v] ↔
-      v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth props.value.value)) := by
-  simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
+      ∃ attr, props = .int attr ∧ v = .int ty.bitwidth (.val (BitVec.ofInt ty.bitwidth attr.value)) := by
+  cases props <;> simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
     List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
     List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
     Option.getD_some, true_and, interpretOp', Arith.interpretOp', List.getElem_toArray,
-    TypeAttr.of_val, Attribute.of, Interp.pure_eq]
-  constructor
-  · rintro ⟨_, h⟩
-    grind [h .empty]
-  · grind
+    TypeAttr.of_val, Attribute.of, Interp.pure_eq, reduceCtorEq, false_and, exists_false]
+  all_goals
+    constructor
+    · rintro ⟨_, h⟩
+      grind [h .empty]
+    · grind
 
 private theorem addi_iff {signedness : IntegerType.Signedness} (w : Nat) (props : propertiesOf (.arith .addi : OpCode))
     (x y : LLVM.Int w) (v : RuntimeValue) :
@@ -72,7 +73,7 @@ private theorem mul_two_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
 def matchConstant (returnType : Handle OpCode .type) (constant : Int)
     : MatchProg.Builder (Handle OpCode .value) := do
   let op ← MatchProg.operation (.arith .constant) #[] #[returnType]
-    (fun properties => properties.value.value = constant)
+    (fun properties => properties.intAttr?.any (·.value = constant))
   return op.res[0]!
 
 /-- Rewrite `x + 0` to `x`. -/
@@ -93,7 +94,7 @@ theorem addZero_valid : Pattern.Valid addZero := by
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val propzero hinterpCst
-  obtain rfl := (constant_iff _ _ _).mp hinterpCst
+  obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
   intro addProp val hinterpAdd
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAdd
   grind [add_zero_refines]
@@ -120,7 +121,7 @@ theorem mulTwo_valid : Pattern.Valid mulTwo := by
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val proptwo hinterpCst
-  obtain rfl := (constant_iff _ _ _).mp hinterpCst
+  obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
   intro mulProp val hinterpMul
   obtain rfl := (muli_iff _ _ _ _ _).mp hinterpMul
   exists (.int w (LLVM.Int.add x x))
@@ -136,7 +137,7 @@ private def nativeMatch : Pattern OpCode :=
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
       MatchProg.matchNative (returnType, cst.properties)
         (fun (type, properties) =>
-          type = (IntegerType.signless 32) && properties.value.value = 0)
+          type = (IntegerType.signless 32) && properties.intAttr?.any (·.value = 0))
       let _ ← MatchProg.root (.arith .addi) #[x, cst.res[0]!] #[returnType]
       return x)
     pure
@@ -149,14 +150,13 @@ private def nativeApply : Pattern OpCode :=
       let returnType ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value returnType
       let cst ← MatchProg.operation (.arith .constant) #[] #[returnType]
-        (fun properties => properties.value.value = 2)
+        (fun properties => properties.intAttr?.any (·.value = 2))
       let _ ← MatchProg.root (.arith .muli) #[x, cst.res[0]!] #[returnType]
       return (returnType, x, cst.properties))
     (fun (returnType, x, properties) => do
       let (newType, newProperties) ← CreateProg.applyNative (returnType, properties)
         (fun (type, properties) =>
-          some (type, { properties with
-            value := { properties.value with value := properties.value.value + 1 } }))
+          properties.intAttr?.map fun attr => (type, .int { attr with value := attr.value + 1 }))
       let constant ← CreateProg.operation (.arith .constant) #[] #[newType] (.inr newProperties)
       let add ← CreateProg.operation (.arith .addi) #[x, constant.res[0]!] #[newType]
       return add)
@@ -168,7 +168,7 @@ theorem nativeMatch_valid : Pattern.Valid nativeMatch := by
   simp only [RuntimeValue.Conforms.integerType,
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val hinterpCst
-  obtain rfl := (constant_iff _ _ _).mp hinterpCst
+  obtain ⟨_, rfl, rfl⟩ := (constant_iff _ _ _).mp hinterpCst
   intro addProp val hinterpAddi
   obtain rfl := (addi_iff _ _ _ _ _).mp hinterpAddi
   intro _

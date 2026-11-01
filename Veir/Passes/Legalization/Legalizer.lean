@@ -39,10 +39,15 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
 private def combineArtifactStep : LocalRewritePattern OpCode :=
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
-    for pattern in tryCombineInstruction opcode do
-      if let (ctx, some rewrite) ← pattern.interpret ctx op then
-        return (ctx, some rewrite)
-    return (ctx, none)
+    go op (tryCombineInstruction opcode) ctx
+where
+  go (op : OperationPtr) : List (Puddle.Pattern OpCode) → WfIRContext OpCode →
+      Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr))
+    | [], ctx => some (ctx, none)
+    | pattern :: patterns, ctx =>
+      match pattern.interpret ctx op with
+      | some (ctx, none) => go op patterns ctx
+      | result => result
 
 /-- The error message for `op`, which could not be legalized with `action`. -/
 private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR)
