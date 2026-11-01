@@ -10,6 +10,7 @@ public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
 
 import all Veir.Verifier.Basic
+import all Veir.Dialects.Arith.OpInfo
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.ModArith.OpInfo
 
@@ -662,6 +663,27 @@ theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
     op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
   simp [← getOpType!_eq_getOpType, opType]
+
+/-- The operand and result types of a verified `arith.addui_extended`: both operands and the sum
+share one integer type, and the carry is `i1`. -/
+theorem OperationPtr.Verified.arith_addui_extended {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds} (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .arith .addui_extended) :
+    ∃ type carry : IntegerType, carry.bitwidth = 1 ∧
+      op.getOperandTypes! ctx.raw = #[(type : TypeAttr), (type : TypeAttr)] ∧
+      op.getResultTypes! ctx.raw = #[(type : TypeAttr), (carry : TypeAttr)] := by
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
+    ← OperationPtr.getOpType!_eq_getOpType, opType, Arith.verifyLocalInvariants,
+    OperationPtr.verifyArithExtendedOp, OperationPtr.verifyPlainOpCounts,
+    OperationPtr.verifyOperandTypesMatch, OperationPtr.verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure, ite_true] at opVerify
+  have hCounts : op.getNumOperands! ctx.raw = 2 ∧ op.getNumResults! ctx.raw = 2 := by grind
+  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.integerType_eq_of,
+    OperationPtr.getOperandTypes!.size_eq_getNumOperands!,
+    OperationPtr.getResultTypes!.size_eq_getNumResults!, hCounts, Nat.forall_lt_succ_left']
+  grind
 
 theorem OperationPtr.Verified.arith_andi {op : OperationPtr} {opInBounds}
     (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .andi) :
