@@ -13,6 +13,7 @@ import all Veir.Verifier.Basic
 import all Veir.Dialects.Arith.OpInfo
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.ModArith.OpInfo
+import all Veir.Dialects.RISCV.OpInfo
 
 namespace Veir
 
@@ -1160,6 +1161,29 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
     at hPlainOpCounts hModArithType hAttr
+  grind
+
+/-- The operand and result types of a verified `riscv.andi`: one register each, possibly with
+different allocations. -/
+theorem OperationPtr.Verified.riscv_andi {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds} (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .riscv .andi) :
+    ∃ operandType resultType : RegisterType,
+      op.getOperandTypes! ctx.raw = #[(operandType : TypeAttr)] ∧
+      op.getResultTypes! ctx.raw = #[(resultType : TypeAttr)] := by
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
+    ← OperationPtr.getOpType!_eq_getOpType, opType, Riscv.verifyLocalInvariants] at opVerify
+  obtain ⟨_, hTypes, hCounts⟩ := Except.bind_eq_ok.mp opVerify
+  simp only [OperationPtr.verifyRISCVimm12, OperationPtr.verifyPlainOpCounts, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at hCounts
+  have hCounts : (op.getOperandTypes! ctx.raw).size = 1 ∧
+      op.getNumResults ctx.raw opInBounds = 1 := by grind
+  simp [OperationPtr.verifyRISCVRegisterTypes, hCounts, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at hTypes
+  simp [Array.ext_iff, TypeAttr.inj, ← Attribute.registerType_eq_of, hCounts,
+    OperationPtr.getResultTypes!.size_eq_getNumResults!,
+    OperationPtr.getNumResults!_eq_getNumResults opInBounds]
   grind
 
 /-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or
