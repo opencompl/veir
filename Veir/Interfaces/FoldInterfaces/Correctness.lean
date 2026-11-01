@@ -3,12 +3,7 @@ module
 public import Veir.Verifier
 
 /-!
-# Local correctness of dialect fold tables
-
-These contracts concern the decisions returned by `HasOpInfo.tryFold`. They do
-not concern constant materialization, the folding driver, or rewriting the IR.
-The operation's signature and properties come from a verified operation in its
-IR context.
+# Local correctness of dialect fold tables.
 -/
 
 public section
@@ -72,16 +67,8 @@ def Agrees (known : Array (Option RuntimeValue)) (operands : Array RuntimeValue)
     ∀ i, i < known.size → ∀ v, known[i]! = some v → operands[i]! = v
 
 /-- Correctness of every successful table lookup, assuming the operation is verified.
-
-Typing is required independently of execution, including when the source has UB.
-Semantic correctness quantifies over all well-typed completions of the known
-operands, all memories, and data layouts, using the operation's actual successors.
-The interpreter must not fail on any such completion: `Interp.isRefinedBy` holds
-vacuously for a failing source, so without this a table entry for an operand
-shape the interpreter does not handle could return arbitrary replacements.
-It uses the operation interpreter directly, so it does not rely on the driver's
-poison handling or evaluation fallback. Returning `none` creates no obligation.
--/
+Basically, we just insist that interpretation succeeds in an arbitrary memory layout,
+and produces a result that is refined by whatever is in the table. -/
 structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop where
   /-- Every successful lookup returns one replacement of the corresponding type per result. -/
   hasTypes {opIn : op.InBounds ctx.raw} : op.Verified ctx opIn →
