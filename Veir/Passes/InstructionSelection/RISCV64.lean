@@ -1412,6 +1412,62 @@ def gmirBclri : Puddle.CompiledPattern OpCode := gmirBclri_pattern.compile
   Patterns of several gMIR operations, which run before the other phases select the inner operations.
 -/
 
+/-- Match a `gmir.g_constant` of `type` whose value, read as a 64-bit integer, is `value`. -/
+def matchConstant64 (type : Handle OpCode .type) (value : BitVec 64) :
+    MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
+  MatchProg.operation (.gmir .g_constant) #[] #[type] fun ⟨const⟩ =>
+    BitVec.ofInt 64 const.value = value
+
+/--
+  Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary gMIR
+  op on `i64` one of whose operands is a `not` (`xor _, -1`), cast the plain operand `x` and the
+  `not`'s operand `y` to registers, apply the binary reg-reg riscv op `riscvOp`, and cast the result
+  back to `i64`. `notLhs` selects the operand that is the `not`.
+-/
+def gmirBinopNot_pattern (opcode : GMIR) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) (notLhs : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let allOnes ← matchConstant64 type (-1)
+      let notOp ← MatchProg.operation (.gmir .g_xor) #[y, allOnes.res[0]!] #[type]
+      let root ← MatchProg.root (.gmir opcode)
+          (if notLhs then #[notOp.res[0]!, x] else #[x, notOp.res[0]!]) #[type]
+      matchLegal opcode type root.properties
+      return (type, x, y))
+    (fun (type, x, y) => createRegOp type #[x, y] riscvOp (.inl riscvProps))
+    (fun castBackOp => castBackOp)
+
+/-- The mask `gmirOrcb_pattern`'s soundness gate looks for: `0x0101_0101_0101_0101 <<< Y`, whose only
+    set bit in each byte is bit `Y`. -/
+def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
+
+/--
+  `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
+  where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
+-/
+def gmirOrcb_pattern (y : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let z ← MatchProg.value type
+      let mask ← matchConstant64 type (orcbMaskBV y)
+      let m ← MatchProg.operation (.gmir .g_and) #[z, mask.res[0]!] #[type]
+      let shlAmount ← matchConstant64 type (BitVec.ofNat 64 (8 - y))
+      let shl ← MatchProg.operation (.gmir .g_shl) #[m.res[0]!, shlAmount.res[0]!] #[type]
+      /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
+      let rhs ← if y = 0 then pure m.res[0]! else do
+        let lshrAmount ← matchConstant64 type (BitVec.ofNat 64 y)
+        let lshr ← MatchProg.operation (.gmir .g_lshr) #[m.res[0]!, lshrAmount.res[0]!] #[type]
+        pure lshr.res[0]!
+      let root ← MatchProg.root (.gmir .g_sub) #[shl.res[0]!, rhs] #[type]
+      matchLegal .g_sub type root.properties
+      return (type, m.res[0]!))
+    (fun (type, m) => createRegOp type #[m] .orcb (.inl ()))
+    (fun castBackOp => castBackOp)
+
 /-- `and (lshr x n) 1` -> `riscv.bexti x n` (`PatGprImm`-style single-bit extract).
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L536-L537 -/
 def gmirBexti_pattern : Pattern OpCode :=
@@ -1423,8 +1479,7 @@ def gmirBexti_pattern : Pattern OpCode :=
         let sh := (BitVec.ofInt 64 const.value).toInt
         0 ≤ sh && sh ≤ 63
       let lshr ← MatchProg.operation (.gmir .g_lshr) #[x, shamt.res[0]!] #[type]
-      let one ← MatchProg.operation (.gmir .g_constant) #[] #[type] fun ⟨const⟩ =>
-        BitVec.ofInt 64 const.value = 1
+      let one ← matchConstant64 type 1
       let root ← MatchProg.root (.gmir .g_and) #[lshr.res[0]!, one.res[0]!] #[type]
       matchLegal .g_and type root.properties
       return (type, x, shamt.properties))
@@ -1460,7 +1515,11 @@ def gmirSlliuw_pattern : Pattern OpCode :=
 
 /-- The composed patterns, in the order they are tried. -/
 def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
-  #[gmirBexti_pattern, gmirSlliuw_pattern].map (·.compile)
+  let binopNot := #[false, true].flatMap fun notLhs =>
+    #[gmirBinopNot_pattern .g_and .andn () notLhs, gmirBinopNot_pattern .g_or .orn () notLhs,
+      gmirBinopNot_pattern .g_xor .xnor () notLhs]
+  (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++
+    #[gmirBexti_pattern, gmirSlliuw_pattern]).map (·.compile)
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
