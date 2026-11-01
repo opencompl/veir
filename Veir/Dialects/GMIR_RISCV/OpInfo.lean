@@ -25,6 +25,8 @@ inductive GMIR_RISCV where
 | g_sllw
 | g_srlw
 | g_sraw
+| g_clzw
+| g_ctzw
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -70,11 +72,13 @@ Verify the local invariants of a `gmir_riscv` operation in any operation-info ty
 `gmir_riscv` dialect.
 -/
 def GMIR_RISCV.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
-    [HasDialect OpInfo GMIR_RISCV] (_opType : GMIR_RISCV) (op : OperationPtr)
+    [HasDialect OpInfo GMIR_RISCV] (opType : GMIR_RISCV) (op : OperationPtr)
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  op.verifyIntegerBinop ctx opIn
+  match opType with
+  | .g_clzw | .g_ctzw => let _ ← op.verifyIntegerUnop ctx opIn
+  | _ => op.verifyIntegerBinop ctx opIn
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  -- `verifyIntegerBinop` makes the operands the same type as the result.
+  -- `verifyIntegerUnop` and `verifyIntegerBinop` make the operands the same type as the result.
   ((op.getResult 0).getType! ctx.raw).verifyI64
     s!"{instrName}: Expected i64 operands and result"
 
@@ -86,19 +90,25 @@ def GMIR_RISCV.base : GMIR_RISCV → GMIR
   | .g_sllw => .g_shl
   | .g_srlw => .g_lshr
   | .g_sraw => .g_ashr
+  | .g_clzw => .g_ctlz
+  | .g_ctzw => .g_cttz
 
 def GMIR_RISCV.interpretOp' (opType : Veir.GMIR_RISCV) (_properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (_blockOperands : Array BlockPtr) (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
-  let [.int 64 lhs, .int 64 rhs] := operands.toList | none
-  let lhs := Data.LLVM.Int.trunc lhs 32 false false (by decide)
-  let rhs := Data.LLVM.Int.trunc rhs 32 false false (by decide)
-  let rhs := if opType matches .g_sllw | .g_srlw | .g_sraw then wordShiftAmount rhs else rhs
+  let low (x : Data.LLVM.Int 64) := Data.LLVM.Int.trunc x 32 false false (by decide)
+  let operands ← match operands.toList with
+    | [.int 64 x] => pure #[.int 32 (low x)]
+    | [.int 64 lhs, .int 64 rhs] =>
+      let rhs := if opType matches .g_sllw | .g_srlw | .g_sraw then wordShiftAmount (low rhs)
+        else low rhs
+      pure #[.int 32 (low lhs), .int 32 rhs]
+    | _ => none
   -- The default properties have no flags.
   let base := opType.base
   let (results, mem, _) ← GMIR.interpretOp' base (@IsOpCode.propertiesDefault GMIR _ base).default
-      #[IntegerType.signless 32] #[.int 32 lhs, .int 32 rhs] #[] mem
+      #[IntegerType.signless 32] operands #[] mem
   let [.int 32 result] := results.toList | none
   return (#[.int 64 (Data.LLVM.Int.sext result 64 (by decide))], mem, none)
 
