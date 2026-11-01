@@ -8,6 +8,7 @@ import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.Matching
 import Veir.Passes.Canonicalize.UniqueConstants
+import Veir.Rewriter.EraseUnreachableBlocks
 
 namespace Veir
 
@@ -17,7 +18,8 @@ namespace Veir
   Rewrites operations into canonical forms, including propagating constants,
   folding operations, turning branches with constant conditions into unconditional
   branches, moving constants to the right side of commutative operations,
-  and reducing modular constants to their canonical representatives.
+  reducing modular constants to their canonical representatives, and erasing
+  blocks that are unreachable from the entry of their region.
 -/
 
 def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
@@ -129,6 +131,8 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   let some result := RewritePattern.applyInContext pattern ctx
     | throw "Error while applying canonicalization patterns"
   ctx := result
+  if (options.get? "erase-unreachable-blocks").getD true then
+    ctx := WfRewriter.eraseUnreachableBlocksIn! ctx op
   if (options.get? "unique-constants").getD true then
     ctx := UniqueConstants.run ctx op
   return ctx
@@ -145,6 +149,9 @@ public def CanonicalizePass : Pass OpCode :=
           defaultValue := true }),
       ("mod-arith-constant",
         { description := "Reduce modular constants to their canonical representatives."
+          defaultValue := true }),
+      ("erase-unreachable-blocks",
+        { description := "Erase blocks that are unreachable from the entry of their region."
           defaultValue := true }),
       ("unique-constants",
         { description := "Deduplicate constants and hoist them to the top of their isolated scope."
