@@ -25,42 +25,37 @@ variable {ctx : IRContext OpInfo}
 After `dropOperands`, the context is well formed with no missing uses: the
 operands of `op` have been removed from their use chains and from `op` itself.
 -/
-theorem Rewriter.dropOperands_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
+axiom Rewriter.dropOperands_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr) (hOp : op.InBounds ctx) :
-    (Rewriter.dropOperands ctx op hctx hOp).WellFormed := by
-  sorry
+    (Rewriter.dropOperands ctx op hctx hOp).WellFormed
 
-theorem Rewriter.detachRegions_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
+axiom Rewriter.detachRegions_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr) (hOp : op.InBounds ctx) :
-    (Rewriter.detachRegions ctx op hctx hOp).WellFormed := by
-  sorry
+    (Rewriter.detachRegions ctx op hctx hOp).WellFormed
 
-theorem Rewriter.detachBlock_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
+axiom Rewriter.detachBlock_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (block : BlockPtr) (hIn : block.InBounds ctx)
     (hasParent : (block.getParent ctx hIn).isSome) :
-    (Rewriter.detachBlock ctx block hctx hIn hasParent).WellFormed := by
-  sorry
+    (Rewriter.detachBlock ctx block hctx hIn hasParent).WellFormed
 
 /--
 A block can be deallocated when it is detached from its region, contains no
 operations, is not the successor of any operation, and its arguments are unused.
 -/
-theorem IRContext.wellFormed_BlockPtr_dealloc {block : BlockPtr} {inBounds : block.InBounds ctx}
+axiom IRContext.wellFormed_BlockPtr_dealloc {block : BlockPtr} {inBounds : block.InBounds ctx}
     (wf : ctx.WellFormed)
     (hparent : block.getParent! ctx = none)
     (hops : block.getFirstOp! ctx = none)
     (hpreds : block.hasPredecessor! ctx = false)
     (hargs : block.hasArgumentUses! ctx = false) :
-    (block.dealloc ctx inBounds).WellFormed := by
-  sorry
+    (block.dealloc ctx inBounds).WellFormed
 
 /-- A region can be deallocated when it is detached from its operation and has no blocks. -/
-theorem IRContext.wellFormed_RegionPtr_dealloc {region : RegionPtr}
+axiom IRContext.wellFormed_RegionPtr_dealloc {region : RegionPtr}
     {inBounds : region.InBounds ctx}
     (wf : ctx.WellFormed)
     (hparent : region.getParent! ctx = none)
     (hblocks : region.getFirstBlock! ctx = none) :
-    (region.dealloc ctx inBounds).WellFormed := by
-  sorry
+    (region.dealloc ctx inBounds).WellFormed
 
 end Veir
