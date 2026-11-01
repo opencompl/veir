@@ -90,8 +90,10 @@ def Arith.toAttrDict
     Std.HashMap ByteArray Attribute :=
   match op with
   | .constant =>
-    (Std.HashMap.emptyWithCapacity 2).insert
-      "value".toUTF8 (Attribute.integerAttr props.value)
+    let value : Attribute := match props with
+      | .int attr => .integerAttr attr
+      | .index attr => .indexAttr attr
+    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 value
   | .addi | .subi | .muli | .shli | .trunci => Id.run do
     let mut dict := Std.HashMap.emptyWithCapacity 1
     if props.attr.nsw || props.attr.nuw then
@@ -174,7 +176,7 @@ def Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpI
   match value, type.val with
   | .int bw (.val value), .integerType intType =>
     if bw = intType.bitwidth then
-      some (.of Arith.constant (ArithConstantProperties.mk (IntegerAttr.ofInt value.toInt intType)))
+      some (.of Arith.constant (ArithConstantProperties.int (IntegerAttr.ofInt value.toInt intType)))
     else none
   | .int bw .poison, .integerType intType =>
     if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
@@ -235,10 +237,14 @@ def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect Op
   | .constant => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 0 1
-    let props := op.getProperties! ctx.raw Arith.constant
-    if props.value.type ≠ ((op.getResult 0).getType! ctx.raw).val then
-      throw "Expected result type to be equal to the constant's type"
-    op.verifyNormalizedIntegerAttr ctx opIn props.value
+    match op.getProperties! ctx.raw Arith.constant with
+    | .int value =>
+      if value.type ≠ ((op.getResult 0).getType! ctx.raw).val then
+        throw "Expected result type to be equal to the constant's type"
+      op.verifyNormalizedIntegerAttr ctx opIn value
+    | .index _ =>
+      if ((op.getResult 0).getType! ctx.raw).val ≠ Attribute.indexType IndexType.mk then
+        throw "Expected result type to be index"
     pure ()
   | .extui | .extsi => do
     op.checkIsNonNullIntegerType ctx opIn
@@ -259,10 +265,12 @@ def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
   match opType with
   | .constant => do
     let some resType := resultTypes[0]? | none
-    let .integerType bw := resType.val
-      | none
-    return (#[.int bw.bitwidth
-      (.val (BitVec.ofInt bw.bitwidth properties.value.value))], none)
+    match resType.val, properties with
+    | .integerType bw, .int attr =>
+      return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth attr.value))], none)
+    | .indexType _, .index attr =>
+      return (#[.int IndexType.bitwidth (.val attr.value)], none)
+    | _, _ => none
   | .addi => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h: bw' ≠ bw then none else
