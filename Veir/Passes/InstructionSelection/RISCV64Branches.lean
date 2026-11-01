@@ -2,6 +2,8 @@ module
 
 public import Veir.Pass
 import Veir.Passes.Matching
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 import Std
 
 namespace Veir
@@ -156,6 +158,17 @@ def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List OperationPtr) 
     else
       convertible
 
+/-- `llvm.unreachable` -> `riscv_cf.unreachable`. -/
+def unreachable_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let _ ← Puddle.MatchProg.root (.llvm .unreachable) #[] #[]
+      return ())
+    (fun () => do
+      let _ ← Puddle.CreateProg.operation (.riscv_cf .unreachable) #[] #[]
+      return ())
+    (fun () => ⟨#[]⟩)
+
 /--
   Replace the terminator `op` by its RISC-V counterpart if it is a `g_br`,
   a `g_brcond` or an `llvm.unreachable`, and leave any other operation
@@ -166,9 +179,12 @@ def convertBranch (convertible : BlockPtr → Bool) (ctx : WfIRContext OpCode) (
     : Except String (WfIRContext OpCode) := do
   let opType := op.getOpType! ctx
   if opType = OpCode.llvm .unreachable then
-    let some (ctx, _) := WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[]
-      #[] #[] () (InsertPoint.before op)
+    /- Apply the pattern directly rather than through the greedy driver, which would also erase
+       trivially dead operations elsewhere. -/
+    let some (ctx, some (newOps, _)) := unreachable_pattern.interpret ctx op
       | throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
+    let ctx := newOps.foldl (fun ctx newOp => WfRewriter.insertOp! ctx newOp (InsertPoint.before op))
+      ctx
     return WfRewriter.eraseOp! ctx op
   if opType != OpCode.gmir .g_br && opType != OpCode.gmir .g_brcond then
     return ctx
