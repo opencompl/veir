@@ -365,6 +365,10 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
   case felt.felt.felt =>
     obtain ⟨rfl, rfl⟩ := hc; obtain ⟨rfl, rfl⟩ := hd
     exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
+  case smt.smt.smt =>
+    split at hc <;> split at hd <;> (try exact hc.elim) <;> (try exact hd.elim)
+    subst_vars
+    exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
   case float.float.float =>
     split at hc <;> split at hd <;> (try exact hc.elim) <;> (try exact hd.elim)
     subst_vars
@@ -386,6 +390,9 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
   case addr.addr p q => cases p <;> cases q <;> simp_all
   case reg.reg => rw [h₁]
   case felt.felt => obtain ⟨rfl, rfl⟩ := h₁; rfl
+  case smt.smt =>
+    split at h₁ <;> (try exact h₁.elim)
+    subst_vars; rfl
   case float.float =>
     split at h₁ <;> (try exact h₁.elim)
     subst_vars; rfl
