@@ -39,13 +39,22 @@ def customLegalizeWordBinary (wordOpcode : GMIR_RISCV) : Puddle.Pattern OpCode :
     (fun trunc => trunc)
 
 /--
-  Custom legalization of `i32` unary operations into their RISC-V word variant
-  (`g_ctlz` -> `riscv.clzw`, `g_cttz` -> `riscv.ctzw`, `g_ctpop` -> `riscv.cpopw`). For `g_ctlz`
-  and `g_cttz`, LLVM custom-legalizes into `RISCV::G_CLZW` and `RISCV::G_CTZW`.
+  Custom legalization of an `i32` unary operation into the word operation `wordOpcode` (LLVM's
+  `RISCV::G_CLZW`/`G_CTZW`).
 -/
-def customLegalizeWordUnary (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
-  lowerUnary (.gmir opcode) 32 riscvOp riscvProps
+def customLegalizeWordUnary (wordOpcode : GMIR_RISCV) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let x ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.gmir wordOpcode.base) #[x] #[type]
+      return (type, x))
+    (fun (type, x) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let x ← Puddle.CreateProg.operation (.gmir .g_anyext) #[x] #[wideType]
+      let word ← Puddle.CreateProg.operation (.gmir_riscv wordOpcode) #[x.res[0]!] #[wideType]
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[word.res[0]!] #[type])
+    (fun trunc => trunc)
 
 section
 open Puddle in
@@ -170,13 +179,18 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 32,
       .minScalar (.type 0) 64,
     ]
-    -- LLVM has no `s32` rule for `g_ctpop`: it widens it to a `g_ctpop` of a `g_zext`, and selects
-    -- that into `cpopw` with a pattern. We custom-legalize it like `g_ctlz` and `g_cttz` instead.
-    | .g_ctlz | .g_cttz | .g_ctpop => [
+    | .g_ctlz | .g_cttz => [
       .legalForTypePairs [(s64, s64)],
       .customForTypePairs [(s32, s32)],
       .minScalar (.type 0) 32,
       .widenScalarToNextPow2 (.type 0),
+      .scalarSameSizeAs (.type 1) (.type 0),
+    ]
+    -- As in LLVM, there is no word variant of `g_ctpop`: it is widened to a `g_ctpop` of a
+    -- `g_zext`, which instruction selection selects into `cpopw`.
+    | .g_ctpop => [
+      .legalForTypePairs [(s64, s64)],
+      .minScalar (.type 0) 64,
       .scalarSameSizeAs (.type 1) (.type 0),
     ]
     -- As in LLVM, these are lowered to `g_ctlz` and `g_cttz`.
@@ -235,9 +249,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_shl => customLegalizeWordBinary .g_sllw
     | .g_lshr => customLegalizeWordBinary .g_srlw
     | .g_ashr => customLegalizeWordBinary .g_sraw
-    | .g_ctlz => customLegalizeWordUnary .g_ctlz .clzw ()
-    | .g_cttz => customLegalizeWordUnary .g_cttz .ctzw ()
-    | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()
+    | .g_ctlz => customLegalizeWordUnary .g_clzw
+    | .g_cttz => customLegalizeWordUnary .g_ctzw
     | .g_bitreverse => customLegalizeBitreverse8
     | .g_abs => customLegalizeAbs
     | _ => none

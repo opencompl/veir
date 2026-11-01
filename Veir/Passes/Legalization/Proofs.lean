@@ -197,6 +197,18 @@ theorem word_legalization (f g : LLVM.Int 32 → LLVM.Int 32 → LLVM.Int 32)
   exact hfg x y
 
 /--
+Prove that legalizing an `i32` unary operation `f` into the word operation `wordUnary g` on an
+any-extended operand is correct when `g` refines `f` (for `g_clzw` and `g_ctzw`, `g` is `f`).
+-/
+theorem word_unary_legalization (f g : LLVM.Int 32 → LLVM.Int 32) (hfg : ∀ x, f x ⊒ g x)
+    (x : LLVM.Int 32) (ext : BitVec 32) :
+    f x ⊒
+      LLVM.Int.trunc (GMIR_RISCV.wordUnary g (LLVM.Int.ext x 64 ext (by decide))) 32 false false
+        (by decide) := by
+  rw [GMIR_RISCV.wordUnary, trunc_ext, trunc_sext]
+  exact hfg x
+
+/--
 Prove that `g_divw` and `g_divuw` may drop the `exact` flag.
 -/
 theorem sdiv_drop_exact (x y : LLVM.Int 32) (exact : Bool) :

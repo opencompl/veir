@@ -1662,12 +1662,22 @@ def gmirRiscvSrlw_pattern : Pattern OpCode :=
 def gmirRiscvSraw_pattern : Pattern OpCode :=
   lowerBinary (.gmir_riscv .g_sraw) (·.bitwidth = 64) .sraw ()
 
+/-- `gmir_riscv.g_clzw` (`i64`) -> `riscv.clzw`. -/
+def gmirRiscvClzw_pattern : Pattern OpCode :=
+  lowerUnary (.gmir_riscv .g_clzw) 64 .clzw ()
+
+/-- `gmir_riscv.g_ctzw` (`i64`) -> `riscv.ctzw`. -/
+def gmirRiscvCtzw_pattern : Pattern OpCode :=
+  lowerUnary (.gmir_riscv .g_ctzw) 64 .ctzw ()
+
 def gmirRiscvDivw : Puddle.CompiledPattern OpCode := gmirRiscvDivw_pattern.compile
 def gmirRiscvDivuw : Puddle.CompiledPattern OpCode := gmirRiscvDivuw_pattern.compile
 def gmirRiscvRemuw : Puddle.CompiledPattern OpCode := gmirRiscvRemuw_pattern.compile
 def gmirRiscvSllw : Puddle.CompiledPattern OpCode := gmirRiscvSllw_pattern.compile
 def gmirRiscvSrlw : Puddle.CompiledPattern OpCode := gmirRiscvSrlw_pattern.compile
 def gmirRiscvSraw : Puddle.CompiledPattern OpCode := gmirRiscvSraw_pattern.compile
+def gmirRiscvClzw : Puddle.CompiledPattern OpCode := gmirRiscvClzw_pattern.compile
+def gmirRiscvCtzw : Puddle.CompiledPattern OpCode := gmirRiscvCtzw_pattern.compile
 
 /-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
@@ -1703,6 +1713,27 @@ def gmirCttz_pattern : Pattern OpCode :=
 def gmirCtpop_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_ctpop) 64 .cpop () fun opType resType props =>
     matchLegal .g_ctpop resType props (type₁ := opType)
+
+/--
+  `gmir.g_ctpop` (`i64`) of a `gmir.g_zext` from `i32` -> `riscv.cpopw`, as LLVM's
+  `(ctpop (zexti32 x)) -> CPOPW`.
+-/
+def gmirCpopw_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value srcType
+      let zext ← MatchProg.operation (.gmir .g_zext) #[x] #[type]
+      let root ← MatchProg.root (.gmir .g_ctpop) #[zext.res[0]!] #[type]
+      matchLegal .g_ctpop type root.properties
+      return (type, x))
+    (fun (type, x) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[x] #[regType]
+      let cpopw ← CreateProg.operation (.riscv .cpopw) #[castOp.res[0]!] #[regType]
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[cpopw.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
 
 /-- `gmir.g_bswap` (`i64`) -> `riscv.rev8`. -/
 def gmirBswap_pattern : Pattern OpCode :=
@@ -1756,6 +1787,7 @@ def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
 def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
+def gmirCpopw : Puddle.CompiledPattern OpCode := gmirCpopw_pattern.compile
 def gmirBswap : Puddle.CompiledPattern OpCode := gmirBswap_pattern.compile
 def gmirBrev8 : Puddle.CompiledPattern OpCode := gmirBrev8_pattern.compile
 def gmirBitreverse : Puddle.CompiledPattern OpCode := gmirBitreverse_pattern.compile
@@ -1886,7 +1918,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
-    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
+    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
+    gmirCpopw.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
@@ -1906,7 +1939,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
     gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
-    gmirRiscvSraw.run,
+    gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
     gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
