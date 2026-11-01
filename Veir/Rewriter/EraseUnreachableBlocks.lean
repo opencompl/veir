@@ -20,8 +20,9 @@ are erased all at once, in four phases:
 3. Erase the operations in the set, along with their nested blocks and regions.
 4. Erase the unreachable blocks, which are now empty.
 
-Each step checks its own preconditions and panics if they do not hold, so a
-bug in the computation of the set is reported rather than hidden.
+Each step checks its own preconditions and panics if they do not hold. A panic
+prints a message, but execution then continues with a default context, so the
+pass's output after a panic is meaningless.
 -/
 
 public section
@@ -187,9 +188,12 @@ def WfRewriter.eraseDeadBlockSet! (ctx : WfIRContext OpInfo) (dead : DeadBlockSe
   Erase the blocks of `region` that are unreachable from its entry block,
   together with everything nested in them.
   Blocks in regions nested in reachable blocks are left unchanged.
+  A region with at most one block has no unreachable block, so it is returned
+  without running the analysis.
 -/
 def WfRewriter.eraseUnreachableBlocks! (ctx : WfIRContext OpInfo) (region : RegionPtr) :
     WfIRContext OpInfo :=
+  if region.getFirstBlock! ctx.raw == region.getLastBlock! ctx.raw then ctx else
   let dead := DeadBlockSet.compute! ctx.raw region
   if dead.deadBlocks.isEmpty then
     ctx

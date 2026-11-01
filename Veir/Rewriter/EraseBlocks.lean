@@ -26,7 +26,7 @@ variable {ctx : IRContext OpInfo}
 
 /-- Returns true if any argument of the block has a use. -/
 def BlockPtr.hasArgumentUses! (block : BlockPtr) (ctx : IRContext OpInfo) : Bool :=
-  (List.range (block.getNumArguments! ctx)).any fun index =>
+  (block.getNumArguments! ctx).any fun index _ =>
     (ValuePtr.blockArgument (block.getArgument index)).hasUses! ctx
 
 /--
