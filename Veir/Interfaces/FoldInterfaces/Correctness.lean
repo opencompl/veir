@@ -86,7 +86,7 @@ structure CorrectAt (ctx : WfIRContext OpCode) (op : OperationPtr) : Prop where
         (op.getResultTypes! ctx.raw) known = some decisions →
       ∀ operands, RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
         Agrees known operands → ∀ memory layout,
-          (∀ failedOp, op.interpret ctx.raw operands memory layout ≠ .fail failedOp) ∧
+          (op.interpret ctx.raw operands memory layout).isFail = false ∧
           ∃ replacements, FoldDecision.resolveAll decisions operands = some replacements ∧
             Interp.isRefinedBy OperationResult.isRefinedBy
               (op.interpret ctx.raw operands memory layout) (.ok (replacements, memory, none))
@@ -123,7 +123,7 @@ theorem correctAt_int_rhs
       (op.getOperandTypes! ctx.raw) (op.getResultTypes! ctx.raw))
     (evaluate : ∀ lhs memory layout,
       let operands := #[.int type.bitwidth lhs, .int type.bitwidth (rhs type.bitwidth)]
-      (∀ failedOp, op.interpret ctx.raw operands memory layout ≠ .fail failedOp) ∧
+      (op.interpret ctx.raw operands memory layout).isFail = false ∧
       ∃ replacements,
         FoldDecision.resolveAll decisions operands = some replacements ∧
         Interp.isRefinedBy OperationResult.isRefinedBy
