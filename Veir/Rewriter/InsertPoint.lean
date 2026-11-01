@@ -163,7 +163,7 @@ theorem InsertPoint.block!_atEnd_eq :
 theorem InsertPoint.block!_after_eq (hctx : ctx.WellFormed) :
     (InsertPoint.after op ctx blockPtr opHasParent opInBounds).block! ctx = some blockPtr := by
   cases next : op.getNextOp! ctx with
-  | none => rw [InsertPoint.after_eq_of_none_next next]; rfl
+  | none => rw [InsertPoint.after_eq_atEnd_iff.mpr next]; rfl
   | some nextOp =>
     rw [InsertPoint.after_eq_of_some_next next]
     obtain ⟨array, chain⟩ := hctx.opChain blockPtr (by grind)
