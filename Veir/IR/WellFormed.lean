@@ -1539,7 +1539,8 @@ theorem BlockPtr.operationList.getElem?_idxInParent {block : BlockPtr} {op : Ope
   split <;> grind [Array.getElem?_idxOf, BlockPtr.operationList.mem]
 
 grind_pattern BlockPtr.operationList.getElem?_idxInParent =>
-  op.idxInParent ctx (by grind) hctx, op.getParent! ctx, some block where
+  (block.operationList ctx hctx (by grind))[op.idxInParent ctx (by grind) hctx]?,
+  op.getParent! ctx, some block where
   guard op.getParent! ctx = some block
 
 /-- The last operation's index is immediately before the end of its parent's operation list. -/
@@ -1548,13 +1549,8 @@ theorem OperationPtr.idxInParent_add_one_eq_size_of_getLastOp! {block : BlockPtr
     (last : block.getLastOp! ctx = some op) :
     op.idxInParent ctx (by grind) hctx + 1 = (block.operationList ctx hctx hblock).size := by
   have chain := BlockPtr.operationListWF ctx block hblock hctx
-  have nonempty : 0 < (block.operationList ctx hctx hblock).size := by grind
-  have atLast : (block.operationList ctx hctx hblock)[
-      (block.operationList ctx hctx hblock).size - 1] = op := by grind
-  have index := BlockPtr.operationList.idxInParent_getElem hctx hblock
-    ((block.operationList ctx hctx hblock).size - 1) (by grind)
-  simp only [atLast] at index
-  grind
+  grind [BlockPtr.operationList.idxInParent_getElem hctx hblock
+    ((block.operationList ctx hctx hblock).size - 1)]
 
 grind_pattern OperationPtr.idxInParent_add_one_eq_size_of_getLastOp! =>
   op.idxInParent ctx (by grind) hctx, block.getLastOp! ctx, some op where

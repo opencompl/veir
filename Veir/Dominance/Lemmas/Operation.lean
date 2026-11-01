@@ -556,12 +556,16 @@ theorem OperationPtr.dominates_of_idxInParent_le
   apply OperationPtr.ProperlyDominatesInRegion.SameBlock (block := block)
   cases regionSSA : region.hasSSADominance ctx with
   | false => exact .Graph (by grind [OperationPtr.ProperlyDominatesInGraphBlock])
-  | true => exact .Ssa (by grind [OperationPtr.ProperlyDominatesInSSACFGBlock])
+  | true => exact .Ssa (by
+      grind [OperationPtr.ProperlyDominatesInSSACFGBlock,
+        BlockPtr.operationList.getElem?_idxInParent ctx.wellFormed firstParent,
+        BlockPtr.operationList.getElem?_idxInParent ctx.wellFormed secondParent])
 
 grind_pattern OperationPtr.dominates_of_idxInParent_le =>
   op₁.Dominates op₂ ctx enclosingOk,
   op₁.getParent! ctx.raw, op₂.getParent! ctx.raw, some block,
-  block.getParent! ctx.raw, some region where
+  block.getParent! ctx.raw, some region,
+  op₁.idxInParent ctx.raw, op₂.idxInParent ctx.raw where
   guard op₁.getParent! ctx.raw = some block
   guard op₂.getParent! ctx.raw = some block
   guard block.getParent! ctx.raw = some region
@@ -828,18 +832,20 @@ theorem OperationPtr.DominatesIp.not_dominatesIp_before_of_mem_arguments
     grind
 
 /-- Dominating a block's end is equivalent to dominating its last operation. -/
-theorem OperationPtr.DominatesIp.atEnd_iff
-    (parent : op₂.getParent! ctx.raw = some block)
-    (blockParent : block.getParent! ctx.raw = some region)
-    (last : op₂.getNextOp! ctx.raw = none) :
+theorem OperationPtr.DominatesIp.atEnd_iff_of_last
+    (last : block.getLastOp! ctx.raw = some op₂)
+    (blockParent : block.getParent! ctx.raw = some region) :
     op₁.DominatesIp (.atEnd block) ctx enclosingOk ↔ op₁.Dominates op₂ ctx enclosingOk := by
+  have parent : op₂.getParent! ctx.raw = some block := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
   constructor
   · intro dominance
     cases dominance with
     | AtEndSameBlock dominatorParent =>
-      have lastOp : block.getLastOp! ctx.raw = some op₂ := by grind
       have lastIndex := OperationPtr.idxInParent_add_one_eq_size_of_getLastOp!
-        ctx.wellFormed (by grind) lastOp
+        ctx.wellFormed (by grind) last
+      have indexBound := OperationPtr.idxInParent_lt_size_operationList
+        op₁ ctx.raw block dominatorParent (by grind) ctx.wellFormed
       exact OperationPtr.dominates_of_idxInParent_le dominatorParent parent blockParent (by grind)
     | AtEndOtherBlock dominance =>
       cases dominance with
@@ -882,13 +888,11 @@ theorem OperationPtr.DominatesIp.atEnd_iff
           exact .AtEndOtherBlock (.AncestorOpDominated ancestorOfBlock
             (.AncestorDominatedInRegion .refl dominance enclosingOk))
 
-grind_pattern OperationPtr.DominatesIp.atEnd_iff =>
+grind_pattern OperationPtr.DominatesIp.atEnd_iff_of_last =>
   op₁.DominatesIp (.atEnd block) ctx enclosingOk,
-  op₂.getParent! ctx.raw, some block, block.getParent! ctx.raw, some region,
-  op₂.getNextOp! ctx.raw where
-  guard op₂.getParent! ctx.raw = some block
+  block.getLastOp! ctx.raw, some op₂, block.getParent! ctx.raw, some region where
+  guard block.getLastOp! ctx.raw = some op₂
   guard block.getParent! ctx.raw = some region
-  guard op₂.getNextOp! ctx.raw = none
 
 /-- Proper dominance of the next operation implies dominance of its predecessor. -/
 theorem OperationPtr.ProperlyDominates.dominates_of_next {nextOp : OperationPtr}
@@ -964,8 +968,8 @@ theorem OperationPtr.DominatesIp.after_iff
   have parentRegion : op₂.getParentRegion! ctx.raw = some region := by grind
   cases next : op₂.getNextOp! ctx.raw with
   | none =>
-    rw [InsertPoint.after_eq_of_none_next next]
-    exact OperationPtr.DominatesIp.atEnd_iff op₂HasParent blockParent next
+    rw [InsertPoint.after_eq_atEnd_iff.mpr next]
+    exact OperationPtr.DominatesIp.atEnd_iff_of_last (by grind) blockParent
   | some nextOp =>
     rw [InsertPoint.after_eq_of_some_next next, OperationPtr.DominatesIp.before_iff]
     exact ⟨fun dominance => dominance.dominates_of_next op₂HasParent next,
