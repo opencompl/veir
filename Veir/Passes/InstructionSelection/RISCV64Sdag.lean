@@ -12,13 +12,6 @@ namespace Veir
   to lower LLVM IR to RISC-V assembly (64 bits).
 -/
 
-/-- The index of the single set bit of `x`, or `none` when `x` is zero or has more
-    than one bit set (`u &&& (u - 1)` clears the lowest set bit; if that leaves `0`,
-    there was at most one). Used for Zbs single-bit immediate selection. -/
-def singleSetBit (x : BitVec 64) : Option Int :=
-  let u := x.toNat
-  if u == 0 || (u &&& (u - 1)) != 0 then none else some (Nat.log2 u)
-
 /-! # SelectionDAG Lowering Patterns  -/
 
 /--
@@ -146,100 +139,6 @@ def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def orcb (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite orcb_local rewriter op opInBounds
-
-/-! ## Zbs single-bit immediate selection
-
-  These mirror the Zbs mask patterns in `RISCVInstrInfoZb.td`: `bseti`/`binvi`/`bclri`
-  recognize an `or`/`xor`/`and` against a constant whose (complemented, for `bclri`)
-  value is a single set bit, and emit the bit *index*. The `!isInt<12>` guard matches
-  the `SingleBitSetMask`/`BCLRMask` `ImmLeaf` predicates, so the plain `andi`/`ori`/`xori`
-  forms win whenever the immediate already fits a signed 12-bit field.
-
-  `BCLRMask`/`SingleBitSetMask` predicates:
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L69-L80
-  `bclri`/`bseti`/`binvi` select patterns:
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L529-L534
--/
-
-/--
-  Single-bit immediate selection. `complement = false` for `bseti`/`binvi` (the
-  immediate itself is a single set bit); `complement = true` for `bclri` (the
-  *complement* of the immediate is a single set bit). The emitted immediate is the
-  bit index. Only fires when the immediate does not fit a signed 12-bit field.
--/
-def selectSingleBitLocal {α} (matchPair : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × α))
-    (dst : Riscv) (h : Riscv.propertiesOf dst = RISCVImmediateProperties) (complement : Bool)
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchPair op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let some imm := matchConstantIntVal rhs ctx.raw | return (ctx, none)
-  /- ANDI/ORI/XORI handle the simm12 cases; only fire when the immediate doesn't fit. -/
-  if !(imm < -2048 || imm > 2047) then return (ctx, none)
-  let bv := BitVec.ofInt 64 imm
-  let some n := singleSetBit (if complement then ~~~ bv else bv) | return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx lhs
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 n)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
-      #[] #[] (cast h.symm immProps) none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-def bseti := RewritePattern.fromLocalRewrite (selectSingleBitLocal matchOr  .bseti rfl false)
-def binvi := RewritePattern.fromLocalRewrite (selectSingleBitLocal matchXor .binvi rfl false)
-def bclri := RewritePattern.fromLocalRewrite (selectSingleBitLocal matchAnd .bclri rfl true)
-
-/-- `and (lshr x n) 1` -> `riscv.bexti x n` (`PatGprImm`-style single-bit extract).
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L536-L537 -/
-def bexti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := matchAnd op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let some one := matchConstantIntVal rhs ctx.raw | return (ctx, none)
-  if one ≠ 1 then return (ctx, none)
-  let some shrOp := lhs.definingOp? | return (ctx, none)
-  let some (x, shamt, _) := matchLshr shrOp ctx.raw | return (ctx, none)
-  let some sh := matchConstantIntVal shamt ctx.raw | return (ctx, none)
-  if sh < 0 || sh > 63 then return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx x
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 sh)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.bexti #[RegisterType.mk] #[xCastOp.getResult 0]
-      #[] #[] immProps none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `and (lshr x n) 1` -> `riscv.bexti x n` (see `bexti_local`). -/
-def bexti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite bexti_local rewriter op opInBounds
-
-/-- `shl (zext i32->i64 x) (const ∈ [0,31])` -> `riscv.slliuw x shamt`
-    (Zba: `(i64 (shl (and GPR, 0xFFFFFFFF), uimm5)) -> SLLI_UW`; our `zext` is the mask).
-    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
-def slliuw_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (base, shamt, _) := matchShl op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let some sh := matchConstantIntVal shamt ctx.raw | return (ctx, none)
-  if sh < 0 || sh > 31 then return (ctx, none)
-  let some baseOp := base.definingOp? | return (ctx, none)
-  let some (x, _) := matchZext baseOp ctx.raw | return (ctx, none)
-  let .integerType srcT := (x.getType! ctx.raw).val | return (ctx, none)
-  if srcT.bitwidth ≠ 32 then return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx x
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 sh)
-  let (ctx, newOp) ← WfRewriter.createOp! ctx Riscv.slliuw #[RegisterType.mk] #[xCastOp.getResult 0]
-      #[] #[] immProps none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[xCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/-- `shl (zext i32->i64 x) (const ∈ [0,31])` -> `riscv.slliuw x shamt` (see `slliuw_local`). -/
-def slliuw (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite slliuw_local rewriter op opInBounds
 
 /-! ## Division by a constant power of two
 
@@ -411,14 +310,10 @@ def sdivwPow2 := RewritePattern.fromLocalRewrite (sdivPow2GenLocal .sraiw rfl .s
 
 def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  /- The more specific Zbs/Zba rules (`bexti`, `slliuw`) must run before the generic
-     `andi`/`slli` forms, which `isel-riscv64` selects later. The `bseti`/`bclri`/`binvi`
-     rules are mutually exclusive with `ori`/`andi`/`xori` via their `!isInt<12>` guard.
-     `sdivPow2Exact`/`sdivwPow2Exact` are listed before `sdivPow2`/`sdivwPow2` to
+  /- `sdivPow2Exact`/`sdivwPow2Exact` are listed before `sdivPow2`/`sdivwPow2` to
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
   let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb,
-    bexti, bseti, bclri, binvi, slliuw,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying SDAG patterns"
