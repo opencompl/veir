@@ -16,7 +16,7 @@ public section
 
 namespace Veir.Data.LLVM.Int
 
-@[simp]
+@[simp, grind =]
 theorem add_zero {w : Nat} (x : Int w) (nsw nuw : Bool) :
     add x (.val (0#w)) nsw nuw = x := by
   cases x <;> simp [add, Id.run, BitVec.saddOverflow_eq, BitVec.uaddOverflow, BitVec.isLt]
