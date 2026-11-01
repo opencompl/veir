@@ -54,7 +54,8 @@ theorem Riscv.tryFold_correct (opType : op.getOpType! ctx.raw = .riscv riscvOp) 
   apply FoldTable.CorrectAt.of_tryFold_none
   generalize op.getOpType! ctx.raw = opCode at *
   subst opType
-  intro properties resultTypes known
+  intro known
+  generalize op.getProperties! ctx.raw (OpCode.riscv riscvOp) = properties
   simp only [HasOpInfo.tryFold, OpCode.tryFold, Riscv.tryFold]
   split <;> simp_all
 

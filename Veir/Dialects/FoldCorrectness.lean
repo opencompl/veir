@@ -29,7 +29,7 @@ theorem FoldTable.correctAt (ctx : WfIRContext OpCode) (op : OperationPtr) :
     apply FoldTable.CorrectAt.of_tryFold_none
     generalize op.getOpType! ctx.raw = opCode at *
     subst opType
-    intro properties resultTypes known
+    intro known
     rfl
 
 end Veir

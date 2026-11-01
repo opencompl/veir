@@ -50,7 +50,8 @@ theorem Llvm.tryFold_correct (opType : op.getOpType! ctx.raw = .llvm llvmOp) :
   apply FoldTable.CorrectAt.of_tryFold_none
   generalize op.getOpType! ctx.raw = opCode at *
   subst opType
-  intro properties resultTypes known
+  intro known
+  generalize op.getProperties! ctx.raw (OpCode.llvm llvmOp) = properties
   simp only [HasOpInfo.tryFold, OpCode.tryFold, Llvm.tryFold]
   split <;> simp_all
 

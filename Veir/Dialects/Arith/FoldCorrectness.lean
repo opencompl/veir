@@ -75,7 +75,8 @@ theorem Arith.tryFold_correct (opType : op.getOpType! ctx.raw = .arith arithOp) 
   apply FoldTable.CorrectAt.of_tryFold_none
   generalize op.getOpType! ctx.raw = opCode at *
   subst opType
-  intro properties resultTypes known
+  intro known
+  generalize op.getProperties! ctx.raw (OpCode.arith arithOp) = properties
   simp only [HasOpInfo.tryFold, OpCode.tryFold, Arith.tryFold]
   split <;> simp_all
 

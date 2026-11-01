@@ -100,8 +100,9 @@ theorem CorrectAt.of_verified {ctx : WfIRContext OpCode} {op : OperationPtr}
 
 /-- An operation whose opcode never folds is trivially correct. -/
 theorem CorrectAt.of_tryFold_none {ctx : WfIRContext OpCode} {op : OperationPtr}
-    (h : ∀ properties resultTypes known,
-      HasOpInfo.tryFold (op.getOpType! ctx.raw) properties resultTypes known = none) :
+    (h : ∀ known, HasOpInfo.tryFold (op.getOpType! ctx.raw)
+      (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
+      (op.getResultTypes! ctx.raw) known = none) :
     CorrectAt ctx op where
   hasTypes _ known decisions _ hFold := by simp [h] at hFold
   preservesSemantics _ known decisions hFold := by simp [h] at hFold
