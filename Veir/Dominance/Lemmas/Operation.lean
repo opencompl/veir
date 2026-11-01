@@ -989,8 +989,8 @@ theorem OperationPtr.DominatesIp.after_iff_of_not_enclosing
   have parentRegion : op₂.getParentRegion! ctx.raw = some region := by grind
   cases next : op₂.getNextOp! ctx.raw with
   | none =>
-    rw [InsertPoint.after_eq_of_none_next next]
-    exact OperationPtr.DominatesIp.atEnd_iff op₂HasParent blockParent next
+    rw [InsertPoint.after_eq_atEnd_iff.mpr next]
+    exact OperationPtr.DominatesIp.atEnd_iff_of_last (by grind) blockParent
   | some nextOp =>
     rw [InsertPoint.after_eq_of_some_next next, OperationPtr.DominatesIp.before_iff]
     exact ⟨fun dominance => dominance.dominates_of_next op₂HasParent next,
