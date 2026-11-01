@@ -59,13 +59,13 @@ theorem mul_comm {w : Nat} {nsw nuw : Bool} (x y : Int w) :
 
 /- # fold-table lemmas -/
 
-@[simp]
+@[simp, grind =]
 theorem add_zero {w : Nat} (x : Int w) (nsw nuw : Bool) :
     add x (.val (0#w)) nsw nuw = x := by
   cases x <;> simp [add, Id.run, BitVec.saddOverflow_eq, BitVec.uaddOverflow, BitVec.isLt]
 
 /-- Adding zero never overflows, so the carry may be refined to concrete false. -/
-@[simp]
+@[simp, grind .]
 theorem uaddOverflowFlag_zero {w : Nat} (x : Int w) :
     uaddOverflowFlag x (.val (0#w)) ⊒ .val (0#1) := by
   cases x <;> simp [uaddOverflowFlag, Id.run, BitVec.uaddOverflow_eq, isRefinedBy_eq,
