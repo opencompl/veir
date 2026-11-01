@@ -1305,18 +1305,17 @@ theorem OperationPtr.parent!_next
     (op nextOp : OperationPtr)
     (hWF : ctx.WellFormed)
     (opInBounds : op.InBounds ctx)
-    (hnext : op.getNextOp! ctx = some nextOp)
-    (hparent : nextOp.getParent! ctx = some block) :
-    op.getParent! ctx = some block := by
-  have ⟨array, harray⟩ := hWF.opChain block (by grind)
-  have : nextOp ∈ array := by grind
-  grind
+    (hnext : op.getNextOp! ctx = some nextOp) :
+    op.getParent! ctx = nextOp.getParent! ctx := by
+  cases parent : op.getParent! ctx with
+  | none => grind
+  | some block =>
+    have ⟨array, harray⟩ := hWF.opChain block (by grind)
+    grind
 
 grind_pattern OperationPtr.parent!_next =>
-  ctx.WellFormed, op.getNextOp! ctx, nextOp.getParent! ctx,
-  op.getParent! ctx, some block where
+  ctx.WellFormed, op.getNextOp! ctx, some nextOp where
   guard (op.getNextOp! ctx) = some nextOp
-  guard (nextOp.getParent! ctx) = some block
 
 theorem IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some
     {ctx : IRContext OpInfo} {bl prevBl : BlockPtr} (hbl : bl.InBounds ctx)

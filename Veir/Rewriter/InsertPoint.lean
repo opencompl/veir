@@ -166,8 +166,7 @@ theorem InsertPoint.block!_after_eq (hctx : ctx.WellFormed) :
   | none => rw [InsertPoint.after_eq_atEnd_iff.mpr next]; rfl
   | some nextOp =>
     rw [InsertPoint.after_eq_of_some_next next]
-    obtain ⟨array, chain⟩ := hctx.opChain blockPtr (by grind)
-    exact chain.parent!_nextOp_eq opInBounds opHasParent next
+    grind
 
 /-- The insertion point at a block's start belongs to that block, including when it is empty. -/
 @[simp, grind =]
