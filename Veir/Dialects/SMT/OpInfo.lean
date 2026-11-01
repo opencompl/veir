@@ -62,11 +62,19 @@ instance : IsOpCode SMT where
   fromAttrDict := SMT.fromAttrDict
   toAttrDict := SMT.toAttrDict
 
+/--
+  The SMT sort of the SMT type `ty`.
+  Returns `none` if `ty` is not an SMT type.
+-/
 def TypeAttr.smtSort? (ty : TypeAttr) : Option SMT.SortType :=
   match ty.val with
   | .smtSortType sortType => some sortType
   | _ => none
 
+/--
+Verify the local invariants of a `smt` operation in any operation-info type
+containing the `smt` dialect.
+-/
 @[expose]
 def SMT.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo SMT]
     (opType : SMT) (op : OperationPtr) (ctx : WfIRContext OpInfo)
