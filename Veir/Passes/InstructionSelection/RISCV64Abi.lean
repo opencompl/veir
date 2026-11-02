@@ -105,10 +105,12 @@ def isRegPassed (t : TypeAttr) : Bool :=
 /--
   Whether every argument and result of the function `op` is passed in a single integer
   register, or already is one. Otherwise its boundary would only be partly coerced, so
-  the whole function is left unlowered.
+  the whole function is left unlowered. A variadic function is left unlowered too: its
+  variadic arguments are not modeled.
 -/
 private def hasRegBoundary (ctx : IRContext OpCode) (op : OperationPtr) : Bool := Id.run do
   let some funcOp := FunctionOp.of? op ctx | return false
+  if funcOp.getFunctionType.isVarArg then return false
   let regPassed (t : Attribute) : Bool :=
     (t matches .registerType _) || (if h : t.isType then isRegPassed (t.asType h) else false)
   return funcOp.getArgumentTypes.all regPassed &&
