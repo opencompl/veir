@@ -167,11 +167,8 @@ def GMIR.toAttrDict
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
   | .g_saddo | .g_ssubo
-  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
-  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
-  | .g_fshl | .g_fshr | .g_rotl | .g_rotr
-  | .g_merge_values | .g_unmerge_values => {}
+  | .g_ctlz_zero_poison | .g_cttz_zero_poison
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr => {}
 
 #generate_dialect GMIR
 
@@ -873,7 +870,6 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
   | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false

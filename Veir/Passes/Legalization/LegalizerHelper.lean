@@ -456,9 +456,9 @@ def lower? (info : LegalizerInfo) : (opcode : GMIR) → LegalityQuery opcode →
   | .g_usubo, _ => lowerUAddOUSubO false
   | .g_saddo, _ => lowerSAddOSSubO true
   | .g_ssubo, _ => lowerSAddOSSubO false
-  | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
-  | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
-  | _ => none
+  | .g_ctlz_zero_poison, _ => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
+  | .g_cttz_zero_poison, _ => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
+  | _, _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
