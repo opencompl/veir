@@ -22,8 +22,7 @@ def main (args : List String) : IO Unit := do
     IO.eprintln "  Reads the program from standard input if no filename is given."
     IO.Process.exit 2
   | .ok filename =>
-    match ← parseSourceFile filename (allowUnregisteredDialect := true)
-        (verifyAfterParse := false) with
+    match ← parseSourceFile filename with
     | .ok (ctx, moduleOp, _) =>
       let rawCtx : IRContext OpCode := ctx
       let region := moduleOp.getRegion! rawCtx 0

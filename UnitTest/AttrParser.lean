@@ -169,6 +169,27 @@ macro "#assert " e:term : command =>
 #assert expectErrorType "vector<0xi32>" "0 is not a supported dimension" (some 7)
 #assert expectErrorType "vector<0x32xi32>" "0 is not a supported dimension" (some 7)
 
+/-! ## Tensor types -/
+
+#assert expectSuccessType "tensor<4xf32>" (TensorType.mk #[4] FloatType.f32)
+#assert expectSuccessType "tensor<2x4xi32>" (TensorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "tensor<2 x 4 x i32>" (TensorType.mk #[2, 4] (IntegerType.signless 32))
+#assert expectSuccessType "tensor<f32>" (TensorType.mk #[] FloatType.f32)
+#assert expectSuccessAttr "tensor<4xf32>" (TensorType.mk #[4] FloatType.f32)
+#assert ToString.toString (TensorType.mk #[2, 4] (IntegerType.signless 32) : TensorType) ==
+  "tensor<2x4xi32>"
+#assert ToString.toString (TensorType.mk #[] FloatType.f32 : TensorType) == "tensor<f32>"
+#assert expectSuccessType "tensor<0xf32>" (TensorType.mk #[0] FloatType.f32)
+#assert expectSuccessType "tensor<4x0xi32>" (TensorType.mk #[4, 0] (IntegerType.signless 32))
+#assert expectErrorType "tensor<4x>" "tensor element type expected" (some 9)
+#assert expectErrorType "tensor<?xf32>" "dynamic and unranked tensor types are not supported" (some 7)
+#assert expectErrorType "tensor<4x?xf32>" "dynamic and unranked tensor types are not supported"
+  (some 9)
+#assert expectErrorType "tensor<*xf32>" "dynamic and unranked tensor types are not supported" (some 7)
+#assert expectErrorType "tensor<4xtensor<2xf32>>" "invalid tensor element type" (some 9)
+#assert expectErrorType "tensor<4x() -> ()>" "invalid tensor element type" (some 9)
+#assert expectErrorType "vector<4xtensor<2xf32>>" "invalid vector element type" (some 9)
+
 /-! ## Integer attributes -/
 
 #assert expectErrorAttr "0 : 2" "integer or float type expected after ':' in numeric attribute" (some 4)
@@ -182,6 +203,20 @@ macro "#assert " e:term : command =>
     expectErrorAttr s!"-{zero} : i{width}"
       "integer constant out of range for attribute" (some 1) &&
     expectSuccessAttr s!"{zero} : i{width}" (IntegerAttr.mk 0 (IntegerType.signless width))
+
+/-! ## Index attributes -/
+
+#assert expectSuccessAttr "4 : index" (IndexAttr.mk 4)
+#assert expectRoundTripAttr "-1 : index"
+-- MLIR stores index attributes as 64-bit integers, so only [-2^63, 2^63) fits.
+#assert expectSuccessAttr "9223372036854775807 : index" (IndexAttr.mk (2 ^ 63 - 1))
+#assert expectSuccessAttr "-9223372036854775808 : index" (IndexAttr.mk (-2 ^ 63))
+#assert expectErrorAttr "9223372036854775808 : index"
+  "integer constant out of range for attribute" (some 0)
+#assert expectErrorAttr "-9223372036854775809 : index"
+  "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "-0 : index" "integer constant out of range for attribute" (some 1)
+#assert expectErrorAttr "1.5 : index" "integer literal expected in index attribute" (some 11)
 
 /-! ## Integer overflow flags attributes -/
 
@@ -424,6 +459,7 @@ macro "#assert " e:term : command =>
 -- Aliases also resolve where a specific builtin type is required.
 #assert (testAttrWithAliases "1 : !int" [("int", (IntegerType.signless 32))]
   = .ok (IntegerAttr.mk 1 (IntegerType.signless 32)))
+#assert (testAttrWithAliases "4 : !idx" [("idx", IndexType.mk)] = .ok (IndexAttr.mk 4))
 #assert (testAttrWithAliases "array<!int: 1, 2>" [("int", (IntegerType.signless 32))]
   = .ok (DenseArrayAttr.mk (IntegerType.signless 32) #[1, 2]))
 #assert (testTypeWithAliases "!cuda_tile.ptr<!int>" [("int", (IntegerType.signless 32))]
@@ -543,6 +579,8 @@ macro "#assert " e:term : command =>
 
 /-! ## LLVM Pointer type -/
 #assert expectSuccessType "!llvm.ptr" (LLVM.PointerType.mk)
+#assert expectSuccessType "!llvm.ptr<1>" (LLVM.PointerType.mk 1)
+#assert expectSuccessType "!llvm.ptr<200>" (LLVM.PointerType.mk 200)
 
 /-! ## LLVM Void type -/
 #assert expectSuccessType "!llvm.void" (LLVM.VoidType.mk)
@@ -599,16 +637,16 @@ macro "#assert " e:term : command =>
   (LLVM.StructType.mk (some "node".toUTF8) false #[LLVM.PointerType.mk,
     UnregisteredAttr.mk "!llvm.struct<\"node\">" true none])
 -- Fields unsupported by the type parser retain the entire struct as text.
-#assert expectSuccessType "!llvm.struct<(ptr<1>, i32)>"
-  ⟨UnregisteredAttr.mk "!llvm.struct<(ptr<1>, i32)>" true none, by grind⟩
+#assert expectSuccessType "!llvm.struct<(foo<1>, i32)>"
+  ⟨UnregisteredAttr.mk "!llvm.struct<(foo<1>, i32)>" true none, by grind⟩
 #assert expectSuccessType "!llvm.struct<(vector<[4]xi32>)>"
   ⟨UnregisteredAttr.mk "!llvm.struct<(vector<[4]xi32>)>" true none, by grind⟩
-#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, ptr<1>)>>"
+#assert expectSuccessType "!llvm.array<2 x struct<\"s\", packed (i8, foo<1>)>>"
   (LLVM.ArrayType.mk 2
-    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, ptr<1>)>" true none : Attribute))
+    (UnregisteredAttr.mk "!llvm.struct<\"s\", packed (i8, foo<1>)>" true none : Attribute))
 -- The opaque fallback still requires balanced delimiters.
-#assert !(testType "!llvm.struct<(ptr<1>, i32]>").isOk
-#assert !(testType "!llvm.struct<(ptr<1>, i32)").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32]>").isOk
+#assert !(testType "!llvm.struct<(foo<1>, i32)").isOk
 
 
 /-! ## LLVM parameterless types -/

@@ -6,7 +6,7 @@
 // entry either way.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg) -> i64, sym_name = "main"}> ({
+  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "main"}> ({
   ^bb0(%x: !riscv.reg):
     %escapes = "riscv_stack.alloca"() <{"size" = 16 : i64, "alignment" = 8 : i64}> : () -> !riscv.reg
     %folds = "riscv_stack.alloca"() <{"size" = 8 : i64, "alignment" = 16 : i64}> : () -> !riscv.reg

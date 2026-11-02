@@ -31,6 +31,8 @@
   %select = "gmir.g_select"(%c, %d, %d) : (i64, i8, i8) -> i8
   %ctlz = "gmir.g_ctlz"(%a) : (i32) -> i8
   %cttz = "gmir.g_cttz"(%a) : (i32) -> i32
+  %ctlz_zero_poison = "gmir.g_ctlz_zero_poison"(%a) : (i32) -> i8
+  %cttz_zero_poison = "gmir.g_cttz_zero_poison"(%a) : (i32) -> i32
   %ctpop = "gmir.g_ctpop"(%c) : (i64) -> i32
   %sext_inreg = "gmir.g_sext_inreg"(%c) <{sz = 32 : i64}> : (i64) -> i64
   %constant = "gmir.g_constant"() <{value = -1 : i8}> : () -> i8
@@ -44,6 +46,8 @@
   %usube, %usube_borrow = "gmir.g_usube"(%a, %b, %usubo_borrow) : (i32, i32, i1) -> (i32, i1)
   %saddo, %saddo_overflow = "gmir.g_saddo"(%a, %b) : (i32, i32) -> (i32, i1)
   %ssubo, %ssubo_overflow = "gmir.g_ssubo"(%a, %b) : (i32, i32) -> (i32, i1)
+  %fshl = "gmir.g_fshl"(%a, %b, %c) : (i32, i32, i64) -> i32
+  %rotl = "gmir.g_rotl"(%a, %d) : (i32, i8) -> i32
 }) : () -> ()
 
 // CHECK: "gmir.g_mul"(%{{.*}}, %{{.*}}) <{"overflowFlags" = 3 : i32}> : (i32, i32) -> i32
@@ -75,6 +79,8 @@
 // CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i8, i8) -> i8
 // CHECK: "gmir.g_ctlz"(%{{.*}}) : (i32) -> i8
 // CHECK: "gmir.g_cttz"(%{{.*}}) : (i32) -> i32
+// CHECK: "gmir.g_ctlz_zero_poison"(%{{.*}}) : (i32) -> i8
+// CHECK: "gmir.g_cttz_zero_poison"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_ctpop"(%{{.*}}) : (i64) -> i32
 // CHECK: "gmir.g_sext_inreg"(%{{.*}}) <{"sz" = 32 : i64}> : (i64) -> i64
 // CHECK: "gmir.g_constant"() <{"value" = -1 : i8}> : () -> i8
@@ -88,3 +94,5 @@
 // CHECK: "gmir.g_usube"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i1) -> (i32, i1)
 // CHECK: "gmir.g_saddo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
 // CHECK: "gmir.g_ssubo"(%{{.*}}, %{{.*}}) : (i32, i32) -> (i32, i1)
+// CHECK: "gmir.g_fshl"(%{{.*}}, %{{.*}}, %{{.*}}) : (i32, i32, i64) -> i32
+// CHECK: "gmir.g_rotl"(%{{.*}}, %{{.*}}) : (i32, i8) -> i32

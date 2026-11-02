@@ -364,7 +364,7 @@ def ValuePtr.ProperlyDominates (value : ValuePtr) (op : OperationPtr)
         argument.block.Dominates block ctx
 
 /--
-Dominance between a value and an insertion point:
+Dominance between an in-bounds value and an insertion point:
 * An operation result properly dominates insertion points that are properly dominated by its
   defining operation and outside of any operation regions;
 * A block argument properly dominates insertion points in blocks that are dominated by its defining
@@ -373,9 +373,11 @@ Dominance between a value and an insertion point:
 inductive ValuePtr.DominatesIp :
     (value : ValuePtr) → (ip : InsertPoint) → (ctx : WfIRContext OpInfo) → Prop where
   | OpResult {result : OpResultPtr} {ip : InsertPoint}
+    (resultInBounds : result.InBounds ctx.raw)
     (dominance : result.op.DominatesIp ip ctx false) :
     DominatesIp result ip ctx
   | BlockArg {argument : BlockArgumentPtr} {ip : InsertPoint} {ipBlock : BlockPtr}
+    (argumentInBounds : argument.InBounds ctx.raw)
     (ipParent : ip.block! ctx.raw = some ipBlock)
     (dominance : argument.block.Dominates ipBlock ctx) :
       DominatesIp argument ip ctx

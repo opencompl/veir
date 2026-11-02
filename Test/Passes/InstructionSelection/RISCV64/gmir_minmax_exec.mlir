@@ -4,17 +4,26 @@
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
+// The constants are frozen so that the combiner does not fold the min/max away.
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i32, i32, i32, i32, i8, i8, i64, i32, i8)}> ({
     // The operands are ordered differently as signed and as unsigned values.
-    %neg64 = "llvm.mlir.constant"() <{value = -2 : i64}> : () -> i64
-    %pos64 = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
-    %neg32 = "llvm.mlir.constant"() <{value = -2 : i32}> : () -> i32
-    %pos32 = "llvm.mlir.constant"() <{value = 3 : i32}> : () -> i32
-    %neg8 = "llvm.mlir.constant"() <{value = -2 : i8}> : () -> i8
-    %pos8 = "llvm.mlir.constant"() <{value = 3 : i8}> : () -> i8
-    %min64 = "llvm.mlir.constant"() <{value = -9223372036854775808 : i64}> : () -> i64
-    %min32 = "llvm.mlir.constant"() <{value = -2147483648 : i32}> : () -> i32
+    %neg64_c = "llvm.mlir.constant"() <{value = -2 : i64}> : () -> i64
+    %neg64 = "llvm.freeze"(%neg64_c) : (i64) -> i64
+    %pos64_c = "llvm.mlir.constant"() <{value = 3 : i64}> : () -> i64
+    %pos64 = "llvm.freeze"(%pos64_c) : (i64) -> i64
+    %neg32_c = "llvm.mlir.constant"() <{value = -2 : i32}> : () -> i32
+    %neg32 = "llvm.freeze"(%neg32_c) : (i32) -> i32
+    %pos32_c = "llvm.mlir.constant"() <{value = 3 : i32}> : () -> i32
+    %pos32 = "llvm.freeze"(%pos32_c) : (i32) -> i32
+    %neg8_c = "llvm.mlir.constant"() <{value = -2 : i8}> : () -> i8
+    %neg8 = "llvm.freeze"(%neg8_c) : (i8) -> i8
+    %pos8_c = "llvm.mlir.constant"() <{value = 3 : i8}> : () -> i8
+    %pos8 = "llvm.freeze"(%pos8_c) : (i8) -> i8
+    %min64_c = "llvm.mlir.constant"() <{value = -9223372036854775808 : i64}> : () -> i64
+    %min64 = "llvm.freeze"(%min64_c) : (i64) -> i64
+    %min32_c = "llvm.mlir.constant"() <{value = -2147483648 : i32}> : () -> i32
+    %min32 = "llvm.freeze"(%min32_c) : (i32) -> i32
     %smax64 = "llvm.intr.smax"(%neg64, %pos64) : (i64, i64) -> i64
     %umax64 = "llvm.intr.umax"(%neg64, %pos64) : (i64, i64) -> i64
     %smax32 = "llvm.intr.smax"(%neg32, %pos32) : (i32, i32) -> i32

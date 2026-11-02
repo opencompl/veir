@@ -235,24 +235,36 @@ private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
     candidate := target.getNextOp! ctx
   none
 
-/-- `llvm.mlir.addressof` -> `riscv.la`, except for TLS and external weak globals. -/
-def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
-  let some name := properties.global_name.getName? | return (ctx, none)
-  if let some global := lookupGlobal? ctx.raw op name then
+/-- Whether the `llvm.mlir.addressof` `op` names a global that `riscv.la` can address: one that
+  is not thread-local or external weak, or one that cannot be resolved in an enclosing module. -/
+private def isLaAddressable (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := do
+  let properties := op.getProperties! ctx Llvm.mlir__addressof
+  let some name := properties.global_name.getName? | none
+  if let some global := lookupGlobal? ctx op name then
     -- An undefined weak symbol resolves to zero, which a PC-relative `la`
     -- cannot always reach. Leave it until GOT-based address lowering is supported.
-    if global.isThreadLocal || global.linkage.value = "extern_weak" then return (ctx, none)
-  let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
-      #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
-  some (ctx, some (#[laOp, castBackOp], #[castBackOp.getResult 0]))
+    if global.isThreadLocal || global.linkage.value = "extern_weak" then none
+  return ()
+
+/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type, except for TLS and
+  external weak globals. -/
+def addressof_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let root ← MatchProg.root (.llvm .mlir__addressof) #[] #[resType]
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op isLaAddressable
+      return (resType, root.properties))
+    (fun (resType, props) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let laProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .la))) props
+          fun props => some (RISCVSymbolProperties.mk props.global_name)
+      let laOp ← CreateProg.operation (.riscv .la) #[] #[regType] (.inr laProps)
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[laOp.res[0]!] #[resType])
+    (fun castBackOp => castBackOp)
 
 /-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
-def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
+def addressof : Puddle.CompiledPattern OpCode := addressof_pattern.compile
 
 /--
   The signed 12-bit immediate offset of a load/store address `getelementptr base, c*`, with
@@ -1122,28 +1134,58 @@ def sext32_pattern : Pattern OpCode := lowerExt .g_sext 32 .sextw ()
   `gmir.g_sext_inreg` (`i64`) -> `riscv.sextb` / `riscv.sexth` / `riscv.sextw` for `sz` of
   `8`, `16`, or `32`, and otherwise `riscv.slli` + `riscv.srai`, shifting bit `sz - 1` to bit 63
   and back arithmetically, as LLVM's RISC-V `sext_inreg` patterns do.
+
+  Matches a legal `i64` `gmir.g_sext_inreg` whose `sz` satisfies `szMatches`, returning its result
+  type, operand and properties.
 -/
-def sextInReg_local : LocalRewritePattern OpCode := fun ctx op => do
-  let some (operands, properties) := matchOp op ctx.raw GMIR.g_sext_inreg 1
-    | return (ctx, none)
-  let resType := (op.getResult 0).getType! ctx.raw
-  let .integerType type := resType.val | return (ctx, none)
-  if type.bitwidth ≠ 64 ||
-      !riscv64LegalizerInfo.isLegal .g_sext_inreg #[resType] properties then
-    return (ctx, none)
-  let (ctx, castOp) ← castToRegLocal ctx operands[0]!
-  let src := castOp.getResult 0
-  let (ctx, extOps) ← match properties.sz.toNat with
-    | 8 => do let (ctx, e) ← createRISCVUnitLocal ctx .sextb rfl #[src]; pure (ctx, #[e])
-    | 16 => do let (ctx, e) ← createRISCVUnitLocal ctx .sexth rfl #[src]; pure (ctx, #[e])
-    | 32 => do let (ctx, e) ← createRISCVUnitLocal ctx .sextw rfl #[src]; pure (ctx, #[e])
-    | sz => do
-      let shift : Int := 64 - sz
-      let (ctx, left) ← createRISCVImmLocal ctx .slli rfl #[src] shift
-      let (ctx, right) ← createRISCVImmLocal ctx .srai rfl #[left.getResult 0] shift
-      pure (ctx, #[left, right])
-  let (ctx, result) ← replaceWithRegLocal ctx op (extOps.back!.getResult 0)
-  return (ctx, some (#[castOp] ++ extOps.push result, #[result.getResult 0]))
+def matchSextInReg (szMatches : Nat → Bool) :
+    MatchProg.Builder (Handle OpCode .type × Handle OpCode .value ×
+      Handle OpCode (.prop (.gmir .g_sext_inreg))) := do
+  let srcType ← MatchProg.type (Attr := TypeAttr)
+  let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+  let src ← MatchProg.value srcType
+  let root ← MatchProg.root (.gmir .g_sext_inreg) #[src] #[resType]
+      fun props => szMatches props.sz.toNat
+  matchLegal .g_sext_inreg resType root.properties
+  return (resType, src, root.properties)
+
+/-- `gmir.g_sext_inreg` (`i64`) with `sz` of `sz` -> `riscvOp` (`riscv.sextb` / `riscv.sexth` /
+  `riscv.sextw`). -/
+def sextInRegExt_pattern (sz : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
+    (matchSextInReg (· = sz))
+    (fun (resType, src, _) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
+      let extOp ← CreateProg.operation (.riscv riscvOp) #[castOp.res[0]!] #[regType] riscvProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[extOp.res[0]!] #[resType])
+    (fun castBackOp => castBackOp)
+
+/-- `gmir.g_sext_inreg` (`i64`) with any other `sz` -> `riscv.slli` + `riscv.srai` by `64 - sz`. -/
+def sextInRegShift_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (matchSextInReg fun sz => sz ≠ 8 && sz ≠ 16 && sz ≠ 32)
+    (fun (resType, src, props) => do
+      let shiftProps (props : SextInRegProperties) : RISCVImmediateProperties :=
+        let sz := props.sz.toNat
+        let shift : Int := 64 - sz
+        mkRISCVImm shift
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[src] #[regType]
+      let leftProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .slli)))
+          props fun props => some (shiftProps props)
+      let left ← CreateProg.operation (.riscv .slli) #[castOp.res[0]!] #[regType] (.inr leftProps)
+      let rightProps ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .srai)))
+          props fun props => some (shiftProps props)
+      let right ← CreateProg.operation (.riscv .srai) #[left.res[0]!] #[regType] (.inr rightProps)
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[right.res[0]!] #[resType])
+    (fun castBackOp => castBackOp)
+
+def sextInReg8 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 8 .sextb ()).compile
+def sextInReg16 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 16 .sexth ()).compile
+def sextInReg32 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 32 .sextw ()).compile
+def sextInRegShift : Puddle.CompiledPattern OpCode := sextInRegShift_pattern.compile
 
 /-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
 def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
@@ -1494,9 +1536,9 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern <|
     #[gmirSelect.run,
-    constant.run, addressof] ++
+    constant.run, addressof.run] ++
     #[
-    sext32.run, sext16.run, .fromLocalRewrite sextInReg_local,
+    sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
     load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[

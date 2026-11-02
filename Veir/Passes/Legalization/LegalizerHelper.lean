@@ -3,7 +3,7 @@ module
 public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.Passes.Legalization.LegalizerInfo
 public import Veir.PatternRewriter.Basic
-import Veir.PatternRewriter.Puddle.Builders
+public import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 
 /-!
@@ -18,6 +18,25 @@ https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/CodeGen/GlobalI
 namespace Veir
 
 open Puddle
+
+public section
+
+/-- Create a `g_constant` of `type` whose value `value` computes from the metadata `inputs`. -/
+def createConstantWith {Inputs : Type} [IsMetadataTuple OpCode Inputs]
+    (type : Handle OpCode .type) (inputs : Inputs)
+    (value : MetadataValues OpCode Inputs → Int) : CreateProg.Builder CreatedOpHandle := do
+  let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.gmir .g_constant)))
+      (type, inputs) fun (type, inputs) => do
+        let .integerType type := type.val | none
+        return { value := .ofInt (value inputs) type }
+  CreateProg.operation (.gmir .g_constant) #[] #[type] props
+
+/-- Create a `g_constant` of `type` with the value `value`. -/
+def createConstant (type : Handle OpCode .type) (value : Int) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type () fun () => value
+
+end
 
 /--
 Widens type group `typeIdx` of `opcode` to `width` bits. Its operands are extended with `extOpcode`
@@ -78,16 +97,21 @@ def widenConstant (width : Nat) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[wide.res[0]!] #[type])
     (fun trunc => trunc)
 
+/-- Matches the unary `opcode` with an operand of type `srcType` and a result of type `resType`,
+whose widths satisfy `srcWidth` and `resWidth`. -/
+private def matchUnary (opcode : GMIR) (srcWidth resWidth : Nat → Bool := fun _ => true) :
+    MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
+  let srcType ← MatchProg.type (Attr := IntegerType) (srcWidth ·.bitwidth)
+  let resType ← MatchProg.type (Attr := IntegerType) (resWidth ·.bitwidth)
+  let src ← MatchProg.value srcType
+  let _ ← MatchProg.root (.gmir opcode) #[src] #[resType]
+  return (srcType, resType, src)
+
 /-- Creates the `g_constant` `value srcWidth` of type `type`, where `srcWidth` is the width of the
 integer type `srcType`. -/
 private def widthConstant (srcType type : Handle OpCode .type) (value : Nat → Int) :
-    CreateProg.Builder CreatedOpHandle := do
-  let props ← CreateProg.applyNative (srcType, type) fun (srcType, type) =>
-    match srcType.val, type.val with
-    | .integerType srcType, .integerType type =>
-      some (GMIRConstantProperties.mk (.ofInt (value srcType.bitwidth) type))
-    | _, _ => none
-  CreateProg.operation (.gmir .g_constant) #[] #[type] (.inr props)
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type srcType fun srcType => value (srcType.cast? IntegerType).get!.bitwidth
 
 /--
 Widens the operand of `g_ctlz` to `width` bits. The operand is zero-extended, so the count is too
@@ -97,12 +121,7 @@ ensure by widening it first.
 -/
 def widenCtlzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = width)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_ctlz) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_ctlz (· < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_zext) #[src] #[resType]
       let ctlz ← CreateProg.operation (.gmir .g_ctlz) #[ext.res[0]!] #[resType]
@@ -115,21 +134,17 @@ def widenCtlzSrc (width : Nat) : Pattern OpCode :=
 /--
 Widens the operand of `g_cttz` to `width` bits. The bit just above the operand is set, so that
 the count of a zero operand is still its width, as in LLVM's `LegalizerHelper::widenScalar`. The
-result must already be `width` bits wide, which the rules ensure by widening it first.
+wide operand is never zero, so it is counted with `g_cttz_zero_poison`, as in LLVM. The result
+must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let resType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = width)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_cttz) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_cttz (· < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
       let wideSrc ← CreateProg.operation (.gmir .g_or) #[ext.res[0]!, topBit.res[0]!] #[resType]
-      CreateProg.operation (.gmir .g_cttz) #[wideSrc.res[0]!] #[resType])
+      CreateProg.operation (.gmir .g_cttz_zero_poison) #[wideSrc.res[0]!] #[resType])
     (fun op => op)
 
 /--
@@ -152,16 +167,19 @@ def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[shift.res[0]!] #[type])
     (fun op => op)
 
+/-- Lowers the count `opcode`, whose zero input is poison, to the count `defined`, which is defined
+at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
+def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
+  Pattern.Builder
+    (matchUnary opcode)
+    (fun (_, resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
+    (fun op => op)
+
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
 LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. -/
 def lowerSext : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_sext) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_sext)
     (fun (srcType, resType, src) => do
       let extProps ← CreateProg.property (.gmir .g_anyext) default
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps
@@ -176,20 +194,10 @@ def lowerSext : Pattern OpCode :=
 is what LLVM's artifact combiner makes of a `g_zext` of a `g_trunc`. -/
 def lowerZext : Pattern OpCode :=
   Pattern.Builder
-    (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
-      let src ← MatchProg.value srcType
-      let _ ← MatchProg.root (.gmir .g_zext) #[src] #[resType]
-      return (srcType, resType, src))
+    (matchUnary .g_zext)
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
-      let maskProps ← CreateProg.applyNative (srcType, resType) fun (srcType, resType) =>
-        match srcType.val, resType.val with
-        | .integerType srcType, .integerType resType =>
-          some (GMIRConstantProperties.mk (.ofInt (2 ^ srcType.bitwidth - 1) resType))
-        | _, _ => none
-      let mask ← CreateProg.operation (.gmir .g_constant) #[] #[resType] (.inr maskProps)
+      let mask ← widthConstant srcType resType (2 ^ · - 1)
       CreateProg.operation (.gmir .g_and) #[ext.res[0]!, mask.res[0]!] #[resType])
     (fun op => op)
 
@@ -434,6 +442,7 @@ def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx o
 
 public section
 
+<<<<<<< HEAD
 /-- The pattern that lowers `query`, an `opcode` operation, if it can be lowered. -/
 def lower? (info : LegalizerInfo) : (opcode : GMIR) → LegalityQuery opcode → Option (Pattern OpCode)
   | .g_sext, _ => lowerSext
@@ -449,6 +458,15 @@ def lower? (info : LegalizerInfo) : (opcode : GMIR) → LegalityQuery opcode →
   | .g_saddo, _ => lowerSAddOSSubO true
   | .g_ssubo, _ => lowerSAddOSSubO false
   | _, _ => none
+=======
+/-- The pattern that lowers `opcode`, if it can be lowered. -/
+def lower? : GMIR → Option (Pattern OpCode)
+  | .g_sext => lowerSext
+  | .g_zext => lowerZext
+  | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
+  | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
+  | _ => none
+>>>>>>> origin
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
