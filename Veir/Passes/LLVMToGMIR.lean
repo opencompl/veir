@@ -136,6 +136,28 @@ def g_umin := (lowerBinop .intr__umin .g_umin).compile
 def g_abs := (lowerUnop .intr__abs .g_abs fun _ => ()).compile
 
 /--
+  `llvm.intr.fshl`/`llvm.intr.fshr` -> `g_fshl`/`g_fshr`, except for `i32` and `i64`: instruction
+  selection still matches those widths in the LLVM dialect (as rotates or LLVM's
+  `expandFunnelShift`), while the legalizer lowers the other widths to shifts.
+-/
+def lowerFunnelShift (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+        fun t => t.bitwidth ≠ 32 && t.bitwidth ≠ 64
+      let x ← Puddle.MatchProg.value type
+      let y ← Puddle.MatchProg.value type
+      let z ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.llvm lOp) #[x, y, z] #[type]
+      return (type, x, y, z))
+    (fun (type, x, y, z) => Puddle.CreateProg.operation (.gmir gOp) #[x, y, z] #[type])
+    (fun newOp => newOp)
+
+def g_fshl := (lowerFunnelShift .intr__fshl .g_fshl).compile
+
+def g_fshr := (lowerFunnelShift .intr__fshr .g_fshr).compile
+
+/--
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
   selects as `g_select` does, see `GMIR.selectNonzero_one`.
   TODO: Also translate selects of pointers, once `g_select` accepts them.
@@ -418,7 +440,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_bswap.run, g_bitreverse.run,
-    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run,
+    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
