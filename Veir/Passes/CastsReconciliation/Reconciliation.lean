@@ -7,6 +7,8 @@ import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
+open Puddle
+
 /--
   We reconcile casts in `builtin.unrealized_conversion_cast` operations for `!riscv.reg` and `i64`
   types, in the `reg -> i64 -> reg` direction. `Reg.toInt` is never poison and `Int.toReg` inverts
@@ -54,17 +56,17 @@ def isCirToIntRoundTrip (inputType interType : TypeAttr) : Bool :=
 
   The parent cast is left in place: it is now dead, and DCE (run at the end of the pass) removes
   it. A Puddle pattern may only erase the matched operation. -/
-public def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
+public def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) : Pattern OpCode :=
+  Pattern.Builder
     (do
-      let inputType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let interType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let input ← Puddle.MatchProg.value inputType
-      let parentCast ← Puddle.MatchProg.operation (.builtin .unrealized_conversion_cast)
+      let inputType ← MatchProg.type (Attr := TypeAttr)
+      let interType ← MatchProg.type (Attr := TypeAttr)
+      let input ← MatchProg.value inputType
+      let parentCast ← MatchProg.operation (.builtin .unrealized_conversion_cast)
           #[input] #[interType]
-      let _ ← Puddle.MatchProg.root (.builtin .unrealized_conversion_cast)
+      let _ ← MatchProg.root (.builtin .unrealized_conversion_cast)
           #[parentCast.res[0]!] #[inputType]
-      Puddle.MatchProg.matchNative (inputType, interType)
+      MatchProg.matchNative (inputType, interType)
           fun (inputType, interType) => legal inputType interType
       return input)
     pure
@@ -75,7 +77,6 @@ def reconcileRegToPtr := (reconcilePairingCast isRiscvRegToPtrCast).compile
 def reconcileModArithToInt := (reconcilePairingCast isPreservingModArithToIntCast).compile
 def reconcileCirToInt := (reconcilePairingCast isCirToIntRoundTrip).compile
 
-open Puddle in
 /-- Match an unallocated-register round trip through an integer of an accepted width. -/
 private def matchRegIntCast (widthMatches : Nat → Bool) :
     MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
@@ -86,7 +87,6 @@ private def matchRegIntCast (widthMatches : Nat → Bool) :
   let _ ← MatchProg.root (.builtin .unrealized_conversion_cast) #[parent.res[0]!] #[regType]
   return (regType, interType, input)
 
-open Puddle in
 /-- Reconcile an 8/16/32-bit register round trip with its dedicated zero extension. -/
 private def reconcileRegIntExt (width : Nat) (opcode : Riscv)
     (props : propertiesOf (OpCode.riscv opcode)) : Pattern OpCode :=
@@ -96,7 +96,6 @@ private def reconcileRegIntExt (width : Nat) (opcode : Riscv)
       CreateProg.operation (.riscv opcode) #[input] #[regType] props)
     (fun op => op)
 
-open Puddle in
 /-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE. -/
 private def reconcileRegIntShift : Pattern OpCode :=
   Pattern.Builder
@@ -115,7 +114,7 @@ private def reconcileRegIntShift : Pattern OpCode :=
       CreateProg.operation (.riscv .srli) #[left.res[0]!] #[regType] (.inr rightProps))
     (fun op => op)
 
-private def reconcileRegIntCasts : Array (Puddle.CompiledPattern OpCode) :=
+private def reconcileRegIntCasts : Array (CompiledPattern OpCode) :=
   #[reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (),
     reconcileRegIntExt 32 .zextw (), reconcileRegIntShift].map (·.compile)
 
