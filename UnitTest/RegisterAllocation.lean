@@ -1,8 +1,8 @@
 module
-public import Veir.Passes.RegisterAllocation.RegisterStack
+import Veir.Passes.RegisterAllocation.RegisterStack
 meta import Veir.Passes.RegisterAllocation.RegisterStack
 
-public import Veir.Passes.RegisterAllocation.RegisterAllocator
+import Veir.Passes.RegisterAllocation.RegisterAllocator
 meta import Veir.Passes.RegisterAllocation.RegisterAllocator
 
 open Veir
