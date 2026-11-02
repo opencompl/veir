@@ -1288,9 +1288,9 @@ def Sim.OperationPtr.setAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.Opera
 
 @[simp, grind →]
 theorem Sim.OperationPtr.setAttributes_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
-    (attrs : DictionaryAttr) (ib : ptr.InBounds ctx) :
-    setAttributes ctx ptr attrs ib = some ctx →
-    ctx.spec = ptr.spec.setAttributes ctx.spec attrs := by
+    (attrs : DictionaryAttr) (ib : ptr.InBounds ctx) {ctx' : Sim.IRContext OpInfo} :
+    setAttributes ctx ptr attrs ib = some ctx' →
+    ctx'.spec = ptr.spec.setAttributes ctx.spec attrs := by
   simp only [setAttributes]; grind
 
 @[inline]

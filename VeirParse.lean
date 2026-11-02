@@ -73,7 +73,7 @@ def main (args : List String) : IO UInt32 := do
         let stop ← IO.monoNanosNow
         IO.eprintln s!"lex time (s): {(stop - start).toFloat / 1000000000} ({count} tokens)"
       return 0
-    let mut last : Option (IR.Context × IR.Op) := none
+    let mut last : Option (StaticIR.Context × IR.Op) := none
     for _ in [0:args.repeatCount] do
       let start ← IO.monoNanosNow
       match parseSourceString content sourceName args.allowUnregisteredDialect with

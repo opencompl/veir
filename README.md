@@ -177,13 +177,13 @@ object kind without arena growth after warmup.
 context (`Veir/Parser/`). Its state and construction primitives carry `Sim.IRContext OpCode`
 and simulated operation, block, region, and value pointers directly. Their specification
 fields stay in `Erased`; operands, successors, and regions use ordinary pointer arrays.
-`Veir/Parser/BuffedIR.lean` calls the rewriter directly, without generated `*Impl` wrappers,
+`Veir/Parser/StaticIR.lean` calls the rewriter directly, without generated `*Impl` wrappers,
 dummy specifications, or specialization warm-ups. Forward references use detached
 `builtin.unrealized_conversion_cast` placeholders that are replaced and erased on definition,
 and a forward-declared block that turns out to have arguments is replaced by a fresh block with
-the right argument capacity. The bounds proofs of the rewriter operations are discharged with
-`sorry`, as in the benchmarks. The attribute parser only covers the attributes and types of this
-branch's `Attribute`.
+the right argument capacity. Construction requires erased liveness certificates: there is no
+allocation registry, pointer-validation lookup, or final root-address check. The attribute
+parser only covers the attributes and types of this branch's `Attribute`.
 
 ```sh
 lake build veir-parse
@@ -204,7 +204,63 @@ lake exe parser-tests
 They cover forward SSA references, repeated forward successors (with and without block
 arguments), nested scopes, properties, type aliases, unregistered operations, and diagnostics.
 
+### Parser state verification
+
+The production parser uses `StaticParserState`: context-independent `MlirParserData`, a
+well-formed `StaticIR.Context`, and an erased `data.Live ctx.raw` proof. `State.lean` keeps
+suspended block scopes explicit; `Liveness.lean` proves bounds, exclusive placeholder ownership,
+and absence of published placeholder aliases. Source locations are historical metadata, not
+liveness evidence. Context transactions consume the old state before mutating its buffer.
+
+`Transitions.lean` supplies composable preservation frames for caller-held handles.
+`References.lean`, `Retire.lean`, and `Blocks.lean` resolve names, publish definitions, and
+reclaim exclusively owned placeholders. `Operations.lean` and `Bindings.lean` retain allocation,
+result-count, and argument-count certificates through construction and registration.
+`Scopes.lean` and `ConstructionParser.lean` carry these contracts through mutually recursive
+region/block/operation parsing and scope restoration. Ordinary name lookup is still needed;
+no second allocation-address lookup validates its result.
+
+`parseSourceString` returns `StaticIR.Context × IR.Op × SourceInfo`. Its
+`parseSourceString_safe` theorem derives structural well-formedness and root liveness directly
+from the recursive parser's result certificate. The old runtime registry, checked-array
+reconstruction, permissive reference adapter, and final root lookup have been removed.
+`BuffedIR.lean` retains proof-taking construction aliases; arbitrary pointers no longer fit
+those APIs without genuine current-context bounds proofs. Addresses remain context-local and
+reusable, not generation-tagged identifiers.
+
+All specification computations and preservation certificates erase. Allocation capacity checks,
+syntax/type diagnostics, and physical deletion-condition guards (no uses/regions, detached empty
+blocks) still execute; these are not pointer-provenance validation. Erasure returns `none` when
+its semantic conditions fail.
+
+There are no parser construction `sorry`s, new axioms, or unchecked casts. Tests audit all parser
+declarations, including private proofs and partial functions' executable implementations, allowing
+only `propext`, `Classical.choice`, and `Quot.sound`. They also reject reintroducing the allocation
+registry into parser dependencies. Coverage includes grouped/large forward-result sets,
+self-references, caller-local handles, nested same-name block scopes, deletion guards, and static
+rejection of invalid ghost specifications. The old floating-point equality axiom is a theorem
+using Lean's float model.
+
+This establishes structural IR safety and static parser-state provenance, not MLIR semantic
+validity (typing, dominance, dialect rules) or correctness of the accepted parser language.
+
 ### Parser benchmark
+
+A local comparison against the immediately preceding runtime-registry parser used CPU affinity,
+three warm-ups, and nine alternating samples. Median parse times:
+
+| Input | Operations | Runtime registry | Static provenance |
+|-------|-----------:|-----------------:|------------------:|
+| SSA chain | 1,000 | 7.098 ms | 6.608 ms |
+| SSA chain | 10,000 | 175.245 ms | 171.311 ms |
+| Forward SSA chain | 1,000 | 10.713 ms | 6.881 ms |
+| Forward SSA chain | 10,000 | 280.713 ms | 151.416 ms |
+
+Generated C was inspected for buffer ownership and metadata copy-on-write. In particular,
+definition-set updates consume the old data record before hash insertion, and recursive scope
+restoration reads the returned scope stack rather than retaining old SSA/location tables.
+These results are not a comparison against the pre-`Erased` migration baseline; peak memory
+has not been measured.
 
 The measurements below are historical, from before the `Erased` port; they have not been
 reproduced for the new implementation.

@@ -7,3 +7,6 @@ public import Veir.Rewriter.WellFormed.InsertBlock
 public import Veir.Rewriter.WellFormed.InsertOp
 public import Veir.Rewriter.WellFormed.ReplaceOp
 public import Veir.Rewriter.EraseContainers
+public import Veir.Rewriter.WellFormed.Attributes
+public import Veir.Rewriter.WellFormed.BlockUse
+public import Veir.Rewriter.WellFormed.EraseEmptyBlock

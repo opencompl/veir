@@ -24,7 +24,7 @@ private def blockName (block : IR.Block) : String := s!"^b{block.impl}"
 private def indent (n : Nat) : String := String.ofList (List.replicate (2 * n) ' ')
 
 /-- Print the properties of an operation, if any. -/
-private def propertiesString (ctx : IR.Context) (op : IR.Op) : String :=
+private def propertiesString (ctx : Sim.IRContext OpCode) (op : IR.Op) : String :=
   let opType := op.getOpType! ctx
   match HasBuffedProperties.readPropertyAt opType (op.impl + Operation.Offsets.properties) ctx.buf with
   | none => ""
@@ -32,7 +32,7 @@ private def propertiesString (ctx : IR.Context) (op : IR.Op) : String :=
     let dict := Properties.toAttrDict opType props
     if dict.isEmpty then "" else s!" <{DictionaryAttr.fromArray dict.toArray}>"
 
-private def opNameString (ctx : IR.Context) (op : IR.Op) : String :=
+private def opNameString (ctx : Sim.IRContext OpCode) (op : IR.Op) : String :=
   let opType := op.getOpType! ctx
   match opType with
   | .builtin .unregistered =>
@@ -43,7 +43,7 @@ private def opNameString (ctx : IR.Context) (op : IR.Op) : String :=
 
 mutual
 
-partial def printOp (ctx : IR.Context) (op : IR.Op) (depth : Nat) : IO Unit := do
+partial def printOp (ctx : Sim.IRContext OpCode) (op : IR.Op) (depth : Nat) : IO Unit := do
   let mut line := indent depth
   let numResults := op.getNumResults! ctx
   if numResults ≠ 0 then
@@ -80,7 +80,7 @@ partial def printOp (ctx : IR.Context) (op : IR.Op) (depth : Nat) : IO Unit := d
   line := line ++ s!" : ({String.intercalate ", " operandTypes}) -> {resultsString}"
   IO.println line
 
-partial def printBlock (ctx : IR.Context) (block : IR.Block) (depth : Nat) : IO Unit := do
+partial def printBlock (ctx : Sim.IRContext OpCode) (block : IR.Block) (depth : Nat) : IO Unit := do
   let numArgs := block.getNumArguments! ctx
   let args := (List.range numArgs.toNat).map fun i =>
     let value := IR.blockArgument ctx block i.toUInt64
@@ -91,7 +91,7 @@ partial def printBlock (ctx : IR.Context) (block : IR.Block) (depth : Nat) : IO 
     printOp ctx op (depth + 1)
     next := (op.getNextOp! ctx).toOption
 
-partial def printRegion (ctx : IR.Context) (region : IR.Region) (depth : Nat) : IO Unit := do
+partial def printRegion (ctx : Sim.IRContext OpCode) (region : IR.Region) (depth : Nat) : IO Unit := do
   IO.println "{"
   let mut next := (region.getFirstBlock! ctx).toOption
   while let some block := next do
@@ -102,7 +102,7 @@ partial def printRegion (ctx : IR.Context) (region : IR.Region) (depth : Nat) : 
 end
 
 /-- Print the operation `op` and everything nested inside it. -/
-def printModule (ctx : IR.Context) (op : IR.Op) : IO Unit :=
+def printModule (ctx : Sim.IRContext OpCode) (op : IR.Op) : IO Unit :=
   printOp ctx op 0
 
 end Veir.Parser.PrintIR

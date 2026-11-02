@@ -52,8 +52,14 @@ structure FloatAttr where
   type : FloatType
 deriving Inhabited, Repr
 
-/-- Temporary bridge lemma for deciding `FloatAttr` equality via `Float.toBits`. -/
-axiom floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b
+/-- Bitwise equality determines Lean's logical floating-point value. -/
+theorem floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b := by
+  rcases a with ⟨⟨a, ha⟩⟩
+  rcases b with ⟨⟨b, hb⟩⟩
+  intro h
+  change a = b at h
+  cases h
+  rfl
 
 instance : DecidableEq FloatAttr
   | a, b =>
