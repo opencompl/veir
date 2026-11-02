@@ -170,3 +170,65 @@ lake exe ir-reuse-tests
 The tests cover slot clearing, neighboring bytes, shared snapshots, distinct
 size classes, spare capacity, and 10,000 allocation/erasure cycles for each IR
 object kind without arena growth after warmup.
+
+## Parsing MLIR into the buffered IR
+
+`veir-parse` parses a file in MLIR's generic operation form directly into the buffered
+context (`Veir/Parser/`). Its state and construction primitives carry `Sim.IRContext OpCode`
+and simulated operation, block, region, and value pointers directly. Their specification
+fields stay in `Erased`; operands, successors, and regions use ordinary pointer arrays.
+`Veir/Parser/BuffedIR.lean` calls the rewriter directly, without generated `*Impl` wrappers,
+dummy specifications, or specialization warm-ups. Forward references use detached
+`builtin.unrealized_conversion_cast` placeholders that are replaced and erased on definition,
+and a forward-declared block that turns out to have arguments is replaced by a fresh block with
+the right argument capacity. The bounds proofs of the rewriter operations are discharged with
+`sorry`, as in the benchmarks. The attribute parser only covers the attributes and types of this
+branch's `Attribute`.
+
+```sh
+lake build veir-parse
+.lake/build/bin/veir-parse input.mlir [--allow-unregistered-dialect] [--print] [--lex-only] [--repeat=N]
+```
+
+`--print` prints the parsed module back in generic form (values and blocks are named by their
+buffer address), `--lex-only` only runs the lexer, `--repeat=N` parses the input N times.
+The parse time is reported on stderr. Parsed contexts expose the raw buffer as `.buf`, and
+`SourceInfo.opLocation?` looks up a simulated operation's source location by its address.
+
+Run the parser regression tests with:
+
+```sh
+lake exe parser-tests
+```
+
+They cover forward SSA references, repeated forward successors (with and without block
+arguments), nested scopes, properties, type aliases, unregistered operations, and diagnostics.
+
+### Parser benchmark
+
+The measurements below are historical, from before the `Erased` port; they have not been
+reproduced for the new implementation.
+
+Inputs are `add-tree-N.mlir` files as produced by the `print-add-tree` benchmark of the
+evaluation scripts: a `builtin.module` with N/2 pairs of `"test.test"() : () -> i32` and
+`"arith.addi"(%c, %acc) : (i32, i32) -> i32`, i.e. about N operations. Times are the best of 3
+runs on one machine; `mlir-opt` and the main-branch `veir-opt` always print their output and
+were run with their verifiers disabled.
+
+| N       | veir-parse, parse only | veir-parse, parse + print | main-branch veir-opt | mlir-opt |
+|---------|-----------------------:|--------------------------:|---------------------:|---------:|
+| 10 000  | 0.03 s                 | 0.05 s                    | 0.06 s               | 0.06 s   |
+| 100 000 | 0.34 s                 | 0.47 s                    | 0.55 s               | 0.19 s   |
+| 300 000 | 1.21 s                 | 1.60 s                    | 1.74 s               | 0.57 s   |
+
+Peak resident memory at N = 300 000: 235 MB (`veir-parse`), 304 MB (main-branch `veir-opt`),
+240 MB (`mlir-opt`). Of the 1.21 s parse time at N = 300 000, lexing the 3.9 M tokens takes
+0.14 s and building the 300 000 operations in the buffered context takes about 0.03 s
+(`buffed-benchmark add-fold-forwards 150000` reports its `create` time); the rest is spent in
+the parser itself.
+
+A `perf` profile of the N = 300 000 parse is flat: about a third of the samples are in
+allocation and reference counting (`lean_dec_ref_cold`, `mi_malloc_small`, `mi_free`), the
+largest single Lean symbol is the per-operation insertion into the `opLocations` table (5 %),
+followed by byte-array comparison and hashing of value names, the name-table updates when
+leaving a scope, the lexer (2 %) and the operation construction itself (1 %).

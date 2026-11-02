@@ -1,0 +1,580 @@
+module
+
+public import Veir.Parser.Lexer
+public import Veir.ForLean
+
+public section
+open Veir.Parser.Lexer
+
+namespace Veir.Parser
+
+open Veir.Parser.ParserError
+
+/--
+  The state of a generic parser.
+  It contains the state of the lexer (which includes the input and the current
+  position in the input).
+  It also caches the current token produced by the lexer.
+-/
+structure ParserState where
+  lexer : LexerState
+  currentToken : Token
+
+/--
+  Create a new parser state at the beginning of the given input.
+-/
+def ParserState.fromInput (input : ByteArray) : Except ParserError ParserState := do
+  let lexerState := LexerState.mk input { byteOffset := 0 }
+  let (firstToken, lexerState) ← lex lexerState
+  return ParserState.mk lexerState firstToken
+
+/--
+  Get the current position in the input.
+  This is the starting position of the current token.
+-/
+def ParserState.pos (state : ParserState) : Location :=
+  state.currentToken.slice.start
+
+/--
+  Get the input being parsed.
+-/
+def ParserState.input (state : ParserState) : ByteArray :=
+  state.lexer.input
+
+/-
+  Generic methods for parsing.
+-/
+section ParserStateMethods
+
+variable [Monad M] [MonadExcept ParserError M] [MonadStateOf ParserState M]
+
+/--
+  Get the current position in the input.
+  This is the starting position of the current token.
+-/
+def getPos : M Location := do
+  return (←get).pos
+
+/--
+  Throw a `ParserError` whose location is the position currently pointed to by
+  the parser (i.e., the start of the current token).
+-/
+def throwAtCurrentPos (msg : String) : M α := do
+  throw { msg, pos := some (← getPos) }
+
+/--
+  Throw a `ParserError` whose location is the given byte offset.
+-/
+def throwAt (pos : Location) (msg : String) : M α :=
+  throw { msg, pos := some pos }
+
+/--
+  Consume the current token and return the updated parser state.
+  Use `parseToken` or `parseOptionalToken` to consume only specific tokens.
+  This function should not be used outside of the parser implementation.
+-/
+def consumeToken : M Token := do
+  let token := (←get).currentToken
+  let (nextToken, lexerState) ← ofExcept <| lex (←get).lexer
+  set { lexer := lexerState, currentToken := nextToken : ParserState }
+  return token
+
+/-- Move the lexer position to `pos` current token. -/
+def resetToken (pos : Location) : M Unit := do
+  let parserState ← get
+  let lexer := parserState.lexer.resetPosition pos
+  let (currentToken, lexer) ← ofExcept <| lex lexer
+  set { lexer, currentToken : ParserState }
+
+/--
+  If the current token is of the expected kind, consume it and return it.
+  Otherwise, return none.
+  This function should not be used outside of the parser implementation.
+-/
+def parseOptionalToken (tokType : TokenKind) : M (Option Token) := do
+  if (←get).currentToken.kind = tokType then
+    some <$> consumeToken
+  else
+    return none
+
+/--
+  Parse a token of the expected kind.
+  If the current token is of the expected kind, consume it and return it.
+  Otherwise, return an error with the given message.
+  This function should not be used outside of the parser implementation.
+-/
+def parseToken (tokType : TokenKind) (errorMsg : String) : M Token := do
+  match ← parseOptionalToken tokType with
+  | some token => return token
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Peek at the current token without consuming it.
+  This function should not be used outside of the parser implementation.
+-/
+def peekToken : M Token := do
+  return (←get).currentToken
+
+/--
+  Check if the given string is a punctuation token.
+  Punctuation tokens are all the textual symbols that are available to the user.
+  The available punctuation symbols are `->`, `...`, `:`, `,`, `=`, `>`, `{`, `(`,
+  `[`, `<`, `-`, `+`, `?`, `}`, `)`, `]`, `*`, and `|`.
+-/
+@[grind, expose]
+def isPunctuation (c : String) : Option TokenKind :=
+  /-
+  Note that the `{-#` and `#-}` symbols are not considered punctuation, as users should not
+  use these symbols when implementing operation or attribute custom syntax.
+  -/
+  match c with
+    | "->" => some .arrow
+    | "..." => some .ellipsis
+    | ":" => some .colon
+    | "," => some .comma
+    | "=" => some .equal
+    | ">" => some .greater
+    | "{" => some .lBrace
+    | "(" => some .lParen
+    | "[" => some .lSquare
+    | "<" => some .less
+    | "-" => some .minus
+    | "+" => some .plus
+    | "?" => some .question
+    | "}" => some .rBrace
+    | ")" => some .rParen
+    | "]" => some .rSquare
+    | "*" => some .star
+    | "|" => some .verticalBar
+    | _ => none
+
+/--
+  Parse optionally a punctuation symbol matching the given string.
+  If the next token matches the given punctuation, consume it and return true.
+  Otherwise, return false.
+  The available punctuation symbols are `->`, `...`, `:`, `,`, `=`, `>`, `{`, `(`,
+  `[`, `<`, `-`, `+`, `?`, `}`, `)`, `]`, `*`, and `|`.
+-/
+def parseOptionalPunctuation (c : String) (h : (isPunctuation c).isSome := by grind) : M Bool := do
+  return (← parseOptionalToken ((isPunctuation c).get (by assumption))).isSome
+
+/--
+  Parse a punctuation symbol matching the given string.
+  Raise an error if the next token is not the expected punctuation.
+  The available punctuation symbols are `->`, `...`, `:`, `,`, `=`, `>`, `{`, `(`,
+  `[`, `<`, `-`, `+`, `?`, `}`, `)`, `]`, `*`, and `|`.
+-/
+def parsePunctuation (c : String) (errorMsg : String := s!"Expected punctuation '{c}'") (h : (isPunctuation c).isSome := by grind) : M Unit := do
+  match ← parseOptionalPunctuation c with
+  | true => return ()
+  | false => throwAtCurrentPos errorMsg
+
+/--
+  Parse optionally an identifier with grammar rule `(letter|[_]) (letter|digit|[_$.])*`.
+  If the next token is an identifier, consume it and return its string slice.
+  Otherwise, return none.
+-/
+def parseOptionalIdentifier : M (Option ByteArray) := do
+  match ← parseOptionalToken .bareIdent with
+  | some token => return some (token.slice.of ((← get).input))
+  | none => return none
+
+/--
+  Parse an identifier with grammar rule `(letter|[_]) (letter|digit|[_$.])*`.
+  Raise an error if the next token is not an identifier.
+-/
+def parseIdentifier (errorMsg : String := "identifier expected") : M ByteArray := do
+  match ← parseOptionalIdentifier with
+  | some ident => return ident
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parse optionally a specific keyword.
+  The given keyword should be parseable as an identifier.
+  If the next token is an identifier matching the given keyword, consume it and return it.
+  Otherwise, return none.
+-/
+def parseOptionalKeyword (keyword : ByteArray) : M Bool := do
+  match ← peekToken with
+  | {kind := .bareIdent, slice := slice : Token} =>
+    let ident := slice.of ((← get).input)
+    if ident = keyword then
+      let _ ← consumeToken
+      return true
+    else
+      return false
+  | _ => return false
+
+/--
+  Parse a specific keyword.
+  The given keyword should be parseable as an identifier.
+  If the next token is an identifier matching the given keyword, consume it and return it.
+  Otherwise, return an error with the given message.
+-/
+def parseKeyword (keyword : ByteArray) (errorMsg : String := s!"expected keyword '{String.fromUTF8! keyword}'") : M Unit := do
+  if ← parseOptionalKeyword keyword then
+    return
+  else
+    throwAtCurrentPos errorMsg
+
+/--
+  Parse an identifier with a specific prefix, if present.
+  Return the identifier without the prefix on success.
+-/
+def parseOptionalPrefixedKeyword (prefixKind : TokenKind)
+    (_ : prefixKind.isPrefixedIdentifier := by grind) : M (Option ByteArray) := do
+  let {kind := k, slice := slice} ← peekToken
+  if k == prefixKind then
+    let ident := {slice with start := slice.start + 1}.of ((← get).input)
+    let _ ← consumeToken
+    return ident
+  else
+    return none
+
+/--
+  Parse an identifier with a specific prefix.
+  Return the identifier without the prefix on success, otherwise raise the
+  given error.
+-/
+def parsePrefixedKeyword (prefixKind : TokenKind)
+    (h : prefixKind.isPrefixedIdentifier := by grind)
+    (errorMsg : String := s!"expected keyword with prefix '{prefixKind.startingSigil}'") :
+      M ByteArray := do
+  match ← parseOptionalPrefixedKeyword prefixKind with
+  | some ident => return ident
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Process escape sequences in a string literal byte array.
+  Supported escapes: `\\`, `\"`, `\n`, `\t`, and `\HH` (hex byte).
+-/
+private def processEscapes (input : ByteArray) (basePos : Nat) : Except ParserError ByteArray := do
+  let mut result : ByteArray := .empty
+  let mut i := 0
+  while h : i < input.size do
+    let c := input[i]
+    if c != '\\'.toUInt8 then
+      result := result.push c
+      i := i + 1
+      continue
+    if i + 1 >= input.size then
+      throwAt { byteOffset := basePos + i } "unexpected end of string after '\\'"
+    let next := input.getD (i + 1) 0
+    if next == '\\'.toUInt8 then
+      result := result.push '\\'.toUInt8
+      i := i + 2
+      continue
+    if next == '"'.toUInt8 then
+      result := result.push '"'.toUInt8
+      i := i + 2
+      continue
+    if next == 'n'.toUInt8 then
+      result := result.push '\n'.toUInt8
+      i := i + 2
+      continue
+    if next == 't'.toUInt8 then
+      result := result.push '\t'.toUInt8
+      i := i + 2
+      continue
+    -- Try \HH hex escape
+    if i + 2 >= input.size then
+      throwAt { byteOffset := basePos + i } "unknown escape in string literal"
+    let hex1 := input.getD (i + 1) 0
+    let hex2 := input.getD (i + 2) 0
+    if !(hex1.isHexDigit && hex2.isHexDigit) then
+      throwAt { byteOffset := basePos + i } "unknown escape in string literal"
+    let high := if hex1 >= 'a'.toUInt8 then hex1 - 'a'.toUInt8 + 10
+      else if hex1 >= 'A'.toUInt8 then hex1 - 'A'.toUInt8 + 10
+      else hex1 - '0'.toUInt8
+    let low := if hex2 >= 'a'.toUInt8 then hex2 - 'a'.toUInt8 + 10
+      else if hex2 >= 'A'.toUInt8 then hex2 - 'A'.toUInt8 + 10
+      else hex2 - '0'.toUInt8
+    result := result.push (high * 16 + low)
+    i := i + 3
+  return result
+
+/--
+  Parse optionally a (byte) string literal.
+  If the next token is a string literal, consume it and return its raw bytes
+  after processing escape sequences. Otherwise, return none.
+  Handles escape sequences: `\\`, `\"`, `\n`, `\t`, and `\HH`.
+-/
+def parseOptionalStringLiteral : M (Option ByteArray) := do
+  match ← parseOptionalToken .stringLit with
+  | some token =>
+    let slice : Slice := {start := token.slice.start + 1, stop := { byteOffset := token.slice.stop.byteOffset - 1 }} -- remove quotes
+    let raw := slice.of ((← get).input)
+    let processed ← ofExcept (processEscapes raw (token.slice.start.byteOffset + 1))
+    return some processed
+  | none => return none
+
+/--
+  Parse a (byte) string literal.
+  Raise an error if the next token is not a string literal.
+-/
+def parseStringLiteral (errorMsg : String := "string literal expected") : M ByteArray := do
+  match ← parseOptionalStringLiteral with
+  | some bytes => return bytes
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parses either an identifier or a (byte) string literal, if present.
+-/
+def parseOptionalIdentifierOrStringLiteral : M (Option ByteArray) := do
+  match ← parseOptionalIdentifier with
+  | some ident => return ident
+  | none =>
+    match ← parseOptionalStringLiteral with
+    | some bytes => return some bytes
+    | none => return none
+
+/--
+  Parses either an identifier or a string literal.
+  Raises an error if the next token is neither an identifier nor a string literal.
+-/
+def parseIdentifierOrStringLiteral (errorMsg : String := "identifier or string literal expected") :
+    M ByteArray := do
+  match ← parseOptionalIdentifierOrStringLiteral with
+  | some identOrStr => return identOrStr
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parse a boolean with grammar rule `true | false`, if present.
+  If the next token is a boolean, consume it and return its value.
+  Otherwise, return none.
+-/
+def parseOptionalBoolean : M (Option Bool) := do
+  if ← parseOptionalKeyword "true".toByteArray then
+    return some true
+  else if ← parseOptionalKeyword "false".toByteArray then
+    return some false
+  else
+    return none
+
+/--
+  Parse a boolean with grammar rule `true | false`.
+  Raise an error if the next token is not a boolean.
+-/
+def parseBoolean (errorMsg : String := "boolean expected") : M Bool := do
+  match ← parseOptionalBoolean with
+  | some b => return b
+  | none => throwAtCurrentPos errorMsg
+
+/--
+  Parse an integer literal, if present.
+  The integer can either be in decimal form, hexadecimal form.
+  Optionally, allow a leading `-` sign.
+  Optionally, allow parsing `true` or `false` as `1` or `0`, respectively.
+-/
+def parseOptionalInteger (allowBoolean : Bool) (allowNegative : Bool) : M (Option Int) := do
+  let startPos ← getPos
+  -- First try to parse a boolean if allowed
+  if allowBoolean then
+    let boolean ← parseOptionalBoolean
+    if let some b := boolean then
+      return some (if b then 1 else 0)
+
+  -- Parse optional leading '-'
+  let mut isNegative := false
+  if allowNegative then
+    isNegative := Option.isSome (← parseOptionalToken .minus)
+
+  -- Parse the actual integer literal
+  let intToken ← parseOptionalToken .intLit
+  if intToken = none && isNegative then
+    throwAtCurrentPos "expected integer literal after '-'"
+
+  -- Convert the integer literal token to an Int
+  let some intToken := intToken | return none
+  let slice := intToken.slice.of ((← get).input)
+  let value :=
+    if ∃ (_: slice.size > 2), slice[1] == 'x'.toUInt8 || slice[1] == 'X'.toUInt8 then
+      slice.hexToNat?
+    else
+      (String.fromUTF8? slice).bind String.toNat?
+  let some value := value
+    | throwAt startPos s!"internal error: failed converting '{intToken.slice.of ((← get).input)}' to an integer literal"
+  if isNegative then
+    return some (Int.negOfNat value)
+  else
+    return some (Int.ofNat value)
+
+
+/--
+  Parse an integer literal.
+  The integer can either be in decimal form, hexadecimal form.
+  Optionally, allow a leading `-` sign.
+  Optionally, allow parsing `true` or `false` as `1` or `0`, respectively.
+-/
+def parseInteger (allowBoolean : Bool) (allowNegative : Bool) (errorMsg : String := "integer expected") : M Int := do
+  match ← parseOptionalInteger allowBoolean allowNegative with
+  | some i => return i
+  | none => throwAtCurrentPos errorMsg
+
+
+/--
+  The base-10 floating point representation parsed directly from string.
+  The number is equal to:
+    (-1)^negative * significand * 10^exponent
+-/
+structure ParsedFloat where
+  negative : Bool
+  significand : Nat
+  exponent : Int
+  deriving Repr, BEq
+
+/--
+  Parses a list of digit characters into a Nat.
+-/
+def parseDigitsList (cs : List Char) : Option Nat :=
+  if cs.isEmpty then none
+  else cs.foldl (fun acc c => match acc with
+    | some x => if c.isDigit then some (x * 10 + c.toNat - '0'.toNat) else none
+    | none => none) (some 0)
+
+/--
+  Parses a string of digits into a Nat.
+-/
+def parseDigits (s : String) : Option Nat :=
+  parseDigitsList s.toList
+
+/--
+  Parses a string of floats into sign, significand and exponent under base 10.
+-/
+def parseDecimalFloat (s : String) : Option ParsedFloat := do
+  let cs := s.toList.dropWhile Char.isWhitespace |>.reverse.dropWhile Char.isWhitespace |>.reverse
+  if cs.isEmpty then none
+
+  -- Parse sign
+  let (negative, cs) := match cs with
+    | '-' :: rest => (true, rest)
+    | '+' :: rest => (false, rest)
+    | _ => (false, cs)
+
+  -- Split into significand and exponent
+  let (sigChars, expChars) := cs.span (fun c => c != 'e' && c != 'E')
+  let exp : Int ← match expChars with
+    | [] => some (0 : Int)
+    | _ :: rest =>
+      let (sign, rest) : Int × List Char := match rest with
+        | '-' :: r => (-1, r)
+        | '+' :: r => (1, r)
+        | r => (1, r)
+      (parseDigitsList rest).map (fun x => sign * Int.ofNat x)
+
+  -- Split significand to integral part and fractional part.
+  -- Combine the digits and record where the '.' is.
+  let (intChars, fracChars) := sigChars.span (· != '.')
+  let (digits, fracLen) : List Char × Nat := match fracChars with
+    | [] => (intChars, 0)
+    | _ :: frac => (intChars ++ frac, frac.length)
+
+  let significand ← parseDigitsList digits
+  let exponent : Int := exp - (fracLen : Int)
+
+  some { negative, significand, exponent }
+
+/--
+  Delimiters that are supported when parsing lists.
+-/
+inductive Delimiter
+  /-- Parentheses `(` and `)` -/
+  | paren
+  /-- Less-than and greater-than signs `<` and `>` -/
+  | angle
+  /-- Square brackets `[` and `]` -/
+  | square
+  /-- Curly braces `{` and `}` -/
+  | braces
+
+def Delimiter.leftSymbol : Delimiter → String
+  | paren => "("
+  | angle => "<"
+  | square => "["
+  | braces => "{"
+
+@[grind =]
+theorem Delimiter.leftSymbol_isPunctuation (d : Delimiter) : (isPunctuation (d.leftSymbol)).isSome := by
+  simp only [Delimiter.leftSymbol]
+  grind
+
+def Delimiter.rightSymbol : Delimiter → String
+  | paren => ")"
+  | angle => ">"
+  | square => "]"
+  | braces => "}"
+
+@[grind =]
+theorem Delimiter.rightSymbol_isPunctuation (d : Delimiter) : (isPunctuation (d.rightSymbol)).isSome := by
+  simp only [Delimiter.rightSymbol]
+  grind
+
+/--
+  Parse a non-empty comma-separated list of items.
+  Return an error if no items are present.
+-/
+def parseList (parseItem : M α) : M (Array α) := do
+  let mut items : Array α := #[]
+  items := items.push (← parseItem)
+  while ← parseOptionalPunctuation "," do
+    let item ← parseItem
+    items := items.push item
+  return items
+
+/--
+  Parse a comma-separated list of items enclosed in the given delimiters, if present.
+-/
+def parseOptionalDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Option (Array α)) := do
+  /- Parse the left delimiter. -/
+  if ! (← parseOptionalPunctuation delimiter.leftSymbol) then
+    return none
+
+  /- Check for empty list. -/
+  if ← parseOptionalPunctuation delimiter.rightSymbol then
+    return some #[]
+
+  /- Parse the non-empty list. -/
+  let items ← parseList parseItem
+
+  /- Parse the right delimiter. -/
+  parsePunctuation delimiter.rightSymbol ("closing delimiter '" ++ delimiter.rightSymbol ++ "' expected")
+  return some items
+
+/--
+  Parse a comma-separated list of items enclosed in the given delimiters.
+  Return an error if the left delimiter is not present.
+-/
+def parseDelimitedList (delimiter : Delimiter) (parseItem : M α) : M (Array α) := do
+  /- Parse the left delimiter. -/
+  parsePunctuation delimiter.leftSymbol ("opening delimiter '" ++ delimiter.leftSymbol ++ "' expected")
+
+  /- Check for empty list. -/
+  if ← parseOptionalPunctuation delimiter.rightSymbol then
+    return #[]
+
+  /- Parse the non-empty list. -/
+  let items ← parseList parseItem
+
+  /- Parse the right delimiter. -/
+  parsePunctuation delimiter.rightSymbol ("closing delimiter '" ++ delimiter.rightSymbol ++ "' expected")
+  return items
+
+end ParserStateMethods
+
+/--
+  Returns `true` if the numeric literal is in `0x`-prefixed hexadecimal form.
+-/
+def isHexValue (value : ByteArray) : Bool :=
+  value.size > 2 && (value[1]! == 'x'.toUInt8 || value[1]! == 'X'.toUInt8)
+
+/--
+  Convert a numeric literal byte sequence to a `Nat`, accepting decimal and `0x`-prefixed
+  hexadecimal forms.
+-/
+def numericValueToNat? (value : ByteArray) : Option Nat :=
+  if isHexValue value then
+    value.hexToNat?
+  else
+    (String.fromUTF8? value).bind String.toNat?
+
+end Veir.Parser
