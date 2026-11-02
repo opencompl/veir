@@ -326,35 +326,33 @@ instance : HasBuffedProperties Arith where
     case extui => exact NnegProperties.read_after_write_dite p addr bctx h
     all_goals rfl
   only_adds_attributes {a op p addr bctx h hattrs} i hsome := by
-    cases op
-    case constant => exact ArithConstantProperties.writeProperty_attributes p addr bctx h hattrs hsome
-    case subi => simpa using hsome
-    case shli => simpa using hsome
-    case trunci => simpa using hsome
-    case divsi => simpa using hsome
-    case divui => simpa using hsome
-    case shrsi => simpa using hsome
-    case shrui => simpa using hsome
-    case ori => simpa using hsome
-    case cmpi => simpa using hsome
-    case extui => simpa using hsome
-    all_goals exact hsome
+    cases op <;> cases p <;>
+      first
+        | exact ArithConstantProperties.writeProperty_attributes _ addr bctx h hattrs hsome
+        | simpa only [NswNuwProperties.writeProperty_attributes,
+            ExactProperties.writeProperty_attributes,
+            DisjointProperties.writeProperty_attributes,
+            IcmpProperties.writeProperty_attributes,
+            NnegProperties.writeProperty_attributes] using hsome
+        | exact hsome
   preserves_freeList {op p addr bctx h hattrs} := by
-    cases op <;> first | simp | rfl
+    cases op <;> cases p <;> first
+      | exact ArithConstantProperties.writeProperty_freeList _ addr bctx h hattrs
+      | exact NswNuwProperties.writeProperty_freeList _ addr bctx h
+      | exact ExactProperties.writeProperty_freeList _ addr bctx h
+      | exact DisjointProperties.writeProperty_freeList _ addr bctx h
+      | exact IcmpProperties.writeProperty_freeList _ addr bctx h
+      | exact NnegProperties.writeProperty_freeList _ addr bctx h
+      | rfl
   preserves_size {op p addr bctx h hattrs} := by
-    cases op
-    case constant => simp
-    case subi => simp
-    case shli => simp
-    case trunci => simp
-    case divsi => simp
-    case divui => simp
-    case shrsi => simp
-    case shrui => simp
-    case ori => simp
-    case cmpi => simp
-    case extui => simp
-    all_goals rfl
+    cases op <;> cases p <;> first
+      | exact ArithConstantProperties.writeProperty_size _ addr bctx h hattrs
+      | exact NswNuwProperties.writeProperty_size _ addr bctx h
+      | exact ExactProperties.writeProperty_size _ addr bctx h
+      | exact DisjointProperties.writeProperty_size _ addr bctx h
+      | exact IcmpProperties.writeProperty_size _ addr bctx h
+      | exact NnegProperties.writeProperty_size _ addr bctx h
+      | rfl
   only_modifies_properties {op p addr bctx h hattrs w n len} hd := by
     cases op
     case constant => exact ArithConstantProperties.writeProperty_read_disjoint p addr n len bctx h hattrs hd

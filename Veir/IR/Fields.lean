@@ -101,10 +101,9 @@ theorem OpResultPtr.firstUse!_inBounds :
     ctx.FieldsInBounds →
     res.InBounds ctx →
     (res.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
-  grind =>
-    instantiate only [inBounds_of, = Option.maybe_def]
-    instantiate only [operation_inBounds_of_inBounds]
-    cases #fd14 <;> instantiate only [#992b] <;> cases #e9de <;> cases #6598
+  intros
+  have : res.op.InBounds ctx := by grind
+  grind
 
 grind_pattern OpResultPtr.firstUse!_inBounds => (res.get! ctx).firstUse, ctx.FieldsInBounds
 

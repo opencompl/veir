@@ -278,15 +278,36 @@ instance : HasBuffedProperties Llvm where
         | exact AttrCodec.read_after_write_dite _ p addr bctx h hattrs
         | rfl
   only_adds_attributes {a op p addr bctx h hattrs} i hsome := by
-    cases op <;>
+    cases op <;> cases p <;>
       first
-        | exact AttrCodec.writeProperty_attributes _ p addr bctx h hattrs hsome
-        | simpa using hsome
+        | exact AttrCodec.writeProperty_attributes _ _ addr bctx h hattrs hsome
+        | simpa only [NswNuwProperties.writeProperty_attributes,
+            ExactProperties.writeProperty_attributes,
+            DisjointProperties.writeProperty_attributes,
+            NnegProperties.writeProperty_attributes,
+            IcmpProperties.writeProperty_attributes,
+            FastMathFlagsProperties.writeProperty_attributes] using hsome
         | exact hsome
   preserves_freeList {op p addr bctx h hattrs} := by
-    cases op <;> first | simp | rfl
+    cases op <;> cases p <;> first
+      | exact AttrCodec.writeProperty_freeList _ _ addr bctx h hattrs
+      | exact NswNuwProperties.writeProperty_freeList _ addr bctx h
+      | exact ExactProperties.writeProperty_freeList _ addr bctx h
+      | exact DisjointProperties.writeProperty_freeList _ addr bctx h
+      | exact NnegProperties.writeProperty_freeList _ addr bctx h
+      | exact IcmpProperties.writeProperty_freeList _ addr bctx h
+      | exact FastMathFlagsProperties.writeProperty_freeList _ addr bctx h
+      | rfl
   preserves_size {op p addr bctx h hattrs} := by
-    cases op <;> first | simp | rfl
+    cases op <;> cases p <;> first
+      | exact AttrCodec.writeProperty_size _ _ addr bctx h hattrs
+      | exact NswNuwProperties.writeProperty_size _ addr bctx h
+      | exact ExactProperties.writeProperty_size _ addr bctx h
+      | exact DisjointProperties.writeProperty_size _ addr bctx h
+      | exact NnegProperties.writeProperty_size _ addr bctx h
+      | exact IcmpProperties.writeProperty_size _ addr bctx h
+      | exact FastMathFlagsProperties.writeProperty_size _ addr bctx h
+      | rfl
   only_modifies_properties {op p addr bctx h hattrs w n len} hd := by
     cases op <;>
       first

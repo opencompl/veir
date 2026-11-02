@@ -1356,8 +1356,9 @@ theorem Sim.OperationPtr.getOperandPtrOf_eq_getOperandPtr! (ctx : Sim.IRContext 
     (ptr : Sim.OperationPtr) (c : OpInfo) (index : UInt64)
     (hty : ptr.getOpTypeEncoded! ctx = SerializableOpInfo.encode c) :
     getOperandPtrOf ctx ptr c index hty = getOperandPtr! ctx ptr index := by
+  rw [getOperandPtrOf_def]
   simp only [getOpTypeEncoded!] at hty
-  simp only [getOperandPtrOf_def, getOperandPtrOfSim, getOperandPtr!_def, getOperandPtr!Sim,
+  simp only [getOperandPtrOfSim, getOperandPtr!_def, getOperandPtr!Sim,
     Buffed.OperationMPtr.computeOperandOffset!, Buffed.OperationMPtr.computeOperandsOffset!,
     hty, HasBuffedOpCode.propertySizeOfEncoded_eq, SerializableOpInfo.decode_encode]
 

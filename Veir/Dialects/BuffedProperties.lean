@@ -31,7 +31,7 @@ theorem Buffed.dite_read_frame {P : Type} {sz : Nat} {addr : UInt64} {bctx bctx'
   next => simp at hp
 
 /-- Encode the two flags in the low bits of a single byte: bit 0 is `nsw`, bit 1 is `nuw` (the same layout as MLIR's `overflowFlags`). -/
-def NswNuwProperties.writeProperty (a : NswNuwProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
+@[expose] def NswNuwProperties.writeProperty (a : NswNuwProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := (if a.nsw then 1 else 0) ||| (if a.nuw then 2 else 0)
   { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
 
@@ -77,7 +77,7 @@ theorem NswNuwProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed
   simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the `exact` flag in bit 0 of a single byte. -/
-def ExactProperties.writeProperty (a : ExactProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
+@[expose] def ExactProperties.writeProperty (a : ExactProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := if a.exact then 1 else 0
   { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
 
@@ -123,7 +123,7 @@ theorem ExactProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.
   simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the `disjoint` flag in bit 0 of a single byte. -/
-def DisjointProperties.writeProperty (a : DisjointProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
+@[expose] def DisjointProperties.writeProperty (a : DisjointProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := if a.disjoint then 1 else 0
   { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
 
@@ -169,7 +169,7 @@ theorem DisjointProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buff
   simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the `nneg` flag in bit 0 of a single byte. -/
-def NnegProperties.writeProperty (a : NnegProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
+@[expose] def NnegProperties.writeProperty (a : NnegProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := if a.nneg then 1 else 0
   { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
 
@@ -215,7 +215,7 @@ theorem NnegProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.I
   simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the comparison predicate as its MLIR numeric code (0–9, see `IntPred.fromNat`) in a single byte. -/
-def IcmpProperties.writeProperty (a : IcmpProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
+@[expose] def IcmpProperties.writeProperty (a : IcmpProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := BitVec.ofNat 8 a.predicate.toNat
   { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
 
@@ -261,7 +261,7 @@ theorem IcmpProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.I
   simp only [readProperty, ExArray.read_eq_read!, hmem]
 
 /-- Encode the three fast-math flags in the low bits of a single byte: bit 0 is `nnan`, bit 1 is `ninf`, bit 2 is `nsz`. -/
-def FastMathFlagsProperties.writeProperty (a : FastMathFlagsProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
+@[expose] def FastMathFlagsProperties.writeProperty (a : FastMathFlagsProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=
   let byte : BitVec 8 := (if a.attr.nnan then 1 else 0) ||| (if a.attr.ninf then 2 else 0) ||| (if a.attr.nsz then 4 else 0)
   { bctx with mem := bctx.mem.blit addr 1 byte (by grind) }
 

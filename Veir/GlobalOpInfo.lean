@@ -150,15 +150,15 @@ instance : HasBuffedOpCode OpCode where
     cases op
     case arith op => exact HasBuffedProperties.preserves_freeList
     case llvm op => exact HasBuffedProperties.preserves_freeList
-    case builtin op => cases op <;> first | simp | rfl
-    case func op => cases op <;> first | simp | rfl
+    case builtin op => cases op <;> first | exact AttrCodec.writeProperty_freeList _ p addr bctx h hattrs | rfl
+    case func op => cases op <;> first | exact AttrCodec.writeProperty_freeList _ p addr bctx h hattrs | rfl
     case test op => cases op <;> rfl
   preserves_size {op p addr bctx h hattrs} := by
     cases op
     case arith op => exact HasBuffedProperties.preserves_size
     case llvm op => exact HasBuffedProperties.preserves_size
-    case builtin op => cases op <;> first | simp | rfl
-    case func op => cases op <;> first | simp | rfl
+    case builtin op => cases op <;> first | exact AttrCodec.writeProperty_size _ p addr bctx h hattrs | rfl
+    case func op => cases op <;> first | exact AttrCodec.writeProperty_size _ p addr bctx h hattrs | rfl
     case test op => cases op <;> rfl
   only_modifies_properties {op p addr bctx h hattrs w n len} hd := by
     cases op

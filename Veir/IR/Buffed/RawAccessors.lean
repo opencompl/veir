@@ -245,18 +245,10 @@ theorem IRBufContext.insertAttrs_size {bctx bctx' : IRBufContext} {attrs : Attri
 
 @[inline]
 def IRBufContext.alloc (bctx : IRBufContext) (size : UInt64) : Option (IRBufContext) :=
-  -- The second conjunct keeps the grown buffer below `Int64.maxNatValue` (`2^63 - 1`), which is exactly the capacity `ExArray.extend` requires; `noOverflowsAdd` makes the `UInt64` comparison meaningful (no wraparound in `bctx.usize + size`).
-  if h : noOverflowsAdd bctx.usize size ∧ bctx.usize + size < Int64.maxValue.toUInt64 then
-    let mem := bctx.mem.extend size (by
-      obtain ⟨h₁, h₂⟩ := h
-      simp only [noOverflowsAdd, decide_eq_true_eq, IRBufContext.usize] at h₁ h₂
-      rw [UInt64.le_iff_toNat_le, UInt64.toNat_add] at h₁
-      rw [UInt64.lt_iff_toNat_lt, UInt64.toNat_add] at h₂
-      have hu := ExArray.usize_size_toNat bctx.mem
-      have hs := UInt64.toNat_lt size
-      have hm := UInt64.toNat_lt bctx.mem.usize
-      have hmax : Int64.maxValue.toUInt64.toNat = Int64.maxNatValue := by decide
-      omega)
+  -- Check the unbounded natural-number sizes directly. This both prevents `UInt64`
+  -- wraparound and establishes exactly the capacity bound required by `ExArray.extend`.
+  if h : bctx.size + size.toNat < Int64.maxNatValue then
+    let mem := bctx.mem.extend size (by simpa only [IRBufContext.size_def] using h)
     some { bctx with mem }
   else
     none

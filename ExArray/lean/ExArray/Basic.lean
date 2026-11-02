@@ -483,8 +483,14 @@ theorem readRec_succ (w : Nat) (buf : ExArray) (n : UInt64) numBytes h :
 theorem readRec_uset_disjoint {w : Nat} (buf : ExArray) (n: UInt64) numBytes m (x: UInt8)
     (hDisjoint: m.toNat ∉ support n.toNat numBytes) h₁ h₂ :
     (buf.uset m x h₁).readRec n numBytes h₂ = buf.readRec (w := w) n numBytes (by grind) := by
-  induction numBytes generalizing n buf x <;> grind [readRec_succ]
+  induction numBytes generalizing n buf x with
+  | zero => simp only [readRec]
+  | succ numBytes ih =>
+    simp only [readRec_succ]
+    rw [uget_uset_ne, ih] <;>
+      grind [UInt64.toNat_inj]
 
+set_option maxHeartbeats 400000 in
 @[simp, grind =]
 theorem readRec_blitRec_self (w : Nat) (buf : ExArray) (n : UInt64) numBytes (x : BitVec w) h h' :
     (buf.blitRec n numBytes x h).readRec n numBytes h' = (x |>.setWidth (8*numBytes) |>.setWidth w) := by
@@ -693,6 +699,6 @@ theorem readRec_extendNat_new (w : Nat) (buf : ExArray) (n : UInt64) (len len' :
 theorem read64!_extend_new (buf : ExArray) (n : UInt64) (extLen : UInt64) h
     (hge : buf.size ≤ n.toNat) (hlt : n.toNat + 8 ≤ buf.size + extLen.toNat) :
     (buf.extend extLen h).read64! n = 0 := by
-  simp only [extend, read64!, read!]
-  rw [dif_pos (by grind [extendNat_size, IsIncluded])]
-  rw [read, readRec_extendNat_new] <;> first | rfl | grind
+  rw [← read64_eq_read64! (h := by grind [extend_size, IsIncluded])]
+  simp only [read64, read, extend]
+  rw [readRec_extendNat_new] <;> first | rfl | grind

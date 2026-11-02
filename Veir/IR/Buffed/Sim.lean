@@ -1285,12 +1285,15 @@ theorem Buffed.OperationMPtr.readNthRegion!_operationMPtr_writeNumResults {ctx :
   have := @Sim.OperationPtr.after_lt_ctx
   have hoff : (OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) (OperationMPtr.writeNumResults ctx.buf ptr.impl val h) op.toM)
       = OperationMPtr.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf op.toM := by
-    simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!]
-    grind (splits := 20) [readOpType!, readNumOperands!, readNumBlockOperands!, writeNumResults, layout_grind]
+    simp only [computeRegionsOffset!, computeBlockOperandsOffset!, computeOperandsOffset!,
+      readOpType!, readNumOperands!, readNumBlockOperands!, writeNumResults]
+    rw [ExArray.read32!_blit64_disjoint, ExArray.read64!_blit64_disjoint,
+      ExArray.read64!_blit64_disjoint] <;>
+      grind (splits := 20) [layout_grind, OperationPtr.toM, IsDisjoint]
   rw [hoff]
   have hlt := Sim.OperationPtr.after_lt_ctx (ctx := ctx) op opIb
-  have disj := ctx.sim.disjoint_allocs (.operation ptr.spec) (.operation op)
-  have hsize : ctx.buf.mem.size < Int64.maxValue.toInt := by grind [ctx.buf.mem.fits_in_memory]
-  grind (splits := 20) [writeNumResults, layout_grind, OperationPtr.toM, IsDisjoint]
+  simp only [writeNumResults]
+  rw [ExArray.read64!_blit64_disjoint]
+  grind (splits := 20) [layout_grind, OperationPtr.toM, IsDisjoint]
 
 end Veir

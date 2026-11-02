@@ -6783,13 +6783,14 @@ theorem BlockPtr.get!_OpOperandPtrPtr_set {block : BlockPtr} :
       else
         block.get! ctx
     | _ => block.get! ctx := by
-  cases ptr'
-  · grind
-  · split
-    · grind
-    · simp only [OpOperandPtrPtr.set_valueFirstUse, get!_ValuePtr_setFirstUse,
-      Array.set!_eq_setIfInBounds]
-      split <;> grind
+  cases ptr' with
+  | operandNextUse ptr =>
+    simp only [OpOperandPtrPtr.set_operandNextUse,
+      BlockPtr.get!_OpOperandPtr_setNextUse]
+  | valueFirstUse value =>
+    simp only [OpOperandPtrPtr.set_valueFirstUse,
+      BlockPtr.get!_ValuePtr_setFirstUse]
+    cases value <;> rfl
 
 @[simp, grind =]
 theorem BlockPtr.capArguments!_OpOperandPtrPtr_set {block : BlockPtr} :
