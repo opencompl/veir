@@ -88,33 +88,6 @@ def Worklist.remove (worklist: Worklist) (op: OperationPtr) : Worklist :=
   | none =>
     worklist
 
-/--
-- Push the operations nested under `op` (not `op` itself) in reverse post-order, so that they
-- are popped in post-order: each operation after everything nested in its regions, and the
-- operations of a block in program order. Reverse post-order visits regions, blocks and
-- operations last to first, pushing each operation before descending into its regions.
--/
-private partial def Worklist.pushNestedReversePostOrder (ctx : IRContext OpInfo)
-    (op : OperationPtr) (worklist : Worklist) : Worklist := Id.run do
-  let mut worklist := worklist
-  for i in 0...op.getNumRegions! ctx do
-    let mut block? := (op.getRegion! ctx (op.getNumRegions! ctx - 1 - i)).getLastBlock! ctx
-    while let some block := block? do
-      let mut child? := block.getLastOp! ctx
-      while let some child := child? do
-        worklist := worklist.push child
-        worklist := worklist.pushNestedReversePostOrder ctx child
-        child? := child.getPrevOp! ctx
-      block? := block.getPrevBlock! ctx
-  worklist
-
-/--
-- Populate a worklist with the operations nested under `root`, so that they are popped in
-- post-order.
--/
-def Worklist.createFromRoot (ctx : IRContext OpInfo) (root : OperationPtr) : Worklist :=
-  Worklist.empty.pushNestedReversePostOrder ctx root
-
 end PatternRewriter
 
 @[grind]
@@ -307,6 +280,38 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
   else
     panic! "PatternRewriter.eraseOp! failed: operation is out of bounds"
 
+/--
+- Seed the worklist with the operations nested under `op` (not `op` itself), pushing them in
+- reverse post-order so that they are popped in post-order: each operation after everything
+- nested in its regions, and the operations of a block in program order. Reverse post-order
+- visits regions, blocks and operations last to first, pushing each operation before descending
+- into its regions.
+-
+- Trivially dead operations are erased instead of pushed, as in LLVM's InstCombine. Since users
+- are visited before the operations defining their operands, this removes whole chains of dead
+- operations in one sweep, instead of popping each definition once while its dead users still
+- exist and again after they are erased.
+-/
+private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInfo)
+    (op : OperationPtr) : PatternRewriter OpInfo := Id.run do
+  let mut rewriter := rewriter
+  let numRegions := op.getNumRegions! rewriter.ctx.raw
+  for i in 0...numRegions do
+    let mut block? := (op.getRegion! rewriter.ctx.raw (numRegions - 1 - i)).getLastBlock! rewriter.ctx.raw
+    while let some block := block? do
+      let mut child? := block.getLastOp! rewriter.ctx.raw
+      while let some child := child? do
+        let prev? := child.getPrevOp! rewriter.ctx.raw
+        if child.isTriviallyDead rewriter.ctx.raw then
+          rewriter := rewriter.eraseOp! child
+        else
+          -- Erasing a user may already have pushed `child`; move it to its post-order position.
+          rewriter := { rewriter with worklist := rewriter.worklist.remove child |>.push child }
+          rewriter := rewriter.seedNestedReversePostOrder child
+        child? := prev?
+      block? := block.getPrevBlock! rewriter.ctx.raw
+  rewriter
+
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
     (hpar : (oldOp.getParent! rewriter.ctx.raw).isSome = true := by grind)
@@ -444,8 +449,8 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
 private partial def RewritePattern.applyOnceInContext
     (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) (root : OperationPtr) :
     Option (Bool × WfIRContext OpInfo) := do
-  let worklist := PatternRewriter.Worklist.createFromRoot ctx.raw root
-  let mut rewriter : PatternRewriter OpInfo := { ctx, hasDoneAction := false, worklist }
+  let mut rewriter : PatternRewriter OpInfo :=
+    PatternRewriter.seedNestedReversePostOrder { ctx, hasDoneAction := false, worklist := .empty } root
   while !rewriter.worklist.isEmpty do
     let (opOpt, newWorklist) := rewriter.worklist.pop
     let op := opOpt.get!

@@ -1,9 +1,8 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
 "builtin.module"() ({
-    "llvm.func"()  <{function_type = !llvm.func<void ()>, sym_name = "main"}> ({
-        %a = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
-        %b = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
+    "llvm.func"()  <{function_type = !llvm.func<void (i64, i32)>, sym_name = "main"}> ({
+    ^bb0(%a : i64, %b : i32):
         %trunc = "gmir.g_trunc"(%a) : (i64) -> i32
         // CHECK:      %[[H:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%[[H]]) : (!riscv.reg) -> i32
