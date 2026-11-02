@@ -114,17 +114,23 @@ example (p q r : Nat) (x y : BitVec p) (hr : r ≤ 8) (hqr : q < r) (hpq : p ≤
 --   ∃ (x : BitVec p), (x.zeroExtend q).zeroExtend r = (x ^^^ 6#p).signExtend r := by
 --   pbv_decide 16 -bv_decide
 
-theorem t1 (a m1 m2 : BitVec o) (h : m2 ≤ m1) : a &&& m1 &&& m2 = a &&& m2 := by sorry
-theorem t5 (a m : BitVec o) : (a <<< m.cpop) &&& m = 0 := by sorry
-theorem t2 (a b m1 m2 : BitVec o) (h : m1 ≤ m2) : ((a &&& m2) * (b &&& m2)) &&& m1 = ((a &&& m1) * (b &&& m1)) &&& m1 := by sorry
-theorem t3 (a b mb mc : BitVec o) (h : mc ≤ mb)
-  : (a ||| (b &&& mb)) &&& mc = ((a &&& mc) ||| (b &&& mc)) &&& mc := by sorry
-theorem t4 (a b m1 m2 : BitVec o) (h : m1 ≤ m2) : ((a &&& m2) <<< b) &&& m1 = ((a &&& m1) <<< b) &&& m1 := by sorry
+open Veir.Data.PBV
+
+theorem t1 (o : Nat) {a : BitVec o} (h : w2 ≤ w1)
+  : a &&& maskOfWidth o w1 &&& maskOfWidth o w2 = a &&& maskOfWidth o w2 := by sorry
+theorem t2 (o : Nat) {a b : BitVec o} (h : w1 ≤ w2)
+  : ((a &&& (maskOfWidth o w2)) * (b &&& (maskOfWidth o w2))) &&& (maskOfWidth o w1) = ((a &&& (maskOfWidth o w1)) * (b &&& (maskOfWidth o w1))) &&& (maskOfWidth o w1) := by sorry
+theorem t3 (o : Nat) {a b : BitVec o} (h : w2 ≤ w1)
+  : (a ||| (b &&& (maskOfWidth o w1))) &&& (maskOfWidth o w2) = ((a &&& (maskOfWidth o w2)) ||| (b &&& (maskOfWidth o w2))) &&& (maskOfWidth o w2) := by sorry
+theorem t5 (o : Nat) {a : BitVec o} (h : w2 ≤ w1)
+  : (a <<< (maskOfWidth o w1).cpop) &&& maskOfWidth o w2 = 0 := by sorry
+-- theorem t4 (a b m1 m2 : BitVec o) (h : m1 ≤ m2)
+--   : ((a &&& m2) <<< b) &&& m1 = ((a &&& m1) <<< b) &&& m1 := by sorry
 -- theorem t3 (a b m : BitVec o) : (a ||| b) &&& m = ((a &&& m) ||| (b &&& m)) &&& m := by sorry
 -- theorem t4 (a b m : BitVec o) : (a <<< b) &&& m = ((a &&& m) <<< (b &&& m)) &&& m := by sorry
 
 -- theorem t6 (a b ma mb mc : BitVec o) (h : mc ≤ mb) : ((a &&& ma) <<< mb.cpop ||| (b &&& mb)) &&& mc = b &&& mc := by sorry
-theorem t6 (b : BitVec o) : 0 ||| b = b := by simp
+theorem t6 (o : Nat) (b : BitVec o) : 0 ||| b = b := by simp
 
 open Lean Elab Tactic in
 /-- Run `tac` and report how many heartbeats it used (same units as `maxHeartbeats`). -/
@@ -139,15 +145,23 @@ example {w t : Nat} (a b : BitVec w) (exta extb : BitVec (t - w)) (hqw : w ≤ t
     (bound : t ≤ 16) :
     a * b = ((exta ++ a) * (extb ++ b)).setWidth w := by
   pbv_decide 64 (blastWidth := 16) -bv_decide
-  -- have f1 : m_w ≤ m_t_sub_w_add_w := by sorry
+  -- grind only [t1 16, t2 16, t3 16, t5 16, t6 16]
+  -- have f1 : w ≤ (t - w) + w := by grind
   -- have f2 : m_t_sub_w ≤ m_w := by sorry
-  -- have f3 : m_w ≤ m_w := by simp
+  -- have f3 : w ≤ w := by simp
+  set_option trace.Meta.Tactic.simp.discharge true in
+  simp only [h_m_t_sub_w_add_w, h_m_w, h_m_t, h_m_t_sub_w]
+  -- simp only [f1, f3, t1 16, t2 16, t3 16, t6, t5 16]
+  -- set_option trace.grind.ematch.instance.assignment true in
+  hb grind [t1 16, t2 16, t3 16, t6, t5 16]
+
+  -- simp only [h_m_w, h_m_t, h_m_t_sub_w, h_m_t_sub_w_add_w, h_m_lit16, f1, f3, t1 16, t2 16, t3 16, t5 16, t6 16]
+  -- simp only [h_m_w, h_m_t, h_m_t_sub_w, h_m_t_sub_w_add_w, h_m_lit16,
+  --   f1, f3, t1 16, t2 16, t3 16, t5 16, t6 16]
   -- set_option trace.grind.ematch.instance.assignment true in
   -- set_option trace.grind.ematch.instance true in
   -- set_option trace.grind.ematch.pattern true in
-  -- set_option trace.grind.assert true in
   -- have : m_t_sub_w ≤ m_w := by grind
-  hb grind [t1, t2, t3, t5, t6]
   -- grind => instantiate only [t1, t2, t3, t5, t6]
 
   -- grind only [t1]
