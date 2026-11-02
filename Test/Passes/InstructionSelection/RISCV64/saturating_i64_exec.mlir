@@ -3,27 +3,33 @@
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64)}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i64, i64, i64, i64)}> ({
     %i64max = "llvm.mlir.constant"() <{value = 9223372036854775807 : i64}> : () -> i64
     %i64min = "llvm.mlir.constant"() <{value = -9223372036854775808 : i64}> : () -> i64
     %one = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
     %negone = "llvm.mlir.constant"() <{value = -1 : i64}> : () -> i64
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %pos_shl_overflow = "llvm.mlir.constant"() <{value = 4611686018427387904 : i64}> : () -> i64
+    // These are frozen so that the combiner does not fold the min/max away.
+    %i64max_frozen = "llvm.freeze"(%i64max) : (i64) -> i64
+    %i64min_frozen = "llvm.freeze"(%i64min) : (i64) -> i64
+    %one_frozen = "llvm.freeze"(%one) : (i64) -> i64
 
     %sadd = "llvm.intr.sadd.sat"(%i64max, %one) : (i64, i64) -> i64
     %ssub = "llvm.intr.ssub.sat"(%i64min, %one) : (i64, i64) -> i64
+    %sadd_frozen = "llvm.intr.sadd.sat"(%i64max_frozen, %one_frozen) : (i64, i64) -> i64
+    %ssub_frozen = "llvm.intr.ssub.sat"(%i64min_frozen, %one_frozen) : (i64, i64) -> i64
     %uadd = "llvm.intr.uadd.sat"(%negone, %one) : (i64, i64) -> i64
     %usub = "llvm.intr.usub.sat"(%zero, %one) : (i64, i64) -> i64
     %sshl = "llvm.intr.sshl.sat"(%pos_shl_overflow, %one) : (i64, i64) -> i64
     %ushl = "llvm.intr.ushl.sat"(%negone, %one) : (i64, i64) -> i64
 
-    "func.return"(%sadd, %ssub, %uadd, %usub, %sshl, %ushl) : (i64, i64, i64, i64, i64, i64) -> ()
+    "func.return"(%sadd, %ssub, %uadd, %usub, %sshl, %ushl, %sadd_frozen, %ssub_frozen) : (i64, i64, i64, i64, i64, i64, i64, i64) -> ()
   }) : () -> ()
 }) : () -> ()
 
-// SRC:   Program output: #[0x7fffffffffffffff#64, 0x8000000000000000#64, 0xffffffffffffffff#64, 0x0000000000000000#64, 0x7fffffffffffffff#64, 0xffffffffffffffff#64]
-// CHECK: Program output: #[0x7fffffffffffffff#64, 0x8000000000000000#64, 0xffffffffffffffff#64, 0x0000000000000000#64, 0x7fffffffffffffff#64, 0xffffffffffffffff#64]
+// SRC:   Program output: #[0x7fffffffffffffff#64, 0x8000000000000000#64, 0xffffffffffffffff#64, 0x0000000000000000#64, 0x7fffffffffffffff#64, 0xffffffffffffffff#64, 0x7fffffffffffffff#64, 0x8000000000000000#64]
+// CHECK: Program output: #[0x7fffffffffffffff#64, 0x8000000000000000#64, 0xffffffffffffffff#64, 0x0000000000000000#64, 0x7fffffffffffffff#64, 0xffffffffffffffff#64, 0x7fffffffffffffff#64, 0x8000000000000000#64]
 
 // ISEL-NOT: "llvm.intr
 // ISEL-NOT: "gmir.
