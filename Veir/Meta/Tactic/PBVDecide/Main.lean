@@ -31,6 +31,7 @@ reified widths, `BitVec`s and preconditions. The side goals generated along the
 way are collected in the `TranslateState`.
 -/
 meta def pbvTranslate (g : MVarId) : TranslateM MVarId := g.withContext do
+  logInfo m!"blasting at width {(← read).blastWidth}"
   -- Introduce the width masks, bounded by the blast width
   let g ← introMaskWidths g
   -- Translate props on the width vars into props on the masks
@@ -80,7 +81,7 @@ the provided context.
 public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Unit := do
   let (_, g) ← g.intros
   let (blastWidth, reifiedState) ← ReifyM.run ctx <| reifyWidths g
-  let (g, translated) ← TranslateM.run { reifiedState with blastWidth } <| pbvTranslate g
+  let (g, translated) ← TranslateM.run { reifiedState with blastWidth := ctx.config.blastWidth.getD blastWidth } <| pbvTranslate g
 
   let subgoals ← if ctx.config.grind
                 then runGrindOnSubgoals translated.subgoals
