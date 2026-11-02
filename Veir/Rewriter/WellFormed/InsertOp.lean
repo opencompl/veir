@@ -20,7 +20,7 @@ theorem Rewriter.insertOp?_WellFormed
     (wf : ctx.spec.WellFormed)
     (heq : Rewriter.insertOp? ctx newOp ip newOpIn ipIn ctxIn ipRepr = some newCtx) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.insertOp?_def, Rewriter.insertOp?Sim] at heq
+  simp only [Rewriter.insertOp?] at heq
   split at heq
   · simp at heq
   · rename_i parent hParent

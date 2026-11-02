@@ -79,7 +79,7 @@ theorem Sim.OperationPtr.allocRecycled_sim
     {spec : Veir.IRContext OpInfo} {sptr : Veir.OperationPtr}
     (h : allocRecycledRaw ctx.buf op props nr no nb ng hr ho hbo hg = some (b', ptr))
     (hspec : Veir.OperationPtr.allocEmptyAt ctx.spec op props nr.toNat nb.toNat ng.toNat no.toNat
-      ptr.toNat = some (spec, sptr)) : Veir.Sim ⟨b', spec⟩ := by
+      ptr.toNat = some (spec, sptr)) : Veir.Sim ⟨b', .mk spec⟩ := by
   obtain ⟨b, address, hres, rfl, hb, ha, rfl⟩ := allocRecycledRaw_eq h
   let ptr := address + 40 * nr
   have hptr := reserved_header_bounds hr ho hbo hg hres |>.1
@@ -104,6 +104,7 @@ theorem Sim.OperationPtr.allocRecycled_sim
   · intro p hp
     have hd := hdisj p hp
     have hin := ctx.sim.in_bounds p hp
+    change IsIncludedIN (p.range ctx.spec) _ at hin
     simp only [IsIncludedIN, ExArray.range_def] at hin
     refine ⟨by rw [hsize]; exact hbounds.1, ?_, ?_⟩
     · intro w n len hn hl
@@ -147,8 +148,7 @@ theorem Sim.OperationPtr.allocRecycledRaw_fresh
 
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
-buffed (inline := false)
-def Sim.OperationPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) (op : OpInfo)
+def Sim.OperationPtr.allocRecycled (ctx : Sim.IRContext OpInfo) (op : OpInfo)
     (props : HasOpInfo.propertiesOf op) (nr no nb ng : UInt64)
     (hr : nr.toNat ≤ countCard) (ho : no.toNat ≤ countCard)
     (hbo : nb.toNat ≤ countCard) (hg : ng.toNat ≤ countCard) :
@@ -159,18 +159,19 @@ def Sim.OperationPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) (op : OpInfo)
     have hsome : (allocationSpec ctx.spec ptr.toNat op props nr.toNat nb.toNat ng.toNat no.toNat).isSome := by
       apply Veir.OperationPtr.allocEmptyAt_isSome_of_not_mem
       exact allocRecycledRaw_fresh h
-    let specRes := (allocationSpec ctx.spec ptr.toNat op props nr.toNat nb.toNat ng.toNat no.toNat).specGet!
-    some (⟨ptr, specRes.2⟩, ⟨b, specRes.1, by
-      apply allocRecycled_sim (sptr := specRes.2) h
-      show allocationSpec ctx.spec ptr.toNat op props nr.toNat nb.toNat ng.toNat no.toNat = some specRes
-      simp only [specRes, Option.specGet!]
-      exact (Option.some_get! _ hsome).symm⟩)
+    let specRes := ctx.spec'.map (fun spec =>
+      (allocationSpec spec ptr.toNat op props nr.toNat nb.toNat ng.toNat no.toNat).get!)
+    some (⟨ptr, specRes.map Prod.snd⟩, ⟨b, specRes.map Prod.fst, by
+      rw [Erased.map_eq_mk]
+      apply allocRecycled_sim (sptr := specRes.out.2) h
+      simpa only [specRes, Erased.map_out, Sim.IRContext.spec, Option.get!, allocationSpec] using
+        (Option.some_get! _ hsome).symm⟩)
 
 theorem Sim.OperationPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo} :
     allocRecycled ctx op props nr no nb ng hr ho hbo hg = some (ptr, ctx') →
     Veir.OperationPtr.allocEmptyAt ctx.spec op props nr.toNat nb.toNat ng.toNat no.toNat
       ptr.impl.toNat = some (ctx'.spec, ptr.spec) := by
-  simp only [allocRecycled_def, allocRecycledSim, allocationSpec]
+  simp only [allocRecycled, allocationSpec]
   split
   · simp
   · rename_i b p h
@@ -181,7 +182,7 @@ theorem Sim.OperationPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo} :
       (allocRecycledRaw_fresh h)
     simp_all only [Option.some.injEq, Prod.mk.injEq]
     obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := heq
-    simp only [Option.specGet!]
+    simp only [Sim.IRContext.spec, Sim.OperationPtr.spec, Erased.map_out, Option.get!]
     grind
 
 @[grind! .]
@@ -222,7 +223,8 @@ theorem OperationPtr.allocRecycled_genericPtr_iff (ptr : GenericPtr)
 theorem OperationPtr.allocRecycled_operationPtr_iff (ptr : OperationPtr)
     (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
-  grind [generic_ptr_grind, Sim.OperationPtr]
+  simpa only [GenericPtr.iff_operation, GenericPtr.fromOperation_inj] using
+    OperationPtr.allocRecycled_genericPtr_iff (.fromOperation ptr) heq
 
 @[grind . ]
 theorem OperationPtr.allocRecycled_genericPtr_mono (ptr : GenericPtr)

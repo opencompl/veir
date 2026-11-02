@@ -5,6 +5,9 @@ public import Veir.Rewriter.LinkedList.WellFormed
 
 public section
 
+attribute [local simp] Veir.Sim.IRContext.spec Veir.Sim.OperationPtr.spec Veir.Sim.OpOperandPtr.spec
+  Veir.Sim.BlockOperandPtr.spec Veir.Sim.OptionOperationPtr.spec Veir.Sim.OptionBlockPtr.spec
+
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
@@ -21,7 +24,7 @@ theorem Rewriter.insertBlock?_WellFormed
     (heq : Rewriter.insertBlock? ctx newBlock ip newBlockIn ipIn ipRepr ctxIn =
       some newCtx) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.insertBlock?_def, Rewriter.insertBlock?Sim] at heq
+  simp only [Rewriter.insertBlock?] at heq
   split at heq
   · simp at heq
   · rename_i parent hParent
@@ -29,7 +32,7 @@ theorem Rewriter.insertBlock?_WellFormed
       BlockInsertPoint.region_InBounds ctxIn ipIn ipRepr hParent ipIn
     have hRegionIB : (ip.region ctx ipIn ipRepr).InBounds ctx := by
       cases ip <;>
-        grind [BlockInsertPoint.region_def, BlockInsertPoint.regionSim,
+        grind [BlockInsertPoint.region,
           generic_ptr_grind]
     have hParentSpec : (ip.region ctx ipIn ipRepr).spec = some parent.spec :=
       Sim.OptionRegionPtr.toOption_some hRegionIB hParent

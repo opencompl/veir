@@ -19,7 +19,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo]
     imply the original, unchanged well-formedness predicate. -/
 theorem Rewriter.finishOpOperands_wellFormed
     {ctx operandsCtx finalCtx : Sim.IRContext OpInfo} {op : Sim.OperationPtr}
-    {operands : Sim.ArrayValuePtr} {blockOperands : Sim.ArrayBlockPtr}
+    {operands : Array Sim.ValuePtr} {blockOperands : Array Sim.BlockPtr}
     {hop hv hi hc hb hvb hib hcb}
     (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
     (results : (op.spec.get! ctx.spec).capResults = op.spec.getNumResults! ctx.spec)
@@ -58,11 +58,11 @@ set_option maxHeartbeats 2000000 in
 theorem Rewriter.createOp_preserves_wellFormed
     {ctx newCtx : Sim.IRContext OpInfo} {newOp : Sim.OperationPtr}
     {opType : OpInfo} {resultTypes : Array TypeAttr}
-    {operands : Sim.ArrayValuePtr} {blockOperands : Sim.ArrayBlockPtr}
-    {regions : Sim.ArrayRegionPtr} {properties : HasOpInfo.propertiesOf opType}
+    {operands : Array Sim.ValuePtr} {blockOperands : Array Sim.BlockPtr}
+    {regions : Array Sim.RegionPtr} {properties : HasOpInfo.propertiesOf opType}
     {insertionPoint : Option InsertPoint}
-    {hoper : operands.InBounds ctx} {hblockOperands : blockOperands.InBounds ctx}
-    {hregions : regions.InBounds ctx} {hins : insertionPoint.maybe InsertPoint.InBounds ctx.spec}
+    {hoper : (∀ i (hi : i < operands.size), operands[i].InBounds ctx)} {hblockOperands : (∀ i (hi : i < blockOperands.size), blockOperands[i].InBounds ctx)}
+    {hregions : (∀ i (hi : i < regions.size), regions[i].InBounds ctx)} {hins : insertionPoint.maybe InsertPoint.InBounds ctx.spec}
     {hrep : insertionPoint.maybe₁ InsertPoint.IsRepr} {htypes : resultTypes.size < 2^32}
     {hx : ctx.spec.FieldsInBounds}
     (wf : ctx.spec.WellFormed)
@@ -70,7 +70,8 @@ theorem Rewriter.createOp_preserves_wellFormed
       properties insertionPoint hoper hblockOperands hregions hins hrep htypes hx =
       some (newCtx, newOp)) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.createOp_def, Rewriter.createOpSim] at h
+  simp only [Rewriter.createOp] at h
+  split at h <;> try contradiction
   split at h
   · contradiction
   · rename_i allocated allocatedCtx halloc
@@ -89,21 +90,25 @@ theorem Rewriter.createOp_preserves_wellFormed
             Rewriter.initOpRegions_preserves_numResults _ hregionsCtx,
             Rewriter.initOpResults_preserves_capResults _ (heq := rfl),
             Rewriter.initOpResults_numResults (heq := rfl) (by simp)]
+          clear hallocWf hregionsWf wf h hregionsCtx hoper hblockOperands hregions
           grind [Operation.empty, Array.sizeU64_toNat]
         have hregionsFull : (allocated.spec.get! regionsCtx.spec).capRegions =
             allocated.spec.getNumRegions! regionsCtx.spec := by
           rw [Rewriter.initOpRegions_preserves_capRegions _ hregionsCtx,
             Rewriter.initOpRegions_numRegions (by simp) hregionsCtx,
             Rewriter.initOpResults_preserves_capRegions _ (heq := rfl)]
-          grind [Operation.empty]
+          clear hallocWf hregionsWf wf h hregionsCtx hoper hblockOperands hregions
+          grind [Operation.empty, Array.sizeU64_toNat]
         have hoperandCapacity : (allocated.spec.get! regionsCtx.spec).capOperands = operands.size := by
           rw [Rewriter.initOpRegions_preserves_capOperands _ hregionsCtx,
             Rewriter.initOpResults_preserves_capOperands _ (heq := rfl)]
-          grind [Operation.empty]
+          clear hallocWf hregionsWf wf h hregionsCtx hoper hblockOperands hregions
+          grind [Operation.empty, Array.sizeU64_toNat]
         have hblockCapacity : (allocated.spec.get! regionsCtx.spec).capBlockOperands = blockOperands.size := by
           rw [Rewriter.initOpRegions_preserves_capBlockOperands _ hregionsCtx,
             Rewriter.initOpResults_preserves_capBlockOperands _ (heq := rfl)]
-          grind [Operation.empty]
+          clear hallocWf hregionsWf wf h hregionsCtx hoper hblockOperands hregions
+          grind [Operation.empty, Array.sizeU64_toNat]
         split at h
         · rename_i ip hip
           simp only [Option.bind_eq_bind, Option.bind] at h

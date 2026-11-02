@@ -24,7 +24,7 @@ variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
 @[grind, inline]
 def Sim.OptionOperationPtr.none : Sim.OptionOperationPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.OperationPtr.InBounds (ptr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) where
@@ -56,18 +56,18 @@ theorem Sim.OptionOperationPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr 
 
 @[inline, grind]
 def Sim.OperationPtr.toO (ptr : Sim.OperationPtr) : Sim.OptionOperationPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionOperationPtr.toOption (ptr : Sim.OptionOperationPtr) : Option Sim.OperationPtr :=
   if ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
 @[inline, grind]
 def OperationPtr.toSim (ptr : OperationPtr) : Sim.OperationPtr :=
-  { impl := ptr.toM, spec := ptr }
+  { impl := ptr.toM, spec' := .mk ptr }
 
 @[grind .] theorem OperationPtr.toSim_sim (ptr : OperationPtr) : ptr.toSim.Sim := by grind
 @[grind =] theorem OperationPtr.toSim_inBounds_iff_inBounds {ctx : Sim.IRContext OpInfo}
@@ -75,7 +75,7 @@ def OperationPtr.toSim (ptr : OperationPtr) : Sim.OperationPtr :=
 
 @[grind, inline]
 def Sim.OptionBlockPtr.none : Sim.OptionBlockPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.BlockPtr.InBounds (ptr : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) where
@@ -105,24 +105,21 @@ theorem Sim.OptionBlockPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Si
   have := ctx.sim.repr
   rcases heq : ptr.spec <;> grind
 
-def Sim.ArrayBlockPtr.InBounds (ptr : Sim.ArrayBlockPtr) (ctx : Sim.IRContext OpInfo) :=
-  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.InBounds ctx
-
 @[inline, grind]
 def Sim.BlockPtr.toO (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionBlockPtr.toOption (ptr : Sim.OptionBlockPtr) : Option Sim.BlockPtr :=
   if ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
 
 @[grind, inline]
 def BlockPtr.toSim (ptr : BlockPtr) : Sim.BlockPtr :=
-  { impl := ptr.toM, spec := ptr }
+  { impl := ptr.toM, spec' := .mk ptr }
 
 @[grind .] theorem BlockPtr.toSim_sim (ptr : BlockPtr) : ptr.toSim.Sim := by grind
 @[grind =] theorem BlockPtr.toSim_inBounds_iff_inBounds {ctx : Sim.IRContext OpInfo}
@@ -130,7 +127,7 @@ def BlockPtr.toSim (ptr : BlockPtr) : Sim.BlockPtr :=
 
 @[grind, inline]
 def Sim.OptionRegionPtr.none : Sim.OptionRegionPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.RegionPtr.InBounds (ptr : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) where
@@ -154,23 +151,20 @@ theorem Sim.OptionRegionPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : S
   have := ctx.sim.repr
   rcases heq : ptr.spec <;> grind
 
-def Sim.ArrayRegionPtr.InBounds (ptr : Sim.ArrayRegionPtr) (ctx : Sim.IRContext OpInfo) :=
-  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.InBounds ctx
-
 @[inline, grind]
 def Sim.RegionPtr.toO (ptr : Sim.RegionPtr) : Sim.OptionRegionPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionRegionPtr.toOption (ptr : Sim.OptionRegionPtr) : Option Sim.RegionPtr :=
   if _ : ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
 @[grind, inline]
 def RegionPtr.toSim (ptr : RegionPtr) : Sim.RegionPtr :=
-  { impl := ptr.toM, spec := ptr }
+  { impl := ptr.toM, spec' := .mk ptr }
 
 @[grind .] theorem RegionPtr.toSim_sim (ptr : RegionPtr) : ptr.toSim.Sim := by grind
 @[grind =] theorem RegionPtr.toSim_inBounds_iff_inBounds {ctx : Sim.IRContext OpInfo}
@@ -178,7 +172,7 @@ def RegionPtr.toSim (ptr : RegionPtr) : Sim.RegionPtr :=
 
 @[grind, inline]
 def Sim.OptionOpResultPtr.none : Sim.OptionOpResultPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.OpResultPtr.InBounds (ptr : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) where
@@ -209,18 +203,18 @@ theorem Sim.OptionOpResultPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr :
 
 @[inline, grind]
 def Sim.OpResultPtr.toO (ptr : Sim.OpResultPtr) : Sim.OptionOpResultPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionOpResultPtr.toOption (ptr : Sim.OptionOpResultPtr) : Option Sim.OpResultPtr :=
   if ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
 @[grind, inline]
 def Sim.OptionBlockArgumentPtr.none : Sim.OptionBlockArgumentPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.BlockArgumentPtr.InBounds (ptr : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) where
@@ -256,22 +250,22 @@ theorem Sim.OptionBlockArgumentPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {
 
 @[inline, grind]
 def Sim.BlockArgumentPtr.toO (ptr : Sim.BlockArgumentPtr) : Sim.OptionBlockArgumentPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionBlockArgumentPtr.toOption (ptr : Sim.OptionBlockArgumentPtr) : Option Sim.BlockArgumentPtr :=
   if ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
 @[grind, inline]
 def Sim.OptionOpOperandPtr.none : Sim.OptionOpOperandPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[inline, grind]
 def Sim.OptionOpOperandPtr.toOption (ptr : Sim.OptionOpOperandPtr) : Option Sim.OpOperandPtr :=
-  if ptr.impl = .none then .none else some { impl := ptr.impl, spec := ptr.spec.specGet! }
+  if ptr.impl = .none then .none else some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.OpOperandPtr.InBounds (ptr : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) where
@@ -306,11 +300,11 @@ theorem Sim.OptionOpOperandPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr 
 
 @[inline, grind]
 def Sim.OpOperandPtr.toO (ptr : Sim.OpOperandPtr) : Sim.OptionOpOperandPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[grind, inline]
 def Sim.OptionBlockOperandPtr.none : Sim.OptionBlockOperandPtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.BlockOperandPtr.InBounds (ptr : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) where
@@ -345,26 +339,26 @@ theorem Sim.OptionBlockOperandPtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {p
 
 @[inline, grind]
 def Sim.BlockOperandPtr.toO (ptr : Sim.BlockOperandPtr) : Sim.OptionBlockOperandPtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionBlockOperandPtr.toOption (ptr : Sim.OptionBlockOperandPtr) : Option Sim.BlockOperandPtr :=
   if ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
 @[grind, inline]
 def Sim.OptionValuePtr.none : Sim.OptionValuePtr :=
-  { impl := .none, spec := .none }
+  { impl := .none, spec' := .mk .none }
 
 @[inline]
 def Sim.ValuePtr.fromOpResultPtr (ptr : Sim.OpResultPtr) : Sim.ValuePtr :=
-  { impl := ptr.impl, spec := .opResult ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map .opResult }
 
 @[inline]
 def Sim.ValuePtr.fromBlockArgumentPtr (ptr : Sim.BlockArgumentPtr) : Sim.ValuePtr :=
-  { impl := ptr.impl, spec := .blockArgument ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map .blockArgument }
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.ValuePtr.InBounds (ptr : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) where
@@ -395,9 +389,6 @@ structure Sim.OptionValuePtr.InBounds (ptr : Sim.OptionValuePtr) (ctx : Sim.IRCo
   sim : ptr.Sim ctx.inner
   ib : ptr.spec.maybe Veir.ValuePtr.InBounds ctx.spec
 
-def Sim.ArrayValuePtr.InBounds (ptr : Sim.ArrayValuePtr) (ctx : Sim.IRContext OpInfo) :=
-  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.InBounds ctx
-
 @[grind .]
 theorem Sim.OptionValuePtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Sim.OptionValuePtr} (ib : ptr.InBounds ctx) :
     ptr.spec.maybe Veir.ValuePtr.IsRepr ctx.spec := by
@@ -407,12 +398,12 @@ theorem Sim.OptionValuePtr.isRepr_of_inBounds {ctx : IRContext OpInfo} {ptr : Si
 
 @[inline, grind]
 def Sim.ValuePtr.toO (ptr : Sim.ValuePtr) : Sim.OptionValuePtr :=
-  { impl := ptr.impl, spec := some ptr.spec }
+  { impl := ptr.impl, spec' := ptr.spec'.map some }
 
 @[inline, grind]
 def Sim.OptionValuePtr.toOption (ptr : Sim.OptionValuePtr) : Option Sim.ValuePtr :=
   if ptr.impl ≠ .none then
-    some { impl := ptr.impl, spec := ptr.spec.specGet! }
+    some { impl := ptr.impl, spec' := ptr.spec'.map (·.get!) }
   else
     .none
 
@@ -465,47 +456,47 @@ namespace Sim.GenericPtr
 variable {ctx : IRContext OpInfo}
 
 @[simp, generic_ptr_grind _=_] theorem iff_block (ptr : BlockPtr) : (fromBlock ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
-theorem iff_block_spec (ptr : GenericPtr) (h : ptr.spec = .block ptr') : ptr.InBounds ctx ↔ (BlockPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+theorem iff_block_spec (ptr : GenericPtr) (h : ptr.spec = .block ptr') : ptr.InBounds ctx ↔ (BlockPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_operation (ptr : OperationPtr) : (fromOperation ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
- theorem iff_operation_spec (ptr : GenericPtr) (h : ptr.spec = .operation ptr') : ptr.InBounds ctx ↔ (OperationPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+ theorem iff_operation_spec (ptr : GenericPtr) (h : ptr.spec = .operation ptr') : ptr.InBounds ctx ↔ (OperationPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_result (ptr : OpResultPtr) : (fromOpResult ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
- theorem iff_result_spec (ptr : GenericPtr) (h : ptr.spec = .opResult ptr') : ptr.InBounds ctx ↔ (OpResultPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+ theorem iff_result_spec (ptr : GenericPtr) (h : ptr.spec = .opResult ptr') : ptr.InBounds ctx ↔ (OpResultPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_opOperand (ptr : OpOperandPtr) : (fromOpOperand ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
-theorem iff_opOperand_spec (ptr : GenericPtr) (h : ptr.spec = .opOperand ptr') : ptr.InBounds ctx ↔ (OpOperandPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+theorem iff_opOperand_spec (ptr : GenericPtr) (h : ptr.spec = .opOperand ptr') : ptr.InBounds ctx ↔ (OpOperandPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_blockOperand (ptr : BlockOperandPtr) : (fromBlockOperand ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
- theorem iff_blockOperand_spec (ptr : GenericPtr) (h : ptr.spec = .blockOperand ptr') : ptr.InBounds ctx ↔ (BlockOperandPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+ theorem iff_blockOperand_spec (ptr : GenericPtr) (h : ptr.spec = .blockOperand ptr') : ptr.InBounds ctx ↔ (BlockOperandPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_blockOperandPtr (ptr : BlockOperandPtrPtr) : (fromBlockOperandPtr ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
- theorem iff_blockOperandPtr_spec (ptr : GenericPtr) (h : ptr.spec = .blockOperandPtr ptr') : ptr.InBounds ctx ↔ (BlockOperandPtrPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+ theorem iff_blockOperandPtr_spec (ptr : GenericPtr) (h : ptr.spec = .blockOperandPtr ptr') : ptr.InBounds ctx ↔ (BlockOperandPtrPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_blockArgument (ptr : BlockArgumentPtr) : (fromBlockArgument ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
-theorem iff_blockArgument_spec (ptr : GenericPtr) (h : ptr.spec = .blockArgument ptr') : ptr.InBounds ctx ↔ (BlockArgumentPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+theorem iff_blockArgument_spec (ptr : GenericPtr) (h : ptr.spec = .blockArgument ptr') : ptr.InBounds ctx ↔ (BlockArgumentPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_region (ptr : RegionPtr) : (fromRegion ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
-theorem iff_region_spec (ptr : GenericPtr) (h : ptr.spec = .region ptr') : ptr.InBounds ctx ↔ (RegionPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+theorem iff_region_spec (ptr : GenericPtr) (h : ptr.spec = .region ptr') : ptr.InBounds ctx ↔ (RegionPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_value (ptr : ValuePtr) : (fromValue ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
-theorem iff_value_spec (ptr : GenericPtr) (h : ptr.spec = .value ptr') : ptr.InBounds ctx ↔ (ValuePtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+theorem iff_value_spec (ptr : GenericPtr) (h : ptr.spec = .value ptr') : ptr.InBounds ctx ↔ (ValuePtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 @[simp, generic_ptr_grind _=_] theorem iff_opOperandPtr (ptr : OpOperandPtrPtr) : (fromOpOperandPtr ptr).InBounds ctx ↔ ptr.InBounds ctx := by grind [GenericPtr.toM]
-theorem iff_opOperandPtr_spec (ptr : GenericPtr) (h : ptr.spec = .opOperandPtr ptr') : ptr.InBounds ctx ↔ (OpOperandPtrPtr.mk ptr.impl ptr').InBounds ctx := by grind [GenericPtr.toM]
+theorem iff_opOperandPtr_spec (ptr : GenericPtr) (h : ptr.spec = .opOperandPtr ptr') : ptr.InBounds ctx ↔ (OpOperandPtrPtr.mk ptr.impl (.mk ptr')).InBounds ctx := by grind [GenericPtr.toM]
 end Sim.GenericPtr
 
 @[inline]
 def Sim.OpOperandPtr.getOpOperandPtrPtr (ptr : Sim.OpOperandPtr) : Sim.OpOperandPtrPtr :=
   ⟨ptr.impl + OpOperand.Offsets.nextUse.toUInt64,
-   .operandNextUse ptr.spec⟩
+   ptr.spec'.map .operandNextUse⟩
 
 @[inline]
 def Sim.BlockOperandPtr.getBlockOperandPtrPtr (ptr : Sim.BlockOperandPtr) : Sim.BlockOperandPtrPtr :=
   ⟨ptr.impl + OpOperand.Offsets.nextUse.toUInt64,
-   .blockOperandNextUse ptr.spec⟩
+   ptr.spec'.map .blockOperandNextUse⟩
 
 @[inline]
 def Sim.ValuePtr.getOpOperandPtrPtr (ptr : Sim.ValuePtr) : Sim.OpOperandPtrPtr :=
   ⟨ptr.impl + ValueImpl.Offsets.firstUse.toUInt64,
-   match ptr.spec with
+   ptr.spec'.map fun
    | .opResult res => .valueFirstUse res
    | .blockArgument arg => .valueFirstUse arg⟩
 
 @[inline]
 def Sim.BlockPtr.getBlockOperandPtrPtr (ptr : Sim.BlockPtr) : Sim.BlockOperandPtrPtr :=
-  ⟨ptr.impl + Block.Offsets.firstUse.toUInt64, .blockFirstUse ptr.spec⟩
+  ⟨ptr.impl + Block.Offsets.firstUse.toUInt64, ptr.spec'.map .blockFirstUse⟩
 
 /-! ## Preservation of `toFlat` when the layout is preserved. -/
 
@@ -644,8 +635,7 @@ theorem Sim.OptionOpResultPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpIn
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  obtain ⟨impl, spec⟩ := ptr
-  cases spec <;>
+  rcases heq : ptr.spec with _ | spec <;>
     grind [Veir.OpResultPtr.toO, Veir.OpResultPtr.toM, Option.maybe_def]
 
 @[grind! .]
@@ -653,8 +643,7 @@ theorem Sim.OptionOpOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpI
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  obtain ⟨impl, spec⟩ := ptr
-  cases spec <;>
+  rcases heq : ptr.spec with _ | spec <;>
     grind [Veir.OpOperandPtr.toO, Veir.OpOperandPtr.toM, Option.maybe_def]
 
 @[grind! .]
@@ -662,8 +651,7 @@ theorem Sim.OptionBlockOperandPtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext 
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  obtain ⟨impl, spec⟩ := ptr
-  cases spec <;>
+  rcases heq : ptr.spec with _ | spec <;>
     grind [Veir.BlockOperandPtr.toO, Veir.BlockOperandPtr.toM, Option.maybe_def]
 
 @[grind! .]
@@ -671,8 +659,7 @@ theorem Sim.OptionValuePtr.sim_layoutPreserved {ctx ctx' : Sim.IRContext OpInfo}
     ctx.spec.LayoutPreserved ctx'.spec →
     ptr.InBounds ctx →
     ptr.Sim ctx'.inner := by
-  obtain ⟨impl, spec⟩ := ptr
-  cases spec <;>
+  rcases heq : ptr.spec with _ | spec <;>
     grind [Veir.ValuePtr.toO, Veir.ValuePtr.toM, Option.maybe_def]
 
 @[layout_grind .]
@@ -880,7 +867,7 @@ theorem Sim.BlockPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} 
     block.getBlockOperandPtrPtr.Sim ctx.inner := by
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
   unfold getBlockOperandPtrPtr
-  simp only [BlockOperandPtrPtr.Sim_def]
+  simp only [BlockOperandPtrPtr.Sim_def, Sim.BlockOperandPtrPtr.spec, Erased.map_out]
   rw [← sim.out]
   suffices _ : block.spec.toFlat + Block.Offsets.firstUse.toInt.toNat < 2^64 by
     exact UInt64.left_eq_add.mpr rfl
@@ -1179,7 +1166,7 @@ theorem Sim.ValuePtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpInfo} 
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
   replace sim := sim.out
   unfold getOpOperandPtrPtr
-  simp only [OpOperandPtrPtr.Sim_def]
+  simp only [OpOperandPtrPtr.Sim_def, Sim.OpOperandPtrPtr.spec, Erased.map_out]
   rw [← sim]
   clear sim
   try simp
@@ -1219,11 +1206,10 @@ theorem Sim.OpOperandPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext OpIn
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
   replace sim := sim.out
   unfold getOpOperandPtrPtr
-  simp only [OpOperandPtrPtr.Sim_def]
+  simp only [OpOperandPtrPtr.Sim_def, Sim.OpOperandPtrPtr.spec, Erased.map_out]
   rw [← sim]
   clear sim
   unfold OpOperandPtrPtr.toM OpOperandPtrPtr.toFlat OpOperandPtr.toM
-  dsimp
   suffices h : oper.spec.toFlat ctx.inner.spec + OpOperand.Offsets.nextUse.toInt.toNat  < 2^64 by
     exact UInt64.left_eq_add.mpr rfl
   have := Sim.OpOperandPtr.after_lt_ctx (ctx := ctx) oper.spec (by grind)
@@ -1247,11 +1233,10 @@ theorem Sim.BlockOperandPtr.getOpOperandPtrPtr_sim_of_sim {ctx : Sim.IRContext O
   rcases ib with ⟨sim, ib⟩ -- need `ib` to know that there is no overflow!
   replace sim := sim.out
   unfold getBlockOperandPtrPtr
-  simp only [BlockOperandPtrPtr.Sim_def]
+  simp only [BlockOperandPtrPtr.Sim_def, Sim.BlockOperandPtrPtr.spec, Erased.map_out]
   rw [← sim]
   clear sim
   unfold BlockOperandPtrPtr.toM BlockOperandPtrPtr.toFlat BlockOperandPtr.toM
-  dsimp
   suffices h : oper.spec.toFlat ctx.inner.spec + OpOperand.Offsets.nextUse.toInt.toNat  < 2^64 by
     exact UInt64.left_eq_add.mpr rfl
   have := Sim.BlockOperandPtr.after_lt_ctx (ctx := ctx) oper.spec (by grind)

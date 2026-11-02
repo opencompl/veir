@@ -40,7 +40,7 @@ theorem OptionOperationPtr.toO_inBounds_of_inBounds (ptr : Sim.OperationPtr) :
 theorem OptionOperationPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.OperationPtr.toO]
+  · simp [Sim_def, Sim.OptionOperationPtr.spec, Veir.OperationPtr.toO]
   · grind
 
 
@@ -117,7 +117,11 @@ theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i.toNat < op.spec.getNumOperands! ctx.spec) :
     (op.getOperandPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getOperandPtr_eq_getOperandPtr!]
-  exact ⟨(Sim.OpOperandPtr.Sim_def _ _).mpr (OperationPtr.getOpOperand_toM op hop i h₂), OperationPtr.getOpOperand_veir_inBounds op hop i h₂⟩
+  constructor
+  · simpa [Sim.OpOperandPtr.Sim_def, getOperandPtr!, Sim.OpOperandPtr.spec, IRContext.inner_def] using
+      OperationPtr.getOpOperand_toM op hop i h₂
+  · simpa [getOperandPtr!, Sim.OpOperandPtr.spec] using
+      OperationPtr.getOpOperand_veir_inBounds op hop i h₂
 
 /-- The spec-level block operand pointer is in bounds when its index is below the count. -/
 theorem OperationPtr.getBlockOperand_veir_inBounds (op : OperationPtr)
@@ -156,7 +160,11 @@ theorem OperationPtr.getBlockOperand_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i.toNat < op.spec.getNumSuccessors! ctx.spec) :
     (op.getBlockOperandPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getBlockOperandPtr_eq_getBlockOperandPtr!]
-  exact ⟨(Sim.BlockOperandPtr.Sim_def _ _).mpr (OperationPtr.getBlockOperand_toM op hop i h₂), OperationPtr.getBlockOperand_veir_inBounds op hop i h₂⟩
+  constructor
+  · simpa [Sim.BlockOperandPtr.Sim_def, getBlockOperandPtr!, Sim.BlockOperandPtr.spec, IRContext.inner_def] using
+      OperationPtr.getBlockOperand_toM op hop i h₂
+  · simpa [getBlockOperandPtr!, Sim.BlockOperandPtr.spec] using
+      OperationPtr.getBlockOperand_veir_inBounds op hop i h₂
 
 /-- The spec-level result pointer is in bounds when its index is below the result count. -/
 theorem OperationPtr.getResult_veir_inBounds (op : OperationPtr)
@@ -196,7 +204,11 @@ theorem OperationPtr.getResult_inBounds (op : OperationPtr)
     (hop : op.InBounds ctx) i (h₂ : i.toNat < op.spec.getNumResults! ctx.spec) :
     (op.getResultPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getResultPtr_eq_getResultPtr!]
-  exact ⟨(Sim.OpResultPtr.Sim_def _ _).mpr (OperationPtr.getResult_toM op hop i h₂), OperationPtr.getResult_veir_inBounds op hop i h₂⟩
+  constructor
+  · simpa [Sim.OpResultPtr.Sim_def, getResultPtr!, Sim.OpResultPtr.spec, IRContext.inner_def] using
+      OperationPtr.getResult_toM op hop i h₂
+  · simpa [getResultPtr!, Sim.OpResultPtr.spec] using
+      OperationPtr.getResult_veir_inBounds op hop i h₂
 
 @[grind =>]
 theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
@@ -223,10 +235,25 @@ theorem OperationPtr.allocEmpty_genericPtr_iff (ptr : GenericPtr)
     · refine ⟨?_, (Veir.OperationPtr.allocEmptyAt_genericPtr_iff _ hspec).mpr (.inr (by grind [Sim.GenericPtr.fromOperation]))⟩
       grind [Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM, Veir.OperationPtr.toM]
 
+@[simp, grind =]
+theorem GenericPtr.fromOperation_inj (ptr ptr' : OperationPtr) :
+    GenericPtr.fromOperation ptr = GenericPtr.fromOperation ptr' ↔ ptr = ptr' := by
+  constructor
+  · intro h
+    have hi := congrArg GenericPtr.impl h
+    have hs := congrArg GenericPtr.spec h
+    simp only [GenericPtr.fromOperation, GenericPtr.spec, Erased.map_out,
+      Veir.GenericPtr.operation.injEq] at hs
+    cases ptr
+    cases ptr'
+    grind [GenericPtr.fromOperation, Erased.out_inj]
+  · exact congrArg GenericPtr.fromOperation
+
 theorem OperationPtr.allocEmpty_operationPtr_iff (ptr : OperationPtr)
     (heq : allocEmpty ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
-    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
-  grind [generic_ptr_grind, Sim.OperationPtr]
+    ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = ptr') := by
+  simpa only [GenericPtr.iff_operation, GenericPtr.fromOperation_inj] using
+    OperationPtr.allocEmpty_genericPtr_iff (.fromOperation ptr) heq
 
 @[grind . ]
 theorem OperationPtr.allocEmpty_genericPtr_mono (ptr : GenericPtr)
@@ -283,7 +310,7 @@ theorem OptionOpOperandPtr.toO_inBounds_of_inBounds (ptr : Sim.OpOperandPtr) :
 theorem OptionOpOperandPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.OpOperandPtr.toO]
+  · simp [Sim_def, Sim.OptionOpOperandPtr.spec, Veir.OpOperandPtr.toO]
   · grind
 
 @[grind =]
@@ -359,7 +386,7 @@ theorem OptionOpResultPtr.toO_inBounds_of_inBounds (ptr : Sim.OpResultPtr) :
 theorem OptionOpResultPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.OpResultPtr.toO]
+  · simp [Sim_def, Sim.OptionOpResultPtr.spec, Veir.OpResultPtr.toO]
   · grind
 
 @[grind =]
@@ -398,7 +425,7 @@ theorem OptionBlockArgumentPtr.toO_inBounds_of_inBounds (ptr : Sim.BlockArgument
 theorem OptionBlockArgumentPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.BlockArgumentPtr.toO]
+  · simp [Sim_def, Sim.OptionBlockArgumentPtr.spec, Veir.BlockArgumentPtr.toO]
   · grind
 
 @[grind =]
@@ -437,7 +464,7 @@ theorem OptionValuePtr.toO_inBounds_of_inBounds (ptr : Sim.ValuePtr) :
 theorem OptionValuePtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.ValuePtr.toO]
+  · simp [Sim_def, Sim.OptionValuePtr.spec, Veir.ValuePtr.toO]
   · grind
 
 @[grind =]
@@ -488,7 +515,7 @@ theorem OptionBlockPtr.toO_inBounds_of_inBounds (ptr : Sim.BlockPtr) :
 theorem OptionBlockPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.BlockPtr.toO]
+  · simp [Sim_def, Sim.OptionBlockPtr.spec, Veir.BlockPtr.toO]
   · grind
 
 /-- The spec-level block argument pointer is in bounds when its index is below the count. -/
@@ -527,7 +554,11 @@ theorem BlockPtr.getArgument_inBounds (block : BlockPtr)
     (hblock : block.InBounds ctx) i (h₂ : i.toNat < block.spec.getNumArguments ctx.spec) :
     (block.getArgumentPtr ctx i hblock).InBounds ctx := by
   rw [Sim.BlockPtr.getArgumentPtr_eq_getArgumentPtr!]
-  exact ⟨(Sim.BlockArgumentPtr.Sim_def _).mpr (BlockPtr.getArgument_toM block hblock i h₂), BlockPtr.getArgument_veir_inBounds block hblock i h₂⟩
+  constructor
+  · simpa [Sim.BlockArgumentPtr.Sim_def, getArgumentPtr!, Sim.BlockArgumentPtr.spec] using
+      BlockPtr.getArgument_toM block hblock i h₂
+  · simpa [getArgumentPtr!, Sim.BlockArgumentPtr.spec] using
+      BlockPtr.getArgument_veir_inBounds block hblock i h₂
 
 @[grind =]
 theorem BlockPtr.setParent_inBounds (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) (ptr' : Sim.GenericPtr)
@@ -681,7 +712,7 @@ theorem OptionRegionPtr.toO_inBounds_of_inBounds (ptr : Sim.RegionPtr) :
 theorem OptionRegionPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.RegionPtr.toO]
+  · simp [Sim_def, Sim.OptionRegionPtr.spec, Veir.RegionPtr.toO]
   · grind
 
 @[grind =]
@@ -792,7 +823,7 @@ theorem OptionBlockOperandPtr.toO_inBounds_of_inBounds (ptr : Sim.BlockOperandPt
 theorem OptionBlockOperandPtr.none_inBounds : none.InBounds ctx := by
   simp [none]
   constructor
-  · simp [Sim_def, Veir.BlockOperandPtr.toO]
+  · simp [Sim_def, Sim.OptionBlockOperandPtr.spec, Veir.BlockOperandPtr.toO]
   · grind
 
 @[grind =]

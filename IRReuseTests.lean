@@ -17,7 +17,8 @@ private structure EmptyArena where
   empty : NoObjects ctx.spec
 
 private def initial : EmptyArena := ⟨default, by
-  change NoObjects (default : Veir.IRContext OpCode)
+  change NoObjects (Erased.mk (default : Veir.IRContext OpCode)).out
+  rw [Erased.out_mk]
   intro p
   cases p <;> simp [TopLevelPtr.InBounds, OperationPtr.inBounds_def,
     BlockPtr.inBounds_def, RegionPtr.inBounds_def, IRContext.default_def]⟩
@@ -40,7 +41,9 @@ private def cycleOperation (a : EmptyArena) : Option EmptyArena := do
     have old := a.empty
     unfold NoObjects at old
     cases q <;> grind [TopLevelPtr.InBounds, OperationPtr.dealloc, OperationPtr.inBounds_def]
-  pure ⟨Sim.OperationPtr.dealloc c p ib (fieldsOfEmpty he), he⟩
+  pure ⟨Sim.OperationPtr.dealloc c p ib (fieldsOfEmpty he), by
+    simpa only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+      Sim.IRContext.spec, Erased.out_mk] using he⟩
 
 private def cycleBlock (a : EmptyArena) : Option EmptyArena := do
   rlet h : (p, c) ← Sim.BlockPtr.allocRecycled a.ctx 5
@@ -52,7 +55,7 @@ private def cycleBlock (a : EmptyArena) : Option EmptyArena := do
     unfold NoObjects at old
     cases q <;> grind [TopLevelPtr.InBounds, BlockPtr.dealloc, BlockPtr.inBounds_def]
   have hp : (p.spec.get! c.spec).parent = none := by grind [Block.empty]
-  pure ⟨Rewriter.eraseBlock c p ib hp (fieldsOfEmpty he), he⟩
+  pure ⟨Rewriter.eraseBlock c p ib hp (fieldsOfEmpty he), by simpa using he⟩
 
 private def cycleRegion (a : EmptyArena) : Option EmptyArena := do
   rlet h : (p, c) ← Sim.RegionPtr.allocRecycled a.ctx
@@ -64,7 +67,7 @@ private def cycleRegion (a : EmptyArena) : Option EmptyArena := do
     unfold NoObjects at old
     cases q <;> grind [TopLevelPtr.InBounds, RegionPtr.dealloc, RegionPtr.inBounds_def]
   have hp : (p.spec.get! c.spec).parent = none := by grind [Region.empty]
-  pure ⟨Rewriter.eraseRegion c p ib hp (fieldsOfEmpty he), he⟩
+  pure ⟨Rewriter.eraseRegion c p ib hp (fieldsOfEmpty he), by simpa using he⟩
 
 def main : IO Unit := do
   let some first := cycleOperation initial >>= cycleBlock >>= cycleRegion

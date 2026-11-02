@@ -59,7 +59,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     (hoper : oper = opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum)
     (hslot : (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + Buffed.OpOperand.size.toNat ≤ ctx.buf.size) :
     Veir.Sim ⟨Rewriter.setOperand opPtr.impl oper ctx.buf idx hnum hoper hslot valuePtr.impl,
-              Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)⟩ := by
+              .mk (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))⟩ := by
   subst hoper
   have hin := ctx.sim.in_bounds (.operation opPtr.spec) (by grind)
   have hsz : ctx.buf.mem.size < 2^63 := by grind
@@ -120,7 +120,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
        ∨ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ lo) →
       Buffed.AgreesOn (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl) ctx.buf lo hi :=
     fun lo hi hd => ⟨hsizele, fun w a len h1 h2 => hread w a len (by omega), fun _ _ h => by simp only [hattr]; exact h⟩
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
   · -- fieldsInBounds
     have hofib : OpOperand.FieldsInBounds
         { value := valuePtr.spec, owner := opPtr.spec,
@@ -132,18 +132,15 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     clear hread hattr ek hagreeD
     grind [Rewriter.pushOperand, layout_grind]
   · -- in_bounds
-    simp only
     intros gptr gptrIb
     clear hread hattr ek hagreeD
     have := ctx.sim.in_bounds gptr (by grind [Rewriter.pushOperand])
     grind [TopLevelPtr, Rewriter.pushOperand, Rewriter.setOperand]
   · -- disjoint_allocs
-    simp only
     clear hread hattr ek hagreeD
     have := ctx.sim.disjoint_allocs
     grind [TopLevelPtr, Rewriter.pushOperand]
   · -- encoding_op
-    simp only
     intros op opIb
     have hopib : op.InBounds ctx.spec := by
       clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
@@ -171,24 +168,23 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
       clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
       grind [Rewriter.pushOperand]
     obtain ⟨hgprev, hgnext, hgpar, hgattrs, hgty, hgcB, hgcRg, hgcO, hgcR, hgprops⟩ := hgets
-    constructor
+    constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
     · -- MatchesBase: framed — the write lands in the operand array, past the 72-byte header.
       refine OperationPtr.matchesBase_frame ctx op hopib henc.toMatchesBase (hagreeD _ _ ?_) hlay
         hgprev hgnext hgpar hgattrs hgty hgprops opIb
       clear hread hattr ek hagreeD hoff husz hmul hidxlt
-      grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+      grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
         Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
         _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
         _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
-    · constructor
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · refine OperationPtr.numBlockOperands_frame ctx op hopib henc.numBlockOperands (hagreeD _ _ ?_) hgcB
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
       · intros bo boIb heq
-        dsimp only at boIb
         have hboib : bo.InBounds ctx.spec := by
           clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
           grind [Rewriter.pushOperand]
@@ -199,19 +195,18 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
         refine BlockOperandPtr.matches_frame ctx bo hboib (henc.blockOperands bo hboib heq)
           (hagreeD _ _ ?_) hlay hboget boIb
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
-    · constructor
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · refine OperationPtr.numRegions_frame ctx op hopib henc.numRegions (hagreeD _ _ ?_) hgcRg
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
       · intros ridx ridxIn
-        dsimp only at ridxIn
         have hnr : ridx < op.getNumRegions! ctx.spec := by
           clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
           grind [Rewriter.pushOperand]
@@ -221,7 +216,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
           (by clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
               grind [Rewriter.pushOperand])
         · clear hread hattr ek hagreeD hoff husz hmul hidxlt
-          grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
             _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
@@ -236,18 +231,17 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
                 grind [UInt64.toNat_ofNat']) hopib
           refine hagreeD _ _ ?_
           clear hread hattr ek hagreeD hoff husz hmul hidxlt
-          grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
               Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
               _root_.Veir.OperationPtr.toFlat, UInt64.toNat_ofNat']
-    · constructor
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · refine OperationPtr.numOperands_frame ctx op hopib henc.numOperands (hagreeD _ _ ?_) hgcO
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
       · intros oper operIb heq
-        dsimp only at operIb
         by_cases hnewop : oper = opPtr.spec.nextOperand ctx.spec
         · -- the freshly pushed operand: reads land on the four writes just made
           have hopeq : op = opPtr.spec := by
@@ -294,7 +288,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
               hgcB hgcRg hgcO hgcR hnget
             simp only [OpOperandPtr.toM]
             grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', UInt64.ofNat_toNat]
-          constructor
+          constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
           · -- nextUse
             simp only [Buffed.OpOperandMPtr.readNextUse!, hnMeq, hnget, Rewriter.setOperand,
               Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
@@ -303,7 +297,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.owner 16 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega),
               ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.back 8 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega),
               ExArray.read64!_blit64_self]
-            exact (Sim.OptionOpOperandPtr.Sim_def _ _).mpr rfl
+            simp [Sim.OptionOpOperandPtr.Sim_def, Sim.OptionOpOperandPtr.spec, Veir.OpOperandPtr.toO]
           · -- back
             simp only [Buffed.OpOperandMPtr.readBack!, hnMeq, hnget, Rewriter.setOperand,
               Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
@@ -313,7 +307,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
               ExArray.read64!_blit64_self]
             have hvaft := Sim.ValuePtr.after_lt_ctx (ctx := ctx) valuePtr.spec valueInBounds.ib
             have hvM := valueInBounds.sim
-            simp only [Sim.ValuePtr.Sim_def] at hvM
+            simp only [Sim.ValuePtr.Sim_def, Sim.ValuePtr.spec, Sim.RawIRContext.spec, Erased.out_mk] at hvM
             have hvflatP : valuePtr.spec.toFlat (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = valuePtr.spec.toFlat ctx.spec := by
               clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
               (try clear hnMeq hnflat); (try clear hslot hnum)
@@ -339,7 +333,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
               grind [Nat.toUInt64_eq, UInt64.toNat_ofNat',
                 show Buffed.ValueImpl.Offsets.firstUse.toInt = 16 from rfl,
                 show Buffed.ValueImpl.Offsets.afterInt = 24 from rfl]
-            simp only [Sim.OpOperandPtrPtr.Sim_def]
+            simp only [Sim.OpOperandPtrPtr.Sim_def, Sim.OpOperandPtrPtr.spec, Sim.RawIRContext.spec, Erased.out_mk]
             (try dsimp only)
             exact hbackM
           · -- owner
@@ -359,7 +353,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
             rw [ExArray.read64!_blit64_self]
             have hvM := valueInBounds.sim
             have hvaft := Sim.ValuePtr.after_lt_ctx (ctx := ctx) valuePtr.spec valueInBounds.ib
-            simp only [Sim.ValuePtr.Sim_def] at hvM ⊢
+            simp only [Sim.ValuePtr.Sim_def, Sim.ValuePtr.spec, Sim.RawIRContext.spec, Erased.out_mk] at hvM ⊢
             have hvflatP : valuePtr.spec.toFlat (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = valuePtr.spec.toFlat ctx.spec := by
               clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
               (try clear hnMeq hnflat); (try clear hslot hnum)
@@ -391,19 +385,18 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
           refine OpOperandPtr.matches_frame ctx oper hoperib (henc.operands oper hoperib heq)
             (hagreeD _ _ ?_) hlay hoperget operIb
           clear hread hattr ek hagreeD hoff husz hmul hidxlt
-          grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
             Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
             _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
-    · constructor
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · refine OperationPtr.numResults_frame ctx op hopib henc.numResults (hagreeD _ _ ?_) hgcR
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
       · intros res resIb heq
-        dsimp only at resIb
         have hresib : res.InBounds ctx.spec := by
           clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
           grind [Rewriter.pushOperand]
@@ -414,12 +407,11 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
         refine OpResultPtr.matches_frame ctx res hresib (henc.results res hresib heq)
           (hagreeD _ _ ?_) hlay hresget resIb
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
   · -- encoding_block
-    simp only
     intros blk blkIb
     have hblkib : blk.InBounds ctx.spec := by
       clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
@@ -431,23 +423,22 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
     have hbget : blk.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = blk.get! ctx.spec := by
       clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
       grind [Rewriter.pushOperand]
-    constructor
+    constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
     · refine BlockPtr.matchesBase_frame ctx blk hblkib henc.toMatchesBase (hagreeD _ _ ?_) hlay
         (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) blkIb
       clear hread hattr ek hagreeD hoff husz hmul hidxlt
-      grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+      grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
         Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
         _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
         _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
-    · constructor
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
       · refine BlockPtr.numArguments_frame ctx blk hblkib henc.numArguments (hagreeD _ _ ?_) (by rw [hbget])
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
       · intros arg argIn heq
-        dsimp only at argIn
         have hargib : arg.InBounds ctx.spec := by
           clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
           grind [Rewriter.pushOperand]
@@ -458,12 +449,11 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
         refine BlockArgumentPtr.matches_frame ctx arg hargib (henc.arguments arg hargib heq)
           (hagreeD _ _ ?_) hlay hargget argIn
         clear hread hattr ek hagreeD hoff husz hmul hidxlt
-        grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
           Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
           _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
           _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
   · -- encoding_region
-    simp only
     intros rg rgIb
     have hrgib : rg.InBounds ctx.spec := by
       clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
@@ -477,7 +467,7 @@ theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Si
       grind [Rewriter.pushOperand]
     refine RegionPtr.matches_frame ctx rg hrgib henc (hagreeD _ _ ?_) hlay hrgget rgIb
     clear hread hattr ek hagreeD hoff husz hmul hidxlt
-    grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def,
+    grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
       Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def,
       _root_.Veir.OperationPtr.toFlat, _root_.Veir.BlockPtr.toFlat, _root_.Veir.RegionPtr.toFlat,
       _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]

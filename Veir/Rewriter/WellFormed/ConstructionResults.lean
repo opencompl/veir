@@ -43,6 +43,7 @@ theorem RegionPtr.blockChain_Rewriter_pushResult
     RegionPtr.BlockChain region (Rewriter.pushResult ctx op type hop) array := by
   apply RegionPtr.blockChain_unchanged (ctx := ctx) hWf <;> grind
 
+set_option maxHeartbeats 1000000 in
 theorem pushResult_wellFormed :
     ConstructionWellFormed ctx op ∅ ∅ →
     ConstructionWellFormed (Rewriter.pushResult ctx op type hop) op ∅ ∅ := by
@@ -101,8 +102,7 @@ theorem Rewriter.initOpResults_constructionWellFormed {opPtr : Sim.OperationPtr}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ConstructionWellFormed ctx.spec opPtr.spec ∅ ∅ →
     ConstructionWellFormed ctx'.spec opPtr.spec ∅ ∅ := by
-  simp only [initOpResults_def] at heq
-  fun_induction initOpResultsSim
+  fun_induction initOpResults
   · subst ctx'
     exact id
   · rename_i ih
@@ -116,22 +116,19 @@ theorem Rewriter.initOpResults_numResults {opPtr : Sim.OperationPtr}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx')
     (hindex : index.toNat ≤ resultTypes.size) :
     opPtr.spec.getNumResults! ctx'.spec = resultTypes.size := by
-  simp only [initOpResults_def] at heq
-  fun_induction initOpResultsSim <;> grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
+  fun_induction initOpResults <;> grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
 
 theorem Rewriter.initOpResults_preserves_capResults (ptr : Veir.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).capResults = (ptr.get! ctx.spec).capResults := by
-  simp only [initOpResults_def] at heq
-  fun_induction initOpResultsSim <;> grind [Rewriter.pushResultAt_spec]
+  fun_induction initOpResults <;> grind [Rewriter.pushResultAt_spec]
 
 theorem Rewriter.initOpResults_preserves_parent (ptr : Veir.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).parent = (ptr.get! ctx.spec).parent := by
-  simp only [initOpResults_def] at heq
-  fun_induction initOpResultsSim <;> grind [Rewriter.pushResultAt_spec]
+  fun_induction initOpResults <;> grind [Rewriter.pushResultAt_spec]
 
 /-- Completing the result loop restores the result capacity equality. -/
 theorem Rewriter.initOpResults_finishesResults {opPtr : Sim.OperationPtr}

@@ -27,8 +27,10 @@ theorem Sim.OperationPtr.getResultPtr_impl_ne_of_spec_ne
   let toResult := toOp.getResultPtr ctx toIndex toIn
   have hFromIn : fromResult.InBounds ctx := by grind
   have hToIn : toResult.InBounds ctx := by grind
-  have hFromOp : fromResult.spec.op = fromOp.spec := rfl
-  have hToOp : toResult.spec.op = toOp.spec := rfl
+  have hFromOp : fromResult.spec.op = fromOp.spec := by
+    simp [fromResult, Sim.OperationPtr.getResultPtr, Sim.OpResultPtr.spec]
+  have hToOp : toResult.spec.op = toOp.spec := by
+    simp [toResult, Sim.OperationPtr.getResultPtr, Sim.OpResultPtr.spec]
   have hFromSlot := Sim.OpResultPtr.slot_included fromResult.spec hFromIn.ib
   have hToSlot := Sim.OpResultPtr.slot_included toResult.spec hToIn.ib
   have hDisjoint := Sim.disjoint_operation_operation (ctx := ctx) fromOp.spec toOp.spec
@@ -72,7 +74,7 @@ theorem Rewriter.replaceUse_veir_inBounds (ptr : Veir.GenericPtr)
     (ctxIn : ctx.spec.FieldsInBounds) :
     ptr.InBounds (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec ↔
       ptr.InBounds ctx.spec := by
-  simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim]
+  simp only [Rewriter.replaceUse]
   split
   · rfl
   · rw [Sim.OpOperandPtr.insertIntoCurrent_veir_inBounds,
@@ -134,7 +136,7 @@ theorem Rewriter.replaceUse_DefUse_newValue
     (ctx := ctx₂) (use := use) (ctxInBounds := ctx₂In) useIn₂ hSet
   have hspec : (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec =
       (use.insertIntoCurrent ctx₂ useIn₂ ctx₂In).spec := by
-    simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte, ctx₂, ctx₁]
+    simp only [Rewriter.replaceUse, hImpl, ↓reduceIte, ctx₂, ctx₁]
   rw [hspec]
   exact hInserted
 
@@ -211,7 +213,7 @@ theorem Rewriter.replaceUse_DefUse_oldValue
     useIn₂ valuesNe (hvalue := by simp) hOldSet hNewSet
   have hspec : (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec =
       (use.insertIntoCurrent ctx₂ useIn₂ ctx₂.fieldsInBounds).spec := by
-    simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte, ctx₂, ctx₁]
+    simp only [Rewriter.replaceUse, hImpl, ↓reduceIte, ctx₂, ctx₁]
   rw [hspec]
   exact hInserted
 
@@ -286,7 +288,7 @@ theorem Rewriter.replaceUse_DefUse_otherValue
     useIn₂ valueNeNew (hvalue := by simp) hValueSet hNewSet
   have hspec : (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec =
       (use.insertIntoCurrent ctx₂ useIn₂ ctx₂.fieldsInBounds).spec := by
-    simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte, ctx₂, ctx₁]
+    simp only [Rewriter.replaceUse, hImpl, ↓reduceIte, ctx₂, ctx₁]
   rw [hspec]
   exact hInserted
 
@@ -298,7 +300,7 @@ theorem Rewriter.replaceUse_BlockDefUse
     (hWF : block.DefUse ctx.spec array missingUses) :
     block.DefUse (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec array missingUses := by
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
-  · simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte] using hWF
+  · simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte] using hWF
   · let ctx₁ := use.removeFromCurrent ctx useIn ctxIn
     have useIn₁ : use.InBounds ctx₁ := by
       apply (Sim.GenericPtr.iff_opOperand use).mp
@@ -341,7 +343,7 @@ theorem Rewriter.replaceUse_BlockDefUse
     have hInserted := Sim.BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
       (ctx := ctx₂) (use := use) (useInBounds := useIn₂)
       (ctxInBounds := ctx₂.fieldsInBounds) hSet
-    simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte,
+    simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte,
       ctx₂, ctx₁] using hInserted
 
 theorem Rewriter.replaceUse_OpChain
@@ -352,7 +354,7 @@ theorem Rewriter.replaceUse_OpChain
     (hWF : block.OpChain ctx.spec array) :
     block.OpChain (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec array := by
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
-  · simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte] using hWF
+  · simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte] using hWF
   · let ctx₁ := use.removeFromCurrent ctx useIn ctxIn
     have useIn₁ : use.InBounds ctx₁ := by
       apply (Sim.GenericPtr.iff_opOperand use).mp
@@ -404,7 +406,7 @@ theorem Rewriter.replaceUse_OpChain
       (ctxInBounds := ctx₂.fieldsInBounds) hSet
     have hspec : (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec =
         (use.insertIntoCurrent ctx₂ useIn₂ ctx₂.fieldsInBounds).spec := by
-      simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte, ctx₂, ctx₁]
+      simp only [Rewriter.replaceUse, hImpl, ↓reduceIte, ctx₂, ctx₁]
     rw [hspec]
     exact hInserted
 
@@ -416,7 +418,7 @@ theorem Rewriter.replaceUse_BlockChain
     (hWF : region.BlockChain ctx.spec array) :
     region.BlockChain (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec array := by
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
-  · simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte] using hWF
+  · simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte] using hWF
   · let ctx₁ := use.removeFromCurrent ctx useIn ctxIn
     have useIn₁ : use.InBounds ctx₁ := by
       apply (Sim.GenericPtr.iff_opOperand use).mp
@@ -466,7 +468,7 @@ theorem Rewriter.replaceUse_BlockChain
       (ctxInBounds := ctx₂.fieldsInBounds) hSet
     have hspec : (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec =
         (use.insertIntoCurrent ctx₂ useIn₂ ctx₂.fieldsInBounds).spec := by
-      simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte, ctx₂, ctx₁]
+      simp only [Rewriter.replaceUse, hImpl, ↓reduceIte, ctx₂, ctx₁]
     rw [hspec]
     exact hInserted
 
@@ -475,7 +477,7 @@ theorem Sim.Operation.wellFormed_OpOperandPtr_setValue
     {useInBounds} {newValue : Sim.ValuePtr} {newValueInBounds}
     (hWF : opPtr.WellFormed ctx.spec opInBounds) :
     opPtr.WellFormed (use.setValue ctx newValue useInBounds newValueInBounds).spec (by grind) := by
-  change opPtr.WellFormed (use.spec.setValue ctx.spec newValue.spec (by grind)) _
+  simp only [Sim.OpOperandPtr.setValue_spec]
   apply OperationPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
 
 theorem Sim.Block.wellFormed_OpOperandPtr_setValue
@@ -483,7 +485,7 @@ theorem Sim.Block.wellFormed_OpOperandPtr_setValue
     {useInBounds} {newValue : Sim.ValuePtr} {newValueInBounds}
     (hWF : blockPtr.WellFormed ctx.spec blockInBounds) :
     blockPtr.WellFormed (use.setValue ctx newValue useInBounds newValueInBounds).spec (by grind) := by
-  change blockPtr.WellFormed (use.spec.setValue ctx.spec newValue.spec (by grind)) _
+  simp only [Sim.OpOperandPtr.setValue_spec]
   apply BlockPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
 
 theorem Sim.Region.wellFormed_OpOperandPtr_setValue
@@ -502,7 +504,7 @@ theorem Rewriter.replaceUse_OperationWellFormed
     (hWF : opPtr.WellFormed ctx.spec opIn) :
     opPtr.WellFormed (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec (by grind) := by
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
-  · simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte] using hWF
+  · simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte] using hWF
   · let ctx₁ := use.removeFromCurrent ctx useIn ctxIn
     have useIn₁ : use.InBounds ctx₁ := by
       apply (Sim.GenericPtr.iff_opOperand use).mp
@@ -533,7 +535,7 @@ theorem Rewriter.replaceUse_OperationWellFormed
     have hInserted := Sim.Operation.wellFormed_OpOperandPtr_insertIntoCurrent
       (ctx := ctx₂) (use := use) (useInBounds := useIn₂)
       (ctxInBounds := ctx₂.fieldsInBounds) opIn₂ hSet
-    simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte,
+    simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte,
       ctx₂, ctx₁] using hInserted
 
 theorem Rewriter.replaceUse_BlockWellFormed
@@ -544,7 +546,7 @@ theorem Rewriter.replaceUse_BlockWellFormed
     (hWF : blockPtr.WellFormed ctx.spec blockIn) :
     blockPtr.WellFormed (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec (by grind) := by
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
-  · simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte] using hWF
+  · simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte] using hWF
   · let ctx₁ := use.removeFromCurrent ctx useIn ctxIn
     have useIn₁ : use.InBounds ctx₁ := by
       apply (Sim.GenericPtr.iff_opOperand use).mp
@@ -575,7 +577,7 @@ theorem Rewriter.replaceUse_BlockWellFormed
     have hInserted := Sim.Block.wellFormed_OpOperandPtr_insertIntoCurrent
       (ctx := ctx₂) (use := use) (useInBounds := useIn₂)
       (ctxInBounds := ctx₂.fieldsInBounds) blockIn₂ hSet
-    simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte,
+    simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte,
       ctx₂, ctx₁] using hInserted
 
 theorem Rewriter.replaceUse_RegionWellFormed
@@ -586,7 +588,7 @@ theorem Rewriter.replaceUse_RegionWellFormed
     (hWF : regionPtr.WellFormed ctx.spec) :
     regionPtr.WellFormed (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec := by
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
-  · simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte] using hWF
+  · simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte] using hWF
   · let ctx₁ := use.removeFromCurrent ctx useIn ctxIn
     have useIn₁ : use.InBounds ctx₁ := by
       apply (Sim.GenericPtr.iff_opOperand use).mp
@@ -617,7 +619,7 @@ theorem Rewriter.replaceUse_RegionWellFormed
     have hInserted := Sim.Region.wellFormed_OpOperandPtr_insertIntoCurrent
       (ctx := ctx₂) (use := use) (useInBounds := useIn₂)
       (ctxInBounds := ctx₂.fieldsInBounds) regionIn₂ hSet
-    simpa only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte,
+    simpa only [Rewriter.replaceUse, hImpl, ↓reduceIte,
       ctx₂, ctx₁] using hInserted
 
 theorem Rewriter.replaceUse_ValueDefUseChains
@@ -631,7 +633,7 @@ theorem Rewriter.replaceUse_ValueDefUseChains
   intro valuePtr valuePtrInBounds
   by_cases hImpl : (use.getValue ctx useIn).impl = newValue.impl
   · have hctx : (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec = ctx.spec := by
-      simp only [Rewriter.replaceUse_def, Rewriter.replaceUseSim, hImpl, ↓reduceIte]
+      simp only [Rewriter.replaceUse, hImpl, ↓reduceIte]
     rw [hctx] at valuePtrInBounds ⊢
     simpa only [Std.ExtHashSet.filter_empty] using
       hWf.valueDefUseChains valuePtr valuePtrInBounds
@@ -779,8 +781,7 @@ theorem Rewriter.replaceValue?_WellFormed
     (ctxIn : ctx.spec.FieldsInBounds) (hWf : ctx.spec.WellFormed) :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.replaceValue?_def]
-  fun_induction Rewriter.replaceValue?Sim
+  fun_induction Rewriter.replaceValue?
   case case1 => simp
   case case2 =>
     intro heq
@@ -797,8 +798,7 @@ theorem Rewriter.replaceValue?_oldValue_firstUse_eq_none
     (heq : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth =
       some newCtx) :
     oldValue.spec.getFirstUse! newCtx.spec = none := by
-  simp only [Rewriter.replaceValue?_def] at heq
-  fun_induction Rewriter.replaceValue?Sim <;>
+  fun_induction Rewriter.replaceValue? <;>
     grind [Sim.OptionOpOperandPtr.toOption_none_iff_spec_none,
       Sim.ValuePtr.getFirstUse_spec, Sim.ValuePtr.getFirstUse_sim,
       ValuePtr.getFirstUse!_eq_getFirstUse, Sim.OptionOpOperandPtr.Sim_def]
@@ -820,9 +820,8 @@ theorem Rewriter.replaceValue?_preserves_numRegions
     (heq : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth =
       some newCtx) :
     op.spec.getNumRegions! newCtx.spec = op.spec.getNumRegions! ctx.spec := by
-  simp only [Rewriter.replaceValue?_def] at heq
-  fun_induction Rewriter.replaceValue?Sim <;>
-    grind [Rewriter.replaceUse_def, Rewriter.replaceUseSim, generic_ptr_grind]
+  fun_induction Rewriter.replaceValue? <;>
+    grind [Rewriter.replaceUse, generic_ptr_grind]
 
 theorem Rewriter.replaceValue?_DefUse_otherValue
     (oldValue newValue value : Sim.ValuePtr)
@@ -838,8 +837,7 @@ theorem Rewriter.replaceValue?_DefUse_otherValue
     (heq : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth =
       some newCtx) :
     value.spec.DefUse newCtx.spec array := by
-  simp only [Rewriter.replaceValue?_def] at heq
-  fun_induction Rewriter.replaceValue?Sim generalizing array oldArray newArray
+  fun_induction Rewriter.replaceValue? generalizing array oldArray newArray
   case case1 => simp at heq
   case case2 =>
     cases heq
@@ -903,8 +901,7 @@ theorem Sim.IRContext.wellFormed_replaceOpResults
     Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo
       ctxInBounds = some newCtx →
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.replaceOpResults_def]
-  fun_induction Rewriter.replaceOpResultsSim
+  fun_induction Rewriter.replaceOpResults
   case case1 =>
     intro heq
     cases heq
@@ -927,8 +924,7 @@ theorem OpResult.hasUses_replaceOpResults_self_ge
       i < toOp.spec.getNumResults! ctx.spec →
       (ValuePtr.opResult (fromOp.spec.getResult i)).hasUses! newCtx.spec =
         (ValuePtr.opResult (fromOp.spec.getResult i)).hasUses! ctx.spec := by
-  simp only [Rewriter.replaceOpResults_def] at heq
-  fun_induction Rewriter.replaceOpResultsSim
+  fun_induction Rewriter.replaceOpResults
   case case1 =>
     cases heq
     intros
@@ -986,14 +982,14 @@ theorem OpResult.hasUses_replaceOpResults_self_ge
     have hOldNewSpec : (Sim.ValuePtr.fromOpResultPtr oldResult).spec ≠
         (Sim.ValuePtr.fromOpResultPtr newResult).spec := by
       simp only [Sim.ValuePtr.fromOpResultPtr, oldResult, newResult,
-        Sim.OperationPtr.getResultPtr_def, Sim.OperationPtr.getResultPtrSim]
+        Sim.OperationPtr.getResultPtr, Sim.ValuePtr.spec, Sim.OpResultPtr.spec, Erased.map_out]
       intro h
       injection h with h
       apply neOps
       exact congrArg OpResultPtr.op h
     have hValueOld : value.spec ≠ (Sim.ValuePtr.fromOpResultPtr oldResult).spec := by
       simp only [value, valueResult, oldResult, Sim.ValuePtr.fromOpResultPtr,
-        Sim.OperationPtr.getResultPtr_def, Sim.OperationPtr.getResultPtrSim]
+        Sim.OperationPtr.getResultPtr, Sim.ValuePtr.spec, Sim.OpResultPtr.spec, Erased.map_out]
       intro h
       injection h with h
       have hiEq := congrArg OpResultPtr.index h
@@ -1002,7 +998,7 @@ theorem OpResult.hasUses_replaceOpResults_self_ge
       omega
     have hValueNew : value.spec ≠ (Sim.ValuePtr.fromOpResultPtr newResult).spec := by
       simp only [value, valueResult, newResult, Sim.ValuePtr.fromOpResultPtr,
-        Sim.OperationPtr.getResultPtr_def, Sim.OperationPtr.getResultPtrSim]
+        Sim.OperationPtr.getResultPtr, Sim.ValuePtr.spec, Sim.OpResultPtr.spec, Erased.map_out]
       intro h
       injection h with h
       apply neOps
@@ -1018,7 +1014,7 @@ theorem OpResult.hasUses_replaceOpResults_self_ge
       hOldNewSpec hValueOld hValueNew hOldNewImpl hReplace
     have hValueSpec : value.spec = ValuePtr.opResult (fromOp.spec.getResult i) := by
       simp only [value, valueResult, Sim.ValuePtr.fromOpResultPtr,
-        Sim.OperationPtr.getResultPtr_def, Sim.OperationPtr.getResultPtrSim, hIToNat]
+        Sim.OperationPtr.getResultPtr, Sim.ValuePtr.spec, Sim.OpResultPtr.spec, Erased.map_out, hIToNat]
     rw [hValueSpec] at hStep
     exact hRec.trans hStep
 
@@ -1033,8 +1029,7 @@ theorem OpResult.hasUses_replaceOpResults_self
       hNumFrom hNumTo ctxInBounds = some newCtx) :
     ∀ i, i < index.toNat →
       (ValuePtr.opResult (fromOp.spec.getResult i)).hasUses! newCtx.spec = false := by
-  simp only [Rewriter.replaceOpResults_def] at heq
-  fun_induction Rewriter.replaceOpResultsSim
+  fun_induction Rewriter.replaceOpResults
   case case1 =>
     intros i hi
     simp at hi
@@ -1080,7 +1075,6 @@ theorem OpResult.hasUses_replaceOpResults_self
       have heq' : Rewriter.replaceOpResults nextCtx fromOp toOp indexPred hFromNext
           hToNext (Nat.le_of_lt hFromIndex) (Nat.le_of_lt hToIndex) wfNext.inBounds =
           some newCtx := by
-        simp only [Rewriter.replaceOpResults_def]
         exact heq
       have hKeep := OpResult.hasUses_replaceOpResults_self_ge
         nextCtx fromOp toOp indexPred hFromNext hToNext
@@ -1093,7 +1087,7 @@ theorem OpResult.hasUses_replaceOpResults_self
           (ValuePtr.opResult (fromOp.spec.getResult indexPred.toNat)).hasUses!
             nextCtx.spec = false := by
         simpa only [oldResult, Sim.ValuePtr.fromOpResultPtr,
-          Sim.OperationPtr.getResultPtr_def, Sim.OperationPtr.getResultPtrSim] using hNoUses
+          Sim.OperationPtr.getResultPtr, Sim.ValuePtr.spec, Sim.OpResultPtr.spec, Erased.map_out] using hNoUses
       exact hKeep.trans hNoUses'
 
 @[grind .]
@@ -1102,8 +1096,7 @@ theorem OperationPtr.getNumResults!_replaceOpResults
     (heq : Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB
       hNumFrom hNumTo ctxInBounds = some newCtx) :
     op.spec.getNumResults! newCtx.spec = op.spec.getNumResults! ctx.spec := by
-  simp only [Rewriter.replaceOpResults_def] at heq
-  fun_induction Rewriter.replaceOpResultsSim <;>
+  fun_induction Rewriter.replaceOpResults <;>
     grind [Rewriter.replaceValue?_preserves_results_size, generic_ptr_grind]
 
 @[grind .]
@@ -1112,8 +1105,7 @@ theorem OperationPtr.getNumRegions!_replaceOpResults
     (heq : Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB
       hNumFrom hNumTo ctxInBounds = some newCtx) :
     op.spec.getNumRegions! newCtx.spec = op.spec.getNumRegions! ctx.spec := by
-  simp only [Rewriter.replaceOpResults_def] at heq
-  fun_induction Rewriter.replaceOpResultsSim <;>
+  fun_induction Rewriter.replaceOpResults <;>
     grind [Rewriter.replaceValue?_preserves_numRegions, generic_ptr_grind]
 
 theorem OperationPtr.hasUses_replaceOpResults
@@ -1162,7 +1154,7 @@ theorem Sim.IRContext.wellFormed_replaceOp?
     (heq : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn hpar wf hErase =
       some newCtx) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.replaceOp?_def, Rewriter.replaceOp?Sim] at heq
+  simp only [Rewriter.replaceOp?] at heq
   split at heq
   · simp at heq
   · split at heq

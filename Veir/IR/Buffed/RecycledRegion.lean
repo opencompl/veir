@@ -36,7 +36,7 @@ theorem Sim.RegionPtr.allocRecycled_sim {ctx : Sim.IRContext OpInfo}
     {spec : Veir.IRContext OpInfo} {sptr : Veir.RegionPtr}
     (h : allocRecycledRaw ctx.buf = some (b', ptr))
     (hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptr.toNat = some (spec, sptr)) :
-    Veir.Sim ⟨b', spec⟩ := by
+    Veir.Sim ⟨b', .mk spec⟩ := by
   obtain ⟨b, hres, hb, rfl⟩ := allocRecycledRaw_eq h
   have hbounds := Buffed.IRBufContext.reserve_bounds hres
   have hsize : (Buffed.RegionMPtr.initialize b ptr hb).mem.size = b.mem.size :=
@@ -51,6 +51,7 @@ theorem Sim.RegionPtr.allocRecycled_sim {ctx : Sim.IRContext OpInfo}
     have hd := hdisj p hp
     simp only [show (24 : UInt64).toNat = 24 from rfl] at hd
     have hin := ctx.sim.in_bounds p hp
+    change IsIncludedIN (p.range ctx.spec) _ at hin
     simp only [IsIncludedIN, ExArray.range_def] at hin
     refine ⟨by rw [hsize]; exact hbounds.1, ?_, ?_⟩
     · intro w n len hn hl
@@ -80,8 +81,7 @@ theorem Sim.RegionPtr.allocRecycledRaw_fresh {ctx : Sim.IRContext OpInfo}
 
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
-buffed (inline := false)
-def Sim.RegionPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPtr × Sim.IRContext OpInfo) :=
+def Sim.RegionPtr.allocRecycled (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPtr × Sim.IRContext OpInfo) :=
   match h : allocRecycledRaw ctx.buf with
   | none => none
   | some (b, ptr) =>
@@ -89,17 +89,17 @@ def Sim.RegionPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) : Option (Sim.Re
       simp only [Veir.RegionPtr.allocEmptyAt]
       have hf := allocRecycledRaw_fresh h
       grind [Veir.RegionPtr.inBounds_def]
-    let specRes := (Veir.RegionPtr.allocEmptyAt ctx.spec ptr.toNat).specGet!
-    some (⟨ptr, specRes.2⟩, ⟨b, specRes.1, by
-      apply allocRecycled_sim (sptr := specRes.2) h
-      show Veir.RegionPtr.allocEmptyAt ctx.spec ptr.toNat = some specRes
-      simp only [specRes, Option.specGet!]
-      exact (Option.some_get! _ hsome).symm⟩)
+    let specRes := ctx.spec'.map (fun spec => (Veir.RegionPtr.allocEmptyAt spec ptr.toNat).get!)
+    some (⟨ptr, specRes.map Prod.snd⟩, ⟨b, specRes.map Prod.fst, by
+      rw [Erased.map_eq_mk]
+      apply allocRecycled_sim (sptr := specRes.out.2) h
+      simpa only [specRes, Erased.map_out, Sim.IRContext.spec, Option.get!] using
+        (Option.some_get! _ hsome).symm⟩)
 
 theorem Sim.RegionPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo}
     (h : allocRecycled ctx = some (ptr, ctx')) :
     Veir.RegionPtr.allocEmptyAt ctx.spec ptr.impl.toNat = some (ctx'.spec, ptr.spec) := by
-  simp only [allocRecycled_def, allocRecycledSim] at h
+  simp only [allocRecycled] at h
   split at h
   · contradiction
   · rename_i b p hi
@@ -109,7 +109,7 @@ theorem Sim.RegionPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo}
       grind [Veir.RegionPtr.inBounds_def]
     simp_all only [Option.some.injEq, Prod.mk.injEq]
     obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := h
-    simp only [Option.specGet!]
+    simp only [Sim.IRContext.spec, Sim.RegionPtr.spec, Erased.map_out, Option.get!]
     grind
 
 @[grind! .]

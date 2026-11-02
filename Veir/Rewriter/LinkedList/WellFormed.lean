@@ -210,7 +210,15 @@ theorem Sim.ValuePtr.DefUse.getElem?_zero_erase_array_eq
     (hWF : Veir.ValuePtr.DefUse value ctx.spec array missingUses) (useInArray: use.spec ∈ array)
     {i} (iInBounds : i < (array.erase use.spec).size) :
     (array.erase use.spec)[0]? = value.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds).spec := by
-  grind [Array.getElem_of_mem, ValuePtr.DefUse]
+  have hvalue : (use.spec.get! ctx.spec).value = value := by grind [ValuePtr.DefUse.useValue]
+  rw [Sim.OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse hWF
+    (by simpa only [hvalue] using hWF) useInArray]
+  obtain ⟨j, hj, heq⟩ := Array.getElem_of_mem useInArray
+  have herase : array.erase use.spec = array.eraseIdx j hj := by
+    rw [← heq]
+    exact ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx hWF
+  rw [herase]
+  by_cases hzero : j = 0 <;> grind [ValuePtr.DefUse, Array.getElem?_eraseIdx_of_ge]
 
 theorem Sim.ValuePtr.defUse_removeFromCurrent_self
     {value : Veir.ValuePtr} {use : Sim.OpOperandPtr} {array : Array Veir.OpOperandPtr} {ctxInBounds}
@@ -558,7 +566,15 @@ theorem Sim.BlockPtr.DefUse.getElem?_zero_erase_array_eq
     (hWF : Veir.BlockPtr.DefUse block ctx.spec array missingUses) (useInArray: use.spec ∈ array)
     {i} (iInBounds : i < (array.erase use.spec).size) :
     (array.erase use.spec)[0]? = (block.get! (use.removeFromCurrent ctx useInBounds ctxInBounds).spec).firstUse := by
-  grind [Array.getElem_of_mem, BlockPtr.DefUse, BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx]
+  have hvalue : (use.spec.get! ctx.spec).value = block := by grind [BlockPtr.DefUse.useValue]
+  rw [Sim.BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse! hWF
+    (by simpa only [hvalue] using hWF) useInArray]
+  obtain ⟨j, hj, heq⟩ := Array.getElem_of_mem useInArray
+  have herase : array.erase use.spec = array.eraseIdx j hj := by
+    rw [← heq]
+    exact BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx hWF
+  rw [herase]
+  by_cases hzero : j = 0 <;> grind [BlockPtr.DefUse, Array.getElem?_eraseIdx_of_ge]
 
 theorem Sim.BlockPtr.defUse_removeFromCurrent_self
     {block : Veir.BlockPtr} {use : Sim.BlockOperandPtr} {array : Array Veir.BlockOperandPtr} {ctxInBounds}

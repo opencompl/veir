@@ -71,14 +71,13 @@ theorem Rewriter.initOpRegions_constructionWellFormed
     (wf : ConstructionWellFormed ctx.spec opPtr.spec ∅ ∅)
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     ConstructionWellFormed ctx'.spec opPtr.spec ∅ ∅ := by
-  simp [initOpRegions_def] at heq
-  fun_induction initOpRegionsSim
+  fun_induction initOpRegions
   case case1 =>
     cases Option.some.inj heq
     exact wf
   case case2 ctx0 index0 hop hregions hctx hn hcap h region hParent nextCtx ih =>
     apply ih _ heq
-    simp only [nextCtx, pushRegionAt_def, pushRegionAtSim]
+    simp only [nextCtx, pushRegionAt, Erased.map_mk, Sim.IRContext.spec, Erased.out_mk]
     exact pushRegion_constructionWellFormed wf
   case case3 => simp at heq
 
@@ -87,24 +86,21 @@ theorem Rewriter.initOpRegions_preserves_numResults (ptr : Veir.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {regions index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     ptr.getNumResults! ctx'.spec = ptr.getNumResults! ctx.spec := by
-  simp [initOpRegions_def] at heq
-  fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt_def, pushRegionAtSim]
+  fun_induction initOpRegions <;> grind (gen := 20) [pushRegionAt]
 
 @[grind .]
 theorem Rewriter.initOpRegions_preserves_capResults (ptr : Veir.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {regions index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     (ptr.get! ctx'.spec).capResults = (ptr.get! ctx.spec).capResults := by
-  simp [initOpRegions_def] at heq
-  fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt_def, pushRegionAtSim]
+  fun_induction initOpRegions <;> grind (gen := 20) [pushRegionAt]
 
 @[grind .]
 theorem Rewriter.initOpRegions_preserves_capRegions (ptr : Veir.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {regions index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     (ptr.get! ctx'.spec).capRegions = (ptr.get! ctx.spec).capRegions := by
-  simp [initOpRegions_def] at heq
-  fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt_def, pushRegionAtSim]
+  fun_induction initOpRegions <;> grind (gen := 20) [pushRegionAt]
 
 @[grind .]
 theorem Rewriter.initOpRegions_numRegions
@@ -112,8 +108,7 @@ theorem Rewriter.initOpRegions_numRegions
     (hindex : index.toNat ≤ regions.size)
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     opPtr.spec.getNumRegions! ctx'.spec = regions.size := by
-  simp [initOpRegions_def] at heq
-  fun_induction initOpRegionsSim <;>
+  fun_induction initOpRegions <;>
     grind [UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_mod_size]
 
 @[grind .]
@@ -121,7 +116,6 @@ theorem Rewriter.initOpRegions_preserves_parent (ptr : Veir.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {regions index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     (ptr.get! ctx'.spec).parent = (ptr.get! ctx.spec).parent := by
-  simp [initOpRegions_def] at heq
-  fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt_def, pushRegionAtSim]
+  fun_induction initOpRegions <;> grind (gen := 20) [pushRegionAt]
 
 end Veir

@@ -36,21 +36,18 @@ def printIndent (identFactor: Nat) : IO Unit :=
     IO.print ("  ")
     printIndent identFactor'
 
-buffed (def_lemma := false)
-def printValueSim (_ctx : Sim.IRContext OpCode) (value : Sim.ValuePtr) : IO Unit := do
+def printValue (_ctx : Sim.IRContext OpCode) (value : Sim.ValuePtr) : IO Unit := do
   -- TODO: This just uses the raw address as index
   IO.print s!"%{value.impl}"
 
-buffed (def_lemma := false)
-def printOpResultsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
+def printOpResults (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   if op.getNumResults! ctx ≠ 0 then
     IO.print s!"%{op.getResultPtr! ctx 0 |>.impl}"
     for i in 1...(op.getNumResults! ctx) do
       IO.print s!", %{op.getResultPtr! ctx i |>.impl}"
     IO.print " = "
 
-buffed (def_lemma := false)
-def printOpOperandsSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
+def printOpOperands (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   IO.print "("
   if op.getNumOperands! ctx ≠ 0 then
     printValue ctx ((op.getOperandPtr! ctx 0).getValue! ctx)
@@ -102,8 +99,7 @@ def printAttrDictEntry (key : String) (value : Attribute) : IO Unit := do
   else
     IO.print s!"\"{key}\" = {value}"
 
-buffed (def_lemma := false)
-def printOpAttrDictSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
+def printOpAttrDict (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : IO Unit := do
   let attrs := op.getAttributes! ctx
   if attrs.entries.size = 0 then return
   IO.print " "

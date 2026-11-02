@@ -59,11 +59,11 @@ meta def wpParam (cfg : Cfg) : MacroM (TSyntax ``Parser.Tactic.grindParam) :=
 
 /-- The shared narrow interval-disjointness discharge. -/
 meta def disch : MacroM (TSyntax `tactic) :=
-  `(tactic| grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def, Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat, Veir.OperationPtr.toFlat])
+  `(tactic| grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def, Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat, Veir.OperationPtr.toFlat])
 
 /-- `disch` plus the `UInt64.toNat_ofNat'` bridge for the NthRegion array slot. -/
 meta def dischU : MacroM (TSyntax `tactic) :=
-  `(tactic| grind (splits := 6) only [isDisjointI_def, IsIncludedI, add_nat_range_def, Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat, Veir.OperationPtr.toFlat, UInt64.toNat_ofNat'])
+  `(tactic| grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def, Veir.Buffed.uint64_add_int64_toNat, Veir.Sim.IRContext.inner_def, Veir.BlockPtr.rangeInt, Veir.RegionPtr.rangeInt, Veir.BlockPtr.toFlat, Veir.RegionPtr.toFlat, Veir.OperationPtr.toFlat, UInt64.toNat_ofNat'])
 
 /-- A per-field product-lemma clause for the writer's own section. The sum writers'
 product lemmas match on the sum constructor, which needs the default rule set; pass only
@@ -78,14 +78,14 @@ meta def mkClause (cfg : Cfg) (hsrc : Term) (readerNS field : String) (congs : L
     else do
       let cs ← congs.mapM (fun c => gp (congName cfg c))
       let params := #[p] ++ cs.toArray ++ extras.toArray
-      `(tactic| grind (splits := 4) only [$params,*])
+      `(tactic| grind (splits := 4) only [Erased.out_mk, $params,*])
   let base ← `(tactic| (have := $hsrc; $g:tactic))
   pre.foldrM (fun t acc => `(tactic| ($t:tactic; $acc:tactic))) base
 
 /-- `get!`-congruence side-goals: narrow list for scalar writers; the sum writers'
 congruence lemmas match on the sum constructor, which needs default grind. -/
 meta def mkSg (cfg : Cfg) (c : String) : MacroM Term := do
-  if cfg.isSum then `(by grind) else `(by grind only [$(← gp (congName cfg c)):grindParam])
+  if cfg.isSum then `(by grind) else `(by grind only [Erased.out_mk, $(← gp (congName cfg c)):grindParam])
 
 /-- Writer-side footprint facts, emitted once. -/
 meta def mkWhaves (cfg : Cfg) : MacroM (TSyntax `tactic) :=
@@ -259,6 +259,7 @@ meta def mkBOslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let cBOvalue ← mkClause cfg (← `(hmatch.value)) "BlockOperandMPtr" "Value" ["BlockOperandPtr.get!"] [← sd "BlockPtr"]
     `(tactic|
       (intros bo boIb heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at boIb
        have hboIb : bo.InBounds ctx.spec := by grind
        have hmatch := ctx.sim.encoding_op op (by grind) |>.blockOperands bo hboIb heq
        have htoM := BlockOperandPtr.layoutPreserved_same_toM hlay hboIb
@@ -274,6 +275,7 @@ meta def mkBOslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let d ← disch
     `(tactic|
       (intros bo boIb heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at boIb
        have hboIb : bo.InBounds ctx.spec := by grind
        have hincl := Sim.BlockOperandPtr.slot_included bo hboIb
        have hpib := Sim.BlockOperandPtr.op_inBounds hboIb
@@ -295,6 +297,7 @@ meta def mkOOslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
       [← `(tactic| have htoM_v := ValuePtr.layoutPreserved_same_toM hlay hfib.value_inBounds)]
     `(tactic|
       (intros oper operIb heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at operIb
        have hooIb : oper.InBounds ctx.spec := by grind
        have hmatch := ctx.sim.encoding_op op (by grind) |>.operands oper hooIb heq
        have htoM := OpOperandPtr.layoutPreserved_same_toM hlay hooIb
@@ -310,6 +313,7 @@ meta def mkOOslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let d ← disch
     `(tactic|
       (intros oper operIb heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at operIb
        have hooIb : oper.InBounds ctx.spec := by grind
        have hincl := Sim.OpOperandPtr.slot_included oper hooIb
        have hpib := Sim.OpOperandPtr.op_inBounds hooIb
@@ -330,6 +334,7 @@ meta def mkRSslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let cRSowner ← mkClause cfg (← `(hmatch.owner)) "OpResultMPtr" "Owner" ["OpResultPtr.get!"] [← sd "OperationPtr"]
     `(tactic|
       (intros res resIb heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at resIb
        have hresIb : res.InBounds ctx.spec := by grind
        have hmatch := ctx.sim.encoding_op op (by grind) |>.results res hresIb heq
        have htoM := OpResultPtr.layoutPreserved_same_toM hlay hresIb
@@ -346,6 +351,7 @@ meta def mkRSslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let d ← disch
     `(tactic|
       (intros res resIb heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at resIb
        have hresIb : res.InBounds ctx.spec := by grind
        have hincl := Sim.OpResultPtr.slot_included res hresIb
        have hpib := Sim.OpResultPtr.op_inBounds hresIb
@@ -366,6 +372,7 @@ meta def mkBAslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let cBAowner ← mkClause cfg (← `(hmatch.owner)) "BlockArgumentMPtr" "Owner" ["BlockArgumentPtr.get!"] [← sd "BlockPtr"]
     `(tactic|
       (intros arg argIn heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at argIn
        have hargIb : arg.InBounds ctx.spec := by grind
        have hmatch := henc.arguments arg hargIb heq
        have hfib := BlockArgumentPtr.get_fieldsInBounds ctx.spec arg hFIB hargIb
@@ -381,6 +388,7 @@ meta def mkBAslots (cfg : Cfg) : MacroM (TSyntax `tactic) := do
     let d ← disch
     `(tactic|
       (intros arg argIn heq
+       simp only [Sim.RawIRContext.spec, Erased.out_mk] at argIn
        have hargIb : arg.InBounds ctx.spec := by grind
        have hincl := Sim.BlockArgumentPtr.slot_included arg hargIb
        have hpib := Sim.BlockArgumentPtr.block_inBounds hargIb
@@ -452,17 +460,20 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        IRContext.LayoutPreserved.of_layoutUnchanged_ltr (by grind)
      $hsimv:tactic
      $whaves:tactic
+     -- Recover the checked spec from the total transformation inside the erased map.
+     simp only [Erased.map_mk]
+     conv => arg 1; arg 2; arg 1; tactic => change _ = $spec; grind
      constructor
      · grind
      · grind [layout_grind]
-     · simp only
+     · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        intros gptr gptrIb
        have := ($ctx).sim.in_bounds gptr (by grind)
        grind [TopLevelPtr]
-     · simp only
+     · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        have := ($ctx).sim.disjoint_allocs
        grind [TopLevelPtr]
-     · simp only
+     · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        intros op opIb
        have hopin : op.InBounds ($ctx).spec := by grind
        have henc := ($ctx).sim.encoding_op op hopin
@@ -482,7 +493,7 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        · constructor
          · $tNumRS:tactic
          · $tRSslots:tactic
-     · simp only
+     · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        intros blk blkIb
        have hblin : blk.InBounds ctx.spec := by grind
        have henc := ctx.sim.encoding_block blk hblin
@@ -493,14 +504,14 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        · constructor
          · $tNumArgs:tactic
          · $tBAslots:tactic
-     · simp only
+     · simp only [Sim.RawIRContext.spec, Erased.out_mk]
        intros rg rgIb
        have hrgin : rg.InBounds ctx.spec := by grind
        have henc := ctx.sim.encoding_region rg hrgin
        have hrrange := Sim.RegionPtr.range_linear rg hrgin
        $tRegion:tactic
      · have := ($ctx).sim.attr_empty
-       grind only [$wAttr:grindParam]
+       grind only [Erased.out_mk, $wAttr:grindParam]
      · simpa [$writerSimp:simpLemma] using ($ctx).sim.free_valid
      · simp only [$writerSimp:simpLemma]
        intros size address hm ptr hib

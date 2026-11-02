@@ -458,265 +458,271 @@ theorem BlockOperandPtrPtr.IsRepr_def (ptr : BlockOperandPtrPtr) (ctx : IRContex
 @[unfold_pointers]
 structure Sim.OperationPtr where
   impl : OperationMPtr
-  spec : Veir.OperationPtr
-deriving Inhabited
+  spec' : Erased Veir.OperationPtr
+
+instance : Inhabited Sim.OperationPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OperationPtr.spec (ctx : Sim.OperationPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OptionOperationPtr where
   impl : OperationOPtr
-  spec : Option Veir.OperationPtr
-deriving Inhabited
+  spec' : Erased (Option Veir.OperationPtr)
+
+instance : Inhabited Sim.OptionOperationPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OptionOperationPtr.spec (ctx : Sim.OptionOperationPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.BlockPtr where
   impl : BlockMPtr
-  spec : Veir.BlockPtr
-deriving Inhabited
+  spec' : Erased Veir.BlockPtr
+
+instance : Inhabited Sim.BlockPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.BlockPtr.spec (ctx : Sim.BlockPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OptionBlockPtr where
   impl : BlockOPtr
-  spec : Option Veir.BlockPtr
-deriving Inhabited
+  spec' : Erased (Option Veir.BlockPtr)
+
+instance : Inhabited Sim.OptionBlockPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OptionBlockPtr.spec (ctx : Sim.OptionBlockPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.RegionPtr where
   impl : RegionMPtr
-  spec : Veir.RegionPtr
-deriving Inhabited
+  spec' : Erased Veir.RegionPtr
+
+instance : Inhabited Sim.RegionPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.RegionPtr.spec (ctx : Sim.RegionPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OptionRegionPtr where
   impl : RegionOPtr
-  spec : Option Veir.RegionPtr
-deriving Inhabited
+  spec' : Erased (Option Veir.RegionPtr)
+
+instance : Inhabited Sim.OptionRegionPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OptionRegionPtr.spec (ctx : Sim.OptionRegionPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OpResultPtr where
   impl : OpResultMPtr
-  spec : Veir.OpResultPtr
-deriving Inhabited
+  spec' : Erased Veir.OpResultPtr
+
+instance : Inhabited Sim.OpResultPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OpResultPtr.spec (ctx : Sim.OpResultPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.BlockArgumentPtr where
   impl : BlockArgumentMPtr
-  spec : Veir.BlockArgumentPtr
-deriving Inhabited
+  spec' : Erased Veir.BlockArgumentPtr
+
+instance : Inhabited Sim.BlockArgumentPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.BlockArgumentPtr.spec (ctx : Sim.BlockArgumentPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OpOperandPtr where
   impl : OpOperandMPtr
-  spec : Veir.OpOperandPtr
-deriving Inhabited
+  spec' : Erased Veir.OpOperandPtr
+
+instance : Inhabited Sim.OpOperandPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OpOperandPtr.spec (ctx : Sim.OpOperandPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OptionOpOperandPtr where
   impl : OpOperandOPtr
-  spec : Option Veir.OpOperandPtr
-deriving Inhabited
+  spec' : Erased (Option Veir.OpOperandPtr)
+
+instance : Inhabited Sim.OptionOpOperandPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OptionOpOperandPtr.spec (ctx : Sim.OptionOpOperandPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OptionOpResultPtr where
   impl : OpResultOPtr
-  spec : Option Veir.OpResultPtr
+  spec' : Erased (Option Veir.OpResultPtr)
+
+noncomputable abbrev Sim.OptionOpResultPtr.spec (ctx : Sim.OptionOpResultPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.BlockOperandPtr where
   impl : BlockOperandMPtr
-  spec : Veir.BlockOperandPtr
-deriving Inhabited
+  spec' : Erased Veir.BlockOperandPtr
+
+instance : Inhabited Sim.BlockOperandPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.BlockOperandPtr.spec (ctx : Sim.BlockOperandPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.OptionBlockOperandPtr where
   impl : BlockOperandOPtr
-  spec : Option Veir.BlockOperandPtr
-deriving Inhabited
+  spec' : Erased (Option Veir.BlockOperandPtr)
+
+instance : Inhabited Sim.OptionBlockOperandPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OptionBlockOperandPtr.spec (ctx : Sim.OptionBlockOperandPtr) := ctx.spec'.out
 
 @[unfold_pointers]
 structure Sim.ValuePtr where
   impl : ValueImplMPtr
-  spec : Veir.ValuePtr
-deriving Inhabited
+  spec' : Erased Veir.ValuePtr
+
+instance : Inhabited Sim.ValuePtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.ValuePtr.spec (ctx : Sim.ValuePtr) := ctx.spec'.out
 
 structure Sim.OpOperandPtrPtr where
   impl : OpOperandPtrMPtr
-  spec : Veir.OpOperandPtrPtr
-deriving Inhabited
+  spec' : Erased Veir.OpOperandPtrPtr
+
+instance : Inhabited Sim.OpOperandPtrPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.OpOperandPtrPtr.spec (ctx : Sim.OpOperandPtrPtr) := ctx.spec'.out
 
 structure Sim.OptionBlockArgumentPtr where
   impl : BlockArgumentOPtr
-  spec : Option Veir.BlockArgumentPtr
+  spec' : Erased (Option Veir.BlockArgumentPtr)
+
+noncomputable abbrev Sim.OptionBlockArgumentPtr.spec (ctx : Sim.OptionBlockArgumentPtr) := ctx.spec'.out
 
 structure Sim.BlockOperandPtrPtr where
   impl : BlockOperandPtrMPtr
-  spec : Veir.BlockOperandPtrPtr
-deriving Inhabited
+  spec' : Erased Veir.BlockOperandPtrPtr
+
+instance : Inhabited Sim.BlockOperandPtrPtr := ⟨⟨default, .mk default⟩⟩
+noncomputable abbrev Sim.BlockOperandPtrPtr.spec (ctx : Sim.BlockOperandPtrPtr) := ctx.spec'.out
 
 structure Sim.OptionValuePtr where
   impl : ValueImplOPtr
-  spec : Option Veir.ValuePtr
+  spec' : Erased (Option Veir.ValuePtr)
 
-structure Sim.ArrayValuePtr where
-  impl : Array ValueImplMPtr
-  spec : Array Veir.ValuePtr
-  sizes : impl.size = spec.size
-  max_size : impl.size < 2^32
-@[expose, inline] def Sim.ArrayValuePtr.size (a : Sim.ArrayValuePtr) : Nat := a.impl.size
-@[expose, inline] def Sim.ArrayValuePtr.usize (a : Sim.ArrayValuePtr) : UInt64 := a.impl.usize.toUInt64
-@[expose, inline] def Sim.ArrayValuePtr.uget (a : Sim.ArrayValuePtr) (i : UInt64)
-    (hi : i.toNat < a.size := by grind [Sim.ArrayValuePtr.size, Sim.ArrayValuePtr.sizes, Sim.ArrayValuePtr.max_size]) :
-    Sim.ValuePtr :=
-  ⟨a.impl.uget i.toUSize (by grind [a.max_size, size]), a.spec[i.toNat]'(by grind [size, sizes])⟩
-
-structure Sim.ArrayBlockPtr where
-  impl : Array BlockMPtr
-  spec : Array Veir.BlockPtr
-  sizes : impl.size = spec.size
-  max_size : impl.size < 2^32
-@[expose, inline] def Sim.ArrayBlockPtr.size (a : Sim.ArrayBlockPtr) : Nat := a.impl.size
-@[expose, inline] def Sim.ArrayBlockPtr.usize (a : Sim.ArrayBlockPtr) : UInt64 := a.impl.usize.toUInt64
-@[expose, inline] def Sim.ArrayBlockPtr.uget (a : Sim.ArrayBlockPtr) (i : UInt64)
-    (hi : i.toNat < a.size := by grind [Sim.ArrayBlockPtr.size, Sim.ArrayBlockPtr.sizes, Sim.ArrayBlockPtr.max_size]) :
-    Sim.BlockPtr :=
-  ⟨a.impl.uget i.toUSize (by grind [a.max_size, size]), a.spec[i.toNat]'(by grind [size, sizes])⟩
-
-structure Sim.ArrayRegionPtr where
-  impl : Array RegionMPtr
-  spec : Array Veir.RegionPtr
-  sizes : impl.size = spec.size
-  max_size : impl.size < 2^32
-@[expose, inline] def Sim.ArrayRegionPtr.size (a : Sim.ArrayRegionPtr) : Nat := a.impl.size
-@[expose, inline] def Sim.ArrayRegionPtr.usize (a : Sim.ArrayRegionPtr) : UInt64 := a.impl.usize.toUInt64
-@[expose, inline] def Sim.ArrayRegionPtr.uget (a : Sim.ArrayRegionPtr) (i : UInt64)
-    (hi : i.toNat < a.size := by grind [Sim.ArrayRegionPtr.size, Sim.ArrayRegionPtr.sizes, Sim.ArrayRegionPtr.max_size]) :
-    Sim.RegionPtr :=
-  ⟨a.impl.uget i.toUSize (by grind [a.max_size, size]), a.spec[i.toNat]'(by grind [size, sizes])⟩
+noncomputable abbrev Sim.OptionValuePtr.spec (ctx : Sim.OptionValuePtr) := ctx.spec'.out
 
 structure Sim.GenericPtr where
   impl : GenericMPtr
-  spec : Veir.GenericPtr
+  spec' : Erased Veir.GenericPtr
+
+noncomputable abbrev Sim.GenericPtr.spec (ctx : Sim.GenericPtr) := ctx.spec'.out
 
 @[expose]
 def Sim.GenericPtr.fromBlock (ptr : BlockPtr) : GenericPtr :=
-  ⟨ptr.impl, .block ptr.spec⟩
+  ⟨ptr.impl, .mk <| .block ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromBlock_def (ptr : BlockPtr) : Sim.GenericPtr.fromBlock ptr = ⟨ptr.impl, .block ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromBlock_def (ptr : BlockPtr) : Sim.GenericPtr.fromBlock ptr = ⟨ptr.impl, .mk <| .block ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromOperation (ptr : OperationPtr) : GenericPtr :=
-  ⟨ptr.impl, .operation ptr.spec⟩
+  ⟨ptr.impl, .mk <| .operation ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromOperation_def (ptr : OperationPtr) : Sim.GenericPtr.fromOperation ptr = ⟨ptr.impl, .operation ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromOperation_def (ptr : OperationPtr) : Sim.GenericPtr.fromOperation ptr = ⟨ptr.impl, .mk <| .operation ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromOpResult (ptr : OpResultPtr) : GenericPtr :=
-  ⟨ptr.impl, .opResult ptr.spec⟩
+  ⟨ptr.impl, .mk <| .opResult ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromOpResult_def (ptr : OpResultPtr) : Sim.GenericPtr.fromOpResult ptr = ⟨ptr.impl, .opResult ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromOpResult_def (ptr : OpResultPtr) : Sim.GenericPtr.fromOpResult ptr = ⟨ptr.impl, .mk <| .opResult ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromOpOperand (ptr : OpOperandPtr) : GenericPtr :=
-  ⟨ptr.impl, .opOperand ptr.spec⟩
+  ⟨ptr.impl, .mk <| .opOperand ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromOpOperand_def (ptr : OpOperandPtr) : Sim.GenericPtr.fromOpOperand ptr = ⟨ptr.impl, .opOperand ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromOpOperand_def (ptr : OpOperandPtr) : Sim.GenericPtr.fromOpOperand ptr = ⟨ptr.impl, .mk <| .opOperand ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromBlockOperand (ptr : BlockOperandPtr) : GenericPtr :=
-  ⟨ptr.impl, .blockOperand ptr.spec⟩
+  ⟨ptr.impl, .mk <| .blockOperand ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromBlockOperand_def (ptr : BlockOperandPtr) : Sim.GenericPtr.fromBlockOperand ptr = ⟨ptr.impl, .blockOperand ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromBlockOperand_def (ptr : BlockOperandPtr) : Sim.GenericPtr.fromBlockOperand ptr = ⟨ptr.impl, .mk <| .blockOperand ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromBlockOperandPtr (ptr : BlockOperandPtrPtr) : GenericPtr :=
-  ⟨ptr.impl, .blockOperandPtr ptr.spec⟩
+  ⟨ptr.impl, .mk <| .blockOperandPtr ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromBlockOperandPtr_def (ptr : BlockOperandPtrPtr) : Sim.GenericPtr.fromBlockOperandPtr ptr = ⟨ptr.impl, .blockOperandPtr ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromBlockOperandPtr_def (ptr : BlockOperandPtrPtr) : Sim.GenericPtr.fromBlockOperandPtr ptr = ⟨ptr.impl, .mk <| .blockOperandPtr ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromBlockArgument (ptr : BlockArgumentPtr) : GenericPtr :=
-  ⟨ptr.impl, .blockArgument ptr.spec⟩
+  ⟨ptr.impl, .mk <| .blockArgument ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromBlockArgument_def (ptr : BlockArgumentPtr) : Sim.GenericPtr.fromBlockArgument ptr = ⟨ptr.impl, .blockArgument ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromBlockArgument_def (ptr : BlockArgumentPtr) : Sim.GenericPtr.fromBlockArgument ptr = ⟨ptr.impl, .mk <| .blockArgument ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromRegion (ptr : RegionPtr) : GenericPtr :=
-  ⟨ptr.impl, .region ptr.spec⟩
+  ⟨ptr.impl, .mk <| .region ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromRegion_def (ptr : RegionPtr) : Sim.GenericPtr.fromRegion ptr = ⟨ptr.impl, .region ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromRegion_def (ptr : RegionPtr) : Sim.GenericPtr.fromRegion ptr = ⟨ptr.impl, .mk <| .region ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromValue (ptr : ValuePtr) : GenericPtr :=
-  ⟨ptr.impl, .value ptr.spec⟩
+  ⟨ptr.impl, .mk <| .value ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromValue_def (ptr : ValuePtr) : Sim.GenericPtr.fromValue ptr = ⟨ptr.impl, .value ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromValue_def (ptr : ValuePtr) : Sim.GenericPtr.fromValue ptr = ⟨ptr.impl, .mk <| .value ptr.spec⟩ := rfl
 @[expose]
 def Sim.GenericPtr.fromOpOperandPtr (ptr : OpOperandPtrPtr) : GenericPtr :=
-  ⟨ptr.impl, .opOperandPtr ptr.spec⟩
+  ⟨ptr.impl, .mk <| .opOperandPtr ptr.spec⟩
 
 @[grind =]
-theorem Sim.GenericPtr.fromOpOperandPtr_def (ptr : OpOperandPtrPtr) : Sim.GenericPtr.fromOpOperandPtr ptr = ⟨ptr.impl, .opOperandPtr ptr.spec⟩ := rfl
+theorem Sim.GenericPtr.fromOpOperandPtr_def (ptr : OpOperandPtrPtr) : Sim.GenericPtr.fromOpOperandPtr ptr = ⟨ptr.impl, .mk <| .opOperandPtr ptr.spec⟩ := rfl
 
 @[grind] -- TODO: finer grained grind strategy
 structure Sim.OptionGenericPtr where
   impl : GenericOPtr
-  spec : Option Veir.GenericPtr
+  spec' : Erased (Option Veir.GenericPtr)
+
+noncomputable abbrev Sim.OptionGenericPtr.spec (ctx : Sim.OptionGenericPtr) := ctx.spec'.out
 
 @[expose]
 def Sim.OptionGenericPtr.fromBlock (ptr : OptionBlockPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .block⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .block⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromBlock_def (ptr : OptionBlockPtr) : Sim.OptionGenericPtr.fromBlock ptr = ⟨ptr.impl, ptr.spec.map .block⟩ := rfl
+theorem Sim.OptionGenericPtr.fromBlock_def (ptr : OptionBlockPtr) : Sim.OptionGenericPtr.fromBlock ptr = ⟨ptr.impl, .mk <| ptr.spec.map .block⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromOperation (ptr : OptionOperationPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .operation⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .operation⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromOperation_def (ptr : OptionOperationPtr) : Sim.OptionGenericPtr.fromOperation ptr = ⟨ptr.impl, ptr.spec.map .operation⟩ := rfl
+theorem Sim.OptionGenericPtr.fromOperation_def (ptr : OptionOperationPtr) : Sim.OptionGenericPtr.fromOperation ptr = ⟨ptr.impl, .mk <| ptr.spec.map .operation⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromOpResult (ptr : OptionOpResultPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .opResult⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .opResult⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromOpResult_def (ptr : OptionOpResultPtr) : Sim.OptionGenericPtr.fromOpResult ptr = ⟨ptr.impl, ptr.spec.map .opResult⟩ := rfl
+theorem Sim.OptionGenericPtr.fromOpResult_def (ptr : OptionOpResultPtr) : Sim.OptionGenericPtr.fromOpResult ptr = ⟨ptr.impl, .mk <| ptr.spec.map .opResult⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromOpOperand (ptr : OptionOpOperandPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map  .opOperand⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .opOperand⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromOpOperand_def (ptr : OptionOpOperandPtr) : Sim.OptionGenericPtr.fromOpOperand ptr = ⟨ptr.impl, ptr.spec.map  .opOperand⟩ := rfl
+theorem Sim.OptionGenericPtr.fromOpOperand_def (ptr : OptionOpOperandPtr) : Sim.OptionGenericPtr.fromOpOperand ptr = ⟨ptr.impl, .mk <| ptr.spec.map .opOperand⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromBlockOperand (ptr : OptionBlockOperandPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .blockOperand⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .blockOperand⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromBlockOperand_def (ptr : OptionBlockOperandPtr) : Sim.OptionGenericPtr.fromBlockOperand ptr = ⟨ptr.impl, ptr.spec.map .blockOperand⟩ := rfl
+theorem Sim.OptionGenericPtr.fromBlockOperand_def (ptr : OptionBlockOperandPtr) : Sim.OptionGenericPtr.fromBlockOperand ptr = ⟨ptr.impl, .mk <| ptr.spec.map .blockOperand⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromBlockArgument (ptr : OptionBlockArgumentPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .blockArgument⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .blockArgument⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromBlockArgument_def (ptr : OptionBlockArgumentPtr) : Sim.OptionGenericPtr.fromBlockArgument ptr = ⟨ptr.impl, ptr.spec.map .blockArgument⟩ := rfl
+theorem Sim.OptionGenericPtr.fromBlockArgument_def (ptr : OptionBlockArgumentPtr) : Sim.OptionGenericPtr.fromBlockArgument ptr = ⟨ptr.impl, .mk <| ptr.spec.map .blockArgument⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromRegion (ptr : OptionRegionPtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .region⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .region⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromRegion_def (ptr : OptionRegionPtr) : Sim.OptionGenericPtr.fromRegion ptr = ⟨ptr.impl, ptr.spec.map .region⟩ := rfl
+theorem Sim.OptionGenericPtr.fromRegion_def (ptr : OptionRegionPtr) : Sim.OptionGenericPtr.fromRegion ptr = ⟨ptr.impl, .mk <| ptr.spec.map .region⟩ := rfl
 @[expose]
 def Sim.OptionGenericPtr.fromValue (ptr : OptionValuePtr) : OptionGenericPtr :=
-  ⟨ptr.impl, ptr.spec.map .value⟩
+  ⟨ptr.impl, .mk <| ptr.spec.map .value⟩
 
 @[grind =]
-theorem Sim.OptionGenericPtr.fromValue_def (ptr : OptionValuePtr) : Sim.OptionGenericPtr.fromValue ptr = ⟨ptr.impl, ptr.spec.map .value⟩ := rfl
+theorem Sim.OptionGenericPtr.fromValue_def (ptr : OptionValuePtr) : Sim.OptionGenericPtr.fromValue ptr = ⟨ptr.impl, .mk <| ptr.spec.map .value⟩ := rfl
 
 /-! ## Refinement for Sim Pointers -/
 
 variable (OpInfo) [HasOpInfo OpInfo] in
 structure Sim.RawIRContext where
   buf : IRBufContext
-  spec : Veir.IRContext OpInfo
+  spec' : Erased (Veir.IRContext OpInfo)
+
+noncomputable abbrev Sim.RawIRContext.spec (ctx : Sim.RawIRContext OpInfo) := ctx.spec'.out
 
 def Sim.OperationPtr.Sim (ptr : Sim.OperationPtr) :=
   ptr.spec.toM = ptr.impl
@@ -727,15 +733,11 @@ def Sim.BlockPtr.Sim (ptr : Sim.BlockPtr) :=
   ptr.spec.toM = ptr.impl
 def Sim.OptionBlockPtr.Sim (ptr : Sim.OptionBlockPtr) :=
   BlockPtr.toO ptr.spec = ptr.impl
-def Sim.ArrayBlockPtr.Sim (ptr : Sim.ArrayBlockPtr) :=
-  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.Sim
 
 def Sim.RegionPtr.Sim (ptr : Sim.RegionPtr) :=
   ptr.spec.toM = ptr.impl
 def Sim.OptionRegionPtr.Sim (ptr : Sim.OptionRegionPtr) :=
   RegionPtr.toO ptr.spec = ptr.impl
-def Sim.ArrayRegionPtr.Sim (ptr : Sim.ArrayRegionPtr) :=
-  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.Sim
 
 def Sim.OpResultPtr.Sim (ptr : Sim.OpResultPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
@@ -762,8 +764,6 @@ def Sim.ValuePtr.Sim (ptr : Sim.ValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
 def Sim.OptionValuePtr.Sim (ptr : Sim.OptionValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
   ValuePtr.toO ptr.spec ctx.spec = ptr.impl
-def Sim.ArrayValuePtr.Sim (ptr : Sim.ArrayValuePtr) (ctx : Sim.RawIRContext OpInfo) :=
-  ∀ i (hi : i < ptr.size), ptr.uget i.toUInt64 |>.Sim ctx
 
 def Sim.OpOperandPtrPtr.Sim (ptr : Sim.OpOperandPtrPtr) (ctx : Sim.RawIRContext OpInfo) :=
   ptr.spec.toM ctx.spec = ptr.impl
@@ -908,31 +908,31 @@ theorem Sim.OptionGenericPtr.Sim.out {ptr : Sim.OptionGenericPtr} {ctx : Sim.Raw
 structure OpResultPtr.Matches (ctx : Sim.RawIRContext OpInfo) (res : OpResultPtr) (ib : res.InBounds ctx.spec) where
   kind : (res.toM ctx.spec).readKind! ctx.buf = Buffed.ValueImpl.kindResult
   typee : ctx.buf.attributes[(res.toM ctx.spec).readType! ctx.buf |>.toNat]? = some (res.get! ctx.spec).type
-  firstUse : Sim.OptionOpOperandPtr.Sim ⟨(res.toM ctx.spec).readFirstUse! ctx.buf, (res.get! ctx.spec).firstUse⟩ ctx
+  firstUse : Sim.OptionOpOperandPtr.Sim ⟨(res.toM ctx.spec).readFirstUse! ctx.buf, .mk <| (res.get! ctx.spec).firstUse⟩ ctx
   index : (res.get! ctx.spec).index = ((res.toM ctx.spec).readIndex! ctx.buf).toNat
-  owner : Sim.OperationPtr.Sim ⟨(res.toM ctx.spec).readOwner! ctx.buf, (res.get! ctx.spec).owner⟩
+  owner : Sim.OperationPtr.Sim ⟨(res.toM ctx.spec).readOwner! ctx.buf, .mk <| (res.get! ctx.spec).owner⟩
 
 structure BlockOperandPtr.Matches (ctx : Sim.RawIRContext OpInfo) (oper : BlockOperandPtr) (ib : oper.InBounds ctx.spec) where
-  nextUse : Sim.OptionBlockOperandPtr.Sim ⟨BlockOperandMPtr.readNextUse! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).nextUse⟩ ctx
-  back : Sim.BlockOperandPtrPtr.Sim ⟨BlockOperandMPtr.readBack! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).back⟩ ctx
-  owner : Sim.OperationPtr.Sim ⟨BlockOperandMPtr.readOwner! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).owner⟩
-  value : Sim.BlockPtr.Sim ⟨BlockOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).value⟩
+  nextUse : Sim.OptionBlockOperandPtr.Sim ⟨BlockOperandMPtr.readNextUse! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).nextUse⟩ ctx
+  back : Sim.BlockOperandPtrPtr.Sim ⟨BlockOperandMPtr.readBack! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).back⟩ ctx
+  owner : Sim.OperationPtr.Sim ⟨BlockOperandMPtr.readOwner! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).owner⟩
+  value : Sim.BlockPtr.Sim ⟨BlockOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).value⟩
 
 structure BlockArgumentPtr.Matches (ctx : Sim.RawIRContext OpInfo) (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec) where
   kind : arg.toM.readKind! ctx.buf = Buffed.ValueImpl.kindArgument
   type : ctx.buf.attributes[arg.toM.readType! ctx.buf |>.toNat]? = some (arg.get! ctx.spec).type
-  firstUse : Sim.OptionOpOperandPtr.Sim ⟨arg.toM.readFirstUse! ctx.buf, (arg.get! ctx.spec).firstUse⟩ ctx
+  firstUse : Sim.OptionOpOperandPtr.Sim ⟨arg.toM.readFirstUse! ctx.buf, .mk <| (arg.get! ctx.spec).firstUse⟩ ctx
   index : (arg.get! ctx.spec).index = (arg.toM.readIndex! ctx.buf).toNat
-  owner : Sim.BlockPtr.Sim ⟨arg.toM.readOwner! ctx.buf, (arg.get! ctx.spec).owner⟩
+  owner : Sim.BlockPtr.Sim ⟨arg.toM.readOwner! ctx.buf, .mk <| (arg.get! ctx.spec).owner⟩
   -- `loc` is not implemented yet
 
 structure BlockPtr.MatchesBase (ctx : Sim.RawIRContext OpInfo) (block : BlockPtr) (ib : block.InBounds ctx.spec) where
-  firstUse : Sim.OptionBlockOperandPtr.Sim ⟨BlockMPtr.readFirstUse! ctx.buf block.toM, (block.get! ctx.spec).firstUse⟩ ctx
-  prev : Sim.OptionBlockPtr.Sim ⟨BlockMPtr.readPrev! ctx.buf block.toM, (block.get! ctx.spec).prev⟩
-  next : Sim.OptionBlockPtr.Sim ⟨BlockMPtr.readNext! ctx.buf block.toM, (block.get! ctx.spec).next⟩
-  parent : Sim.OptionRegionPtr.Sim ⟨BlockMPtr.readParent! ctx.buf block.toM, (block.get! ctx.spec).parent⟩
-  firstOp : Sim.OptionOperationPtr.Sim ⟨BlockMPtr.readFirstOp! ctx.buf block.toM, (block.get! ctx.spec).firstOp⟩
-  lastOp : Sim.OptionOperationPtr.Sim ⟨BlockMPtr.readLastOp! ctx.buf block.toM, (block.get! ctx.spec).lastOp⟩
+  firstUse : Sim.OptionBlockOperandPtr.Sim ⟨BlockMPtr.readFirstUse! ctx.buf block.toM, .mk <| (block.get! ctx.spec).firstUse⟩ ctx
+  prev : Sim.OptionBlockPtr.Sim ⟨BlockMPtr.readPrev! ctx.buf block.toM, .mk <| (block.get! ctx.spec).prev⟩
+  next : Sim.OptionBlockPtr.Sim ⟨BlockMPtr.readNext! ctx.buf block.toM, .mk <| (block.get! ctx.spec).next⟩
+  parent : Sim.OptionRegionPtr.Sim ⟨BlockMPtr.readParent! ctx.buf block.toM, .mk <| (block.get! ctx.spec).parent⟩
+  firstOp : Sim.OptionOperationPtr.Sim ⟨BlockMPtr.readFirstOp! ctx.buf block.toM, .mk <| (block.get! ctx.spec).firstOp⟩
+  lastOp : Sim.OptionOperationPtr.Sim ⟨BlockMPtr.readLastOp! ctx.buf block.toM, .mk <| (block.get! ctx.spec).lastOp⟩
 
 structure BlockPtr.MatchesArguments (ctx : Sim.RawIRContext OpInfo) (res : BlockPtr) where
   numArguments : (res.get! ctx.spec).capArguments = (BlockMPtr.readNumArguments! ctx.buf (res.toM)).toNat
@@ -943,20 +943,20 @@ structure BlockPtr.Matches (ctx : Sim.RawIRContext OpInfo) (block : BlockPtr) (i
   BlockPtr.MatchesArguments ctx block
 
 structure OpOperandPtr.Matches (ctx : Sim.RawIRContext OpInfo) (oper : OpOperandPtr) (ib : oper.InBounds ctx.spec) where
-  nextUse : Sim.OptionOpOperandPtr.Sim ⟨OpOperandMPtr.readNextUse! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).nextUse⟩ ctx
-  back : Sim.OpOperandPtrPtr.Sim ⟨OpOperandMPtr.readBack! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).back⟩ ctx
-  owner : Sim.OperationPtr.Sim ⟨OpOperandMPtr.readOwner! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).owner⟩
-  value : Sim.ValuePtr.Sim ⟨OpOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), (oper.get! ctx.spec).value⟩ ctx
+  nextUse : Sim.OptionOpOperandPtr.Sim ⟨OpOperandMPtr.readNextUse! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).nextUse⟩ ctx
+  back : Sim.OpOperandPtrPtr.Sim ⟨OpOperandMPtr.readBack! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).back⟩ ctx
+  owner : Sim.OperationPtr.Sim ⟨OpOperandMPtr.readOwner! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).owner⟩
+  value : Sim.ValuePtr.Sim ⟨OpOperandMPtr.readValue! ctx.buf (oper.toM ctx.spec), .mk <| (oper.get! ctx.spec).value⟩ ctx
 
 structure RegionPtr.Matches (ctx : Sim.RawIRContext OpInfo) (reg : RegionPtr)  (ib : reg.InBounds ctx.spec) where
-  firstBlock : Sim.OptionBlockPtr.Sim ⟨RegionMPtr.readFirstBlock! ctx.buf reg.toM, (reg.get! ctx.spec).firstBlock⟩
-  lastBlock : Sim.OptionBlockPtr.Sim ⟨RegionMPtr.readLastBlock! ctx.buf reg.toM, (reg.get! ctx.spec).lastBlock⟩
-  parent : Sim.OptionOperationPtr.Sim ⟨RegionMPtr.readParent! ctx.buf reg.toM, (reg.get! ctx.spec).parent⟩
+  firstBlock : Sim.OptionBlockPtr.Sim ⟨RegionMPtr.readFirstBlock! ctx.buf reg.toM, .mk <| (reg.get! ctx.spec).firstBlock⟩
+  lastBlock : Sim.OptionBlockPtr.Sim ⟨RegionMPtr.readLastBlock! ctx.buf reg.toM, .mk <| (reg.get! ctx.spec).lastBlock⟩
+  parent : Sim.OptionOperationPtr.Sim ⟨RegionMPtr.readParent! ctx.buf reg.toM, .mk <| (reg.get! ctx.spec).parent⟩
 
 structure OperationPtr.MatchesBase (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) (ib : op.InBounds ctx.spec) where
-  prev : Sim.OptionOperationPtr.Sim ⟨op.toM.readPrev! ctx.buf, (op.get! ctx.spec).prev⟩
-  next : Sim.OptionOperationPtr.Sim ⟨op.toM.readNext! ctx.buf, (op.get! ctx.spec).next⟩
-  parent : Sim.OptionBlockPtr.Sim ⟨op.toM.readParent! ctx.buf, (op.get! ctx.spec).parent⟩
+  prev : Sim.OptionOperationPtr.Sim ⟨op.toM.readPrev! ctx.buf, .mk <| (op.get! ctx.spec).prev⟩
+  next : Sim.OptionOperationPtr.Sim ⟨op.toM.readNext! ctx.buf, .mk <| (op.get! ctx.spec).next⟩
+  parent : Sim.OptionBlockPtr.Sim ⟨op.toM.readParent! ctx.buf, .mk <| (op.get! ctx.spec).parent⟩
   opType : op.getOpType! ctx.spec = SerializableOpInfo.decode (op.toM.readOpType! ctx.buf)
   attrs : ctx.buf.attributes[op.toM.readAttrs! ctx.buf |>.toNat]? = some (op.get! ctx.spec).attrs
   props : HasBuffedProperties.readPropertyAt (op.getOpType! ctx.spec) (op.toM + Buffed.Operation.Offsets.properties) ctx.buf =
@@ -974,7 +974,7 @@ structure OperationPtr.MatchesBlockOperands (ctx : Sim.RawIRContext OpInfo) (op 
 structure OperationPtr.MatchesRegions (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) where
   numRegions : (op.get! ctx.spec).capRegions = (op.toM.readNumRegions! ctx.buf).toNat
   regions  idx (hin : idx < (op.getNumRegions! ctx.spec)) :
-    Sim.RegionPtr.Sim ⟨op.toM.readNthRegion! (OpInfo := OpInfo) ctx.buf idx.toUInt64, op.getRegion! ctx.spec idx⟩
+    Sim.RegionPtr.Sim ⟨op.toM.readNthRegion! (OpInfo := OpInfo) ctx.buf idx.toUInt64, .mk <| op.getRegion! ctx.spec idx⟩
 
 structure OperationPtr.MatchesOperands (ctx : Sim.RawIRContext OpInfo) (op : OperationPtr) where
   numOperands : (op.get! ctx.spec).capOperands = (op.toM.readNumOperands! ctx.buf).toNat
@@ -1030,16 +1030,19 @@ structure Sim (ctx : Sim.RawIRContext OpInfo) where
 variable (OpInfo) [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo] in
 structure Sim.IRContext where
   buf : IRBufContext
-  spec : Veir.IRContext OpInfo
-  sim : Sim ⟨buf, spec⟩
+  spec' : Erased (Veir.IRContext OpInfo)
+  sim : Sim ⟨buf, spec'⟩
+
+noncomputable abbrev Sim.IRContext.spec (ctx : Sim.IRContext OpInfo) := ctx.spec'.out
 
 attribute [local grind =]
   Veir.OperationPtr.inBounds_def Veir.BlockPtr.inBounds_def Veir.RegionPtr.inBounds_def Veir.BlockArgumentPtr.inBounds_def
   Veir.OpOperandPtr.inBounds_def Veir.BlockOperandPtr.inBounds_def Veir.OpResultPtr.inBounds_def
 attribute [local grind cases] ValuePtr.InBounds OpOperandPtrPtr.InBounds BlockOperandPtrPtr.InBounds
+
 instance : Inhabited (Sim.IRContext OpInfo) where
-  default := ⟨default, default, by
-    constructor <;> simp
+  default := ⟨default, .mk default, by
+    constructor
     · grind
     · simp only [IRContext.default_def]; grind
     case attr_empty => simp [IRBufContext.default_def]
@@ -1051,10 +1054,10 @@ instance : Inhabited (Sim.IRContext OpInfo) where
       cases ptr <;> grind⟩
 
 @[expose]
-def Sim.IRContext.inner (ctx : IRContext OpInfo) : RawIRContext OpInfo := ⟨ctx.buf, ctx.spec⟩
+def Sim.IRContext.inner (ctx : IRContext OpInfo) : RawIRContext OpInfo := ⟨ctx.buf, ctx.spec'⟩
 
 @[grind =]
-theorem Sim.IRContext.inner_def (ctx : IRContext OpInfo) : ctx.inner = ⟨ctx.buf, ctx.spec⟩ := rfl
+theorem Sim.IRContext.inner_def (ctx : IRContext OpInfo) : ctx.inner = ⟨ctx.buf, ctx.spec'⟩ := rfl
 
 @[grind .]
 theorem Sim.IRContext.isRepr (ctx : IRContext OpInfo) : ctx.spec.IsRepr := ctx.sim.repr

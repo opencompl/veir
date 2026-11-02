@@ -6,6 +6,9 @@ public import Veir.IR.DeallocLemmas
 
 public section
 
+attribute [local simp] Veir.Sim.IRContext.spec Veir.Sim.OperationPtr.spec Veir.Sim.OpOperandPtr.spec
+  Veir.Sim.BlockOperandPtr.spec Veir.Sim.OptionOperationPtr.spec Veir.Sim.OptionBlockPtr.spec
+
 namespace Veir
 
 set_option maxHeartbeats 400000
@@ -21,8 +24,8 @@ theorem Rewriter.detachOp_veir_inBounds
     (ptr : Veir.GenericPtr) :
     ptr.InBounds (Rewriter.detachOp ctx op hctx hIn hasParent).spec ↔
       ptr.InBounds ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split <;> grind
 
 @[simp]
@@ -33,8 +36,8 @@ theorem BlockPtr.firstUse!_detachOp
     (block : Veir.BlockPtr) :
     (block.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).firstUse =
       (block.get! ctx.spec).firstUse := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals
     simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
@@ -52,8 +55,8 @@ theorem OperationPtr.parent!_detachOp
     (operation : Veir.OperationPtr) :
     (operation.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).parent =
       if operation = op.spec then none else (operation.get! ctx.spec).parent := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals
     simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
@@ -63,7 +66,7 @@ theorem OperationPtr.parent!_detachOp
       OperationPtr.parent!_OperationPtr_setNextOp,
       OperationPtr.parent!_OperationPtr_setPrevOp,
       OperationPtr.parent!_OperationPtr_setParent]
-    split <;> rfl
+    split <;> simp [Sim.OptionBlockPtr.none]
 
 theorem BlockPtr.firstOp!_detachOp
     (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)
@@ -96,8 +99,8 @@ theorem BlockPtr.firstOp!_detachOp
       some ((op.getParent ctx hIn).toOption.get hasParent).spec := by
     rw [OperationPtr.get!_eq_get]
     exact hParentSome
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split
   next prev hprev =>
     have hp : (op.spec.get! ctx.spec).prev ≠ none := by
@@ -148,11 +151,10 @@ theorem Rewriter.detachOperands.loop_wellFormed
       (missingOperands.insertMany
         ((0...=index.toNat).toList.map (fun i => OpOperandPtr.mk op.spec i)))
       missingSuccessors := by
-  simp only [Rewriter.detachOperands.loop_def]
-  fun_induction Rewriter.detachOperands.loopSim generalizing missingOperands missingSuccessors
+  fun_induction Rewriter.detachOperands.loop generalizing missingOperands missingSuccessors
   case case1 =>
     let use := op.getOperandPtrAt _ off 0 (by assumption) (by assumption)
-    have hUseSpec : use.spec = OpOperandPtr.mk op.spec 0 := rfl
+    have hUseSpec : use.spec = OpOperandPtr.mk op.spec 0 := by simp [use, Sim.OperationPtr.getOperandPtrAt, OperationPtr.getOpOperand]
     have hwf := Sim.IRContext.wellFormed_OpOperandPtr_removeFromCurrent
       (use := use) (useInBounds := by
         dsimp [use]
@@ -181,7 +183,7 @@ theorem Rewriter.detachOperands.loop_wellFormed
       simp only [Nat.mod_self, Nat.zero_add]
       rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
     let use := op.getOperandPtrAt currentCtx off currentIndex (by assumption) (by assumption)
-    have hUseSpec : use.spec = OpOperandPtr.mk op.spec currentIndex.toNat := rfl
+    have hUseSpec : use.spec = OpOperandPtr.mk op.spec currentIndex.toNat := by simp [use, Sim.OperationPtr.getOperandPtrAt, OperationPtr.getOpOperand]
     have hwfRemoved := Sim.IRContext.wellFormed_OpOperandPtr_removeFromCurrent
       (use := use) (useInBounds := by
         dsimp [use]
@@ -248,8 +250,8 @@ theorem BlockPtr.lastOp!_detachOp
       some ((op.getParent ctx hIn).toOption.get hasParent).spec := by
     rw [OperationPtr.get!_eq_get]
     exact hParentSome
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split
   next prev hprev =>
     split
@@ -282,7 +284,7 @@ theorem BlockPtr.lastOp!_detachOp
         rw [if_pos hpb]
         have hp := Sim.OptionOperationPtr.toOption_some
           (by grind : (op.getPrevOp ctx hIn).InBounds ctx) hprev
-        change some prev.spec = (op.spec.get! ctx.spec).prev
+        simp only [Sim.OperationPtr.toO, Sim.OptionOperationPtr.spec, Erased.map_out]
         exact hp.symm.trans hPrevSpecBang
       · simp only [hn, true_and]
         rw [if_neg hb]
@@ -348,8 +350,8 @@ theorem OperationPtr.prev!_detachOp
   have hNextSpec : (op.getNextOp ctx hIn).spec =
       (op.spec.get! ctx.spec).next := by
     rw [Sim.OperationPtr.getNextOp_spec ctx op hIn, OperationPtr.get!_eq_get]
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals
     simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
@@ -405,8 +407,8 @@ theorem OperationPtr.next!_detachOp
   have hNextSpec : (op.getNextOp ctx hIn).spec =
       (op.spec.get! ctx.spec).next := by
     rw [Sim.OperationPtr.getNextOp_spec ctx op hIn, OperationPtr.get!_eq_get]
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals
     simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
@@ -453,8 +455,8 @@ theorem OpOperandPtr.get!_detachOp
     (operand : Veir.OpOperandPtr) :
     operand.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       operand.get! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -471,8 +473,8 @@ theorem BlockOperandPtr.get!_detachOp
     (operand : Veir.BlockOperandPtr) :
     operand.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       operand.get! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -489,8 +491,8 @@ theorem OpResultPtr.get!_detachOp
     (result : Veir.OpResultPtr) :
     result.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       result.get! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -507,8 +509,8 @@ theorem BlockArgumentPtr.get!_detachOp
     (argument : Veir.BlockArgumentPtr) :
     argument.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       argument.get! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -526,8 +528,8 @@ theorem RegionPtr.get!_detachOp
     (region : Veir.RegionPtr) :
     region.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       region.get! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -544,8 +546,8 @@ theorem ValuePtr.getFirstUse!_detachOp
     (value : Veir.ValuePtr) :
     value.getFirstUse! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       value.getFirstUse! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -563,8 +565,8 @@ theorem OperationPtr.getNumResults!_detachOp
     (operation : Veir.OperationPtr) :
     operation.getNumResults! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       operation.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -579,8 +581,8 @@ theorem OperationPtr.getNumRegions!_detachOp
     (operation : Veir.OperationPtr) :
     operation.getNumRegions! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       operation.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -595,8 +597,8 @@ theorem OperationPtr.getRegion!_detachOp
     (operation : Veir.OperationPtr) (i : Nat) :
     operation.getRegion! (Rewriter.detachOp ctx op hctx hIn hasParent).spec i =
       operation.getRegion! ctx.spec i := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -611,8 +613,8 @@ theorem OperationPtr.capResults!_detachOp
     (operation : Veir.OperationPtr) :
     (operation.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).capResults =
       (operation.get! ctx.spec).capResults := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -627,8 +629,8 @@ theorem OperationPtr.capRegions!_detachOp
     (operation : Veir.OperationPtr) :
     (operation.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).capRegions =
       (operation.get! ctx.spec).capRegions := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -643,8 +645,8 @@ theorem BlockPtr.getNumArguments!_detachOp
     (block : Veir.BlockPtr) :
     block.getNumArguments! (Rewriter.detachOp ctx op hctx hIn hasParent).spec =
       block.getNumArguments! ctx.spec := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -659,8 +661,8 @@ theorem BlockPtr.capArguments!_detachOp
     (block : Veir.BlockPtr) :
     (block.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).capArguments =
       (block.get! ctx.spec).capArguments := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -675,8 +677,8 @@ theorem BlockPtr.prev!_detachOp
     (block : Veir.BlockPtr) :
     (block.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).prev =
       (block.get! ctx.spec).prev := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -693,8 +695,8 @@ theorem BlockPtr.next!_detachOp
     (block : Veir.BlockPtr) :
     (block.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).next =
       (block.get! ctx.spec).next := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -711,8 +713,8 @@ theorem BlockPtr.parent!_detachOp
     (block : Veir.BlockPtr) :
     (block.get! (Rewriter.detachOp ctx op hctx hIn hasParent).spec).parent =
       (block.get! ctx.spec).parent := by
-  simp only [Rewriter.detachOp_def, Rewriter.detachOpSim,
-    Rewriter.unsetParentAndNeighbors_def, Rewriter.unsetParentAndNeighborsSim]
+  simp only [Rewriter.detachOp,
+    Rewriter.unsetParentAndNeighbors]
   split <;> split
   all_goals simp only [Sim.BlockPtr.setFirstOp_spec, Sim.BlockPtr.setLastOp_spec,
     Sim.OperationPtr.setNextOp_spec, Sim.OperationPtr.setPrevOp_spec,
@@ -979,7 +981,7 @@ theorem Rewriter.detachOpIfAttached_WellFormed
     (hIn : op.InBounds ctx) :
     (Rewriter.detachOpIfAttached ctx op hctx hIn).spec.WellFormed
       missingOperands missingSuccessors := by
-  simp only [Rewriter.detachOpIfAttached_def, Rewriter.detachOpIfAttachedSim]
+  simp only [Rewriter.detachOpIfAttached]
   split
   · apply Rewriter.detachOp_WellFormed <;> assumption
   · exact wf
@@ -1006,7 +1008,7 @@ theorem Rewriter.detachOperands_wellFormed
     rw [Sim.OperationPtr.getNumOperands_eq_getNumOperands! ctx op hOp,
       Sim.OperationPtr.getNumOperands!_spec (ctx := ctx) op (ib := hOp), hCap]
     exact UInt64.toNat_ofNat_of_lt hNumLt
-  simp only [Rewriter.detachOperands_def, Rewriter.detachOperandsSim]
+  simp only [Rewriter.detachOperands]
   split
   next hz =>
     have hZero : op.spec.getNumOperands! ctx.spec = 0 := by
@@ -1060,11 +1062,10 @@ theorem Rewriter.detachBlockOperands.loop_wellFormed
       missingOperands
       (missingSuccessors.insertMany
         ((0...=index.toNat).toList.map (fun i => BlockOperandPtr.mk op.spec i))) := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim generalizing missingOperands missingSuccessors
+  fun_induction Rewriter.detachBlockOperands.loop generalizing missingOperands missingSuccessors
   case case1 =>
     let use := op.getBlockOperandPtr _ 0 (by assumption)
-    have hUseSpec : use.spec = BlockOperandPtr.mk op.spec 0 := rfl
+    have hUseSpec : use.spec = BlockOperandPtr.mk op.spec 0 := by simp [use, Sim.OperationPtr.getBlockOperandPtr, OperationPtr.getBlockOperand]
     have hwf := Sim.IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
       (use := use) (useInBounds := by
         dsimp [use]
@@ -1092,7 +1093,7 @@ theorem Rewriter.detachBlockOperands.loop_wellFormed
       simp only [Nat.mod_self, Nat.zero_add]
       rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
     let use := op.getBlockOperandPtr currentCtx currentIndex (by assumption)
-    have hUseSpec : use.spec = BlockOperandPtr.mk op.spec currentIndex.toNat := rfl
+    have hUseSpec : use.spec = BlockOperandPtr.mk op.spec currentIndex.toNat := by simp [use, Sim.OperationPtr.getBlockOperandPtr, OperationPtr.getBlockOperand]
     have hwfRemoved := Sim.IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
       (use := use) (useInBounds := by
         dsimp [use]
@@ -1150,7 +1151,7 @@ theorem Rewriter.detachBlockOperands_wellFormed
     rw [Sim.OperationPtr.getNumSuccessors_eq_getNumSuccessors! ctx op hOp,
       Sim.OperationPtr.getNumSuccessors!_spec (ctx := ctx) op (ib := hOp), hCap]
     exact UInt64.toNat_ofNat_of_lt hNumLt
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   next hz =>
     have hZero : op.spec.getNumSuccessors! ctx.spec = 0 := by
@@ -1229,11 +1230,10 @@ theorem OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
     (h : (result.get! ctx.spec).firstUse = none) :
     (result.get! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec).firstUse = none := by
-  simp only [Rewriter.detachOperands.loop_def]
-  fun_induction Rewriter.detachOperands.loopSim generalizing missingUses missingSuccessors
+  fun_induction Rewriter.detachOperands.loop generalizing missingUses missingSuccessors
   case case1 =>
     let use := operation.getOperandPtrAt _ off 0 (by assumption) (by assumption)
-    have hUseSpec : use.spec = OpOperandPtr.mk operation.spec 0 := rfl
+    have hUseSpec : use.spec = OpOperandPtr.mk operation.spec 0 := by simp [use, Sim.OperationPtr.getOperandPtrAt, OperationPtr.getOpOperand]
     apply OpResultPtr.firstUse!_OpOperandPtr_removeFromCurrent_eq_none_of_firstUse!_eq_none
       (ctx := _) (operand := use) (result := result)
       (operandIn := by
@@ -1266,7 +1266,7 @@ theorem OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
       rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
     let use := operation.getOperandPtrAt currentCtx off currentIndex
       (by assumption) (by assumption)
-    have hUseSpec : use.spec = OpOperandPtr.mk operation.spec currentIndex.toNat := rfl
+    have hUseSpec : use.spec = OpOperandPtr.mk operation.spec currentIndex.toNat := by simp [use, Sim.OperationPtr.getOperandPtrAt, OperationPtr.getOpOperand]
     have hUseIn : use.InBounds currentCtx := by
       dsimp [use]
       rw [Sim.OperationPtr.getOperandPtrAt_eq_getOperandPtr]
@@ -1317,7 +1317,7 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
     rw [Sim.OperationPtr.getNumOperands_eq_getNumOperands! ctx operation hOp,
       Sim.OperationPtr.getNumOperands!_spec (ctx := ctx) operation (ib := hOp), hCap]
     exact UInt64.toNat_ofNat_of_lt hNumLt
-  simp only [Rewriter.detachOperands_def, Rewriter.detachOperandsSim]
+  simp only [Rewriter.detachOperands]
   split
   · exact h
   · apply OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
@@ -1332,8 +1332,7 @@ theorem OpResultPtr.firstUse!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     (result.get! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec).firstUse = (result.get! ctx.spec).firstUse := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim
+  fun_induction Rewriter.detachBlockOperands.loop
   case case1 =>
     rename_i _ _ _ currentCtx hCtxCur hOpCur hIndexCur currentCtx'
     dsimp [currentCtx']
@@ -1353,7 +1352,7 @@ theorem OpResultPtr.firstUse!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     (result.get! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec).firstUse =
       (result.get! ctx.spec).firstUse := by
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   · rfl
   · apply OpResultPtr.firstUse!_detachBlockOperands_loop
@@ -1365,7 +1364,7 @@ theorem ValuePtr.getFirstUse!_detachOpIfAttached
     (hOp : operation.InBounds ctx) :
     value.getFirstUse! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec =
       value.getFirstUse! ctx.spec := by
-  simp only [Rewriter.detachOpIfAttached_def, Rewriter.detachOpIfAttachedSim]
+  simp only [Rewriter.detachOpIfAttached]
   split
   · apply ValuePtr.getFirstUse!_detachOp
   · rfl
@@ -1377,7 +1376,7 @@ theorem OperationPtr.getNumResults!_detachOpIfAttached
     (hOp : operation.InBounds ctx) :
     op'.getNumResults! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec =
       op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachOpIfAttached_def, Rewriter.detachOpIfAttachedSim]
+  simp only [Rewriter.detachOpIfAttached]
   split
   · apply OperationPtr.getNumResults!_detachOp
   · rfl
@@ -1391,8 +1390,7 @@ theorem OperationPtr.getNumResults!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     op'.getNumResults! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec = op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachOperands.loop_def]
-  fun_induction Rewriter.detachOperands.loopSim
+  fun_induction Rewriter.detachOperands.loop
   case case1 =>
     rename_i _ _ _ currentCtx hCtxCur hOpCur hIndexCur hoffCur currentCtx'
     dsimp [currentCtx']
@@ -1412,7 +1410,7 @@ theorem OperationPtr.getNumResults!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumResults! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachOperands_def, Rewriter.detachOperandsSim]
+  simp only [Rewriter.detachOperands]
   split
   · rfl
   · apply OperationPtr.getNumResults!_detachOperands_loop
@@ -1425,8 +1423,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumResults! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim
+  fun_induction Rewriter.detachBlockOperands.loop
   case case1 =>
     rename_i _ _ _ currentCtx hCtxCur hOpCur hIndexCur currentCtx'
     dsimp [currentCtx']
@@ -1446,7 +1443,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumResults! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   · rfl
   · apply OperationPtr.getNumResults!_detachBlockOperands_loop
@@ -1460,8 +1457,7 @@ theorem OperationPtr.getNumOperands!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     op'.getNumOperands! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec = op'.getNumOperands! ctx.spec := by
-  simp only [Rewriter.detachOperands.loop_def]
-  fun_induction Rewriter.detachOperands.loopSim <;>
+  fun_induction Rewriter.detachOperands.loop <;>
     grind [Sim.OperationPtr.getNumOperands!_OpOperandPtr_removeFromCurrent]
 
 @[simp, grind =]
@@ -1473,7 +1469,7 @@ theorem OperationPtr.getNumOperands!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumOperands! ctx.spec := by
-  simp only [Rewriter.detachOperands_def, Rewriter.detachOperandsSim]
+  simp only [Rewriter.detachOperands]
   split
   · rfl
   · apply OperationPtr.getNumOperands!_detachOperands_loop
@@ -1486,8 +1482,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumOperands! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim <;>
+  fun_induction Rewriter.detachBlockOperands.loop <;>
     grind [Sim.OperationPtr.getNumOperands!_BlockOperandPtr_removeFromCurrent]
 
 @[simp, grind =]
@@ -1499,7 +1494,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumOperands! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   · rfl
   · apply OperationPtr.getNumOperands!_detachBlockOperands_loop
@@ -1512,8 +1507,7 @@ theorem OperationPtr.getNumSuccessors!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumSuccessors! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumSuccessors! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim <;>
+  fun_induction Rewriter.detachBlockOperands.loop <;>
     grind [Sim.OperationPtr.getNumSuccessors!_BlockOperandPtr_removeFromCurrent]
 
 @[simp, grind =]
@@ -1525,7 +1519,7 @@ theorem OperationPtr.getNumSuccessors!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumSuccessors! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumSuccessors! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   · rfl
   · apply OperationPtr.getNumSuccessors!_detachBlockOperands_loop
@@ -1536,7 +1530,7 @@ theorem OperationPtr.parent!_detachOpIfAttached_self
     (hCtx : ctx.spec.FieldsInBounds) (hOp : operation.InBounds ctx) :
     (operation.spec.get! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec).parent =
       none := by
-  simp only [Rewriter.detachOpIfAttached_def, Rewriter.detachOpIfAttachedSim]
+  simp only [Rewriter.detachOpIfAttached]
   split
   · rw [OperationPtr.parent!_detachOp]
     simp
@@ -1554,8 +1548,7 @@ theorem OperationPtr.parent!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     (op'.get! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec).parent = (op'.get! ctx.spec).parent := by
-  simp only [Rewriter.detachOperands.loop_def]
-  fun_induction Rewriter.detachOperands.loopSim <;>
+  fun_induction Rewriter.detachOperands.loop <;>
     grind [Sim.OperationPtr.parent!_OpOperandPtr_removeFromCurrent]
 
 @[simp]
@@ -1567,7 +1560,7 @@ theorem OperationPtr.parent!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     (op'.get! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec).parent =
       (op'.get! ctx.spec).parent := by
-  simp only [Rewriter.detachOperands_def, Rewriter.detachOperandsSim]
+  simp only [Rewriter.detachOperands]
   split
   · rfl
   · apply OperationPtr.parent!_detachOperands_loop
@@ -1580,8 +1573,7 @@ theorem OperationPtr.parent!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     (op'.get! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec).parent = (op'.get! ctx.spec).parent := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim <;>
+  fun_induction Rewriter.detachBlockOperands.loop <;>
     grind [Sim.OperationPtr.parent!_BlockOperandPtr_removeFromCurrent]
 
 @[simp]
@@ -1593,7 +1585,7 @@ theorem OperationPtr.parent!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     (op'.get! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec).parent =
       (op'.get! ctx.spec).parent := by
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   · rfl
   · apply OperationPtr.parent!_detachBlockOperands_loop
@@ -1607,8 +1599,7 @@ theorem OperationPtr.getNumRegions!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     op'.getNumRegions! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec = op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachOperands.loop_def]
-  fun_induction Rewriter.detachOperands.loopSim <;>
+  fun_induction Rewriter.detachOperands.loop <;>
     grind [Sim.OperationPtr.getNumRegions!_OpOperandPtr_removeFromCurrent]
 
 @[simp, grind =]
@@ -1620,7 +1611,7 @@ theorem OperationPtr.getNumRegions!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachOperands_def, Rewriter.detachOperandsSim]
+  simp only [Rewriter.detachOperands]
   split
   · rfl
   · apply OperationPtr.getNumRegions!_detachOperands_loop
@@ -1633,8 +1624,7 @@ theorem OperationPtr.getNumRegions!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.loop_def]
-  fun_induction Rewriter.detachBlockOperands.loopSim <;>
+  fun_induction Rewriter.detachBlockOperands.loop <;>
     grind [Sim.OperationPtr.getNumRegions!_BlockOperandPtr_removeFromCurrent]
 
 @[simp, grind =]
@@ -1646,7 +1636,7 @@ theorem OperationPtr.getNumRegions!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands_def, Rewriter.detachBlockOperandsSim]
+  simp only [Rewriter.detachBlockOperands]
   split
   · rfl
   · apply OperationPtr.getNumRegions!_detachBlockOperands_loop
@@ -1658,7 +1648,7 @@ theorem OperationPtr.getNumRegions!_detachOpIfAttached
     (hOp : operation.InBounds ctx) :
     op'.getNumRegions! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec =
       op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachOpIfAttached_def, Rewriter.detachOpIfAttachedSim]
+  simp only [Rewriter.detachOpIfAttached]
   split
   · apply OperationPtr.getNumRegions!_detachOp
   · rfl
@@ -1677,7 +1667,7 @@ theorem Rewriter.eraseOpDeallocatedSpec_wellFormed
     let ctx₁ := Rewriter.detachOperands ctx₀ op (by grind) (by grind [generic_ptr_grind])
       (by grind)
     let ctx₂ := Rewriter.detachBlockOperands ctx₁ op (by grind)
-      (by grind [generic_ptr_grind]) (by grind [detachOperands_def, detachOperandsSim])
+      (by grind [generic_ptr_grind]) (by grind [detachOperands])
     ∀ hOpAfter : op.spec.InBounds ctx₂.spec,
       (op.spec.dealloc ctx₂.spec hOpAfter).WellFormed := by
   dsimp only
@@ -1717,11 +1707,11 @@ theorem Rewriter.eraseOpDeallocatedSpec_wellFormed
     · simp only [Std.ExtHashSet.fromOperands,
         Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getOpOperand_def]
       congr 3
-      grind [detachOperands_def, detachOperandsSim]
+      grind [detachOperands]
     · simp only [Std.ExtHashSet.fromSuccessors,
         Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getBlockOperand_def]
       congr 3
-      grind [detachOperands_def, detachOperandsSim]
+      grind [detachOperands]
   have hOp₂ : op.InBounds ctx₂ := by grind [generic_ptr_grind]
   have hNoUses₂ : ¬ op.spec.hasUses ctx₂.spec := by
     simp only [← OperationPtr.hasUses!_eq_hasUses (hin := hOp₂.ib), Bool.not_eq_true]
@@ -1780,19 +1770,21 @@ theorem Rewriter.eraseOp_WellFormed
     (noUses : op.spec.hasUses! ctx.spec = false)
     (hDealloc : Rewriter.EraseOpDeallocFieldsInBounds ctx op := by grind) :
     (Rewriter.eraseOp ctx op hCtx hOp hOpers hBlOpers hDealloc).spec.WellFormed := by
-  simp only [Rewriter.eraseOp_def, Rewriter.eraseOpSim]
+  simp only [Rewriter.eraseOp]
   have hOpAfter : op.InBounds
       (Rewriter.detachBlockOperands
         (Rewriter.detachOperands (Rewriter.detachOpIfAttached ctx op hCtx hOp) op
           (by grind) (by grind [generic_ptr_grind]) (by grind)) op
         (by grind) (by grind [generic_ptr_grind])
-        (by grind [detachOperands_def, detachOperandsSim])) := by
+        (by grind [detachOperands])) := by
     apply (Sim.GenericPtr.iff_operation op).mp
     rw [Rewriter.detachBlockOperands_inBounds]
     rw [Rewriter.detachOperands_inBounds]
     rw [Rewriter.detachOpIfAttached_inBounds]
     exact (Sim.GenericPtr.iff_operation op).mpr hOp
-  exact Rewriter.eraseOpDeallocatedSpec_wellFormed ctx op wf hCtx hOp
-    hOpers hBlOpers noRegions noUses hOpAfter.ib
+  simpa only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+    Sim.IRContext.spec, Erased.out_mk] using
+    Rewriter.eraseOpDeallocatedSpec_wellFormed ctx op wf hCtx hOp
+      hOpers hBlOpers noRegions noUses hOpAfter.ib
 
 end Veir

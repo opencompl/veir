@@ -8,6 +8,9 @@ import Veir.Rewriter.GetSet
 import Veir.Rewriter.LinkedList.WellFormed
 
 public section
+
+attribute [local simp] Veir.Sim.IRContext.spec Veir.Sim.OperationPtr.spec Veir.Sim.OpOperandPtr.spec
+  Veir.Sim.BlockOperandPtr.spec Veir.Sim.OptionOperationPtr.spec Veir.Sim.OptionBlockPtr.spec
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
@@ -53,18 +56,19 @@ theorem Rewriter.pushOperandAt_valueDefUse
     ∃ a, v.DefUse (Rewriter.pushOperandAt op ctx off idx value hop hv hi hc ho).spec a := by
   have ⟨a, ha⟩ := hchains v hv'
   have ⟨b, hb⟩ := hchains value.spec (by grind)
-  simp only [Rewriter.pushOperandAt_def, Rewriter.pushOperandAtSim]
+  simp only [Rewriter.pushOperandAt]
   by_cases he : v = value.spec
   · subst v
     refine ⟨_, Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty (array := a) (by grind) ?_⟩
     have hh := ValuePtr.DefUse.pushOperand_self (op := op.spec) (hop := hop.ib) (hvalue := hv.ib) ha
-    simp only [Sim.OperationPtr.getOperandPtrAt_def, Sim.OperationPtr.getOperandPtrAtSim, pushOperandAtUninserted_spec]
+    simp only [Sim.OperationPtr.getOperandPtrAt, pushOperandAtUninserted_spec,
+      Sim.OpOperandPtr.spec, Erased.map_out]
     have heq : op.spec.getOpOperand idx.toNat = op.spec.nextOperand ctx.spec := by grind [OperationPtr.getOpOperand, OperationPtr.nextOperand]
     rw [heq]
     exact hh
   · refine ⟨a, Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other (array' := b) (missingUses' := Std.ExtHashSet.ofList [op.spec.nextOperand ctx.spec]) (by grind) he ?_ ?_ ?_⟩
     · show _ ∈ Std.ExtHashSet.ofList [op.spec.nextOperand ctx.spec]
-      simp only [Sim.OperationPtr.getOperandPtrAt_def, Sim.OperationPtr.getOperandPtrAtSim]
+      simp only [Sim.OperationPtr.getOperandPtrAt]
       grind [OperationPtr.getOpOperand, OperationPtr.nextOperand]
     · simpa using ValuePtr.DefUse.pushOperand_other (op := op.spec) (hop := hop.ib) (hvalue := hv.ib) ha he
     · simpa using ValuePtr.DefUse.pushOperand_self (op := op.spec) (hop := hop.ib) hb
@@ -81,7 +85,7 @@ theorem Rewriter.pushOperandAt_constructionWellFormed
     · intro v hv
       simpa using IRContext.ConstructionWellFormed.valueDefUseChains wf v hv
     · grind
-  all_goals simp only [Rewriter.pushOperandAt_def, Rewriter.pushOperandAtSim]
+  all_goals simp only [Rewriter.pushOperandAt]
   · intros blockPtr blockPtrInBounds
     have ⟨array, arrayWf⟩ := IRContext.ConstructionWellFormed.blockDefUseChains wf blockPtr (by grind)
     exists array
@@ -127,8 +131,7 @@ theorem Rewriter.initOpOperands.loop_constructionWellFormed
     (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
     (heq : initOpOperands.loop op ctx hop operands hv off index hi hc ho = ctx') :
     ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
-  simp only [initOpOperands.loop_def] at heq
-  fun_induction initOpOperands.loopSim
+  fun_induction initOpOperands.loop
   case case1 =>
     cases heq
     exact wf
@@ -141,7 +144,7 @@ theorem Rewriter.initOpOperands_constructionWellFormed
     (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
     (heq : initOpOperands op ctx hop operands hv index hi hc = ctx') :
     ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
-  simp only [initOpOperands_def, initOpOperandsSim] at heq
+  simp only [initOpOperands] at heq
   split at heq
   · cases heq
     exact wf

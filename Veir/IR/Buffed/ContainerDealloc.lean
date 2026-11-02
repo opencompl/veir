@@ -52,7 +52,7 @@ private theorem OpOperandPtr.matches_BlockPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (oper : OpOperandPtr) (hib : oper.InBounds (ptr.spec.dealloc ctx.spec)) :
-    oper.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    oper.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_BlockPtr_dealloc ptr.spec ib.ib
@@ -65,7 +65,7 @@ private theorem OpOperandPtr.matches_BlockPtr_dealloc
   have htoM_b := OpOperandPtrPtr.layoutPreserved_same_toM hlay hfib.back_inBounds
   have htoM_v := ValuePtr.layoutPreserved_same_toM hlay hfib.value_inBounds
   have hget : oper.get! spec' = oper.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.nextUse
     rw [Sim.OptionOpOperandPtr.Sim_def] at this ⊢
     grind [Buffed.OpOperandMPtr.readNextUse!]
@@ -83,7 +83,7 @@ private theorem BlockOperandPtr.matches_BlockPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (oper : BlockOperandPtr) (hib : oper.InBounds (ptr.spec.dealloc ctx.spec)) :
-    oper.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    oper.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_BlockPtr_dealloc ptr.spec ib.ib
@@ -95,7 +95,7 @@ private theorem BlockOperandPtr.matches_BlockPtr_dealloc
     ((Option.maybe_def _ _ _).mp hfib.nextUse_inBounds)
   have htoM_b := BlockOperandPtrPtr.layoutPreserved_same_toM hlay hfib.back_inBounds
   have hget : oper.get! spec' = oper.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.nextUse
     rw [Sim.OptionBlockOperandPtr.Sim_def] at this ⊢
     grind [Buffed.BlockOperandMPtr.readNextUse!]
@@ -113,7 +113,7 @@ private theorem OpResultPtr.matches_BlockPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (res : OpResultPtr) (hib : res.InBounds (ptr.spec.dealloc ctx.spec)) :
-    res.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    res.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_BlockPtr_dealloc ptr.spec ib.ib
@@ -124,7 +124,7 @@ private theorem OpResultPtr.matches_BlockPtr_dealloc
   have htoO := OpOperandPtr.layoutPreserved_same_toO hlay
     ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
   have hget : res.get! spec' = res.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.kind
     grind [Buffed.OpResultMPtr.readKind!]
   · have := hm.typee
@@ -142,7 +142,7 @@ private theorem BlockArgumentPtr.matches_BlockPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.BlockPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (arg : BlockArgumentPtr) (hib : arg.InBounds (ptr.spec.dealloc ctx.spec)) :
-    arg.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    arg.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_BlockPtr_dealloc ptr.spec ib.ib
@@ -152,7 +152,7 @@ private theorem BlockArgumentPtr.matches_BlockPtr_dealloc
   have htoO := OpOperandPtr.layoutPreserved_same_toO hlay
     ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
   have hget : arg.get! spec' = arg.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.kind
     grind [Buffed.BlockArgumentMPtr.readKind!]
   · have := hm.type
@@ -166,14 +166,14 @@ private theorem BlockArgumentPtr.matches_BlockPtr_dealloc
     rw [Sim.BlockPtr.Sim_def] at this ⊢
     grind [Buffed.BlockArgumentMPtr.readOwner!]
 
-buffed
-def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+def Sim.BlockPtr.forget (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
   ⟨ctx.buf,
-   ptr.spec.dealloc ctx.spec,
+   (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.dealloc ctx),
    by
-     constructor
+     simp only [Erased.map_mk]
+     constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
      case fieldsInBounds => exact fib
      case repr => exact IRContext.isRepr_BlockPtr_dealloc ctx.sim.repr ptr.spec ib.ib
      case in_bounds =>
@@ -193,24 +193,24 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        have htype : op.getOpType! (ptr.spec.dealloc ctx.spec) = op.getOpType! ctx.spec := by grind [Veir.OperationPtr.getOpType!]
        have hprops : op.getProperties! (ptr.spec.dealloc ctx.spec)
            (op.getOpType! ctx.spec) = op.getProperties! ctx.spec (op.getOpType! ctx.spec) := by grind
-       constructor
-       · constructor
-         · exact hget ▸ henc.prev
-         · exact hget ▸ henc.next
-         · exact hget ▸ henc.parent
-         · exact htype.trans henc.opType
+       constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
+         · have := henc.prev; grind
+         · have := henc.next; grind
+         · have := henc.parent; grind
+         · have := henc.opType; grind
          · change ctx.buf.attributes[(Buffed.OperationMPtr.readAttrs! ctx.buf op.toM).toNat]? =
              some (op.get! (ptr.spec.dealloc ctx.spec)).attrs
            rw [hget]
            exact henc.attrs
-         · rw [htype, hprops]
+         · rw [Erased.out_mk, htype, hprops]
            exact henc.props
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numBlockOperands
          · intro bo hbo _
            exact BlockOperandPtr.matches_BlockPtr_dealloc ptr ib fib bo hbo
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numRegions
          · intro idx hidx
@@ -220,12 +220,12 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
                op.getRegion! ctx.spec idx := by grind
            rw [hreg]
            exact henc.regions idx (by grind)
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numOperands
          · intro oper hoper _
            exact OpOperandPtr.matches_BlockPtr_dealloc ptr ib fib oper hoper
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numResults
          · intro res hres _
@@ -235,21 +235,21 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        have hblock' : block.InBounds ctx.spec := by grind
        have henc := ctx.sim.encoding_block block hblock'
        have hget : block.get! (ptr.spec.dealloc ctx.spec) = block.get! ctx.spec := by grind
-       constructor
+       constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
        · have hfib := BlockPtr.get_fieldsInBounds _ block fib hblock
          have hlay := IRContext.layoutPreserved_BlockPtr_dealloc ptr.spec ib.ib
          have htoO := BlockOperandPtr.layoutPreserved_same_toO hlay
            ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
-         constructor
+         constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · have := henc.firstUse
            rw [Sim.OptionBlockOperandPtr.Sim_def] at this ⊢
            grind
-         · exact hget ▸ henc.prev
-         · exact hget ▸ henc.next
-         · exact hget ▸ henc.parent
-         · exact hget ▸ henc.firstOp
-         · exact hget ▸ henc.lastOp
-       · constructor
+         · have := henc.prev; grind
+         · have := henc.next; grind
+         · have := henc.parent; grind
+         · have := henc.firstOp; grind
+         · have := henc.lastOp; grind
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numArguments
          · intro arg harg _
@@ -259,10 +259,10 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        have hregion' : region.InBounds ctx.spec := by grind
        have henc := ctx.sim.encoding_region region hregion'
        have hget : region.get! (ptr.spec.dealloc ctx.spec) = region.get! ctx.spec := by grind
-       constructor
-       · exact hget ▸ henc.firstBlock
-       · exact hget ▸ henc.lastBlock
-       · exact hget ▸ henc.parent
+       constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
+       · have := henc.firstBlock; grind
+       · have := henc.lastBlock; grind
+       · have := henc.parent; grind
      case attr_empty => exact ctx.sim.attr_empty
      case free_valid => exact ctx.sim.free_valid
      case free_disjoint =>
@@ -298,7 +298,7 @@ private theorem OpOperandPtr.matches_RegionPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (oper : OpOperandPtr) (hib : oper.InBounds (ptr.spec.dealloc ctx.spec)) :
-    oper.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    oper.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_RegionPtr_dealloc ptr.spec ib.ib
@@ -311,7 +311,7 @@ private theorem OpOperandPtr.matches_RegionPtr_dealloc
   have htoM_b := OpOperandPtrPtr.layoutPreserved_same_toM hlay hfib.back_inBounds
   have htoM_v := ValuePtr.layoutPreserved_same_toM hlay hfib.value_inBounds
   have hget : oper.get! spec' = oper.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.nextUse
     rw [Sim.OptionOpOperandPtr.Sim_def] at this ⊢
     grind [Buffed.OpOperandMPtr.readNextUse!]
@@ -329,7 +329,7 @@ private theorem BlockOperandPtr.matches_RegionPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (oper : BlockOperandPtr) (hib : oper.InBounds (ptr.spec.dealloc ctx.spec)) :
-    oper.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    oper.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_RegionPtr_dealloc ptr.spec ib.ib
@@ -341,7 +341,7 @@ private theorem BlockOperandPtr.matches_RegionPtr_dealloc
     ((Option.maybe_def _ _ _).mp hfib.nextUse_inBounds)
   have htoM_b := BlockOperandPtrPtr.layoutPreserved_same_toM hlay hfib.back_inBounds
   have hget : oper.get! spec' = oper.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.nextUse
     rw [Sim.OptionBlockOperandPtr.Sim_def] at this ⊢
     grind [Buffed.BlockOperandMPtr.readNextUse!]
@@ -359,7 +359,7 @@ private theorem OpResultPtr.matches_RegionPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (res : OpResultPtr) (hib : res.InBounds (ptr.spec.dealloc ctx.spec)) :
-    res.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    res.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_RegionPtr_dealloc ptr.spec ib.ib
@@ -370,7 +370,7 @@ private theorem OpResultPtr.matches_RegionPtr_dealloc
   have htoO := OpOperandPtr.layoutPreserved_same_toO hlay
     ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
   have hget : res.get! spec' = res.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.kind
     grind [Buffed.OpResultMPtr.readKind!]
   · have := hm.typee
@@ -388,7 +388,7 @@ private theorem BlockArgumentPtr.matches_RegionPtr_dealloc
     {ctx : Sim.IRContext OpInfo} (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds)
     (arg : BlockArgumentPtr) (hib : arg.InBounds (ptr.spec.dealloc ctx.spec)) :
-    arg.Matches { buf := ctx.buf, spec := ptr.spec.dealloc ctx.spec } hib := by
+    arg.Matches { buf := ctx.buf, spec' := .mk (ptr.spec.dealloc ctx.spec) } (by grind) := by
   let spec' := ptr.spec.dealloc ctx.spec
   have hlay : spec'.LayoutPreserved ctx.spec :=
     IRContext.layoutPreserved_RegionPtr_dealloc ptr.spec ib.ib
@@ -398,7 +398,7 @@ private theorem BlockArgumentPtr.matches_RegionPtr_dealloc
   have htoO := OpOperandPtr.layoutPreserved_same_toO hlay
     ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
   have hget : arg.get! spec' = arg.get! ctx.spec := by grind
-  constructor
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
   · have := hm.kind
     grind [Buffed.BlockArgumentMPtr.readKind!]
   · have := hm.type
@@ -412,14 +412,14 @@ private theorem BlockArgumentPtr.matches_RegionPtr_dealloc
     rw [Sim.BlockPtr.Sim_def] at this ⊢
     grind [Buffed.BlockArgumentMPtr.readOwner!]
 
-buffed
-def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+def Sim.RegionPtr.forget (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
   ⟨ctx.buf,
-   ptr.spec.dealloc ctx.spec,
+   (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.dealloc ctx),
    by
-     constructor
+     simp only [Erased.map_mk]
+     constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
      case fieldsInBounds => exact fib
      case repr => exact IRContext.isRepr_RegionPtr_dealloc ctx.sim.repr ptr.spec ib.ib
      case in_bounds =>
@@ -439,24 +439,24 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        have htype : op.getOpType! (ptr.spec.dealloc ctx.spec) = op.getOpType! ctx.spec := by grind [Veir.OperationPtr.getOpType!]
        have hprops : op.getProperties! (ptr.spec.dealloc ctx.spec)
            (op.getOpType! ctx.spec) = op.getProperties! ctx.spec (op.getOpType! ctx.spec) := by grind
-       constructor
-       · constructor
-         · exact hget ▸ henc.prev
-         · exact hget ▸ henc.next
-         · exact hget ▸ henc.parent
-         · exact htype.trans henc.opType
+       constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
+         · have := henc.prev; grind
+         · have := henc.next; grind
+         · have := henc.parent; grind
+         · have := henc.opType; grind
          · change ctx.buf.attributes[(Buffed.OperationMPtr.readAttrs! ctx.buf op.toM).toNat]? =
              some (op.get! (ptr.spec.dealloc ctx.spec)).attrs
            rw [hget]
            exact henc.attrs
-         · rw [htype, hprops]
+         · rw [Erased.out_mk, htype, hprops]
            exact henc.props
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numBlockOperands
          · intro bo hbo _
            exact BlockOperandPtr.matches_RegionPtr_dealloc ptr ib fib bo hbo
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numRegions
          · intro idx hidx
@@ -466,12 +466,12 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
                op.getRegion! ctx.spec idx := by grind
            rw [hreg]
            exact henc.regions idx (by grind)
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numOperands
          · intro oper hoper _
            exact OpOperandPtr.matches_RegionPtr_dealloc ptr ib fib oper hoper
-       · constructor
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numResults
          · intro res hres _
@@ -481,21 +481,21 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        have hblock' : block.InBounds ctx.spec := by grind
        have henc := ctx.sim.encoding_block block hblock'
        have hget : block.get! (ptr.spec.dealloc ctx.spec) = block.get! ctx.spec := by grind
-       constructor
+       constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
        · have hfib := BlockPtr.get_fieldsInBounds _ block fib hblock
          have hlay := IRContext.layoutPreserved_RegionPtr_dealloc ptr.spec ib.ib
          have htoO := BlockOperandPtr.layoutPreserved_same_toO hlay
            ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
-         constructor
+         constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · have := henc.firstUse
            rw [Sim.OptionBlockOperandPtr.Sim_def] at this ⊢
            grind
-         · exact hget ▸ henc.prev
-         · exact hget ▸ henc.next
-         · exact hget ▸ henc.parent
-         · exact hget ▸ henc.firstOp
-         · exact hget ▸ henc.lastOp
-       · constructor
+         · have := henc.prev; grind
+         · have := henc.next; grind
+         · have := henc.parent; grind
+         · have := henc.firstOp; grind
+         · have := henc.lastOp; grind
+       · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
          · rw [hget]
            exact henc.numArguments
          · intro arg harg _
@@ -505,10 +505,10 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        have hregion' : region.InBounds ctx.spec := by grind
        have henc := ctx.sim.encoding_region region hregion'
        have hget : region.get! (ptr.spec.dealloc ctx.spec) = region.get! ctx.spec := by grind
-       constructor
-       · exact hget ▸ henc.firstBlock
-       · exact hget ▸ henc.lastBlock
-       · exact hget ▸ henc.parent
+       constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk, Erased.map_out]
+       · have := henc.firstBlock; grind
+       · have := henc.lastBlock; grind
+       · have := henc.parent; grind
      case attr_empty => exact ctx.sim.attr_empty
      case free_valid => exact ctx.sim.free_valid
      case free_disjoint =>
@@ -533,8 +533,7 @@ theorem Sim.BlockPtr.allocation_range (ctx : Sim.IRContext OpInfo) (ptr : Sim.Bl
   constructor <;> grind [Veir.BlockPtr.toM, Veir.BlockPtr.toFlat]
 
 /-- Release a detached, unreferenced block, including its entire reserved capacity. -/
-buffed
-def Sim.BlockPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+def Sim.BlockPtr.dealloc (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds) : Sim.IRContext OpInfo :=
   let address := ptr.impl
   let size := (Buffed.BlockMPtr.computeBlockSize (Buffed.BlockMPtr.readNumArguments! ctx.buf ptr.impl)).toUInt64
@@ -547,18 +546,23 @@ def Sim.BlockPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     simp only [Veir.BlockPtr.rangeInt, Buffed.Block.rangeInt, add_nat_range_def,
       Veir.BlockPtr.toFlat] at hstart hend
     grind
-  let ctx' := Sim.BlockPtr.forgetSim ctx ptr ib fib
+  let ctx' := Sim.BlockPtr.forget ctx ptr ib fib
+  have hspec : ctx'.spec = ptr.spec.dealloc ctx.spec := by
+    simp only [ctx', forget, Sim.IRContext.spec, Erased.map_out, Erased.out_mk]
   ctx'.releaseRange address size hpos (by
-    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range] at hin
+    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range, Sim.RawIRContext.spec] at hin
     change address.toNat + size.toNat ≤ ctx.buf.mem.size
+    simp only [Sim.IRContext.spec] at hstart hend
     omega)
     (by
       intro s a hm
       have hd := ctx.sim.free_disjoint s a hm (.block ptr.spec) ib.ib
-      simp only [TopLevelPtr.range] at hd
+      simp only [TopLevelPtr.range, Sim.RawIRContext.spec] at hd
+      simp only [Sim.IRContext.spec] at hstart hend
       omega)
     (by
       intro p hp
+      rw [hspec] at hp ⊢
       have hold : p.InBounds ctx.spec := by
         change p.InBounds (ptr.spec.dealloc ctx.spec) at hp
         grind
@@ -585,8 +589,7 @@ theorem Sim.RegionPtr.allocation_range (ctx : Sim.IRContext OpInfo) (ptr : Sim.R
   constructor <;> grind [Veir.RegionPtr.toM, Veir.RegionPtr.toFlat]
 
 /-- Release a detached, unreferenced region, including its entire reserved capacity. -/
-buffed
-def Sim.RegionPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+def Sim.RegionPtr.dealloc (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds) : Sim.IRContext OpInfo :=
   let address := ptr.impl
   let size := (24 : UInt64)
@@ -596,18 +599,21 @@ def Sim.RegionPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
   have hin := ctx.sim.in_bounds (.region ptr.spec) ib.ib
   have hpos : 0 < size.toNat := by
     decide
-  let ctx' := Sim.RegionPtr.forgetSim ctx ptr ib fib
+  let ctx' := Sim.RegionPtr.forget ctx ptr ib fib
+  have hspec : ctx'.spec = ptr.spec.dealloc ctx.spec := by
+    simp only [ctx', forget, Sim.IRContext.spec, Erased.map_out, Erased.out_mk]
   ctx'.releaseRange address size hpos (by
-    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range] at hin
+    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range, Sim.RawIRContext.spec] at hin
     change address.toNat + size.toNat ≤ ctx.buf.mem.size
     omega)
     (by
       intro s a hm
       have hd := ctx.sim.free_disjoint s a hm (.region ptr.spec) ib.ib
-      simp only [TopLevelPtr.range] at hd
+      simp only [TopLevelPtr.range, Sim.RawIRContext.spec] at hd
       omega)
     (by
       intro p hp
+      rw [hspec] at hp ⊢
       have hold : p.InBounds ctx.spec := by
         change p.InBounds (ptr.spec.dealloc ctx.spec) at hp
         grind

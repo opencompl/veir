@@ -6,6 +6,21 @@ meta import Veir.PrePrelude
 
 public section
 
+def Erased.map {α} (a : Erased α) (f : α → β) : Erased β :=
+  .mk (f a.out)
+
+@[simp, grind =]
+theorem Erased.map_out {a : Erased α} (f : α → β) : (a.map f).out = f a.out := by simp [map]
+
+theorem Erased.map_eq_mk (a : Erased α) (f : α → β) : a.map f = .mk (f a.out) := by
+  apply Erased.out_inj
+  simp
+
+@[simp, grind =]
+theorem Erased.map_mk (a : α) (f : α → β) : (Erased.mk a).map f = .mk (f a) := by
+  apply Erased.out_inj
+  simp
+
 @[simp, grind norm]
 theorem UInt64.add_int64_zero (x : UInt64) : x + (0 : Int64) = x := by
   simp [UInt64.add_int64_r_def]
@@ -13,7 +28,6 @@ theorem UInt64.add_int64_zero (x : UInt64) : x + (0 : Int64) = x := by
 @[simp, grind norm]
 theorem UInt64.uint64_zero_add (x : Int64) : (0 : UInt64) + x = x.toUInt64 := by
   simp [UInt64.add_int64_r_def]
-
 
 @[grind =]
 theorem UInt64.toNat_toUSize_of_lt (i : UInt64) (hi : i.toNat < 2^32) :

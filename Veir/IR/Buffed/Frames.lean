@@ -278,12 +278,12 @@ footprint and any layout-preserving spec change that fixes the slot value. -/
 theorem OpOperandPtr.matches_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (oper : OpOperandPtr) (ib : oper.InBounds ctx.spec)
-    (hm : oper.Matches ⟨ctx.buf, ctx.spec⟩ ib)
+    (hm : oper.Matches ⟨ctx.buf, ctx.spec'⟩ ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf (oper.toFlatNat ctx.spec) (oper.toFlatNat ctx.spec + 32))
     (hlay : ctx.spec.LayoutPreserved spec')
     (hget : oper.get! spec' = oper.get! ctx.spec)
     (ib' : oper.InBounds spec') :
-    oper.Matches ⟨buf', spec'⟩ ib' := by
+    oper.Matches ⟨buf', .mk spec'⟩ (by grind) := by
   have hFIB := Veir.Sim.IRContext.fieldsInBounds ctx
   have hfib := OpOperandPtr.get_fieldsInBounds ctx.spec oper hFIB ib
   have htoM := OpOperandPtr.layoutPreserved_same_toM hlay ib
@@ -314,12 +314,12 @@ footprint and any layout-preserving spec change fixing the slot value. -/
 theorem BlockOperandPtr.matches_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (oper : BlockOperandPtr) (ib : oper.InBounds ctx.spec)
-    (hm : oper.Matches ⟨ctx.buf, ctx.spec⟩ ib)
+    (hm : oper.Matches ⟨ctx.buf, ctx.spec'⟩ ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf (oper.toFlatNat ctx.spec) (oper.toFlatNat ctx.spec + 32))
     (hlay : ctx.spec.LayoutPreserved spec')
     (hget : oper.get! spec' = oper.get! ctx.spec)
     (ib' : oper.InBounds spec') :
-    oper.Matches ⟨buf', spec'⟩ ib' := by
+    oper.Matches ⟨buf', .mk spec'⟩ (by grind) := by
   have hFIB := Veir.Sim.IRContext.fieldsInBounds ctx
   have hfib := BlockOperandPtr.get_fieldsInBounds ctx.spec oper hFIB ib
   have htoM := BlockOperandPtr.layoutPreserved_same_toM hlay ib
@@ -349,12 +349,12 @@ footprint and any layout-preserving spec change fixing the slot value. -/
 theorem OpResultPtr.matches_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (res : OpResultPtr) (ib : res.InBounds ctx.spec)
-    (hm : OpResultPtr.Matches ⟨ctx.buf, ctx.spec⟩ res ib)
+    (hm : OpResultPtr.Matches ⟨ctx.buf, ctx.spec'⟩ res ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf (res.toFlatNat ctx.spec) (res.toFlatNat ctx.spec + 40))
     (hlay : ctx.spec.LayoutPreserved spec')
     (hget : res.get! spec' = res.get! ctx.spec)
     (ib' : res.InBounds spec') :
-    OpResultPtr.Matches ⟨buf', spec'⟩ res ib' := by
+    OpResultPtr.Matches ⟨buf', .mk spec'⟩ res (by grind) := by
   have hFIB := Veir.Sim.IRContext.fieldsInBounds ctx
   have hfib := OpResultPtr.get_fieldsInBounds ctx.spec res hFIB ib
   have htoM := OpResultPtr.layoutPreserved_same_toM hlay ib
@@ -388,12 +388,12 @@ layout-preserving spec change fixing the slot value. -/
 theorem BlockArgumentPtr.matches_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (arg : BlockArgumentPtr) (ib : arg.InBounds ctx.spec)
-    (hm : BlockArgumentPtr.Matches ⟨ctx.buf, ctx.spec⟩ arg ib)
+    (hm : BlockArgumentPtr.Matches ⟨ctx.buf, ctx.spec'⟩ arg ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf arg.toFlatNat (arg.toFlatNat + 40))
     (hlay : ctx.spec.LayoutPreserved spec')
     (hget : arg.get! spec' = arg.get! ctx.spec)
     (ib' : arg.InBounds spec') :
-    BlockArgumentPtr.Matches ⟨buf', spec'⟩ arg ib' := by
+    BlockArgumentPtr.Matches ⟨buf', .mk spec'⟩ arg (by grind) := by
   have hFIB := Veir.Sim.IRContext.fieldsInBounds ctx
   have hfib := BlockArgumentPtr.get_fieldsInBounds ctx.spec arg hFIB ib
   have htoO := OpOperandPtr.layoutPreserved_same_toO hlay ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
@@ -454,7 +454,7 @@ plus the property slot, and any layout-preserving spec change fixing the op. -/
 theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec)
-    (hm : OperationPtr.MatchesBase ⟨ctx.buf, ctx.spec⟩ op ib)
+    (hm : OperationPtr.MatchesBase ⟨ctx.buf, ctx.spec'⟩ op ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf op.id
       (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat))
     (_hlay : ctx.spec.LayoutPreserved spec')
@@ -466,7 +466,7 @@ theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     (hgprops : op.getProperties! spec' (op.getOpType! ctx.spec)
       = op.getProperties! ctx.spec (op.getOpType! ctx.spec))
     (ib' : op.InBounds spec') :
-    OperationPtr.MatchesBase ⟨buf', spec'⟩ op ib' := by
+    OperationPtr.MatchesBase ⟨buf', .mk spec'⟩ op (by grind) := by
   have hrepr := ctx.sim.repr.operations op ib
   have hrange := Sim.OperationPtr.range_linear op ib
   have hsize := Sim.IRContext.mem_size_lt ctx
@@ -487,15 +487,16 @@ theorem OperationPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     grind [Buffed.OperationMPtr.readOpType!]
   · have := hm.attrs
     grind [Buffed.OperationMPtr.readAttrs!]
-  · exact OperationPtr.props_frame ctx op ib hm.props (hagree.mono (by omega) (by omega))
+  · have := OperationPtr.props_frame ctx op ib hm.props (hagree.mono (by omega) (by omega))
       hgetTy hgprops
+    grind
 
 /-- `BlockPtr.MatchesBase` survives any buffer change agreeing on the 56-byte header and
 any layout-preserving spec change fixing the block. -/
 theorem BlockPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (bl : BlockPtr) (ib : bl.InBounds ctx.spec)
-    (hm : BlockPtr.MatchesBase ⟨ctx.buf, ctx.spec⟩ bl ib)
+    (hm : BlockPtr.MatchesBase ⟨ctx.buf, ctx.spec'⟩ bl ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf bl.id (bl.id + 56))
     (hlay : ctx.spec.LayoutPreserved spec')
     (hgfirstUse : (bl.get! spec').firstUse = (bl.get! ctx.spec).firstUse)
@@ -505,7 +506,7 @@ theorem BlockPtr.matchesBase_frame (ctx : Sim.IRContext OpInfo)
     (hgfirstOp : (bl.get! spec').firstOp = (bl.get! ctx.spec).firstOp)
     (hglastOp : (bl.get! spec').lastOp = (bl.get! ctx.spec).lastOp)
     (ib' : bl.InBounds spec') :
-    BlockPtr.MatchesBase ⟨buf', spec'⟩ bl ib' := by
+    BlockPtr.MatchesBase ⟨buf', .mk spec'⟩ bl (by grind) := by
   have hFIB := Veir.Sim.IRContext.fieldsInBounds ctx
   have hfib := BlockPtr.get_fieldsInBounds ctx.spec bl hFIB ib
   have htoO := BlockOperandPtr.layoutPreserved_same_toO hlay ((Option.maybe_def _ _ _).mp hfib.firstUse_inBounds)
@@ -537,12 +538,12 @@ and any layout-preserving spec change fixing the region. -/
 theorem RegionPtr.matches_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (rg : RegionPtr) (ib : rg.InBounds ctx.spec)
-    (hm : rg.Matches ⟨ctx.buf, ctx.spec⟩ ib)
+    (hm : rg.Matches ⟨ctx.buf, ctx.spec'⟩ ib)
     (hagree : Buffed.AgreesOn buf' ctx.buf rg.id (rg.id + 24))
     (_hlay : ctx.spec.LayoutPreserved spec')
     (hget : rg.get! spec' = rg.get! ctx.spec)
     (ib' : rg.InBounds spec') :
-    rg.Matches ⟨buf', spec'⟩ ib' := by
+    rg.Matches ⟨buf', .mk spec'⟩ (by grind) := by
   have hrepr := ctx.sim.repr.regions rg ib
   have hrange := Sim.RegionPtr.range_linear rg ib
   have hsize := Sim.IRContext.mem_size_lt ctx
@@ -645,7 +646,7 @@ theorem OperationPtr.nthRegion_frame (ctx : Sim.IRContext OpInfo)
     {buf' : Buffed.IRBufContext} {spec' : IRContext OpInfo}
     (op : OperationPtr) (ib : op.InBounds ctx.spec) (idx : Nat)
     (hnr : idx < op.getNumRegions! ctx.spec)
-    (hm : Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) ctx.buf op.toM idx.toUInt64, op.getRegion! ctx.spec idx⟩)
+    (hm : Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) ctx.buf op.toM idx.toUInt64, .mk (op.getRegion! ctx.spec idx)⟩)
     (hagreeHdr : Buffed.AgreesOn buf' ctx.buf (op.id + 32) (op.id + 64))
     (hagreeArr : Buffed.AgreesOn buf' ctx.buf
       (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat
@@ -653,7 +654,7 @@ theorem OperationPtr.nthRegion_frame (ctx : Sim.IRContext OpInfo)
       (op.id + 72 + (Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat
         + 32 * (op.get! ctx.spec).capOperands + 32 * (op.get! ctx.spec).capBlockOperands + 8 * idx + 8))
     (hreg : op.getRegion! spec' idx = op.getRegion! ctx.spec idx) :
-    Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) buf' op.toM idx.toUInt64, op.getRegion! spec' idx⟩ := by
+    Sim.RegionPtr.Sim ⟨Buffed.OperationMPtr.readNthRegion! (OpInfo := OpInfo) buf' op.toM idx.toUInt64, .mk (op.getRegion! spec' idx)⟩ := by
   have hrepr := ctx.sim.repr.operations op ib
   have hind := ctx.sim.repr.operations_indices op ib
   have hidx : idx < (op.get! ctx.spec).capRegions := by
@@ -685,6 +686,7 @@ theorem OperationPtr.nthRegion_frame (ctx : Sim.IRContext OpInfo)
     (by grind) (by grind)
   simp only [Buffed.OperationMPtr.readNthRegion!, Buffed.OperationMPtr.computeRegionOffset!] at hm ⊢
   rw [Sim.RegionPtr.Sim_def] at hm ⊢
+  simp only [Sim.RegionPtr.spec, Erased.out_mk] at hm ⊢
   rw [hoff, harr, hreg]
   exact hm
 
