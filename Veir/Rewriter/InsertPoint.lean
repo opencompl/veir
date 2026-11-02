@@ -158,6 +158,16 @@ theorem InsertPoint.block!_atEnd_eq :
     InsertPoint.block! (atEnd blockPtr) ctx =
     blockPtr := by rfl
 
+/-- The point after an operation belongs to that operation's block. -/
+@[grind =]
+theorem InsertPoint.block!_after_eq (hctx : ctx.WellFormed) :
+    (InsertPoint.after op ctx blockPtr opHasParent opInBounds).block! ctx = some blockPtr := by
+  cases next : op.getNextOp! ctx with
+  | none => rw [InsertPoint.after_eq_atEnd_iff.mpr next]; rfl
+  | some nextOp =>
+    rw [InsertPoint.after_eq_of_some_next next]
+    grind
+
 /-- The insertion point at a block's start belongs to that block, including when it is empty. -/
 @[simp, grind =]
 theorem InsertPoint.block!_atStart!_eq {block : BlockPtr} (ctxWf : ctx.WellFormed)

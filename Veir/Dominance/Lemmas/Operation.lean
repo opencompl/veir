@@ -980,6 +980,27 @@ grind_pattern OperationPtr.DominatesIp.after_iff =>
   op₂.RootedAt root ctx, block.getParent! ctx.raw, some region where
   guard block.getParent! ctx.raw = some region
 
+/-- Excluding enclosing operations, dominance after an operation in a region agrees with
+its dominance, without a rootedness assumption. -/
+theorem OperationPtr.DominatesIp.after_iff_of_not_enclosing
+    (blockParent : block.getParent! ctx.raw = some region) :
+    op₁.DominatesIp (InsertPoint.after op₂ ctx.raw block op₂HasParent op₂InBounds) ctx false ↔
+    op₁.Dominates op₂ ctx false := by
+  have parentRegion : op₂.getParentRegion! ctx.raw = some region := by grind
+  cases next : op₂.getNextOp! ctx.raw with
+  | none =>
+    rw [InsertPoint.after_eq_atEnd_iff.mpr next]
+    exact OperationPtr.DominatesIp.atEnd_iff_of_last (by grind) blockParent
+  | some nextOp =>
+    rw [InsertPoint.after_eq_of_some_next next, OperationPtr.DominatesIp.before_iff]
+    exact ⟨fun dominance => dominance.dominates_of_next op₂HasParent next,
+      fun dominance => dominance.properlyDominates_next parentRegion next⟩
+
+grind_pattern OperationPtr.DominatesIp.after_iff_of_not_enclosing =>
+  op₁.DominatesIp (InsertPoint.after op₂ ctx.raw block op₂HasParent op₂InBounds) ctx false,
+  block.getParent! ctx.raw, some region where
+  guard block.getParent! ctx.raw = some region
+
 /-- A value dominates the point before an operation exactly when it is in bounds and
 properly dominates its user. -/
 theorem ValuePtr.DominatesIp.before_iff {value : ValuePtr} :
@@ -1003,11 +1024,39 @@ axiom ValuePtr.DominatesIp.before_of_properlyDominates {value : ValuePtr} :
   value.DominatesIp (InsertPoint.before op₁) ctx → op₁.ProperlyDominates op₂ ctx true →
   value.DominatesIp (InsertPoint.before op₂) ctx
 
-/-- A value dominates the point after an operation exactly when it dominates the point
-before the operation or is one of its results. -/
-axiom ValuePtr.DominatesIp.after_iff {value : ValuePtr} :
+/-- A value dominates the point after an operation in a region exactly when it
+dominates the point before the operation or is one of its results. -/
+theorem ValuePtr.DominatesIp.after_iff {value : ValuePtr}
+    (blockParent : block.getParent! ctx.raw = some region) :
     value.DominatesIp (InsertPoint.after op ctx.raw block blockIsParent opInBounds) ctx ↔
-    value.DominatesIp (.before op) ctx ∨ value ∈ op.getResults! ctx.raw
+    value.DominatesIp (.before op) ctx ∨ value ∈ op.getResults! ctx.raw := by
+  constructor
+  · intro dominance
+    cases dominance with
+    | OpResult inBounds dominance =>
+      rename_i result
+      have opDominance : result.op.Dominates op ctx false := by grind
+      rcases opDominance with same | dominance
+      · right
+        apply OperationPtr.getResults!.mem_iff_exists_index.mpr
+        refine ⟨result.index, by grind, ?_⟩
+        grind [OperationPtr.eq_getResult_of_OpResultPtr_op_eq]
+      · exact Or.inl (.OpResult inBounds (.Before dominance))
+    | BlockArg inBounds parent dominance =>
+      exact Or.inl (.BlockArg (ipBlock := block) inBounds (by grind) (by grind))
+  · rintro (dominance | result)
+    · cases dominance with
+      | OpResult inBounds dominance =>
+        exact .OpResult inBounds (by grind)
+      | BlockArg inBounds parent dominance =>
+        exact .BlockArg (ipBlock := block) inBounds (by grind) (by grind)
+    · obtain ⟨index, _, rfl⟩ := OperationPtr.getResults!.mem_iff_exists_index.mp result
+      exact .OpResult (by grind) (by grind)
+
+grind_pattern ValuePtr.DominatesIp.after_iff =>
+  value.DominatesIp (InsertPoint.after op ctx.raw block blockIsParent opInBounds) ctx,
+  block.getParent! ctx.raw, some region where
+  guard block.getParent! ctx.raw = some region
 
 /-- An operation properly dominating a rooted block has the same root. -/
 theorem OperationPtr.ProperlyDominatesBlock.rootedAt_dominator
