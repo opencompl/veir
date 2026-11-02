@@ -98,12 +98,24 @@ private def abiAttrEntries (ctx : IRContext OpCode) (op : OperationPtr) :
   let opType := op.getOpType! ctx
   (Properties.toAttrDict opType (op.getProperties! ctx opType)).toArray ++ (op.getAttributes! ctx).entries
 
-private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
-  !(abiAttrEntries ctx op).any isUnsupportedAbiAttr
-
 /-- Whether a value of type `t` is passed in a single integer register. -/
 def isRegPassed (t : TypeAttr) : Bool :=
   (BoundaryCoercion.riscvReg.target t).isSome
+
+/--
+  Whether every argument and result of the function `op` is passed in a single integer
+  register, or already is one. Otherwise its boundary would only be partly coerced, so
+  the whole function is left unlowered.
+-/
+private def hasRegBoundary (ctx : IRContext OpCode) (op : OperationPtr) : Bool := Id.run do
+  let some funcOp := FunctionOp.of? op ctx | return false
+  let regPassed (t : Attribute) : Bool :=
+    (t matches .registerType _) || (if h : t.isType then isRegPassed (t.asType h) else false)
+  return funcOp.getArgumentTypes.all regPassed &&
+    funcOp.getResultTypes.all fun t => (t matches .llvmVoidType _) || regPassed t
+
+private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : Bool :=
+  !(abiAttrEntries ctx op).any isUnsupportedAbiAttr && hasRegBoundary ctx op
 
 /--
   Extend `reg`, which holds a value of type `type` in its low bits, to the full
