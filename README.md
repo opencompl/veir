@@ -48,8 +48,23 @@ uv run lit Test/ -v
 ## Running the benchmarks
 
 ```bash
-lake exe run-benchmarks add-fold-worklist
+lake exe buffed-benchmark add-fold-forwards 10000 100
 ```
+
+To check performance changes, build the before/after executables with the same
+Lean toolchain and compiler flags, then compare all nine supported cases:
+
+```bash
+PERF_CPU=4 PERF_CSV=/tmp/veir-performance.csv \
+  Tools/compare-buffed-performance.pl /path/to/before/buffed-benchmark \
+  .lake/build/bin/buffed-benchmark 10000 9 100
+```
+
+`PERF_CPU` is optional (Linux `taskset`). The comparison discards two warmups,
+alternates execution order, and reports median construction/rewrite times and
+variation. Run it without concurrent builds. Set `PERF_MAX_RATIO` to fail on
+regressions above a chosen ratio; by default that check excludes phases shorter
+than 1 ms (`PERF_MIN_MS`), but all timings are reported.
 
 ## From C to VeIR
 

@@ -264,6 +264,11 @@ def _root_.Veir.ValuePtr.asOpResultPtr (ptr : ValuePtr) : OpResultPtr :=
 def _root_.Veir.Sim.OperationPtr.getConstantValue! (ctx : Sim.IRContext OpCode) (ptr : Sim.OperationPtr) : IntegerAttr :=
   (ArithConstantProperties.read (ptr.impl + Buffed.Operation.Offsets.properties) ctx.buf sorry).value
 
+/- Keep the three rewrite bodies inline (as the former `buffed` generator did).
+   The forward traversals read `next` from the old context before rewriting. Without
+   inlining, the compiler can sink that read past the rewrite call, keeping the old
+   buffer shared and forcing a full copy on every rewrite. -/
+@[inline]
 def addIConstantFolding (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .addi) then
     return ctx
@@ -325,6 +330,7 @@ def rewriteForwardsAddIConstFolding (ctx : Sim.IRContext OpCode) (topOp : Sim.Op
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIConstFoldingGo ctx maybeOp
 
+@[inline]
 def addIZeroFolding (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .addi) then
     return ctx
@@ -391,6 +397,7 @@ def rewriteFirstAddIZeroFolding (ctx : Sim.IRContext OpCode) (topOp : Sim.Operat
   let maybeOp := (block.getFirstOp ctx sorry)
   rewriteFirstAddIZeroFoldingGo ctx maybeOp
 
+@[inline]
 def mulITwoReduce (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .muli) then
     return ctx
