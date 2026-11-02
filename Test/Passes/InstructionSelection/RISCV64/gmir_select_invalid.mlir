@@ -1,6 +1,6 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
-// Illegal `g_select`s are not selected: the values must be `i32` or `i64`, and the condition `i64`.
+// Illegal `g_select`s are not selected: the values and the condition must be `i64`.
 "builtin.module"() ({
   "func.func"() <{function_type = (i64, i1, i8) -> (), sym_name = "main"}> ({
   ^bb0(%x: i64, %c: i1, %y: i8):
