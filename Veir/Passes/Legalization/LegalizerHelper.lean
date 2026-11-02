@@ -442,7 +442,6 @@ def widenBrcondCondition (width : Nat) : LocalRewritePattern OpCode := fun ctx o
 
 public section
 
-<<<<<<< HEAD
 /-- The pattern that lowers `query`, an `opcode` operation, if it can be lowered. -/
 def lower? (info : LegalizerInfo) : (opcode : GMIR) → LegalityQuery opcode → Option (Pattern OpCode)
   | .g_sext, _ => lowerSext
@@ -457,16 +456,9 @@ def lower? (info : LegalizerInfo) : (opcode : GMIR) → LegalityQuery opcode →
   | .g_usubo, _ => lowerUAddOUSubO false
   | .g_saddo, _ => lowerSAddOSSubO true
   | .g_ssubo, _ => lowerSAddOSSubO false
-  | _, _ => none
-=======
-/-- The pattern that lowers `opcode`, if it can be lowered. -/
-def lower? : GMIR → Option (Pattern OpCode)
-  | .g_sext => lowerSext
-  | .g_zext => lowerZext
   | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
   | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | _ => none
->>>>>>> origin
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
