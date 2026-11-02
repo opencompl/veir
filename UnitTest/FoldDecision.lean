@@ -64,7 +64,7 @@ private def testArithConstantMaterialization : String := Id.run do
   let i32 : TypeAttr := IntegerType.signless 32
   match (.arith .addi : OpCode).materializeConstant (.int 32 (.val 15)) i32 with
   | some ⟨.arith .constant, props⟩ =>
-    if props.value ≠ IntegerAttr.mk 15 (IntegerType.signless 32) then
+    if props.intAttr? ≠ some (IntegerAttr.mk 15 (IntegerType.signless 32)) then
       return "arith materialized the wrong constant"
     return "ok"
   | _ => return "arith did not materialize arith.constant"

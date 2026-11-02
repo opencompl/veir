@@ -1305,18 +1305,17 @@ theorem OperationPtr.parent!_next
     (op nextOp : OperationPtr)
     (hWF : ctx.WellFormed)
     (opInBounds : op.InBounds ctx)
-    (hnext : op.getNextOp! ctx = some nextOp)
-    (hparent : nextOp.getParent! ctx = some block) :
-    op.getParent! ctx = some block := by
-  have ⟨array, harray⟩ := hWF.opChain block (by grind)
-  have : nextOp ∈ array := by grind
-  grind
+    (hnext : op.getNextOp! ctx = some nextOp) :
+    op.getParent! ctx = nextOp.getParent! ctx := by
+  cases parent : op.getParent! ctx with
+  | none => grind
+  | some block =>
+    have ⟨array, harray⟩ := hWF.opChain block (by grind)
+    grind
 
 grind_pattern OperationPtr.parent!_next =>
-  ctx.WellFormed, op.getNextOp! ctx, nextOp.getParent! ctx,
-  op.getParent! ctx, some block where
+  ctx.WellFormed, op.getNextOp! ctx, some nextOp where
   guard (op.getNextOp! ctx) = some nextOp
-  guard (nextOp.getParent! ctx) = some block
 
 theorem IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some
     {ctx : IRContext OpInfo} {bl prevBl : BlockPtr} (hbl : bl.InBounds ctx)
@@ -1530,6 +1529,31 @@ theorem BlockPtr.operationList.idxInParent_getElem {block : BlockPtr}
     ((block.operationList ctx hctx hblock)[i]).idxInParent ctx (by grind) hctx = i := by
   have chain := BlockPtr.operationListWF ctx block hblock hctx
   grind [OperationPtr.idxInParent, chain.idxOf_getElem_array i hi]
+
+/-- Looking up an operation at its index in its parent's list returns that operation. -/
+theorem BlockPtr.operationList.getElem?_idxInParent {block : BlockPtr} {op : OperationPtr}
+    (hctx : ctx.WellFormed) (parent : op.getParent! ctx = some block) :
+    (block.operationList ctx hctx (by grind))[op.idxInParent ctx (by grind) hctx]? = some op := by
+  unfold OperationPtr.idxInParent
+  split <;> grind [Array.getElem?_idxOf, BlockPtr.operationList.mem]
+
+grind_pattern BlockPtr.operationList.getElem?_idxInParent =>
+  (block.operationList ctx hctx (by grind))[op.idxInParent ctx (by grind) hctx]?,
+  op.getParent! ctx, some block where
+  guard op.getParent! ctx = some block
+
+/-- The last operation's index is immediately before the end of its parent's operation list. -/
+theorem OperationPtr.idxInParent_add_one_eq_size_of_getLastOp! {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (last : block.getLastOp! ctx = some op) :
+    op.idxInParent ctx (by grind) hctx + 1 = (block.operationList ctx hctx hblock).size := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  grind [BlockPtr.operationList.idxInParent_getElem hctx hblock
+    ((block.operationList ctx hctx hblock).size - 1)]
+
+grind_pattern OperationPtr.idxInParent_add_one_eq_size_of_getLastOp! =>
+  op.idxInParent ctx (by grind) hctx, block.getLastOp! ctx, some op where
+  guard block.getLastOp! ctx = some op
 
 /-- The first operation of a block has index zero in its parent. -/
 theorem OperationPtr.idxInParent_eq_zero_of_getFirstOp! {block : BlockPtr} {op : OperationPtr}

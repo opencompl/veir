@@ -26,6 +26,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .float type _, ⟨.floatType floatType, _⟩ => floatType = type
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
+  | .int bw _, ⟨.indexType _, _⟩ => bw = IndexType.bitwidth
   | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
@@ -100,6 +101,13 @@ theorem Conforms.modArithType {runtimeValue modArithType} :
     · rintro ⟨val, h⟩
       exact (RuntimeValue.int.inj h).1.symm
   | _ => simp
+
+@[simp, grind =]
+theorem Conforms.indexType :
+    Conforms runtimeValue (.of IndexType idxType) ↔
+    ∃ val, runtimeValue = .int IndexType.bitwidth val := by
+  simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
+  grind
 
 @[simp, grind =]
 theorem Conforms.registerType :

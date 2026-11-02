@@ -196,6 +196,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s64],
       .minScalar (.type 0) 64,
     ]
+    -- As in LLVM, funnel shifts are lowered to shifts. The amount is widened first, so that the
+    -- width of the shifted values fits in it.
+    | .g_fshl | .g_fshr => [
+      .scalarSameSizeAs (.type 1) (.type 0),
+      .lowerIf (.scalarNarrowerThan (.type 0) 64),
+    ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
       .legalFor [s64],
