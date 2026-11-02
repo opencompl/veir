@@ -72,15 +72,12 @@ inductive GMIR where
 | g_uadde
 | g_usubo
 | g_usube
-<<<<<<< HEAD
 | g_saddo
 | g_ssubo
-=======
 | g_fshl
 | g_fshr
 | g_rotl
 | g_rotr
->>>>>>> origin
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, properties_of]
@@ -101,12 +98,9 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
-<<<<<<< HEAD
-  | .g_saddo | .g_ssubo => Unit
-=======
+  | .g_saddo | .g_ssubo
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => Unit
->>>>>>> origin
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -129,12 +123,9 @@ def GMIR.fromAttrDict
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_merge_values | g_unmerge_values | g_br
      | g_uaddo | g_uadde | g_usubo | g_usube
-<<<<<<< HEAD
-     | g_saddo | g_ssubo => exact .ok ()
-=======
+     | g_saddo | g_ssubo
      | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop
      | g_fshl | g_fshr | g_rotl | g_rotr => exact .ok ()
->>>>>>> origin
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -171,19 +162,16 @@ def GMIR.toAttrDict
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
-<<<<<<< HEAD
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctpop
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
-  | .g_saddo | .g_ssubo => {}
-=======
+  | .g_saddo | .g_ssubo
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr
   | .g_merge_values | .g_unmerge_values => {}
->>>>>>> origin
 
 #generate_dialect GMIR
 
@@ -667,7 +655,6 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
     return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
-<<<<<<< HEAD
   | .g_saddo => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -684,7 +671,6 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType overflowBw := overflowType.val | none
     return (#[.int bw (Data.LLVM.Int.sub lhs rhs),
       .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.ssubOverflowFlag lhs rhs))], mem, none)
-=======
   | .g_fshl => do
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -701,7 +687,6 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
   | .g_rotr => do
     let [.int bw x, .int _ z] := operands.toList | none
     return (#[.int bw (GMIR.rotr x z)], mem, none)
->>>>>>> origin
 
 private def OperationPtr.verifyGMIRIntegerTypes {OpInfo : Type} [IsOpCode OpInfo]
     (op : OperationPtr) (ctx : WfIRContext OpInfo)
@@ -887,12 +872,9 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
-<<<<<<< HEAD
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo => true
-=======
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
->>>>>>> origin
   -- Poison on the arm that `g_select` does not select does not reach its result.
   | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
 
