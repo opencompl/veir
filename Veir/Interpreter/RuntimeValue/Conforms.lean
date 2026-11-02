@@ -107,7 +107,16 @@ theorem Conforms.indexType :
     Conforms runtimeValue (.of IndexType idxType) ↔
     ∃ val, runtimeValue = .int IndexType.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue with
+  | int bw value =>
+    simp only
+    constructor
+    · intro h
+      subst h
+      exact ⟨value, rfl⟩
+    · rintro ⟨val, h⟩
+      exact (RuntimeValue.int.inj h).1
+  | _ => simp
 
 @[simp, grind =]
 theorem Conforms.registerType :
