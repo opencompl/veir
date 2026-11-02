@@ -42,42 +42,78 @@ theorem Conforms.integerType :
     Conforms runtimeValue (.of IntegerType intType) ↔
     ∃ val, runtimeValue = .int intType.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue with
+  | int bw value =>
+    simp only
+    constructor
+    · intro h
+      subst h
+      exact ⟨value, rfl⟩
+    · rintro ⟨val, h⟩
+      exact (RuntimeValue.int.inj h).1.symm
+  | _ => simp
 
 @[simp, grind =]
 theorem Conforms.byteType {runtimeValue byteType} :
     Conforms runtimeValue (.of LLVM.ByteType byteType) ↔
     ∃ val, runtimeValue = .byte byteType.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue with
+  | byte bw value =>
+    simp only
+    constructor
+    · intro h
+      subst h
+      exact ⟨value, rfl⟩
+    · rintro ⟨val, h⟩
+      exact (RuntimeValue.byte.inj h).1.symm
+  | _ => simp
 
 @[simp, grind =]
 theorem Conforms.floatType :
     Conforms runtimeValue (.of FloatType fltType) ↔
     ∃ val, runtimeValue = .float fltType val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue with
+  | float type value =>
+    simp only
+    constructor
+    · intro h
+      subst h
+      exact ⟨value, rfl⟩
+    · rintro ⟨val, h⟩
+      exact (RuntimeValue.float.inj h).1.symm
+  | _ => simp
 
 @[simp, grind =]
 theorem Conforms.modArithType {runtimeValue modArithType} :
     Conforms runtimeValue (.of ModArithType modArithType) ↔
     ∃ val, runtimeValue = .int modArithType.modulus.type.bitwidth val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue with
+  | int bw value =>
+    simp only
+    constructor
+    · intro h
+      subst h
+      exact ⟨value, rfl⟩
+    · rintro ⟨val, h⟩
+      exact (RuntimeValue.int.inj h).1.symm
+  | _ => simp
 
 @[simp, grind =]
 theorem Conforms.registerType :
     Conforms runtimeValue (.of RegisterType regType) ↔
     ∃ val, runtimeValue = .reg val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  grind
+  cases runtimeValue <;> simp
 
 @[simp, grind =]
 theorem Conforms.llvmPointerType :
     Conforms runtimeValue (.of LLVM.PointerType ptrType) ↔
     ∃ val, runtimeValue = .addr val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  cases runtimeValue <;> grind
+  cases runtimeValue <;> simp
 
 @[simp, grind =]
 theorem Conforms.smtSortType {runtimeValue sortTy} :
