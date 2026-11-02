@@ -1643,39 +1643,17 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
   (peepholes ++ generic).map (·.compile)
 
 /--
-  Immediate-form integer comparison selection (`PatGprSimm12` family). When the
-  rhs is a constant that fits a signed 12-bit immediate, lower `g_icmp` directly to
-  `slti`/`sltiu`, inverting the sense with `xori _ 1` for the `≥` predicates and
-  using the identity `x ≤ C  ==  x < C+1` for the `≤` predicates:
-
-      slt  x C  ->       slti  x C
-      ult  x C  ->       sltiu x C
-      sge  x C  -> xori (slti  x C)      1
-      uge  x C  -> xori (sltiu x C)      1
-      sle  x C  ->       slti  x (C+1)
-      ule  x C  ->       sltiu x (C+1)              (requires C ≠ -1)
-
-  The post-legalizer combiner moves the constant to the rhs, so we only match
-  there. Each emitted immediate (`C` or `C+1`) must still land in `[-2048, 2047]`,
-  otherwise we bail and defer to the reg-reg `g_icmp` lowering.
-  For the unsigned `≤` off-by-one form, `C = -1` (unsigned `UINT_MAX`) is
-  excluded: there `C+1` wraps to `0` and `x < 0` would not equal `x ≤ UINT_MAX`.
-
-  The `>` predicates (`sgt`/`ugt`) are deliberately *not* handled: their reg-reg
-  lowering (`slt`/`sltu` with swapped operands, no `xori`) is already the same
-  instruction count, and folding the constant is strictly worse for `x > 0`,
-  which the reg-reg path plus the `li 0 -> x0` combine lowers to a single
-  `slt x0, x`.
-
-  LLVM correspondence (commit d9906882fc61):
-  * `slt`/`ult` immediate: `PatGprSimm12<setlt, SLTI>` / `<setult, SLTIU>`
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1638
-  * `sle`/`ule` off-by-one (`x <= C == x < C+1`, plus the `x <= MAX -> true`
-    fold that motivates the `C = -1` guard): generic `SimplifySetCC`
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp#L5273-L5290
-  * `sge`/`uge` `xori`-inversion: `SETGE`/`SETUGE` are `Expand`ed (legalized to
-    `xor (setlt ...), 1`)
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L326-L332
+  The immediate of the `riscv.slti`/`riscv.sltiu` that `gmir.g_icmp pred x, c` (`i64`) is lowered
+  to:
+  `gmir.g_icmp slt x, c` -> `riscv.slti x, c`
+  `gmir.g_icmp ult x, c` -> `riscv.sltiu x, c`
+  `gmir.g_icmp sge x, c` -> `riscv.slti x, c` + `riscv.xori _, 1`
+  `gmir.g_icmp uge x, c` -> `riscv.sltiu x, c` + `riscv.xori _, 1`
+  `gmir.g_icmp sle x, c` -> `riscv.slti x, c + 1`
+  `gmir.g_icmp ule x, c` -> `riscv.sltiu x, c + 1`
+  The immediate must fit in 12 bits, and `ule` excludes `c = -1`, where `c + 1` wraps. This is as
+  in LLVM's `PatGprSimm12` (`RISCVInstrInfo.td`), `TargetLowering::SimplifySetCC`
+  (`TargetLowering.cpp`) and the expansion of `SETGE`/`SETUGE` (`RISCVISelLowering.cpp`).
 -/
 def sltiImm? (pred : Data.LLVM.IntPred) (c : Int) : Option Int :=
   let value := (BitVec.ofInt 64 c).toInt
