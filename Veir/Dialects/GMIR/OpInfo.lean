@@ -72,6 +72,8 @@ inductive GMIR where
 | g_uadde
 | g_usubo
 | g_usube
+| g_saddo
+| g_ssubo
 | g_fshl
 | g_fshr
 | g_rotl
@@ -96,6 +98,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_saddo | .g_ssubo
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => Unit
 
@@ -120,6 +123,7 @@ def GMIR.fromAttrDict
      | g_smin | g_smax | g_umin | g_umax | g_abs
      | g_merge_values | g_unmerge_values | g_br
      | g_uaddo | g_uadde | g_usubo | g_usube
+     | g_saddo | g_ssubo
      | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop
      | g_fshl | g_fshr | g_rotl | g_rotr => exact .ok ()
 
@@ -158,11 +162,13 @@ def GMIR.toAttrDict
   | .g_and | .g_xor | .g_srem | .g_urem
   | .g_inttoptr | .g_ptrtoint | .g_bswap | .g_bitreverse | .g_brev8
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
-  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
+  | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
+  | .g_ctlz | .g_cttz | .g_ctpop
+  | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube
-  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
-  | .g_fshl | .g_fshr | .g_rotl | .g_rotr
-  | .g_merge_values | .g_unmerge_values => {}
+  | .g_saddo | .g_ssubo
+  | .g_ctlz_zero_poison | .g_cttz_zero_poison
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr => {}
 
 #generate_dialect GMIR
 
@@ -243,7 +249,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_brcond =>
     { outOperandList := #[]
       inOperandList := #[.type 0] }
-  | .g_uaddo | .g_usubo =>
+  | .g_uaddo | .g_usubo | .g_saddo | .g_ssubo =>
     { outOperandList := #[.type 0, .type 1]
       inOperandList := #[.type 0, .type 0] }
   | .g_uadde | .g_usube =>
@@ -646,6 +652,22 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let rhs := rhs.cast (by simp at h; exact h)
     let (diff, borrow) := usubWithBorrow lhs rhs (zextOrTrunc 1 borrow)
     return (#[.int bw diff, .int borrowBw (zextOrTrunc _ borrow)], mem, none)
+  | .g_saddo => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let some overflowType := resultTypes[1]? | none
+    let .integerType overflowBw := overflowType.val | none
+    return (#[.int bw (Data.LLVM.Int.add lhs rhs),
+      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.saddOverflowFlag lhs rhs))], mem, none)
+  | .g_ssubo => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h : bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let some overflowType := resultTypes[1]? | none
+    let .integerType overflowBw := overflowType.val | none
+    return (#[.int bw (Data.LLVM.Int.sub lhs rhs),
+      .int overflowBw.bitwidth (zextOrTrunc _ (Data.LLVM.Int.ssubOverflowFlag lhs rhs))], mem, none)
   | .g_fshl => do
     let [.int bw x, .int bw' y, .int _ z] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -834,7 +856,7 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       "gmir.g_brcond: Expected the condition to have integer type"
     let sizes := (opPtr.getProperties! ctx.raw GMIR.g_brcond).operandSegmentSizes
     opPtr.verifyCondBranchOperandSegmentSizes ctx opIn sizes 1
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube =>
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
 
@@ -847,7 +869,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop | .g_sext_inreg
   | .g_merge_values | .g_unmerge_values
-  | .g_uaddo | .g_uadde | .g_usubo | .g_usube
+  | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
   | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
@@ -865,7 +887,7 @@ def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :
 def GMIR.isCommutative : GMIR → Bool
   | .g_add | .g_mul | .g_and | .g_or | .g_xor
   | .g_smin | .g_smax | .g_umin | .g_umax
-  | .g_uaddsat | .g_saddsat | .g_uaddo => true
+  | .g_uaddsat | .g_saddsat | .g_uaddo | .g_saddo => true
   | _ => false
 
 def GMIR.isConstantLike : GMIR → Bool

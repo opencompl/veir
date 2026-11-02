@@ -135,6 +135,18 @@ def g_umin := (lowerBinop .intr__umin .g_umin).compile
 /- LLVM translates `abs` to `G_ABS` and drops `is_int_min_poison`, which `g_abs` refines. -/
 def g_abs := (lowerUnop .intr__abs .g_abs fun _ => ()).compile
 
+def g_saddsat := (lowerBinop .intr__sadd__sat .g_saddsat).compile
+
+def g_uaddsat := (lowerBinop .intr__uadd__sat .g_uaddsat).compile
+
+def g_ssubsat := (lowerBinop .intr__ssub__sat .g_ssubsat).compile
+
+def g_usubsat := (lowerBinop .intr__usub__sat .g_usubsat).compile
+
+def g_sshlsat := (lowerBinop .intr__sshl__sat .g_sshlsat).compile
+
+def g_ushlsat := (lowerBinop .intr__ushl__sat .g_ushlsat).compile
+
 /--
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
   selects as `g_select` does, see `GMIR.selectNonzero_one`.
@@ -419,6 +431,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
     g_bswap.run, g_bitreverse.run,
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run,
+    g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,

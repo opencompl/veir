@@ -230,6 +230,10 @@ def LegalizerInfo.getAction (info : LegalizerInfo) (ctx : IRContext OpCode) (op 
   | some query => info.getActionFor query
   | none => .unsupported
 
+/-- Whether `query` is legal or legalized by the target's `legalizeCustom` pattern. -/
+def LegalizerInfo.isLegalOrCustom (info : LegalizerInfo) (query : LegalityQuery opcode) : Bool :=
+  info.getActionFor query matches .legal | .custom
+
 /--
 Whether an `opcode` operation whose type groups have `types` and whose properties are `properties`
 is legal.
