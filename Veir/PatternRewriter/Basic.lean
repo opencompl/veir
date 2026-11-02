@@ -89,31 +89,31 @@ def Worklist.remove (worklist: Worklist) (op: OperationPtr) : Worklist :=
     worklist
 
 /--
-- Append the operations nested under `op` (not `op` itself) to `acc` in post-order: each
-- operation comes after everything nested in its regions, and the operations of a block
-- come in program order.
+- Push the operations nested under `op` (not `op` itself) in reverse post-order, so that they
+- are popped in post-order: each operation after everything nested in its regions, and the
+- operations of a block in program order. Reverse post-order visits regions, blocks and
+- operations last to first, pushing each operation before descending into its regions.
 -/
-private partial def collectNestedPostOrder (ctx : IRContext OpInfo) (op : OperationPtr)
-    (acc : Array OperationPtr) : Array OperationPtr := Id.run do
-  let mut acc := acc
+private partial def Worklist.pushNestedReversePostOrder (ctx : IRContext OpInfo)
+    (op : OperationPtr) (worklist : Worklist) : Worklist := Id.run do
+  let mut worklist := worklist
   for i in 0...op.getNumRegions! ctx do
-    let mut block? := (op.getRegion! ctx i).getFirstBlock! ctx
+    let mut block? := (op.getRegion! ctx (op.getNumRegions! ctx - 1 - i)).getLastBlock! ctx
     while let some block := block? do
-      let mut child? := block.getFirstOp! ctx
+      let mut child? := block.getLastOp! ctx
       while let some child := child? do
-        acc := collectNestedPostOrder ctx child acc
-        acc := acc.push child
-        child? := child.getNextOp! ctx
-      block? := block.getNextBlock! ctx
-  acc
+        worklist := worklist.push child
+        worklist := worklist.pushNestedReversePostOrder ctx child
+        child? := child.getPrevOp! ctx
+      block? := block.getPrevBlock! ctx
+  worklist
 
 /--
 - Populate a worklist with the operations nested under `root`, so that they are popped in
 - post-order.
 -/
 def Worklist.createFromRoot (ctx : IRContext OpInfo) (root : OperationPtr) : Worklist :=
-  -- The worklist is a stack, so push in reverse to pop in post-order.
-  (collectNestedPostOrder ctx root #[]).foldr (fun op worklist => worklist.push op) Worklist.empty
+  Worklist.empty.pushNestedReversePostOrder ctx root
 
 end PatternRewriter
 
