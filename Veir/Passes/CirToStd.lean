@@ -337,7 +337,7 @@ def CirToStdPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : Operation
     lowerMin, lowerMax, lowerCmp, lowerSelect, lowerCast,
     lowerBr, lowerBrCond, lowerUnreachable
   ]
-  let some lowered := RewritePattern.applyInContext lowering ctx
+  let some lowered := RewritePattern.applyInContext lowering ctx op
     | throw "cir-to-std: internal rewriter failure"
   -- The lowered branches still forward `cir` values: retype the blocks they target.
   let mut converted := lowered

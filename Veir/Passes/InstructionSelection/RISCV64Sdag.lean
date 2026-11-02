@@ -548,7 +548,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     bexti, bseti, bclri, binvi, slliuw, slti,
     addiw, slliw, srliw, sraiw,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying SDAG patterns"
   | some ctx => pure ctx
 

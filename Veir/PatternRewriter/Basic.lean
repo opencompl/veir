@@ -88,22 +88,32 @@ def Worklist.remove (worklist: Worklist) (op: OperationPtr) : Worklist :=
   | none =>
     worklist
 
--- TODO: remove this lemma and/or move it somewhere reasonable
-private theorem OperationPtr.inBounds_of_mem_operations_keys (ctx : IRContext OpInfo) :
-    (op ∈ ctx.operations.keys) → op.InBounds ctx := by
-  grind [OperationPtr.InBounds]
+/--
+- Append the operations nested under `op` (not `op` itself) to `acc` in post-order: each
+- operation comes after everything nested in its regions, and the operations of a block
+- come in program order.
+-/
+private partial def collectNestedPostOrder (ctx : IRContext OpInfo) (op : OperationPtr)
+    (acc : Array OperationPtr) : Array OperationPtr := Id.run do
+  let mut acc := acc
+  for i in 0...op.getNumRegions! ctx do
+    let mut block? := (op.getRegion! ctx i).getFirstBlock! ctx
+    while let some block := block? do
+      let mut child? := block.getFirstOp! ctx
+      while let some child := child? do
+        acc := collectNestedPostOrder ctx child acc
+        acc := acc.push child
+        child? := child.getNextOp! ctx
+      block? := block.getNextBlock! ctx
+  acc
 
 /--
-- Populate a worklist with all operations that exist in the given context, and that have
-- a parent operation.
+- Populate a worklist with the operations nested under `root`, so that they are popped in
+- post-order.
 -/
-def Worklist.createFromContext (ctx: WfIRContext OpInfo) : Worklist := Id.run do
-  let mut worklist := Worklist.empty
-  for h : op in ctx.raw.operations.keys do
-    if (op.getParent ctx.raw (by
-      exact OperationPtr.inBounds_of_mem_operations_keys ctx.raw h)).isSome then
-      worklist := worklist.push op
-  worklist
+def Worklist.createFromRoot (ctx : IRContext OpInfo) (root : OperationPtr) : Worklist :=
+  -- The worklist is a stack, so push in reverse to pop in post-order.
+  (collectNestedPostOrder ctx root #[]).foldr (fun op worklist => worklist.push op) Worklist.empty
 
 end PatternRewriter
 
@@ -427,14 +437,14 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
     return { rewriter with hasDoneAction := hasDoneAction }
 
 /--
-- Apply the given rewrite pattern to all operations in the context (possibly multiple times).
+- Apply the given rewrite pattern to all operations nested under `root` (possibly multiple times).
 - Return the new context, and a boolean indicating whether any changes were made.
 - If any pattern failed, return none.
 -/
 private partial def RewritePattern.applyOnceInContext
-    (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) :
+    (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) (root : OperationPtr) :
     Option (Bool × WfIRContext OpInfo) := do
-  let worklist := PatternRewriter.Worklist.createFromContext ctx
+  let worklist := PatternRewriter.Worklist.createFromRoot ctx.raw root
   let mut rewriter : PatternRewriter OpInfo := { ctx, hasDoneAction := false, worklist }
   while !rewriter.worklist.isEmpty do
     let (opOpt, newWorklist) := rewriter.worklist.pop
@@ -450,12 +460,16 @@ private partial def RewritePattern.applyOnceInContext
       failure
   pure (rewriter.hasDoneAction, rewriter.ctx)
 
+/--
+- Apply the given rewrite pattern to the operations nested under `root` until a fixpoint.
+- Each round visits them in post-order.
+-/
 def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
-    (ctx: WfIRContext OpInfo) : Option (WfIRContext OpInfo) := do
+    (ctx: WfIRContext OpInfo) (root : OperationPtr) : Option (WfIRContext OpInfo) := do
   let mut hasDoneAction := true
   let mut ctx := ctx
   while hasDoneAction do
-    let (lastHasDoneAction, newCtx) ← pattern.applyOnceInContext ctx
+    let (lastHasDoneAction, newCtx) ← pattern.applyOnceInContext ctx root
     ctx := newCtx
     hasDoneAction := lastHasDoneAction
   pure ctx
