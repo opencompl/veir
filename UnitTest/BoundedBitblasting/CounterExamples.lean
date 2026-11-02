@@ -124,14 +124,24 @@ example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
     x + (1 : BitVec (w + 0)) = 1 + x := by
   pbv_decide 4
 
--- Expected failure: width expressions using `Nat` subtraction are not translated faithfully
+-- Expected failure: the widths `v - 1 - 0 + 1` are translated, but `extractLsb'` is not pushed
 /--
 `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
 -/
 #guard_msgs(error, substring := true) in
 example {v : Nat} (x : BitVec w) (hw : w ≤ 8) (hv : v ≤ w) (hv1 : v > 0):
     (x.extractLsb (v-1) 0).cast (by lia) = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
   pbv_decide 8
+
+-- A width built by subtraction is translated faithfully, so the counterexample is genuine
+/--
+error: `pbv_decide` found a counterexample, consider the following assignment:
+-/
+#guard_msgs(error, substring := true) in
+example (w : Nat) (x : BitVec (w - 1)) (hw : w ≤ 4) :
+    x.zeroExtend w = x.signExtend w := by
+  pbv_decide 4
 
 -- Expected failure: `w / 2` is a width independent of `w`, so a true statement fails spuriously
 /--
@@ -163,4 +173,16 @@ example (a : BitVec w) (h : w ≤ 4) :
 example (a : BitVec (w + w)) (b : BitVec w) (hw4 : w + w ≤ 4):
   a ++ b = (b ++ a).cast (by grind)
   := by
+  pbv_decide 4
+
+-- Width term containing subtraction induces unnecessary bounding obligation on
+-- the subtrahend
+/--
+`grind` could not prove the following : v ≤ 4
+---
+error: unsolved goals
+-/
+#guard_msgs(error, warning, substring := true) in
+example {v w : Nat} (x : BitVec (w - v)) (hw : w ≤ 4) :
+    x + 0 = x := by
   pbv_decide 4
