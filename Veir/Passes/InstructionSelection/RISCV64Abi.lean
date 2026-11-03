@@ -231,7 +231,7 @@ def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
   let ctx ← coerceFunctionBoundaries .riscvReg ctx fun ctx op =>
     op.getOpType! ctx == .llvm .func && supportsFunctionAbi ctx op
   -- The rewrite driver inserts the new operations, replaces results, and removes dead casts.
-  match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx op with
+  match RewritePattern.applyToFunctions (.fromLocalRewrite lowerOp) ctx op with
   | none => throw "Error while applying isel-abi-riscv64"
   | some ctx => pure ctx
 

@@ -864,8 +864,8 @@ private partial def integerArrayInitializer? (type : Attribute) (values : Array 
     return ("[" ++ String.intercalate ", " elements.toList ++ "]", index)
   | _ => none
 
-/-- Recognize the complete `zero; return` initializer region. Aggregate zero
-    operations survive instruction selection, unlike scalar/pointer constants. -/
+/-- Recognize the complete `zero; return` initializer region. Instruction selection
+    leaves initializer regions alone, so this covers scalars, pointers and aggregates. -/
 private def isZeroInitializer (ctx : IRContext OpCode) (op : OperationPtr)
     (type : Attribute) : Bool := Id.run do
   let some block := (op.getRegion! ctx 0).getFirstBlock! ctx | return false
