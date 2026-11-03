@@ -209,6 +209,16 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_sshlsat | .g_ushlsat => [
       .lower,
     ]
+    -- As in LLVM, these are lowered to the wrapping operation and comparisons.
+    | .g_uaddo | .g_usubo => [
+      .lower,
+    ]
+    -- As in LLVM, these are widened first, where the overflow is a comparison of the wide result,
+    -- and lowered at `s64`.
+    | .g_saddo | .g_ssubo => [
+      .minScalar (.type 0) 64,
+      .lower,
+    ]
     -- As in LLVM, funnel shifts are lowered to shifts. The amount is widened first, so that the
     -- width of the shifted values fits in it.
     | .g_fshl | .g_fshr => [

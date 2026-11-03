@@ -312,6 +312,108 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
         CreateProg.operation (.gmir baseOp) #[lhs, min.res[0]!] #[type])
     (fun op => op)
 
+/-- Matches the overflowing `opcode`, returning its result type, overflow type and operands. -/
+private def matchOverflowing (opcode : GMIR) : MatchProg.Builder
+    (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
+  let type ← MatchProg.type (Attr := IntegerType)
+  let ovType ← MatchProg.type (Attr := IntegerType)
+  let lhs ← MatchProg.value type
+  let rhs ← MatchProg.value type
+  let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
+  return (type, ovType, lhs, rhs)
+
+/--
+Lowers `g_uaddo` (`isAdd`) or `g_usubo`, as LLVM's `LegalizerHelper::lower`. The sum wraps around
+exactly when it is smaller than an operand, and the difference exactly when `lhs <u rhs`:
+
+  uaddo a b = (a + b, a + b <u b)
+  usubo a b = (a - b, a <u b)
+-/
+def lowerUAddSubO (isAdd : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (matchOverflowing (if isAdd then .g_uaddo else .g_usubo))
+    (fun (type, ovType, lhs, rhs) => do
+      let ultProps ← CreateProg.property (.gmir .g_icmp) { predicate := .ult }
+      if isAdd then
+        let sum ← CreateProg.operation (.gmir .g_add) #[lhs, rhs] #[type]
+        let carry ← CreateProg.operation (.gmir .g_icmp) #[sum.res[0]!, rhs] #[ovType] ultProps
+        return #[sum.res[0]!, carry.res[0]!]
+      else
+        let diff ← CreateProg.operation (.gmir .g_sub) #[lhs, rhs] #[type]
+        let borrow ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[ovType] ultProps
+        return #[diff.res[0]!, borrow.res[0]!])
+    (fun results => results)
+
+/--
+Lowers `g_saddo` (`isAdd`) or `g_ssubo`, as LLVM's `LegalizerHelper::lowerSADDO_SSUBO`:
+
+  saddo a b = (a + b, (b <s 0) ^ (a + b <s a))
+  ssubo a b = (a - b, (a <s b) ^ (a - b <s 0))
+
+The sum is smaller than `a` exactly when `b` is negative, unless it overflows. The difference is
+negative exactly when `a <s b`, unless it overflows. The operations are created in the same order
+as in LLVM.
+-/
+def lowerSAddSubO (isAdd : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (matchOverflowing (if isAdd then .g_saddo else .g_ssubo))
+    (fun (type, ovType, lhs, rhs) => do
+      let res ← CreateProg.operation (.gmir (if isAdd then .g_add else .g_sub)) #[lhs, rhs] #[type]
+      let zero ← createConstant type 0
+      let sltProps ← CreateProg.property (.gmir .g_icmp) { predicate := .slt }
+      let (cmp0, cmp1) ← if isAdd then do
+          let resultLowerThanLhs ← CreateProg.operation (.gmir .g_icmp)
+            #[res.res[0]!, lhs] #[ovType] sltProps
+          let rhsNegative ← CreateProg.operation (.gmir .g_icmp)
+            #[rhs, zero.res[0]!] #[ovType] sltProps
+          pure (rhsNegative, resultLowerThanLhs)
+        else do
+          let lhsLessThanRhs ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[ovType] sltProps
+          let resultNegative ← CreateProg.operation (.gmir .g_icmp)
+            #[res.res[0]!, zero.res[0]!] #[ovType] sltProps
+          pure (lhsLessThanRhs, resultNegative)
+      let ov ← CreateProg.operation (.gmir .g_xor) #[cmp0.res[0]!, cmp1.res[0]!] #[ovType]
+      return #[res.res[0]!, ov.res[0]!])
+    (fun results => results)
+
+/--
+Widens the result and operands of the overflowing `opcode` to `width` bits, as LLVM's
+`LegalizerHelper::widenScalarAddSubOverflow`. The operands are extended according to the signedness
+of `opcode`, and the operation overflows exactly when its wide result does not survive a truncation
+and the same extension:
+
+  [su]addo a b = let r := ext a + ext b; (trunc r, r != ext (trunc r))
+
+LLVM builds `trunc r` twice, and its builder deduplicates them (CSE); we build it once.
+-/
+def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
+  let (baseOp, extOp) : GMIR × GMIR := match opcode with
+    | .g_saddo => (.g_add, .g_sext)
+    | .g_ssubo => (.g_sub, .g_sext)
+    | .g_uaddo => (.g_add, .g_zext)
+    | _ => (.g_sub, .g_zext)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let ovType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
+      return (type, ovType, lhs, rhs))
+    (fun (type, ovType, lhs, rhs) => do
+      let wideType ← CreateProg.type (IntegerType.signless width)
+      let lhsExt ← CreateProg.operation (.gmir extOp) #[lhs] #[wideType]
+      let rhsExt ← CreateProg.operation (.gmir extOp) #[rhs] #[wideType]
+      let newOp ← CreateProg.operation (.gmir baseOp)
+        #[lhsExt.res[0]!, rhsExt.res[0]!] #[wideType]
+      let trunc ← CreateProg.operation (.gmir .g_trunc) #[newOp.res[0]!] #[type]
+      let ext ← CreateProg.operation (.gmir extOp) #[trunc.res[0]!] #[wideType]
+      let neProps ← CreateProg.property (.gmir .g_icmp) { predicate := .ne }
+      let ov ← CreateProg.operation (.gmir .g_icmp)
+        #[newOp.res[0]!, ext.res[0]!] #[ovType] neProps
+      return #[trunc.res[0]!, ov.res[0]!])
+    (fun results => results)
+
 public section
 
 /--
@@ -412,6 +514,10 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_ssubsat => lowerAddSubSatToMinMax .g_ssubsat true false
   | .g_sshlsat => lowerShlSat true
   | .g_ushlsat => lowerShlSat false
+  | .g_uaddo => lowerUAddSubO true
+  | .g_usubo => lowerUAddSubO false
+  | .g_saddo => lowerSAddSubO true
+  | .g_ssubo => lowerSAddSubO false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -478,6 +584,10 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   -- The amount is an unsigned number of bits, so its value must be kept as such.
   | .g_fshl, .type 1, width => widenTypeGroup .g_fshl (.type 1) .g_zext width
   | .g_fshr, .type 1, width => widenTypeGroup .g_fshr (.type 1) .g_zext width
+  | .g_uaddo, .type 0, width => widenScalarAddSubOverflow .g_uaddo width
+  | .g_usubo, .type 0, width => widenScalarAddSubOverflow .g_usubo width
+  | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
+  | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
   | _, _, _ => none
 
 end
