@@ -132,6 +132,26 @@ example {w : Nat} (x : BitVec (w - 1 + 1)) (y : BitVec w) (h0 : 0 < w) (hw : w �
     x.cast (by omega) + y = y + x.cast (by omega) := by
   pbv_decide 4
 
+/-- Subtraction of two width variables -/
+example {v w : Nat} (x : BitVec (w - v)) (hvw : v ≤ w) (hw : w ≤ 4) :
+    (x.zeroExtend w).setWidth (w - v) = x := by
+  pbv_decide 4
+
+/-- Subtraction in a precondition relating two widths -/
+example {v w : Nat} (x : BitVec v) (h : v = w - 2) (h2 : 2 ≤ w) (hw : w ≤ 4) :
+    x.zeroExtend w = (x.zeroExtend (v + 2)).cast (by omega) := by
+  pbv_decide 4
+
+/-- Adding zero is identity with width subtraction by literal -/
+example {w : Nat} (x : BitVec (w - 8)) (hw : w ≤ 4) :
+    x + 0 = x := by
+  pbv_decide 4
+
+/-- Adding zero is identity with width subtraction of variables -/
+example {u v w : Nat} (x : BitVec (w - (u + v))) (_hu : u ≤ 4) (_hv : v ≤ 4) (hw : w ≤ 4) :
+    x + 0 = x := by
+  pbv_decide 4
+
 /-- Nested casts with different equality proofs -/
 example {w v u : Nat} (x : BitVec w) (h1 : w = v) (h2 : w = u) (h3 : v = u) (hw : w ≤ 4) :
     (x.cast h1).cast h3 = x.cast h2 := by

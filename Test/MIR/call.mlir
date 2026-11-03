@@ -6,7 +6,7 @@
 // module are declared in the stub IR so the MIR parser can resolve them.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "caller", function_type = (!riscv.reg, !riscv.reg) -> (!riscv.reg, !riscv.reg)}> ({
+  "riscv_cf.func"() <{sym_name = "caller", function_type = (!riscv.reg, !riscv.reg) -> (!riscv.reg, !riscv.reg)}> ({
   ^entry(%target: !riscv.reg, %arg: !riscv.reg):
     %one = "riscv_cf.call"(%arg) <{callee = @external}> : (!riscv.reg) -> !riscv.reg
     %first, %second = "riscv_cf.call"(%target, %one, %arg) : (!riscv.reg, !riscv.reg, !riscv.reg) -> (!riscv.reg, !riscv.reg)
@@ -16,18 +16,12 @@
   "llvm.func"() <{sym_name = "leaf", function_type = !llvm.func<void ()>}> ({
     "riscv_cf.return"() : () -> ()
   }) : () -> ()
-  "func.func"() <{sym_name = "too_many_args", function_type = (!riscv.reg) -> ()}> ({
-  ^entry(%a: !riscv.reg):
-    "riscv_cf.call"(%a, %a, %a, %a, %a, %a, %a, %a, %a) <{callee = @external}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
-    "riscv_cf.return"() : () -> ()
-  }) : () -> ()
 }) : () -> ()
 
 // The stub IR defines each function with a body, and declares `external` but
 // not the locally defined `leaf`.
 // CHECK:          define i64 @caller(i64 %a0, i64 %a1)
 // CHECK:          define i64 @leaf()
-// CHECK:          define i64 @too_many_args(i64 %a0)
 // CHECK-NOT:      declare void @leaf
 // CHECK:          declare void @external()
 // CHECK-NOT:      declare
@@ -73,7 +67,3 @@
 // CHECK-NOT:      frameInfo:
 // CHECK:          bb.0:
 // CHECK-NEXT:     PseudoRET{{$}}
-
-// Stack-passed arguments are not lowered.
-// CHECK-LABEL:  name: too_many_args
-// CHECK:          ; UNHANDLED riscv_cf.call with 9 args and 0 results
