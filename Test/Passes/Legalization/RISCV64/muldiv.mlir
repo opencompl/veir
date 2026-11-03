@@ -15,12 +15,11 @@
     %urem64 = "gmir.g_urem"(%x_i64, %x_i64) : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_urem"({{.*}}) : (i64, i64) -> i64
 
-    // `i32` -> the RISC-V word variants (custom legalization), except for the signed remainder,
-    // which is widened to `i64`. Division and the unsigned remainder become `gmir_riscv` word
-    // operations on the any-extended operands.
+    // `i32` -> the `gmir_riscv` word operations on the any-extended operands (custom
+    // legalization), except for the signed remainder, which is widened to `i64`.
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
     %mul32 = "gmir.g_mul"(%x_i32, %x_i32) <{overflowFlags = 3 : i32}> : (i32, i32) -> i32
-    // CHECK:      "riscv.mulw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir_riscv.g_mulw"({{.*}}) : (i64, i64) -> i64
     %sdiv32 = "gmir.g_sdiv"(%x_i32, %x_i32) : (i32, i32) -> i32
     // CHECK:      %[[SDIV_LHS:.*]] = "gmir.g_anyext"(%[[X_I32:.*]]) : (i32) -> i64
     // CHECK-NEXT: %[[SDIV_RHS:.*]] = "gmir.g_anyext"(%[[X_I32]]) : (i32) -> i64

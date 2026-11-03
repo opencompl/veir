@@ -6,8 +6,23 @@
     "llvm.func"()  <{function_type = !llvm.func<void ()>, sym_name = "main"}> ({
         %a = "llvm.mlir.constant"() <{value = 1 : i64}> : () -> i64
         %b = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
-        %divw = "gmir_riscv.g_divw"(%a, %b) : (i64, i64) -> i64
+        %addw = "gmir_riscv.g_addw"(%a, %b) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.addw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        %subw = "gmir_riscv.g_subw"(%a, %b) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.subw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        %mulw = "gmir_riscv.g_mulw"(%a, %b) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "riscv.mulw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        %divw = "gmir_riscv.g_divw"(%a, %b) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.divw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
@@ -36,6 +51,9 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sraw"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        "test.test"(%addw) : (i64) -> ()
+        "test.test"(%subw) : (i64) -> ()
+        "test.test"(%mulw) : (i64) -> ()
         "test.test"(%divw) : (i64) -> ()
         "test.test"(%divuw) : (i64) -> ()
         "test.test"(%remuw) : (i64) -> ()
