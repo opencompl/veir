@@ -261,6 +261,99 @@ def lowerFunnelShift (isLeft : Bool) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_or) #[shX.res[0]!, shY.res[0]!] #[type])
     (fun op => op)
 
+/--
+Lowers the saturating `opcode`, a signed (`isSigned`) or unsigned addition (`isAdd`) or
+subtraction, to min and max operations, as LLVM's `LegalizerHelper::lowerAddSubSatToMinMax`:
+
+  uadd.sat a b = a + umin (~a) b
+  usub.sat a b = a - umin a b
+  sadd.sat a b = a + smin (smax (INT_MIN - smin a 0) b) (INT_MAX - smax a 0)
+  ssub.sat a b = a - smin (smax (smax a (-1) - INT_MAX) b) (smin a (-1) - INT_MIN)
+
+The operations are created in the same order as in LLVM.
+-/
+def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpCode :=
+  let baseOp : GMIR := if isAdd then .g_add else .g_sub
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      if isSigned then
+        let maxVal ← widthConstant type type fun w => 2 ^ (w - 1) - 1
+        let minVal ← widthConstant type type fun w => -2 ^ (w - 1)
+        let (lo, hi) ← if isAdd then do
+            let zero ← createConstant type 0
+            let smax ← CreateProg.operation (.gmir .g_smax) #[lhs, zero.res[0]!] #[type]
+            let hi ← CreateProg.operation (.gmir .g_sub) #[maxVal.res[0]!, smax.res[0]!] #[type]
+            let smin ← CreateProg.operation (.gmir .g_smin) #[lhs, zero.res[0]!] #[type]
+            let lo ← CreateProg.operation (.gmir .g_sub) #[minVal.res[0]!, smin.res[0]!] #[type]
+            pure (lo, hi)
+          else do
+            let negOne ← createConstant type (-1)
+            let smax ← CreateProg.operation (.gmir .g_smax) #[lhs, negOne.res[0]!] #[type]
+            let lo ← CreateProg.operation (.gmir .g_sub) #[smax.res[0]!, maxVal.res[0]!] #[type]
+            let smin ← CreateProg.operation (.gmir .g_smin) #[lhs, negOne.res[0]!] #[type]
+            let hi ← CreateProg.operation (.gmir .g_sub) #[smin.res[0]!, minVal.res[0]!] #[type]
+            pure (lo, hi)
+        let clamp ← CreateProg.operation (.gmir .g_smax) #[lo.res[0]!, rhs] #[type]
+        let rhsClamped ← CreateProg.operation (.gmir .g_smin) #[clamp.res[0]!, hi.res[0]!] #[type]
+        CreateProg.operation (.gmir baseOp) #[lhs, rhsClamped.res[0]!] #[type]
+      else
+        let notLhs ← if isAdd then do
+            let allOnes ← createConstant type (-1)
+            let not ← CreateProg.operation (.gmir .g_xor) #[lhs, allOnes.res[0]!] #[type]
+            pure not.res[0]!
+          else pure lhs
+        let min ← CreateProg.operation (.gmir .g_umin) #[notLhs, rhs] #[type]
+        CreateProg.operation (.gmir baseOp) #[lhs, min.res[0]!] #[type])
+    (fun op => op)
+
+/--
+Lowers the saturating `opcode`, a signed (`isSigned`) or unsigned addition (`isAdd`) or
+subtraction, to the matching overflowing operation and a `g_select`, as LLVM's
+`LegalizerHelper::lowerAddSubSatToAddoSubo`:
+
+  uadd.sat a b = let (r, ov) := uaddo a b; ov ? -1 : r
+  usub.sat a b = let (r, ov) := usubo a b; ov ? 0 : r
+  sadd.sat a b = let (r, ov) := saddo a b; ov ? (r >>s (w - 1)) + INT_MIN : r
+  ssub.sat a b = let (r, ov) := ssubo a b; ov ? (r >>s (w - 1)) + INT_MIN : r
+
+On signed overflow, the wrapped result has the opposite sign of the exact one, so `r >>s (w - 1)`
+is `0` when it saturates to `INT_MAX` and `-1` when it saturates to `INT_MIN`.
+
+The operations are created in the same order as in LLVM.
+-/
+def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpCode :=
+  let overflowOp : GMIR := match isSigned, isAdd with
+    | false, true => .g_uaddo
+    | true, true => .g_saddo
+    | false, false => .g_usubo
+    | true, false => .g_ssubo
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let overflowRes ← CreateProg.operation (.gmir overflowOp) #[lhs, rhs] #[type, boolType]
+      let tmp := overflowRes.res[0]!
+      let ov := overflowRes.res[1]!
+      let clamp ← if isSigned then do
+          let shiftAmount ← widthConstant type type (· - 1)
+          let sign ← CreateProg.operation (.gmir .g_ashr) #[tmp, shiftAmount.res[0]!] #[type]
+          let minVal ← widthConstant type type fun w => -2 ^ (w - 1)
+          CreateProg.operation (.gmir .g_add) #[sign.res[0]!, minVal.res[0]!] #[type]
+        else createConstant type (if isAdd then -1 else 0)
+      CreateProg.operation (.gmir .g_select) #[ov, clamp.res[0]!, tmp] #[type])
+    (fun op => op)
+
 public section
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
@@ -271,6 +364,10 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_fshr => lowerFunnelShift false
   | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
   | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
+  | .g_uaddsat => lowerAddSubSatToMinMax .g_uaddsat false true
+  | .g_usubsat => lowerAddSubSatToMinMax .g_usubsat false false
+  | .g_saddsat => lowerAddSubSatToMinMax .g_saddsat true true
+  | .g_ssubsat => lowerAddSubSatToMinMax .g_ssubsat true false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/

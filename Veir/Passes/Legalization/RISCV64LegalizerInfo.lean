@@ -196,6 +196,11 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s64],
       .minScalar (.type 0) 64,
     ]
+    -- As in LLVM, these are always lowered, to `g_smin`/`g_smax`/`g_umin`/`g_umax` where those are
+    -- legal, and to an overflowing operation and a `g_select` otherwise.
+    | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat => [
+      .lower,
+    ]
     -- As in LLVM, funnel shifts are lowered to shifts. The amount is widened first, so that the
     -- width of the shifted values fits in it.
     | .g_fshl | .g_fshr => [
