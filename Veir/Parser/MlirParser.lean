@@ -838,6 +838,8 @@ partial def parseTopLevelOp : MlirParserM OpInfo OperationPtr := do
   parseTypeAliasDefs
   let op ← parseOp none
   checkNoUnresolvedForwardValues
+  if (← peekToken).kind != .eof then
+    throwAtCurrentPos "unexpected trailing input after top-level operation"
   return op
 
 end Veir.Parser
