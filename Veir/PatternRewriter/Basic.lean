@@ -298,7 +298,6 @@ private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInf
     (op : OperationPtr) : PatternRewriter OpInfo := Id.run do
   let mut rewriter := rewriter
   let numRegions := op.getNumRegions! rewriter.ctx.raw
-  if numRegions == 0 then return rewriter
   for i in 0...numRegions do
     let mut block? := (op.getRegion! rewriter.ctx.raw (numRegions - 1 - i)).getLastBlock! rewriter.ctx.raw
     while let some block := block? do
