@@ -22,12 +22,13 @@ def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : Regi
   return (ctx, s, reg)
 
 /--
-Allocate registers for an operation during a backward traversal.
+Allocate registers for operations during a backward traversal.
 Assign registers to all results (if not allocated) before releasing their registers for reuse by operands.
 Only reusing virtual registers at the current stage.
 -/
-def allocateOp (ctx: WfIRContext OpCode) (op: OperationPtr) (stack: RegisterStack) :
+partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr) (stack: RegisterStack) :
     Except String (WfIRContext OpCode × RegisterStack) := do
+    let some op := op | return (ctx, stack)
     let mut ctx := ctx
     let mut stack := stack
     let mut resultRegs : Array RegisterType := #[]
@@ -47,25 +48,15 @@ def allocateOp (ctx: WfIRContext OpCode) (op: OperationPtr) (stack: RegisterStac
         ctx := newCtx
         stack := newStack
 
-    return (ctx, stack)
+    allocateOps ctx (op.getPrevOp! ctx.raw) stack
 
 /--
-Allocate registers for all operations in a block, traversing backward from an empty register stack.
+Allocate registers for all operations in a block, traversing backwards with the default empty register stack.
 Return the context with updated register types on SSA values.
 -/
-def allocateBlock (ctx: WfIRContext OpCode) (block: BlockPtr):
+def allocateBlock (ctx : WfIRContext OpCode) (block : BlockPtr) :
     Except String (WfIRContext OpCode) := do
-
-    let mut ctx := ctx
-    let mut stack : RegisterStack := default
-    let mut cur? := block.getLastOp! ctx.raw
-
-    while let some cur := cur? do
-        let (newCtx, newStack) ← allocateOp ctx cur stack
-        ctx := newCtx
-        stack := newStack
-        cur? := cur.getPrevOp! ctx.raw
-
-    return ctx
+  let (ctx, _) ← allocateOps ctx (block.getLastOp! ctx.raw) default
+  return ctx
 end
 end Veir
