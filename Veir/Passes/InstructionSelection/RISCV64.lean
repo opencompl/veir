@@ -1244,56 +1244,88 @@ def gmirAnd : Puddle.CompiledPattern OpCode := gmirAnd_pattern.compile
 def gmirOr : Puddle.CompiledPattern OpCode := gmirOr_pattern.compile
 def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 
+/-- Cast `operands` to registers, apply `riscvOp`, and cast its result back to `type`. -/
+def createRegOp (type : Handle OpCode .type) (operands : Array (Handle OpCode .value))
+    (riscvOp : Riscv) (props : PropertiesOrHandle (OpCode.riscv riscvOp)) :
+    CreateProg.Builder CreatedOpHandle := do
+  let regType ← CreateProg.type (RegisterType.mk none)
+  let castOps ← operands.mapM fun operand =>
+    CreateProg.operation (.builtin .unrealized_conversion_cast) #[operand] #[regType]
+  let riscvOp ← CreateProg.operation (.riscv riscvOp) (castOps.map (·.res[0]!)) #[regType] props
+  CreateProg.operation (.builtin .unrealized_conversion_cast) #[riscvOp.res[0]!] #[type]
+
 /--
-  `opcode` (`i64`) whose rhs is a `gmir.g_constant` in `[lo, hi]` -> the immediate form `riscvOp`.
+  `srcOp` (`i64`) whose rhs is a `gmir.g_constant` in `[lo, hi]` -> the immediate form `riscvOp`.
   Mirrors `PatGprImm`. The constant is only matched on the rhs, where the post-legalizer combiner
-  places it.
+  places it. `guard` adds conditions on the matched type and on the properties of `srcOp`.
 
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1467-L1477
 -/
-def lowerBinaryImm (opcode : GMIR) (riscvOp : Riscv)
-    (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (lo hi : Int) : Pattern OpCode :=
+def lowerBinaryImm (srcOp : OpCode) (riscvOp : Riscv)
+    (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (lo hi : Int)
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
       let lhs ← MatchProg.value type
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      let root ← MatchProg.root (.gmir opcode) #[lhs, constant.res[0]!] #[type]
-      matchLegal opcode type root.properties
+      let root ← MatchProg.root srcOp #[lhs, constant.res[0]!] #[type]
+      guard type root.properties
       MatchProg.matchNative constant.properties fun ⟨const⟩ =>
         let imm := (BitVec.ofInt 64 const.value).toInt
         lo ≤ imm && imm ≤ hi
       return (type, lhs, constant.properties))
     (fun (type, lhs, constProps) => do
-      let regType ← CreateProg.type (RegisterType.mk none)
-      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[lhs] #[regType]
       let immProps ← CreateProg.applyNative
           (Outputs := Handle OpCode (.prop (.riscv riscvOp))) constProps fun ⟨const⟩ =>
         some (cast h.symm (mkRISCVImm const.value))
-      let immOp ← CreateProg.operation (.riscv riscvOp) #[castOp.res[0]!] #[regType] immProps
-      CreateProg.operation (.builtin .unrealized_conversion_cast) #[immOp.res[0]!] #[type])
+      createRegOp type #[lhs] riscvOp (.inr immProps))
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_add` (`i64`) with a simm12 constant rhs -> `riscv.addi`. -/
-def gmirAddi_pattern : Pattern OpCode := lowerBinaryImm .g_add .addi rfl (-2048) 2047
+def gmirAddi_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_add) .addi rfl (-2048) 2047 (guard := matchLegal .g_add)
 
 /-- `gmir.g_and` (`i64`) with a simm12 constant rhs -> `riscv.andi`. -/
-def gmirAndi_pattern : Pattern OpCode := lowerBinaryImm .g_and .andi rfl (-2048) 2047
+def gmirAndi_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_and) .andi rfl (-2048) 2047 (guard := matchLegal .g_and)
 
 /-- `gmir.g_or` (`i64`) with a simm12 constant rhs -> `riscv.ori`. -/
-def gmirOri_pattern : Pattern OpCode := lowerBinaryImm .g_or .ori rfl (-2048) 2047
+def gmirOri_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_or) .ori rfl (-2048) 2047 (guard := matchLegal .g_or)
 
 /-- `gmir.g_xor` (`i64`) with a simm12 constant rhs -> `riscv.xori`. -/
-def gmirXori_pattern : Pattern OpCode := lowerBinaryImm .g_xor .xori rfl (-2048) 2047
+def gmirXori_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_xor) .xori rfl (-2048) 2047 (guard := matchLegal .g_xor)
 
 /-- `gmir.g_shl` (`i64`) with a uimm6 constant rhs -> `riscv.slli`. -/
-def gmirSlli_pattern : Pattern OpCode := lowerBinaryImm .g_shl .slli rfl 0 63
+def gmirSlli_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_shl) .slli rfl 0 63 (guard := matchLegal .g_shl)
 
 /-- `gmir.g_lshr` (`i64`) with a uimm6 constant rhs -> `riscv.srli`. -/
-def gmirSrli_pattern : Pattern OpCode := lowerBinaryImm .g_lshr .srli rfl 0 63
+def gmirSrli_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_lshr) .srli rfl 0 63 (guard := matchLegal .g_lshr)
 
 /-- `gmir.g_ashr` (`i64`) with a uimm6 constant rhs -> `riscv.srai`. -/
-def gmirSrai_pattern : Pattern OpCode := lowerBinaryImm .g_ashr .srai rfl 0 63
+def gmirSrai_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_ashr) .srai rfl 0 63 (guard := matchLegal .g_ashr)
+
+/-- `gmir_riscv.g_addw` (`i64`) with a simm12 constant rhs -> `riscv.addiw`. -/
+def gmirRiscvAddiw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_addw) .addiw rfl (-2048) 2047
+
+/-- `gmir_riscv.g_sllw` (`i64`) with a uimm5 constant rhs -> `riscv.slliw`. -/
+def gmirRiscvSlliw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_sllw) .slliw rfl 0 31
+
+/-- `gmir_riscv.g_srlw` (`i64`) with a uimm5 constant rhs -> `riscv.srliw`. -/
+def gmirRiscvSrliw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_srlw) .srliw rfl 0 31
+
+/-- `gmir_riscv.g_sraw` (`i64`) with a uimm5 constant rhs -> `riscv.sraiw`. -/
+def gmirRiscvSraiw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_sraw) .sraiw rfl 0 31
 
 def gmirAddi : Puddle.CompiledPattern OpCode := gmirAddi_pattern.compile
 def gmirAndi : Puddle.CompiledPattern OpCode := gmirAndi_pattern.compile
@@ -1302,6 +1334,192 @@ def gmirXori : Puddle.CompiledPattern OpCode := gmirXori_pattern.compile
 def gmirSlli : Puddle.CompiledPattern OpCode := gmirSlli_pattern.compile
 def gmirSrli : Puddle.CompiledPattern OpCode := gmirSrli_pattern.compile
 def gmirSrai : Puddle.CompiledPattern OpCode := gmirSrai_pattern.compile
+def gmirRiscvAddiw : Puddle.CompiledPattern OpCode := gmirRiscvAddiw_pattern.compile
+def gmirRiscvSlliw : Puddle.CompiledPattern OpCode := gmirRiscvSlliw_pattern.compile
+def gmirRiscvSrliw : Puddle.CompiledPattern OpCode := gmirRiscvSrliw_pattern.compile
+def gmirRiscvSraiw : Puddle.CompiledPattern OpCode := gmirRiscvSraiw_pattern.compile
+
+/-! ## Zbs single-bit immediate selection
+
+  These mirror the Zbs mask patterns in `RISCVInstrInfoZb.td`: `bseti`/`binvi`/`bclri`
+  recognize an `or`/`xor`/`and` against a constant whose (complemented, for `bclri`)
+  value is a single set bit, and emit the bit *index*. The `!isInt<12>` guard matches
+  the `SingleBitSetMask`/`BCLRMask` `ImmLeaf` predicates, so the plain `andi`/`ori`/`xori`
+  forms win whenever the immediate already fits a signed 12-bit field.
+
+  `BCLRMask`/`SingleBitSetMask` predicates:
+  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L69-L80
+  `bclri`/`bseti`/`binvi` select patterns:
+  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L529-L534
+-/
+
+/-- The index of the single set bit of `x`, or `none` when `x` is zero or has more
+    than one bit set (`u &&& (u - 1)` clears the lowest set bit; if that leaves `0`,
+    there was at most one). Used for Zbs single-bit immediate selection. -/
+def singleSetBit (x : BitVec 64) : Option Int :=
+  let u := x.toNat
+  if u == 0 || (u &&& (u - 1)) != 0 then none else some (Nat.log2 u)
+
+/-- The bit index that `gmirSingleBit_pattern` emits for the constant `c`, if any. -/
+def singleBitImm? (complement : Bool) (c : Int) : Option Int :=
+  let imm := (BitVec.ofInt 64 c).toInt
+  /- ANDI/ORI/XORI handle the simm12 cases; only fire when the immediate doesn't fit. -/
+  if !(imm < -2048 || imm > 2047) then none
+  else
+    let bv := BitVec.ofInt 64 imm
+    singleSetBit (if complement then ~~~ bv else bv)
+
+/--
+  Single-bit immediate selection. `complement = false` for `bseti`/`binvi` (the
+  immediate itself is a single set bit); `complement = true` for `bclri` (the
+  *complement* of the immediate is a single set bit). The emitted immediate is the
+  bit index. Only fires when the immediate does not fit a signed 12-bit field.
+-/
+def gmirSingleBit_pattern (opcode : GMIR) (riscvOp : Riscv)
+    (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (complement : Bool) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let lhs ← MatchProg.value type
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+          fun ⟨const⟩ => (singleBitImm? complement const.value).isSome
+      let root ← MatchProg.root (.gmir opcode) #[lhs, constant.res[0]!] #[type]
+      matchLegal opcode type root.properties
+      return (type, lhs, constant.properties))
+    (fun (type, lhs, constProps) => do
+      let immProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv riscvOp))) constProps fun ⟨const⟩ =>
+        (singleBitImm? complement const.value).map fun n => cast h.symm (mkRISCVImm n)
+      createRegOp type #[lhs] riscvOp (.inr immProps))
+    (fun castBackOp => castBackOp)
+
+/-- `gmir.g_or` (`i64`) with a single-bit constant rhs -> `riscv.bseti`. -/
+def gmirBseti_pattern : Pattern OpCode := gmirSingleBit_pattern .g_or .bseti rfl false
+
+/-- `gmir.g_xor` (`i64`) with a single-bit constant rhs -> `riscv.binvi`. -/
+def gmirBinvi_pattern : Pattern OpCode := gmirSingleBit_pattern .g_xor .binvi rfl false
+
+/-- `gmir.g_and` (`i64`) with a single-cleared-bit constant rhs -> `riscv.bclri`. -/
+def gmirBclri_pattern : Pattern OpCode := gmirSingleBit_pattern .g_and .bclri rfl true
+
+def gmirBseti : Puddle.CompiledPattern OpCode := gmirBseti_pattern.compile
+def gmirBinvi : Puddle.CompiledPattern OpCode := gmirBinvi_pattern.compile
+def gmirBclri : Puddle.CompiledPattern OpCode := gmirBclri_pattern.compile
+
+/-! ## Composed patterns
+
+  Patterns of several gMIR operations, which run before the other phases select the inner operations.
+-/
+
+/-- Match a `gmir.g_constant` of `type` whose value, read as a 64-bit integer, is `value`. -/
+def matchConstant64 (type : Handle OpCode .type) (value : BitVec 64) :
+    MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
+  MatchProg.operation (.gmir .g_constant) #[] #[type] fun ⟨const⟩ =>
+    BitVec.ofInt 64 const.value = value
+
+/--
+  Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary gMIR
+  op on `i64` one of whose operands is a `not` (`xor _, -1`), cast the plain operand `x` and the
+  `not`'s operand `y` to registers, apply the binary reg-reg riscv op `riscvOp`, and cast the result
+  back to `i64`. `notLhs` selects the operand that is the `not`.
+-/
+def gmirBinopNot_pattern (opcode : GMIR) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) (notLhs : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let y ← MatchProg.value type
+      let allOnes ← matchConstant64 type (-1)
+      let notOp ← MatchProg.operation (.gmir .g_xor) #[y, allOnes.res[0]!] #[type]
+      let root ← MatchProg.root (.gmir opcode)
+          (if notLhs then #[notOp.res[0]!, x] else #[x, notOp.res[0]!]) #[type]
+      matchLegal opcode type root.properties
+      return (type, x, y))
+    (fun (type, x, y) => createRegOp type #[x, y] riscvOp (.inl riscvProps))
+    (fun castBackOp => castBackOp)
+
+/-- The mask `gmirOrcb_pattern`'s soundness gate looks for: `0x0101_0101_0101_0101 <<< Y`, whose only
+    set bit in each byte is bit `Y`. -/
+def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
+
+/--
+  `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
+  where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
+-/
+def gmirOrcb_pattern (y : Nat) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let z ← MatchProg.value type
+      let mask ← matchConstant64 type (orcbMaskBV y)
+      let m ← MatchProg.operation (.gmir .g_and) #[z, mask.res[0]!] #[type]
+      let shlAmount ← matchConstant64 type (BitVec.ofNat 64 (8 - y))
+      let shl ← MatchProg.operation (.gmir .g_shl) #[m.res[0]!, shlAmount.res[0]!] #[type]
+      /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
+      let rhs ← if y = 0 then pure m.res[0]! else do
+        let lshrAmount ← matchConstant64 type (BitVec.ofNat 64 y)
+        let lshr ← MatchProg.operation (.gmir .g_lshr) #[m.res[0]!, lshrAmount.res[0]!] #[type]
+        pure lshr.res[0]!
+      let root ← MatchProg.root (.gmir .g_sub) #[shl.res[0]!, rhs] #[type]
+      matchLegal .g_sub type root.properties
+      return (type, m.res[0]!))
+    (fun (type, m) => createRegOp type #[m] .orcb (.inl ()))
+    (fun castBackOp => castBackOp)
+
+/-- `and (lshr x n) 1` -> `riscv.bexti x n` (`PatGprImm`-style single-bit extract).
+    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L536-L537 -/
+def gmirBexti_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value type
+      let shamt ← MatchProg.operation (.gmir .g_constant) #[] #[type] fun ⟨const⟩ =>
+        let sh := (BitVec.ofInt 64 const.value).toInt
+        0 ≤ sh && sh ≤ 63
+      let lshr ← MatchProg.operation (.gmir .g_lshr) #[x, shamt.res[0]!] #[type]
+      let one ← matchConstant64 type 1
+      let root ← MatchProg.root (.gmir .g_and) #[lshr.res[0]!, one.res[0]!] #[type]
+      matchLegal .g_and type root.properties
+      return (type, x, shamt.properties))
+    (fun (type, x, shamtProps) => do
+      let immProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .bexti))) shamtProps fun ⟨const⟩ =>
+        some (mkRISCVImm const.value)
+      createRegOp type #[x] .bexti (.inr immProps))
+    (fun castBackOp => castBackOp)
+
+/-- `shl (zext i32->i64 x) (const ∈ [0,31])` -> `riscv.slliuw x shamt`
+    (Zba: `(i64 (shl (and GPR, 0xFFFFFFFF), uimm5)) -> SLLI_UW`; our `zext` is the mask).
+    https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L821-L822 -/
+def gmirSlliuw_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let x ← MatchProg.value srcType
+      let zext ← MatchProg.operation (.gmir .g_zext) #[x] #[type]
+      let shamt ← MatchProg.operation (.gmir .g_constant) #[] #[type] fun ⟨const⟩ =>
+        let sh := (BitVec.ofInt 64 const.value).toInt
+        0 ≤ sh && sh ≤ 31
+      let root ← MatchProg.root (.gmir .g_shl) #[zext.res[0]!, shamt.res[0]!] #[type]
+      matchLegal .g_shl type root.properties
+      return (type, x, shamt.properties))
+    (fun (type, x, shamtProps) => do
+      let immProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.riscv .slliuw))) shamtProps fun ⟨const⟩ =>
+        some (mkRISCVImm const.value)
+      createRegOp type #[x] .slliuw (.inr immProps))
+    (fun castBackOp => castBackOp)
+
+/-- The composed patterns, in the order they are tried. -/
+def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
+  let binopNot := #[false, true].flatMap fun notLhs =>
+    #[gmirBinopNot_pattern .g_and .andn () notLhs, gmirBinopNot_pattern .g_or .orn () notLhs,
+      gmirBinopNot_pattern .g_xor .xnor () notLhs]
+  (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++
+    #[gmirBexti_pattern, gmirSlliuw_pattern]).map (·.compile)
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
@@ -1328,6 +1546,62 @@ def gmirSdiv : Puddle.CompiledPattern OpCode := gmirSdiv_pattern.compile
 def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
 def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
 def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
+
+/-- `gmir_riscv.g_addw` (`i64`) -> `riscv.addw`. -/
+def gmirRiscvAddw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_addw) (·.bitwidth = 64) .addw ()
+
+/-- `gmir_riscv.g_subw` (`i64`) -> `riscv.subw`. -/
+def gmirRiscvSubw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_subw) (·.bitwidth = 64) .subw ()
+
+/-- `gmir_riscv.g_mulw` (`i64`) -> `riscv.mulw`. -/
+def gmirRiscvMulw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_mulw) (·.bitwidth = 64) .mulw ()
+
+/-- `gmir_riscv.g_divw` (`i64`) -> `riscv.divw`. -/
+def gmirRiscvDivw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_divw) (·.bitwidth = 64) .divw ()
+
+/-- `gmir_riscv.g_divuw` (`i64`) -> `riscv.divuw`. -/
+def gmirRiscvDivuw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_divuw) (·.bitwidth = 64) .divuw ()
+
+/-- `gmir_riscv.g_remuw` (`i64`) -> `riscv.remuw`. -/
+def gmirRiscvRemuw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_remuw) (·.bitwidth = 64) .remuw ()
+
+/-- `gmir_riscv.g_sllw` (`i64`) -> `riscv.sllw`. -/
+def gmirRiscvSllw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_sllw) (·.bitwidth = 64) .sllw ()
+
+/-- `gmir_riscv.g_srlw` (`i64`) -> `riscv.srlw`. -/
+def gmirRiscvSrlw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_srlw) (·.bitwidth = 64) .srlw ()
+
+/-- `gmir_riscv.g_sraw` (`i64`) -> `riscv.sraw`. -/
+def gmirRiscvSraw_pattern : Pattern OpCode :=
+  lowerBinary (.gmir_riscv .g_sraw) (·.bitwidth = 64) .sraw ()
+
+/-- `gmir_riscv.g_clzw` (`i64`) -> `riscv.clzw`. -/
+def gmirRiscvClzw_pattern : Pattern OpCode :=
+  lowerUnary (.gmir_riscv .g_clzw) 64 .clzw ()
+
+/-- `gmir_riscv.g_ctzw` (`i64`) -> `riscv.ctzw`. -/
+def gmirRiscvCtzw_pattern : Pattern OpCode :=
+  lowerUnary (.gmir_riscv .g_ctzw) 64 .ctzw ()
+
+def gmirRiscvAddw : Puddle.CompiledPattern OpCode := gmirRiscvAddw_pattern.compile
+def gmirRiscvSubw : Puddle.CompiledPattern OpCode := gmirRiscvSubw_pattern.compile
+def gmirRiscvMulw : Puddle.CompiledPattern OpCode := gmirRiscvMulw_pattern.compile
+def gmirRiscvDivw : Puddle.CompiledPattern OpCode := gmirRiscvDivw_pattern.compile
+def gmirRiscvDivuw : Puddle.CompiledPattern OpCode := gmirRiscvDivuw_pattern.compile
+def gmirRiscvRemuw : Puddle.CompiledPattern OpCode := gmirRiscvRemuw_pattern.compile
+def gmirRiscvSllw : Puddle.CompiledPattern OpCode := gmirRiscvSllw_pattern.compile
+def gmirRiscvSrlw : Puddle.CompiledPattern OpCode := gmirRiscvSrlw_pattern.compile
+def gmirRiscvSraw : Puddle.CompiledPattern OpCode := gmirRiscvSraw_pattern.compile
+def gmirRiscvClzw : Puddle.CompiledPattern OpCode := gmirRiscvClzw_pattern.compile
+def gmirRiscvCtzw : Puddle.CompiledPattern OpCode := gmirRiscvCtzw_pattern.compile
 
 /-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
@@ -1363,6 +1637,23 @@ def gmirCttz_pattern : Pattern OpCode :=
 def gmirCtpop_pattern : Pattern OpCode :=
   lowerUnary (.gmir .g_ctpop) 64 .cpop () fun opType resType props =>
     matchLegal .g_ctpop resType props (type₁ := opType)
+
+/--
+  `gmir.g_ctpop` (`i64`) of a `gmir.g_zext` from `i32` -> `riscv.cpopw`, as LLVM's
+  `(ctpop (zexti32 x)) -> CPOPW`.
+-/
+def gmirCpopw_pattern : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let x ← MatchProg.value srcType
+      let zext ← MatchProg.operation (.gmir .g_zext) #[x] #[type]
+      let root ← MatchProg.root (.gmir .g_ctpop) #[zext.res[0]!] #[type]
+      matchLegal .g_ctpop type root.properties
+      return (type, x))
+    (fun (type, x) => createRegOp type #[x] .cpopw (.inl ()))
+    (fun castBackOp => castBackOp)
 
 /-- `gmir.g_bswap` (`i64`) -> `riscv.rev8`. -/
 def gmirBswap_pattern : Pattern OpCode :=
@@ -1416,6 +1707,7 @@ def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
 def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
 def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
 def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
+def gmirCpopw : Puddle.CompiledPattern OpCode := gmirCpopw_pattern.compile
 def gmirBswap : Puddle.CompiledPattern OpCode := gmirBswap_pattern.compile
 def gmirBrev8 : Puddle.CompiledPattern OpCode := gmirBrev8_pattern.compile
 def gmirBitreverse : Puddle.CompiledPattern OpCode := gmirBitreverse_pattern.compile
@@ -1535,10 +1827,76 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
   let generic := preds.map (gmirIcmp_pattern · false)
   (peepholes ++ generic).map (·.compile)
 
+/--
+  The immediate of the `riscv.slti`/`riscv.sltiu` that `gmir.g_icmp pred x, c` (`i64`) is lowered
+  to:
+  `gmir.g_icmp slt x, c` -> `riscv.slti x, c`
+  `gmir.g_icmp ult x, c` -> `riscv.sltiu x, c`
+  `gmir.g_icmp sge x, c` -> `riscv.slti x, c` + `riscv.xori _, 1`
+  `gmir.g_icmp uge x, c` -> `riscv.sltiu x, c` + `riscv.xori _, 1`
+  `gmir.g_icmp sle x, c` -> `riscv.slti x, c + 1`
+  `gmir.g_icmp ule x, c` -> `riscv.sltiu x, c + 1`
+  The immediate must fit in 12 bits, and `ule` excludes `c = -1`, where `c + 1` wraps. This is as
+  in LLVM's `PatGprSimm12` (`RISCVInstrInfo.td`), `TargetLowering::SimplifySetCC`
+  (`TargetLowering.cpp`) and the expansion of `SETGE`/`SETUGE` (`RISCVISelLowering.cpp`).
+-/
+def sltiImm? (pred : Data.LLVM.IntPred) (c : Int) : Option Int :=
+  let value := (BitVec.ofInt 64 c).toInt
+  let imm? : Option Int := match pred with
+    | .slt | .ult | .sge | .uge => some value
+    | .sle => some (value + 1)
+    | .ule => if value = -1 then none else some (value + 1)
+    | _ => none
+  imm?.filter fun imm => -2048 ≤ imm && imm ≤ 2047
+
+/-- `gmir.g_icmp pred x, c` (`i64`) -> `slti`/`sltiu` with the immediate `sltiImm? pred c`,
+    inverted with `xori _ 1` for `sge`/`uge` (see `sltiImm?`). -/
+def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
+  let unsigned := pred matches .ult | .uge | .ule
+  let invert := pred matches .sge | .uge
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value type
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+          fun ⟨const⟩ => (sltiImm? pred const.value).isSome
+      let root ← MatchProg.root (.gmir .g_icmp) #[lhs, constant.res[0]!] #[resType]
+          (fun props => props.predicate = pred)
+      matchLegal .g_icmp resType root.properties (type₁ := type)
+      return (resType, lhs, constant.properties))
+    (fun (resType, lhs, constProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[lhs] #[regType]
+      let cmpOp ← if unsigned then do
+          let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .sltiu)))
+              constProps fun ⟨const⟩ => (sltiImm? pred const.value).map mkRISCVImm
+          CreateProg.operation (.riscv .sltiu) #[castOp.res[0]!] #[regType] props
+        else do
+          let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .slti)))
+              constProps fun ⟨const⟩ => (sltiImm? pred const.value).map mkRISCVImm
+          CreateProg.operation (.riscv .slti) #[castOp.res[0]!] #[regType] props
+      let resOp ← if invert then do
+          let xoriProps ← CreateProg.property (.riscv .xori) (mkRISCVImm 1)
+          CreateProg.operation (.riscv .xori) #[cmpOp.res[0]!] #[regType] xoriProps
+        else pure cmpOp
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[resOp.res[0]!] #[resType])
+    (fun castBackOp => castBackOp)
+
+/-- The `slti`/`sltiu` selections of `gmir.g_icmp` (see `gmirSlti_pattern`). -/
+def gmirSlti : Array (Puddle.CompiledPattern OpCode) :=
+  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map (gmirSlti_pattern · |>.compile)
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
+  /- Composed loop: select expressions of several gMIR operations into one instruction, before
+     the later loops select their inner operations. -/
+  let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
+  let ctx ← match RewritePattern.applyInContext composed ctx op with
+  | none => throw "Error while applying composed instruction-selection patterns"
+  | some ctx => pure ctx
   /- Early loop: fold composed intrinsics and inspect constants before the per-op
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
@@ -1546,7 +1904,9 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
-    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run]
+    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
+    gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
+    gmirCpopw.run, gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
   let ctx ← match RewritePattern.applyInContext early ctx op with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
@@ -1564,6 +1924,9 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
+    gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
+    gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
+    gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
     gmirConstant.run,
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
     gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++

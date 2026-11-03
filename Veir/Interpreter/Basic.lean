@@ -75,15 +75,14 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .hw hwOp => do
     let (vals, act) ← HW.interpretOp' hwOp properties resultTypes blockOperands
     return (vals, mem, act)
-  | .smt smtOp => do
-    let (vals, act) ← SMT.interpretOp' smtOp properties resultTypes operands blockOperands
-    return (vals, mem, act)
   | .func .return => do
     return (#[], mem, some (.return operands))
   | .cir .return => do
     return (#[], mem, some (.return operands))
   | .gmir gmirOp => do
     GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
+  | .gmir_riscv gmirRiscvOp =>
+    GMIR_RISCV.interpretOp' gmirRiscvOp properties resultTypes operands blockOperands mem
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with

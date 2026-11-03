@@ -52,25 +52,22 @@
     // CHECK-LABEL: func.func @addo32
     // uadd.sat(x, y) = uaddo(x, y).carry ? -1 : x + y. The carry is `x + y <u y`.
     %uaddsat = "gmir.g_uaddsat"(%x, %y) : (i32, i32) -> i32
-    // CHECK:      %[[SUM:.*]] = "riscv.addw"
-    // CHECK:      %[[SUM32:.*]] = "builtin.unrealized_conversion_cast"(%[[SUM]]) : (!riscv.reg) -> i32
+    // CHECK:      %[[SUM:.*]] = "gmir_riscv.g_addw"
+    // CHECK-NEXT: %[[SUM32:.*]] = "gmir.g_trunc"(%[[SUM]]) : (i64) -> i32
     // CHECK-NEXT: %[[L:.*]] = "gmir.g_sext"(%[[SUM32]]) : (i32) -> i64
     // CHECK-NEXT: %[[R:.*]] = "gmir.g_sext"(%[[Y:.*]]) : (i32) -> i64
     // CHECK-NEXT: %[[CARRY:.*]] = "gmir.g_icmp"(%[[L]], %[[R]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: %[[ALLONES:.*]] = "gmir.g_constant"() <{"value" = -1 : i64}> : () -> i64
-    // CHECK-NEXT: %[[SUM64:.*]] = "gmir.g_anyext"(%[[SUM32]]) : (i32) -> i64
-    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[CARRY]], %[[ALLONES]], %[[SUM64]]) : (i64, i64, i64) -> i64
+    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[CARRY]], %[[ALLONES]], %[[SUM]]) : (i64, i64, i64) -> i64
     // CHECK-NEXT: %[[UADDSAT:.*]] = "gmir.g_trunc"(%[[SEL]]) : (i64) -> i32
     // usub.sat(x, y) = usubo(x, y).borrow ? 0 : x - y. The borrow is `x <u y`.
     %usubsat = "gmir.g_usubsat"(%x, %y) : (i32, i32) -> i32
-    // CHECK:      %[[DIFF:.*]] = "riscv.subw"
-    // CHECK:      %[[DIFF32:.*]] = "builtin.unrealized_conversion_cast"(%[[DIFF]]) : (!riscv.reg) -> i32
+    // CHECK:      %[[DIFF:.*]] = "gmir_riscv.g_subw"
     // CHECK-NEXT: %[[L:.*]] = "gmir.g_sext"(%[[X:.*]]) : (i32) -> i64
     // CHECK-NEXT: %[[R:.*]] = "gmir.g_sext"(%[[Y]]) : (i32) -> i64
     // CHECK-NEXT: %[[BORROW:.*]] = "gmir.g_icmp"(%[[L]], %[[R]]) <{"predicate" = 6 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: %[[ZERO:.*]] = "gmir.g_constant"() <{"value" = 0 : i64}> : () -> i64
-    // CHECK-NEXT: %[[DIFF64:.*]] = "gmir.g_anyext"(%[[DIFF32]]) : (i32) -> i64
-    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[BORROW]], %[[ZERO]], %[[DIFF64]]) : (i64, i64, i64) -> i64
+    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[BORROW]], %[[ZERO]], %[[DIFF]]) : (i64, i64, i64) -> i64
     // CHECK-NEXT: %[[USUBSAT:.*]] = "gmir.g_trunc"(%[[SEL]]) : (i64) -> i32
     // sadd.sat(x, y) = saddo(x, y).overflow ? (sum >>s 31) + INT_MIN : sum. `g_saddo` is widened, and
     // overflows if the wide sum does not fit in `i32`.
@@ -82,12 +79,10 @@
     // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[SUM]]) : (i32) -> i64
     // CHECK-NEXT: %[[OV:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_constant"() <{"value" = 31 : i64}> : () -> i64
-    // CHECK:      "riscv.sraw"
+    // CHECK:      "gmir_riscv.g_sraw"
     // CHECK:      "gmir.g_constant"() <{"value" = -2147483648 : i64}> : () -> i64
-    // CHECK:      "riscv.addw"
-    // CHECK:      %[[SAT:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
-    // CHECK-NEXT: %[[SAT64:.*]] = "gmir.g_anyext"(%[[SAT]]) : (i32) -> i64
-    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[OV]], %[[SAT64]], %[[WIDE]]) : (i64, i64, i64) -> i64
+    // CHECK:      %[[SAT:.*]] = "gmir_riscv.g_addw"
+    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[OV]], %[[SAT]], %[[WIDE]]) : (i64, i64, i64) -> i64
     // CHECK-NEXT: %[[SADDSAT:.*]] = "gmir.g_trunc"(%[[SEL]]) : (i64) -> i32
     %ssubsat = "gmir.g_ssubsat"(%x, %y) : (i32, i32) -> i32
     // CHECK:      %[[L:.*]] = "gmir.g_sext"(%[[X]]) : (i32) -> i64
@@ -96,11 +91,9 @@
     // CHECK-NEXT: %[[DIFF:.*]] = "gmir.g_trunc"(%[[WIDE]]) : (i64) -> i32
     // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[DIFF]]) : (i32) -> i64
     // CHECK-NEXT: %[[OV:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
-    // CHECK:      "riscv.sraw"
-    // CHECK:      "riscv.addw"
-    // CHECK:      %[[SAT:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
-    // CHECK-NEXT: %[[SAT64:.*]] = "gmir.g_anyext"(%[[SAT]]) : (i32) -> i64
-    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[OV]], %[[SAT64]], %[[WIDE]]) : (i64, i64, i64) -> i64
+    // CHECK:      "gmir_riscv.g_sraw"
+    // CHECK:      %[[SAT:.*]] = "gmir_riscv.g_addw"
+    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[OV]], %[[SAT]], %[[WIDE]]) : (i64, i64, i64) -> i64
     // CHECK-NEXT: %[[SSUBSAT:.*]] = "gmir.g_trunc"(%[[SEL]]) : (i64) -> i32
     "test.test"(%uaddsat, %usubsat, %saddsat, %ssubsat) : (i32, i32, i32, i32) -> ()
     // CHECK: "test.test"(%[[UADDSAT]], %[[USUBSAT]], %[[SADDSAT]], %[[SSUBSAT]])
@@ -145,8 +138,8 @@
     // CHECK-NEXT: %[[USHLSAT:.*]] = "gmir.g_select"(%[[OV]], %[[ALLONES]], %[[SHL]]) : (i64, i64, i64) -> i64
     // The `i32` shifts are custom-legalized to the word shifts.
     %sshlsat32 = "gmir.g_sshlsat"(%a, %b) : (i32, i32) -> i32
-    // CHECK:      "riscv.sllw"
-    // CHECK:      "riscv.sraw"
+    // CHECK:      "gmir_riscv.g_sllw"
+    // CHECK:      "gmir_riscv.g_sraw"
     // CHECK:      %[[SAT:.*]] = "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i64, i64) -> i64
     // CHECK:      %[[SEL:.*]] = "gmir.g_select"(%{{.*}}, %[[SAT]], %{{.*}}) : (i64, i64, i64) -> i64
     // CHECK-NEXT: %[[SSHLSAT32:.*]] = "gmir.g_trunc"(%[[SEL]]) : (i64) -> i32

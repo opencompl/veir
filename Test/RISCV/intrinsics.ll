@@ -138,7 +138,7 @@ define i64 @test_usub_sat(i64 %a, i64 %b) {
 ; CHECK-LABEL: "sym_name" = "test_sshl_sat"
 ; CHECK: "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.sra"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-; CHECK: "riscv.slt"(
+; CHECK: "riscv.slti"(
 ; CHECK: "riscv.czeroeqz"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.czeronez"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
 ; CHECK: "riscv.or"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
