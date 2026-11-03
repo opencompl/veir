@@ -56,6 +56,10 @@ def GMIR_RISCV.getEffects
 def GMIR_RISCV.isConstantLike (_op : GMIR_RISCV) : Bool :=
   false
 
+def GMIR_RISCV.isCommutative : GMIR_RISCV → Bool
+  | .g_addw | .g_subw | .g_mulw => true
+  | _ => false
+
 def GMIR_RISCV.hasSSADominance (_op : GMIR_RISCV) (_index : Nat) : Bool :=
   true
 
@@ -124,6 +128,7 @@ instance : HasOpInfo GMIR_RISCV where
   propagatesPoison := GMIR_RISCV.propagatesPoison
   getEffects := GMIR_RISCV.getEffects
   isConstantLike := GMIR_RISCV.isConstantLike
+  isCommutative := GMIR_RISCV.isCommutative
   hasSSADominance := GMIR_RISCV.hasSSADominance
 
 end
