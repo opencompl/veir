@@ -47,12 +47,13 @@ private theorem muli_iff {signedness : IntegerType.Signedness} (w : Nat) (props 
     (x y : LLVM.Int w) (v : RuntimeValue) :
     InterpretsTo (.arith .muli) props #[IntegerType.mk w signedness] #[.int w x, .int w y] #[v] ↔
       v = .int w (LLVM.Int.mul x y props.attr.nsw props.attr.nuw) := by
-  simp [InterpretsTo, interpretOp', Arith.interpretOp',
-    RuntimeValue.ArrayConforms, RuntimeValue.Conforms]
-  constructor
-  · rintro ⟨_, h⟩
-    exact (h .empty).symm
-  · grind
+  simp only [InterpretsTo, RuntimeValue.ArrayConforms, List.size_toArray, List.length_cons,
+    List.length_nil, Nat.zero_add, Nat.lt_one_iff, RuntimeValue.Conforms, List.getElem!_toArray,
+    List.getElem!_eq_getElem?_getD, forall_eq, Nat.lt_add_one, getElem?_pos, List.getElem_cons_zero,
+    Option.getD_some, true_and, interpretOp', Arith.interpretOp', ne_eq, not_true_eq_false,
+    ↓reduceDIte, LLVM.Int.cast_self, Interp.pure_eq, Interp.bind_ok, Interp.ok.injEq, Prod.mk.injEq,
+    Array.mk.injEq, List.cons.injEq, and_true, forall_const]
+  grind
 
 private theorem add_zero_refines (w : Nat) (x : LLVM.Int w) (nsw nuw : Bool) :
     RuntimeValue.int w (LLVM.Int.add x (.val (BitVec.ofInt w 0)) nsw nuw) ⊒ .int w x := by
