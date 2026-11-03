@@ -1184,7 +1184,7 @@ def memAccesses (len align : Nat) : Array (Nat × Nat) := Id.run do
   return accesses
 
 /-- The accesses for an inline expansion, or none when the intrinsic needs a libcall. -/
-private def memIntrinsicAccesses? (ctx : IRContext OpCode) (isMemset : Bool)
+def memIntrinsicAccesses? (ctx : IRContext OpCode) (isMemset : Bool)
     (props : LLVMMemIntrinsicProperties) (len : ValuePtr) : Option (Array (Nat × Nat)) := do
   let align := if isMemset then memArgAlign props 0
     else min (memArgAlign props 0) (memArgAlign props 1)
@@ -1195,7 +1195,7 @@ private def memIntrinsicAccesses? (ctx : IRContext OpCode) (isMemset : Bool)
   return accesses
 
 /-- Lower a memcpy/memset that cannot be expanded inline to its C library call. -/
-private def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
+def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
       let dst ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
@@ -1224,7 +1224,7 @@ private def memIntrinsicCallPattern (isMemset : Bool) : Pattern OpCode :=
         (.inl (RISCVCallProperties.mk (some callee))))
     (fun call => call)
 
-private def memIntrinsicCalls : Array (CompiledPattern OpCode) :=
+def memIntrinsicCalls : Array (CompiledPattern OpCode) :=
   #[memIntrinsicCallPattern false, memIntrinsicCallPattern true].map (·.compile)
 
 /-- Expand a constant-length memcpy/memset into at most memMaxStores aligned accesses. -/
