@@ -475,19 +475,15 @@ private partial def RewritePattern.applyOnceInContext
 
 /--
 Apply the given rewrite pattern to the operations nested under `root`, visiting them in
-post-order. As in LLVM's InstCombine, a single round is expected to reach a fixpoint: the
-worklist re-enqueues every operation a rewrite may affect.
-
-With `verifyFixpoint`, a second round is run and must not change anything.
+post-order. Rounds are repeated until one makes no change, or until `maxRounds` rounds have run.
 -/
 def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
-    (ctx: WfIRContext OpInfo) (root : OperationPtr) (verifyFixpoint : Bool := true) :
+    (ctx: WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
     Option (WfIRContext OpInfo) := do
-  let (changed, ctx) ← pattern.applyOnceInContext ctx root
-  if verifyFixpoint && changed then
-    let (changedAgain, ctx) ← pattern.applyOnceInContext ctx root
-    if changedAgain then
-      panic! "RewritePattern.applyInContext: did not reach a fixpoint after one round"
-    pure ctx
-  else
-    pure ctx
+  let mut ctx := ctx
+  for _ in 0...maxRounds do
+    let (changed, newCtx) ← pattern.applyOnceInContext ctx root
+    ctx := newCtx
+    if !changed then
+      break
+  pure ctx
