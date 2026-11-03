@@ -246,6 +246,36 @@ validity (typing, dominance, dialect rules) or correctness of the accepted parse
 
 ### Parser benchmark
 
+#### Comparison with main and allocator copy-on-write correction
+
+Parse-only measurements compare main `f9804b76` with `e588b78a` plus the allocator correction
+in `Veir/IR/Buffed/RawAccessors.lean`. Both use Lean 4.35.0, release `-O3`, full LTO, CPU 3
+on a Ryzen 9 9950X, three warm-ups and nine alternating samples. Main's semantic verifier
+is disabled; input reading, printing, and final IR destruction are outside the timing interval.
+Main's parser sources are unchanged; its compiler version and native flags were normalized.
+
+| Input | N | Main | Buffered before correction | Buffered corrected |
+|-------|--:|-----:|---------------------------:|-------------------:|
+| SSA chain | 1,000 | 4.660 ms | 6.672 ms | 4.022 ms |
+| SSA chain | 10,000 | 46.734 ms | 170.420 ms | 39.732 ms |
+| SSA chain | 100,000 | 506.061 ms | 12,503.340 ms | 421.974 ms |
+| Forward SSA chain | 10,000 | 46.083 ms | 151.723 ms | 42.090 ms |
+| Nested regions | 10,000 | 99.695 ms | 1,431.994 ms | 86.922 ms |
+
+Times are medians; the before-correction column is from the preceding benchmark session.
+N counts arithmetic steps for SSA chains (N+2 total operations), definitions for forward
+chains (N+1 operations), and definition/region-owner/nested-user groups for nested inputs
+(3N+1 operations).
+
+The initial slowdown was an allocator COW bug, not specification evaluation. Profiling the
+100,000-step input put 92% of sampled CPU time in memory copying under `IRBufContext.reserve`.
+Its fresh-allocation branch read `bctx.usize` after extending the buffer, retaining the old
+buffer and forcing a full copy at almost every allocation. Using `bctx.size.toUInt64` reuses
+the scalar size already read by the capacity check; generated C no longer retains the buffer
+for a later size read. COW checks and all bounds/preservation proofs remain intact.
+
+#### Historical comparison before the allocator correction
+
 A local comparison against the immediately preceding runtime-registry parser used CPU affinity,
 three warm-ups, and nine alternating samples. Median parse times:
 

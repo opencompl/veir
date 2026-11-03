@@ -289,7 +289,10 @@ def IRBufContext.reserve (bctx : IRBufContext) (size : UInt64) :
         simp only [IsIncluded, ExArray.range_lower, ExArray.range_upper]
         omega) }, address)
     else none
-  | none => (bctx.alloc size).map (fun ctx => (ctx, bctx.usize))
+  -- Reuse the Nat size read by `alloc`'s capacity check. Using `bctx.usize` here
+  -- emits a distinct FFI read *after* extension, keeping the old buffer alive and
+  -- forcing a full copy on each fresh allocation. The cached scalar needs no buffer.
+  | none => (bctx.alloc size).map (fun ctx => (ctx, bctx.size.toUInt64))
 
 @[simp]
 theorem IRBufContext.alloc_freeList {bctx bctx' : IRBufContext} {size : UInt64}
@@ -313,8 +316,10 @@ theorem IRBufContext.reserve_bounds {bctx bctx' : IRBufContext} {size address : 
     obtain ⟨buf, ha, heq⟩ := h
     cases heq
     have := alloc_size ha
+    have hstart : bctx.mem.size.toUInt64.toNat = bctx.mem.size := by
+      simp only [Nat.toUInt64_eq, ExArray.ofNat_size_eq_usize, ExArray.usize_size_toNat]
     simp only [size_def] at this
-    simp only [usize_toNat, size_def]
+    simp only [hstart, size_def]
     omega
 
 theorem IRBufContext.reserve_free_valid {bctx bctx' : IRBufContext} {size address : UInt64}

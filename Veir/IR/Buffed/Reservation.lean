@@ -33,7 +33,9 @@ theorem reserve_origin {b b' : IRBufContext} {size address : UInt64}
   · simp only [Option.map_eq_some_iff] at h
     obtain ⟨buf, ha, heq⟩ := h
     cases heq
-    exact .inr ⟨b.usize_toNat, alloc_freeList ha⟩
+    exact .inr ⟨by
+      simpa only [IRBufContext.size, IRBufContext.usize, Nat.toUInt64_eq,
+        ExArray.ofNat_size_eq_usize] using b.usize_toNat, alloc_freeList ha⟩
 
 theorem reserve_read_disjoint {b b' : IRBufContext} {size address : UInt64}
     (h : b.reserve size = some (b', address)) (w : Nat) (n len : UInt64)
