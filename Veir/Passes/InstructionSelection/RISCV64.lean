@@ -1245,21 +1245,23 @@ def gmirOr : Puddle.CompiledPattern OpCode := gmirOr_pattern.compile
 def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 
 /--
-  `opcode` (`i64`) whose rhs is a `gmir.g_constant` in `[lo, hi]` -> the immediate form `riscvOp`.
+  `srcOp` (`i64`) whose rhs is a `gmir.g_constant` in `[lo, hi]` -> the immediate form `riscvOp`.
   Mirrors `PatGprImm`. The constant is only matched on the rhs, where the post-legalizer combiner
-  places it.
+  places it. `guard` adds conditions on the matched type and on the properties of `srcOp`.
 
   https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1467-L1477
 -/
-def lowerBinaryImm (opcode : GMIR) (riscvOp : Riscv)
-    (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (lo hi : Int) : Pattern OpCode :=
+def lowerBinaryImm (srcOp : OpCode) (riscvOp : Riscv)
+    (h : Riscv.propertiesOf riscvOp = RISCVImmediateProperties) (lo hi : Int)
+    (guard : Handle OpCode .type → Handle OpCode (.prop srcOp) → MatchProg.Builder Unit :=
+      fun _ _ => pure ()) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
       let lhs ← MatchProg.value type
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      let root ← MatchProg.root (.gmir opcode) #[lhs, constant.res[0]!] #[type]
-      matchLegal opcode type root.properties
+      let root ← MatchProg.root srcOp #[lhs, constant.res[0]!] #[type]
+      guard type root.properties
       MatchProg.matchNative constant.properties fun ⟨const⟩ =>
         let imm := (BitVec.ofInt 64 const.value).toInt
         lo ≤ imm && imm ≤ hi
@@ -1275,25 +1277,48 @@ def lowerBinaryImm (opcode : GMIR) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /-- `gmir.g_add` (`i64`) with a simm12 constant rhs -> `riscv.addi`. -/
-def gmirAddi_pattern : Pattern OpCode := lowerBinaryImm .g_add .addi rfl (-2048) 2047
+def gmirAddi_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_add) .addi rfl (-2048) 2047 (guard := matchLegal .g_add)
 
 /-- `gmir.g_and` (`i64`) with a simm12 constant rhs -> `riscv.andi`. -/
-def gmirAndi_pattern : Pattern OpCode := lowerBinaryImm .g_and .andi rfl (-2048) 2047
+def gmirAndi_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_and) .andi rfl (-2048) 2047 (guard := matchLegal .g_and)
 
 /-- `gmir.g_or` (`i64`) with a simm12 constant rhs -> `riscv.ori`. -/
-def gmirOri_pattern : Pattern OpCode := lowerBinaryImm .g_or .ori rfl (-2048) 2047
+def gmirOri_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_or) .ori rfl (-2048) 2047 (guard := matchLegal .g_or)
 
 /-- `gmir.g_xor` (`i64`) with a simm12 constant rhs -> `riscv.xori`. -/
-def gmirXori_pattern : Pattern OpCode := lowerBinaryImm .g_xor .xori rfl (-2048) 2047
+def gmirXori_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_xor) .xori rfl (-2048) 2047 (guard := matchLegal .g_xor)
 
 /-- `gmir.g_shl` (`i64`) with a uimm6 constant rhs -> `riscv.slli`. -/
-def gmirSlli_pattern : Pattern OpCode := lowerBinaryImm .g_shl .slli rfl 0 63
+def gmirSlli_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_shl) .slli rfl 0 63 (guard := matchLegal .g_shl)
 
 /-- `gmir.g_lshr` (`i64`) with a uimm6 constant rhs -> `riscv.srli`. -/
-def gmirSrli_pattern : Pattern OpCode := lowerBinaryImm .g_lshr .srli rfl 0 63
+def gmirSrli_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_lshr) .srli rfl 0 63 (guard := matchLegal .g_lshr)
 
 /-- `gmir.g_ashr` (`i64`) with a uimm6 constant rhs -> `riscv.srai`. -/
-def gmirSrai_pattern : Pattern OpCode := lowerBinaryImm .g_ashr .srai rfl 0 63
+def gmirSrai_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir .g_ashr) .srai rfl 0 63 (guard := matchLegal .g_ashr)
+
+/-- `gmir_riscv.g_addw` (`i64`) with a simm12 constant rhs -> `riscv.addiw`. -/
+def gmirRiscvAddiw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_addw) .addiw rfl (-2048) 2047
+
+/-- `gmir_riscv.g_sllw` (`i64`) with a uimm5 constant rhs -> `riscv.slliw`. -/
+def gmirRiscvSlliw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_sllw) .slliw rfl 0 31
+
+/-- `gmir_riscv.g_srlw` (`i64`) with a uimm5 constant rhs -> `riscv.srliw`. -/
+def gmirRiscvSrliw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_srlw) .srliw rfl 0 31
+
+/-- `gmir_riscv.g_sraw` (`i64`) with a uimm5 constant rhs -> `riscv.sraiw`. -/
+def gmirRiscvSraiw_pattern : Pattern OpCode :=
+  lowerBinaryImm (.gmir_riscv .g_sraw) .sraiw rfl 0 31
 
 def gmirAddi : Puddle.CompiledPattern OpCode := gmirAddi_pattern.compile
 def gmirAndi : Puddle.CompiledPattern OpCode := gmirAndi_pattern.compile
@@ -1302,6 +1327,10 @@ def gmirXori : Puddle.CompiledPattern OpCode := gmirXori_pattern.compile
 def gmirSlli : Puddle.CompiledPattern OpCode := gmirSlli_pattern.compile
 def gmirSrli : Puddle.CompiledPattern OpCode := gmirSrli_pattern.compile
 def gmirSrai : Puddle.CompiledPattern OpCode := gmirSrai_pattern.compile
+def gmirRiscvAddiw : Puddle.CompiledPattern OpCode := gmirRiscvAddiw_pattern.compile
+def gmirRiscvSlliw : Puddle.CompiledPattern OpCode := gmirRiscvSlliw_pattern.compile
+def gmirRiscvSrliw : Puddle.CompiledPattern OpCode := gmirRiscvSrliw_pattern.compile
+def gmirRiscvSraiw : Puddle.CompiledPattern OpCode := gmirRiscvSraiw_pattern.compile
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
@@ -1625,6 +1654,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
+    gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
     gmirCpopw.run]
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
