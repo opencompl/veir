@@ -145,23 +145,5 @@ example {w t : Nat} (a b : BitVec w) (exta extb : BitVec (t - w)) (hqw : w ≤ t
     (bound : t ≤ 16) :
     a * b = ((exta ++ a) * (extb ++ b)).setWidth w := by
   pbv_decide 64 (blastWidth := 16) -bv_decide
-  -- grind only [t1 16, t2 16, t3 16, t5 16, t6 16]
-  -- have f1 : w ≤ (t - w) + w := by grind
-  -- have f2 : m_t_sub_w ≤ m_w := by sorry
-  -- have f3 : w ≤ w := by simp
-  set_option trace.Meta.Tactic.simp.discharge true in
   simp only [h_m_t_sub_w_add_w, h_m_w, h_m_t, h_m_t_sub_w]
-  -- simp only [f1, f3, t1 16, t2 16, t3 16, t6, t5 16]
-  -- set_option trace.grind.ematch.instance.assignment true in
-  hb grind [t1 16, t2 16, t3 16, t6, t5 16]
-
-  -- simp only [h_m_w, h_m_t, h_m_t_sub_w, h_m_t_sub_w_add_w, h_m_lit16, f1, f3, t1 16, t2 16, t3 16, t5 16, t6 16]
-  -- simp only [h_m_w, h_m_t, h_m_t_sub_w, h_m_t_sub_w_add_w, h_m_lit16,
-  --   f1, f3, t1 16, t2 16, t3 16, t5 16, t6 16]
-  -- set_option trace.grind.ematch.instance.assignment true in
-  -- set_option trace.grind.ematch.instance true in
-  -- set_option trace.grind.ematch.pattern true in
-  -- have : m_t_sub_w ≤ m_w := by grind
-  -- grind => instantiate only [t1, t2, t3, t5, t6]
-
-  -- grind only [t1]
+  hb simp (disch := omega) only [t1 16, t2 16, t3 16, t6, t5 16]
