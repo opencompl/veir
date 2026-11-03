@@ -496,9 +496,8 @@ functions, since rewriting a function also covers anything nested in it.
 private partial def collectNestedFunctions (ctx : IRContext OpInfo) (op : OperationPtr)
     (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
   let mut acc := acc
-  let numRegions := op.getNumRegions! ctx
-  for i in 0...numRegions do
-    let mut block? := (op.getRegion! ctx i).getFirstBlock! ctx
+  for region in op.getRegions! ctx do
+    let mut block? := region.getFirstBlock! ctx
     while let some block := block? do
       let mut child? := block.getFirstOp! ctx
       while let some child := child? do
