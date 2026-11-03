@@ -22,10 +22,33 @@ public section
 
 namespace LegalizerInfo
 
-/-- Applies the action of the rules to `op`. Does not match legal operations or illegal ones. -/
+/-- Whether `opcode` is an artifact, as in LLVM's `Legalizer.cpp`. -/
+private def isArtifact : GMIR → Bool
+  | .g_trunc | .g_zext | .g_anyext | .g_sext | .g_merge_values | .g_unmerge_values => true
+  | _ => false
+
+/-- Whether an operand of `op` is the result of a gMIR operation that is not legal yet. -/
+private def hasIllegalSource (info : LegalizerInfo) (ctx : IRContext OpCode) (op : OperationPtr) :
+    Bool :=
+  (op.getOperands! ctx).any fun
+    | .opResult result =>
+      match toDialect? GMIR (result.op.getOpType! ctx) with
+      | some opcode => !(info.getAction ctx result.op opcode matches .legal)
+      | none => false
+    | _ => false
+
+/--
+Applies the action of the rules to `op`. Does not match legal operations or illegal ones.
+
+An artifact is not legalized while its source is still illegal. LLVM's legalizer legalizes all
+other instructions before it combines artifacts, and only legalizes the artifacts it cannot combine.
+Legalizing the source first may turn it into an artifact that the artifact combiner folds away,
+e.g. widening a `g_icmp` under a `g_zext` leaves `g_zext (g_trunc (g_icmp))`.
+-/
 private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCode :=
   fun ctx op => do
     let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return (ctx, none)
+    if isArtifact opcode && hasIllegalSource info ctx.raw op then return (ctx, none)
     let pattern? : Option (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
       | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
       | .lower => (lower? opcode).map Puddle.Pattern.interpret

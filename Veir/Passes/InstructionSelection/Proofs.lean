@@ -778,41 +778,39 @@ theorem umin_refinement {x y : LLVM.Int 64} :
 
 /-! ### Saturating integer intrinsic lowerings
 
-  Each theorem below matches the RV64+Zbb+Zicond sequence emitted by the
-  corresponding pattern in `Veir/Passes/InstructionSelection/RISCV64.lean`,
-  which in turn mirrors LLVM's generic expansions
-  (`llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp`). Operand order follows
-  the `riscv.OP #[a, b]` ↦ `Data.RISCV.OP b a` convention (second operand is
-  `rs2`). For the shift variants, a shift amount ≥ 64 makes the LLVM operation
-  poison, which refines any register value, so the RV64 low-6-bit masking is
+  Each theorem below matches the RV64+Zbb+Zicond sequence that the `riscv` pipeline emits for the
+  `i64` intrinsic: `llvm-to-gmir` translates it to `g_*sat`, `legalize-riscv64` lowers that as
+  LLVM's GlobalISel does (`lowerAddSubSatToMinMax` and `lowerShlSat` in
+  `Veir/Passes/Legalization/LegalizerHelper.lean`), and `isel-riscv64` selects the result, with
+  each `g_select` becoming the Zicond select `or (czero.eqz t c) (czero.nez f c)`. Operand order
+  follows the `riscv.OP #[a, b]` ↦ `Data.RISCV.OP b a` convention (second operand is `rs2`), and
+  the zero register `x0` is `Data.RISCV.li 0#64`. For the shift variants, a shift amount ≥ 64 makes
+  the LLVM operation poison, which refines any register value, so the RV64 low-6-bit masking is
   sound.
 -/
 
 /--
   Prove the correctness of the `sadd.sat` lowering (`llvm.intr.sadd.sat` ->
-  signed saturating-add with Zicond select).
+  `x + smin(smax(INT_MIN - smin(x, 0), y), INT_MAX - smax(x, 0))`).
 -/
 theorem saddSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.saddSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
-         let sum := Data.RISCV.add y0 x0
-         let rhsSign := Data.RISCV.srli 63#6 y0
-         let carryLike := Data.RISCV.slt x0 sum
-         let sumSign := Data.RISCV.srai 63#6 sum
-         let intMin := Data.RISCV.slli 63#6 m1
-         let overflow := Data.RISCV.xor carryLike rhsSign
-         let sat := Data.RISCV.xor intMin sumSign
-         Data.RISCV.or
-           (Data.RISCV.czeronez overflow sum)
-           (Data.RISCV.czeroeqz overflow sat)) 64) := by
+         let zero := Data.RISCV.li 0#64
+         let intMax := Data.RISCV.li (BitVec.ofInt 64 (2 ^ 63 - 1))
+         let intMin := Data.RISCV.li (BitVec.ofInt 64 (-2 ^ 63))
+         let hi := Data.RISCV.sub (Data.RISCV.max zero x0) intMax
+         let lo := Data.RISCV.sub (Data.RISCV.min zero x0) intMin
+         let clamped := Data.RISCV.min hi (Data.RISCV.max y0 lo)
+         Data.RISCV.add clamped x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `ssub.sat` lowering (`llvm.intr.ssub.sat` ->
-  signed saturating-sub with Zicond select).
+  `x - smin(smax(smax(x, -1) - INT_MAX, y), smin(x, -1) - INT_MIN)`). The post-legalizer
+  combiner turns the subtractions of constants into additions of their negations.
 -/
 theorem ssubSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.ssubSat x y) ⊒
@@ -820,59 +818,58 @@ theorem ssubSat_refinement {x y : LLVM.Int 64} :
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
          let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
-         let diff := Data.RISCV.sub y0 x0
-         let cmp := Data.RISCV.slt y0 x0
-         let diffSignBit := Data.RISCV.srli 63#6 diff
-         let diffSign := Data.RISCV.srai 63#6 diff
-         let intMin := Data.RISCV.slli 63#6 m1
-         let overflow := Data.RISCV.xor diffSignBit cmp
-         let sat := Data.RISCV.xor intMin diffSign
-         Data.RISCV.or
-           (Data.RISCV.czeronez overflow diff)
-           (Data.RISCV.czeroeqz overflow sat)) 64) := by
+         let negIntMax := Data.RISCV.li (BitVec.ofInt 64 (-(2 ^ 63 - 1)))
+         let intMin := Data.RISCV.li (BitVec.ofInt 64 (-2 ^ 63))
+         let lo := Data.RISCV.add negIntMax (Data.RISCV.max m1 x0)
+         let hi := Data.RISCV.add intMin (Data.RISCV.min m1 x0)
+         let clamped := Data.RISCV.min hi (Data.RISCV.max y0 lo)
+         Data.RISCV.sub clamped x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `uadd.sat` lowering
-  (`llvm.intr.uadd.sat` -> `umin(a, ~b) + b`).
+  (`llvm.intr.uadd.sat` -> `x + umin(~x, y)`).
 -/
 theorem uaddSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.uaddSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         let notRhs := Data.RISCV.xori (BitVec.ofInt 12 (-1)) y0
-         Data.RISCV.add y0 (Data.RISCV.minu notRhs x0)) 64) := by
+         let notLhs := Data.RISCV.xori (BitVec.ofInt 12 (-1)) x0
+         Data.RISCV.add (Data.RISCV.minu y0 notLhs) x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `usub.sat` lowering
-  (`llvm.intr.usub.sat` -> `umax(a, b) - b`).
+  (`llvm.intr.usub.sat` -> `x - umin(x, y)`).
 -/
 theorem usubSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.usubSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         Data.RISCV.sub y0 (Data.RISCV.maxu y0 x0)) 64) := by
+         Data.RISCV.sub (Data.RISCV.minu y0 x0) x0) 64) := by
   veir_bv_decide
 
 /--
   Prove the correctness of the `sshl.sat` lowering (`llvm.intr.sshl.sat` ->
-  signed saturating-shl with Zicond select).
+  `x != (x << y) >>s y ? (x <s 0 ? INT_MIN : INT_MAX) : x << y`, with Zicond selects).
 -/
 theorem sshlSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.sshlSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
-         let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
+         let zero := Data.RISCV.li 0#64
          let shifted := Data.RISCV.sll y0 x0
          let unshifted := Data.RISCV.sra y0 shifted
-         let sign := Data.RISCV.srai 63#6 x0
-         let intMax := Data.RISCV.srli 1#6 m1
-         let overflow := Data.RISCV.xor unshifted x0
-         let sat := Data.RISCV.xor intMax sign
+         let intMin := Data.RISCV.li (BitVec.ofInt 64 (-2 ^ 63))
+         let intMax := Data.RISCV.li (BitVec.ofInt 64 (2 ^ 63 - 1))
+         let negative := Data.RISCV.slt zero x0
+         let sat := Data.RISCV.or
+           (Data.RISCV.czeronez negative intMax)
+           (Data.RISCV.czeroeqz negative intMin)
+         let overflow := Data.RISCV.sltu (Data.RISCV.xor x0 unshifted) zero
          Data.RISCV.or
            (Data.RISCV.czeronez overflow shifted)
            (Data.RISCV.czeroeqz overflow sat)) 64) := by
@@ -880,19 +877,21 @@ theorem sshlSat_refinement {x y : LLVM.Int 64} :
 
 /--
   Prove the correctness of the `ushl.sat` lowering (`llvm.intr.ushl.sat` ->
-  unsigned saturating-shl with the `sltiu`/`addi`/`or` mask idiom).
+  `x != (x << y) >>u y ? -1 : x << y`, with a Zicond select).
 -/
 theorem ushlSat_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.ushlSat x y) ⊒
       (RISCV.Reg.toInt
         (let x0 := LLVM.Int.toReg x
          let y0 := LLVM.Int.toReg y
+         let zero := Data.RISCV.li 0#64
          let shifted := Data.RISCV.sll y0 x0
          let unshifted := Data.RISCV.srl y0 shifted
-         let lostBits := Data.RISCV.xor unshifted x0
-         let noOverflow := Data.RISCV.sltiu 1#12 lostBits
-         let overflowMask := Data.RISCV.addi (BitVec.ofInt 12 (-1)) noOverflow
-         Data.RISCV.or shifted overflowMask) 64) := by
+         let m1 := Data.RISCV.li (BitVec.ofInt 64 (-1))
+         let overflow := Data.RISCV.sltu (Data.RISCV.xor x0 unshifted) zero
+         Data.RISCV.or
+           (Data.RISCV.czeronez overflow shifted)
+           (Data.RISCV.czeroeqz overflow m1)) 64) := by
   veir_bv_decide
 
 /--

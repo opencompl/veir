@@ -261,7 +261,244 @@ def lowerFunnelShift (isLeft : Bool) : Pattern OpCode :=
       CreateProg.operation (.gmir .g_or) #[shX.res[0]!, shY.res[0]!] #[type])
     (fun op => op)
 
+/--
+Lowers the saturating `opcode`, a signed (`isSigned`) or unsigned addition (`isAdd`) or
+subtraction, to min and max operations, as LLVM's `LegalizerHelper::lowerAddSubSatToMinMax`:
+
+  uadd.sat a b = a + umin (~a) b
+  usub.sat a b = a - umin a b
+  sadd.sat a b = a + smin (smax (INT_MIN - smin a 0) b) (INT_MAX - smax a 0)
+  ssub.sat a b = a - smin (smax (smax a (-1) - INT_MAX) b) (smin a (-1) - INT_MIN)
+
+The operations are created in the same order as in LLVM.
+-/
+def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpCode :=
+  let baseOp : GMIR := if isAdd then .g_add else .g_sub
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      if isSigned then
+        let maxVal ← widthConstant type type fun w => 2 ^ (w - 1) - 1
+        let minVal ← widthConstant type type fun w => -2 ^ (w - 1)
+        let (lo, hi) ← if isAdd then do
+            let zero ← createConstant type 0
+            let smax ← CreateProg.operation (.gmir .g_smax) #[lhs, zero.res[0]!] #[type]
+            let hi ← CreateProg.operation (.gmir .g_sub) #[maxVal.res[0]!, smax.res[0]!] #[type]
+            let smin ← CreateProg.operation (.gmir .g_smin) #[lhs, zero.res[0]!] #[type]
+            let lo ← CreateProg.operation (.gmir .g_sub) #[minVal.res[0]!, smin.res[0]!] #[type]
+            pure (lo, hi)
+          else do
+            let negOne ← createConstant type (-1)
+            let smax ← CreateProg.operation (.gmir .g_smax) #[lhs, negOne.res[0]!] #[type]
+            let lo ← CreateProg.operation (.gmir .g_sub) #[smax.res[0]!, maxVal.res[0]!] #[type]
+            let smin ← CreateProg.operation (.gmir .g_smin) #[lhs, negOne.res[0]!] #[type]
+            let hi ← CreateProg.operation (.gmir .g_sub) #[smin.res[0]!, minVal.res[0]!] #[type]
+            pure (lo, hi)
+        let clamp ← CreateProg.operation (.gmir .g_smax) #[lo.res[0]!, rhs] #[type]
+        let rhsClamped ← CreateProg.operation (.gmir .g_smin) #[clamp.res[0]!, hi.res[0]!] #[type]
+        CreateProg.operation (.gmir baseOp) #[lhs, rhsClamped.res[0]!] #[type]
+      else
+        let notLhs ← if isAdd then do
+            let allOnes ← createConstant type (-1)
+            let not ← CreateProg.operation (.gmir .g_xor) #[lhs, allOnes.res[0]!] #[type]
+            pure not.res[0]!
+          else pure lhs
+        let min ← CreateProg.operation (.gmir .g_umin) #[notLhs, rhs] #[type]
+        CreateProg.operation (.gmir baseOp) #[lhs, min.res[0]!] #[type])
+    (fun op => op)
+
+/-- Matches the overflowing `opcode`, returning its result type, overflow type and operands. -/
+private def matchOverflowing (opcode : GMIR) : MatchProg.Builder
+    (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
+  let type ← MatchProg.type (Attr := IntegerType)
+  let ovType ← MatchProg.type (Attr := IntegerType)
+  let lhs ← MatchProg.value type
+  let rhs ← MatchProg.value type
+  let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
+  return (type, ovType, lhs, rhs)
+
+/--
+Lowers `g_uaddo` (`isAdd`) or `g_usubo`, as LLVM's `LegalizerHelper::lower`. The sum wraps around
+exactly when it is smaller than an operand, and the difference exactly when `lhs <u rhs`:
+
+  uaddo a b = (a + b, a + b <u b)
+  usubo a b = (a - b, a <u b)
+-/
+def lowerUAddSubO (isAdd : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (matchOverflowing (if isAdd then .g_uaddo else .g_usubo))
+    (fun (type, ovType, lhs, rhs) => do
+      let ultProps ← CreateProg.property (.gmir .g_icmp) { predicate := .ult }
+      if isAdd then
+        let sum ← CreateProg.operation (.gmir .g_add) #[lhs, rhs] #[type]
+        let carry ← CreateProg.operation (.gmir .g_icmp) #[sum.res[0]!, rhs] #[ovType] ultProps
+        return #[sum.res[0]!, carry.res[0]!]
+      else
+        let diff ← CreateProg.operation (.gmir .g_sub) #[lhs, rhs] #[type]
+        let borrow ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[ovType] ultProps
+        return #[diff.res[0]!, borrow.res[0]!])
+    (fun results => results)
+
+/--
+Lowers `g_saddo` (`isAdd`) or `g_ssubo`, as LLVM's `LegalizerHelper::lowerSADDO_SSUBO`:
+
+  saddo a b = (a + b, (b <s 0) ^ (a + b <s a))
+  ssubo a b = (a - b, (a <s b) ^ (a - b <s 0))
+
+The sum is smaller than `a` exactly when `b` is negative, unless it overflows. The difference is
+negative exactly when `a <s b`, unless it overflows. The operations are created in the same order
+as in LLVM.
+-/
+def lowerSAddSubO (isAdd : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (matchOverflowing (if isAdd then .g_saddo else .g_ssubo))
+    (fun (type, ovType, lhs, rhs) => do
+      let res ← CreateProg.operation (.gmir (if isAdd then .g_add else .g_sub)) #[lhs, rhs] #[type]
+      let zero ← createConstant type 0
+      let sltProps ← CreateProg.property (.gmir .g_icmp) { predicate := .slt }
+      let (cmp0, cmp1) ← if isAdd then do
+          let resultLowerThanLhs ← CreateProg.operation (.gmir .g_icmp)
+            #[res.res[0]!, lhs] #[ovType] sltProps
+          let rhsNegative ← CreateProg.operation (.gmir .g_icmp)
+            #[rhs, zero.res[0]!] #[ovType] sltProps
+          pure (rhsNegative, resultLowerThanLhs)
+        else do
+          let lhsLessThanRhs ← CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[ovType] sltProps
+          let resultNegative ← CreateProg.operation (.gmir .g_icmp)
+            #[res.res[0]!, zero.res[0]!] #[ovType] sltProps
+          pure (lhsLessThanRhs, resultNegative)
+      let ov ← CreateProg.operation (.gmir .g_xor) #[cmp0.res[0]!, cmp1.res[0]!] #[ovType]
+      return #[res.res[0]!, ov.res[0]!])
+    (fun results => results)
+
+/--
+Widens the result and operands of the overflowing `opcode` to `width` bits, as LLVM's
+`LegalizerHelper::widenScalarAddSubOverflow`. The operands are extended according to the signedness
+of `opcode`, and the operation overflows exactly when its wide result does not survive a truncation
+and the same extension:
+
+  [su]addo a b = let r := ext a + ext b; (trunc r, r != ext (trunc r))
+
+LLVM builds `trunc r` twice, and its builder deduplicates them (CSE); we build it once.
+-/
+def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
+  let (baseOp, extOp) : GMIR × GMIR := match opcode with
+    | .g_saddo => (.g_add, .g_sext)
+    | .g_ssubo => (.g_sub, .g_sext)
+    | .g_uaddo => (.g_add, .g_zext)
+    | _ => (.g_sub, .g_zext)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let ovType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
+      return (type, ovType, lhs, rhs))
+    (fun (type, ovType, lhs, rhs) => do
+      let wideType ← CreateProg.type (IntegerType.signless width)
+      let lhsExt ← CreateProg.operation (.gmir extOp) #[lhs] #[wideType]
+      let rhsExt ← CreateProg.operation (.gmir extOp) #[rhs] #[wideType]
+      let newOp ← CreateProg.operation (.gmir baseOp)
+        #[lhsExt.res[0]!, rhsExt.res[0]!] #[wideType]
+      let trunc ← CreateProg.operation (.gmir .g_trunc) #[newOp.res[0]!] #[type]
+      let ext ← CreateProg.operation (.gmir extOp) #[trunc.res[0]!] #[wideType]
+      let neProps ← CreateProg.property (.gmir .g_icmp) { predicate := .ne }
+      let ov ← CreateProg.operation (.gmir .g_icmp)
+        #[newOp.res[0]!, ext.res[0]!] #[ovType] neProps
+      return #[trunc.res[0]!, ov.res[0]!])
+    (fun results => results)
+
 public section
+
+/--
+Lowers the saturating `opcode`, a signed (`isSigned`) or unsigned addition (`isAdd`) or
+subtraction, to the matching overflowing operation and a `g_select`, as LLVM's
+`LegalizerHelper::lowerAddSubSatToAddoSubo`:
+
+  uadd.sat a b = let (r, ov) := uaddo a b; ov ? -1 : r
+  usub.sat a b = let (r, ov) := usubo a b; ov ? 0 : r
+  sadd.sat a b = let (r, ov) := saddo a b; ov ? (r >>s (w - 1)) + INT_MIN : r
+  ssub.sat a b = let (r, ov) := ssubo a b; ov ? (r >>s (w - 1)) + INT_MIN : r
+
+On signed overflow, the wrapped result has the opposite sign of the exact one, so `r >>s (w - 1)`
+is `0` when it saturates to `INT_MAX` and `-1` when it saturates to `INT_MIN`.
+
+The operations are created in the same order as in LLVM. LLVM's `lower` picks this lowering when
+min and max are not legal, which `lower?` cannot query, so targets use it as a custom legalization
+instead.
+-/
+def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpCode :=
+  let overflowOp : GMIR := match isSigned, isAdd with
+    | false, true => .g_uaddo
+    | true, true => .g_saddo
+    | false, false => .g_usubo
+    | true, false => .g_ssubo
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let overflowRes ← CreateProg.operation (.gmir overflowOp) #[lhs, rhs] #[type, boolType]
+      let tmp := overflowRes.res[0]!
+      let ov := overflowRes.res[1]!
+      let clamp ← if isSigned then do
+          let shiftAmount ← widthConstant type type (· - 1)
+          let sign ← CreateProg.operation (.gmir .g_ashr) #[tmp, shiftAmount.res[0]!] #[type]
+          let minVal ← widthConstant type type fun w => -2 ^ (w - 1)
+          CreateProg.operation (.gmir .g_add) #[sign.res[0]!, minVal.res[0]!] #[type]
+        else createConstant type (if isAdd then -1 else 0)
+      CreateProg.operation (.gmir .g_select) #[ov, clamp.res[0]!, tmp] #[type])
+    (fun op => op)
+
+/--
+Lowers the saturating left shift `g_sshlsat` (`isSigned`) or `g_ushlsat`, as LLVM's
+`LegalizerHelper::lowerShlSat`. The shift overflows if shifting the result back does not give the
+shifted value:
+
+  sshl.sat a b = a != (a << b) >>s b ? (a <s 0 ? INT_MIN : INT_MAX) : a << b
+  ushl.sat a b = a != (a << b) >>u b ? UINT_MAX : a << b
+
+The operations are created in the same order as in LLVM.
+-/
+def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
+  let opcode : GMIR := if isSigned then .g_sshlsat else .g_ushlsat
+  let shiftBack : GMIR := if isSigned then .g_ashr else .g_lshr
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value amtType
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let result ← CreateProg.operation (.gmir .g_shl) #[lhs, rhs] #[type]
+      let orig ← CreateProg.operation (.gmir shiftBack) #[result.res[0]!, rhs] #[type]
+      let satVal ← if isSigned then do
+          let satMin ← widthConstant type type fun w => -2 ^ (w - 1)
+          let satMax ← widthConstant type type fun w => 2 ^ (w - 1) - 1
+          let zero ← createConstant type 0
+          let cmpProps ← CreateProg.property (.gmir .g_icmp) { predicate := .slt }
+          let cmp ← CreateProg.operation (.gmir .g_icmp) #[lhs, zero.res[0]!] #[boolType] cmpProps
+          CreateProg.operation (.gmir .g_select)
+            #[cmp.res[0]!, satMin.res[0]!, satMax.res[0]!] #[type]
+        else createConstant type (-1)
+      let ovProps ← CreateProg.property (.gmir .g_icmp) { predicate := .ne }
+      let ov ← CreateProg.operation (.gmir .g_icmp) #[lhs, orig.res[0]!] #[boolType] ovProps
+      CreateProg.operation (.gmir .g_select)
+        #[ov.res[0]!, satVal.res[0]!, result.res[0]!] #[type])
+    (fun op => op)
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
@@ -271,6 +508,16 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_fshr => lowerFunnelShift false
   | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
   | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
+  | .g_uaddsat => lowerAddSubSatToMinMax .g_uaddsat false true
+  | .g_usubsat => lowerAddSubSatToMinMax .g_usubsat false false
+  | .g_saddsat => lowerAddSubSatToMinMax .g_saddsat true true
+  | .g_ssubsat => lowerAddSubSatToMinMax .g_ssubsat true false
+  | .g_sshlsat => lowerShlSat true
+  | .g_ushlsat => lowerShlSat false
+  | .g_uaddo => lowerUAddSubO true
+  | .g_usubo => lowerUAddSubO false
+  | .g_saddo => lowerSAddSubO true
+  | .g_ssubo => lowerSAddSubO false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -337,6 +584,10 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   -- The amount is an unsigned number of bits, so its value must be kept as such.
   | .g_fshl, .type 1, width => widenTypeGroup .g_fshl (.type 1) .g_zext width
   | .g_fshr, .type 1, width => widenTypeGroup .g_fshr (.type 1) .g_zext width
+  | .g_uaddo, .type 0, width => widenScalarAddSubOverflow .g_uaddo width
+  | .g_usubo, .type 0, width => widenScalarAddSubOverflow .g_usubo width
+  | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
+  | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
   | _, _, _ => none
 
 end
