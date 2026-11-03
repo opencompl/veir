@@ -473,8 +473,8 @@ private partial def RewritePattern.applyOnceInContext
   pure (rewriter.hasDoneAction, rewriter.ctx)
 
 /--
-- Apply the given rewrite pattern to the operations nested under `root` until a fixpoint.
-- Each round visits them in post-order.
+Apply the given rewrite pattern to the operations nested under `root` until a fixpoint.
+Each round visits them in post-order.
 -/
 def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
     (ctx: WfIRContext OpInfo) (root : OperationPtr) : Option (WfIRContext OpInfo) := do
