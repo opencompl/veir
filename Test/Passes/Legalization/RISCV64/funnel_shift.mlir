@@ -10,11 +10,11 @@
     "test.test"(%fshl32) : (i32) -> ()
     // CHECK:      "gmir.g_constant"() <{"value" = 32 : i64}> : () -> i64
     // CHECK:      "gmir.g_constant"() <{"value" = 31 : i64}> : () -> i64
-    // CHECK:      "riscv.remuw"
-    // CHECK:      "riscv.subw"
-    // CHECK:      "riscv.sllw"
-    // CHECK:      "riscv.srlw"
-    // CHECK:      "riscv.srlw"
+    // CHECK:      "gmir_riscv.g_remuw"
+    // CHECK:      "gmir_riscv.g_subw"
+    // CHECK:      "gmir_riscv.g_sllw"
+    // CHECK:      "gmir_riscv.g_srlw"
+    // CHECK:      "gmir_riscv.g_srlw"
     // CHECK:      "gmir.g_or"
     // CHECK:      "test.test"
 
@@ -22,7 +22,7 @@
     "test.test"(%fshr8) : (i8) -> ()
     // CHECK:      "gmir.g_constant"() <{"value" = 8 : i64}> : () -> i64
     // CHECK:      "gmir.g_constant"() <{"value" = 7 : i64}> : () -> i64
-    // CHECK:      "riscv.remuw"
+    // CHECK:      "gmir_riscv.g_remuw"
     // CHECK:      "gmir.g_sub"
     // CHECK:      "gmir.g_shl"
     // CHECK:      "gmir.g_shl"
@@ -35,7 +35,7 @@
     "test.test"(%fshl5) : (i5) -> ()
     // CHECK:      "gmir.g_constant"() <{"value" = 5 : i64}> : () -> i64
     // CHECK:      "gmir.g_constant"() <{"value" = 4 : i64}> : () -> i64
-    // CHECK:      "riscv.remuw"
+    // CHECK:      "gmir_riscv.g_remuw"
     // CHECK:      "gmir.g_or"
     // CHECK:      "gmir.g_trunc"(%{{.*}}) : (i64) -> i5
     // CHECK-NEXT: "test.test"
@@ -47,7 +47,7 @@
     // CHECK-NEXT: "gmir.g_anyext"(%{{.*}}) : (i3) -> i64
     // CHECK-NEXT: "gmir.g_and"
     // CHECK:      "gmir.g_constant"() <{"value" = 8 : i64}> : () -> i64
-    // CHECK:      "riscv.remuw"
+    // CHECK:      "gmir_riscv.g_remuw"
     // CHECK:      "gmir.g_or"
     // CHECK:      "gmir.g_trunc"(%{{.*}}) : (i64) -> i8
     // CHECK-NEXT: "test.test"
