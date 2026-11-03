@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
+public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Dialects.LLVM.Interpreter
 public import Veir.Dialects.GMIR.Interpreter
 
@@ -28,6 +29,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .gmir opType =>
     GMIR.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .builtin opType =>
+    Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
