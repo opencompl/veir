@@ -96,6 +96,32 @@ theorem gmir_riscv_sraw_refinement {x y : LLVM.Int 64} :
   unfold GMIR_RISCV.word GMIR_RISCV.wordShiftAmount
   veir_bv_decide
 
+/--
+  Prove the correctness of the `gmir_riscv.g_clzw` lowering pattern.
+-/
+theorem gmir_riscv_clzw_refinement {x : LLVM.Int 64} :
+    GMIR_RISCV.wordUnary (Data.LLVM.Int.ctlz · false) x ⊒
+      RISCV.Reg.toInt (Data.RISCV.clzw (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR_RISCV.wordUnary
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir_riscv.g_ctzw` lowering pattern.
+-/
+theorem gmir_riscv_ctzw_refinement {x : LLVM.Int 64} :
+    GMIR_RISCV.wordUnary (Data.LLVM.Int.cttz · false) x ⊒
+      RISCV.Reg.toInt (Data.RISCV.ctzw (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR_RISCV.wordUnary
+  veir_bv_decide
+
+/--
+  Prove the correctness of the `gmir.g_ctpop` of `gmir.g_zext` lowering pattern.
+-/
+theorem gmir_cpopw_refinement {x : LLVM.Int 32} {nneg : Bool} :
+    Data.LLVM.Int.ctpop (Data.LLVM.Int.zext x 64 nneg (by decide)) ⊒
+      RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg x)) 64 := by
+  veir_bv_decide
+
 /-! ## i32 lowering refinement proofs
 
   These proofs cover all operations added to the i32 isel path.
@@ -153,21 +179,6 @@ theorem sdivwPow2_neg_refinement {x : LLVM.Int 32} (k : BitVec 5) (hk0 : 0 < k) 
 theorem srem_refinement_32 {x y : LLVM.Int 32} :
     (Data.LLVM.Int.srem x y) ⊒
       (RISCV.Reg.toInt (Data.RISCV.remw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem ctlz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :
-    (Data.LLVM.Int.ctlz x is_zero_poison) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.clzw (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem cttz_refinement_32 {x : LLVM.Int 32} {is_zero_poison : Bool} :
-    (Data.LLVM.Int.cttz x is_zero_poison) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.ctzw (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-theorem ctpop_refinement_32 {x : LLVM.Int 32} :
-    (Data.LLVM.Int.ctpop x) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.cpopw (LLVM.Int.toReg x)) 32) := by
   veir_bv_decide
 
 theorem bswap_refinement_32 {x : LLVM.Int 32} :
