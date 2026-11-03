@@ -312,6 +312,8 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
         CreateProg.operation (.gmir baseOp) #[lhs, min.res[0]!] #[type])
     (fun op => op)
 
+public section
+
 /--
 Lowers the saturating `opcode`, a signed (`isSigned`) or unsigned addition (`isAdd`) or
 subtraction, to the matching overflowing operation and a `g_select`, as LLVM's
@@ -325,7 +327,9 @@ subtraction, to the matching overflowing operation and a `g_select`, as LLVM's
 On signed overflow, the wrapped result has the opposite sign of the exact one, so `r >>s (w - 1)`
 is `0` when it saturates to `INT_MAX` and `-1` when it saturates to `INT_MIN`.
 
-The operations are created in the same order as in LLVM.
+The operations are created in the same order as in LLVM. LLVM's `lower` picks this lowering when
+min and max are not legal, which `lower?` cannot query, so targets use it as a custom legalization
+instead.
 -/
 def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpCode :=
   let overflowOp : GMIR := match isSigned, isAdd with
@@ -354,7 +358,45 @@ def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern O
       CreateProg.operation (.gmir .g_select) #[ov, clamp.res[0]!, tmp] #[type])
     (fun op => op)
 
-public section
+/--
+Lowers the saturating left shift `g_sshlsat` (`isSigned`) or `g_ushlsat`, as LLVM's
+`LegalizerHelper::lowerShlSat`. The shift overflows if shifting the result back does not give the
+shifted value:
+
+  sshl.sat a b = a != (a << b) >>s b ? (a <s 0 ? INT_MIN : INT_MAX) : a << b
+  ushl.sat a b = a != (a << b) >>u b ? UINT_MAX : a << b
+
+The operations are created in the same order as in LLVM.
+-/
+def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
+  let opcode : GMIR := if isSigned then .g_sshlsat else .g_ushlsat
+  let shiftBack : GMIR := if isSigned then .g_ashr else .g_lshr
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let amtType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value amtType
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let boolType ← CreateProg.type (IntegerType.signless 1)
+      let result ← CreateProg.operation (.gmir .g_shl) #[lhs, rhs] #[type]
+      let orig ← CreateProg.operation (.gmir shiftBack) #[result.res[0]!, rhs] #[type]
+      let satVal ← if isSigned then do
+          let satMin ← widthConstant type type fun w => -2 ^ (w - 1)
+          let satMax ← widthConstant type type fun w => 2 ^ (w - 1) - 1
+          let zero ← createConstant type 0
+          let cmpProps ← CreateProg.property (.gmir .g_icmp) { predicate := .slt }
+          let cmp ← CreateProg.operation (.gmir .g_icmp) #[lhs, zero.res[0]!] #[boolType] cmpProps
+          CreateProg.operation (.gmir .g_select)
+            #[cmp.res[0]!, satMin.res[0]!, satMax.res[0]!] #[type]
+        else createConstant type (-1)
+      let ovProps ← CreateProg.property (.gmir .g_icmp) { predicate := .ne }
+      let ov ← CreateProg.operation (.gmir .g_icmp) #[lhs, orig.res[0]!] #[boolType] ovProps
+      CreateProg.operation (.gmir .g_select)
+        #[ov.res[0]!, satVal.res[0]!, result.res[0]!] #[type])
+    (fun op => op)
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
@@ -368,6 +410,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_usubsat => lowerAddSubSatToMinMax .g_usubsat false false
   | .g_saddsat => lowerAddSubSatToMinMax .g_saddsat true true
   | .g_ssubsat => lowerAddSubSatToMinMax .g_ssubsat true false
+  | .g_sshlsat => lowerShlSat true
+  | .g_ushlsat => lowerShlSat false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/

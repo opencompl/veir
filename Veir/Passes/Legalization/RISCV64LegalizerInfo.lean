@@ -196,9 +196,17 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s64],
       .minScalar (.type 0) 64,
     ]
-    -- As in LLVM, these are always lowered, to `g_smin`/`g_smax`/`g_umin`/`g_umax` where those are
-    -- legal, and to an overflowing operation and a `g_select` otherwise.
-    | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat => [
+    -- LLVM lowers these, and its `lower` picks between two lowerings: with `g_smin`/`g_smax`/
+    -- `g_umin`/`g_umax` where those are legal or custom for the type, and with an overflowing
+    -- operation and a `g_select` otherwise. `lower?` cannot query the rules, so we make the same
+    -- choice here: min and max are legal only for `s64` (Zbb), and the other types are custom
+    -- legalized with `lowerAddSubSatToAddoSubo`, which LLVM's `lower` would pick for them.
+    | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat => [
+      .lowerIf (.typeIs (.type 0) s64),
+      .customIf fun _ => true,
+    ]
+    -- As in LLVM, these are always lowered.
+    | .g_sshlsat | .g_ushlsat => [
       .lower,
     ]
     -- As in LLVM, funnel shifts are lowered to shifts. The amount is widened first, so that the
@@ -235,6 +243,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()
     | .g_bitreverse => customLegalizeBitreverse8
     | .g_abs => customLegalizeAbs
+    | .g_uaddsat => lowerAddSubSatToAddoSubo .g_uaddsat false true
+    | .g_usubsat => lowerAddSubSatToAddoSubo .g_usubsat false false
+    | .g_saddsat => lowerAddSubSatToAddoSubo .g_saddsat true true
+    | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=
