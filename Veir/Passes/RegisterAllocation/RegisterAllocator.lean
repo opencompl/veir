@@ -52,6 +52,18 @@ partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr) (sta
     allocateOps ctx (op.getPrevOp! ctx.raw) stack
 
 /--
+Reject a block the allocator cannot handle: `allocateOps` makes one backward linear scan
+over the ops of a single block. It should never descend into a nested region.
+-/
+def checkBlockAllocatable (ctx : WfIRContext OpCode) (block : BlockPtr) :
+    Except String Unit := do
+  let mut op? := block.getFirstOp! ctx.raw
+  while let some op := op? do
+    op? := op.getNextOp! ctx.raw
+    if op.getNumRegions! ctx.raw != 0 then
+      throw "register allocation does not support operations with nested regions"
+
+/--
 Allocate registers for all operations in a block, traversing backwards with the default empty register stack.
 Return the context with updated register types on SSA values.
 -/
