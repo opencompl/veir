@@ -36,6 +36,11 @@ meta partial def Tm.reifyWidth (e : Expr) : ReifyM WidthTm := do
         let a ← Tm.reifyWidth ae
         let b ← Tm.reifyWidth be
         pure <| some (widthAdd a b)
+    | HSub.hSub ty _ _ _ ae be =>
+        let .true := Expr.isNat ty | pure none
+        let a ← Tm.reifyWidth ae
+        let b ← Tm.reifyWidth be
+        pure <| some (widthSub a b)
     | _ => pure none
 
     if let some reified := op then

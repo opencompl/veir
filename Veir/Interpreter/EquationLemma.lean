@@ -202,7 +202,8 @@ value dominating the point *after* `op` is available in the resulting state. -/
 theorem interpretOp_DefinesDominating {ctx : WfIRContext OpCode} {opInBounds}
     {state state' : InterpreterState ctx}
     (stateDom : state.DefinesDominating (InsertPoint.before op) opInBounds)
-    (opHasParent : op.getParent! ctx.raw = some block) :
+    (opHasParent : op.getParent! ctx.raw = some block)
+    (blockParent : block.getParent! ctx.raw = some region) :
     interpretOp op state = .ok (state', controlFlow) →
     state'.DefinesDominating (InsertPoint.after op ctx.raw block) := by
   intro hinterp
@@ -211,7 +212,7 @@ theorem interpretOp_DefinesDominating {ctx : WfIRContext OpCode} {opInBounds}
   have ⟨operandValues, resValues, mem', varState', hoperand, hinterp, hresValues, hstate⟩ := hinterp
   subst state'
   intro value valueInBounds valueDom
-  cases ValuePtr.DominatesIp.after_iff.mp valueDom
+  cases (ValuePtr.DominatesIp.after_iff blockParent).mp valueDom
   case inl =>
     have := stateDom value (by grind) (by grind)
     grind
@@ -331,7 +332,7 @@ theorem InterpreterState.DefinesDominating.interpretOpList_ne_fail
     rcases hi : interpretOp a state (by grind) with _ | _ | ⟨s, act⟩
     · grind [InterpreterState.DefinesDominating.interpretOp_ne_fail]
     · simp
-    · grind [interpretOp_DefinesDominating hDom headParent hi]
+    · grind [interpretOp_DefinesDominating hDom headParent blockReachable.parent hi]
 
 /-- If the equation lemma holds at the point *before* an operation chain, interpreting the chain
 keeps the equation lemma valid at the point *after* the chain. -/
@@ -368,7 +369,8 @@ theorem interpretOpList_equationLemmaAt {ctx : WfIRContext OpCode}
 keeps `DefinesDominating` at the point *after* the chain. -/
 theorem interpretOpList_DefinesDominating {ctx : WfIRContext OpCode}
     {state state' : InterpreterState ctx}
-    {block : BlockPtr} (hChain : block.OpChainSlice ctx.raw ops)
+    {block : BlockPtr} (blockParent : block.getParent! ctx.raw = some region)
+    (hChain : block.OpChainSlice ctx.raw ops)
     (head : ops.head? = some fstOp)
     (stateDom : state.DefinesDominating (.before fstOp) (by
       grind [List.head?_eq_getElem?, hChain.inBounds_of_mem]))
@@ -387,6 +389,6 @@ theorem interpretOpList_DefinesDominating {ctx : WfIRContext OpCode}
     · grind
     · cases act
       case none =>
-        have hAfter := interpretOp_DefinesDominating stateDom headParent hi
+        have hAfter := interpretOp_DefinesDominating stateDom headParent blockParent hi
         cases tail <;> grind
       case some cf => grind

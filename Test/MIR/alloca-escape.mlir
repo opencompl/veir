@@ -6,13 +6,13 @@
 // entry either way.
 
 "builtin.module"() ({
-  "func.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "main"}> ({
+  "riscv_cf.func"() <{function_type = (!riscv.reg) -> !riscv.reg, sym_name = "main"}> ({
   ^bb0(%x: !riscv.reg):
     %escapes = "riscv_stack.alloca"() <{"size" = 16 : i64, "alignment" = 8 : i64}> : () -> !riscv.reg
     %folds = "riscv_stack.alloca"() <{"size" = 8 : i64, "alignment" = 16 : i64}> : () -> !riscv.reg
     "riscv.sd"(%x, %folds) <{"value" = 0 : i64}> : (!riscv.reg, !riscv.reg) -> ()
     %sum = "riscv.add"(%escapes, %x) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-    "func.return"(%sum) : (!riscv.reg) -> ()
+    "riscv_cf.return"(%sum) : (!riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 
