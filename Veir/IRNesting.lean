@@ -465,6 +465,18 @@ abbrev BlockPtr.Ancestor (ancestor : BlockPtr) (descendant : IRNode) (ctx : WfIR
 abbrev RegionPtr.Ancestor (ancestor : RegionPtr) (descendant : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
   IRNode.Ancestor (.region ancestor) descendant ctx
 
+/-- The parent blocks of nested operations are related by ancestry. -/
+@[grind →]
+theorem OperationPtr.Ancestor.parent_ancestor_parent {op₁ op₂ : OperationPtr}
+    {parent₁ parent₂ : BlockPtr}
+    (ancestry : op₁.Ancestor op₂ ctx)
+    (sourceParent : op₁.getParent! ctx.raw = some parent₁)
+    (targetParent : op₂.getParent! ctx.raw = some parent₂) :
+    parent₁.Ancestor parent₂ ctx := by
+  have parentAncestry : parent₁.Ancestor op₂ ctx :=
+    (IRNode.Ancestor.of_parent (by grind)).trans ancestry
+  exact (parentAncestry.toProperAncestor (by simp)).ancestor_of_parent_descendant (by grind)
+
 @[simp, grind]
 abbrev OperationPtr.RootedAt (op : OperationPtr) (root : IRNode) (ctx : WfIRContext OpInfo) : Prop :=
   IRNode.RootedAt (.operation op) root ctx
