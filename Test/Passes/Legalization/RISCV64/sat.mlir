@@ -82,7 +82,7 @@
     // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[SUM]]) : (i32) -> i64
     // CHECK-NEXT: %[[OV:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_constant"() <{"value" = 31 : i64}> : () -> i64
-    // CHECK:      "riscv.sraw"
+    // CHECK:      "gmir_riscv.g_sraw"
     // CHECK:      "gmir.g_constant"() <{"value" = -2147483648 : i64}> : () -> i64
     // CHECK:      "riscv.addw"
     // CHECK:      %[[SAT:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
@@ -96,7 +96,7 @@
     // CHECK-NEXT: %[[DIFF:.*]] = "gmir.g_trunc"(%[[WIDE]]) : (i64) -> i32
     // CHECK-NEXT: %[[EXT:.*]] = "gmir.g_sext"(%[[DIFF]]) : (i32) -> i64
     // CHECK-NEXT: %[[OV:.*]] = "gmir.g_icmp"(%[[WIDE]], %[[EXT]]) <{"predicate" = 1 : i64}> : (i64, i64) -> i64
-    // CHECK:      "riscv.sraw"
+    // CHECK:      "gmir_riscv.g_sraw"
     // CHECK:      "riscv.addw"
     // CHECK:      %[[SAT:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
     // CHECK-NEXT: %[[SAT64:.*]] = "gmir.g_anyext"(%[[SAT]]) : (i32) -> i64
@@ -145,8 +145,8 @@
     // CHECK-NEXT: %[[USHLSAT:.*]] = "gmir.g_select"(%[[OV]], %[[ALLONES]], %[[SHL]]) : (i64, i64, i64) -> i64
     // The `i32` shifts are custom-legalized to the word shifts.
     %sshlsat32 = "gmir.g_sshlsat"(%a, %b) : (i32, i32) -> i32
-    // CHECK:      "riscv.sllw"
-    // CHECK:      "riscv.sraw"
+    // CHECK:      "gmir_riscv.g_sllw"
+    // CHECK:      "gmir_riscv.g_sraw"
     // CHECK:      %[[SAT:.*]] = "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i64, i64) -> i64
     // CHECK:      %[[SEL:.*]] = "gmir.g_select"(%{{.*}}, %[[SAT]], %{{.*}}) : (i64, i64, i64) -> i64
     // CHECK-NEXT: %[[SSHLSAT32:.*]] = "gmir.g_trunc"(%[[SEL]]) : (i64) -> i32
