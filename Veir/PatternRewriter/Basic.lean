@@ -2,6 +2,7 @@ module
 
 public import Veir.Rewriter.WfRewriter
 public import Veir.Interfaces.DeadCodeInterfaces
+public import Veir.Interfaces.FunctionInterfaces
 
 
 import all Veir.IR.Basic
@@ -486,4 +487,37 @@ def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
     ctx := newCtx
     if !changed then
       break
+  pure ctx
+
+/--
+The function-like operations nested under `op`, in program order. The search does not enter
+functions, since rewriting a function also covers anything nested in it.
+-/
+private partial def collectNestedFunctions (ctx : IRContext OpInfo) (op : OperationPtr)
+    (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
+  let mut acc := acc
+  let numRegions := op.getNumRegions! ctx
+  for i in 0...numRegions do
+    let mut block? := (op.getRegion! ctx i).getFirstBlock! ctx
+    while let some block := block? do
+      let mut child? := block.getFirstOp! ctx
+      while let some child := child? do
+        acc := if child.isFunctionLike ctx then acc.push child
+          else collectNestedFunctions ctx child acc
+        child? := child.getNextOp! ctx
+      block? := block.getNextBlock! ctx
+  acc
+
+/--
+Apply the given rewrite pattern to the body of each function nested under `root`, leaving
+everything outside of functions alone. Code generation passes use this to lower functions but
+not global initializers, which stay LLVM operations until they are printed, much as LLVM's
+machine function passes never see the initializers that `AsmPrinter` emits.
+-/
+def RewritePattern.applyToFunctions (pattern: RewritePattern OpInfo)
+    (ctx: WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
+    Option (WfIRContext OpInfo) := do
+  let mut ctx := ctx
+  for func in collectNestedFunctions ctx.raw root do
+    ctx ← pattern.applyInContext ctx func maxRounds
   pure ctx

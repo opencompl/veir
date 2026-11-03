@@ -460,7 +460,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     lowerStaticAlloca.run,
     intToByteRoundTrip.run
   ]
-  match RewritePattern.applyInContext pattern ctx op with
+  match RewritePattern.applyToFunctions pattern ctx op with
   | none => throw "Error while applying llvm-to-gmir translation"
   | some ctx =>
     -- A local rewrite may only erase the matched cast, so the folded first cast is left dead.
