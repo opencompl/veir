@@ -48,6 +48,13 @@ structure SourceInfo where
 def SourceInfo.formatAt (info : SourceInfo) (op : OperationPtr) (severity msg : String) : String :=
   ParserError.formatLabel info.sourceName info.content severity info.opLocations[op]? msg
 
+/-- Marks the maps of `ctx` as linear, which is a no-op logically. With `LEAN_ABORT_ON_NONLINEAR`
+    set, any later copy of them panics, so it catches every place that modifies a shared context. -/
+def _root_.Veir.WfIRContext.markLinear (ctx : WfIRContext OpCode) : WfIRContext OpCode :=
+  let ⟨⟨operations, blocks, regions, nextID⟩, wellFormed⟩ := ctx
+  ⟨⟨operations.markLinear, blocks.markLinear, regions.markLinear, nextID⟩,
+    by simpa using wellFormed⟩
+
 /-- Parse program bytes starting at `start` into a well-formed IR context and its top-level
     operation, formatting parse errors caret-style against `sourceName`.
     Unless `verifyAfterParse` is false, the program is also verified. -/
@@ -57,6 +64,7 @@ def parseSourceString (content : ByteArray) (sourceName : String := "<string>")
     Except String (WfIRContext OpCode × OperationPtr × SourceInfo) := do
   let some (ctx, _) := WfIRContext.create OpCode
     | throw "Failed to create IR context"
+  let ctx := ctx.markLinear
   match ParserState.fromInput content start with
   | .ok parser =>
     let state := MlirParserState.fromContext ctx allowUnregisteredDialect
