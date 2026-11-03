@@ -78,7 +78,7 @@ def reconcileModArithToInt := (reconcilePairingCast isPreservingModArithToIntCas
 def reconcileCirToInt := (reconcilePairingCast isCirToIntRoundTrip).compile
 
 /-- Match an unallocated-register round trip through an integer of an accepted width. -/
-private def matchRegIntCast (widthMatches : Nat → Bool) :
+def matchRegIntCast (widthMatches : Nat → Bool) :
     MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
   let regType ← MatchProg.type (Attr := RegisterType) (·.index.isNone)
   let interType ← MatchProg.type (Attr := IntegerType) (fun t => widthMatches t.bitwidth)
@@ -88,7 +88,7 @@ private def matchRegIntCast (widthMatches : Nat → Bool) :
   return (regType, interType, input)
 
 /-- Reconcile an 8/16/32-bit register round trip with its dedicated zero extension. -/
-private def reconcileRegIntExt (width : Nat) (opcode : Riscv)
+def reconcileRegIntExt (width : Nat) (opcode : Riscv)
     (props : propertiesOf (OpCode.riscv opcode)) : Pattern OpCode :=
   Pattern.Builder
     (matchRegIntCast (· = width))
@@ -97,7 +97,7 @@ private def reconcileRegIntExt (width : Nat) (opcode : Riscv)
     (fun op => op)
 
 /-- Reconcile other narrow register round trips with two shifts; leave the parent cast to DCE. -/
-private def reconcileRegIntShift : Pattern OpCode :=
+def reconcileRegIntShift : Pattern OpCode :=
   Pattern.Builder
     -- i0 needs a constant zero, which this two-shift sequence cannot compute.
     (matchRegIntCast fun bw => bw ≠ 0 && bw ≠ 8 && bw ≠ 16 && bw ≠ 32)
