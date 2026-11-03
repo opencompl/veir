@@ -98,7 +98,8 @@ namespace Veir.Data.PBV
 public section
 
 attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
-  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq
+  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
+  BitVec.extractLsb
 
 attribute [pbv_push low] BitVec.setWidth_eq
 

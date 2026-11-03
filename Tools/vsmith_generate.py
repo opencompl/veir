@@ -114,6 +114,28 @@ def rand_int_type(rng: random.Random, max_width: int = MAX_WIDTH) -> str:
         return f"i{rng.randint(1, max_width)}"
 
 
+COMMON_WIDTHS = (1, 8, 16, 32, 64)
+
+
+def choose_widths(rng: random.Random, max_width: int) -> tuple[int, ...]:
+    """Choose the integer widths one program draws its values from.
+
+    A third of programs use a small palette of 2-5 widths, so values of each
+    width accumulate and operations find real operands rather than fresh
+    constants. A third use every width in 1..16 and a third the common widths.
+    """
+    r = rng.random()
+    if r < 1 / 3:
+        size = rng.randint(2, 5)
+        palette: set[int] = set()
+        while len(palette) < size:
+            palette.add(bitwidth(rand_int_type(rng, max_width)))
+        return tuple(sorted(palette))
+    if r < 2 / 3:
+        return tuple(range(1, 17))
+    return COMMON_WIDTHS
+
+
 def laplace_bias(rng: random.Random, scale: float, clip: int) -> int:
     mag = rng.expovariate(1.0 / scale)
     bias = mag if rng.random() < 0.5 else -mag
@@ -156,6 +178,7 @@ class Generator:
         self.rng = rng
         self.riscv = riscv
         self.max_width = RISCV_MAX_WIDTH if riscv else MAX_WIDTH
+        self.widths = choose_widths(rng, self.max_width)
         self.counter = 0
         self.lines: list[str] = []
         self.imported: dict[str, list[str]] = defaultdict(list)
@@ -191,7 +214,7 @@ class Generator:
             self.local_all.append((name, typ))
 
     def rand_type(self) -> str:
-        return rand_int_type(self.rng, self.max_width)
+        return f"i{self.rng.choice(self.widths)}"
 
     def random_dominating_value(self, width: int) -> str:
         typ = f"i{width}"
@@ -327,14 +350,11 @@ class Generator:
         """Emit a random integer intrinsic. All operands share the result type.
 
         `bswap` is restricted to widths it is defined on.
-
-        Note: the saturating arithmetic intrinsics are only lowered at i64 in
-        RISC-V mode, so `--riscv` mode pins them to i64.
         """
         if self.rng.random() < 0.30:
             if self.rng.random() < 0.85:
                 op = self.rng.choice(INTRINSIC_SAT_BINARY)
-                typ = "i64" if self.riscv else self.rand_type()
+                typ = self.rand_type()
                 width = bitwidth(typ)
                 lhs = self.random_dominating_value(width)
                 rhs = self.random_dominating_value(width)
@@ -601,18 +621,20 @@ class Generator:
                 src = self.rand_type()
                 src_w = bitwidth(src)
                 op = self.rng.choice(("llvm.sext", "llvm.zext"))
-                if src_w >= self.max_width:
+                wider = [w for w in self.widths if w > src_w]
+                if not wider:
                     continue
-                dst = f"i{self.rng.randint(src_w + 1, self.max_width)}"
+                dst = f"i{self.rng.choice(wider)}"
                 props = " <{nonNeg}>" if op == "llvm.zext" and self.rng.random() < 0.5 else ""
                 operand = self.random_dominating_value(src_w)
                 self.add_operation(op, [operand], [src], dst, props)
             elif choice < 0.82:
                 src = self.rand_type()
                 src_w = bitwidth(src)
-                if src_w <= 1:
+                narrower = [w for w in self.widths if w < src_w]
+                if not narrower:
                     continue
-                dst = f"i{self.rng.randint(1, src_w - 1)}"
+                dst = f"i{self.rng.choice(narrower)}"
                 props = self.nsw_nuw_props()
                 operand = self.random_dominating_value(src_w)
                 self.add_operation("llvm.trunc", [operand], [src], dst, props)
@@ -654,7 +676,7 @@ def generate(path: Path, rng: random.Random, riscv: bool = False, memory_only: b
 
     for block_id in range(1, num_blocks):
         arg_count = rng.randint(0, 5)
-        arg_types = [rand_int_type(rng, gen.max_width) for _ in range(arg_count)]
+        arg_types = [gen.rand_type() for _ in range(arg_count)]
         arg_names = [f"%arg{block_id}_{arg_idx}" for arg_idx in range(arg_count)]
         block_arg_types.append(arg_types)
         block_arg_names.append(arg_names)

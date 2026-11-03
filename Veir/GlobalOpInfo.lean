@@ -35,6 +35,7 @@ match opCode with
 | .pdl op => PDL.propertiesOf op
 | .io op => Io.propertiesOf op
 | .gmir op => GMIR.propertiesOf op
+| .gmir_riscv op => GMIR_RISCV.propertiesOf op
 | .test op => Test.propertiesOf op
 | .felt op => Felt.propertiesOf op
 | .cir op => Cir.propertiesOf op
@@ -68,6 +69,7 @@ def OpCode.getEffects (opCode : OpCode) (props : _propertiesOf opCode) : MemoryE
   | .pdl op, props => PDL.getEffects op props
   | .io op, props => Io.getEffects op props
   | .gmir op, props => GMIR.getEffects op props
+  | .gmir_riscv op, props => GMIR_RISCV.getEffects op props
   | .test op, props => Test.getEffects op props
   | .felt op, props => Felt.getEffects op props
   | .cir op, props => Cir.getEffects op props
@@ -99,6 +101,7 @@ def OpCode.tryFold (opCode : OpCode) (props : _propertiesOf opCode)
   | .pdl op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .io op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .gmir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
+  | .gmir_riscv op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .test op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .felt op, props => HasOpInfo.tryFold op props resultTypes constantOperands
   | .cir op, props => HasOpInfo.tryFold op props resultTypes constantOperands
@@ -130,6 +133,7 @@ def OpCode.getRegionKind (opCode : OpCode) (index : Nat) : RegionKind :=
   | .pdl op => HasOpInfo.getRegionKind op index
   | .io op => HasOpInfo.getRegionKind op index
   | .gmir op => HasOpInfo.getRegionKind op index
+  | .gmir_riscv op => HasOpInfo.getRegionKind op index
   | .test op => HasOpInfo.getRegionKind op index
   | .felt op => HasOpInfo.getRegionKind op index
   | .cir op => HasOpInfo.getRegionKind op index
@@ -162,6 +166,7 @@ def OpCode.hasSSADominance (opCode : OpCode) (index : Nat) : Bool :=
   | .pdl op => PDL.hasSSADominance op index
   | .io op => Io.hasSSADominance op index
   | .gmir op => GMIR.hasSSADominance op index
+  | .gmir_riscv op => GMIR_RISCV.hasSSADominance op index
   | .test op => Test.hasSSADominance op index
   | .felt op => Felt.hasSSADominance op index
   | .cir op => Cir.hasSSADominance op index
@@ -195,6 +200,7 @@ def OpCode.hasNoTerminator (opCode : OpCode) (index : Nat) : Bool :=
   | .pdl op => HasOpInfo.hasNoTerminator op index
   | .io op => HasOpInfo.hasNoTerminator op index
   | .gmir op => HasOpInfo.hasNoTerminator op index
+  | .gmir_riscv op => HasOpInfo.hasNoTerminator op index
   | .test op => HasOpInfo.hasNoTerminator op index
   | .felt op => HasOpInfo.hasNoTerminator op index
   | .cir op => HasOpInfo.hasNoTerminator op index
@@ -224,6 +230,7 @@ def OpCode.isIsolatedFromAbove (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.isIsolatedFromAbove op
   | .io op => HasOpInfo.isIsolatedFromAbove op
   | .gmir op => HasOpInfo.isIsolatedFromAbove op
+  | .gmir_riscv op => HasOpInfo.isIsolatedFromAbove op
   | .test op => HasOpInfo.isIsolatedFromAbove op
   | .felt op => HasOpInfo.isIsolatedFromAbove op
   | .cir op => HasOpInfo.isIsolatedFromAbove op
@@ -253,6 +260,7 @@ def OpCode.isSymbolTable (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.isSymbolTable op
   | .io op => HasOpInfo.isSymbolTable op
   | .gmir op => HasOpInfo.isSymbolTable op
+  | .gmir_riscv op => HasOpInfo.isSymbolTable op
   | .test op => HasOpInfo.isSymbolTable op
   | .felt op => HasOpInfo.isSymbolTable op
   | .cir op => HasOpInfo.isSymbolTable op
@@ -286,6 +294,7 @@ def OpCode.isTerminator (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.isTerminator op
   | .io op => HasOpInfo.isTerminator op
   | .gmir op => HasOpInfo.isTerminator op
+  | .gmir_riscv op => HasOpInfo.isTerminator op
   | .test op => HasOpInfo.isTerminator op
   | .felt op => HasOpInfo.isTerminator op
   | .cir op => HasOpInfo.isTerminator op
@@ -322,6 +331,7 @@ def OpCode.isConstantLike (opCode : OpCode) : Bool :=
   | .pdl op => PDL.isConstantLike op
   | .io op => Io.isConstantLike op
   | .gmir op => GMIR.isConstantLike op
+  | .gmir_riscv op => GMIR_RISCV.isConstantLike op
   | .test op => Test.isConstantLike op
   | .felt op => Felt.isConstantLike op
   | .cir op => Cir.isConstantLike op
@@ -354,6 +364,7 @@ def OpCode.propagatesPoison (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.propagatesPoison op
   | .io op => HasOpInfo.propagatesPoison op
   | .gmir op => HasOpInfo.propagatesPoison op
+  | .gmir_riscv op => HasOpInfo.propagatesPoison op
   | .test op => HasOpInfo.propagatesPoison op
   | .felt op => HasOpInfo.propagatesPoison op
   | .cir op => HasOpInfo.propagatesPoison op
@@ -383,6 +394,7 @@ def Properties.fromAttrDict (opCode : OpCode) (attrDict : Std.HashMap ByteArray 
   | .pdl op => PDL.fromAttrDict op attrDict
   | .io op => Io.fromAttrDict op attrDict
   | .gmir op => GMIR.fromAttrDict op attrDict
+  | .gmir_riscv op => GMIR_RISCV.fromAttrDict op attrDict
   | .test op => Test.fromAttrDict op attrDict
   | .felt op => Felt.fromAttrDict op attrDict
   | .cir op => Cir.fromAttrDict op attrDict
@@ -416,6 +428,7 @@ def Properties.toAttrDict
   | .pdl op, props => PDL.toAttrDict op props
   | .io op, props => Io.toAttrDict op props
   | .gmir op, props => GMIR.toAttrDict op props
+  | .gmir_riscv op, props => GMIR_RISCV.toAttrDict op props
   | .test op, props => Test.toAttrDict op props
   | .felt op, props => Felt.toAttrDict op props
   | .cir op, props => Cir.toAttrDict op props
@@ -452,6 +465,7 @@ def OpCode.symbolInterface? (opCode : OpCode) : Option (SymbolOpInterface (_prop
   | .pdl op => HasOpInfo.symbolInterface? op
   | .io op => HasOpInfo.symbolInterface? op
   | .gmir op => HasOpInfo.symbolInterface? op
+  | .gmir_riscv op => HasOpInfo.symbolInterface? op
   | .test op => HasOpInfo.symbolInterface? op
   | .felt op => HasOpInfo.symbolInterface? op
   | .cir op => HasOpInfo.symbolInterface? op
@@ -481,6 +495,7 @@ def OpCode.functionInterface? (opCode : OpCode) : Option (FunctionOpInterface (_
   | .pdl op => HasOpInfo.functionInterface? op
   | .io op => HasOpInfo.functionInterface? op
   | .gmir op => HasOpInfo.functionInterface? op
+  | .gmir_riscv op => HasOpInfo.functionInterface? op
   | .test op => HasOpInfo.functionInterface? op
   | .felt op => HasOpInfo.functionInterface? op
   | .cir op => HasOpInfo.functionInterface? op
@@ -525,6 +540,7 @@ def OpCode.branchOpInterface?
   | .pdl op => HasOpInfo.branchOpInterface? op
   | .io op => HasOpInfo.branchOpInterface? op
   | .gmir op => HasOpInfo.branchOpInterface? op
+  | .gmir_riscv op => HasOpInfo.branchOpInterface? op
   | .test op => HasOpInfo.branchOpInterface? op
   | .felt op => HasOpInfo.branchOpInterface? op
   | .cir op => HasOpInfo.branchOpInterface? op
@@ -555,6 +571,7 @@ def OpCode.callOpInterface?
   | .pdl op => HasOpInfo.callOpInterface? op
   | .io op => HasOpInfo.callOpInterface? op
   | .gmir op => HasOpInfo.callOpInterface? op
+  | .gmir_riscv op => HasOpInfo.callOpInterface? op
   | .test op => HasOpInfo.callOpInterface? op
   | .felt op => HasOpInfo.callOpInterface? op
   | .cir op => HasOpInfo.callOpInterface? op
@@ -587,6 +604,7 @@ def OpCode.unconditionalBranch? (opCode : OpCode) (props : propertiesOf opCode) 
   | .pdl op, props => lift op props
   | .io op, props => lift op props
   | .gmir op, props => lift op props
+  | .gmir_riscv op, props => lift op props
   | .test op, props => lift op props
   | .felt op, props => lift op props
   | .cir op, props => lift op props
@@ -619,6 +637,7 @@ def OpCode.verifyLocalInvariants (opCode : OpCode) (op : OperationPtr)
     Riscv_Cf.verifyLocalInvariants OpCode.functionInterface? opType op ctx opIn
   | .riscv_stack opType => Riscv_Stack.verifyLocalInvariants opType op ctx opIn
   | .gmir opType => GMIR.verifyLocalInvariants opType op ctx opIn
+  | .gmir_riscv opType => GMIR_RISCV.verifyLocalInvariants opType op ctx opIn
   | .rv64 opType => Rv64.verifyLocalInvariants opType op ctx opIn
   | .comb opType => Comb.verifyLocalInvariants opType op ctx opIn
   | .hw opType => HW.verifyLocalInvariants opType op ctx opIn
@@ -652,6 +671,7 @@ def OpCode.isCommutative (opCode : OpCode) : Bool :=
   | .pdl op => HasOpInfo.isCommutative op
   | .io op => HasOpInfo.isCommutative op
   | .gmir op => HasOpInfo.isCommutative op
+  | .gmir_riscv op => HasOpInfo.isCommutative op
   | .test op => HasOpInfo.isCommutative op
   | .felt op => HasOpInfo.isCommutative op
   | .cir op => HasOpInfo.isCommutative op
@@ -701,7 +721,7 @@ def OpCode.materializeConstant (opCode : OpCode) (value : RuntimeValue)
     | .gmir op => GMIR.materializeConstant op value type
     -- Listed rather than folded into a catch-all so that adding a dialect
     -- fails to compile until it decides how, or whether, to materialize.
-    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .cf _ | .builtin _
+    | .riscv_cf _ | .riscv_stack _ | .rv64 _ | .gmir_riscv _ | .cf _ | .builtin _
     | .verif _
     | .func _ | .datapath _ | .pdl _ | .test _ | .cir _ | .io _ | .include _
     | .function _ | .seq _ | .tensor _ | .smt _ => none
