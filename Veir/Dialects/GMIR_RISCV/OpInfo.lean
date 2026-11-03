@@ -57,7 +57,7 @@ def GMIR_RISCV.isConstantLike (_op : GMIR_RISCV) : Bool :=
   false
 
 def GMIR_RISCV.isCommutative : GMIR_RISCV → Bool
-  | .g_addw | .g_subw | .g_mulw => true
+  | .g_addw | .g_mulw => true
   | _ => false
 
 def GMIR_RISCV.hasSSADominance (_op : GMIR_RISCV) (_index : Nat) : Bool :=
