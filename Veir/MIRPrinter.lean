@@ -864,49 +864,94 @@ private partial def integerArrayInitializer? (type : Attribute) (values : Array 
     return ("[" ++ String.intercalate ", " elements.toList ++ "]", index)
   | _ => none
 
-/-- Recognize the complete `zero; return` initializer region. Instruction selection
-    leaves initializer regions alone, so this covers scalars, pointers and aggregates. -/
-private def isZeroInitializer (ctx : IRContext OpCode) (op : OperationPtr)
-    (type : Attribute) : Bool := Id.run do
-  let some block := (op.getRegion! ctx 0).getFirstBlock! ctx | return false
-  if (block.getNextBlock! ctx).isSome then return false
-  let ops := collectOps ctx (block.getFirstOp! ctx)
-  if ops.size != 2 then return false
-  let zero := ops[0]!
-  let ret := ops[1]!
-  return zero.getOpType! ctx == .llvm .mlir__zero &&
-    ((zero.getResultTypes! ctx)[0]?.map (·.val)) == some type &&
-    ret.getOpType! ctx == .llvm .return &&
-    ret.getOperands! ctx == #[.opResult (zero.getResult 0)]
+/-- Attribute constants use the same spelling in global values and initializer regions. -/
+private def attributeInitializer? (value type : Attribute) : Option String := do
+  match value, type with
+  | .integerAttr a, .integerType t =>
+    guard (a.type == t)
+    return toString a.value
+  | .stringAttr str, .llvmArrayType { type := .integerType { bitwidth := 8, .. }, size } =>
+    guard (str.value.size == size)
+    return "c" ++ llvmQuoted str.value
+  | .denseElementsAttr attr, type =>
+    let values ← denseIntegers? attr type
+    if values.all (· == 0) then return "zeroinitializer"
+    let (init, _) ← integerArrayInitializer? type values
+    return init
+  | _, _ => none
 
-/-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
-    Integer, string and dense integer array values, and aggregate zero regions,
-    become initializers. With no initializer, the global is an external declaration.
-    Other region initializers, TLS and external weak globals remain unhandled. -/
-def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
+/-- A constant's type and LLVM spelling, without the type prefix. -/
+private structure InitializerConstant where
+  type : Attribute
+  text : String
+
+/-- Translate a single-block initializer to a constant. Symbol addresses refer to the
+    module inventory, never to the referenced global's initializer. -/
+private def regionInitializer (ctx : IRContext OpCode) (global : OperationPtr)
+    (type : Attribute) (symbols : Array String) : Except String (Option String) := do
+  let some block := (global.getRegion! ctx 0).getFirstBlock! ctx | return none
+  if (block.getNextBlock! ctx).isSome || block.getNumArguments! ctx != 0 then
+    throw "initializer must have one block with no arguments"
+  let mut values : Std.HashMap ValuePtr InitializerConstant := {}
+  for op in collectOps ctx (block.getFirstOp! ctx) do
+    let opcode := op.getOpType! ctx
+    if opcode == .llvm .return then
+      if (op.getNextOp! ctx).isSome || op.getNumOperands! ctx != 1 then
+        throw "initializer must end with llvm.return of one constant"
+      let some value := values[op.getOperand! ctx 0]?
+        | throw "llvm.return: expected an initializer constant"
+      if value.type != type then
+        throw s!"llvm.return: initializer type {value.type} does not match global type {type}"
+      return some value.text
+    if ![.llvm .mlir__constant, .llvm .mlir__zero, .llvm .mlir__undef,
+        .llvm .mlir__poison, .llvm .mlir__addressof].contains opcode then
+      throw s!"unsupported initializer operation '{opName ctx op}'"
+    if op.getNumOperands! ctx != 0 || op.getNumResults! ctx != 1 then
+      throw s!"{opName ctx op}: expected no operands and one result"
+    let resultType := ((op.getResultTypes! ctx)[0]!).val
+    if (llvmType? resultType).isNone then
+      throw s!"{opName ctx op}: unsupported initializer type {resultType}"
+    let text ← match opcode with
+      | .llvm .mlir__constant => do
+        let attrs := Llvm.toAttrDict .mlir__constant (op.getProperties! ctx Llvm.mlir__constant)
+        let some text := attributeInitializer? attrs["value".toUTF8]! resultType
+          | throw s!"llvm.mlir.constant: unsupported initializer value for type {resultType}"
+        pure text
+      | .llvm .mlir__zero => pure "zeroinitializer"
+      | .llvm .mlir__undef => pure "undef"
+      | .llvm .mlir__poison => pure "poison"
+      | .llvm .mlir__addressof => do
+        let .llvmPointerType _ := resultType
+          | throw "llvm.mlir.addressof: expected pointer type"
+        let name := symbolName (op.getProperties! ctx Llvm.mlir__addressof).global_name
+        if !symbols.contains name then
+          throw s!"llvm.mlir.addressof: unknown symbol {llvmSymbol name}"
+        pure (llvmSymbol name)
+      | _ => throw "unsupported initializer operation"
+    values := values.insert (.opResult (op.getResult 0)) { type := resultType, text }
+  throw "initializer must end with llvm.return of one constant"
+
+/-- Print a global in the embedded IR module, leaving data emission to LLVM.
+    Unsupported initializers are errors, so definitions cannot silently disappear. -/
+def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) (symbols : Array String) :
+    IO Unit := do
   let props := op.getProperties! ctx Llvm.mlir__global
   let name := llvmSymbol (String.fromUTF8! props.sym_name.value)
   if props.isThreadLocal then
-    IO.println s!"  ; UNHANDLED thread-local global {name}"
-    return
+    throw (IO.userError s!"global {name}: thread-local globals are unsupported")
   if props.linkage.value == "extern_weak" then
-    IO.println s!"  ; UNHANDLED extern_weak global {name}"
-    return
+    throw (IO.userError s!"global {name}: extern_weak globals are unsupported")
   let some type := llvmType? props.global_type.val
-    | IO.println s!"  ; UNHANDLED global {name}"
-  let hasRegion := ((op.getRegion! ctx 0).getFirstBlock! ctx).isSome
-  let init? : Option String := match props.value, props.global_type.val with
-    | some (.integerAttr a), .integerType _ => some (toString a.value)
-    | some (.stringAttr str), .llvmArrayType { type := .integerType { bitwidth := 8, .. }, .. } =>
-      some ("c" ++ llvmQuoted str.value)
-    | some (.denseElementsAttr attr), type => do
-      let values ← denseIntegers? attr type
-      if values.all (· == 0) then return "zeroinitializer"
-      let (init, _) ← integerArrayInitializer? type values
-      return init
-    | none, type =>
-      if isZeroInitializer ctx op type then some "zeroinitializer" else none
-    | _, _ => none
+    | throw (IO.userError s!"global {name}: unsupported type {props.global_type.val}")
+  let init? ← match props.value with
+    | some value => do
+      let some init := attributeInitializer? value props.global_type.val
+        | throw (IO.userError s!"global {name}: unsupported initializer value for type {type}")
+      pure (some init)
+    | none =>
+      match regionInitializer ctx op props.global_type.val symbols with
+      | .ok init => pure init
+      | .error e => throw (IO.userError s!"global {name}: {e}")
   let kind := if props.constant then "constant" else "global"
   let align := match props.alignment with
     | some a => s!", align {a.value}"
@@ -916,11 +961,7 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     let linkage := if props.linkage.value == "external" then ""
       else props.linkage.value ++ " "
     IO.println s!"  {name} = {linkage}{kind} {type} {init}{align}"
-  | none =>
-    if props.value.isNone && !hasRegion then
-      IO.println s!"  {name} = external {kind} {type}{align}"
-    else
-      IO.println s!"  ; UNHANDLED global {name}"
+  | none => IO.println s!"  {name} = external {kind} {type}{align}"
 
 /-- Print a full MIR module for the given function-like and global ops: a stub
     IR module, then one MIR document per function with a body.  The stub defines
@@ -943,14 +984,19 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
   let globals := globalOps.map fun op =>
     String.fromUTF8! (op.getProperties! ctx Llvm.mlir__global).sym_name.value
   let defined := funcs.map (·.1) ++ globals
-  let mut externs : Array String := #[]
+  -- Keep declarations even when their only use is in an initializer. As with
+  -- direct callees, these need only a stub signature: references are opaque pointers.
+  let mut externs := funcOps.filterMap fun op => do
+    let funcOp ← FunctionOp.of? op ctx
+    if funcOp.isExternal then some (String.fromUTF8! funcOp.getSymName.value) else none
+  let symbols := defined ++ externs
   for (_, blocks) in funcs do
     for c in (calls ctx blocks).filterMap (callee? ctx) ++ laSymbols ctx blocks do
       if !defined.contains c && !externs.contains c then
         externs := externs.push c
   IO.println "--- |"
   for op in globalOps do
-    printGlobal ctx op
+    printGlobal ctx op symbols
   for (name, blocks) in funcs do
     let params := String.intercalate ", "
       ((List.range (numArgs ctx blocks)).map (fun i => s!"i64 %a{i}"))
