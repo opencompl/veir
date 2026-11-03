@@ -446,20 +446,6 @@ theorem subw_refinement {x y : LLVM.Int 32} :
   veir_bv_decide
 
 /--
-  Prove the correctness of the `shl` lowering pattern.
--/
-theorem sllw_refinement {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.shl x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.sllw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/--
-  Prove the correctness of the `lshr` lowering pattern.
--/
-theorem srlw_refinement {x y : LLVM.Int 32} :
-    (Data.LLVM.Int.lshr x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.srlw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 32) := by
-  veir_bv_decide
-
-/--
   Prove the correctness of the `andn` lowering pattern.
 -/
 theorem andn_refinement {x y : LLVM.Int 64} :

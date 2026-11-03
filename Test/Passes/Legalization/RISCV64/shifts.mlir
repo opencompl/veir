@@ -3,12 +3,17 @@
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     %x_i32 = "llvm.mlir.constant"() <{value = 1 : i32}> : () -> i32
+    // `i32` -> the `gmir_riscv` word shifts on the any-extended operands.
     %shl32 = "gmir.g_shl"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.sllw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      %[[X_I32:.*]] = "llvm.mlir.constant"() <{"value" = 1 : i32}> : () -> i32
+    // CHECK-NEXT: %[[SHL_LHS:.*]] = "gmir.g_anyext"(%[[X_I32]]) : (i32) -> i64
+    // CHECK-NEXT: %[[SHL_RHS:.*]] = "gmir.g_anyext"(%[[X_I32]]) : (i32) -> i64
+    // CHECK-NEXT: %[[SLLW:.*]] = "gmir_riscv.g_sllw"(%[[SHL_LHS]], %[[SHL_RHS]]) : (i64, i64) -> i64
+    // CHECK-NEXT: "gmir.g_trunc"(%[[SLLW]]) : (i64) -> i32
     %lshr32 = "gmir.g_lshr"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.srlw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir_riscv.g_srlw"({{.*}}) : (i64, i64) -> i64
     %ashr32 = "gmir.g_ashr"(%x_i32, %x_i32) : (i32, i32) -> i32
-    // CHECK:      "riscv.sraw"({{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    // CHECK:      "gmir_riscv.g_sraw"({{.*}}) : (i64, i64) -> i64
 
     %x_i8 = "llvm.mlir.constant"() <{value = 1 : i8}> : () -> i8
     %shl = "gmir.g_shl"(%x_i8, %x_i8) <{overflowFlags = 3 : i32}> : (i8, i8) -> i8

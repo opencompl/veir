@@ -1,0 +1,114 @@
+module
+
+public import Veir.IR.OpInfo
+public import Veir.Verifier.Basic
+public import Veir.Interpreter.RuntimeValue.Basic
+public import Veir.Interpreter.Interp
+public import Veir.Dialects.GMIR.OpInfo
+public import Veir.Dialects.GMIR_RISCV.Semantics
+meta import Veir.Meta.OpCode
+
+namespace Veir
+
+public section
+
+/--
+The RISC-V generic operations, LLVM's `RISCV::G_*`, which the legalizer creates and treats as legal.
+Each has the semantics of its RISC-V instruction: its gMIR operation (`GMIR_RISCV.base`) on the low
+32 bits, sign-extended, where a shift reads only the low 5 bits of its amount.
+-/
+@[opcodes]
+inductive GMIR_RISCV where
+| g_divw
+| g_divuw
+| g_remuw
+| g_sllw
+| g_srlw
+| g_sraw
+deriving Inhabited, Repr, Hashable, DecidableEq
+
+@[expose, properties_of]
+def GMIR_RISCV.propertiesOf (op : GMIR_RISCV) : Type :=
+match op with
+| _ => Unit
+
+def GMIR_RISCV.fromAttrDict
+    (op : GMIR_RISCV) (_attrDict : Std.HashMap ByteArray Attribute) :
+    Except String (GMIR_RISCV.propertiesOf op) := by
+  cases op <;> exact .ok ()
+
+def GMIR_RISCV.toAttrDict
+    (_op : GMIR_RISCV) (_props : GMIR_RISCV.propertiesOf _op) :
+    Std.HashMap ByteArray Attribute :=
+  Std.HashMap.emptyWithCapacity 0
+
+@[get_effects]
+def GMIR_RISCV.getEffects
+    (_op : GMIR_RISCV) (_props : GMIR_RISCV.propertiesOf _op) : MemoryEffects :=
+  .none
+
+def GMIR_RISCV.isConstantLike (_op : GMIR_RISCV) : Bool :=
+  false
+
+def GMIR_RISCV.hasSSADominance (_op : GMIR_RISCV) (_index : Nat) : Bool :=
+  true
+
+def GMIR_RISCV.propagatesPoison (_op : GMIR_RISCV) : Bool :=
+  true
+
+#generate_dialect GMIR_RISCV
+
+instance : IsOpCode GMIR_RISCV where
+  fromName := GMIR_RISCV.fromName
+  name := GMIR_RISCV.name
+  propertiesOf := GMIR_RISCV.propertiesOf
+  fromAttrDict := GMIR_RISCV.fromAttrDict
+  toAttrDict := GMIR_RISCV.toAttrDict
+
+/--
+Verify the local invariants of a `gmir_riscv` operation in any operation-info type containing the
+`gmir_riscv` dialect.
+-/
+def GMIR_RISCV.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
+    [HasDialect OpInfo GMIR_RISCV] (_opType : GMIR_RISCV) (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyIntegerBinop ctx opIn
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  -- `verifyIntegerBinop` makes the operands the same type as the result.
+  ((op.getResult 0).getType! ctx.raw).verifyI64
+    s!"{instrName}: Expected i64 operands and result"
+
+/-- The gMIR operation that a word operation applies to the low 32 bits of its operands. -/
+def GMIR_RISCV.base : GMIR_RISCV → GMIR
+  | .g_divw => .g_sdiv
+  | .g_divuw => .g_udiv
+  | .g_remuw => .g_urem
+  | .g_sllw => .g_shl
+  | .g_srlw => .g_lshr
+  | .g_sraw => .g_ashr
+
+def GMIR_RISCV.interpretOp' (opType : Veir.GMIR_RISCV) (_properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (_blockOperands : Array BlockPtr) (mem : MemoryState)
+    : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
+  let [.int 64 lhs, .int 64 rhs] := operands.toList | none
+  let lhs := Data.LLVM.Int.trunc lhs 32 false false (by decide)
+  let rhs := Data.LLVM.Int.trunc rhs 32 false false (by decide)
+  let rhs := if opType matches .g_sllw | .g_srlw | .g_sraw then wordShiftAmount rhs else rhs
+  -- The default properties have no flags.
+  let base := opType.base
+  let (results, mem, _) ← GMIR.interpretOp' base (@IsOpCode.propertiesDefault GMIR _ base).default
+      #[IntegerType.signless 32] #[.int 32 lhs, .int 32 rhs] #[] mem
+  let [.int 32 result] := results.toList | none
+  return (#[.int 64 (Data.LLVM.Int.sext result 64 (by decide))], mem, none)
+
+instance : HasOpInfo GMIR_RISCV where
+  verifyLocalInvariants := GMIR_RISCV.verifyLocalInvariants
+  propagatesPoison := GMIR_RISCV.propagatesPoison
+  getEffects := GMIR_RISCV.getEffects
+  isConstantLike := GMIR_RISCV.isConstantLike
+  hasSSADominance := GMIR_RISCV.hasSSADominance
+
+end
+
+end Veir
