@@ -289,27 +289,15 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
     panic! "PatternRewriter.eraseOp! failed: operation is out of bounds"
 
 /--
-- Seed the worklist with the operations nested under `op` (not `op` itself), pushing them in
-- reverse post-order so that they are popped in post-order: each operation after everything
-- nested in its regions, and the operations of a block in program order. Reverse post-order
-- visits regions, blocks and operations last to first, pushing each operation before descending
-- into its regions.
--
-- Trivially dead operations are erased instead of pushed, as in LLVM's InstCombine. Since users
-- are visited before the operations defining their operands, this removes whole chains of dead
-- operations in one sweep, instead of popping each definition once while its dead users still
-- exist and again after they are erased.
--
-- Seeding does not notify operand definitions when erasing a dead operation: each in-scope
-- definition is either still to be visited or already on the worklist. The pop-time deadness
-- check handles definitions visited before their users (e.g. across blocks in layout order).
-- Without these notifications, each surviving operation is pushed exactly once.
+Seed the worklist with the operations nested under `op` (not `op` itself), pushing them in
+reverse post-order so that they are popped in post-order. We erase trivially dead operations
+rather then pushing them -- a trick from InstCombine that allows removal of chains of dead
+operations.
 -/
 private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInfo)
     (op : OperationPtr) : PatternRewriter OpInfo := Id.run do
   let mut rewriter := rewriter
   let numRegions := op.getNumRegions! rewriter.ctx.raw
-  -- Avoid setting up the traversal loops for the common case of a leaf operation.
   if numRegions == 0 then return rewriter
   for i in 0...numRegions do
     let mut block? := (op.getRegion! rewriter.ctx.raw (numRegions - 1 - i)).getLastBlock! rewriter.ctx.raw
