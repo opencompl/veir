@@ -1,0 +1,11 @@
+// RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: MLIR_INVALID
+
+"builtin.module"() ({
+  "func.func"() <{sym_name = "main", function_type = () -> ()}> ({
+  ^bb0():
+    %0 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+  }) : () -> ()
+}) : () -> ()
+
+// CHECK: func.func: Expected the last operation of a block to be a terminator

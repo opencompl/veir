@@ -1,0 +1,27 @@
+name: QPFTypes
+
+on:
+  push:
+    branches: [main]
+    paths: 
+      - 'QPFTypes/**'
+  pull_request:
+    paths: 
+      - 'QPFTypes/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build QPFTypes
+        uses: leanprover/lean-action@fe408643ea7367d8c0404a8be3975bb145f5fb64 # v1.7.0
+        with:
+          lake-package-directory: "QPFTypes"
+          build: true
+          test: true

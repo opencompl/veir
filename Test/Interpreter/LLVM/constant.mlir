@@ -1,7 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
+// NO_CROSS_CHECK: constants the translator does not emit, with no integer value.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32, f64)}> ({
     %pos = "llvm.mlir.constant"() <{ "value" = 3 : i32 }> : () -> i32
     %zero = "llvm.mlir.constant"() <{ "value" = 0 : i32 }> : () -> i32
     %neg = "llvm.mlir.constant"() <{ "value" = -4 : i32 }> : () -> i32
@@ -10,4 +11,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x00000003#32, 0x00000000#32, 0xfffffffc#32, 1.000000]
+// CHECK: Program output: #[0x00000003#32, 0x00000000#32, 0xfffffffc#32, 0x3ff0000000000000#64]

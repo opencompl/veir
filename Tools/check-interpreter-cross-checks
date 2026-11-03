@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Every interpreter test of the LLVM dialect cross-checks its result against
+llubi and alive-exec, or says why it cannot.
+
+A test under `Test/Interpreter/LLVM` passes this check when it has a
+`// RUN: LLUBI`, `// RUN: ALIVE_EXEC`, one of their `_CHECK` forms, or runs
+`%llubi-interpret` itself; or when it opts out with a line
+
+    // NO_CROSS_CHECK: <why neither tool can read this test>
+
+so that a test without a reference semantics is a deliberate choice, with the
+reason on record, rather than an oversight.
+"""
+
+import pathlib
+import re
+import sys
+
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+TESTS = REPO / "Test" / "Interpreter" / "LLVM"
+CROSS_CHECK = re.compile(r"^// RUN:.*(?:\b(?:LLUBI|ALIVE_EXEC)(?:_CHECK)?\b|%llubi-interpret)")
+OPT_OUT = re.compile(r"^// NO_CROSS_CHECK:\s*(.*\S)?\s*$")
+
+
+def main():
+    problems = []
+    for path in sorted(TESTS.glob("*.mlir")):
+        lines = path.read_text().splitlines()
+        checked = any(CROSS_CHECK.match(line) for line in lines)
+        opt_outs = [OPT_OUT.match(line) for line in lines if OPT_OUT.match(line)]
+        relative = path.relative_to(REPO)
+        for m in opt_outs:
+            if not m.group(1):
+                problems.append(f"{relative}: NO_CROSS_CHECK gives no reason")
+        if checked and opt_outs:
+            problems.append(f"{relative}: both cross-checks and NO_CROSS_CHECK")
+        if not checked and not opt_outs:
+            problems.append(f"{relative}: no `RUN: LLUBI` or `RUN: ALIVE_EXEC` line, "
+                            "and no `NO_CROSS_CHECK: <reason>`")
+    for problem in problems:
+        print(problem)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

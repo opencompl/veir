@@ -11,8 +11,10 @@ These are the only ranges we will use in this file
 abbrev CORange := Rco Nat
 
 @[grind=]
-theorem mem_range_nat (i: Nat) (r: CORange) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
+theorem CORange.mem_range_nat (i: Nat) (r: CORange) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by
   simp only [Membership.mem]
+
+open CORange
 
 @[grind=]
 theorem mem_range_int (i : Int) (r: Rco Int) : (i ∈ r) ↔ r.lower ≤ i ∧ i < r.upper := by

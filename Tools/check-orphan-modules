@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+
+import pathlib
+import re
+import sys
+import tomllib
+
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+IMPORT = re.compile(
+    r"^(?:public\s+)?(?:meta\s+)?import(?:\s+all)?\s+([A-Za-z_][A-Za-z0-9_.']*)"
+)
+HEADER = re.compile(r"^(?:module|prelude|set_option)\b")
+
+
+def strip_comments(text):
+    """Remove Lean line comments and nested block comments."""
+    output = []
+    depth = 0
+    i = 0
+    while i < len(text):
+        if text.startswith("/-", i):
+            depth += 1
+            i += 2
+        elif depth and text.startswith("-/", i):
+            depth -= 1
+            i += 2
+        elif not depth and text.startswith("--", i):
+            i = text.find("\n", i)
+            if i < 0:
+                break
+        else:
+            if not depth or text[i] == "\n":
+                output.append(text[i])
+            i += 1
+    return "".join(output)
+
+
+def imports(path):
+    result = []
+    for line in strip_comments(path.read_text(encoding="utf-8")).splitlines():
+        line = line.strip()
+        if match := IMPORT.match(line):
+            result.append(match.group(1))
+        elif line and not HEADER.match(line):
+            break
+    return result
+
+
+def module_path(module, source_dir):
+    return source_dir.joinpath(*module.split(".")).with_suffix(".lean")
+
+
+def targets():
+    config = tomllib.loads((REPO / "lakefile.toml").read_text(encoding="utf-8"))
+    package_dir = REPO / config.get("srcDir", ".")
+
+    for target in config.get("lean_lib", []):
+        if "globs" in target:
+            sys.exit(f"error: lean_lib {target['name']} sets globs, which this checker does not model")
+        source_dir = package_dir / target.get("srcDir", ".")
+        for root in target.get("roots", [target["name"]]):
+            yield root, source_dir
+
+    for target in config.get("lean_exe", []):
+        source_dir = package_dir / target.get("srcDir", ".")
+        yield target.get("root", target["name"]), source_dir
+
+
+def source_modules(roots):
+    modules = {}
+    for root, source_dir in roots:
+        root_path = module_path(root, source_dir)
+        if root_path.is_file():
+            modules[root] = root_path
+
+        for path in root_path.with_suffix("").rglob("*.lean"):
+            relative = path.relative_to(source_dir).with_suffix("")
+            modules[".".join(relative.parts)] = path
+    return modules
+
+
+def main():
+    roots = list(targets())
+    modules = source_modules(roots)
+    reached = set()
+    pending = [module for module, _ in roots]
+
+    while pending:
+        module = pending.pop()
+        if module in reached or module not in modules:
+            continue
+        reached.add(module)
+        pending.extend(imports(modules[module]))
+
+    orphans = sorted(modules.keys() - reached)
+    if orphans:
+        for module in orphans:
+            path = modules[module].relative_to(REPO)
+            print(f"warning: {path} is an orphan and is not compiled")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

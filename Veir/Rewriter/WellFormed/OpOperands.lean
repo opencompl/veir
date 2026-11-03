@@ -1,13 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
-import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.LinkedList.GetSet
 
 public section
 
@@ -20,15 +16,36 @@ variable (opPtr opPtr' : OperationPtr)
 variable (opPtrInBounds : opPtr.InBounds ctx)
 
 
-include ctxInBounds in
-@[simp, local grind →]
-theorem Rewriter.pushOperand_DefUse_getElem?
+@[simp, local grind =]
+theorem Rewriter.pushOperand_DefUse_getNextUse!
     (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
     array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
-    (array[i].get (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) (by grind [ValuePtr.DefUse])) =
-      { (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.DefUse])) with
-        back := (if i = 0 then .operandNextUse (opPtr.nextOperand ctx) else (OpOperandPtr.get array[i] ctx (by grind [ValuePtr.DefUse])).back) }
-    := by
+    array[i].getNextUse! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      array[i].getNextUse! ctx := by
+  grind [ValuePtr.DefUse]
+
+@[simp, local grind =]
+theorem Rewriter.pushOperand_DefUse_getBack!
+    (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
+    array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getBack! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      if i = 0 then .operandNextUse (opPtr.nextOperand ctx) else array[i].getBack! ctx := by
+  grind [ValuePtr.DefUse]
+
+@[simp, local grind =]
+theorem Rewriter.pushOperand_DefUse_getOwner!
+    (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
+    array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getOwner! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      array[i].getOwner! ctx := by
+  grind [ValuePtr.DefUse]
+
+@[simp, local grind =]
+theorem Rewriter.pushOperand_DefUse_getValue!
+    (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx)
+    array (arrayWf : valuePtr.DefUse ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getValue! (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds) =
+      array[i].getValue! ctx := by
   grind [ValuePtr.DefUse]
 
 set_option maxHeartbeats 10000000 in -- TODO
@@ -81,7 +98,7 @@ theorem Rewriter.pushOperand_DefUse
   case neg =>
     exists array'
     apply ValuePtr.DefUse.unchanged (ctx := ctx) <;>
-      grind [ValuePtr.DefUse, OpOperandPtr.get!_pushOperand']
+      grind [ValuePtr.DefUse, OpOperandPtr.getValue!_pushOperand']
 
 /--
 info: 'Veir.Rewriter.pushOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -151,3 +168,43 @@ theorem Rewriter.initOpOperands_WellFormed (ctx: IRContext OpInfo) (opPtr: Opera
   case succ n ih =>
     simp only [initOpOperands]
     grind [Rewriter.pushOperand_WellFormed]
+
+theorem BlockPtr.opChain_rewriter_pushOperand
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds)
+      array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_pushOperand
+    (h : Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds =
+      newCtx)
+    (ctxWf : ctx.WellFormed):
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_pushOperand]
+
+grind_pattern BlockPtr.operationList_rewriter_pushOperand =>
+  Rewriter.pushOperand ctx opPtr valuePtr opPtrInBounds valuePtrInBounds ctxInBounds,
+  newCtx.WellFormed,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_rewriter_initOpOperands
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn) array := by
+  fun_induction Rewriter.initOpOperands <;>
+    grind [BlockPtr.opChain_rewriter_pushOperand]
+
+theorem BlockPtr.operationList_rewriter_initOpOperands (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block'
+      (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_initOpOperands]
+
+grind_pattern BlockPtr.operationList_rewriter_initOpOperands =>
+  (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn).WellFormed,
+  block'.operationList (Rewriter.initOpOperands ctx opPtr opPtrInBounds operands hoperands hctx n hn) newCtxWf blockInBounds'

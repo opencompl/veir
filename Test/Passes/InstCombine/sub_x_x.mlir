@@ -14,6 +14,7 @@
       "test.test"(%sub_self) : (i32) -> ()
       // CHECK-NEXT: %[[SUB_ZERO:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i32}> : () -> i32
       // CHECK-NEXT: "test.test"(%[[SUB_ZERO]]) : (i32) -> ()
+      "test.test"(%zero) : (i32) -> ()
       "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

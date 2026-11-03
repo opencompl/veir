@@ -1,7 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: LLUBI
+// RUN: ALIVE_EXEC_CHECK
+
+// alive-exec rejects a struct of `i66` fields as not type-checking.
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i66, i66, i66, i66)}> ({
     %c = "llvm.mlir.constant"() <{ "value" = 18446744073709551616 : i66 }> : () -> i66
     %none = "llvm.shl"(%c, %c) : (i66, i66) -> i66
     %nsw = "llvm.shl"(%c, %c) <{"overflowFlags" = 1 : i32}> : (i66, i66) -> i66
@@ -12,3 +16,4 @@
 }) : () -> ()
 
 // CHECK: Program output: #[poison, poison, poison, poison]
+// ALIVE_EXEC: Rejected: program doesn't type check!

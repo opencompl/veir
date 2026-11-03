@@ -1,10 +1,8 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
 
 public section
@@ -50,7 +48,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
       intros region' region'InBounds
       constructor
       · grind
-      · simp only [RegionPtr.parent!_pushRegion]
+      · simp only [RegionPtr.getParent!_pushRegion]
         split; rotate_left
         · simp only [OperationPtr.getRegion!_pushRegion]
           grind
@@ -67,7 +65,7 @@ theorem IRContext.wellFormed_Rewriter_pushRegion :
     have ⟨h₁, h₂⟩ := wf.regions reg (by grind)
     constructor
     · grind
-    · simp only [RegionPtr.parent!_pushRegion]
+    · simp only [RegionPtr.getParent!_pushRegion]
       split
       · simp only [Option.some.injEq, forall_eq']
         exists op.getNumRegions! ctx
@@ -86,3 +84,43 @@ theorem Rewriter.initOpRegions_WellFormed (opPtr: OperationPtr)
   case case1 => grind
   case case2 => grind [IRContext.wellFormed_Rewriter_pushRegion]
   case case3 => grind
+
+theorem BlockPtr.opChain_rewriter_pushRegion
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.pushRegion ctx op region hop hregion hregionParent) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_pushRegion
+    (h : Rewriter.pushRegion ctx op region hop hregion hregionParent = newCtx)
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_pushRegion]
+
+grind_pattern BlockPtr.operationList_rewriter_pushRegion =>
+  Rewriter.pushRegion ctx op region hop hregion hregionParent,
+  newCtx.WellFormed,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_rewriter_initOpRegions
+    (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx')
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' ctx' array := by
+  fun_induction Rewriter.initOpRegions generalizing array
+  case case1 => grind
+  case case2 => grind [BlockPtr.opChain_rewriter_pushRegion]
+  case case3 => grind
+
+theorem BlockPtr.operationList_rewriter_initOpRegions
+    (h : Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄ = some ctx')
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' ctx' newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_initOpRegions]
+
+grind_pattern BlockPtr.operationList_rewriter_initOpRegions =>
+  Rewriter.initOpRegions ctx op regions index h₁ h₂ h₃ h₄, some ctx',
+  block'.operationList ctx' newCtxWf blockInBounds'

@@ -1,0 +1,21 @@
+# Asks first-time contributors to agree to VeIR's license.
+name: License
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  license:
+    if: contains(fromJSON('["FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "NONE"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Thanks for your first contribution to VeIR! VeIR is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) with [LLVM Exception](https://spdx.org/licenses/LLVM-exception.html). Please confirm by replying: \"I agree to license my contributions to VeIR under the Apache License 2.0 with LLVM Exception.\""
+

@@ -1,0 +1,196 @@
+module
+
+public import Veir.Pass
+public import Veir.PatternRewriter.Basic
+import Veir.Analysis.DataFlow.SparseConstantPropagationAnalysis
+import Veir.Analysis.DataFlow.DeadCodeAnalysis
+import Veir.Interfaces.FoldInterfaces
+import Veir.Interfaces.ControlFlowInterfaces
+import Veir.Passes.Matching
+import Veir.Passes.Canonicalize.UniqueConstants
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
+
+namespace Veir
+
+/-!
+  # Canonicalize pass
+
+  Rewrites operations into canonical forms, including propagating constants,
+  folding operations, turning branches with constant conditions into unconditional
+  branches, moving constants to the right side of commutative operations,
+  and reducing modular constants to their canonical representatives.
+-/
+
+def canonicalizeModArithConstant (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let some (_, props) := matchOp op rewriter.ctx.raw Mod_Arith.constant 0
+    | return rewriter
+  let resultType := (op.getResult 0 : ValuePtr).getType! rewriter.ctx.raw
+  let .modArithType modArithType := resultType.val
+    | return rewriter
+  let canonicalValue := props.value.value % modArithType.modulus.value
+  if canonicalValue = props.value.value then return rewriter
+  let canonicalProps : ModArithConstantProperties :=
+    { value := { props.value with value := canonicalValue } }
+  return rewriter.setProperties! op Mod_Arith.constant canonicalProps
+
+open Puddle in
+/-- Commute a constant-like left operand on a fixed-shape GMIR operation, retaining all results. -/
+private def commuteGmirConstantPattern (opcode : GMIR) (numResults : Nat := 1) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let lhs ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let rhs ← MatchProg.value (← MatchProg.type (Attr := TypeAttr))
+      let resultTypes ← (Array.range numResults).mapM fun _ => MatchProg.type (Attr := TypeAttr)
+      let root ← MatchProg.root (.gmir opcode) #[lhs, rhs] resultTypes
+      let () ← MatchProg.inspectOperation (Outputs := Unit) root.op fun ctx op => do
+        guard ((op.getOperand! ctx 0).isConstantLike ctx &&
+          !(op.getOperand! ctx 1).isConstantLike ctx)
+      return (lhs, rhs, resultTypes, root.properties))
+    (fun (lhs, rhs, resultTypes, props) =>
+      CreateProg.operation (.gmir opcode) #[rhs, lhs] resultTypes (.inr props))
+    (fun op => op)
+
+/-- Closed patterns for GMIR's commutative binary operations; g_uaddo has two results. -/
+private def commuteGmirConstant : GMIR → Option (Puddle.CompiledPattern OpCode)
+  | .g_add => some (commuteGmirConstantPattern .g_add).compile
+  | .g_mul => some (commuteGmirConstantPattern .g_mul).compile
+  | .g_and => some (commuteGmirConstantPattern .g_and).compile
+  | .g_or => some (commuteGmirConstantPattern .g_or).compile
+  | .g_xor => some (commuteGmirConstantPattern .g_xor).compile
+  | .g_smin => some (commuteGmirConstantPattern .g_smin).compile
+  | .g_smax => some (commuteGmirConstantPattern .g_smax).compile
+  | .g_umin => some (commuteGmirConstantPattern .g_umin).compile
+  | .g_umax => some (commuteGmirConstantPattern .g_umax).compile
+  | .g_uaddsat => some (commuteGmirConstantPattern .g_uaddsat).compile
+  | .g_saddsat => some (commuteGmirConstantPattern .g_saddsat).compile
+  | .g_uaddo => some (commuteGmirConstantPattern .g_uaddo 2).compile
+  | _ => none
+
+public def commutativeConstantRHS (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  let opType := op.getOpType! rewriter.ctx.raw
+  if let .gmir opcode := opType then
+    if let some pattern := commuteGmirConstant opcode then
+      return ← pattern.run rewriter op opInBounds
+  -- Other dialects retain the generic stable partition, including variable operand counts.
+  if ¬ opType.isCommutative then return rewriter
+  let operands := op.getOperands! rewriter.ctx.raw
+  let reordered :=
+    if operands.size = 2 then
+      let lhs := operands[0]!
+      let rhs := operands[1]!
+      if lhs.isConstantLike rewriter.ctx.raw && !rhs.isConstantLike rewriter.ctx.raw then
+        #[rhs, lhs]
+      else
+        operands
+    else
+      /- Stable partition: non-constant operands first, then the constants. -/
+      let (nonConsts, consts) := operands.partition (!·.isConstantLike rewriter.ctx.raw)
+      nonConsts ++ consts
+  if reordered == operands then return rewriter
+  let resultTypes := op.getResultTypes! rewriter.ctx.raw
+  let properties := op.getProperties! rewriter.ctx.raw opType
+  let (rewriter, newOp) ← rewriter.createOp! opType resultTypes reordered
+    #[] #[] properties (some $ .before op)
+  return rewriter.replaceOp! op newOp
+
+/-- Replace a branch whose constant operands select a single successor with an
+    unconditional branch to that successor. -/
+def simplifyConstantBranch (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (_ : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) := do
+  if op.getNumSuccessors! rewriter.ctx.raw < 2 then return rewriter
+  let opType := op.getOpType! rewriter.ctx.raw
+  let some ⟨brOpCode, brProperties⟩ :=
+      opType.unconditionalBranch? (op.getProperties! rewriter.ctx.raw opType)
+    | return rewriter
+  let operands := (op.getOperands! rewriter.ctx.raw).map (·.constantValue rewriter.ctx.raw)
+  let some index := BranchOpInterface.getSuccessorIndexForOperands? op operands rewriter.ctx.raw
+    | return rewriter
+  let forwarded := (BranchOpInterface.getSuccessorOperands? op index rewriter.ctx.raw).get!
+  let successor := op.getSuccessor! rewriter.ctx.raw index
+  let (rewriter, _) ← rewriter.createOp! brOpCode #[] forwarded.forwardedOperands
+    #[successor] #[] brProperties (some (.before op))
+  return rewriter.eraseOp! op
+
+/-! ## Pass implementation -/
+
+/-- Replace a used SSA value with the constant found by the analysis, if its
+    recorded dialect can materialize it. -/
+private def replaceKnownConstant (ctx : WfIRContext OpCode)
+    (facts : DataFlowContext) (value : ValuePtr) (ip : InsertPoint) :
+    Option (WfIRContext OpCode) := do
+  if !value.hasUses! ctx.raw || value.isConstantLike ctx.raw then
+    return ctx
+  let some fact := facts.getFact? .sparseConstant (.ValuePtr value) | return ctx
+  let .constant constant := fact.payload.latticeElement | return ctx
+  let opCode := fact.payload.metadata.get!
+  let type := value.getType! ctx.raw
+  let some ⟨constantOpCode, properties⟩ := opCode.materializeConstant constant type
+    | return ctx
+  let (ctx, constantOp) ← WfRewriter.createOp! ctx constantOpCode #[type]
+    #[] #[] #[] properties (some ip)
+  return WfRewriter.replaceValue! ctx value (constantOp.getResult 0)
+
+/-- Run constant propagation and then perform the rewrites it exposes. -/
+private def propagateConstants (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Option (WfIRContext OpCode) := do
+  let facts ← fixpointSolve root #[SparseConstantPropagationAnalysis, DeadCodeAnalysis] ctx
+  let mut ctx := ctx
+  for op in ctx.raw.operations.keys do
+    if (op.getParent! ctx.raw).isSome then
+      for result in op.getResults! ctx.raw do
+        ctx ← replaceKnownConstant ctx facts result (.before op)
+  for block in ctx.raw.blocks.keys do
+    for argument in block.getArguments! ctx.raw do
+      ctx ← replaceKnownConstant ctx facts argument
+        (InsertPoint.atStart! block ctx.raw)
+  return ctx
+
+def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  let mut ctx := ctx
+  let mut patterns : Array (RewritePattern OpCode) := #[]
+  if (options.get? "sccp").getD true then
+    let some propagated := propagateConstants ctx op
+      | throw "Error while propagating constants"
+    ctx := propagated
+    patterns := patterns.push foldOperation
+  if (options.get? "constant-branch").getD true then
+    patterns := patterns.push simplifyConstantBranch
+  if (options.get? "mod-arith-constant").getD true then
+    patterns := patterns.push canonicalizeModArithConstant
+  if (options.get? "commutative-constant-rhs").getD true then
+    patterns := patterns.push commutativeConstantRHS
+  let pattern := RewritePattern.GreedyRewritePattern patterns
+  let some result := RewritePattern.applyInContext pattern ctx
+    | throw "Error while applying canonicalization patterns"
+  ctx := result
+  if (options.get? "unique-constants").getD true then
+    ctx := UniqueConstants.run ctx op
+  return ctx
+
+public def CanonicalizePass : Pass OpCode :=
+  { name := "canonicalize"
+    description := "Rewrite operations into a canonical form."
+    options := .ofList [
+      ("sccp",
+        { description := "Propagate constants, then fold operations to constants or operands."
+          defaultValue := true }),
+      ("constant-branch",
+        { description := "Replace branches with constant conditions by unconditional branches."
+          defaultValue := true }),
+      ("mod-arith-constant",
+        { description := "Reduce modular constants to their canonical representatives."
+          defaultValue := true }),
+      ("unique-constants",
+        { description := "Deduplicate constants and hoist them to the top of their isolated scope."
+          defaultValue := true }),
+      ("commutative-constant-rhs",
+        { description := "Move constants to the right side of commutative operations."
+          defaultValue := true })]
+    run := CanonicalizePass.impl }
+
+end Veir

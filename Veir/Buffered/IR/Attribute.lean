@@ -1,0 +1,861 @@
+module
+
+import Veir.Buffered.ForLean
+public import Std.Data.Iterators.Producers.Array
+
+/-! Attributes -/
+
+namespace Veir.Buffered
+public section
+
+/-- We print `ByteArray`s as UTF-8 strings, as all the `ByteArray`s we are manipulating are UTF-8 encoded strings. -/
+private local instance : Repr ByteArray where
+  reprPrec ba _ := repr (String.fromUTF8! ba)
+
+/-! ## Attribute definitions -/
+
+/-- A `!builtin.integer` is an integer type with a given bitwidth. -/
+structure IntegerType where
+  bitwidth : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- A floating point type with a given bitwidth. -/
+structure FloatType where
+  bitwidth : Nat
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- A register type is an integer type with width 64. -/
+structure RegisterType where
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- An integer literal with an associated integer type. -/
+structure IntegerAttr where
+  value : Int
+  type : IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- Floating point fastmath flags attribute. -/
+structure FastMathFlagsAttr where
+  nnan : Bool
+  ninf : Bool
+  nsz : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+structure RegisterAttr where
+  value : Int
+  type : RegisterType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- A floating point attribute storing a Lean `Float` value with an associated float type. -/
+structure FloatAttr where
+  value : Float
+  type : FloatType
+deriving Inhabited, Repr
+
+/-- Bitwise equality determines Lean's logical floating-point value. -/
+theorem floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b := by
+  rcases a with ⟨⟨a, ha⟩⟩
+  rcases b with ⟨⟨b, hb⟩⟩
+  intro h
+  change a = b at h
+  cases h
+  rfl
+
+instance : DecidableEq FloatAttr
+  | a, b =>
+    if hv : a.value.toBits = b.value.toBits then
+      if ht : a.type = b.type then
+        have hval : a.value = b.value := floatEqOfToBitsEq hv
+        isTrue (by
+          cases a
+          cases b
+          simp_all)
+      else
+        isFalse (by intro h; exact ht (congrArg FloatAttr.type h))
+    else
+      isFalse (by intro h; exact hv (congrArg (Float.toBits ∘ FloatAttr.value) h))
+
+instance : Hashable FloatAttr where
+  hash a := mixHash (hash a.value.toBits) (hash a.type)
+
+/-- An attribute containing a string. -/
+structure StringAttr where
+  value : ByteArray
+deriving Inhabited, DecidableEq, Hashable
+
+instance : Repr StringAttr where
+  reprPrec attr _ := "StringAttr.mk " ++ repr (String.fromUTF8! attr.value)
+
+/-- A unit attribute that carries no information, but the information that it exists. -/
+structure UnitAttr where
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- A source location. -/
+structure LocationAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- An array of integer attributes. -/
+structure DenseArrayAttr where
+  elementType : IntegerType
+  values : Array Int
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- An attribute from an unknown dialect. -/
+structure UnregisteredAttr where
+  value : String
+  isType : Bool
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`. -/
+structure FlatSymbolRefAttr where
+  value : String
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The `!mod_arith.int` type from HEIR's modarith dialect. -/
+structure ModArithType where
+  modulus : Int
+  modulusType : Option IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+namespace LLVM
+
+structure VoidType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+structure PointerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end LLVM
+
+/-! Cuda Tile types -/
+
+namespace CudaTile
+
+/-- An elemental pointer type represents a single location in global device memory. -/
+
+structure PointerType where
+  pointeeType : IntegerType
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end CudaTile
+
+namespace HW
+
+/-- The `ModulePort::Direction` type from CIRCT's hw dialect. -/
+inductive ModulePort.Direction
+| input
+| output
+| inout
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The `ModulePort` type from CIRCT's hw dialect. -/
+structure ModulePort where
+  name : String
+  type : IntegerType
+  dir : ModulePort.Direction
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+/-- The `!hw.modty` type from CIRCT's hw dialect. -/
+structure ModuleType where
+  ports : Array ModulePort
+deriving Inhabited, Repr, DecidableEq, Hashable
+
+end HW
+
+mutual
+
+/-- The signature of a function, consisting of an array of input attributes and an array of output attributes. -/
+structure FunctionType where
+  inputs : Array Attribute
+  outputs : Array Attribute
+  isVarArg : Bool := false
+deriving Inhabited, Repr, Hashable
+
+/-- An attribute that holds a sequence of attributes. -/
+structure ArrayAttr where
+  value : Array Attribute
+deriving Inhabited, Repr, Hashable
+
+/-- A dictionary attribute that maps byte array keys to attribute values. -/
+structure DictionaryAttr where
+  /-- Entries are encoded as an array to allow decidable equality and iteration, which is not possible with either a `HashMap` or an `ExtHashMap`. -/
+  entries : Array (ByteArray × Attribute)
+  /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
+deriving Inhabited, Repr, Hashable
+
+/-- An attribute representing a fixed-sized array type -/
+structure LLVM.ArrayType where
+  size : Nat
+  type : Attribute
+deriving Repr, Hashable
+
+/-- A data structure that represents compile-time information in the IR. -/
+inductive Attribute
+/-- Integer type -/
+| integerType (type : IntegerType)
+/-- Float type -/
+| floatType (type : FloatType)
+/-- Integer attribute -/
+| integerAttr (attr : IntegerAttr)
+/-- Float attribute -/
+| floatAttr (attr : FloatAttr)
+/-- Float fast math flags attribute -/
+| fastMathFlagsAttr (attr : FastMathFlagsAttr)
+/-- Register type -/
+| registerType (type : RegisterType)
+/-- Register attribute -/
+| registerAttr (attr : RegisterAttr)
+/-- String attribute -/
+| stringAttr (attr : StringAttr)
+/-- Unit attribute -/
+| unitAttr (attr : UnitAttr)
+/-- Location attribute -/
+| locationAttr (attr : LocationAttr)
+/-- Array attribute -/
+| arrayAttr (attr : ArrayAttr)
+/-- Dense array attribute -/
+| denseArrayAttr (attr : DenseArrayAttr)
+/-- Dictionary attribute -/
+| dictionaryAttr (attr : DictionaryAttr)
+/-- Function type -/
+| functionType (type : FunctionType)
+/-- An attribute from an unknown dialect. -/
+| unregisteredAttr (attr : UnregisteredAttr)
+/-- A flat symbol reference, e.g., `@foo` or `@"my.func"`. -/
+| flatSymbolRefAttr (attr : FlatSymbolRefAttr)
+/-- HEIR modarith type -/
+| modArithType (type : ModArithType)
+/-- LLVM void type -/
+| llvmVoidType (type : LLVM.VoidType)
+/-- LLVM pointer type -/
+| llvmPointerType (type : LLVM.PointerType)
+/-- LLVM array type -/
+| llvmArrayType (type : LLVM.ArrayType)
+/-- LLVM function type -/
+| llvmFunctionType (type : FunctionType)
+/-- Cuda Tile pointer type -/
+| cudaTilePointerType (type : CudaTile.PointerType)
+/-- CIRCT hw module type -/
+| hwModuleType (type : HW.ModuleType)
+deriving Inhabited, Repr, Hashable
+
+end
+
+instance : Inhabited LLVM.ArrayType where
+  default := { size := 0, type := .llvmPointerType .mk }
+
+def ArrayAttr.empty : ArrayAttr := { value := #[] }
+
+/-- Construct a `DictionaryAttr` from an array of key-value pairs. -/
+def DictionaryAttr.fromArray (entries : Array (ByteArray × Attribute)) : DictionaryAttr :=
+  { entries := entries.insertionSort (fun entry1 entry2 => (compare entry1.1 entry2.1).isLT) }
+
+def DictionaryAttr.empty : DictionaryAttr := { entries := #[] }
+
+theorem FunctionType.sizeOf_elems_inputs {ft : FunctionType} (hx : x ∈ ft.inputs) :
+    sizeOf x < sizeOf ft := by
+  grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
+
+theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.outputs) :
+    sizeOf x < sizeOf ft := by
+  grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
+
+theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
+    sizeOf x < sizeOf aa := by
+  grind [Array.sizeOf_lt_of_mem hx, cases ArrayAttr]
+
+theorem DictionaryAttr.sizeOf_elems_entries {da : DictionaryAttr} (hx : x ∈ da.entries) :
+    sizeOf x < sizeOf da := by
+  grind [Array.sizeOf_lt_of_mem hx, cases DictionaryAttr]
+
+theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
+    sizeOf t.type < sizeOf t := by
+  grind [cases ArrayType]
+
+/-! DecidableEq instances -/
+
+mutual
+def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
+  let inputs1 := type1.inputs
+  let outputs1 := type1.outputs
+  let inputs2 := type2.inputs
+  let outputs2 := type2.outputs
+  match Array.instDecidabelEq' inputs1 inputs2 (fun x y _ _ => Attribute.decEq x y) with
+  | isTrue _ =>
+    match Array.instDecidabelEq' outputs1 outputs2 (fun x y _ _ => Attribute.decEq x y) with
+    | isTrue _ =>
+      if h : type1.isVarArg = type2.isVarArg then
+        isTrue (by grind [cases FunctionType])
+      else
+        isFalse (by grind)
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf type1
+decreasing_by
+  · have := @FunctionType.sizeOf_elems_inputs
+    grind
+  · have := @FunctionType.sizeOf_elems_outputs
+    grind
+
+def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
+  let value1 := arr1.value
+  let value2 := arr2.value
+  match Array.instDecidabelEq' value1 value2 (fun x y _ _ => x.decEq y) with
+  | isTrue _ => isTrue (by grind [cases ArrayAttr])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf arr1
+decreasing_by
+  have := @ArrayAttr.sizeOf_elems_value
+  grind
+
+def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) :=
+  let size1 := arr1.size
+  let size2 := arr2.size
+  let type1 := arr1.type
+  let type2 := arr2.type
+  match Int.instDecidableEq size1 size2 with
+  | isTrue _ =>
+    match Attribute.decEq type1 type2 with
+    | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
+    | isFalse _ => isFalse (by grind)
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf arr1
+decreasing_by
+  have := @LLVM.ArrayType.sizeOf_elems_type
+  grind
+
+def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
+  let entries1 := dict1.entries
+  let entries2 := dict2.entries
+  match Array.instDecidabelEq' entries1 entries2 fun ⟨k₁, v₁⟩ ⟨k₂, v₂⟩ hx hy =>
+    if _ : k₁ = k₂ then
+      match v₁.decEq v₂ with
+      | isTrue _ => isTrue (by grind)
+      | isFalse _ => isFalse (by grind)
+    else isFalse (by grind)
+  with
+  | isTrue _ => isTrue (by grind [cases DictionaryAttr])
+  | isFalse _ => isFalse (by grind)
+termination_by sizeOf dict1
+decreasing_by
+  have := @DictionaryAttr.sizeOf_elems_entries
+  grind
+def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
+  cases h1 : attr1 <;> cases h2 : attr2
+  case integerType.integerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case floatType.floatType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case fastMathFlagsAttr.fastMathFlagsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case unregisteredAttr.unregisteredAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case functionType.functionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case dictionaryAttr.dictionaryAttr attr1 attr2 =>
+    exact (match DictionaryAttr.decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case integerAttr.integerAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case floatAttr.floatAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case stringAttr.stringAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case unitAttr.unitAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case locationAttr.locationAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case arrayAttr.arrayAttr attr1 attr2 =>
+    exact (match ArrayAttr.decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case modArithType.modArithType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case registerType.registerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case registerAttr.registerAttr type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case llvmVoidType.llvmVoidType type1 type2 =>
+    exact (isTrue (by grind))
+  case llvmPointerType.llvmPointerType type1 type2 =>
+    exact (isTrue (by grind))
+  case llvmArrayType.llvmArrayType type1 type2 =>
+    exact (match LLVM.ArrayType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case llvmFunctionType.llvmFunctionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case cudaTilePointerType.cudaTilePointerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case denseArrayAttr.denseArrayAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case flatSymbolRefAttr.flatSymbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case hwModuleType.hwModuleType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  all_goals exact isFalse (by grind)
+termination_by sizeOf attr1
+end
+
+instance : DecidableEq Attribute := Attribute.decEq
+instance : DecidableEq FunctionType := FunctionType.decEq
+instance : DecidableEq ArrayAttr := ArrayAttr.decEq
+instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
+
+/-! ToString implementation -/
+
+instance : ToString IntegerType where
+  toString type := s!"i{type.bitwidth}"
+
+instance : ToString FloatType where
+  toString type := s!"f{type.bitwidth}"
+
+instance : ToString FastMathFlagsAttr where
+  toString type := Id.run do
+    let mut array : List String := []
+    if type.nnan && type.ninf && type.nsz then array := array ++ ["fast"]
+    else
+      if type.nnan then array := array ++ ["nnan"]
+      if type.ninf then array := array ++ ["ninf"]
+      if type.nsz then array := array ++ ["nsz"]
+      if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
+    s!"#llvm.fastmath<{String.intercalate ", " array}>"
+
+instance : ToString IntegerAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString FloatAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString RegisterType where
+  toString _ := s!"!reg"
+
+instance : ToString RegisterAttr where
+  toString attr := s!"{attr.value} : !reg"
+
+def escapeStringLiteral (s : String) : String := Id.run do
+  let mut result := ""
+  for c in s.toList do
+    if c == '\\' then result := result ++ "\\\\"
+    else if c == '"' then result := result ++ "\\\""
+    else if c == '\n' then result := result ++ "\\n"
+    else if c == '\t' then result := result ++ "\\t"
+    else result := result.push c
+  return result
+
+instance : ToString StringAttr where
+  toString attr := s!"\"{escapeStringLiteral (String.fromUTF8! attr.value)}\""
+
+instance : ToString UnitAttr where
+  toString _ := "unit"
+
+instance : ToString LocationAttr where
+  toString attr := s!"loc(" ++ attr.value ++ ")"
+
+instance : ToString DenseArrayAttr where
+  toString attr :=
+    let values := if attr.values.isEmpty then ""
+      else ": " ++ String.intercalate ", " (attr.values.toList.map ToString.toString)
+    s!"array<{attr.elementType}{values}>"
+
+instance : ToString UnregisteredAttr where
+  toString attr := attr.value
+
+instance : ToString FlatSymbolRefAttr where
+  toString attr := attr.value
+
+instance : ToString ModArithType where
+  toString type := s!"!mod_arith.int<{type.modulus}" ++
+    (match type.modulusType with
+    | some modulusType => s!" : {modulusType}"
+    | none => "") ++ ">"
+
+instance : ToString LLVM.VoidType where
+  toString _ := "!llvm.void"
+
+instance : ToString LLVM.PointerType where
+  toString _ := "!llvm.ptr"
+
+instance : ToString CudaTile.PointerType where
+  toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
+
+instance : ToString HW.ModulePort.Direction where
+  toString
+  | .input => "input"
+  | .output => "output"
+  | .inout => "inout"
+
+instance : ToString HW.ModulePort where
+  toString attr := s!"{attr.dir} {attr.name} : {attr.type}"
+
+instance : ToString HW.ModuleType where
+  toString attr :=
+    let values := attr.ports.iter.map ToString.toString |>.intercalateString ", "
+    s!"!hw.modty<{values}>"
+
+mutual
+
+def ArrayAttr.toString (attr : ArrayAttr) : String :=
+  let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
+  s!"[{elems}]"
+termination_by sizeOf attr
+decreasing_by
+  apply ArrayAttr.sizeOf_elems_value
+  grind
+
+def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
+  let key := String.fromUTF8! entry.1
+  match entry.2 with
+  | .unitAttr _ => key
+  | _ => s!"\"{key}\" = {Attribute.toString entry.2}"
+termination_by sizeOf entry
+decreasing_by grind
+
+def DictionaryAttr.toString (attr : DictionaryAttr) : String :=
+  let entries := attr.entries.toList.map DictionaryAttr.entryToString
+  s!"\{{String.intercalate ", " entries}}"
+termination_by sizeOf attr
+decreasing_by
+  rename_i entry _
+  have : entry ∈ attr.entries := by grind
+  grind [Array.sizeOf_lt_of_mem this, cases DictionaryAttr]
+
+def FunctionType.toLLVMString (type : FunctionType) : String :=
+  let paramStrs := type.inputs.toList.map Attribute.toString
+  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
+  let params := String.intercalate ", " paramStrs
+  let result := match _ : type.outputs.size with
+    | 1 =>
+      match type.outputs[0] with
+      | .llvmVoidType _ => "void"
+      | _ => Attribute.toString type.outputs[0]
+    | _ => "<invalid>"
+  s!"!llvm.func<{result} ({params})>"
+termination_by sizeOf type
+decreasing_by
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+
+def FunctionType.toString (type : FunctionType) : String :=
+  let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
+  let outputs := match _ : type.outputs.size with
+  | 0 => "()"
+  | 1 =>
+    match _ : type.outputs[0] with
+    | .functionType _ => s!"({type.outputs[0].toString})"
+    | output => output.toString
+  | _ =>
+    s!"({String.intercalate ", " (type.outputs.toList.map Attribute.toString)})"
+  s!"({inputs}) -> {outputs}"
+termination_by sizeOf type
+decreasing_by
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+
+def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
+  s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
+termination_by sizeOf type
+decreasing_by
+  apply LLVM.ArrayType.sizeOf_elems_type
+
+/-- Convert an attribute to a string representation. -/
+def Attribute.toString (attr : Attribute) : String :=
+  match attr with
+  | .integerType type => ToString.toString type
+  | .floatType type => ToString.toString type
+  | .fastMathFlagsAttr attr => ToString.toString attr
+  | .integerAttr attr => ToString.toString attr
+  | .floatAttr attr => ToString.toString attr
+  | .registerType type => ToString.toString type
+  | .registerAttr attr => ToString.toString attr
+  | .stringAttr attr => ToString.toString attr
+  | .unitAttr attr => ToString.toString attr
+  | .locationAttr attr => ToString.toString attr
+  | .arrayAttr attr => attr.toString
+  | .denseArrayAttr attr => ToString.toString attr
+  | .dictionaryAttr attr => attr.toString
+  | .unregisteredAttr attr => ToString.toString attr
+  | .flatSymbolRefAttr attr => ToString.toString attr
+  | .functionType type => type.toString
+  | .modArithType type => ToString.toString type
+  | .llvmVoidType type => ToString.toString type
+  | .llvmPointerType type => ToString.toString type
+  | .llvmArrayType type => type.toString
+  | .llvmFunctionType type => type.toLLVMString
+  | .cudaTilePointerType type => ToString.toString type
+  | .hwModuleType type => ToString.toString type
+termination_by sizeOf attr
+
+end
+
+instance : ToString Attribute where
+  toString := Attribute.toString
+
+instance : ToString FunctionType where
+  toString := FunctionType.toString
+
+instance : ToString ArrayAttr where
+  toString := ArrayAttr.toString
+
+instance : ToString DictionaryAttr where
+  toString := DictionaryAttr.toString
+
+instance : ToString LLVM.ArrayType where
+  toString := LLVM.ArrayType.toString
+
+/-! Coercion instances to Attribute -/
+instance : Coe IntegerType Attribute where
+  coe type := .integerType type
+
+instance : Coe FloatType Attribute where
+  coe type := .floatType type
+
+instance : Coe FastMathFlagsAttr Attribute where
+  coe flags := .fastMathFlagsAttr flags
+
+instance : Coe IntegerAttr Attribute where
+  coe attr := .integerAttr attr
+
+instance : Coe StringAttr Attribute where
+  coe attr := .stringAttr attr
+
+instance : Coe UnitAttr Attribute where
+  coe attr := .unitAttr attr
+
+instance : Coe LocationAttr Attribute where
+  coe attr := .locationAttr attr
+
+instance : Coe UnregisteredAttr Attribute where
+  coe attr := .unregisteredAttr attr
+
+instance : Coe FlatSymbolRefAttr Attribute where
+  coe attr := .flatSymbolRefAttr attr
+
+instance : Coe ArrayAttr Attribute where
+  coe attr := .arrayAttr attr
+
+instance : Coe FloatAttr Attribute where
+  coe attr := .floatAttr attr
+
+instance : Coe DenseArrayAttr Attribute where
+  coe attr := .denseArrayAttr attr
+
+instance : Coe DictionaryAttr Attribute where
+  coe attr := .dictionaryAttr attr
+
+instance : Coe FunctionType Attribute where
+  coe type := .functionType type
+
+instance : Coe ModArithType Attribute where
+  coe type := .modArithType type
+
+instance : Coe LLVM.VoidType Attribute where
+  coe type := .llvmVoidType type
+
+instance : Coe LLVM.PointerType Attribute where
+  coe type := .llvmPointerType type
+
+instance : Coe LLVM.ArrayType Attribute where
+  coe type := .llvmArrayType type
+
+instance : Coe CudaTile.PointerType Attribute where
+  coe type := .cudaTilePointerType type
+
+instance : Coe HW.ModuleType Attribute where
+  coe type := .hwModuleType type
+
+/-! TypeAttr definition -/
+
+namespace Attribute
+
+/-- Determine if an attribute can be used as a type annotation for SSA values. -/
+def isType (attr : Attribute) : Bool :=
+  match attr with
+  | .integerType _ => true
+  | .floatType _ => true
+  | .fastMathFlagsAttr _ => false
+  | .integerAttr _ => false
+  | .floatAttr _ => false
+  | .stringAttr _ => false
+  | .unitAttr _ => false
+  | .locationAttr _ => false
+  | .arrayAttr _ => false
+  | .denseArrayAttr _ => false
+  | .dictionaryAttr _ => false
+  | .unregisteredAttr attr => attr.isType
+  | .flatSymbolRefAttr _ => false
+  | .functionType _ => true
+  | .modArithType _ => true
+  | .registerType _ => true
+  | .registerAttr _ => false
+  | .llvmVoidType _ => true
+  | .llvmPointerType _ => true
+  | .llvmArrayType _ => true
+  | .llvmFunctionType _ => true
+  | .cudaTilePointerType _ => true
+  | .hwModuleType _ => true
+
+@[simp, grind =]
+theorem isType_integerType type : (integerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_floatType type : (floatType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
+@[simp, grind =]
+theorem isType_unregistered unregistered :
+  (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
+@[simp, grind =]
+theorem isType_functionType type : (functionType type).isType = true := by rfl
+
+theorem isType_unitAttr attr : (unitAttr attr).isType = false := by rfl
+@[simp, grind =]
+theorem isType_modArithType type : (modArithType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_registerType type : (registerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmVoidType type : (llvmVoidType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmArrayType type : (llvmArrayType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
+@[simp, grind =]
+theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
+
+end Attribute
+
+/-- An attribute that can be used as a type annotation for SSA values. -/
+@[expose]
+def TypeAttr := {attr // Attribute.isType attr}
+deriving Repr, Hashable, DecidableEq
+
+instance : Inhabited TypeAttr where
+  default := ⟨.integerType (IntegerType.mk 0), by rfl⟩
+
+instance : Coe TypeAttr Attribute where
+  coe typeAttr := typeAttr.val
+
+instance : ToString TypeAttr where
+  toString typeAttr := toString (typeAttr.val)
+
+theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
+  attr1 = attr2 ↔ (attr1 : Attribute) = (attr2 : Attribute) := by
+  unfold TypeAttr at *
+  grind
+
+/-- Convert an attribute to a type attribute. -/
+def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
+  ⟨attr, isType⟩
+
+def Attribute.isDict (attr : Attribute) : Bool :=
+  match attr with
+  | .dictionaryAttr _ => true
+  | _ => false
+
+/-- Coerce an attribute to a dictionary attribute if it is a dictionary attribute. -/
+@[inline]
+def Attribute.asDict? (attr : Attribute) (isDict : attr.isDict := by grind) : Option DictionaryAttr :=
+  match _ : attr with
+  | .dictionaryAttr dict => some dict
+  | _ => none
+
+@[inline]
+def Attribute.asDict (attr : Attribute) (isDict : attr.isDict := by grind) : DictionaryAttr :=
+  let res := attr.asDict?
+  match _ : res with
+  | some dict => dict
+  | none => by cases attr <;> grind [isDict, asDict?]
+
+@[simp, grind =]
+theorem Attribute.isDict_dictionaryAttr (dict : DictionaryAttr) :
+    (Attribute.dictionaryAttr dict).isDict := by
+  simp [Attribute.isDict]
+
+@[simp, grind =]
+theorem Attribute.asDict_dictionaryAttr (dict : DictionaryAttr) (isDict) :
+    (Attribute.dictionaryAttr dict).asDict isDict = dict := by
+  simp [Attribute.asDict, Attribute.asDict?]
+
+/-! Coercion instances to TypeAttr -/
+
+instance : Coe IntegerType TypeAttr where
+  coe type := ⟨.integerType type, by rfl⟩
+
+instance : Coe FloatType TypeAttr where
+  coe type := ⟨.floatType type, by rfl⟩
+
+instance : Coe FunctionType TypeAttr where
+  coe type := ⟨.functionType type, by rfl⟩
+
+instance : Coe ModArithType TypeAttr where
+  coe type := ⟨.modArithType type, by rfl⟩
+
+instance : Coe RegisterType TypeAttr where
+  coe type := ⟨.registerType type, by rfl⟩
+
+instance : Coe LLVM.VoidType TypeAttr where
+  coe type := ⟨.llvmVoidType type, by rfl⟩
+
+instance : Coe LLVM.PointerType TypeAttr where
+  coe type := ⟨.llvmPointerType type, by rfl⟩
+
+instance : Coe LLVM.ArrayType TypeAttr where
+  coe type := ⟨.llvmArrayType type, by rfl⟩
+
+instance : Coe CudaTile.PointerType TypeAttr where
+  coe type := ⟨.cudaTilePointerType type, by rfl⟩
+
+instance : Coe HW.ModuleType TypeAttr where
+  coe type := ⟨.hwModuleType type, by rfl⟩
+
+end
+end Veir.Buffered

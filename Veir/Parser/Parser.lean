@@ -21,10 +21,11 @@ structure ParserState where
   currentToken : Token
 
 /--
-  Create a new parser state at the beginning of the given input.
+  Create a new parser state at position `start` of the given input.
 -/
-def ParserState.fromInput (input : ByteArray) : Except ParserError ParserState := do
-  let lexerState := LexerState.mk input { byteOffset := 0 }
+def ParserState.fromInput (input : ByteArray) (start : Location := { byteOffset := 0 }) :
+    Except ParserError ParserState := do
+  let lexerState := LexerState.mk input start
   let (firstToken, lexerState) ← lex lexerState
   return ParserState.mk lexerState firstToken
 
@@ -424,53 +425,50 @@ structure ParsedFloat where
   deriving Repr, BEq
 
 /--
-  Parses a list of digit characters into a Nat.
--/
-def parseDigitsList (cs : List Char) : Option Nat :=
-  if cs.isEmpty then none
-  else cs.foldl (fun acc c => match acc with
-    | some x => if c.isDigit then some (x * 10 + c.toNat - '0'.toNat) else none
-    | none => none) (some 0)
-
-/--
   Parses a string of digits into a Nat.
 -/
-def parseDigits (s : String) : Option Nat :=
-  parseDigitsList s.toList
+def parseDigits (s : String.Slice) : Option Nat :=
+  if s.isEmpty then none
+  else s.foldl (fun acc c => match acc with
+    | some x => if c.isDigit then x * 10 + c.toNat - '0'.toNat else none
+    | none => none) (some 0)
 
 /--
   Parses a string of floats into sign, significand and exponent under base 10.
 -/
 def parseDecimalFloat (s : String) : Option ParsedFloat := do
-  let cs := s.toList.dropWhile Char.isWhitespace |>.reverse.dropWhile Char.isWhitespace |>.reverse
-  if cs.isEmpty then none
+  let s := s.trimAscii
+  if s.isEmpty then none
 
   -- Parse sign
-  let (negative, cs) := match cs with
-    | '-' :: rest => (true, rest)
-    | '+' :: rest => (false, rest)
-    | _ => (false, cs)
+  let (negative, tail) := match s.front with
+    | '-' => (true, s.drop 1)
+    | '+' => (false, s.drop 1)
+    | _ => (false, s)
 
   -- Split into significand and exponent
-  let (sigChars, expChars) := cs.span (fun c => c != 'e' && c != 'E')
-  let exp : Int ← match expChars with
-    | [] => some (0 : Int)
-    | _ :: rest =>
-      let (sign, rest) : Int × List Char := match rest with
-        | '-' :: r => (-1, r)
-        | '+' :: r => (1, r)
-        | r => (1, r)
-      (parseDigitsList rest).map (fun x => sign * Int.ofNat x)
+  let delim := fun c => c == 'e' || c == 'E'
+  let (sig, exp) ← match (tail.split delim).toList with
+    | [sig] => some (sig, Int.ofNat 0)
+    | [sig, exp] =>
+      let (sign, tail) := match exp.front with
+        | '-' => (-1, exp.drop 1)
+        | '+' => (1, exp.drop 1)
+        | _ => (1, exp)
+      match parseDigits tail with
+        | some x => some (sig, sign * Int.ofNat x)
+        | none => none
+    | _ => none
 
   -- Split significand to integral part and fractional part.
   -- Combine the digits and record where the '.' is.
-  let (intChars, fracChars) := sigChars.span (· != '.')
-  let (digits, fracLen) : List Char × Nat := match fracChars with
-    | [] => (intChars, 0)
-    | _ :: frac => (intChars ++ frac, frac.length)
+  let (digits, fracLen) ← match (sig.split (fun c => c == '.')).toList with
+    | [int] => some (int, 0)
+    | [int, frac] => some (int.toString ++ frac, frac.positions.length)
+    | _ => none
 
-  let significand ← parseDigitsList digits
-  let exponent : Int := exp - (fracLen : Int)
+  let significand ← parseDigits digits
+  let exponent : Int := exp - fracLen
 
   some { negative, significand, exponent }
 

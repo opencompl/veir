@@ -1,0 +1,111 @@
+module
+
+import all Veir.Data.LLVM.Byte.Basic
+meta import Veir.Meta.Tactic.BVDecide
+
+namespace Veir.Data.LLVM.Byte
+
+open Veir.Data.LLVM.Int
+attribute [local grind cases] Int
+
+theorem toInt_fromInt {w : Nat} (x : Int w) (h : 0 < w) : (Byte.fromInt x).toInt = x := by
+  simp only [Byte.toInt, fromInt, BitVec.toNat_eq];
+  grind
+
+@[veir_bv_normalize]
+theorem ext_iff {w : Nat} (x y : Byte w) :
+    x = y ↔ (x.val = y.val ∧ x.poison = y.poison) := by
+  rw [Byte.mk.injEq]
+
+/- # {to,from}Int -/
+section ToFromInt
+attribute [local grind] Byte.toInt Byte.fromInt
+
+@[veir_bv_normalize] theorem val_fromInt (x : Int w) : (fromInt x).val = x.getValueD := by grind
+@[veir_bv_normalize] theorem poison_fromInt (x : Int w) :
+    (fromInt x).poison = if x.isPoison then .allOnes _ else 0 := by
+  grind
+
+@[veir_bv_normalize] theorem getValue_toInt (x : Byte w) (h : x.toInt.isPoison = false) :
+    x.toInt.getValue h = x.val := by
+  grind
+
+@[veir_bv_normalize] theorem isPoison_toInt (x : Byte w) :
+    x.toInt.isPoison = (x.poison != 0) := by
+  grind
+
+end ToFromInt
+
+/- # and -/
+
+@[veir_bv_normalize]
+theorem and_eq {w : Nat} (x y : Byte w) :
+    (x &&& y) =
+    let poison := x.poison ||| y.poison
+    ⟨(x.val &&& y.val) &&& ~~~poison, poison, by simp [BitVec.and_assoc]⟩ := by
+  rfl
+
+theorem and_comm {w : Nat} (x y : Byte w) :
+    x &&& y = y &&& x := by
+  simp only [and_eq, BitVec.and_comm, BitVec.or_comm]
+
+theorem val_and {w : Nat} (x y : Byte w) :
+    (x &&& y).val = (x.val &&& y.val) &&& ~~~(x.poison ||| y.poison) := by
+  simp [and_eq]
+
+/- # or -/
+
+@[veir_bv_normalize]
+theorem or_eq {w : Nat} (x y : Byte w) :
+    (x ||| y) =
+    let poison := x.poison ||| y.poison
+    ⟨(x.val ||| y.val) &&& ~~~poison, poison, by simp [BitVec.and_assoc]⟩ := by
+  rfl
+
+theorem or_comm {w : Nat} (x y : Byte w) :
+    x ||| y = y ||| x := by
+  simp only [or_eq, BitVec.or_comm]
+
+theorem val_or {w : Nat} (x y : Byte w) :
+    (x ||| y).val = (x.val ||| y.val) &&& ~~~(x.poison ||| y.poison) := by
+  simp [or_eq]
+
+/- # xor -/
+
+@[veir_bv_normalize]
+theorem xor_eq {w : Nat} (x y : Byte w) :
+    (x ^^^ y) =
+    let poison := x.poison ||| y.poison
+    ⟨(x.val ^^^ y.val) &&& ~~~poison, poison, by simp [BitVec.and_assoc]⟩ := by
+  rfl
+
+theorem xor_comm {w : Nat} (x y : Byte w) :
+    x ^^^ y = y ^^^ x := by
+  simp only [xor_eq, BitVec.xor_comm, BitVec.or_comm]
+
+theorem val_xor {w : Nat} (x y : Byte w) :
+    (x ^^^ y).val = (x.val ^^^ y.val) &&& ~~~(x.poison ||| y.poison) := by
+  simp [xor_eq]
+
+/- # shl -/
+
+/-- `Byte.shl` as a conditional chain. Unlike `Byte.lshr`, `Byte.shl` is defined as a `do`-block,
+which `bv_decide` cannot see through; this restates it in the same shape as `Byte.lshr` so that the
+normalization set can unfold it. -/
+@[veir_bv_normalize]
+theorem shl_eq {w : Nat} (x : Byte w) (y : Int w) (nuw : Bool) :
+    x.shl y nuw =
+      if y.isPoison || y.getValueD ≥ w then allPoison
+      else if nuw ∧ (x.val <<< y.getValueD) >>> y.getValueD ≠ x.val then allPoison
+      else if nuw ∧ (x.poison <<< y.getValueD) >>> y.getValueD ≠ x.poison then allPoison
+      else ⟨x.val <<< y.getValueD, x.poison <<< y.getValueD, by
+        simp [← BitVec.shiftLeft_and_distrib, x.h]⟩ := by
+  cases y with
+  | poison => simp [Byte.shl, Id.run, Int.isPoison_of_poison]
+  | val y' =>
+    simp only [Byte.shl, Id.run, Int.isPoison_of_val, Int.getValueD_val, Bool.false_or,
+      decide_eq_true_eq]
+    repeat' split
+    all_goals first | rfl | simp_all | (exfalso; bv_omega)
+
+end Veir.Data.LLVM.Byte

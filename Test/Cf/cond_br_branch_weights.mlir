@@ -2,7 +2,7 @@
 
 "builtin.module"() ({
   ^4():
-    "func.func"() ({
+    "func.func"() <{"function_type" = (i32) -> (), "sym_name" = "main"}> ({
       ^6(%arg6_0 : i32):
         "cf.br"(%arg6_0) [^7] : (i32) -> ()
       ^7(%arg7_0 : i32):
@@ -13,9 +13,9 @@
 
 // CHECK:      "builtin.module"() ({
 // CHECK-NEXT:   ^{{.*}}():
-// CHECK-NEXT:     "func.func"() ({
+// CHECK-NEXT:     "func.func"() <{"function_type" = (i32) -> (), "sym_name" = "main"}> ({
 // CHECK-NEXT:       ^{{.*}}(%{{.*}} : i32):
 // CHECK-NEXT:         "cf.br"(%{{.*}}) [^[[tgt:.*]]] : (i32) -> ()
 // CHECK-NEXT:       ^[[tgt]](%{{.*}} : i32):
-// CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = 0 : i1}> : () -> i1
+// CHECK-NEXT:         %{{.*}} = "arith.constant"() <{"value" = false}> : () -> i1
 // CHECK-NEXT:         "cf.cond_br"(%{{.*}}, %{{.*}}, %{{.*}}) [^[[tgt]], ^[[tgt]]] <{"branch_weights" = array<i32: 3, 7>, "operandSegmentSizes" = array<i32: 1, 1, 1>}> : (i1, i32, i32) -> ()

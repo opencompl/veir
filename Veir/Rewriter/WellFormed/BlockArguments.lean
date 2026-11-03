@@ -1,10 +1,8 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
 
 public section
@@ -12,7 +10,7 @@ public section
 namespace Veir
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
-variable {ctx : IRContext OpInfo}
+variable {ctx newCtx : IRContext OpInfo}
 
 /-! ## Rewriter.pushBlockArgument -/
 
@@ -83,12 +81,42 @@ theorem IRContext.wellFormed_Rewriter_pushBlockArgument :
   case regions =>
     grind [RegionPtr.WellFormed_unchanged]
 
+theorem BlockPtr.operationList_rewriter_pushBlockArgument
+    (h : Rewriter.pushBlockArgument ctx block type blockInBounds = some newCtx)
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_Rewriter_pushBlockArgument]
+
+grind_pattern BlockPtr.operationList_rewriter_pushBlockArgument =>
+  Rewriter.pushBlockArgument ctx block type blockInBounds, newCtx.WellFormed, some newCtx,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
 /-! ## Rewriter.initBlockArguments -/
 
 theorem IRContext.wellFormed_Rewriter_initBlockArguments :
     ctx.WellFormed →
     (Rewriter.initBlockArguments ctx opPtr resultTypes index hop hindex).WellFormed := by
   fun_induction Rewriter.initBlockArguments <;> grind [IRContext.wellFormed_Rewriter_pushBlockArgument]
+
+theorem BlockPtr.opChain_Rewriter_initBlockArguments
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' (Rewriter.initBlockArguments ctx block types index hblock hidx) array := by
+  fun_induction Rewriter.initBlockArguments <;>
+    grind [BlockPtr.opChain_Rewriter_pushBlockArgument]
+
+theorem BlockPtr.operationList_rewriter_initBlockArguments
+    (h : Rewriter.initBlockArguments ctx block types index hblock hidx = some newCtx)
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind [Rewriter.initBlockArguments_inBounds']) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_Rewriter_initBlockArguments]
+
+grind_pattern BlockPtr.operationList_rewriter_initBlockArguments =>
+  Rewriter.initBlockArguments ctx block types index hblock hidx, newCtx.WellFormed, some newCtx,
+  block'.operationList newCtx newCtxWf blockInBounds'
 
 /-! ## Rewriter.setBlockArguments -/
 
@@ -107,7 +135,7 @@ theorem IRContext.fieldsInBounds_Rewriter_setBlockArguments (ctxWf : ctx.WellFor
         grind (gen := 20) [BlockArgumentPtr.inBounds_def, ValuePtr.hasUses!_def, Option.maybe_def,
           BlockArgumentPtr.block_of_mem_getArguments!]
     all_goals try grind [Option.maybe_def]
-  · intros; constructor <;> grind [BlockArgument.FieldsInBounds, Option.maybe_def]
+  · intros; constructor <;> grind [BlockArgumentPtr.FieldsInBounds, Option.maybe_def]
   · intros; constructor <;> grind [Option.maybe_def]
 
 theorem BlockPtr.opChain_Rewriter_setBlockArguments
@@ -187,3 +215,15 @@ theorem IRContext.wellFormed_Rewriter_setBlockArguments
     constructor <;> grind
   case regions =>
     grind [RegionPtr.WellFormed_unchanged]
+
+theorem BlockPtr.operationList_rewriter_setBlockArguments
+    (h : Rewriter.setBlockArguments ctx block types hblock = some newCtx)
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_Rewriter_setBlockArguments]
+
+grind_pattern BlockPtr.operationList_rewriter_setBlockArguments =>
+  Rewriter.setBlockArguments ctx block types hblock, newCtx.WellFormed, some newCtx,
+  block'.operationList newCtx newCtxWf blockInBounds'

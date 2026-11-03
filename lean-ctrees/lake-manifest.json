@@ -1,0 +1,16 @@
+{"version": "1.2.0",
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"url": "https://github.com/ISTA-PLV/coinductive",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "a63e4d1905b50da0523e131842fae3fa12027e58",
+   "name": "Coinductive",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "main",
+   "inherited": false,
+   "configFile": "lakefile.toml"}],
+ "name": "ctrees",
+ "lakeDir": ".lake",
+ "fixedToolchain": false}

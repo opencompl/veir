@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Native compiler for the buffered backend's full-LTO build. Replaces ExArray/compiler.
+set -euo pipefail
+prefix=$(lean --print-prefix)
+read -r -a gmp_flags <<< "$(pkg-config --cflags gmp)"
+linker_flags=()
+# Keep LLVM bitcode and linker versions compatible, rather than picking an older lld
+# from PATH. Lean ships the matching linker on Linux.
+if [[ $(uname -s) == Linux && -x "$prefix/bin/ld.lld" ]]; then
+  linker_flags+=("-fuse-ld=$prefix/bin/ld.lld")
+fi
+exec clang "${linker_flags[@]}" -I "$prefix/include" "${gmp_flags[@]}" \
+  -DLEAN_USE_GMP -fstack-clash-protection -fwrapv -fvisibility=hidden \
+  -L "$prefix/lib" -L "$prefix/lib/lean" -Wno-unused-command-line-argument "$@"

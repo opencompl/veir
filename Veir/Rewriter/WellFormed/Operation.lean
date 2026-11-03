@@ -1,12 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.LinkedList.GetSet
 import Veir.Rewriter.WellFormed.BlockOperands
 import Veir.Rewriter.WellFormed.OpOperands
 import Veir.Rewriter.WellFormed.OpRegion
@@ -22,14 +19,44 @@ variable {ctx : IRContext OpInfo}
 
 section insertOp
 
-theorem Rewriter.insertOp?_WellFormed (hctx : ctx.WellFormed) :
-    Rewriter.insertOp? ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
+theorem Rewriter.insertOp_WellFormed (hctx : ctx.WellFormed) :
+    Rewriter.insertOp ctx newOp ip newOpIn insIn ctxInBounds = some newCtx →
     newCtx.WellFormed := by
-  simp only [Rewriter.insertOp?]
+  simp only [Rewriter.insertOp]
   split; grind; rename_i parent hparent
   intro h
   apply IRContext.wellFormed_OperationPtr_linkBetweenWithParent hctx h (ip := ip) <;>
     grind [Option.maybe₁_def]
+
+theorem BlockPtr.operationList_rewriter_insertOp
+  (h : Rewriter.insertOp ctx op ip opIn ipIn ctxIn = some ctx') (ctxWf : ctx.WellFormed) :
+  BlockPtr.operationList block ctx' ctx'Wf blockIn =
+  if h: ip.block! ctx = some block then
+    (BlockPtr.operationList block ctx ctxWf).insertIdx (ip.idxIn ctx block) op
+      (by apply InsertPoint.idxIn.le_size_operationList)
+  else
+    BlockPtr.operationList block ctx ctxWf := by
+  have ⟨block', hBlock'⟩ : ∃ block', ip.block! ctx = some block' := by grind [Rewriter.insertOp]
+  have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
+  have ⟨array', hArray'⟩ := ctxWf.opChain block' (by grind)
+  simp only [Rewriter.insertOp] at h
+  split at h; grind; rename_i parent hparent
+  have : block' = parent := by grind
+  subst parent
+  by_cases heq : block = block'
+  · subst block'
+    simp only [hBlock', ↓reduceDIte]
+    have := BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self (ctx := ctx) (by grind)
+      h (ip := ip) (by grind) (by grind) (by grind) (by grind) hArray
+    simp [BlockPtr.operationList_iff_BlockPtr_OpChain.mp this,
+          BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
+  · have h := BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other (ctx := ctx) h (array := array) (block' := block)
+    simp only [← InsertPoint.prev!_eq_prev] at h
+    have h := h (by grind [InsertPoint.prev.maybe₁_parent_of_opChain])
+    have h := h (by grind [InsertPoint.next.maybe₁_parent_of_opChain])
+    have h := h (by grind) (by grind)
+    grind [BlockPtr.operationList_iff_BlockPtr_OpChain.mp h,
+          BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
 
 end insertOp
 
@@ -38,7 +65,7 @@ section detachOp
 theorem BlockPtr.opChain_detachOp_other
     (hWf : BlockPtr.OpChain block ctx array)
     (hWf' : BlockPtr.OpChain block' ctx array') :
-    (op.get! ctx).parent = some block' →
+    op.getParent! ctx = some block' →
     block ≠ block' →
     BlockPtr.OpChain block (Rewriter.detachOp ctx op hctx hIn hasParent) array := by
   intro hParent hNe
@@ -47,7 +74,7 @@ theorem BlockPtr.opChain_detachOp_other
 set_option maxHeartbeats 400000 in
 theorem BlockPtr.opChain_detachOp_self
     (hWf : BlockPtr.OpChain block ctx array) :
-    (op.get! ctx).parent = some block →
+    op.getParent! ctx = some block →
     BlockPtr.OpChain block (Rewriter.detachOp ctx op hctx hIn hasParent) (array.erase op) := by
   intro hParent
   have opInArray : op ∈ array := by grind [OpChain]
@@ -59,7 +86,7 @@ theorem BlockPtr.opChain_detachOp_self
     simp only [BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx hWf]
     by_cases i' < i
     · simp (disch := grind) only [Array.getElem_eraseIdx_of_lt]
-      simp only [OperationPtr.prev!_detachOp]
+      simp only [OperationPtr.getPrevOp!_detachOp]
       grind (instances := 2000) [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
     · by_cases i' = i
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
@@ -70,7 +97,7 @@ theorem BlockPtr.opChain_detachOp_self
     simp only [BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx hWf]
     by_cases i' > i
     · simp (disch := grind) only [Array.getElem_eraseIdx_of_ge, Array.getElem?_eraseIdx_of_ge]
-      simp only [OperationPtr.next!_detachOp]
+      simp only [OperationPtr.getNextOp!_detachOp]
       grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
     · by_cases i' = i
       · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
@@ -95,7 +122,7 @@ theorem RegionPtr.blockChain_detachOp
 theorem Rewriter.detachOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellFormed)
     (hctx : ctx.FieldsInBounds) (op : OperationPtr)
     (hIn : op.InBounds ctx)
-    (hasParent : (op.get ctx hIn).parent.isSome) :
+    (hasParent : (op.getParent ctx hIn).isSome) :
     (Rewriter.detachOp ctx op hctx hIn hasParent).WellFormed := by
   have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf
   constructor
@@ -134,7 +161,7 @@ theorem Rewriter.detachOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellForm
       intro region regionInBounds
       apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind
     case opChain_of_parent_none =>
-      cases hParent: (op.get! ctx).parent
+      cases hParent: op.getParent! ctx
         <;> grind [BlockPtr.OpChain_next_ne, BlockPtr.OpChain_prev_ne]
     all_goals grind
   case blocks =>
@@ -151,7 +178,7 @@ section detachOpIfAttached
 theorem BlockPtr.opChain_detachOpIfAttached_other
     (hWf : BlockPtr.OpChain block ctx array)
     (hWf' : BlockPtr.OpChain block' ctx array') :
-    (op.get! ctx).parent = some block' →
+    op.getParent! ctx = some block' →
     block ≠ block' →
     BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
   simp only [Rewriter.detachOpIfAttached]
@@ -159,14 +186,14 @@ theorem BlockPtr.opChain_detachOpIfAttached_other
 
 theorem BlockPtr.opChain_detachOpIfAttached_self
     (hWf : BlockPtr.OpChain block ctx array) :
-    (op.get! ctx).parent = some block →
+    op.getParent! ctx = some block →
     BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) (array.erase op) := by
   simp only [Rewriter.detachOpIfAttached]
   grind [BlockPtr.opChain_detachOp_self]
 
 theorem BlockPtr.opChain_detachOpIfAttached_none
     (hWf : BlockPtr.OpChain block ctx array) :
-    (op.get! ctx).parent = none →
+    op.getParent! ctx = none →
     BlockPtr.OpChain block (Rewriter.detachOpIfAttached ctx op hctx hIn) array := by
   simp only [Rewriter.detachOpIfAttached]
   grind
@@ -195,6 +222,33 @@ theorem Rewriter.detachOpIfAttached_WellFormed (ctx : IRContext OpInfo) (wf : ct
     (Rewriter.detachOpIfAttached ctx op hctx hIn).WellFormed := by
   simp only [Rewriter.detachOpIfAttached]
   grind [Rewriter.detachOp_WellFormed]
+
+theorem BlockPtr.operationList_rewriter_detachOpIfAttached (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block (Rewriter.detachOpIfAttached ctx op hctx hIn)
+      (by grind [Rewriter.detachOpIfAttached_WellFormed]) (by grind) =
+    if op.getParent! ctx = block then
+      (BlockPtr.operationList block ctx ctxWf blockIn).erase op
+    else
+      BlockPtr.operationList block ctx ctxWf blockIn := by
+  have ⟨array, hArray⟩ := ctxWf.opChain block (by grind)
+  cases hparent : op.getParent! ctx with
+  | none =>
+    simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp
+        (BlockPtr.opChain_detachOpIfAttached_none hArray hparent),
+      BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
+    grind
+  | some block' =>
+    by_cases heq : block' = block
+    · subst block'
+      simp only [↓reduceIte]
+      simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp
+        (BlockPtr.opChain_detachOpIfAttached_self hArray hparent)]
+      simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
+    · simp only [Option.some.injEq, heq, ↓reduceIte]
+      have ⟨array', hArray'⟩ := ctxWf.opChain block' (by grind [IRContext.WellFormed])
+      simp only [BlockPtr.operationList_iff_BlockPtr_OpChain.mp
+        (BlockPtr.opChain_detachOpIfAttached_other hArray hArray' hparent (by grind))]
+      simp [BlockPtr.operationList_iff_BlockPtr_OpChain.mp hArray]
 
 end detachOpIfAttached
 
@@ -234,7 +288,92 @@ theorem OperationPtr.setAttributes_WellFormed (ctx : IRContext OpInfo) (op : Ope
     have h_wf := h₈ reg (by grind)
     apply RegionPtr.WellFormed_unchanged h_wf (ctx' := op.setAttributes ctx newAttrs hop) <;> grind
 
+theorem BlockPtr.opChain_OperationPtr_setAttributes
+    (hWf : BlockPtr.OpChain block' ctx array)
+    {op : OperationPtr} (hop : op.InBounds ctx) (newAttrs : DictionaryAttr) :
+    BlockPtr.OpChain block' (op.setAttributes ctx newAttrs hop) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+@[grind =]
+theorem BlockPtr.operationList_operationPtr_setAttributes
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (OperationPtr.setAttributes op ctx newAttrs hop) newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_OperationPtr_setAttributes]
+
+theorem Rewriter.setAttributes_WellFormed
+    (hctx : ctx.WellFormed) :
+    (Rewriter.setAttributes ctx op newProps hop).WellFormed := by
+   grind [setAttributes, OperationPtr.setAttributes_WellFormed]
+
 end setAttributes
+
+section setProperties
+
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opCode : Dialect} {newProps : propertiesOf opCode}
+
+theorem OperationPtr.setProperties_WellFormed (ctx: IRContext OpInfo)
+  (op: OperationPtr) (hctx : ctx.WellFormed) (hop : op.InBounds ctx)
+  (hprop : op.getOpType! ctx = opCode := by grind)
+  (newProperties: propertiesOf opCode) :
+  (op.setProperties ctx opCode newProperties hop hprop).WellFormed := by
+  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := hctx
+  constructor
+  · grind
+  · intro val hval
+    have ⟨array, harray⟩ := h₂ val (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty] at harray ⊢
+    apply ValuePtr.DefUse.unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+  · intro blk hblk
+    have ⟨array, harray⟩ := h₃ blk (by grind)
+    exists array
+    simp only [Std.ExtHashSet.filter_empty] at harray ⊢
+    apply BlockPtr.DefUse.unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+  · intro blk hblk
+    have ⟨array, harray⟩ := h₄ blk (by grind)
+    exists array
+    apply BlockPtr.OpChain_unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+  · intro reg hreg
+    have ⟨array, harray⟩ := h₅ reg (by grind)
+    exists array
+    apply RegionPtr.blockChain_unchanged harray (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+  · intro op' hop'
+    have h_wf := h₆ op' (by grind)
+    apply OperationPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+  · intro blk hblk
+    have h_wf := h₇ blk (by grind)
+    apply BlockPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+  · intro reg hreg
+    have h_wf := h₈ reg (by grind)
+    apply RegionPtr.WellFormed_unchanged h_wf (ctx' := op.setProperties ctx opCode newProperties hop hprop) <;> grind
+
+theorem BlockPtr.opChain_OperationPtr_setProperties
+    (hWf : BlockPtr.OpChain block' ctx array)
+    {op : OperationPtr} (hop : op.InBounds ctx)
+    (newProps : propertiesOf opCode)
+    (hprop : op.getOpType! ctx = opCode := by grind) :
+    BlockPtr.OpChain block' (op.setProperties ctx opCode newProps hop hprop) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+@[grind =]
+theorem BlockPtr.operationList_operationPtr_setProperties
+    (hctx : ctx.WellFormed) :
+    BlockPtr.operationList block' (OperationPtr.setProperties op ctx opCode newProps hop hprop) ctx' blockInBounds' =
+    BlockPtr.operationList block' ctx hctx (by grind) := by
+  simp only [← BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_OperationPtr_setProperties]
+
+theorem Rewriter.setProperties_WellFormed
+    {op : OperationPtr} {hop : op.InBounds ctx}
+    {hprop : op.getOpType! ctx = opCode}
+    (hctx : ctx.WellFormed) :
+    (Rewriter.setProperties ctx op opCode newProps hop hprop).WellFormed := by
+   grind [setProperties, OperationPtr.setProperties_WellFormed]
+
+end setProperties
 
 theorem Rewriter.detachOperands.loop_wellFormed
     (wf : IRContext.WellFormed ctx missingOperands missingSuccessors)
@@ -311,16 +450,102 @@ theorem Rewriter.detachBlockOperands_wellFormed
       (op.getNumSuccessors ctx - 1) op hCtx hOp (by grind) wf (by grind)
     grind [Nat.toList_rcc_eq_toList_rco]
 
+theorem BlockPtr.opChain_rewriter_detachOperands_loop
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.detachOperands.loop ctx op index hCtx hOp hIndex) array := by
+  induction index generalizing ctx
+  case zero =>
+    simp only [Rewriter.detachOperands.loop]
+    apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+  case succ index ih =>
+    simp only [Rewriter.detachOperands.loop]
+    apply ih
+    apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_detachOperands_loop (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.detachOperands.loop ctx op index hCtx hOp hIndex)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_detachOperands_loop]
+
+grind_pattern BlockPtr.operationList_rewriter_detachOperands_loop =>
+  (Rewriter.detachOperands.loop ctx op index hCtx hOp hIndex).WellFormed,
+  block'.operationList (Rewriter.detachOperands.loop ctx op index hCtx hOp hIndex) newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_rewriter_detachOperands
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' (Rewriter.detachOperands ctx op hCtx hOp) array := by
+  simp only [Rewriter.detachOperands]
+  split
+  · exact hWf
+  · exact BlockPtr.opChain_rewriter_detachOperands_loop hWf
+
+theorem BlockPtr.operationList_rewriter_detachOperands (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.detachOperands ctx op hCtx hOp)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_detachOperands]
+
+grind_pattern BlockPtr.operationList_rewriter_detachOperands =>
+  (Rewriter.detachOperands ctx op hCtx hOp).WellFormed,
+  block'.operationList (Rewriter.detachOperands ctx op hCtx hOp) newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_rewriter_detachBlockOperands_loop
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.detachBlockOperands.loop ctx op index hCtx hOp hIndex) array := by
+  induction index generalizing ctx
+  case zero =>
+    simp only [Rewriter.detachBlockOperands.loop]
+    apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+  case succ index ih =>
+    simp only [Rewriter.detachBlockOperands.loop]
+    apply ih
+    apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_detachBlockOperands_loop (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.detachBlockOperands.loop ctx op index hCtx hOp hIndex)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_detachBlockOperands_loop]
+
+grind_pattern BlockPtr.operationList_rewriter_detachBlockOperands_loop =>
+  (Rewriter.detachBlockOperands.loop ctx op index hCtx hOp hIndex).WellFormed,
+  block'.operationList (Rewriter.detachBlockOperands.loop ctx op index hCtx hOp hIndex) newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_rewriter_detachBlockOperands
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' (Rewriter.detachBlockOperands ctx op hCtx hOp) array := by
+  simp only [Rewriter.detachBlockOperands]
+  split
+  · exact hWf
+  · exact BlockPtr.opChain_rewriter_detachBlockOperands_loop hWf
+
+theorem BlockPtr.operationList_rewriter_detachBlockOperands (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.detachBlockOperands ctx op hCtx hOp)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_detachBlockOperands]
+
+grind_pattern BlockPtr.operationList_rewriter_detachBlockOperands =>
+  (Rewriter.detachBlockOperands ctx op hCtx hOp).WellFormed,
+  block'.operationList (Rewriter.detachBlockOperands ctx op hCtx hOp) newCtxWf blockInBounds'
+
 theorem OpResultPtr.firstUse!_OpOperandPtr_removeFromCurrent_eq_none_of_firstUse!_eq_none
     (hctx : ctx.WellFormed missingUses missingSuccessors) :
     operand ∉ missingUses →
     result.InBounds ctx →
-    (OpResultPtr.get! result ctx).firstUse = none →
-    (OpResultPtr.get! result (OpOperandPtr.removeFromCurrent ctx operand operandIn ctxIn)).firstUse = none := by
+    OpResultPtr.getFirstUse! result ctx = none →
+    OpResultPtr.getFirstUse! result (OpOperandPtr.removeFromCurrent ctx operand operandIn ctxIn) = none := by
   intro hmissing resultIn h
   have ⟨useArray, hUseArray⟩ := hctx.valueDefUseChains result (by grind)
-  have ⟨useArray', hUseArray'⟩ := hctx.valueDefUseChains (operand.get! ctx).value (by grind)
-  have hne : result ≠ (operand.get! ctx).value := by grind [ValuePtr.DefUse]
+  have ⟨useArray', hUseArray'⟩ := hctx.valueDefUseChains (operand.getValue! ctx) (by grind)
+  have hne : result ≠ operand.getValue! ctx := by grind [ValuePtr.DefUse]
   have : useArray = #[] := by grind [ValuePtr.DefUse.getFirstUse!_none_iff hUseArray]
   have operandInArray : operand ∈ useArray' := by grind [ValuePtr.DefUse]
   have := ValuePtr.defUse_removeFromCurrent_other hne hUseArray hUseArray' (hvalue := operandInArray) (ctxInBounds := by grind)
@@ -330,8 +555,8 @@ theorem OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
     (hctx : ctx.WellFormed missingUses missingSuccessors)
     (hMissingUses : ∀ i, i <= idx → (OpOperandPtr.mk operation i) ∉ missingUses)
     (resIn : result.InBounds ctx) :
-    (OpResultPtr.get! result ctx).firstUse = none →
-    (OpResultPtr.get! result (Rewriter.detachOperands.loop ctx operation idx hctxin hop hidx)).firstUse = none := by
+    OpResultPtr.getFirstUse! result ctx = none →
+    OpResultPtr.getFirstUse! result (Rewriter.detachOperands.loop ctx operation idx hctxin hop hidx) = none := by
   intro h
   induction idx generalizing ctx missingUses
   case zero =>
@@ -349,8 +574,8 @@ theorem OpResultPtr.firstUse!_detachOperands_eq_none_of_firstUse!_eq_none
     (hctx : ctx.WellFormed missingUses missingSuccessors)
     (hMissingUses : ∀ i, (OpOperandPtr.mk operation i) ∉ missingUses)
     (resIn : result.InBounds ctx) :
-    (OpResultPtr.get! result ctx).firstUse = none →
-    (OpResultPtr.get! result (Rewriter.detachOperands ctx operation hctxin hop)).firstUse = none := by
+    OpResultPtr.getFirstUse! result ctx = none →
+    OpResultPtr.getFirstUse! result (Rewriter.detachOperands ctx operation hctxin hop) = none := by
   intro h
   simp only [Rewriter.detachOperands]
   split; grind
@@ -390,15 +615,33 @@ theorem Rewriter.eraseOp_WellFormed (ctx : IRContext OpInfo) (wf : ctx.WellForme
   · grind
   · grind
 
-set_option warn.sorry false in
-theorem BlockPtr.operationList_Rewriter_eraseOp
-    (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array) :
-      BlockPtr.operationList blockPtr (Rewriter.eraseOp ctx op hctx hop) ctxWellFormed' blockInBounds' =
-      if blockPtr = blockPtr' then
-        array.erase op
-      else
-        array := by
-  sorry
+theorem BlockPtr.operationList_rewriter_eraseOp
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block (Rewriter.eraseOp ctx op hctx hop) hctx' hblock =
+    if op.getParent! ctx = block then
+      (BlockPtr.operationList block ctx ctxWf).erase op
+    else
+      BlockPtr.operationList block ctx ctxWf := by
+  -- The op-chain change happens entirely in the first step (`detachOpIfAttached`); the remaining
+  -- steps (`detachOperands`, `detachBlockOperands`, `dealloc`) leave every block's chain untouched.
+  have hWf0 := Rewriter.detachOpIfAttached_WellFormed ctx ctxWf (by grind) op (by grind)
+  have hWf1 := Rewriter.detachOperands_wellFormed (op := op) (hOp := by grind) hWf0 (by grind)
+    (hCtx := by grind)
+  have hWf2 := Rewriter.detachBlockOperands_wellFormed (op := op) (hOp := by grind) hWf1 (by grind)
+    (hCtx := by grind)
+  apply BlockPtr.operationList_iff_BlockPtr_OpChain.mp
+  simp only [Rewriter.eraseOp]
+  refine BlockPtr.opChain_OperationPtr_dealloc ?wf ?chain (by grind) (by grind)
+  case wf =>
+    apply cast (a := hWf2); congr
+    · simp only [Std.ExtHashSet.fromOperands]
+      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getOpOperand_def]
+    · simp only [Std.ExtHashSet.fromSuccessors]
+      grind [Std.ExtHashSet.insertMany_empty_eq_ofList, OperationPtr.getBlockOperand_def]
+  case chain =>
+    grind [BlockPtr.operationList_rewriter_detachOpIfAttached,
+      BlockPtr.opChain_rewriter_detachOperands,
+      BlockPtr.opChain_rewriter_detachBlockOperands]
 
 set_option warn.sorry false in
 theorem OperationPtr.getOperand_Rewriter_eraseOp
@@ -406,6 +649,11 @@ theorem OperationPtr.getOperand_Rewriter_eraseOp
     OperationPtr.getOperand op' newCtx idx inBounds idxInBounds =
     OperationPtr.getOperand op' ctx idx (by sorry) (by sorry) := by
   sorry
+
+section createOp
+
+variable {Dialect : Type} [HasOpInfo Dialect] [HasDialect OpInfo Dialect]
+variable {opType : Dialect} {properties : propertiesOf opType}
 
 theorem Rewriter.createEmptyOp_wellFormed  (hctx : IRContext.WellFormed ctx) :
     Rewriter.createEmptyOp ctx opType properties = some (newCtx, newOp) →
@@ -452,6 +700,26 @@ theorem Rewriter.createEmptyOp_wellFormed  (hctx : IRContext.WellFormed ctx) :
     have := hctx.regions reg (by grind)
     apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> try grind
 
+theorem BlockPtr.opChain_rewriter_createEmptyOp
+    (hWf : BlockPtr.OpChain block' ctx array)
+    (h : Rewriter.createEmptyOp ctx opType properties = some (newCtx, newOp)) :
+    BlockPtr.OpChain block' newCtx array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_createEmptyOp
+    (h : Rewriter.createEmptyOp ctx opType properties = some (newCtx, newOp))
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  have := BlockPtr.opChain_rewriter_createEmptyOp (block' := block')
+    (array := block'.operationList ctx ctxWf (by grind))
+    (by grind [BlockPtr.operationListWF]) h
+  grind
+
+grind_pattern BlockPtr.operationList_rewriter_createEmptyOp =>
+  Rewriter.createEmptyOp ctx opType properties, some (newCtx, newOp),
+  block'.operationList newCtx newCtxWf blockInBounds'
+
 theorem Rewriter.createOp_WellFormed
     (hctx : IRContext.WellFormed ctx) :
     Rewriter.createOp ctx opType resultTypes operands blockOperands
@@ -464,6 +732,55 @@ theorem Rewriter.createOp_WellFormed
   split; grind
   rename_i ctx₂ hctx₂
   have : ctx₂.WellFormed :=
-    by grind [Rewriter.initOpRegions_WellFormed, IRContext.wellFormed_Rewriter_initOpResults]
-  grind [insertOp?_WellFormed, Rewriter.initOpOperands_WellFormed,
+    by grind [Rewriter.initOpRegions_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+  grind [insertOp_WellFormed, Rewriter.initOpOperands_WellFormed,
     Rewriter.initBlockOperands_WellFormed]
+
+theorem BlockPtr.operationList_rewriter_createOp
+    (h : Rewriter.createOp ctx opType resultTypes operands blockOperands
+      regions properties insertionPoint h₁ h₂ h₃ h₄ h₅ = some (newCtx, newOp))
+    (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block newCtx newCtxWf blockIn =
+    match insertionPoint with
+    | none => BlockPtr.operationList block ctx ctxWf (by grind)
+    | some ip =>
+      if hb : ip.block! ctx = some block then
+        (BlockPtr.operationList block ctx ctxWf (by grind)).insertIdx
+          (ip.idxIn ctx block (by grind [Option.maybe_def]) (by grind [Option.maybe_def]) ctxWf)
+          newOp (by apply InsertPoint.idxIn.le_size_operationList)
+      else
+        BlockPtr.operationList block ctx ctxWf (by grind) := by
+  simp only [Rewriter.createOp] at h
+  split at h; grind; rename_i ctx₂ newOp' hctx₂
+  have ctx₂Wf : ctx₂.WellFormed := by grind [Rewriter.createEmptyOp_wellFormed]
+  split at h; grind; rename_i ctx₃ hctx₃
+  have ctx₃Wf : ctx₃.WellFormed := by grind [Rewriter.initOpRegions_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+  cases insertionPoint with
+  | none =>
+    grind [Rewriter.initOpOperands_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+  | some ip =>
+    simp at h
+    split at h; grind; rename_i ctx₄ hctx₄
+    have ctx₄Wf : ctx₄.WellFormed := by
+      grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed, Rewriter.insertOp_WellFormed]
+    simp at h; have ⟨_, _⟩ := h; subst newCtx newOp'
+    simp
+    rw [BlockPtr.operationList_rewriter_insertOp hctx₄ (by grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed])]
+    cases ip
+    case before op =>
+      simp only [InsertPoint.block!_before_eq, OperationPtr.getParent!_initBlockOperands,
+        OperationPtr.getParent!_initOpOperands, InsertPoint.idxIn_before_eq]
+      simp only [OperationPtr.getParent!_initOpRegions hctx₃, OperationPtr.getParent!_initOpResults,
+        OperationPtr.getParent!_createEmptyOp hctx₂, show op ≠ newOp by grind, ↓reduceIte]
+      split <;>
+        grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
+          Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+    case atEnd b =>
+      simp only [InsertPoint.block!_atEnd_eq, Option.some.injEq]
+      split <;>
+        grind [Rewriter.initOpOperands_WellFormed, Rewriter.initBlockOperands_WellFormed,
+          Rewriter.insertOp_WellFormed, IRContext.wellFormed_rewriter_initOpResults]
+
+end createOp
+
+end Veir

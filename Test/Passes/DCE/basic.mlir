@@ -5,47 +5,62 @@
 "builtin.module"() ({
   
   // An operation that returns one unused result
-  ^4():
-    "func.func"() ({
+    "func.func"()  <{function_type = (i64) -> (), sym_name = "foo"}> ({
       ^6(%1 : i64):
-        %2 = "test.test"(%1) : (i64) -> i64
+        %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
         "test.test"(%1) : (i64) -> ()
-        // CHECK:      "test.test"(%{{.*}}) : (i64) -> ()
+        // The unused %2 is removed; the sink stays right after the block header.
+        // CHECK:      func.func @foo(%{{.*}}: i64) {
+        // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
   
   // A chain of operations that is eventually unused
-  ^5():
-    "func.func"() ({
+    "func.func"()  <{function_type = () -> (), sym_name = "bar"}> ({
       ^6():
-        %1 = "test.test"() : () -> i64
-        %2 = "test.test"(%1) : (i64) -> i64
-        %3 = "test.test"(%1, %2) : (i64, i64) -> i64
-        %4 = "test.test"(%3) : (i64) -> i64
-        %5 = "test.test"(%4, %4) : (i64, i64) -> i64
+        %1 = "arith.constant"() <{ "value" = 1 : i64 }> : () -> i64
+        %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
+        %3 = "llvm.add"(%1, %2) : (i64, i64) -> i64
+        %4 = "llvm.add"(%3, %3) : (i64, i64) -> i64
+        %5 = "llvm.add"(%4, %4) : (i64, i64) -> i64
         "test.test"(%1) : (i64) -> ()
-        // CHECK:      %{{.*}} = "test.test"() : () -> i64
+        // The dead chain %2..%5 is removed; %1 stays because the sink uses it.
+        // CHECK:      %{{.*}} = "arith.constant"() <{"value" = 1 : i64}> : () -> i64
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
   
   // A chain of operations that is eventually used
-  ^6():
-    "func.func"() ({
+    "func.func"()  <{function_type = () -> (), sym_name = "baz"}> ({
       ^6():
-        %1 = "test.test"() : () -> i64
-        %2 = "test.test"(%1) : (i64) -> i64
-        %3 = "test.test"(%1, %2) : (i64, i64) -> i64
-        %4 = "test.test"(%3) : (i64) -> i64
-        %5 = "test.test"(%4, %4) : (i64, i64) -> i64
+        %1 = "arith.constant"() <{ "value" = 1 : i64 }> : () -> i64
+        %2 = "llvm.add"(%1, %1) : (i64, i64) -> i64
+        %3 = "llvm.add"(%1, %2) : (i64, i64) -> i64
+        %4 = "llvm.add"(%3, %3) : (i64, i64) -> i64
+        %5 = "llvm.add"(%4, %4) : (i64, i64) -> i64
         "test.test"(%5) : (i64) -> ()
-        // CHECK:      %{{.*}} = "test.test"() : () -> i64
-        // CHECK-NEXT: %{{.*}} = "test.test"(%{{.*}}) : (i64) -> i64    
-        // CHECK-NEXT: %{{.*}} = "test.test"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64    
-        // CHECK-NEXT: %{{.*}} = "test.test"(%{{.*}}) : (i64) -> i64    
-        // CHECK-NEXT: %{{.*}} = "test.test"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64    
+        // The whole chain is live because the sink uses %5.
+        // CHECK:      %{{.*}} = "arith.constant"() <{"value" = 1 : i64}> : () -> i64
+        // CHECK-NEXT: %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
+        // CHECK-NEXT: %{{.*}} = "llvm.add"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
         // CHECK-NEXT: "test.test"(%{{.*}}) : (i64) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
-}) : () -> ()
 
+  // Side-effecting operations whose results are unused
+    "func.func"()  <{function_type = (!io.address, !llvm.ptr, i64) -> (), sym_name = "io"}> ({
+      ^6(%peer : !io.address, %buf : !llvm.ptr, %len : i64):
+        %1 = "io.rand"(%buf, %len) : (!llvm.ptr, i64) -> i64
+        %2, %from = "io.recv"(%buf, %len) : (!llvm.ptr, i64) -> (i64, !io.address)
+        %3 = "io.send"(%peer, %buf, %len) : (!io.address, !llvm.ptr, i64) -> i64
+        // The unused statuses do not make the operations dead.
+        // CHECK:      func.func @io(%{{.*}}: !io.address, %{{.*}}: !llvm.ptr, %{{.*}}: i64) {
+        // CHECK-NEXT: %{{.*}} = "io.rand"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> i64
+        // CHECK-NEXT: %{{.*}}:2 = "io.recv"(%{{.*}}, %{{.*}}) : (!llvm.ptr, i64) -> (i64, !io.address)
+        // CHECK-NEXT: %{{.*}} = "io.send"(%{{.*}}, %{{.*}}, %{{.*}}) : (!io.address, !llvm.ptr, i64) -> i64
+        // CHECK-NEXT: "func.return"() : () -> ()
+        "func.return"() : () -> ()
+    }) : () -> ()
+}) : () -> ()

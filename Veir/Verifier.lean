@@ -1,0 +1,1158 @@
+module
+
+public import Veir.Verifier.Lemmas
+public import Veir.GlobalOpInfo
+public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.SideEffectInterfaces
+public import Veir.IRNesting
+public import Veir.Interfaces.RegionIsolationInterfaces
+public import Veir.Interfaces.RegionKindInterfaces
+public import Veir.IR.Dominance
+
+import all Veir.Verifier.Basic
+import all Veir.Dialects.LLVM.OpInfo
+import all Veir.Dialects.ModArith.OpInfo
+
+namespace Veir
+
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+
+/--
+  Verify operation/block control-flow position rules: a terminator
+  only ever appears as the last operation of its block, and any
+  operation carrying block successors must also be the last operation
+  of its block. The second rule is MLIR's, from
+  `verifyOnEntrance(Block &)` in `mlir/lib/IR/Verifier.cpp`.
+-/
+def OperationPtr.verifyTerminatorPosition (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  let next := op.getNextOp ctx.raw opIn
+  if (op.getOpType ctx.raw opIn).isTerminator && next.isSome then
+    throw "Expected a terminator to be the last operation of its block"
+  if op.getNumSuccessors ctx.raw opIn ≠ 0 && next.isSome then
+    throw "operation with block successors must terminate its parent block"
+
+/--
+Verify MLIR's `IsolatedFromAbove` rule for one operation's operands. A use in
+an isolated operation's region may only reference a value defined in that same
+region or one of its nested regions. Looking for the nearest isolated scope
+also mirrors MLIR's behavior of checking nested isolated operations
+independently.
+-/
+def OperationPtr.verifyOperandIsolation
+    (op : OperationPtr) (ctx : WfIRContext OpCode)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  if op.getNumOperands ctx.raw opIn == 0 then return
+  let some useRegion := op.getParentRegion! ctx.raw | return
+  let escaping := (op.getOperands ctx.raw opIn).filter
+    (·.getParentRegion! ctx.raw != some useRegion)
+  if escaping.isEmpty then return
+  let some isolatedScope := useRegion.nearestIsolatedScope? ctx.raw | return
+  for value in escaping do
+    let some defRegion := value.getParentRegion! ctx.raw
+      | throw "operand is unlinked from any region"
+    if !isolatedScope.isAncestorOf defRegion ctx then
+      throw "operand uses a value defined outside the isolated region that encloses its use"
+
+/--
+  Whether a block is exempt from the requirement that it end in a terminator,
+  mirroring `mayBeValidWithoutTerminator` in `mlir/lib/IR/Verifier.cpp`.
+-/
+def BlockPtr.mayBeValidWithoutTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Bool :=
+  match block.getParent ctx.raw blockIn with
+  | none => true
+  | some region =>
+    region.getFirstBlock! ctx.raw = some block &&
+    (block.getNextBlock ctx.raw blockIn).isNone &&
+    match region.getParent! ctx.raw with
+    | none => true
+    | some _ => region.hasNoTerminator ctx
+
+/--
+  Check that a block is non-empty and ends in an operation that might be a
+  terminator, unless the block may be valid without one. Mirrors the terminator
+  half of `verifyOnEntrance`/`verifyOnExit` in `mlir/lib/IR/Verifier.cpp`.
+-/
+def BlockPtr.verifyTerminator (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  if block.mayBeValidWithoutTerminator ctx blockIn then
+    return
+  let named (msg : String) : String :=
+    match block.getParent ctx.raw blockIn with
+    | some region =>
+      match region.getParent! ctx.raw with
+      | some parentOp => s!"{String.fromUTF8! (parentOp.getOpType! ctx.raw).name}: {msg}"
+      | none => msg
+    | none => msg
+  match block.getLastOp ctx.raw blockIn with
+  | none => throw (named "Expected the block to end in a terminator, but the block is empty")
+  | some lastOp =>
+    if !(lastOp.getOpType! ctx.raw).isTerminator then
+      throw (named "Expected the last operation of a block to be a terminator")
+
+/--
+  Verify that the entry block of a region has no predecessors. A region is
+  entered exclusively through its entry block, and both the entry block's
+  arguments and dominance treat it as unconditionally reaching every other
+  block in the region. A branch back to it would contradict that.
+-/
+def BlockPtr.verifyNoEntryBlockPredecessors (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  let some parent := block.getParent ctx.raw blockIn | return
+  if parent.getFirstBlock! ctx.raw ≠ some block then return
+  if block.hasPredecessor ctx.raw blockIn then
+    throw "entry block of region may not have predecessors"
+
+/-- Check that a `block` terminates and that, in case it is the entry block,
+    has no predecessors. -/
+def BlockPtr.verifyBlock (block : BlockPtr) (ctx : WfIRContext OpCode)
+    (blockIn : block.InBounds ctx.raw) : Except String PUnit := do
+  block.verifyTerminator ctx blockIn
+  block.verifyNoEntryBlockPredecessors ctx blockIn
+
+/-- Check that a graph region contains at most one block. An unregistered
+    operation makes no promise about its regions, so it is exempt. -/
+private def WfIRContext.graphRegionsHaveAtMostOneBlock (ctx : WfIRContext OpCode) : Bool :=
+  ctx.raw.regions.keys.all fun region =>
+    let isUnregistered := match region.getParent! ctx.raw with
+      | none => false
+      | some parent => parent.getOpType! ctx.raw = .builtin .unregistered
+    if region.getRegionKind ctx = .Graph && !isUnregistered then
+      region.getFirstBlock! ctx.raw = region.getLastBlock! ctx.raw
+    else
+      true
+
+/--
+  Decode the escapes MLIR writes inside a quoted name: `\\` and `\"` for the two
+  characters that would otherwise end the literal, and `\HH` for any byte it
+  will not print, which is how clang's `\01` no-mangle prefix survives. `none`
+  if the text holds an escape of some other shape.
+-/
+private def decodeSymbolEscapes (acc : ByteArray) : List Char → Option ByteArray
+  | [] => some acc
+  | '\\' :: '\\' :: rest => decodeSymbolEscapes (acc.push 0x5c) rest
+  | '\\' :: '"' :: rest => decodeSymbolEscapes (acc.push 0x22) rest
+  | '\\' :: hi :: lo :: rest => do
+    let hi ← Char.hexDigit? hi
+    let lo ← Char.hexDigit? lo
+    decodeSymbolEscapes (acc.push (hi * 16 + lo)) rest
+  | '\\' :: _ => none
+  | c :: rest => decodeSymbolEscapes (acc ++ c.toString.toUTF8) rest
+
+/--
+  The bytes a symbol reference names, `@` included. MLIR spells a name that is
+  not a bare identifier as `@"..."`, with the escapes above; a `sym_name` holds
+  the same name unquoted and decoded. Reducing the reference to those bytes is
+  what lets it match the definition it names -- `@".str.1"` finds `.str.1`, and
+  `@"\01_lstat"` finds the name whose first byte is `0x01`.
+-/
+private def symbolRefBytes (name : String) : Option ByteArray :=
+  if name.length ≥ 3 && name.startsWith "@\"" && name.endsWith "\"" then
+    decodeSymbolEscapes "@".toUTF8 ((name.drop 2).dropEnd 1).toString.toList
+  else
+    some name.toUTF8
+
+/--
+  Check the module-wide invariants needed by LLVM global references: global
+  names are unique, and every `llvm.mlir.addressof` names a
+  global, alias, or function. Function references remain valid after lowering
+  an `llvm.func` to `riscv_cf.func`.
+-/
+private def WfIRContext.verifyLLVMGlobalSymbols (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut globals : Std.HashMap ByteArray OperationPtr := Std.HashMap.emptyWithCapacity
+  let mut functions : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__global then
+      let props := op.getProperties! ctx.raw Llvm.mlir__global
+      let symbolName := "@".toUTF8 ++ props.sym_name.value
+      if globals.contains symbolName then
+        let displayName := String.fromUTF8? symbolName |>.getD "<non-UTF8 global symbol>"
+        throw s!"llvm.mlir.global: duplicate global symbol '{displayName}'"
+      globals := globals.insert symbolName op
+    if op.getOpType! ctx.raw = .llvm .func then
+      let props := op.getProperties! ctx.raw Llvm.func
+      functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
+    if op.getOpType! ctx.raw = .riscv_cf .func then
+      let props := op.getProperties! ctx.raw Riscv_Cf.func
+      functions := functions.insert ("@".toUTF8 ++ props.sym_name.value)
+  /- Aliases share the symbol table with globals and functions; check them
+     after both are known so the order of traversal does not matter. -/
+  let mut aliases : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__alias then
+      let props := op.getProperties! ctx.raw Llvm.mlir__alias
+      let symbolName := "@".toUTF8 ++ props.sym_name.value
+      if globals.contains symbolName || functions.contains symbolName || aliases.contains symbolName then
+        let displayName := String.fromUTF8? props.sym_name.value |>.getD "<non-UTF8 symbol>"
+        throw s!"llvm.mlir.alias: redefinition of symbol named '{displayName}'"
+      aliases := aliases.insert symbolName
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .llvm .mlir__addressof then
+      let props := op.getProperties! ctx.raw Llvm.mlir__addressof
+      let symbolName := (symbolRefBytes props.global_name.value).getD ByteArray.empty
+      if !globals.contains symbolName && !functions.contains symbolName
+          && !aliases.contains symbolName then
+        throw s!"llvm.mlir.addressof: symbol '{props.global_name.value}' does not name an \
+          llvm.mlir.global, llvm.mlir.alias or llvm.func/riscv_cf.func"
+
+private def WfIRContext.verifyLLVMAliasInitializers (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  for op in ctx.raw.operations.keys do
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      if parent.getOpType! ctx.raw = .llvm .mlir__alias && !op.isMemoryIndependent ctx.raw then
+        throw "llvm.mlir.alias: ops with side effects are not allowed in alias initializers"
+    | none => pure ()
+
+/-- The decoded bytes of a symbol reference, with nested references joined by `::`. -/
+private def symbolRefAttrBytes : Attribute → Option ByteArray
+  | .flatSymbolRefAttr f => symbolRefBytes f.value
+  | .symbolRefAttr s => do
+    let mut bytes ← symbolRefBytes s.root.value
+    for n in s.nested do
+      bytes := bytes ++ "::".toUTF8 ++ (← symbolRefBytes n.value)
+    return bytes
+  | _ => none
+
+/--
+  Check the comdat invariants MLIR enforces through its symbol tables: a
+  `llvm.comdat` body holds only `llvm.comdat_selector` operations with distinct
+  names, and the `comdat` of a function or global names a selector, either as
+  `@comdat::@selector` or as `@selector` for a selector outside any comdat.
+-/
+private def WfIRContext.verifyLLVMComdats (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut selectors : Std.HashSet ByteArray := Std.HashSet.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    let parent? := op.getParentOp! ctx.raw
+    let comdatParent? := parent?.filter (fun parent => parent.getOpType! ctx.raw = .llvm .comdat)
+    if comdatParent?.isSome && op.getOpType! ctx.raw ≠ .llvm .comdat_selector then
+      throw "llvm.comdat: only comdat selector symbols can appear in a comdat region"
+    if op.getOpType! ctx.raw = .llvm .comdat_selector then
+      let props := op.getProperties! ctx.raw Llvm.comdat_selector
+      let name := "@".toUTF8 ++ props.sym_name.value
+      let key := match comdatParent? with
+        | some parent =>
+          "@".toUTF8 ++ (parent.getProperties! ctx.raw Llvm.comdat).sym_name.value ++ "::".toUTF8 ++ name
+        | none => name
+      if selectors.contains key then
+        throw s!"llvm.comdat_selector: redefinition of symbol named \
+          '{String.fromUTF8? props.sym_name.value |>.getD "<non-UTF8 symbol>"}'"
+      selectors := selectors.insert key
+  for op in ctx.raw.operations.keys do
+    let opType := op.getOpType! ctx.raw
+    let extra? : Option DictionaryAttr :=
+      if opType = .llvm .func then some (op.getProperties! ctx.raw Llvm.func).extra
+      else if opType = .riscv_cf .func then some (op.getProperties! ctx.raw Riscv_Cf.func).extra
+      else if opType = .llvm .mlir__global then some (op.getProperties! ctx.raw Llvm.mlir__global).extra
+      else none
+    let some extra := extra? | continue
+    let some (_, attr) := extra.entries.find? (fun (k, _) => k == "comdat".toUTF8) | continue
+    let opName := String.fromUTF8! opType.name
+    let some ref := symbolRefAttrBytes attr
+      | throw s!"{opName}: expected 'comdat' to be a symbol reference, but got {attr}"
+    if !selectors.contains ref then
+      throw s!"{opName}: expected comdat symbol"
+
+/--
+  Check the whole-pattern invariants that MLIR verifies in
+  `PatternOp::verifyRegions`: a `pdl.pattern` body holds only `pdl` operations,
+  and contains at least one `pdl.operation`.
+-/
+private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
+    Except String Unit := do
+  let mut patternHasOperation : Std.HashMap OperationPtr Bool := Std.HashMap.emptyWithCapacity
+  for op in ctx.raw.operations.keys do
+    if op.getOpType! ctx.raw = .pdl .pattern then
+      patternHasOperation := patternHasOperation.insert op false
+  for op in ctx.raw.operations.keys do
+    match op.getParentOp! ctx.raw with
+    | some parent =>
+      /- The body of a `pdl.pattern` and the body of the `pdl.rewrite` that
+         terminates it both belong to the pattern. -/
+      let parentType := parent.getOpType! ctx.raw
+      if parentType = .pdl .pattern || parentType = .pdl .rewrite then
+        let opType := op.getOpType! ctx.raw
+        let .pdl pdlOp := opType
+          | throw s!"pdl.pattern: expected only `pdl` operations within the pattern body, but got '{String.fromUTF8! opType.name}'"
+        if pdlOp = .operation && parentType = .pdl .pattern then
+          patternHasOperation := patternHasOperation.insert parent true
+    | none => pure ()
+  for (_, hasOperation) in patternHasOperation.toArray do
+    if !hasOperation then
+      throw "pdl.pattern: the pattern must contain at least one `pdl.operation`"
+
+/--
+  Verify SSA dominance of operand uses.
+
+  Two kinds of operation are skipped, as in MLIR. Operations in a graph region
+  are unordered with respect to their definitions, and operations in a block
+  that is unreachable from its region's entry have no meaningful dominance
+  relation. Nested regions of a skipped operation are still checked.
+-/
+private def WfIRContext.verifyDominance
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
+  let dfCtx := DominanceAnalysis root .empty ctx
+  let positions := ctx.opPositions
+  ctx.raw.forOpsDepM fun op opIn => do
+    let some block := op.getParent ctx.raw opIn | return
+    if !block.isReachable dfCtx then return
+    for (value, index) in (op.getOperands ctx.raw opIn).zipIdx do
+      if !value.properlyDominatesUse op dfCtx positions ctx then
+        let opName := String.fromUTF8! (op.getOpType ctx.raw opIn).name
+        throw s!"{opName}: operand #{index} does not dominate this use"
+
+public section
+
+/--
+Verify the structural invariants of the IR context, the local invariants of all
+its operations, and SSA dominance in the operation tree rooted at `root`.
+-/
+def WfIRContext.verify
+    (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
+  if !ctx.successorsHaveSameParent then
+    throw "Block successors must belong to the same region as their predecessor"
+  if !ctx.graphRegionsHaveAtMostOneBlock then
+    throw "Graph regions may contain at most one block"
+  ctx.raw.forOpsDepM (fun op opIn => do
+    let opType := op.getOpType ctx.raw opIn
+    let opName := String.fromUTF8! opType.name
+    Except.mapError
+      (fun msg => if opName.isEmpty || msg.startsWith opName then msg else s!"{opName}: {msg}")
+      (do
+        op.verifyLocalInvariants ctx opIn
+        match op.getParent ctx.raw opIn with
+        | some _ => op.verifyTerminatorPosition ctx opIn
+        | none => pure ()
+        op.verifyOperandIsolation ctx opIn
+        if let some funcOp := FunctionOp.of? op ctx.raw then
+          funcOp.verifyTrait))
+  ctx.raw.forBlocksDepM (fun block blockIn => block.verifyBlock ctx blockIn)
+  ctx.verifyLLVMGlobalSymbols
+  ctx.verifyLLVMComdats
+  ctx.verifyLLVMAliasInitializers
+  ctx.verifyPDLPatternBodies
+  ctx.verifyDominance root
+
+attribute [simp] OpCode.verifyLocalInvariants HasOpInfo.verifyLocalInvariants
+  OperationPtr.verifyLocalInvariants
+  Llvm.verifyLocalInvariants Arith.verifyLocalInvariants Mod_Arith.verifyLocalInvariants
+
+/--
+Assert that the IR context verifies successfully with `root` as the root operation.
+-/
+def WfIRContext.Verified (ctx : WfIRContext OpCode) (root : OperationPtr) : Prop :=
+  ctx.verify root = .ok ()
+
+/-- A verified context satisfies the same-parent successor check. -/
+private theorem WfIRContext.Verified.successorsHaveSameParent
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
+    ctx.successorsHaveSameParent := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  split at ctxVerified
+  · trivial
+  · grind
+
+/-- Every successor of a block in a verified context belongs to the block's parent region. -/
+@[grind →]
+theorem WfIRContext.Verified.successor_parent
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {source : BlockPtr} (sourceIn : source.InBounds ctx.raw)
+    (hsourceParent : source.getParent! ctx.raw = some region)
+    (hsuccessor : successor ∈ source.getSuccessors! ctx.raw) :
+    successor.getParent! ctx.raw = some region := by
+  have hcheck := ctxVerified.successorsHaveSameParent
+  have hsourceKeys : source ∈ ctx.raw.blocks.keys := by grind [source.inBounds_def]
+  grind [Array.getElem_of_mem hsuccessor, (List.all_eq_true.mp hcheck) source hsourceKeys]
+
+/-- A verified context satisfies the single-block graph-region check. -/
+private theorem WfIRContext.Verified.graphRegionsHaveAtMostOneBlock
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
+    ctx.graphRegionsHaveAtMostOneBlock := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  split at ctxVerified
+  · trivial
+  · split at ctxVerified
+    · trivial
+    · grind
+
+/-- The first and last block of a graph region in a verified context are the same. -/
+@[grind →]
+theorem WfIRContext.Verified.graph_region_firstBlock_eq_lastBlock
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {region : RegionPtr} (regionIn : region.InBounds ctx.raw)
+    {parent : OperationPtr} (hregionParent : region.getParent! ctx.raw = some parent)
+    (hparentRegistered : parent.getOpType! ctx.raw ≠ .builtin .unregistered)
+    (hregionKind : region.getRegionKind ctx = .Graph) :
+    region.getFirstBlock! ctx.raw = region.getLastBlock! ctx.raw := by
+  have hcheck := ctxVerified.graphRegionsHaveAtMostOneBlock
+  have hregionKeys : region ∈ ctx.raw.regions.keys := by grind [region.inBounds_def]
+  have hregionCheck := (List.all_eq_true.mp hcheck) region hregionKeys
+  grind [WfIRContext.graphRegionsHaveAtMostOneBlock]
+
+/-- A verified context passes the checks that `verify` runs on every block. -/
+private theorem WfIRContext.Verified.verifyBlock_eq_ok
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    block.verifyBlock ctx blockIn = .ok () := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerified
+  split at ctxVerified
+  · cases ctxVerified
+  split at ctxVerified
+  · cases ctxVerified
+  obtain ⟨_, -, ctxVerified⟩ := Except.bind_eq_ok.mp ctxVerified
+  obtain ⟨_, hBlocks, -⟩ := Except.bind_eq_ok.mp ctxVerified
+  exact IRContext.forBlocksDepM_except_ok hBlocks block blockIn
+
+/-- A verified context ends every block with a terminator. -/
+private theorem WfIRContext.Verified.verifyTerminator_eq_ok
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    block.verifyTerminator ctx blockIn = .ok () := by
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, hTerminator, -⟩ := Except.bind_eq_ok.mp hBlock
+  exact hTerminator
+
+/-- A verified context has no branch back to the entry block of a region. -/
+private theorem WfIRContext.Verified.verifyNoEntryBlockPredecessors_eq_ok
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) :
+    block.verifyNoEntryBlockPredecessors ctx blockIn = .ok () := by
+  have hBlock := ctxVerified.verifyBlock_eq_ok blockIn
+  simp only [BlockPtr.verifyBlock] at hBlock
+  obtain ⟨_, -, hEntry⟩ := Except.bind_eq_ok.mp hBlock
+  exact hEntry
+
+/-- The entry block of a region in a verified context is not branched to. -/
+theorem WfIRContext.Verified.entryBlock_hasNoPredecessor
+    {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root)
+    {block : BlockPtr} (blockIn : block.InBounds ctx.raw) {region : RegionPtr}
+    (hParent : block.getParent! ctx.raw = some region)
+    (hFirstBlock : region.getFirstBlock! ctx.raw = some block) :
+    block.hasPredecessor! ctx.raw = false := by
+  have hCheck := ctxVerified.verifyNoEntryBlockPredecessors_eq_ok blockIn
+  have hParent' : block.getParent ctx.raw blockIn = some region := by grind
+  simp only [BlockPtr.verifyNoEntryBlockPredecessors, hParent', hFirstBlock, ne_eq,
+    not_true_eq_false, ↓reduceIte] at hCheck
+  split at hCheck
+  · cases hCheck
+  · rename_i hUse
+    rw [BlockPtr.hasPredecessor!_eq_hasPredecessor blockIn]
+    simpa using hUse
+
+/--
+Assert that a given operation satisfies its local invariants.
+-/
+def OperationPtr.Verified (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds ctx.raw := by grind) : Prop :=
+  op.verifyLocalInvariants ctx opInBounds = .ok ()
+
+/--
+If the context satisfies the invariants of all operations, any operation in bounds is verified.
+-/
+@[grind →]
+theorem OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants {ctx : WfIRContext OpCode}
+    {op root : OperationPtr} (ctxVerify : ctx.Verified root)
+    (opInBounds : op.InBounds ctx.raw := by grind) :
+    op.Verified ctx opInBounds := by
+  simp only [WfIRContext.Verified, WfIRContext.verify] at ctxVerify
+  split at ctxVerify
+  · cases ctxVerify
+  split at ctxVerify
+  · cases ctxVerify
+  obtain ⟨_, hOps, -⟩ := Except.bind_eq_ok.mp ctxVerify
+  have hOp := IRContext.forOpsDepM_except_ok hOps op opInBounds
+  obtain ⟨_, hLocal, -⟩ := Except.bind_eq_ok.mp (Except.eq_ok_of_mapError_eq_ok hOp)
+  exact hLocal
+
+/-!
+## Lemmas for verified operations
+
+These are the lemmas that give the information about the structure of verified operations.
+There is one lemma per operation, and they are all of the same form: given that an operation
+satisfies its local invariants, we can conclude that it has the expected number of operands,
+results, regions, and successors, and that the types of its operands and results are as expected.
+-/
+/--
+  Reduce a verified integer binary operation to a successful `verifyIntegerBinop` check.
+  The hypothesis `armReduces` says the operation's local-invariant check is exactly the
+  `verifyIntegerBinop` arm; it is discharged per operation by unfolding the dispatcher at the
+  concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerBinop_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyIntegerBinop ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifyIntegerBinop ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds} {attr : IntegerAttr}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant)
+    (hProp : op.getProperties! ctx.raw Arith.constant = .int attr) :
+    op.getNumResults! ctx.raw = 1 ∧
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 0 ∧
+    (op.getResult 0).getType! ctx.raw = .of IntegerType attr.type := by
+  simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
+    ← getOpType!_eq_getOpType, opType, hProp, ne_eq,
+    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
+    ite_not] at opVerify
+  simp only [TypeAttr.inj]
+  grind
+
+/-- A verified `llvm.mlir.constant` whose value attribute is an integer has an integer result type. -/
+theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr} {opInBounds}
+    {intAttr : IntegerAttr}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .mlir__constant)
+    (hProp : (op.getProperties! ctx.raw Llvm.mlir__constant).value = .integer intAttr) :
+    ∃ intTy : IntegerType, ((op.getResult 0).getType! ctx.raw).val = Attribute.of IntegerType intTy := by
+  rw [Verified] at opVerify
+  simp only [verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants,
+    ← getOpType!_eq_getOpType, opType] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
+    MonadExceptOf.throw, pure, Except.pure] at opVerify
+  cases hty : ((op.getResult 0).getType! ctx.raw).val with
+  | integerType intTy => exact ⟨intTy, by grind⟩
+  | _ =>
+    rw [hty] at opVerify
+    split at opVerify <;> simp_all [reduceCtorEq]
+
+/--
+  The structural facts shared by every verified `llvm.icmp`: exactly 2 operands and 1 result, no
+  regions or successors, an `i1` result, and the two operands share a single type. Unlike
+  `IsVerifiedIntegerBinop`, the operands need not be integers (`llvm.icmp` also compares pointers),
+  so only their mutual equality is recorded.
+-/
+def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  (∃ i1ty : IntegerType,
+    ((op.getResult 0).getType! ctx.raw).val = Attribute.of IntegerType i1ty ∧ i1ty.bitwidth = 1) ∧
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
+    = ((op.getOperand! ctx.raw 1).getType! ctx.raw).val
+
+/-- Structural facts extracted from a successful `verifyLLVMICmp` check. -/
+private theorem OperationPtr.verifyLLVMICmp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMICmp ctx opInBounds = .ok ()) :
+    op.IsVerifiedIcmp ctx := by
+  simp only [IsVerifiedIcmp, verifyLLVMICmp, verifyPlainOpCounts, verifyOperandTypesMatch,
+    TypeAttr.verifyIntegerOrPointerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  split at h <;> (try split at h) <;> (try split at h) <;> (try split at h) <;> grind
+
+private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyLLVMICmp ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyLLVMICmp ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifyLLVMICmp ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- Structural facts from the verifier for a verified `llvm.icmp`. -/
+theorem OperationPtr.Verified.llvm_icmp {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .icmp) :
+    op.IsVerifiedIcmp ctx :=
+  op.verifyLLVMICmp_eq_ok <| op.verifyLLVMICmp_ok_of_Verified opVerify <| by
+    simp [OperationPtr.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType]
+
+/--
+  Every integer binary operation's `Verified.*` lemma: given that the operation is verified and
+  has the given binary-operation opcode, it satisfies `IsVerifiedIntegerBinop`. Each is a thin
+  wrapper that reduces `op.Verified` to a successful `verifyIntegerBinop` and applies the
+  workhorse `verifyIntegerBinop_eq_ok`.
+-/
+private theorem OperationPtr.Verified.integerBinop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerBinop ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedIntegerBinop ctx :=
+  op.verifyIntegerBinop_eq_ok <| op.verifyIntegerBinop_ok_of_Verified opVerify armReduces
+
+private theorem OperationPtr.verifySelectTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifySelectTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.verifySelectTypes ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifySelectTypes ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+theorem OperationPtr.Verified.llvm_select {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .select) :
+    op.IsVerifiedSelect ctx :=
+  op.verifySelectTypes_eq_ok <| op.verifySelectTypes_ok_of_Verified opVerify <| by
+    simp [← getOpType!_eq_getOpType, opType]
+
+/--
+  Structural facts guaranteed by a successful `verifyLLVMShift` check. Unlike `IsVerifiedIntegerBinop`
+  it does *not* pin the two operands to the same type: `verifyLLVMShift` only requires the shift
+  amount (operand 1) to be an integer, and the result to match operand 0 (which may be an integer or
+  a byte). The equality of the two operand widths is a *dynamic* fact recovered from a successful
+  interpretation, not a static one.
+-/
+def OperationPtr.IsVerifiedLLVMShift (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  ((op.getResult 0).getType! ctx.raw).val = ((op.getOperand! ctx.raw 0).getType! ctx.raw).val ∧
+  ∃ intType, ((op.getOperand! ctx.raw 1).getType! ctx.raw).val = .of IntegerType intType
+
+private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
+    op.IsVerifiedLLVMShift ctx := by
+  simp only [IsVerifiedLLVMShift] at ⊢
+  simp [verifyLLVMShift, verifyPlainOpCounts, verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, TypeAttr.verifyIntegerOrByteType, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h
+  grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
+
+private theorem OperationPtr.verifyLLVMShift_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyLLVMShift ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifyLLVMShift ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+private theorem OperationPtr.Verified.llvmShift {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyLLVMShift ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedLLVMShift ctx :=
+  op.verifyLLVMShift_eq_ok <| op.verifyLLVMShift_ok_of_Verified opVerify armReduces
+
+theorem OperationPtr.Verified.llvm_shl {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .shl) :
+    op.IsVerifiedLLVMShift ctx := OperationPtr.Verified.llvmShift opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_lshr {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .lshr) :
+    op.IsVerifiedLLVMShift ctx := OperationPtr.Verified.llvmShift opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_addi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .addi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_andi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .andi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_ceildivsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .ceildivsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_ceildivui {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .ceildivui) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_divsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .divsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_divui {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .divui) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_floordivsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .floordivsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_maxsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .maxsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_maxui {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .maxui) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_minsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .minsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_minui {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .minui) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_muli {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .muli) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_ori {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .ori) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_remsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .remsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_remui {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .remui) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_shli {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .shli) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_shrsi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .shrsi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_shrui {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .shrui) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_subi {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .subi) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.arith_xori {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .xori) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_and {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .and) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_or {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .or) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_xor {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .xor) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+/--
+  Structural facts guaranteed by the verifier for `llvm.mlir.constant`: no operands, one
+  result, no successors or regions.
+-/
+theorem OperationPtr.Verified.llvm_mlir__constant {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .mlir__constant) :
+    op.getNumResults! ctx.raw = 1 ∧
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 0 := by
+  simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
+    verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
+    Except.pure] at opVerify
+  grind
+
+theorem OperationPtr.Verified.llvm_intr__smax {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__smax) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__smin {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__smin) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__umax {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__umax) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__umin {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__umin) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__usub__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__usub__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__uadd__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__uadd__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__sadd__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__sadd__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__ssub__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__ssub__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__sshl__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__sshl__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_intr__ushl__sat {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__ushl__sat) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+/--
+  Reduce a verified integer unary operation to a successful `verifyIntegerUnop` check.
+  The hypothesis `armReduces` says the operation's local-invariant check is exactly the
+  `verifyIntegerUnop` arm; it is discharged per operation by unfolding the dispatcher at the
+  concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerUnop_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerUnop ctx opInBounds >>= fun _ => pure ())) :
+    ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifyIntegerUnop ctx opInBounds with
+  | ok ty => exact ⟨ty, rfl⟩
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/-- Structural facts from the verifier for a verified `llvm.intr.bitreverse`. Its verifier arm is
+    the shared `verifyIntegerUnop >>= pure` shape, so it reduces like `ctlz`/`cttz`/`ctpop`. -/
+theorem OperationPtr.Verified.llvm_intr__bitreverse {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .llvm .intr__bitreverse) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp [← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.ctlz`. -/
+theorem OperationPtr.Verified.llvm_intr__ctlz {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctlz) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp [← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.cttz`. -/
+theorem OperationPtr.Verified.llvm_intr__cttz {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__cttz) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp [← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/-- Structural facts from the verifier for a verified `llvm.intr.ctpop`. -/
+theorem OperationPtr.Verified.llvm_intr__ctpop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__ctpop) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp [← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+
+/-- Structural facts from the verifier for a verified `llvm.intr.abs`. Its verifier arm is exactly
+    the shared `verifyIntegerUnop >>= pure` shape (the `is_int_min_poison` property is not checked
+    structurally), so it reduces like the `ctlz`/`cttz`/`ctpop` lemmas. -/
+theorem OperationPtr.Verified.llvm_intr__abs {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__abs) :
+    op.IsVerifiedIntegerUnop ctx := by
+  obtain ⟨ty, hty⟩ := op.verifyIntegerUnop_ok_of_Verified opVerify <| by
+    simp [← getOpType!_eq_getOpType, opType]
+  exact op.verifyIntegerUnop_eq_ok hty
+
+
+/-- Structural facts from the verifier for a verified `llvm.intr.bswap`. Unlike the other unary
+    intrinsics, `bswap`'s verifier arm performs an extra bitwidth check *after* the shared
+    `verifyIntegerUnop`, so it is not exactly the `verifyIntegerUnop >>= pure` shape; we extract
+    the successful `verifyIntegerUnop` by hand from the leading bind. -/
+theorem OperationPtr.Verified.llvm_intr__bswap {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__bswap) :
+    op.IsVerifiedIntegerUnop ctx := by
+  rw [Verified] at opVerify
+  simp only [verifyLocalInvariants, HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
+    Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  simp only [bind, Except.bind] at opVerify
+  obtain ⟨ty, hty⟩ : ∃ ty, op.verifyIntegerUnop ctx opInBounds = .ok ty := by
+    cases hb : op.verifyIntegerUnop ctx opInBounds with
+    | ok ty => exact ⟨ty, rfl⟩
+    | error e => rw [hb] at opVerify; simp at opVerify
+  exact op.verifyIntegerUnop_eq_ok hty
+
+/--
+  Reduce a verified integer ternary operation to a successful `verifyIntegerTernop` check.
+  `armReduces` says the operation's local-invariant check is exactly the `verifyIntegerTernop`
+  arm; it is discharged per operation by unfolding the dispatcher at the concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerTernop_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyIntegerTernop ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifyIntegerTernop ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/--
+  Every integer ternary operation's `Verified.*` lemma reduces to this: given a verified operation
+  whose local-invariant check is the `verifyIntegerTernop` arm, it satisfies
+  `IsVerifiedIntegerTernop`.
+-/
+private theorem OperationPtr.Verified.integerTernop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerTernop ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedIntegerTernop ctx :=
+  op.verifyIntegerTernop_eq_ok <| op.verifyIntegerTernop_ok_of_Verified opVerify armReduces
+
+/-- Structural facts from the verifier for a verified `llvm.intr.fshl`. -/
+theorem OperationPtr.Verified.llvm_intr__fshl {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshl) :
+    op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+/-- Structural facts from the verifier for a verified `llvm.intr.fshr`. -/
+theorem OperationPtr.Verified.llvm_intr__fshr {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .intr__fshr) :
+    op.IsVerifiedIntegerTernop ctx := OperationPtr.Verified.integerTernop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+/--
+  Reduce a verified integer extension operation to a successful `verifyIntegerExtTypes` check.
+  `armReduces` says the operation's local-invariant check is exactly the `verifyIntegerExtTypes`
+  arm; it is discharged per operation by unfolding the dispatcher at the concrete opcode.
+-/
+private theorem OperationPtr.verifyIntegerExtTypes_ok_of_Verified {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.verifyIntegerExtTypes ctx opInBounds = .ok () := by
+  rw [Verified, armReduces] at opVerify
+  replace opVerify := Except.ok_of_bind_ok opVerify
+  cases hb : op.verifyIntegerExtTypes ctx opInBounds with
+  | ok u => rfl
+  | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+
+/--
+  Every integer extension operation's `Verified.*` lemma reduces to this: given a verified
+  operation whose local-invariant check is the `verifyIntegerExtTypes` arm, it satisfies
+  `IsVerifiedIntegerExtop`.
+-/
+private theorem OperationPtr.Verified.integerExtop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.checkIsNonNullIntegerType ctx opInBounds >>= fun _ =>
+          op.verifyIntegerExtTypes ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedIntegerExtop ctx :=
+  op.verifyIntegerExtTypes_eq_ok <| op.verifyIntegerExtTypes_ok_of_Verified opVerify armReduces
+
+/-- Structural facts from the verifier for a verified `llvm.sext`. -/
+theorem OperationPtr.Verified.llvm_sext {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sext) :
+    op.IsVerifiedIntegerExtop ctx := OperationPtr.Verified.integerExtop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+/-- Structural facts from the verifier for a verified `llvm.zext`. -/
+theorem OperationPtr.Verified.llvm_zext {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .zext) :
+    op.IsVerifiedIntegerExtop ctx := OperationPtr.Verified.integerExtop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_add {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .add) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_sub {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sub) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_ashr {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .ashr) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_mul {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .mul) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_sdiv {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .sdiv) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_udiv {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .udiv) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_srem {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .srem) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.llvm_urem {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .llvm .urem) :
+    op.IsVerifiedIntegerBinop ctx := OperationPtr.Verified.integerBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+/- Verified ModArith Op Lemmas -/
+
+def OperationPtr.IsVerifiedModArithBinop (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumOperands! ctx.raw = 2 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∃ modArithType,
+    modArithType.modulus.value > 0 ∧
+    modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
+    (op.getResult 0).getType! ctx.raw = .of ModArithType modArithType ∧
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw) = .of ModArithType modArithType ∧
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw) = .of ModArithType modArithType
+
+
+private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {opInBounds : op.InBounds ctx.raw} (h : op.verifyModArithBinOp ctx opInBounds = .ok ()) :
+    op.IsVerifiedModArithBinop ctx := by
+  simp only [IsVerifiedModArithBinop, TypeAttr.inj]
+  simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOperandTypesMatch,
+             verifyResultTypeMatches, TypeAttr.verifyModArithType,
+             Except_bind_ok_iff, exists_punit] at h
+  obtain ⟨hPlainOpCounts, operandType, hOperandTypesMatch,
+          hResultTypeMatches, modArithType, hModArithType, _⟩ := h
+  simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at hPlainOpCounts hOperandTypesMatch hResultTypeMatches hModArithType
+  grind
+
+private theorem OperationPtr.Verified.modArithBinop {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (armReduces : op.verifyLocalInvariants ctx opInBounds
+      = (op.verifyModArithBinOp ctx opInBounds >>= fun _ => pure ())) :
+    op.IsVerifiedModArithBinop ctx := by
+  rw [Verified, armReduces] at opVerify
+  have h : op.verifyModArithBinOp ctx opInBounds = .ok () := by
+    cases hb : op.verifyModArithBinOp ctx opInBounds with
+    | ok _ => rfl
+    | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+  exact op.verifyModArithBinOp_eq_ok h
+
+theorem OperationPtr.Verified.mod_arith_add {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .mod_arith .add) :
+    op.IsVerifiedModArithBinop ctx := OperationPtr.Verified.modArithBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.mod_arith_mul {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .mod_arith .mul) :
+    op.IsVerifiedModArithBinop ctx := OperationPtr.Verified.modArithBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+theorem OperationPtr.Verified.mod_arith_sub {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .mod_arith .sub) :
+    op.IsVerifiedModArithBinop ctx := OperationPtr.Verified.modArithBinop opVerify <| by
+  simp [← getOpType!_eq_getOpType, opType]
+
+def OperationPtr.IsVerifiedModArithConstant (op : OperationPtr) (ctx : WfIRContext OpCode) : Prop :=
+  op.getNumOperands! ctx.raw = 0 ∧
+  op.getNumResults! ctx.raw = 1 ∧
+  op.getNumSuccessors! ctx.raw = 0 ∧
+  op.getNumRegions! ctx.raw = 0 ∧
+  ∃ modArithType,
+    (op.getResult 0).getType! ctx.raw = .of ModArithType modArithType ∧
+    modArithType.modulus.value > 0 ∧
+    modArithType.modulus.value < 2 ^ modArithType.modulus.type.bitwidth ∧
+    -(2 ^ (modArithType.modulus.type.bitwidth - 1) : Int)
+        ≤ (op.getProperties! ctx.raw Mod_Arith.constant).value.value ∧
+    (op.getProperties! ctx.raw Mod_Arith.constant).value.value
+        < 2 ^ modArithType.modulus.type.bitwidth
+
+theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds)
+    (opType : op.getOpType! ctx.raw = .mod_arith .constant) :
+    op.IsVerifiedModArithConstant ctx := by
+  simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Mod_Arith.verifyLocalInvariants,
+    ← getOpType!_eq_getOpType, opType] at opVerify
+  have h : op.verifyModArithConstantOp ctx opInBounds = .ok () := by
+    cases hb : op.verifyModArithConstantOp ctx opInBounds with
+    | ok _ => rfl
+    | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
+  simp only [IsVerifiedModArithConstant, TypeAttr.inj]
+  simp only [verifyModArithConstantOp, verifyPlainOpCounts, TypeAttr.verifyModArithType,
+            Except_bind_ok_iff, exists_punit] at h
+  obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
+  simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+    at hPlainOpCounts hModArithType hAttr
+  grind
+
+/-- Structural facts guaranteed for a verified `func.func`: it has no operands, results, or
+successors, and exactly one region (its body). -/
+theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .func .func) :
+    op.getNumOperands! ctx.raw = 0 ∧
+    op.getNumResults! ctx.raw = 0 ∧
+    op.getNumSuccessors! ctx.raw = 0 ∧
+    op.getNumRegions! ctx.raw = 1 := by
+  simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
+    OpCode.verifyLocalInvariants, Func.verifyLocalInvariants,
+    ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
+  grind
+
+end
+end Veir

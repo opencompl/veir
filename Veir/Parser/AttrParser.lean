@@ -58,12 +58,45 @@ def AttrParserM.run' (self : AttrParserM α)
   | .ok (a, _, _) => .ok a
   | .error err => .error err
 
-/-- The type name `!name` of the current token, if it is a `!`-prefixed identifier. -/
-private def peekTypeName : AttrParserM (Option ByteArray) := do
+/--
+  Parse the `x` separator in a shaped type.
+
+  The lexer treats canonical fragments such as `x4xi32` as one identifier. If
+  the current identifier starts with `x`, consume just that leading byte and
+  re-lex the suffix so the following dimension or element type can be parsed
+  normally.
+-/
+private def parseShapeSeparator : AttrParserM Unit := do
   let token ← peekToken
-  let .exclamationIdent := token.kind | return none
   let input := (← getThe ParserState).input
-  return some ({ token.slice with start := token.slice.start + 1 }.of input)
+  if token.kind != .bareIdent || input.getD token.slice.start.byteOffset 0 != 'x'.toUInt8 then
+    throwAtCurrentPos "expected keyword 'x'"
+  resetToken (token.slice.start + 1)
+
+/--
+Parse one decimal shape dimension, if present.
+
+Numbers in the form `0x...` are parsed as `0`, since `x` is the separator for the next
+dimension, rather than a hexadecimal prefix. Zero-sized dimensions are only accepted if
+`allowZero` is set, as they are valid for tensors but not for vectors.
+-/
+private def parseOptionalShapeDimension (allowZero := false) : AttrParserM (Option Nat) := do
+  let token ← peekToken
+  let .intLit := token.kind | return none
+  let spelling := token.slice.of (← getThe ParserState).input
+  let mut decimalLength := 0
+  while h : decimalLength < spelling.size do
+    if spelling[decimalLength].isDigit then
+      decimalLength := decimalLength + 1
+    else
+      break
+  let decimalSpelling := spelling.extract 0 decimalLength
+  let some dimension := (String.fromUTF8? decimalSpelling).bind String.toNat?
+    | throwAtCurrentPos "dimension must be a decimal integer"
+  if dimension = 0 && !allowZero then
+    throwAt token.slice.start "0 is not a supported dimension"
+  resetToken (token.slice.start + decimalLength)
+  return some dimension
 
 /--
   Parse an optional integer type.
@@ -73,12 +106,23 @@ def parseOptionalIntegerType : AttrParserM (Option IntegerType) := do
   match ← peekToken with
   | { kind := .bareIdent, slice := slice } =>
     let identifier := slice.of (← getThe ParserState).input
-    if identifier.size < 2 || identifier[0]! != 'i'.toUInt8 then return none
-    let some bitwidth := (String.fromUTF8? (identifier.extract 1 identifier.size)).bind String.toNat?
-      | return none
+    let bitwidth (prefixLength : Nat) : Option Nat :=
+      (String.fromUTF8? (identifier.extract prefixLength identifier.size)).bind String.toNat?
+    let type : Option IntegerType :=
+      if identifier.extract 0 2 == "si".toByteArray then (bitwidth 2).map IntegerType.signed
+      else if identifier.extract 0 2 == "ui".toByteArray then (bitwidth 2).map IntegerType.unsigned
+      else if identifier.extract 0 1 == "i".toByteArray then (bitwidth 1).map IntegerType.signless
+      else none
+    let some type := type | return none
     let _ ← consumeToken
-    return some (IntegerType.mk bitwidth)
+    return some type
   | _ => return none
+
+/-- Parse the MLIR builtin `index` type. -/
+def parseOptionalIndexType : AttrParserM (Option IndexType) := do
+  if ← parseOptionalKeyword "index".toByteArray then
+    return some IndexType.mk
+  return none
 
 /--
   Parse an optional float type.
@@ -89,30 +133,55 @@ def parseOptionalFloatType : AttrParserM (Option FloatType) := do
   | { kind := .bareIdent, slice := slice } =>
     if slice.size < 2 then
       return none
-    let giveOut (bitwidth : Nat) : AttrParserM (Option FloatType) := do
+    let giveOut (type : FloatType) := do
       let _ ← consumeToken
-      return some (FloatType.mk bitwidth)
+      return some type
     let input := slice.of (← (getThe ParserState)).input
     match String.fromUTF8? input with
-    | some "f16" => giveOut 16
-    | some "f32" => giveOut 32
-    | some "f64" => giveOut 64
-    | some "bf16" => giveOut 16
-    | some "f80" => giveOut 80
-    | some "f128" => giveOut 128
-    | some "f8E5M2" => giveOut 8
-    | some "f8E4M3FN" => giveOut 8
-    | some "f8E4M3FNUZ" => giveOut 8
+    | some "f16" => giveOut FloatType.f16
+    | some "f32" => giveOut FloatType.f32
+    | some "f64" => giveOut FloatType.f64
+    | some "bf16" => giveOut FloatType.bf16
+    | some "f80" => giveOut FloatType.f80
+    | some "f128" => giveOut FloatType.f128
+    | some "f8E5M2" => giveOut FloatType.f8E5M2
+    | some "f8E4M3FN" => giveOut FloatType.f8E4M3FN
+    | some "f8E4M3FNUZ" => giveOut FloatType.f8E4M3FNUZ
     | _ => return none
   | _ => return none
 
 /--
-  Parse an optional register type `!riscv.reg` or `!riscv.reg<xN>`.
-  The allocated register is not retained by this branch's `RegisterType`.
+  Parse an optional byte type.
+  A byte type is represented as `!llvm.byte<bitwidth>`, or `byte<bitwidth>` when `short`.
+-/
+def parseOptionalByteType (short := false) : AttrParserM (Option LLVM.ByteType) := do
+  if short then
+    let .true ← parseOptionalKeyword "byte".toByteArray | return none
+  else
+    let token ← peekToken
+    let .exclamationIdent := token.kind | return none
+    let input := (← getThe ParserState).input
+    let typeName := { token.slice with start := token.slice.start + 1 }.of input
+    if typeName ≠ "llvm.byte".toByteArray then return none
+    let _ ← consumeToken
+  parsePunctuation "<"
+  let bitwidth ← parseInteger false false
+  parsePunctuation ">"
+  return some (LLVM.ByteType.mk bitwidth.toNat)
+
+/--
+  Parse an optional register type, which is fundamentally a wrapper for `i64`.
+  An unallocated register type is represented as `!riscv.reg`.
+  Allocated register types should be of the form xID, i.e. only architectural,
+  and range from `!riscv.reg<x0>` to `!riscv.reg<x31>`.
+  Virtually allocated register of the form jID is rejected.
 -/
 def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
-  let some typeName ← peekTypeName | return none
-  if typeName ≠ "riscv.reg".toByteArray && typeName ≠ "reg".toByteArray then return none
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "riscv.reg".toByteArray then return none
   let _ ← consumeToken
   if ← parseOptionalPunctuation "<" then
     match ← peekToken with
@@ -122,15 +191,15 @@ def parseOptionalRegisterType : AttrParserM (Option RegisterType) := do
       if (← (getThe ParserState)).input.getD slice.start.byteOffset 0 == 'x'.toUInt8 then
         let bitwidthSlice : Slice := {start := slice.start + 1, stop := slice.stop}
         let identifier := bitwidthSlice.of (← (getThe ParserState)).input
-        let some reg := (String.fromUTF8? identifier).bind String.toNat? | return none
+        let some reg := (String.fromUTF8? identifier).bind String.toInt? | return none
         if reg > 31 then throwAtCurrentPos "RV64 registers range from x0 to x31"
         let _ ← consumeToken
         parsePunctuation ">"
-        return some RegisterType.mk
+        return some (RegisterType.mk (some reg))
       throwAtCurrentPos "expected RV64 register of the form xID"
     | _ => throwAtCurrentPos "expected RV64 register of the form xID"
   else
-    return some RegisterType.mk
+    return some $ RegisterType.mk none
 
 /--
   Resolve a just-consumed `!name` as a type alias. Returns `none` when the name denotes a dialect
@@ -149,31 +218,19 @@ def resolveOptionalTypeAlias (startPos : Location) (name : ByteArray) :
   return some type
 
 /--
-  Parse a builtin type via `parseOptional`, or a `!name` alias whose definition is accepted by
-  `cast`. Used where MLIR requires a specific builtin type but still accepts an alias for it, e.g.
-  the type of `1 : i32` or the element type of `array<i32: 1, 2>`.
+  Parse a builtin type via `parseOptional`, or a `!name` alias whose definition is an `α`. Used
+  where MLIR requires a specific builtin type but still accepts an alias for it, e.g. the type of
+  `1 : i32` or the element type of `array<i32: 1, 2>`.
 -/
-def parseBuiltinTypeOrAlias {α : Type} (parseOptional : AttrParserM (Option α))
-    (cast : TypeAttr → Option α) (errorMsg : String) : AttrParserM α := do
+def parseBuiltinTypeOrAlias {α : Type} [IsTypeAttr α] (parseOptional : AttrParserM (Option α))
+    (errorMsg : String) : AttrParserM α := do
   if let some type ← parseOptional then
     return type
   let startPos ← getPos
   let some name ← parseOptionalPrefixedKeyword .exclamationIdent | throwAtCurrentPos errorMsg
-  let some type := (← resolveOptionalTypeAlias startPos name).bind cast
+  let some type := (← resolveOptionalTypeAlias startPos name).bind (·.cast? α)
     | throwAt startPos errorMsg
   return type
-
-/-- View a type attribute as an integer type. -/
-def TypeAttr.asIntegerType? (type : TypeAttr) : Option IntegerType :=
-  match type.val with
-  | .integerType t => some t
-  | _ => none
-
-/-- View a type attribute as a float type. -/
-def TypeAttr.asFloatType? (type : TypeAttr) : Option FloatType :=
-  match type.val with
-  | .floatType t => some t
-  | _ => none
 
 /--
   Parse an integer type, throwing an error if it is not present.
@@ -181,13 +238,24 @@ def TypeAttr.asFloatType? (type : TypeAttr) : Option FloatType :=
   its width, e.g., `i32`, or by a type alias standing for one.
 -/
 def parseIntegerType (errorMsg : String := "integer type expected") : AttrParserM IntegerType :=
-  parseBuiltinTypeOrAlias parseOptionalIntegerType TypeAttr.asIntegerType? errorMsg
+  parseBuiltinTypeOrAlias parseOptionalIntegerType errorMsg
 
 /--
   Parse a float type, throwing an error if it is not present.
+  A float type is represented as `f` followed by its width, e.g., `f64`, or by a type alias
+  standing for one.
 -/
 def parseFloatType (errorMsg : String := "float type expected") : AttrParserM FloatType :=
-  parseBuiltinTypeOrAlias parseOptionalFloatType TypeAttr.asFloatType? errorMsg
+  parseBuiltinTypeOrAlias parseOptionalFloatType errorMsg
+
+/--
+  Parse a register type, throwing an error if it is not present.
+  An integer type is represented as `!riscv.reg`
+-/
+def parseRegisterType (errorMsg : String := "register type expected") : AttrParserM RegisterType := do
+  match ← parseOptionalRegisterType with
+  | some registerType => return registerType
+  | none => throwAtCurrentPos errorMsg
 
 /--
   Parse a string attribute, if present.
@@ -198,11 +266,6 @@ def parseOptionalStringAttr : AttrParserM (Option StringAttr) := do
     | return none
   return some (StringAttr.mk bytes)
 
-/-- Convert a parsed base-10 float into a `Float`. -/
-private def floatOfParsed (f : ParsedFloat) : Float :=
-  let magnitude := Float.ofScientific f.significand (f.exponent < 0) f.exponent.natAbs
-  if f.negative then -magnitude else magnitude
-
 /--
   Parse an integer or floating-point attribute, if present.
   The attribute has the form `false`, `true` or `value : type`.
@@ -210,15 +273,17 @@ private def floatOfParsed (f : ParsedFloat) : Float :=
   `0x`-prefixed hexadecimal form.
   For a floating-point type, `value` may be a (possibly negated) decimal floating-point
   literal, or a `0x`-prefixed hexadecimal integer literal interpreted as the raw IEEE-754
-  bit pattern of the type.
+  bit pattern of the type. A decimal integer literal is rejected for a floating-point type,
+  and a hex bit pattern wider than the type's bitwidth is rejected as well.
 
   MLIR accepts the following floating point numbers: [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+  The regex is taken from AsmParser/Lexer.cpp in LLVM repository.
 -/
 def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   if (← parseOptionalKeyword "false".toByteArray) then
-    return some (IntegerAttr.mk 0 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 0 (IntegerType.signless 1) : Attribute)
   if (← parseOptionalKeyword "true".toByteArray) then
-    return some (IntegerAttr.mk 1 (IntegerType.mk 1) : Attribute)
+    return some (IntegerAttr.mk 1 (IntegerType.signless 1) : Attribute)
 
   -- Parse the optional leading '-'.
   let isNegative := Option.isSome (← parseOptionalToken .minus)
@@ -243,26 +308,43 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
   parsePunctuation ":"
   let startPos ← getPos
 
-  -- Build the integer attribute from the parsed literal.
-  let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
+  -- Parse the literal as an integer, rejecting values for which `inRange` fails
+  -- unless `raw` is set.
+  let parseIntLiteral (attrKind : String) (raw : Bool) (inRange : Int → Bool) :
+      AttrParserM Int := do
     if isFloatLit then
-      throwAtCurrentPos "integer literal expected in integer attribute"
+      throwAtCurrentPos s!"integer literal expected in {attrKind} attribute"
     let some n := numericValueToNat? value
       | throwAt startPos s!"invalid integer literal '{String.fromUTF8! value}'"
     let literal := if isNegative then Int.negOfNat n else Int.ofNat n
-    if (← get).rawIntegerLiterals then
-      return IntegerAttr.mk literal integerType
-    let bits := BitVec.ofInt integerType.bitwidth literal
-    if (isNegative && n == 0) ∨ (literal ≠ bits.toInt ∧ literal ≠ bits.toNat) then
+    if !raw && ((isNegative && n == 0) || !inRange literal) then
       throwAt valueStartPos "integer constant out of range for attribute"
-    return IntegerAttr.mk literal integerType
+    return literal
+
+  -- Build the integer attribute from the parsed literal.
+  let integerAttr (integerType : IntegerType) : AttrParserM Attribute := do
+    let raw := (← get).rawIntegerLiterals
+    let literal ← parseIntLiteral "integer" raw fun literal =>
+      let bits := BitVec.ofInt integerType.bitwidth literal
+      literal == bits.toInt || literal == bits.toNat
+    return if raw then IntegerAttr.mk literal integerType else IntegerAttr.ofInt literal integerType
+
+  -- Build the index attribute from the parsed literal. MLIR stores index
+  -- attributes as signed `IndexType.bitwidth`-bit integers, so the literal is
+  -- always range-checked, even with raw integer literals.
+  let indexAttr : AttrParserM Attribute := do
+    let literal ← parseIntLiteral "index" false fun literal =>
+      literal == (BitVec.ofInt IndexType.bitwidth literal).toInt
+    return IndexAttr.mk (BitVec.ofInt IndexType.bitwidth literal)
 
   -- Compute the floating-point value from the parsed literal.
-  let floatValue (floatType : FloatType) : AttrParserM Float := do
+  let floatValue (floatType : FloatType) :
+      AttrParserM (Data.Float.FloatValue floatType.format) := do
     if isFloatLit then
       let str := if isNegative then "-" ++ String.fromUTF8! value else String.fromUTF8! value
       match parseDecimalFloat str with
-      | some f => return floatOfParsed f
+      | some f =>
+        return .ofScientific floatType.format f.negative f.significand f.exponent
       | none   => throwAtCurrentPos s!"invalid floating-point literal '{str}'"
     else
       if isNegative then
@@ -270,24 +352,30 @@ def parseOptionalNumericAttr : AttrParserM (Option Attribute) := do
       else if isHexValue value then
         let some n := numericValueToNat? value
           | throwAt valueStartPos s!"invalid hex bit pattern '{String.fromUTF8! value}'"
+        -- Reject a bit pattern that does not fit in the type, rather than
+        -- silently truncating it to the type's low bits (as `ofNat` would).
         if n ≥ 2 ^ floatType.bitwidth then
           throwAt valueStartPos "hexadecimal float constant out of range for type"
-        return Float.ofBits n.toUInt64
+        return .ofNat _ n
       else
         throwAt valueStartPos "expected a decimal float or 0x-prefixed hex bit pattern in float attribute"
 
   -- Determine the type after ':'.
   if let some integerType ← parseOptionalIntegerType then
     return some (← integerAttr integerType)
+  else if (← parseOptionalIndexType).isSome then
+    return some (← indexAttr)
   else if let some floatType ← parseOptionalFloatType then
-    return some (FloatAttr.mk (← floatValue floatType) floatType : Attribute)
+    return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
   else if let some name ← parseOptionalPrefixedKeyword .exclamationIdent then
     let some typeAttr := (← resolveOptionalTypeAlias startPos name)
       | throwAt startPos "integer or float type expected after ':' in numeric attribute"
-    if let some integerType := TypeAttr.asIntegerType? typeAttr then
+    if let some integerType := typeAttr.cast? IntegerType then
       return some (← integerAttr integerType)
-    else if let some floatType := TypeAttr.asFloatType? typeAttr then
-      return some (FloatAttr.mk (← floatValue floatType) floatType : Attribute)
+    else if (typeAttr.cast? IndexType).isSome then
+      return some (← indexAttr)
+    else if let some floatType := typeAttr.cast? FloatType then
+      return some (FloatAttr.mk floatType (← floatValue floatType) : Attribute)
     else
       throwAt startPos "integer or float type expected after ':' in numeric attribute"
   else
@@ -448,10 +536,6 @@ private def parseUnregisteredAttrBody (endToken : TokenKind := .greater)
   | some s => return s
   | none => throwAt startPos "failed converting attribute body to string"
 
-/-- An unregistered type attribute holding its source text. -/
-def unregisteredType (text : String) : TypeAttr :=
-  ⟨.unregisteredAttr (UnregisteredAttr.mk text true), by simp⟩
-
 /--
   Parse a dialect type or a type alias, if present.
   A dialect type has the form `!dialect.name`, `!dialect.name<body>` or `!name<body>`; a bare
@@ -471,9 +555,9 @@ partial def parseOptionalDialectType : AttrParserM (Option TypeAttr) := do
     let endPos := (← peekToken).slice.stop
     parsePunctuation ">"
     let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
-    return some (unregisteredType (String.fromUTF8! value))
+    return some (⟨UnregisteredAttr.mk (String.fromUTF8! value) true none, by grind⟩)
   else
-    return some (unregisteredType ("!" ++ String.fromUTF8! dialectName))
+    return some (⟨UnregisteredAttr.mk ("!" ++ String.fromUTF8! dialectName) true none, by grind⟩)
 
 /--
   Consume the type name `!name`, or (exclusively) `name` without the dialect prefix when
@@ -485,7 +569,10 @@ private def parseOptionalTypeName (name : String) (short : Bool) : AttrParserM B
       | _dialect :: mnemonic@(_ :: _) => ".".intercalate mnemonic
       | _ => name
     return ← parseOptionalKeyword mnemonic.toByteArray
-  let some typeName ← peekTypeName | return false
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return false
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
   if typeName ≠ name.toByteArray then return false
   let _ ← consumeToken
   return true
@@ -503,7 +590,7 @@ private def llvmParameterlessTypes : List String :=
 def parseOptionalUnregisteredSingletonType (name : String) (short := false) :
     AttrParserM (Option TypeAttr) := do
   if !(← parseOptionalTypeName name short) then return none
-  return some (unregisteredType ("!" ++ name))
+  return some ⟨UnregisteredAttr.mk ("!" ++ name) true none, by grind⟩
 
 /--
   Parse the type `!dialect.name<...>`, or (exclusively) `name<...>` without the dialect prefix when
@@ -518,25 +605,32 @@ def parseOptionalUnregisteredType (name : String) (short := false) :
   let endPos := (← peekToken).slice.stop
   parsePunctuation ">"
   let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some (unregisteredType ("!" ++ name ++ String.fromUTF8! body))
+  return some ⟨UnregisteredAttr.mk ("!" ++ name ++ String.fromUTF8! body) true none, by grind⟩
 
 /--
   Attributes VeIR registers but does not interpret: everything between `<` and
   `>` is kept verbatim and printed back unchanged.
 -/
-private def verbatimBodyAttrs : List ByteArray :=
-  [ "llvm.cconv".toByteArray, "llvm.linkage".toByteArray, "llvm.framePointerKind".toByteArray,
-    "llvm.uwtableKind".toByteArray, "llvm.tailcallkind".toByteArray,
-    "llvm.mlir.module_flag".toByteArray, "llvm.constant_range".toByteArray,
-    "llvm.tbaa_tag".toByteArray, "llvm.memory_effects".toByteArray,
-    "llvm.loop_annotation".toByteArray, "llvm.target_features".toByteArray,
-    "dlti.dl_spec".toByteArray ]
+private def verbatimBodyAttrs : List (ByteArray × (String → Attribute)) :=
+  [ ("llvm.cconv".toByteArray, fun body => (CConvAttr.mk body : Attribute)),
+    ("llvm.linkage".toByteArray, fun body => (LinkageAttr.mk body : Attribute)),
+    ("llvm.framePointerKind".toByteArray, fun body => (FramePointerKindAttr.mk body : Attribute)),
+    ("llvm.uwtableKind".toByteArray, fun body => (UwtableKindAttr.mk body : Attribute)),
+    ("llvm.tailcallkind".toByteArray, fun body => (TailCallKindAttr.mk body : Attribute)),
+    ("llvm.mlir.module_flag".toByteArray, fun body => (ModuleFlagAttr.mk body : Attribute)),
+    ("llvm.constant_range".toByteArray, fun body => (ConstantRangeAttr.mk body : Attribute)),
+    ("llvm.tbaa_tag".toByteArray, fun body => (TbaaTagAttr.mk body : Attribute)),
+    ("llvm.memory_effects".toByteArray, fun body => (MemoryEffectsAttr.mk body : Attribute)),
+    ("llvm.loop_annotation".toByteArray, fun body => (LoopAnnotationAttr.mk body : Attribute)),
+    ("llvm.target_features".toByteArray, fun body => (TargetFeaturesAttr.mk body : Attribute)),
+    ("dlti.dl_spec".toByteArray, fun body => (DlSpecAttr.mk body : Attribute)) ]
 
 /--
   Parse a dialect attribute, if present.
   A dialect attribute has the form `#dialect.name` or `#dialect.name<body>`. Attributes VeIR
   understands are decoded; any other one is kept as an `UnregisteredAttr` when unregistered
-  dialects are allowed.
+  dialects are allowed. Its optional trailing `: type` is parsed by `parseOptionalAttribute`,
+  since the type parser is defined further down.
 -/
 partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   let startPos ← getPos
@@ -544,31 +638,29 @@ partial def parseOptionalDialectAttr : AttrParserM (Option Attribute) := do
   let some dialectName := dialectName | return none
 
   if dialectName = "llvm.fastmath".toByteArray then do
-    return (← parseFloatFastMathFlagsAttr).map (.fastMathFlagsAttr ·)
+    return ← parseFloatFastMathFlagsAttr
 
   if dialectName = "arith.overflow".toByteArray then do
-    /- This branch encodes overflow flags as the `overflowFlags` integer property. -/
     let (nsw, nuw) ← parseIntegerOverflowFlags
-    let flags : Nat := (if nsw then 1 else 0) + (if nuw then 2 else 0)
-    return some (IntegerAttr.mk flags (IntegerType.mk 32) : Attribute)
+    return some (ArithIntegerOverflowFlagsAttr.mk nsw nuw : Attribute)
 
-  if verbatimBodyAttrs.contains dialectName then
+  if let some (_, toAttr) := verbatimBodyAttrs.find? (fun (name, _) => dialectName == name) then
     parsePunctuation "<"
     let body ← parseUnregisteredAttrBody
     parsePunctuation ">"
-    return some (UnregisteredAttr.mk ("#" ++ String.fromUTF8! dialectName ++ "<" ++ body ++ ">") false)
+    return some (toAttr body)
 
   if !(← getThe AttrParserState).allowUnregisteredDialect then
     throwAt startPos s!"attribute '#{String.fromUTF8! dialectName}' is not registered. \
       Consider using --allow-unregistered-dialect."
   /- The body is optional: `#foo.bar` is as valid as `#foo.bar<baz>`. -/
   if !(← parseOptionalPunctuation "<") then
-    return some (UnregisteredAttr.mk ("#" ++ String.fromUTF8! dialectName) false)
+    return some (UnregisteredAttr.mk ("#" ++ String.fromUTF8! dialectName) false none)
   let _ ← parseUnregisteredAttrBody
   let endPos := (← peekToken).slice.stop
   parsePunctuation ">"
   let value := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some (UnregisteredAttr.mk (String.fromUTF8! value) false)
+  return some (UnregisteredAttr.mk (String.fromUTF8! value) false none)
 
 /--
   Parse a flat symbol reference attribute, if present.
@@ -580,12 +672,11 @@ def parseOptionalFlatSymbolRefAttr : AttrParserM (Option FlatSymbolRefAttr) := d
 
 /--
   Parse a symbol reference attribute, if present: a flat reference `@root`,
-  optionally followed by nested references as in `@comdat::@selector`. Nested references
-  are kept textually in a flat symbol reference.
+  optionally followed by nested references as in `@comdat::@selector`.
 -/
 def parseOptionalSymbolRefAttr : AttrParserM (Option Attribute) := do
   let some root ← parseOptionalFlatSymbolRefAttr | return none
-  let mut text := root.value
+  let mut nested := #[]
   repeat
     if (← peekToken).kind != .colon then break
     parsePunctuation ":"
@@ -593,8 +684,10 @@ def parseOptionalSymbolRefAttr : AttrParserM (Option Attribute) := do
     let pos := (← peekToken).slice.start
     let some name ← parseOptionalFlatSymbolRefAttr
       | throwAt pos "Expected a symbol reference after '::'"
-    text := text ++ "::" ++ name.value
-  return some (.flatSymbolRefAttr (FlatSymbolRefAttr.mk text))
+    nested := nested.push name
+  if nested.isEmpty then
+    return some (.flatSymbolRefAttr root)
+  return some (.symbolRefAttr ⟨root, nested⟩)
 
 /--
   Parse a location attribute, if present.
@@ -612,15 +705,87 @@ partial def parseOptionalLocationAttr : AttrParserM (Option Attribute) := do
   Parse an LLVM void type `!llvm.void`, if present.
 -/
 partial def parseOptionalLLVMVoidType : AttrParserM (Option TypeAttr) := do
-  if !(← parseOptionalTypeName "llvm.void" false) then return none
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "llvm.void".toByteArray then return none
+  let _ ← consumeToken
   return some LLVM.VoidType.mk
 
 /--
-  Parse an LLVM pointer type `!llvm.ptr`, if present.
+  Parse a PDL range handle type `!pdl.range<...>`, if present. MLIR restricts
+  the element to the four handle types, so a range never nests.
 -/
-partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
-  if !(← parseOptionalTypeName "llvm.ptr" false) then return none
-  return some LLVM.PointerType.mk
+partial def parseOptionalPDLRangeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.range".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let element ←
+    if ← parseOptionalKeyword "attribute".toByteArray then
+      pure PDL.RangeElement.attribute
+    else if ← parseOptionalKeyword "operation".toByteArray then
+      pure PDL.RangeElement.operation
+    else if ← parseOptionalKeyword "type".toByteArray then
+      pure PDL.RangeElement.type
+    else if ← parseOptionalKeyword "value".toByteArray then
+      pure PDL.RangeElement.value
+    else
+      throwAtCurrentPos "expected the element of a '!pdl.range' to be one of 'attribute', 'operation', 'type' or 'value'"
+  parsePunctuation ">"
+  return some (PDL.RangeType.mk element)
+
+/--
+  Parse a PDL attribute handle type `!pdl.attribute`, if present.
+-/
+partial def parseOptionalPDLAttributeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.attribute".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.AttributeType.mk
+
+/--
+  Parse a PDL operation handle type `!pdl.operation`, if present.
+-/
+partial def parseOptionalPDLOperationType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.operation".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.OperationType.mk
+
+/--
+  Parse a PDL value handle type `!pdl.value`, if present.
+-/
+partial def parseOptionalPDLValueType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.value".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.ValueType.mk
+
+/--
+  Parse a PDL type handle type `!pdl.type`, if present.
+-/
+partial def parseOptionalPDLTypeType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "pdl.type".toByteArray then return none
+  let _ ← consumeToken
+  return some PDL.TypeType.mk
 
 /--
   Parse cuda-tile's pointer type, if present
@@ -628,11 +793,28 @@ partial def parseOptionalLLVMPointerType : AttrParserM (Option TypeAttr) := do
   At present, this is just integer types.
 -/
 partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := do
-  if !(← parseOptionalTypeName "cuda_tile.ptr" false) then return none
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "cuda_tile.ptr".toByteArray then return none
+  let _ ← consumeToken
   parsePunctuation "<"
   let intTy ← parseIntegerType
   parsePunctuation ">"
   return some (CudaTile.PointerType.mk intTy)
+
+/--
+  Parse the IO address type `!io.address`, if present.
+-/
+partial def parseOptionalIoAddressType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "io.address".toByteArray then return none
+  let _ ← consumeToken
+  return some Io.AddressType.mk
 
 /--
   Parse HEIR's modarith type, if present.
@@ -640,14 +822,176 @@ partial def parseOptionalCudaTilePointerType : AttrParserM (Option TypeAttr) := 
   The modulus is kept as written (see `AttrParserState.rawIntegerLiterals`).
 -/
 def parseOptionalModArithType : AttrParserM (Option TypeAttr) := do
-  if !(← parseOptionalTypeName "mod_arith.int" false) then return none
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "mod_arith.int".toByteArray then
+    return none
+  let _ ← consumeToken
   parsePunctuation "<"
   let some modulus ← withRawIntegerLiterals parseOptionalNumericAttr
     | throwAtCurrentPos "modarith type modulus expected"
-  let .integerAttr modulus := modulus
+  let some modulus := modulus.cast? IntegerAttr
     | throwAtCurrentPos "modarith type modulus expected"
   parsePunctuation ">"
-  return some (ModArithType.mk modulus.value (some modulus.type))
+  return some (ModArithType.mk modulus)
+
+/--
+  Parse an optional felt-type field-name annotation: `<"name">`.
+-/
+def parseOptionalFeltFieldName : AttrParserM (Option ByteArray) := do
+  if ← parseOptionalPunctuation "<" then
+    let some name ← parseOptionalStringLiteral
+      | throwString "felt type field name (string literal) expected"
+    parsePunctuation ">"
+    return some name
+  return none
+
+/--
+  Parse an LLZK felt type, if present.
+  Its syntax is `!felt.type` or `!felt.type<"name">`.
+-/
+def parseOptionalFeltType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "felt.type".toByteArray then
+    return none
+  let _ ← consumeToken
+  let fieldName ← parseOptionalFeltFieldName
+  return some (FeltType.mk fieldName)
+
+/--
+  Parse an LLZK felt-const attribute, if present.
+  Current named-field syntax is `#felt<const N : !felt.type<"name">>`;
+  unnamed constants use `#felt<const N>`. Legacy named-field spellings and
+  outer type annotations are accepted and canonicalized when printed.
+-/
+def parseOptionalFeltConstAttr : AttrParserM (Option FeltConstAttr) := do
+  let token ← peekToken
+  let .hashIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let name := { token.slice with start := token.slice.start + 1 }.of input
+  if name ≠ "felt".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  if !(← parseOptionalKeyword "const".toByteArray) then
+    throwString "#felt<...> attribute body must begin with `const`"
+  let some val ← parseOptionalInteger false true
+    | throwString "#felt<const ...> expects an integer value"
+
+  -- Current LLZK syntax carries a named felt type inside the attribute body.
+  if ← parseOptionalPunctuation ":" then
+    if let some ftAttr ← parseOptionalFeltType then
+      parsePunctuation ">"
+      let Attribute.feltType ft := ftAttr.val
+        | throwString "#felt<const N>'s type annotation must be !felt.type"
+      return some (FeltConstAttr.mk val ft)
+
+    -- Compatibility with the historical `: <"name">` spelling.
+    let some innerFieldName ← parseOptionalFeltFieldName
+      | throwString "#felt<const N : ...> expects a !felt.type"
+    parsePunctuation ">"
+    parsePunctuation ":"
+    let some ftAttr ← parseOptionalFeltType
+      | throwString "#felt<const N> expects a !felt.type annotation"
+    let Attribute.feltType ft := ftAttr.val
+      | throwString "#felt<const N>'s type annotation must be !felt.type"
+    if ft.fieldName ≠ some innerFieldName then
+      throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
+    return some (FeltConstAttr.mk val ft)
+
+  -- Also accept the original legacy body `N <"name">`.
+  let innerFieldName ← parseOptionalFeltFieldName
+  parsePunctuation ">"
+  if ← parseOptionalPunctuation ":" then
+    let some ftAttr ← parseOptionalFeltType
+      | throwString "#felt<const N> expects a !felt.type annotation"
+    let Attribute.feltType ft := ftAttr.val
+      | throwString "#felt<const N>'s type annotation must be !felt.type"
+    if let some inner := innerFieldName then
+      if ft.fieldName ≠ some inner then
+        throwString "#felt<const N : <\"...\">> inner field name disagrees with outer !felt.type<\"...\"> annotation"
+    return some (FeltConstAttr.mk val ft)
+  return some (FeltConstAttr.mk val (FeltType.mk innerFieldName))
+
+/-! ## ClangIR (`cir`) types and attributes -/
+
+/--
+  Parse ClangIR's integer type, if present.
+  Its syntax is `!cir.int<s, N>` (signed) or `!cir.int<u, N>` (unsigned).
+-/
+def parseOptionalCirIntType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "cir.int".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let isSigned ←
+    if ← parseOptionalKeyword "s".toByteArray then pure true
+    else if ← parseOptionalKeyword "u".toByteArray then pure false
+    else throwAtCurrentPos "cir.int signedness expected ('s' or 'u')"
+  parsePunctuation ","
+  let some width ← parseOptionalInteger false false
+    | throwAtCurrentPos "cir.int bitwidth expected"
+  if width ≤ 0 then throwAtCurrentPos "cir.int bitwidth must be positive"
+  parsePunctuation ">"
+  return some (CirIntType.mk isSigned width.toNat)
+
+/-- Parse ClangIR's boolean type `!cir.bool`, if present. -/
+def parseOptionalCirBoolType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "cir.bool".toByteArray then return none
+  let _ ← consumeToken
+  return some CirBoolType.mk
+
+/--
+  Parse ClangIR's integer attribute, if present.
+  Its syntax is `#cir.int<N> : !cir.int<s|u, W>`; the type annotation is mandatory.
+-/
+def parseOptionalCirIntAttr : AttrParserM (Option CirIntAttr) := do
+  let token ← peekToken
+  let .hashIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let name := { token.slice with start := token.slice.start + 1 }.of input
+  if name ≠ "cir.int".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let some value ← parseOptionalInteger false true
+    | throwAtCurrentPos "#cir.int<...> expects an integer value"
+  parsePunctuation ">"
+  parsePunctuation ":"
+  let some tyAttr ← parseOptionalCirIntType
+    | throwAtCurrentPos "#cir.int<N> expects a !cir.int type annotation"
+  let .cirIntType ty := tyAttr.val
+    | throwAtCurrentPos "#cir.int<N> expects a !cir.int type annotation"
+  return some (CirIntAttr.mk value ty)
+
+/-- Parse ClangIR's boolean attribute `#cir.bool<true|false> : !cir.bool`, if present. -/
+def parseOptionalCirBoolAttr : AttrParserM (Option CirBoolAttr) := do
+  let token ← peekToken
+  let .hashIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let name := { token.slice with start := token.slice.start + 1 }.of input
+  if name ≠ "cir.bool".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let value ←
+    if ← parseOptionalKeyword "true".toByteArray then pure true
+    else if ← parseOptionalKeyword "false".toByteArray then pure false
+    else throwAtCurrentPos "#cir.bool<...> expects `true` or `false`"
+  parsePunctuation ">"
+  parsePunctuation ":"
+  let some _ ← parseOptionalCirBoolType
+    | throwAtCurrentPos "#cir.bool<b> expects a !cir.bool type annotation"
+  return some (CirBoolAttr.mk value)
 
 /--
   Parse CIRCT's HW dialect's `ModulePort::Direction` type.
@@ -683,16 +1027,134 @@ def parseHWModulePort (errorMsg : String := "module port expected") : AttrParser
   Its syntax is `!hw.modty<ports>` where `ports` is a comma delimited list of `ModulePort`s.
 -/
 def parseOptionalHWModuleType : AttrParserM (Option HW.ModuleType) := do
-  if !(← parseOptionalTypeName "hw.modty" false) then return none
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "hw.modty".toByteArray then return none
+  let _ ← consumeToken
   let ports ← parseDelimitedList .angle parseHWModulePort
   return some { ports }
+
+/--
+  Parse CIRCT's `seq` dialect's `ClockType` type.
+  Its syntax is `!seq.clock` (no parameters).
+-/
+def parseOptionalSeqClockType : AttrParserM (Option Seq.ClockType) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "seq.clock".toByteArray then return none
+  let _ ← consumeToken
+  return some {}
+
+/--
+  Parse CIRCT's `seq` dialect's `FirMemType` type.
+  Its syntax is `!seq.firmem<depth x width>`, with an optional `, mask maskWidth` for a
+  masked memory.
+-/
+def parseOptionalSeqFirMemType : AttrParserM (Option Seq.FirMemType) := do
+  if !(← parseOptionalTypeName "seq.firmem" false) then return none
+  parsePunctuation "<"
+  let depth ← parseInteger false false "memory depth expected"
+  parseShapeSeparator
+  let width ← parseInteger false false "memory word width expected"
+  let maskWidth ←
+    if ← parseOptionalPunctuation "," then
+      parseKeyword "mask".toByteArray
+      pure (some (← parseInteger false false "mask width expected").toNat)
+    else
+      pure none
+  parsePunctuation ">"
+  return some { depth := depth.toNat, width := width.toNat, maskWidth }
+
+/-
+  Parse an SMT sort type, if present.
+  Its syntax is `!smt.bool` or `!smt.bv<width>`.
+-/
+def parseOptionalSMTSortType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  let isBool := typeName == "smt.bool".toByteArray
+  let isBv := typeName == "smt.bv".toByteArray
+  if !isBool && !isBv then return none
+  let _ ← consumeToken
+  if isBool then
+    return some (TypeAttr.of SMT.SortType .bool)
+  parsePunctuation "<"
+  let width ← parseInteger false false
+  parsePunctuation ">"
+  if width ≤ 0 then
+    throwAtCurrentPos "SMT bit-vector width must be positive"
+  return some (TypeAttr.of SMT.SortType (.bv width.toNat))
 
 /-- A parsed entry in an LLVM function type's parameter list. -/
 inductive LLVMFuncParam
   | type (ty : TypeAttr)
   | ellipsis
 
+/-- The error for an opaque LLVM struct, which VeIR rejects. -/
+private def opaqueStructError := "opaque LLVM struct types are not supported"
+
 mutual
+
+/--
+  Parse the body of a shaped type, `<dim x ... x element-type>`, after its keyword.
+  `kind` names the type in error messages. Zero-sized dimensions are only accepted if
+  `allowZero` is set, and the element type must satisfy `isValidElementType`.
+-/
+partial def parseShapedTypeBody (kind : String) (allowZero : Bool)
+    (isValidElementType : Attribute → Bool) : AttrParserM (Array Nat × TypeAttr) := do
+  parsePunctuation "<"
+  let mut shape := #[]
+  while let some dim ← parseOptionalShapeDimension allowZero do
+    shape := shape.push dim
+    parseShapeSeparator
+  if (← peekToken).kind matches .question | .star then
+    throwAtCurrentPos s!"dynamic and unranked {kind} types are not supported"
+  let elementTypePos := (← peekToken).slice.start
+  let elementType ← parseType s!"{kind} element type expected"
+  if !isValidElementType elementType.val then
+    throwAt elementTypePos s!"invalid {kind} element type"
+  parsePunctuation ">"
+  return (shape, elementType)
+
+/--
+  Parse a builtin fixed-size vector type, if present.
+  Its syntax is `vector<dimension-list x element-type>`, e.g. `vector<2x4xi32>`;
+  the dimension list may be empty, as in `vector<i32>`.
+-/
+partial def parseOptionalVectorType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalKeyword "vector".toByteArray) then
+    return none
+  let (shape, elementType) ← parseShapedTypeBody "vector" false VectorType.isValidElementType
+  return some (VectorType.mk shape elementType)
+
+/--
+  Parse a ranked tensor type with a static shape, if present.
+  Its syntax is `tensor<dim x ... x type>`, e.g., `tensor<4xf32>` or `tensor<2x4xi32>`.
+-/
+partial def parseOptionalTensorType : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalKeyword "tensor".toByteArray) then
+    return none
+  let (shape, elementType) ← parseShapedTypeBody "tensor" true TensorType.isValidElementType
+  return some (TensorType.mk shape elementType)
+
+/--
+  Parse an LLVM pointer type, if present.
+  Its syntax is `!llvm.ptr` or `!llvm.ptr<addressSpace>`.
+  At present, this is just natural numbers.
+-/
+partial def parseOptionalLLVMPointerType (short := false) : AttrParserM (Option TypeAttr) := do
+  if !(← parseOptionalTypeName "llvm.ptr" short) then return none
+  let mut addressSpace := 0
+  if ← parseOptionalPunctuation "<" then
+    addressSpace := (← parseInteger false false).toNat
+    parsePunctuation ">"
+  return some (LLVM.PointerType.mk addressSpace)
 
 /--
   Parse an LLVM array type, if present.
@@ -706,7 +1168,7 @@ partial def parseOptionalLLVMArrayType (short := false) : AttrParserM (Option Ty
   parseKeyword "x".toByteArray
   let ty ← parseLLVMType
   parsePunctuation ">"
-  return some (LLVM.ArrayType.mk size.toNat ty.val)
+  return some (LLVM.ArrayType.mk size.toNat ty)
 
 /--
   Parse a function type, if present.
@@ -724,6 +1186,8 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
   -- Parse the output types as a list.
   match ← parseOptionalDelimitedList .paren parseType with
   | some outputs =>
+    -- Convert the parsed types to attributes, as FunctionType stores attributes instead
+    -- of types.
     let outputs := outputs.map (fun x => x.val)
     return some (FunctionType.mk inputs outputs (isVarArg := false))
   | none =>
@@ -734,30 +1198,85 @@ partial def parseOptionalFunctionType : AttrParserM (Option FunctionType) := do
 /--
   Parse an LLVM struct type, if present.
   Its syntax is `!llvm.struct<...>`, or (exclusively) the shorter form
-  `struct<...>` if the corresponding argument is set. The struct is kept as an
-  `UnregisteredAttr` holding its text.
+  `struct<...>` if the corresponding argument is set.
+
+  A struct with a body, literal (`struct<packed? (...)>`) or identified
+  (`struct<"name", packed? (...)>`), becomes an `LLVM.StructType` when its
+  fields can be parsed. Otherwise, preserve its text as an `UnregisteredAttr`.
+
+  Opaque identified structs (`struct<"name", opaque>`) are rejected.
+
+  LIMITATION: a bare reference to an identified struct (`struct<"name">`, used
+  for recursive types) is kept opaquely as an `UnregisteredAttr` holding its
+  text, so VeIR cannot resolve such a reference against its definition.
 -/
 partial def parseOptionalLLVMStructType (short := false) : AttrParserM (Option TypeAttr) := do
   if !(← parseOptionalTypeName "llvm.struct" short) then return none
   let startPos ← getPos
   parsePunctuation "<"
-  let _ ← parseUnregisteredAttrBody
-  let endPos := (← peekToken).slice.stop
-  parsePunctuation ">"
-  let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some (unregisteredType ("!llvm.struct" ++ String.fromUTF8! body))
+  let bodyState ← getThe ParserState
+  let name ← parseOptionalStringLiteral
+  /- A bare reference: keep the text, normalized to the full `!llvm.struct<...>`
+     spelling, so both forms produce identical output. -/
+  let isReference ← if name.isNone then pure false else do
+    if ← parseOptionalPunctuation "," then
+      if ← parseOptionalKeyword "opaque".toByteArray then
+        throwAt startPos opaqueStructError
+      pure false
+    else
+      pure true
+  if isReference then
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
+  try
+    let packed ← parseOptionalKeyword "packed".toByteArray
+    let body ← parseDelimitedList .paren parseLLVMType
+    parsePunctuation ">"
+    return some (LLVM.StructType.mk name packed (body.map (·.val)))
+  catch err =>
+    /- A nested opaque struct must not be hidden by the fallback below. -/
+    if err.msg == opaqueStructError then throw err
+    /- Preserve the old opaque parsing for fields VeIR cannot yet model, such
+       as address-space pointers and scalable vectors. -/
+    set bodyState
+    let _ ← parseUnregisteredAttrBody
+    let endPos := (← peekToken).slice.stop
+    parsePunctuation ">"
+    let body := (Slice.mk startPos endPos).of (← getThe ParserState).input
+    return some ⟨UnregisteredAttr.mk ("!llvm.struct" ++ String.fromUTF8! body) true none, by grind⟩
 
 /--
   Parse a type within an LLVM-dialect type body, accepting the LLVM "pretty-print"
   sugar keywords `void`, `ptr`, `x86_amx`, `ppc_fp128`, `label`, `metadata`, `token`, and
-  the bare nested forms `array<...>`, `struct<...>`, `func<...>`, and
+  the bare nested forms `byte<...>`, `array<...>`, `struct<...>`, `func<...>`, and
   `target<...>` in addition to the regular MLIR type forms.
+
+  The bare nested form exists because the LLVM dialect has a custom directive
+  `PrettyLLVMType`, which allows types from the LLVM dialect to be written
+  without the `!llvm.` prefix when they're already nested inside a LLVM-dialect
+  type. For example, `!llvm.array<2 x struct<...>>` is the same as
+  `!llvm.array<2 x !llvm.struct<...>>`.
+
+  In practice, this syntax (`PrettyLLVMType`) is used almost everywhere in the
+  LLVM dialect wherever a nested type is allowed. So we can always turn on the
+  shorthand whenever we know that we're parsing a LLVM-dialect type.
+
+  Upstream MLIR handles this convenience syntax by rolling their own parser and
+  printer. VeIR needs to do the same. We only handle the parser part for now
+  since always printing the full `!llvm.` prefix is still valid syntax.
+
+  Source: see `dispatchParse` and `LLVM::parsePrettyLLVMType` in
+  `mlir/lib/Dialect/LLVMIR/IR/LLVMTypeSyntax.cpp`.
 -/
 partial def parseLLVMType (errorMsg : String := "type expected") : AttrParserM TypeAttr := do
   if ← parseOptionalKeyword "void".toByteArray then
     return LLVM.VoidType.mk
-  if ← parseOptionalKeyword "ptr".toByteArray then
-    return (LLVM.PointerType.mk : TypeAttr)
+  if let some type ← parseOptionalLLVMPointerType true then
+    return type
+  if let some type ← parseOptionalByteType true then
+    return type
   if let some type ← parseOptionalLLVMArrayType true then
     return type
   if let some type ← parseOptionalLLVMStructType true then
@@ -795,17 +1314,87 @@ partial def parseOptionalLLVMFunctionType (short := false) : AttrParserM (Option
   return some ⟨.llvmFunctionType ft, by simp⟩
 
 /--
+  Parse ClangIR's function type, if present.
+  Its syntax is `!cir.func<(inputs) -> result>`, or `!cir.func<(inputs)>` for a function
+  without results. A trailing `...` in the inputs marks a variadic function.
+-/
+partial def parseOptionalCirFuncType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "cir.func".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let params ← parseDelimitedList .paren do
+    if (← parseOptionalToken .ellipsis).isSome then
+      return LLVMFuncParam.ellipsis
+    return LLVMFuncParam.type (← parseType)
+  if params.pop.any (· matches .ellipsis) then
+    throwAtCurrentPos "'...' is only valid as the last parameter of a cir function type"
+  let isVarArg := params.any (· matches .ellipsis)
+  let inputs := params.filterMap fun
+    | .type ty => some ty.val
+    | .ellipsis => none
+  let outputs ←
+    if ← parseOptionalPunctuation "->" then
+      match ← parseOptionalDelimitedList .paren parseType with
+      | some outputs => pure (outputs.map (·.val))
+      | none => pure #[(← parseType "cir.func result type expected").val]
+    else
+      pure #[]
+  parsePunctuation ">"
+  let ft := FunctionType.mk inputs outputs isVarArg
+  return some ⟨.cirFuncType (CirFuncType.mk ft), by simp⟩
+
+/--
+  Parse a `match` optional handle type `!match.optional<...>`, if present.
+
+  The wrapped type is parsed with the general type parser rather than a fixed
+  enumeration: MLIR's `!match.optional` takes any type, and it is the verifier
+  that narrows it to a PDL handle. That recursion is why this sits in the
+  mutual block with `parseType`, unlike the PDL handle parsers above.
+-/
+partial def parseOptionalMatchOptionalType : AttrParserM (Option TypeAttr) := do
+  let token ← peekToken
+  let .exclamationIdent := token.kind | return none
+  let input := (← getThe ParserState).input
+  let typeName := { token.slice with start := token.slice.start + 1 }.of input
+  if typeName ≠ "match.optional".toByteArray then return none
+  let _ ← consumeToken
+  parsePunctuation "<"
+  let inner ← parseType "expected the wrapped type of a '!match.optional'"
+  parsePunctuation ">"
+  return some (Match.OptionalType.mk inner)
+
+/--
   Parse a type, if present.
 -/
 partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
   if let some integerType ← parseOptionalIntegerType then
     return some integerType
+  if let some indexType ← parseOptionalIndexType then
+    return some indexType
   if let some floatType ← parseOptionalFloatType then
     return some floatType
+  if let some vectorType ← parseOptionalVectorType then
+    return some vectorType
+  if let some tensorType ← parseOptionalTensorType then
+    return some tensorType
+  if let some byteType ← parseOptionalByteType then
+    return some byteType
   if let some registerType ← parseOptionalRegisterType then
     return some registerType
   if let some modArithType ← parseOptionalModArithType then
     return some modArithType
+  if let some feltType ← parseOptionalFeltType then
+    return some feltType
+  if let some cirIntType ← parseOptionalCirIntType then
+    return some cirIntType
+  if let some cirBoolType ← parseOptionalCirBoolType then
+    return some cirBoolType
+  if let some cirFuncType ← parseOptionalCirFuncType then
+    return some cirFuncType
   if let some llvmVoidType := ← parseOptionalLLVMVoidType then
     return some llvmVoidType
   if let some llvmPointerType := ← parseOptionalLLVMPointerType then
@@ -823,8 +1412,28 @@ partial def parseOptionalType : AttrParserM (Option TypeAttr) := do
     return some llvmTargetType
   if let some cudaTilePointerType := ← parseOptionalCudaTilePointerType then
     return some cudaTilePointerType
+  if let some ioAddressType := ← parseOptionalIoAddressType then
+    return some ioAddressType
   if let some hwModuleType ← parseOptionalHWModuleType then
     return some hwModuleType
+  if let some seqClockType ← parseOptionalSeqClockType then
+    return some seqClockType
+  if let some seqFirMemType ← parseOptionalSeqFirMemType then
+    return some seqFirMemType
+  if let some smtSortType ← parseOptionalSMTSortType then
+    return some smtSortType
+  if let some pdlRangeType ← parseOptionalPDLRangeType then
+    return some pdlRangeType
+  if let some pdlAttributeType ← parseOptionalPDLAttributeType then
+    return some pdlAttributeType
+  if let some pdlOperationType ← parseOptionalPDLOperationType then
+    return some pdlOperationType
+  if let some pdlValueType ← parseOptionalPDLValueType then
+    return some pdlValueType
+  if let some pdlTypeType ← parseOptionalPDLTypeType then
+    return some pdlTypeType
+  if let some matchOptionalType ← parseOptionalMatchOptionalType then
+    return some matchOptionalType
   if let some dialectType ← parseOptionalDialectType then
     return some dialectType
   else if let some functionType := ← parseOptionalFunctionType then
@@ -844,25 +1453,28 @@ partial def parseType (errorMsg : String := "type expected") : AttrParserM TypeA
   Parse a dense elements attribute, if present.
   Its syntax is `dense<value> : type`, e.g. `dense<0> : tensor<4xi8>`
   or `dense<[32, 64]> : vector<2xi64>`.
-  The whole attribute is kept as its source text.
+  Both the value body and the type are stored as raw strings pending full
+  tensor/vector type support.
 -/
-partial def parseOptionalDenseElementsAttr : AttrParserM (Option Attribute) := do
-  let startPos ← getPos
+partial def parseOptionalDenseElementsAttr : AttrParserM (Option DenseElementsAttr) := do
   if !(← parseOptionalKeyword "dense".toByteArray) then
     return none
   parsePunctuation "<"
-  let _ ← parseUnregisteredAttrBody
+  let value ← parseUnregisteredAttrBody
   parsePunctuation ">"
   parsePunctuation ":"
+  -- tensor<4xi8> and vector<2xi64> are unregistered types: capture them as a balanced string
+  -- using the same scheme as parseOptionalDialectAttr's fallback case.
+  let typeStartPos ← getPos
   if !(← parseOptionalKeyword "tensor".toByteArray) then
     parseKeyword "vector".toByteArray
       "'tensor' or 'vector' type expected in dense elements attribute"
   parsePunctuation "<"
   let _ ← parseUnregisteredAttrBody
-  let endPos := (← peekToken).slice.stop
+  let typeEndPos := (← peekToken).slice.stop
   parsePunctuation ">"
-  let text := (Slice.mk startPos endPos).of (← getThe ParserState).input
-  return some (UnregisteredAttr.mk (String.fromUTF8! text) false)
+  let typeStr := (Slice.mk typeStartPos typeEndPos).of (← getThe ParserState).input
+  return some (DenseElementsAttr.mk value (String.fromUTF8! typeStr))
 
 /--
   Parse an entry in an attribute dictionary, which has the form `name = value`
@@ -912,20 +1524,25 @@ partial def parseOptionalDictionaryAttr : AttrParserM (Option DictionaryAttr) :=
 
 /--
   Parse the optional trailing `: type` of an unregistered dialect attribute.
-  MLIR lets any dialect attribute carry one, e.g. `#foo.bar<baz> : i32`. The type is kept
-  textually with the attribute.
+  MLIR lets any dialect attribute carry one, e.g. `#foo.bar<baz> : i32`. Nothing else can
+  follow a dialect attribute with a `:`, so the token is unambiguous.
 -/
 partial def parseOptionalUnregisteredAttrType (attr : Attribute) : AttrParserM Attribute := do
-  let .unregisteredAttr ⟨value, false⟩ := attr | return attr
+  let .unregisteredAttr ⟨value, false, none⟩ := attr | return attr
   if ← parseOptionalPunctuation ":" then
-    let type ← parseType
-    return (UnregisteredAttr.mk (value ++ " : " ++ toString type) false : Attribute)
+    return (UnregisteredAttr.mk value false (some (← parseType).val) : Attribute)
   return attr
 
 /--
   Parse an attribute, if present.
 -/
 partial def parseOptionalAttribute : AttrParserM (Option Attribute) := do
+  if let some feltConstAttr ← parseOptionalFeltConstAttr then
+    return some feltConstAttr
+  if let some cirIntAttr ← parseOptionalCirIntAttr then
+    return some cirIntAttr
+  if let some cirBoolAttr ← parseOptionalCirBoolAttr then
+    return some cirBoolAttr
   if let some dialectAttr ← parseOptionalDialectAttr then
     return some (← parseOptionalUnregisteredAttrType dialectAttr)
   else if let some locationAttr ← parseOptionalLocationAttr then

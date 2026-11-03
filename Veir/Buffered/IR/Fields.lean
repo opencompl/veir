@@ -1,0 +1,907 @@
+module
+
+public import Veir.Buffered.IR.Basic
+import Veir.Buffered.IR.InBounds
+import Veir.Buffered.IR.GetSet
+public import Veir.Buffered.Prelude
+
+namespace Veir.Buffered
+
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {ctx : IRContext OpInfo}
+
+public section
+
+/- FieldsInBounds implementation. -/
+
+structure OpResult.FieldsInBounds (res : OpResult) (ctx : IRContext OpInfo) : Prop where
+  firstUse_inBounds : res.firstUse.maybe OpOperandPtr.InBounds ctx
+  owner_inBounds : res.owner.InBounds ctx
+
+structure OpOperand.FieldsInBounds (operand : OpOperand) (ctx : IRContext OpInfo) : Prop where
+  nextUse_inBounds : operand.nextUse.maybe OpOperandPtr.InBounds ctx
+  back_inBounds : operand.back.InBounds ctx
+  owner_inBounds : operand.owner.InBounds ctx
+  value_inBounds : operand.value.InBounds ctx
+
+structure BlockOperand.FieldsInBounds (operand : BlockOperand) (ctx : IRContext OpInfo) : Prop where
+  nextUse_inBounds : operand.nextUse.maybe BlockOperandPtr.InBounds ctx
+  back_inBounds : operand.back.InBounds ctx
+  owner_inBounds : operand.owner.InBounds ctx
+  value_inBounds : operand.value.InBounds ctx
+
+structure Operation.FieldsInBounds (operation : OperationPtr) (ctx : IRContext OpInfo) (hin : operation.InBounds ctx) : Prop where
+  results_inBounds (res : OpResultPtr) (hres : res.InBounds ctx) : res.op = operation → (res.get! ctx).FieldsInBounds ctx
+  prev_inBounds : (operation.get! ctx).prev.maybe OperationPtr.InBounds ctx
+  next_inBounds : (operation.get! ctx).next.maybe OperationPtr.InBounds ctx
+  parent_inBounds : (operation.get! ctx).parent.maybe BlockPtr.InBounds ctx
+  blockOperands_inBounds (operand : BlockOperandPtr) (h : operand.InBounds ctx):
+    operand.op = operation → BlockOperand.FieldsInBounds (operand.get! ctx) ctx
+  regions_inBounds i (hi : i < operation.getNumRegions! ctx) :
+    (operation.getRegion! ctx i).InBounds ctx
+  operands_inBounds (operand : OpOperandPtr) (h : operand.InBounds ctx):
+    operand.op = operation → OpOperand.FieldsInBounds (operand.get! ctx) ctx
+
+@[local grind]
+structure BlockArgument.FieldsInBounds (arg: BlockArgument) (ctx: IRContext OpInfo) : Prop where
+  firstUse_inBounds : arg.firstUse.maybe OpOperandPtr.InBounds ctx
+  owner_inBounds : arg.owner.InBounds ctx
+
+@[local grind]
+structure Block.FieldsInBounds (block : BlockPtr) (ctx : IRContext OpInfo) (hin : block.InBounds ctx) : Prop where
+  firstUse_inBounds : (block.get! ctx).firstUse.maybe BlockOperandPtr.InBounds ctx
+  prev_inBounds : (block.get! ctx).prev.maybe BlockPtr.InBounds ctx
+  next_inBounds : (block.get! ctx).next.maybe BlockPtr.InBounds ctx
+  parent_inBounds : (block.get! ctx).parent.maybe RegionPtr.InBounds ctx
+  firstOp_inBounds : (block.get! ctx).firstOp.maybe OperationPtr.InBounds ctx
+  lastOp_inBounds : (block.get! ctx).lastOp.maybe OperationPtr.InBounds ctx
+  arguments_inBounds (arg : BlockArgumentPtr) (h : arg.InBounds ctx) :
+    arg.block = block → (arg.get! ctx).FieldsInBounds ctx
+
+@[local grind]
+structure Region.FieldsInBounds (region : Region) (ctx : IRContext OpInfo) : Prop where
+  firstBlock_inBounds block : region.firstBlock = some block → block.InBounds ctx
+  lastBlock_inBounds block : region.lastBlock = some block → block.InBounds ctx
+  parent_inBounds parent : region.parent = some parent → parent.InBounds ctx
+
+/-- Ensures that all pointers referenced by any structure in the context are in bounds. -/
+structure IRContext.FieldsInBounds (ctx : IRContext OpInfo) : Prop where
+  operations_inBounds (op : OperationPtr) opIn : Operation.FieldsInBounds op ctx opIn
+  blocks_inBounds (block : BlockPtr) blockIn : Block.FieldsInBounds block ctx blockIn
+  regions_inBounds (region : RegionPtr) (regionIn : region.InBounds ctx) : (region.get! ctx).FieldsInBounds ctx
+
+attribute [local grind =] Option.maybe_def
+
+section default
+
+@[grind .]
+theorem IRContext.default_FieldsInBounds : IRContext.FieldsInBounds (default : IRContext OpInfo) := by
+  simp only [default_def]
+  grind [IRContext.FieldsInBounds, OperationPtr.inBounds_def,
+    BlockPtr.inBounds_def, RegionPtr.inBounds_def]
+
+end default
+
+section get
+
+/- Theorems combining `get` methods with `IRContext.fieldsInBounds`. -/
+
+variable {ctx : IRContext OpInfo}
+
+attribute [local grind] IRContext.FieldsInBounds
+  OpOperand.FieldsInBounds BlockOperand.FieldsInBounds
+  Operation.FieldsInBounds Block.FieldsInBounds Region.FieldsInBounds
+
+section OpResultPtr
+
+variable {res : OpResultPtr}
+attribute [local grind] OpResult.FieldsInBounds
+
+theorem OpResultPtr.firstUse!_inBounds :
+    ctx.FieldsInBounds →
+    res.InBounds ctx →
+    (res.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
+  intros
+  have : res.op.InBounds ctx := by grind
+  grind
+
+grind_pattern OpResultPtr.firstUse!_inBounds => (res.get! ctx).firstUse, ctx.FieldsInBounds
+
+theorem OpResultPtr.owner!_inBounds :
+    ctx.FieldsInBounds →
+    res.InBounds ctx →
+    (res.get! ctx).owner.InBounds ctx := by
+  grind
+
+grind_pattern OpResultPtr.owner!_inBounds => (res.get! ctx).owner, ctx.FieldsInBounds
+
+end OpResultPtr
+
+section BlockArgument
+
+variable {arg : BlockArgumentPtr}
+attribute [local grind] BlockArgument.FieldsInBounds
+
+theorem BlockArgumentPtr.firstUse!_inBounds :
+    ctx.FieldsInBounds →
+    arg.InBounds ctx →
+    (arg.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
+  intros
+  have : arg.block.InBounds ctx := by grind
+  grind
+
+grind_pattern BlockArgumentPtr.firstUse!_inBounds => (arg.get! ctx).firstUse, ctx.FieldsInBounds
+
+theorem BlockArgumentPtr.owner!_inBounds :
+    ctx.FieldsInBounds →
+    arg.InBounds ctx →
+    (arg.get! ctx).owner.InBounds ctx := by
+  intros
+  have : arg.block.InBounds ctx := by grind
+  grind
+
+grind_pattern BlockArgumentPtr.owner!_inBounds => (arg.get! ctx).owner, ctx.FieldsInBounds
+
+end BlockArgument
+
+section OpOperand
+
+variable {operand : OpOperandPtr}
+attribute [local grind] OpOperand.FieldsInBounds
+
+theorem OpOperandPtr.nextUse!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).nextUse.maybe OpOperandPtr.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern OpOperandPtr.nextUse!_inBounds => (operand.get! ctx).nextUse, ctx.FieldsInBounds
+
+theorem OpOperandPtr.back!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).back.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern OpOperandPtr.back!_inBounds => (operand.get! ctx).back, ctx.FieldsInBounds
+
+theorem OpOperandPtr.owner!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).owner.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern OpOperandPtr.owner!_inBounds => (operand.get! ctx).owner, ctx.FieldsInBounds
+
+theorem OpOperandPtr.value!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).value.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern OpOperandPtr.value!_inBounds => (operand.get! ctx).value, ctx.FieldsInBounds
+
+end OpOperand
+
+section BlockOperand
+
+variable {operand : BlockOperandPtr}
+attribute [local grind] BlockOperand.FieldsInBounds
+
+theorem BlockOperandPtr.nextUse!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).nextUse.maybe BlockOperandPtr.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern BlockOperandPtr.nextUse!_inBounds => (operand.get! ctx).nextUse, ctx.FieldsInBounds
+
+theorem BlockOperandPtr.back!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).back.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern BlockOperandPtr.back!_inBounds => (operand.get! ctx).back, ctx.FieldsInBounds
+
+theorem BlockOperandPtr.owner!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).owner.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern BlockOperandPtr.owner!_inBounds => (operand.get! ctx).owner, ctx.FieldsInBounds
+
+theorem BlockOperandPtr.value!_inBounds :
+    ctx.FieldsInBounds →
+    operand.InBounds ctx →
+    (operand.get! ctx).value.InBounds ctx := by
+  intros
+  have : operand.op.InBounds ctx := by grind
+  grind
+
+grind_pattern BlockOperandPtr.value!_inBounds => (operand.get! ctx).value, ctx.FieldsInBounds
+
+end BlockOperand
+
+section Operation
+
+variable {operation : OperationPtr}
+attribute [local grind] Operation.FieldsInBounds
+
+theorem OperationPtr.prev!_inBounds :
+    ctx.FieldsInBounds →
+    operation.InBounds ctx →
+    (operation.get! ctx).prev.maybe OperationPtr.InBounds ctx := by
+  intros
+  grind
+
+grind_pattern OperationPtr.prev!_inBounds => (operation.get! ctx).prev, ctx.FieldsInBounds
+
+theorem OperationPtr.next!_inBounds :
+    ctx.FieldsInBounds →
+    operation.InBounds ctx →
+    (operation.get! ctx).next.maybe OperationPtr.InBounds ctx := by
+  intros
+  grind
+
+grind_pattern OperationPtr.next!_inBounds => (operation.get! ctx).next, ctx.FieldsInBounds
+
+theorem OperationPtr.parent!_inBounds :
+    ctx.FieldsInBounds →
+    operation.InBounds ctx →
+    (operation.get! ctx).parent.maybe BlockPtr.InBounds ctx := by
+  intros
+  grind
+
+grind_pattern OperationPtr.parent!_inBounds => (operation.get! ctx).parent, ctx.FieldsInBounds
+
+theorem OperationPtr.getRegions!_inBounds :
+    ctx.FieldsInBounds →
+    operation.InBounds ctx →
+    i < operation.getNumRegions! ctx →
+    (operation.getRegion! ctx i).InBounds ctx := by
+  intros
+  grind
+
+grind_pattern OperationPtr.getRegions!_inBounds => (operation.getRegion! ctx i), ctx.FieldsInBounds
+
+theorem OperationPtr.getOperands!_inBounds :
+    ctx.FieldsInBounds →
+    operation.InBounds ctx →
+    operand ∈ operation.getOperands! ctx →
+    operand.InBounds ctx := by
+  grind [getOperands!.mem_iff_exists_index]
+
+grind_pattern OperationPtr.getOperands!_inBounds => operand ∈ operation.getOperands! ctx, ctx.FieldsInBounds
+
+end Operation
+
+section Block
+
+variable {block : BlockPtr}
+
+attribute [local grind] Block.FieldsInBounds
+
+theorem BlockPtr.firstUse!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    (block.get! ctx).firstUse.maybe BlockOperandPtr.InBounds ctx := by
+  grind
+
+grind_pattern BlockPtr.firstUse!_inBounds => (block.get! ctx).firstUse, ctx.FieldsInBounds
+
+theorem BlockPtr.prev!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    (block.get! ctx).prev.maybe BlockPtr.InBounds ctx := by
+  grind
+
+grind_pattern BlockPtr.prev!_inBounds => (block.get! ctx).prev, ctx.FieldsInBounds
+
+theorem BlockPtr.next!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    (block.get! ctx).next.maybe BlockPtr.InBounds ctx := by
+  grind
+
+grind_pattern BlockPtr.next!_inBounds => (block.get! ctx).next, ctx.FieldsInBounds
+
+theorem BlockPtr.parent!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    (block.get! ctx).parent.maybe RegionPtr.InBounds ctx := by
+  grind
+
+grind_pattern BlockPtr.parent!_inBounds => (block.get! ctx).parent, ctx.FieldsInBounds
+
+theorem BlockPtr.firstOp!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    (block.get! ctx).firstOp.maybe OperationPtr.InBounds ctx := by
+  grind
+
+grind_pattern BlockPtr.firstOp!_inBounds => (block.get! ctx).firstOp, ctx.FieldsInBounds
+
+theorem BlockPtr.lastOp!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    (block.get! ctx).lastOp.maybe OperationPtr.InBounds ctx := by
+  grind
+
+grind_pattern BlockPtr.lastOp!_inBounds => (block.get! ctx).lastOp, ctx.FieldsInBounds
+
+theorem BlockPtr.arguments_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    i < block.getNumArguments! ctx →
+    (block.getArgument i).InBounds ctx := by
+  intros
+  grind
+
+grind_pattern BlockPtr.arguments_inBounds => (block.getArgument i), ctx.FieldsInBounds
+
+theorem BlockPtr.getArguments!_inBounds :
+    ctx.FieldsInBounds →
+    block.InBounds ctx →
+    blockArg ∈ block.getArguments! ctx →
+    blockArg.InBounds ctx := by
+  grind [getArguments!.mem_iff_exists_index]
+
+grind_pattern BlockPtr.getArguments!_inBounds => blockArg ∈ block.getArguments! ctx, ctx.FieldsInBounds
+
+
+end Block
+
+section Region
+
+variable {region : RegionPtr}
+
+attribute [local grind] Region.FieldsInBounds
+
+theorem RegionPtr.firstBlock!_inBounds :
+    ctx.FieldsInBounds →
+    region.InBounds ctx →
+    (region.get! ctx).firstBlock.maybe BlockPtr.InBounds ctx := by
+  grind
+
+grind_pattern RegionPtr.firstBlock!_inBounds => (region.get! ctx).firstBlock, ctx.FieldsInBounds
+
+theorem RegionPtr.lastBlock!_inBounds :
+    ctx.FieldsInBounds →
+    region.InBounds ctx →
+    (region.get! ctx).lastBlock.maybe BlockPtr.InBounds ctx := by
+  grind
+
+grind_pattern RegionPtr.lastBlock!_inBounds => (region.get! ctx).lastBlock, ctx.FieldsInBounds
+
+theorem RegionPtr.parent!_inBounds :
+    ctx.FieldsInBounds →
+    region.InBounds ctx →
+    (region.get! ctx).parent.maybe OperationPtr.InBounds ctx := by
+  grind
+
+grind_pattern RegionPtr.parent!_inBounds => (region.get! ctx).parent, ctx.FieldsInBounds
+
+end Region
+
+section ValuePtr
+
+variable {value : ValuePtr}
+
+theorem ValuePtr.getFirstUse!_inBounds :
+    ctx.FieldsInBounds →
+    value.InBounds ctx →
+    (value.getFirstUse! ctx).maybe OpOperandPtr.InBounds ctx := by
+  cases value <;> grind
+
+grind_pattern ValuePtr.getFirstUse!_inBounds => (value.getFirstUse! ctx), ctx.FieldsInBounds
+
+theorem ValuePtr.getDefiningOp!_inBounds :
+    ctx.FieldsInBounds →
+    value.InBounds ctx →
+    (value.getDefiningOp! ctx).maybe OperationPtr.InBounds ctx := by
+  cases value <;> grind
+
+grind_pattern ValuePtr.getDefiningOp!_inBounds => (value.getDefiningOp! ctx), ctx.FieldsInBounds
+
+end ValuePtr
+
+section OpOperandPtrPtr
+
+variable {ptr : OpOperandPtrPtr}
+
+theorem OpOperandPtrPtr.get!_inBounds :
+    ctx.FieldsInBounds →
+    ptr.InBounds ctx →
+    (ptr.get! ctx).maybe OpOperandPtr.InBounds ctx := by
+  cases ptr <;> grind
+
+grind_pattern OpOperandPtrPtr.get!_inBounds => (ptr.get! ctx), ctx.FieldsInBounds
+
+end OpOperandPtrPtr
+
+section BlockOperandPtrPtr
+
+variable {ptr : BlockOperandPtrPtr}
+
+theorem BlockOperandPtrPtr.get!_inBounds :
+    ctx.FieldsInBounds →
+    ptr.InBounds ctx →
+    (ptr.get! ctx).maybe BlockOperandPtr.InBounds ctx := by
+  cases ptr <;> grind
+
+grind_pattern BlockOperandPtrPtr.get!_inBounds => (ptr.get! ctx), ctx.FieldsInBounds
+
+end BlockOperandPtrPtr
+
+@[grind .]
+theorem OperationPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : OperationPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    Operation.FieldsInBounds ptr ctx ptrInBounds := by
+  grind [IRContext.FieldsInBounds]
+
+@[grind .]
+theorem BlockPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : BlockPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    Block.FieldsInBounds ptr ctx ptrInBounds := by
+  grind [IRContext.FieldsInBounds]
+
+@[grind .]
+theorem RegionPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : RegionPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    (ptr.get! ctx).FieldsInBounds ctx := by
+  grind [IRContext.FieldsInBounds]
+
+@[grind .]
+theorem OpResultPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : OpResultPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    (ptr.get! ctx).FieldsInBounds ctx := by
+  have opInBounds := OperationPtr.get_fieldsInBounds ctx ptr.op ctxInBounds (by grind)
+  grind
+
+@[grind .]
+theorem OpOperandPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : OpOperandPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    OpOperand.FieldsInBounds (ptr.get! ctx) ctx := by
+  have opInBounds := OperationPtr.get_fieldsInBounds ctx ptr.op ctxInBounds (by grind)
+  grind
+
+@[grind .]
+theorem BlockOperandPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : BlockOperandPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    BlockOperand.FieldsInBounds (ptr.get! ctx) ctx := by
+  have opInBounds := OperationPtr.get_fieldsInBounds ctx ptr.op ctxInBounds (by grind)
+  grind
+
+@[grind .]
+theorem BlockArgumentPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : BlockArgumentPtr)
+    (ctxInBounds : ctx.FieldsInBounds)
+    (ptrInBounds : ptr.InBounds ctx) :
+    (ptr.get! ctx).FieldsInBounds ctx := by
+  have blockInBounds :=
+    BlockPtr.get_fieldsInBounds ctx ptr.block ctxInBounds (by grind)
+  grind
+
+end get
+
+/- Preservation theorems for FieldsInBounds -/
+
+theorem Operation.fieldsInBounds_unchanged {op : OperationPtr} (ctx ctx' : IRContext OpInfo)
+    (opInBounds : op.InBounds ctx)
+    (opInBounds': op.InBounds ctx')
+    (hh : ctx.FieldsInBounds)
+    (hFIB : Operation.FieldsInBounds op ctx opInBounds)
+    (hSameInBoundsOp : ∀ op : OperationPtr, op.InBounds ctx → op.InBounds ctx')
+    (hSameInBoundsOpRes : ∀ opRes : OpResultPtr, opRes.InBounds ctx ↔ opRes.InBounds ctx')
+    (hSameInBoundsOpOperand : ∀ opOperand : OpOperandPtr, opOperand.InBounds ctx ↔ opOperand.InBounds ctx')
+    (hSameInBoundsOpOperandPtr : ∀ opOperandPtr : OpOperandPtrPtr, opOperandPtr.InBounds ctx → opOperandPtr.InBounds ctx')
+    (hSameInBoundsBlockOperand : ∀ blockOperand : BlockOperandPtr, blockOperand.InBounds ctx ↔ blockOperand.InBounds ctx')
+    (hSameInBoundsBlockOperandPtr : ∀ blockOperandPtr : BlockOperandPtrPtr, blockOperandPtr.InBounds ctx → blockOperandPtr.InBounds ctx')
+    (hSameInBoundsBlock : ∀ block : BlockPtr, block.InBounds ctx → block.InBounds ctx')
+    (hSameInBoundsRegion : ∀ region : RegionPtr, region.InBounds ctx → region.InBounds ctx')
+    (hSameInBoundsValue : ∀ value : ValuePtr, value.InBounds ctx → value.InBounds ctx')
+    (hSameInBoundsOp : ∀ op, op.InBounds ctx → OperationPtr.get! op ctx = OperationPtr.get! op ctx') :
+    Operation.FieldsInBounds op ctx' (by grind) := by
+  have heq : op.get! ctx = op.get! ctx' := by grind
+  constructor
+  · intros
+    constructor <;> grind [→ OpResultPtr.get!_eq_of_OperationPtr_get!_eq]
+  · grind
+  · grind
+  · grind
+  · intros opr hopr heq
+    have := @BlockOperandPtr.get!_eq_of_OperationPtr_get!_eq
+    constructor <;> grind
+  · have ha := OperationPtr.getRegion!_eq_of_OperationPtr_get!_eq heq
+    have hb := OperationPtr.getNumRegions!_eq_of_OperationPtr_get!_eq heq
+    grind [IRContext.FieldsInBounds, Operation.FieldsInBounds]
+  · intros opr hopr heq
+    have : opr.op.get! ctx = opr.op.get! ctx' := by grind
+    have := @OpOperandPtr.get!_eq_of_OperationPtr_get!_eq
+    constructor <;> grind
+
+theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext OpInfo)
+    (blockInBounds : block.InBounds ctx)
+    (blockInBounds': block.InBounds ctx')
+    (hh : ctx.FieldsInBounds)
+    (_hFIB : Block.FieldsInBounds block ctx blockInBounds)
+    (hSameInBoundsOp : ∀ op : OperationPtr, op.InBounds ctx → op.InBounds ctx')
+    (hSameInBoundsOpOperand : ∀ opOperand : OpOperandPtr, opOperand.InBounds ctx → opOperand.InBounds ctx')
+    (hSameInBoundsBlockOperand : ∀ blockOperand : BlockOperandPtr, blockOperand.InBounds ctx → blockOperand.InBounds ctx')
+    (hSameInBoundsBlock : ∀ block : BlockPtr, block.InBounds ctx → block.InBounds ctx')
+    (hSameInBoundsBlockArgument : ∀ blockArg : BlockArgumentPtr, blockArg.InBounds ctx ↔ blockArg.InBounds ctx')
+    (hSameInBoundsRegion : ∀ region : RegionPtr, region.InBounds ctx → region.InBounds ctx')
+    (hSameBlocks : ∀ block, block.InBounds ctx → BlockPtr.get! block ctx = BlockPtr.get! block ctx') :
+    Block.FieldsInBounds block ctx' blockInBounds' := by
+  constructor
+  · grind
+  · grind
+  · grind
+  · grind
+  · grind
+  · grind
+  · intros
+    constructor <;> grind [BlockArgumentPtr.get!_eq_of_BlockPtr_get!_eq]
+
+theorem Region.fieldsInBounds_unchanged (region : RegionPtr) (ctx ctx' : IRContext OpInfo)
+    (regionInBounds : region.InBounds ctx)
+    (hFIB : (region.get! ctx).FieldsInBounds ctx)
+    (hSameInBoundsOp : ∀ op : OperationPtr, op.InBounds ctx → op.InBounds ctx')
+    (hSameInBoundsBlock : ∀ block : BlockPtr, block.InBounds ctx → block.InBounds ctx')
+    (hSameRegions : ∀ region, region.InBounds ctx → RegionPtr.get! region ctx = RegionPtr.get! region ctx') :
+    (region.get! ctx').FieldsInBounds ctx' := by
+  grind
+
+attribute [local grind] OpResult.FieldsInBounds BlockArgument.FieldsInBounds
+  OpOperand.FieldsInBounds BlockOperand.FieldsInBounds Operation.FieldsInBounds
+  Block.FieldsInBounds Region.FieldsInBounds BlockOperandPtrPtr.InBounds
+
+macro "prove_fieldsInBounds" : tactic => `(tactic|
+  (rintro hctx
+   constructor
+   · intros op hop
+     constructor
+     · intros res hres heq
+       constructor
+       · grind
+       · grind
+     · grind
+     · grind
+     · grind
+     · intros operand hoperand heq
+       constructor <;> grind
+     · grind
+     · rintro opr hopr heq
+       constructor <;> grind
+   · intros block blockIn
+     constructor
+     · grind
+     · grind
+     · grind
+     · grind
+     · grind
+     · grind
+     · intros
+       constructor <;> grind (ematch := 20)
+   · grind))
+
+macro "prove_fieldsInBounds_operation" ctx:ident : tactic => `(tactic|
+  (rintro hctx
+   constructor
+   · intros op hop
+     constructor
+     · intros res hres heq
+       constructor
+       · grind
+       · grind
+     · grind
+     · grind
+     · grind
+     · intros operand hoperand heq
+       constructor <;> grind
+     · grind
+     · rintro opr hopr heq
+       constructor <;> grind
+   · intros block blockIn
+     apply Block.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
+   · grind))
+
+macro "prove_fieldsInBounds_block" ctx:ident: tactic => `(tactic|
+  (intros hctx
+   constructor
+   · intros
+     apply Operation.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
+   · intros block blockIn
+     constructor
+     · grind
+     · grind
+     · grind
+     · grind
+     · grind
+     · grind
+     · intros
+       constructor <;> grind
+   · intros
+     apply Region.fieldsInBounds_unchanged (ctx := $ctx) <;> grind))
+
+macro "prove_fieldsInBounds_region" ctx:ident: tactic => `(tactic|
+  (intros hctx
+   constructor
+   · intros
+     apply Operation.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
+   · intros
+     apply Block.fieldsInBounds_unchanged (ctx := $ctx) <;> grind
+   · intros
+     constructor <;> grind))
+
+@[grind .]
+theorem IRContext.empty_fieldsInBounds : (empty OpInfo).FieldsInBounds := by
+  constructor <;> grind
+
+@[grind .]
+theorem OperationPtr.setNextOp_fieldsInBounds (hnew : newOp.maybe OperationPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setNextOp op ctx newOp h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.setPrevOp_fieldsInBounds (hnew : newOp.maybe OperationPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setPrevOp op ctx newOp h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.setParent_fieldsInBounds (hnew : newOp.maybe BlockPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setParent op ctx newOp h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.setRegions_fieldsInBounds {ctx : IRContext OpInfo} {h} (hnew : ∀ r ∈ newRegions, r.InBounds ctx) :
+    ctx.FieldsInBounds → (setRegions op ctx newRegions h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.pushRegion_fieldsInBounds {ctx : IRContext OpInfo} {h} (hnew : newRegion.InBounds ctx) :
+    ctx.FieldsInBounds → (pushRegion op ctx newRegion h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.pushResult_fieldsInBounds {newResult : OpResult} {op : OperationPtr} h (hres : newResult.FieldsInBounds (op.pushResult ctx newResult h)) :
+    ctx.FieldsInBounds → (op.pushResult ctx newResult h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+@[grind .]
+theorem OperationPtr.setProperties_fieldsInBounds :
+    ctx.FieldsInBounds → (setProperties op ctx newProperties inBounds hprop).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.setAttributes_fieldsInBounds {op : OperationPtr} {opIn : op.InBounds ctx} :
+    ctx.FieldsInBounds → (op.setAttributes ctx newAttrs opIn).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OperationPtr.setOperands_push_fieldsInBounds  (newOperand : OpOperand) (hoperand : newOperand.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (pushOperand op ctx newOperand h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+@[grind .]
+theorem OperationPtr.pushBlockOperand_push_fieldsInBounds
+    (newOperand : BlockOperand) (hoperand : newOperand.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (pushBlockOperand op ctx newOperand h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+attribute [local grind] Operation.empty in
+@[grind .]
+theorem OperationPtr.allocEmpty_fieldsInBounds
+    (heq : allocEmpty ctx type prop capResults capBlockOperands capRegions capOperands = some (ctx', ptr')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
+
+@[grind .]
+theorem BlockOperandPtr.setBack_fieldsInBounds {blockOperand} {ctx : IRContext OpInfo} {h newBack} (hp : newBack.InBounds ctx) :
+    ctx.FieldsInBounds → (setBack blockOperand ctx newBack h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem BlockOperandPtr.setOwner_fieldsInBounds {blockOperand} {ctx : IRContext OpInfo} {h newOwner} (hp : newOwner.InBounds ctx) :
+    ctx.FieldsInBounds → (setOwner blockOperand ctx newOwner h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem BlockOperandPtr.setNextUse_fieldsInBounds {blockOperand} {ctx : IRContext OpInfo} {h newNextUse} (hp : newNextUse.maybe BlockOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setNextUse blockOperand ctx newNextUse h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem BlockOperandPtr.setValue_fieldsInBounds {blockOperand} {ctx : IRContext OpInfo} {h newValue} (hp : newValue.InBounds ctx) :
+    ctx.FieldsInBounds → (setValue blockOperand ctx newValue h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setType_fieldsInBounds :
+    ctx.FieldsInBounds → (setType blockArgPtr ctx newType h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setIndex_fieldsInBounds :
+    ctx.FieldsInBounds → (setIndex blockArgPtr ctx idx h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setOwner_fieldsInBounds (ownerIb : owner.InBounds ctx) :
+    ctx.FieldsInBounds → (setOwner blockArgPtr ctx owner h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setFirstUse_fieldsInBounds
+    (hnew : newFirstUse.maybe OpOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setFirstUse blockArgPtr ctx newFirstUse h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockArgumentPtr.setLoc_fieldsInBounds :
+    ctx.FieldsInBounds → (setLoc blockArgPtr ctx newLoc h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockPtr.setParent_fieldsInBounds (hp : parent.maybe RegionPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setParent block ctx parent h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockPtr.setFirstUse_fieldsInBounds (hp : newFirstUse.maybe BlockOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setFirstUse block ctx newFirstUse h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockPtr.setFirstOp_fieldsInBounds (hp : newFirstOp.maybe OperationPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setFirstOp block ctx newFirstOp h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockPtr.setLastOp_fieldsInBounds (hp : newLastOp.maybe OperationPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setLastOp block ctx newLastOp h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockPtr.setNextBlock_fieldsInBounds (hp : newNextBlock.maybe BlockPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setNextBlock block ctx newNextBlock h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+@[grind .]
+theorem BlockPtr.setPrevBlock_fieldsInBounds (hp : newPrevBlock.maybe BlockPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setPrevBlock block ctx newPrevBlock h).FieldsInBounds := by
+  prove_fieldsInBounds_block ctx
+
+attribute [local grind] Block.empty in
+@[grind .]
+theorem BlockPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx capArguments = some (ctx', ptr')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
+
+attribute [local grind] Block.empty in
+@[grind .]
+theorem BlockPtr.allocEmptyAtAddress_fieldsInBounds (heq : allocEmptyAtAddress ctx capArguments addr = some (ctx', ptr')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
+
+attribute [local grind →] Array.getElem_mem in
+attribute [local grind] Block.empty in
+attribute [local grind =] BlockArgumentPtr.inBounds_def in
+@[grind .]
+theorem BlockPtr.setArguments_fieldsInBounds
+    (hIncreaseSize : block.getNumArguments! ctx ≤ newArguments.size)
+    (hp : ∀ arg ∈ newArguments, arg.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (setArguments block ctx newArguments h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+attribute [local grind →] Array.getElem_mem in
+attribute [local grind] Block.empty in
+attribute [local grind =] BlockArgumentPtr.inBounds_def in
+@[grind .]
+theorem BlockPtr.pushArgument_fieldsInBounds
+    (hp : newArgument.FieldsInBounds ctx) :
+    ctx.FieldsInBounds → (pushArgument block ctx newArgument h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+@[grind .]
+theorem OpOperandPtr.setNextUse_fieldsInBounds (hp : newNextUse.maybe OpOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setNextUse opOperand ctx newNextUse h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OpOperandPtr.setBack_fieldsInBounds (hp : newBack.InBounds ctx) :
+    ctx.FieldsInBounds → (setBack opOperand ctx newBack h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OpOperandPtr.setOwner_fieldsInBounds (hp : newOwner.InBounds ctx) :
+    ctx.FieldsInBounds → (setOwner opOperand ctx newOwner h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OpOperandPtrPtr.set_fieldsInBounds_maybe (hnew : newPtr.maybe OpOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (set opOperandPtr ctx newPtr h).FieldsInBounds := by
+  prove_fieldsInBounds
+
+@[grind .]
+theorem OpOperandPtr.setValue_fieldsInBounds (hp : newValue.InBounds ctx) :
+    ctx.FieldsInBounds → (setValue opOperand ctx newValue h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OpResultPtr.setType_fieldsInBounds :
+    ctx.FieldsInBounds → (setType opOperand ctx newType h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OpResultPtr.setFirstUse_fieldsInBounds_maybe (hnew : newFirstUse.maybe OpOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setFirstUse opOperand ctx newFirstUse h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem OpResultPtr.setOwner_fieldsInBounds {blockOperand} {ctx : IRContext OpInfo} {h newOwner} (hp : newOwner.InBounds ctx) :
+    ctx.FieldsInBounds → (setOwner blockOperand ctx newOwner h).FieldsInBounds := by
+  prove_fieldsInBounds_operation ctx
+
+@[grind .]
+theorem RegionPtr.setParent_fieldsInBounds (hnew : newParent.maybe OperationPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setParent region ctx newParent h).FieldsInBounds := by
+  prove_fieldsInBounds_region ctx
+
+@[grind .]
+theorem RegionPtr.setFirstBlock_fieldsInBounds (hnew : newFirstBlock.maybe BlockPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setFirstBlock region ctx newFirstBlock h).FieldsInBounds := by
+  prove_fieldsInBounds_region ctx
+
+@[grind .]
+theorem RegionPtr.setLastBlock_fieldsInBounds (hnew : newLastBlock.maybe BlockPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setLastBlock region ctx newLastBlock h).FieldsInBounds := by
+  prove_fieldsInBounds_region ctx
+
+attribute [local grind] Region.empty in
+@[grind .]
+theorem RegionPtr.allocEmptyAt_fieldsInBounds (heq : allocEmptyAt ctx addr = some (ctx', rg')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
+
+attribute [local grind] Region.empty in
+@[grind .]
+theorem RegionPtr.allocEmpty_fieldsInBounds (heq : allocEmpty ctx = some (ctx', rg')) :
+    ctx.FieldsInBounds → ctx'.FieldsInBounds := by
+  prove_fieldsInBounds
+
+@[grind .]
+theorem BlockOperandPtrPtr.set_fieldsInBounds_maybe  (hnew : new.maybe BlockOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (set blockOperandPtr ctx new h).FieldsInBounds := by
+  cases new <;> grind
+
+@[grind .]
+theorem ValuePtr.setType_fieldsInBounds :
+    ctx.FieldsInBounds → (setType value ctx newType h).FieldsInBounds := by
+  cases value <;> simp only [setType_OpResultPtr, setType_BlockArgumentPtr] <;> grind
+
+@[grind .]
+theorem ValuePtr.setFirstUse_fieldsInBounds_maybe (hnew : newFirstUse.maybe OpOperandPtr.InBounds ctx) :
+    ctx.FieldsInBounds → (setFirstUse value ctx newFirstUse h).FieldsInBounds := by
+  cases value <;> simp only [setFirstUse_OpResultPtr, setFirstUse_BlockArgumentPtr] <;> grind

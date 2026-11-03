@@ -1,14 +1,14 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 29 : i64 }> : () -> !reg
-    %b = "riscv.li"() <{ value = 29 : i64 }> : () -> !reg
-    %c = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> !reg
-    %d = "riscv.rori"(%a) <{ value = 3 : i6 }> : (!reg) -> !reg
-    %e = "riscv.rori"(%b) <{ value = -3 : i6 }> : (!reg) -> !reg
-    %f = "riscv.rori"(%c) <{ value = -3 : i6 }> : (!reg) -> !reg
-    "func.return"(%d, %e, %f) : (!reg, !reg, !reg) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> (!riscv.reg, !riscv.reg, !riscv.reg)}> ({
+    %a = "riscv.li"() <{ value = 29 : i64 }> : () -> !riscv.reg
+    %b = "riscv.li"() <{ value = 29 : i64 }> : () -> !riscv.reg
+    %c = "riscv.li"() <{ value = 4294967298 : i64 }> : () -> !riscv.reg
+    %d = "riscv.rori"(%a) <{ value = 3 : i64 }> : (!riscv.reg) -> !riscv.reg
+    %e = "riscv.rori"(%b) <{ value = 61 : i64 }> : (!riscv.reg) -> !riscv.reg
+    %f = "riscv.rori"(%c) <{ value = 61 : i64 }> : (!riscv.reg) -> !riscv.reg
+    "func.return"(%d, %e, %f) : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

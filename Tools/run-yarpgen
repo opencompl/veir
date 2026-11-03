@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Generate one random C program with yarpgen, compile it with vcc, and run it.
+
+Usage: yarpgen-vcc [--save-temps] [vcc options]
+
+vcc is invoked with -O by default; pass -O0 to disable VeIR optimization.
+With --save-temps, the working directory is kept and its path is printed.
+
+The yarpgen binary is taken from $YARPGEN (default: ~/yarpgen/yarpgen).
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+VCC = Path(__file__).resolve().parent / "vcc"
+YARPGEN = os.environ.get("YARPGEN", str(Path.home() / "yarpgen" / "yarpgen"))
+
+
+def run(cmd: list[str], cwd: str) -> None:
+    print("+", " ".join(cmd), flush=True)
+    subprocess.run(cmd, cwd=cwd, stdin=subprocess.DEVNULL, check=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run one yarpgen test through vcc.")
+    parser.add_argument("--save-temps", action="store_true",
+                        help="keep the working directory instead of deleting it")
+    args, extra = parser.parse_known_args()
+    # vcc uses the last -O level given, so a user-supplied -O0 overrides this.
+    vcc_args = ["-O", *extra]
+    with tempfile.TemporaryDirectory(prefix="yarpgen-vcc-", delete=not args.save_temps) as tmp:
+        if args.save_temps:
+            print(f"yarpgen-vcc: saving temps in {tmp}", flush=True)
+        run([YARPGEN, "--std=c99", "-d", tmp], tmp)
+        for name in ("driver", "func"):
+            run([sys.executable, str(VCC), *vcc_args, "-c", f"{name}.c", "-o", f"{name}.o"], tmp)
+        run(["clang", "--target=riscv64-linux-gnu", "driver.o", "func.o", "-o", "test"], tmp)
+        run(["./test"], tmp)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except subprocess.CalledProcessError as e:
+        sys.exit(e.returncode)

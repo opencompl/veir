@@ -1,12 +1,12 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ "value" = 8 : i64 }> : () -> !reg
-    %x = "riscv.li"() <{ "value" = 290 : i64 }> : () -> !reg
-    "riscv.sd"(%a, %x) <{ "value" = 0 : i64 }> : (!reg, !reg) -> ()
-    %y = "riscv.ld"(%a) <{ "value" = 0 : i64 }> : (!reg) -> !reg
-    "func.return"(%y) : (!reg) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({
+    %a = "riscv_stack.alloca"() <{ "size" = 8 : i64, "alignment" = 8 : i64 }> : () -> !riscv.reg
+    %x = "riscv.li"() <{ "value" = 290 : i64 }> : () -> !riscv.reg
+    "riscv.sd"(%x, %a) <{ "value" = 0 : i64 }> : (!riscv.reg, !riscv.reg) -> ()
+    %y = "riscv.ld"(%a) <{ "value" = 0 : i64 }> : (!riscv.reg) -> !riscv.reg
+    "func.return"(%y) : (!riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

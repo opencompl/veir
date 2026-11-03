@@ -1,12 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.IR.Fields
 import Veir.IR.GetSet
 import Veir.IR.InBounds
 import Veir.IR.Grind
-import Veir.ForLean
-import Std.Data.ExtHashSet
 
 public section
 
@@ -14,10 +11,17 @@ namespace Veir
 
 open ForLean
 
-variable {OpInfo} [HasOpInfo OpInfo]
+variable {OpInfo} [IsOpCode OpInfo]
 variable {ctx ctx' : IRContext OpInfo}
 
-/-- A def-use chain for an SSA value. -/
+/--
+  A def-use chain for an SSA value.
+  The def-use chain is represented as an ordered array of operands, where
+  each operand corresponds to a use of the value. The first element of the
+  array is the first use of the value.
+  Each operand in the array points to the next use of the value, forming a
+  linked list.
+-/
 structure ValuePtr.DefUse
     (value : ValuePtr) (ctx : IRContext OpInfo) (array : Array OpOperandPtr)
     (missingUses : Std.ExtHashSet OpOperandPtr := ∅) : Prop where
@@ -25,20 +29,268 @@ structure ValuePtr.DefUse
   arrayInBounds (h : use ∈ array) : use.InBounds ctx
   firstElem : array[0]? = value.getFirstUse! ctx
   firstUseBack (heq : value.getFirstUse! ctx = some firstUse) :
-    (firstUse.get! ctx).back = .valueFirstUse value
+    firstUse.getBack! ctx = .valueFirstUse value
   allUsesInChain (use : OpOperandPtr) (huse : use.InBounds ctx) :
-    (use.get! ctx).value = value → (use ∈ array ↔ use ∉ missingUses)
-  useValue (hin : use ∈ array) : (use.get! ctx).value = value
+    use.getValue! ctx = value → (use ∈ array ↔ use ∉ missingUses)
+  useValue (hin : use ∈ array) : use.getValue! ctx = value
   nextElems (hi : i < array.size) :
-    (array[i].get! ctx).nextUse = array[i + 1]?
+    array[i].getNextUse! ctx = array[i + 1]?
   prevNextUse (iPos : i > 0) (iInBounds : i < array.size) :
-    (array[i].get! ctx).back = OpOperandPtrPtr.operandNextUse array[i - 1]
+    array[i].getBack! ctx = OpOperandPtrPtr.operandNextUse array[i - 1]
   missingUsesInBounds (hin : use ∈ missingUses) : use.InBounds ctx
-  missingUsesValue (hin : use ∈ missingUses) : (use.get! ctx).value = value
+  missingUsesValue (hin : use ∈ missingUses) : use.getValue! ctx = value
 
 attribute [grind →] ValuePtr.DefUse.valueInBounds
-attribute [grind →] ValuePtr.DefUse.missingUsesInBounds
 attribute [grind →] ValuePtr.DefUse.arrayInBounds
+grind_pattern ValuePtr.DefUse.firstElem =>
+    ValuePtr.DefUse value ctx array missingUses, value.getFirstUse! ctx
+grind_pattern ValuePtr.DefUse.firstElem =>
+    ValuePtr.DefUse value ctx array missingUses, array[0]?
+grind_pattern ValuePtr.DefUse.firstUseBack =>
+    ValuePtr.DefUse value ctx array missingUses, value.getFirstUse! ctx, some firstUse,
+    (firstUse.getBack! ctx) where
+  guard value.getFirstUse! ctx = some firstUse
+grind_pattern ValuePtr.DefUse.allUsesInChain =>
+    ValuePtr.DefUse value ctx array missingUses, use.getValue! ctx, use ∈ missingUses where
+  guard (use.getValue! ctx) = value
+attribute [grind →] ValuePtr.DefUse.useValue
+grind_pattern ValuePtr.DefUse.nextElems =>
+    ValuePtr.DefUse value ctx array missingUses, array[i].getNextUse! ctx
+/- ValuePtr.DefUse.prevNextUse does not need a grind_pattern, because it is included in
+  the `ValuePtr.DefUse.back_array_eq` pattern instead. -/
+attribute [grind →] ValuePtr.DefUse.missingUsesInBounds
+grind_pattern ValuePtr.DefUse.missingUsesValue =>
+    ValuePtr.DefUse value ctx array missingUses, use ∈ missingUses, use.getValue! ctx
+
+structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext OpInfo)
+    (array : Array BlockOperandPtr) (missingUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
+  blockInBounds : blockPtr.InBounds ctx
+  arrayInBounds (h : use ∈ array) : use.InBounds ctx
+  firstElem : array[0]? = blockPtr.getFirstUse! ctx
+  nextElems (hi : i < array.size) : array[i].getNextUse! ctx = array[i + 1]?
+  useValue use (hu : use ∈ array) : use.getValue! ctx = blockPtr
+  firstUseBack (heq : blockPtr.getFirstUse! ctx = some firstUse) :
+    firstUse.getBack! ctx = BlockOperandPtrPtr.blockFirstUse blockPtr
+  backNextUse i (iPos : i > 0) (iInBounds : i < array.size) :
+    array[i].getBack! ctx = BlockOperandPtrPtr.blockOperandNextUse array[i - 1]
+  allUsesInChain (use : BlockOperandPtr) (useInBounds : use.InBounds ctx) :
+    use.getValue! ctx = blockPtr → (use ∈ array ↔ use ∉ missingUses)
+  missingUsesInBounds (hin : use ∈ missingUses) : use.InBounds ctx
+  missingUsesValue (hin : use ∈ missingUses) : use.getValue! ctx = blockPtr
+
+attribute [grind →] BlockPtr.DefUse.blockInBounds
+attribute [grind →] BlockPtr.DefUse.arrayInBounds
+grind_pattern BlockPtr.DefUse.firstElem =>
+    BlockPtr.DefUse blockPtr ctx array missingUses, blockPtr.getFirstUse! ctx
+grind_pattern BlockPtr.DefUse.nextElems =>
+    BlockPtr.DefUse blockPtr ctx array missingUses, array[i].getNextUse! ctx
+grind_pattern BlockPtr.DefUse.useValue =>
+    BlockPtr.DefUse blockPtr ctx array missingUses, use ∈ array, use.getValue! ctx
+grind_pattern BlockPtr.DefUse.firstUseBack =>
+    BlockPtr.DefUse blockPtr ctx array missingUses, blockPtr.getFirstUse! ctx,
+    some firstUse, (firstUse.getBack! ctx) where
+  guard (blockPtr.getFirstUse! ctx) = some firstUse
+grind_pattern BlockPtr.DefUse.backNextUse =>
+  BlockPtr.DefUse blockPtr ctx array missingUses, array[i].getBack! ctx
+grind_pattern BlockPtr.DefUse.allUsesInChain =>
+  BlockPtr.DefUse blockPtr ctx array missingUses, use.getValue! ctx, use ∈ missingUses
+attribute [grind →] BlockPtr.DefUse.missingUsesInBounds
+attribute [grind →] BlockPtr.DefUse.missingUsesValue
+
+/--
+  An operation chain owned by a block.
+  An operation chain is a doubly linked list of operations within a block, where each
+  operation points to the next and previous operations in the block. The block itself
+  points to the first and last operations in the chain.
+  The operation chain is represented as an ordered array of operation pointers, where
+  the first element of the array is the first operation in the block, and the last
+  element is the last operation in the block.
+  Each operation that has the block as its parent must be included in the operation chain,
+  unless it is included in the `missingOps` set.
+-/
+structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext OpInfo) (array : Array OperationPtr)
+    (missingOps : Std.ExtHashSet OperationPtr := ∅) : Prop where
+  blockInBounds : block.InBounds ctx
+  arrayInBounds (h : op ∈ array) : op.InBounds ctx
+  missingOpInBounds (hin : op ∈ missingOps) : op.InBounds ctx
+  opParent (h : op ∈ array) : op.getParent! ctx = some block
+  missingOpValue (hin : op ∈ missingOps) : op.getParent! ctx = block
+  allOpsInChain (op : OperationPtr) (opInBounds : op.InBounds ctx) :
+    op.getParent! ctx = some block → (op ∈ array ↔ op ∉ missingOps)
+  first : block.getFirstOp! ctx = array[0]?
+  last : block.getLastOp! ctx = array[array.size-1]?
+  prevFirst (h : block.getFirstOp! ctx = some firstOp) :
+    firstOp.getPrevOp! ctx = none
+  prev i (h₁: i > 0) (h₂ : i < array.size) :
+    array[i].getPrevOp! ctx = some array[i - 1]
+  next (hi : i < array.size) :
+    array[i].getNextOp! ctx = array[i + 1]?
+
+attribute [grind →] BlockPtr.OpChain.blockInBounds
+attribute [grind →] BlockPtr.OpChain.arrayInBounds
+attribute [grind →] BlockPtr.OpChain.missingOpInBounds
+grind_pattern BlockPtr.OpChain.opParent =>
+    BlockPtr.OpChain block ctx array missingOps, op ∈ array, op.getParent! ctx
+grind_pattern BlockPtr.OpChain.missingOpValue =>
+    BlockPtr.OpChain block ctx array missingOps, op ∈ missingOps, op.getParent! ctx
+grind_pattern BlockPtr.OpChain.allOpsInChain =>
+    BlockPtr.OpChain block ctx array missingOps, op.getParent! ctx,
+    some block, op ∈ missingOps where
+  guard (op.getParent! ctx) = some block
+grind_pattern BlockPtr.OpChain.first =>
+    BlockPtr.OpChain block ctx array missingOps, block.getFirstOp! ctx
+grind_pattern BlockPtr.OpChain.last =>
+    BlockPtr.OpChain block ctx array missingOps, block.getLastOp! ctx
+grind_pattern BlockPtr.OpChain.prevFirst =>
+    BlockPtr.OpChain block ctx array missingOps, block.getFirstOp! ctx,
+    some firstOp, (firstOp.getPrevOp! ctx) where
+  guard (block.getFirstOp! ctx) = some firstOp
+grind_pattern BlockPtr.OpChain.prev =>
+    BlockPtr.OpChain block ctx array missingOps, array[i].getPrevOp! ctx
+grind_pattern BlockPtr.OpChain.next =>
+    BlockPtr.OpChain block ctx array missingOps, array[i].getNextOp! ctx
+
+structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext OpInfo) (array : Array BlockPtr) : Prop where
+  inBounds : region.InBounds ctx
+  arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
+  opParent (h : bl ∈ array) : bl.getParent! ctx = some region
+  first : region.getFirstBlock! ctx = array[0]?
+  last : region.getLastBlock! ctx = array[array.size-1]?
+  prevFirst (h : region.getFirstBlock! ctx = some fbl) :
+    fbl.getPrevBlock! ctx = none
+  prev i (h₁: i > 0) (h₂ : i < array.size) :
+    array[i].getPrevBlock! ctx = some array[i - 1]
+  next (hi : i < array.size) :
+    array[i].getNextBlock! ctx = array[i + 1]?
+  allBlocksInChain (bl : BlockPtr) (blInBoundsl : bl.InBounds ctx) :
+    bl.getParent! ctx = some region → bl ∈ array
+
+attribute [grind →] RegionPtr.BlockChain.inBounds
+attribute [grind →] RegionPtr.BlockChain.arrayInBounds
+grind_pattern RegionPtr.BlockChain.opParent =>
+    RegionPtr.BlockChain region ctx array, bl ∈ array, bl.getParent! ctx
+grind_pattern RegionPtr.BlockChain.first =>
+    RegionPtr.BlockChain region ctx array, region.getFirstBlock! ctx
+grind_pattern RegionPtr.BlockChain.last =>
+    RegionPtr.BlockChain region ctx array, region.getLastBlock! ctx
+grind_pattern RegionPtr.BlockChain.prevFirst =>
+    RegionPtr.BlockChain region ctx array, region.getFirstBlock! ctx,
+    some fbl, (fbl.getPrevBlock! ctx) where
+  guard (region.getFirstBlock! ctx) = some fbl
+grind_pattern RegionPtr.BlockChain.prev =>
+    RegionPtr.BlockChain region ctx array, array[i].getPrevBlock! ctx
+grind_pattern RegionPtr.BlockChain.next =>
+    RegionPtr.BlockChain region ctx array, array[i].getNextBlock! ctx
+grind_pattern RegionPtr.BlockChain.allBlocksInChain =>
+    RegionPtr.BlockChain region ctx array, (bl.getParent! ctx) where
+  guard (bl.getParent! ctx) = some region
+
+/-- A block chain with the same first and last block consists of that block alone. -/
+theorem RegionPtr.BlockChain.eq_singleton_of_first_eq_last
+    (chain : RegionPtr.BlockChain region ctx array)
+    (first : region.getFirstBlock! ctx = some block)
+    (last : region.getLastBlock! ctx = some block) :
+    array = #[block] := by
+  have nonempty : 0 < array.size := by grind
+  have size : array.size = 1 := by
+    by_cases singleton : array.size = 1
+    · exact singleton
+    have previous := chain.prev (array.size - 1) (by omega) (by omega)
+    have noPrevious := chain.prevFirst first
+    grind
+  apply Array.ext
+  · simp [size]
+  · grind
+
+structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
+  inBounds : Operation.FieldsInBounds opPtr ctx hop
+  result_index i (iInBounds : i < opPtr.getNumResults! ctx) : (opPtr.getResult i).getIndex! ctx = i
+  result_owner i (iInBounds : i < opPtr.getNumResults! ctx) :
+    (opPtr.getResult i).getOwner! ctx = opPtr
+  operand_owner i (iInBounds : i < opPtr.getNumOperands! ctx) : (opPtr.getOpOperand i).getOwner! ctx = opPtr
+  blockOperand_owner i (iInBounds : i < opPtr.getNumSuccessors! ctx) : (opPtr.getBlockOperand i).getOwner! ctx = opPtr
+  regions_unique i (iInBounds : i < opPtr.getNumRegions! ctx) j (jInBounds : j < opPtr.getNumRegions! ctx) :
+    i ≠ j → opPtr.getRegion ctx i ≠ opPtr.getRegion ctx j
+  region_parent region (regionInBounds : region.InBounds ctx) :
+    (∃ i, i < opPtr.getNumRegions! ctx ∧ opPtr.getRegion! ctx i = region) ↔
+    region.getParent! ctx = some opPtr
+  opChain_of_parent_none : opPtr.getParent! ctx = none →
+    opPtr.getPrevOp! ctx = none ∧ opPtr.getNextOp! ctx = none
+
+structure BlockPtr.WellFormed (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl : Prop where
+  inBounds : Block.FieldsInBounds blockPtr ctx hbl
+  argument i (iInBounds : i < blockPtr.getNumArguments! ctx) : (blockPtr.getArgument i).getIndex! ctx = i
+  argument_owners i (iInBounds : i < blockPtr.getNumArguments! ctx) : (blockPtr.getArgument i).getOwner! ctx = blockPtr
+  prev_eq_of_parent_eq_none : blockPtr.getParent! ctx = none →
+    blockPtr.getPrevBlock! ctx = none
+  next_eq_of_parent_eq_none : blockPtr.getParent! ctx = none →
+    blockPtr.getNextBlock! ctx = none
+
+structure RegionPtr.WellFormed (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
+  inBounds : regionPtr.FieldsInBounds ctx
+  parent_op {op} (heq : regionPtr.getParent! ctx = some op) : ∃ i, i < op.getNumRegions! ctx ∧ op.getRegion! ctx i = regionPtr
+
+structure IRContext.WellFormed (ctx : IRContext OpInfo)
+  (missingOperandUses : Std.ExtHashSet OpOperandPtr := ∅)
+  (missingSuccessorUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
+  inBounds : ctx.FieldsInBounds
+  valueDefUseChains (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
+    ∃ array, ValuePtr.DefUse valuePtr ctx array (missingOperandUses.filter (fun use => use.getValue! ctx = valuePtr))
+  blockDefUseChains (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
+    ∃ array, BlockPtr.DefUse blockPtr ctx array (missingSuccessorUses.filter (fun use => use.getValue! ctx = blockPtr))
+  opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
+    ∃ array, BlockPtr.OpChain blockPtr ctx array
+  blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
+    ∃ array, RegionPtr.BlockChain regionPtr ctx array
+  operations (opPtr : OperationPtr) (opPtrInBounds : opPtr.InBounds ctx) :
+    opPtr.WellFormed ctx opPtrInBounds
+  blocks (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
+    blockPtr.WellFormed ctx blockPtrInBounds
+  regions (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
+    regionPtr.WellFormed ctx
+
+attribute [grind →] IRContext.WellFormed.inBounds
+
+noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext OpInfo)
+    (hctx : ctx.WellFormed := by grind) (hblock : block.InBounds ctx := by grind) :
+    Array OperationPtr :=
+  (hctx.opChain block hblock).choose
+
+noncomputable def RegionPtr.blockList (region : RegionPtr)
+    (ctx : IRContext OpInfo) (hctx : ctx.WellFormed := by grind)
+    (hregion : region.InBounds ctx := by grind) : Array BlockPtr :=
+  (hctx.blockChain region hregion).choose
+
+noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext OpInfo) (hctx : ctx.WellFormed missingUses missingBlockUses) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
+  (hctx.valueDefUseChains value hvalue).choose
+
+/--
+  Compute the index of an operation in its parent's operations list.
+  If the operation does not have a parent, return 0.
+-/
+noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext OpInfo)
+    (hop : op.InBounds ctx := by grind)
+    (hctx : ctx.WellFormed := by grind) : Nat :=
+  match hparent : op.getParent! ctx with
+  | some block => (block.operationList ctx hctx (by grind)).idxOf op
+  | none       => 0
+
+/--
+  Compute the index of an operation in its parent's operations list from the tail
+  (i.e. the last operation has index 0).
+  If the operation does not have a parent, return 0.
+
+  This function is useful for proving termination of recursive functions that traverse
+  the operation list, as this function decreases when we move to the next operation in the list.
+-/
+noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext OpInfo)
+    (hop : op.InBounds ctx := by grind)
+    (hctx : ctx.WellFormed := by grind) : Nat :=
+  match hparent : op.getParent! ctx with
+  | some block =>
+    (block.operationList ctx hctx (by grind)).size - 1 - op.idxInParent ctx hop hctx
+  | none       => 0
+
 
 @[grind .]
 theorem ValuePtr.DefUse_unique :
@@ -48,7 +300,9 @@ theorem ValuePtr.DefUse_unique :
   intros hWf hWf'
   apply Array.ext_getElem?
   intros i
-  induction i <;> grind [ValuePtr.DefUse]
+  induction i
+  · grind [→ ValuePtr.DefUse.firstElem]
+  · grind [→ ValuePtr.DefUse.nextElems]
 
 theorem ValuePtr.DefUse.unchanged
     (hWf : valuePtr.DefUse ctx array missingUses)
@@ -56,59 +310,76 @@ theorem ValuePtr.DefUse.unchanged
     (hSameFirstUse : valuePtr.getFirstUse! ctx = valuePtr.getFirstUse! ctx')
     (hPreservesInBounds : ∀ (usePtr : OpOperandPtr),
       usePtr.InBounds ctx →
-      (usePtr.get! ctx).value = valuePtr → usePtr.InBounds ctx')
+      usePtr.getValue! ctx = valuePtr → usePtr.InBounds ctx')
     (hSameUseFields : ∀ (usePtr : OpOperandPtr),
-      usePtr.InBounds ctx → (usePtr.get! ctx).value = valuePtr →
-      (usePtr.get! ctx') = (usePtr.get! ctx))
+      usePtr.InBounds ctx → usePtr.getValue! ctx = valuePtr →
+      usePtr.getNextUse! ctx' = usePtr.getNextUse! ctx ∧
+      usePtr.getBack! ctx' = usePtr.getBack! ctx ∧
+      usePtr.getValue! ctx' = usePtr.getValue! ctx)
     (hPreservesInBounds' : ∀ (usePtr : OpOperandPtr),
       usePtr.InBounds ctx' →
-      (usePtr.get! ctx').value = valuePtr →
+      usePtr.getValue! ctx' = valuePtr →
       usePtr.InBounds ctx)
     (hSameUseFields' : ∀ (usePtr : OpOperandPtr),
       usePtr.InBounds ctx' →
-      (usePtr.get! ctx').value = valuePtr →
-      (usePtr.get! ctx) = (usePtr.get! ctx')) :
+      usePtr.getValue! ctx' = valuePtr →
+      usePtr.getNextUse! ctx = usePtr.getNextUse! ctx' ∧
+      usePtr.getBack! ctx = usePtr.getBack! ctx' ∧
+      usePtr.getValue! ctx = usePtr.getValue! ctx') :
     valuePtr.DefUse ctx' array missingUses := by
-  constructor <;> grind [ValuePtr.DefUse]
+  grind [ValuePtr.DefUse]
 
-@[grind →]
+theorem ValuePtr.DefUse.back_array_eq
+    (hWF : ValuePtr.DefUse value ctx array missingUses) :
+    (array[i]'hi).getBack! ctx =
+    if i = 0 then .valueFirstUse value else OpOperandPtrPtr.operandNextUse array[i - 1] := by
+  grind [ValuePtr.DefUse]
+
+grind_pattern ValuePtr.DefUse.back_array_eq =>
+    value.DefUse ctx array missingUses, array[i].getBack! ctx
+
 theorem ValuePtr.DefUse.OpOperandPtr_value_of_getFirstUse
     {firstUse : OpOperandPtr} (hFirstUse : value.getFirstUse! ctx = some firstUse)
     (hDefUse : value.DefUse ctx array missingUses) :
-    (firstUse.get! ctx).value = value := by
+    firstUse.getValue! ctx = value := by
   grind [ValuePtr.DefUse]
+
+grind_pattern ValuePtr.DefUse.OpOperandPtr_value_of_getFirstUse =>
+    value.DefUse ctx array missingUses, value.getFirstUse! ctx,
+    (firstUse.getValue! ctx) where
+  guard value.getFirstUse! ctx = some firstUse
 
 theorem ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne
     {use use' : OpOperandPtr}
-    (valueNe : (use.get! ctx).value ≠ (use'.get! ctx).value)
-    (hWF : (use.get! ctx).value.DefUse ctx array missingUses) :
-    (use.get! ctx).value.getFirstUse! ctx ≠ some use' := by
-  grind [ValuePtr.DefUse]
+    (valueNe : use.getValue! ctx ≠ use'.getValue! ctx)
+    (hWF : (use.getValue! ctx).DefUse ctx array missingUses) :
+    (use.getValue! ctx).getFirstUse! ctx ≠ some use' := by
+  grind
 
 theorem ValuePtr.DefUse_getFirstUse!_value_eq_of_back_eq_valueFirstUse
     {firstUse : OpOperandPtr} (hFirstUse : firstUse.InBounds ctx)
-    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
-    (heq : (firstUse.get! ctx).back = .valueFirstUse value') :
-    (firstUse.get! ctx).value.getFirstUse! ctx = some firstUse := by
+    (hvalueFirstUse : (firstUse.getValue! ctx).DefUse ctx array)
+    (heq : firstUse.getBack! ctx = .valueFirstUse value') :
+    (firstUse.getValue! ctx).getFirstUse! ctx = some firstUse := by
   grind [ValuePtr.DefUse, Array.getElem?_of_mem]
 
 theorem ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse
     {firstUse : OpOperandPtr}
-    (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hDefUse : (firstUse.getValue! ctx).DefUse ctx array missingUses)
     (hInArray : firstUse ∈ array) :
-    (firstUse.get! ctx).back = .valueFirstUse value →
-    (firstUse.get! ctx).value = value := by
+    firstUse.getBack! ctx = .valueFirstUse value →
+    firstUse.getValue! ctx = value := by
   have inArray : firstUse ∈ array := by grind [ValuePtr.DefUse]
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem inArray
-  cases i <;> grind [ValuePtr.DefUse]
+  cases i <;> grind
 
 theorem ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
     {firstUse : OpOperandPtr}
-    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hvalueFirstUse : (firstUse.getValue! ctx).DefUse ctx array missingUses)
     (hInArray : firstUse ∈ array)
-    (heq : (firstUse.get! ctx).back = .valueFirstUse value) :
+    (heq : firstUse.getBack! ctx = .valueFirstUse value) :
     value.getFirstUse! ctx = some firstUse := by
-  have : (firstUse.get! ctx).value = value := by grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+  have : firstUse.getValue! ctx = value := by grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem hInArray
   cases i <;> grind [ValuePtr.DefUse]
 
@@ -116,20 +387,17 @@ theorem ValuePtr.DefUse_back_eq_of_getFirstUse
     {firstUse : OpOperandPtr}
     (hvalueFirstUse : value.DefUse ctx array missingUses)
     (h : value.getFirstUse! ctx = some firstUse) :
-    (firstUse.get! ctx).back = .valueFirstUse value := by
-  have : (firstUse.get! ctx).value = value := by grind [ValuePtr.DefUse]
-  grind [ValuePtr.DefUse, Array.getElem?_of_mem]
+    firstUse.getBack! ctx = .valueFirstUse value := by
+  grind
 
 theorem ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
     {firstUse : OpOperandPtr}
-    (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hDefUse : (firstUse.getValue! ctx).DefUse ctx array missingUses)
     (hFirstUse : firstUse ∈ array)
     (hDefUse' : value'.DefUse ctx array' missingUses') :
-    (firstUse.get! ctx).back = .valueFirstUse value' ↔
+    firstUse.getBack! ctx = .valueFirstUse value' ↔
     value'.getFirstUse! ctx = some firstUse := by
-  constructor
-  · grind [ValuePtr.DefUse, ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
-  · grind [ValuePtr.DefUse, ValuePtr.DefUse_back_eq_of_getFirstUse]
+  grind [ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
 
 theorem ValuePtr.DefUse_array_injective
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
@@ -180,9 +448,9 @@ theorem ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx :
 @[grind .]
 theorem ValuePtr.DefUse.value!_eq_value!_of_nextUse!_eq {use : OpOperandPtr}
     (useInArray : use ∈ array)
-    (useDefUse : (use.get! ctx).value.DefUse ctx array missingUses) :
-    (use.get! ctx).nextUse = some use' →
-    (use.get! ctx).value = (use'.get! ctx).value := by
+    (useDefUse : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use.getNextUse! ctx = some use' →
+    use.getValue! ctx = use'.getValue! ctx := by
   intros huse'
   have : use ∈ array := by grind
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
@@ -192,9 +460,9 @@ theorem ValuePtr.DefUse.value!_eq_value!_of_nextUse!_eq {use : OpOperandPtr}
 theorem ValuePtr.DefUse.value!_eq_value!_of_back!_eq_operandNextUse
     {use : OpOperandPtr}
     (useInArray : use ∈ array)
-    (useDefUse : (use.get! ctx).value.DefUse ctx array missingUses) :
-    (use.get! ctx).back = .operandNextUse use' →
-    (use.get! ctx).value = (use'.get! ctx).value := by
+    (useDefUse : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use.getBack! ctx = .operandNextUse use' →
+    use.getValue! ctx = use'.getValue! ctx := by
   intros huse'
   have : use ∈ array := by grind
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
@@ -203,56 +471,59 @@ theorem ValuePtr.DefUse.value!_eq_value!_of_back!_eq_operandNextUse
 theorem ValuePtr.DefUse.nextUse!_ne_of_getFirstUse!_eq {value : ValuePtr} {use : OpOperandPtr}
     (valueDefUse : ValuePtr.DefUse value ctx array missingUses)
     (useInArray : use ∈ array')
-    (useDefUse : (use.get! ctx).value.DefUse ctx array' missingUses') :
+    (useDefUse : (use.getValue! ctx).DefUse ctx array' missingUses') :
     value.getFirstUse! ctx = some firstUse →
-    (use.get! ctx).nextUse ≠ some firstUse := by
+    use.getNextUse! ctx ≠ some firstUse := by
   intros hFirstUse hNextUse
-  have : (use.get! ctx).value = (firstUse.get! ctx).value := by grind
-  have : (use.get! ctx).value = value := by grind [ValuePtr.DefUse]
+  have : use.getValue! ctx = firstUse.getValue! ctx := by grind
+  have : use.getValue! ctx = value := by grind
   subst value
-  have : firstUse = array[0]'(by grind [ValuePtr.DefUse]) := by grind [ValuePtr.DefUse]
+  have : firstUse = array[0]'(by grind) := by grind
   have ⟨j, jInBounds, hj⟩ := Array.getElem_of_mem useInArray
   grind [ValuePtr.DefUse]
 
 @[grind .]
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_self_of_value!_ne_self
     {use : OpOperandPtr} {useInBounds}
-    (useOfOtherValue : (use.get! ctx).value ≠ value) :
+    (useOfOtherValue : use.getValue! ctx ≠ value) :
     value.DefUse ctx array missingUses →
     value.DefUse (use.setValue ctx value useInBounds) array (missingUses.insert use) := by
   intros hWF
-  constructor <;> grind [ValuePtr.DefUse]
+  constructor <;> grind
 
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
-    {use : OpOperandPtr} {useInBounds} (useOfOtherValue : (use.get! ctx).value ≠ value) :
+    {use : OpOperandPtr} {useInBounds} (useOfOtherValue : use.getValue! ctx ≠ value) :
     value.DefUse ctx array →
     value.DefUse (use.setValue ctx value useInBounds) array (Std.ExtHashSet.ofList [use]) := by
   intros hWF
-  constructor <;> grind [ValuePtr.DefUse]
+  constructor <;> grind
 
 @[grind .]
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_mem_missingUses
     {use : OpOperandPtr} {value value' : ValuePtr} {useInBounds}
-    (useOfOtherValue : (use.get! ctx).value ≠ value') {array} :
+    (useOfOtherValue : use.getValue! ctx ≠ value') {array} :
     use ∈ missingUses →
     value.DefUse ctx array missingUses →
     value.DefUse (use.setValue ctx value' useInBounds) array (missingUses.erase use) := by
   intros useNotMissing hWF
-  constructor <;> grind [ValuePtr.DefUse]
+  constructor <;> grind
 
 @[grind .]
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_empty
     {use : OpOperandPtr} {value value' : ValuePtr} {useInBounds}
-    (useOfOtherValue : (use.get! ctx).value ≠ value') {array} :
+    (useOfOtherValue : use.getValue! ctx ≠ value') {array} :
     value.DefUse ctx array (Std.ExtHashSet.ofList [use]) →
     value.DefUse (use.setValue ctx value' useInBounds) array := by
-  intros hWF
-  constructor <;> grind [ValuePtr.DefUse]
+  intro hWF
+  constructor
+  case allUsesInChain => grind [hWF.allUsesInChain]
+  case useValue => grind [ValuePtr.DefUse]
+  all_goals grind
 
 @[grind .]
 theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
     {ctx : IRContext OpInfo} {use : OpOperandPtr} {useInBounds} (value : ValuePtr)
-    (useOfOtherValue' : (use.get! ctx).value ≠ value')
+    (useOfOtherValue' : use.getValue! ctx ≠ value')
     (valueNe : value ≠ value') {array} :
     value'.DefUse ctx array missingUses →
     value'.DefUse (use.setValue ctx value useInBounds) array missingUses := by
@@ -261,108 +532,99 @@ theorem ValuePtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
 
 section BlockPtr.DefUse
 
-structure BlockPtr.DefUse (blockPtr : BlockPtr) (ctx : IRContext OpInfo)
-    (array : Array BlockOperandPtr) (missingUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
-  blockInBounds : blockPtr.InBounds ctx
-  arrayInBounds (h : use ∈ array) : use.InBounds ctx
-  firstElem : array[0]? = (blockPtr.get! ctx).firstUse
-  nextElems (hi : i < array.size) : ((array[i]'(by grind)).get! ctx).nextUse = array[i + 1]?
-  useValue use (hu : use ∈ array) : (use.get! ctx).value = blockPtr
-  firstUseBack (heq : (blockPtr.get! ctx).firstUse = some firstUse) :
-    (firstUse.get! ctx).back = BlockOperandPtrPtr.blockFirstUse blockPtr
-  backNextUse i (iPos : i > 0) (iInBounds : i < array.size) :
-    (array[i].get! ctx).back = BlockOperandPtrPtr.blockOperandNextUse array[i - 1]
-  allUsesInChain (use : BlockOperandPtr) (useInBounds : use.InBounds ctx) :
-    (use.get! ctx).value = blockPtr → (use ∈ array ↔ use ∉ missingUses)
-  missingUsesInBounds (hin : use ∈ missingUses) : use.InBounds ctx
-  missingUsesValue (hin : use ∈ missingUses) : (use.get! ctx).value = blockPtr
-
-attribute [local grind] BlockPtr.DefUse
-attribute [grind →] BlockPtr.DefUse.blockInBounds
-attribute [grind →] BlockPtr.DefUse.missingUsesInBounds
-attribute [grind →] BlockPtr.DefUse.missingUsesValue
-attribute [grind →] BlockPtr.DefUse.arrayInBounds
-
 theorem BlockPtr.DefUse.unchanged
     (hWf : blockPtr.DefUse ctx array missingUses)
     (blockPtrInBounds' : blockPtr.InBounds ctx')
-    (hSameFirstUse : (blockPtr.get! ctx).firstUse = (blockPtr.get! ctx').firstUse)
+    (hSameFirstUse : blockPtr.getFirstUse! ctx = blockPtr.getFirstUse! ctx')
     (hPreservesInBounds : ∀ (usePtr : BlockOperandPtr),
       usePtr.InBounds ctx →
-      (usePtr.get! ctx).value = blockPtr → usePtr.InBounds ctx')
+      usePtr.getValue! ctx = blockPtr → usePtr.InBounds ctx')
     (hSameUseFields : ∀ (usePtr : BlockOperandPtr),
-      usePtr.InBounds ctx → (usePtr.get! ctx).value = blockPtr →
-      (usePtr.get! ctx') = (usePtr.get! ctx))
+      usePtr.InBounds ctx → usePtr.getValue! ctx = blockPtr →
+      usePtr.getNextUse! ctx' = usePtr.getNextUse! ctx ∧
+      usePtr.getBack! ctx' = usePtr.getBack! ctx ∧
+      usePtr.getValue! ctx' = usePtr.getValue! ctx)
     (hPreservesInBounds' : ∀ (usePtr : BlockOperandPtr),
       usePtr.InBounds ctx' →
-      (usePtr.get! ctx').value = blockPtr →
+      usePtr.getValue! ctx' = blockPtr →
       usePtr.InBounds ctx)
     (hSameUseFields' : ∀ (usePtr : BlockOperandPtr),
       usePtr.InBounds ctx' →
-      (usePtr.get! ctx').value = blockPtr →
-      (usePtr.get! ctx) = (usePtr.get! ctx')) :
+      usePtr.getValue! ctx' = blockPtr →
+      usePtr.getNextUse! ctx = usePtr.getNextUse! ctx' ∧
+      usePtr.getBack! ctx = usePtr.getBack! ctx' ∧
+      usePtr.getValue! ctx = usePtr.getValue! ctx') :
     blockPtr.DefUse ctx' array missingUses := by
-  constructor <;> grind
+  constructor <;> grind [BlockPtr.DefUse]
+
+theorem BlockPtr.DefUse.back_array_eq
+    (hWF : BlockPtr.DefUse block ctx array missingUses) :
+    (array[i]'hi).getBack! ctx =
+    if i = 0 then .blockFirstUse block else .blockOperandNextUse array[i - 1] := by
+  grind [BlockPtr.DefUse]
+
+grind_pattern BlockPtr.DefUse.back_array_eq =>
+    block.DefUse ctx array missingUses, array[i].getBack! ctx
 
 theorem BlockPtr.DefUse.getFirstUse_ne_of_value_ne
     {use use' : BlockOperandPtr}
-    (valueNe : (use.get! ctx).value ≠ (use'.get! ctx).value)
-    (hWF : (use.get! ctx).value.DefUse ctx array missingUses) :
-    ((use.get! ctx).value.get! ctx).firstUse ≠ some use' := by
-  grind
+    (valueNe : use.getValue! ctx ≠ use'.getValue! ctx)
+    (hWF : (use.getValue! ctx).DefUse ctx array missingUses) :
+    (use.getValue! ctx).getFirstUse! ctx ≠ some use' := by
+  grind [BlockPtr.DefUse]
 
 theorem BlockPtr.DefUse.getFirstUse!_value_eq_of_back_eq_valueFirstUse
     {firstUse : BlockOperandPtr} (hFirstUse : firstUse.InBounds ctx)
-    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array)
-    (heq : (firstUse.get! ctx).back = .blockFirstUse block) :
-    ((firstUse.get! ctx).value.get! ctx).firstUse = some firstUse := by
+    (hvalueFirstUse : (firstUse.getValue! ctx).DefUse ctx array)
+    (heq : firstUse.getBack! ctx = .blockFirstUse block) :
+    (firstUse.getValue! ctx).getFirstUse! ctx = some firstUse := by
   have : firstUse ∈ array := by grind [BlockPtr.DefUse]
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
   cases i <;> grind
 
 theorem BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse
     {firstUse : BlockOperandPtr}
-    (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hDefUse : (firstUse.getValue! ctx).DefUse ctx array missingUses)
     (hInArray : firstUse ∈ array) :
-    (firstUse.get! ctx).back = .blockFirstUse block →
-    (firstUse.get! ctx).value = block := by
+    firstUse.getBack! ctx = .blockFirstUse block →
+    firstUse.getValue! ctx = block := by
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem hInArray
-  cases i <;> grind
+  cases i <;> grind [BlockPtr.DefUse]
 
 theorem BlockPtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
     {firstUse : BlockOperandPtr}
-    (hvalueFirstUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hvalueFirstUse : (firstUse.getValue! ctx).DefUse ctx array missingUses)
     (hInArray : firstUse ∈ array)
-    (heq : (firstUse.get! ctx).back = .blockFirstUse block) :
-    (block.get! ctx).firstUse = some firstUse := by
-  have : (firstUse.get! ctx).value = block := by grind [BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+    (heq : firstUse.getBack! ctx = .blockFirstUse block) :
+    block.getFirstUse! ctx = some firstUse := by
+  have : firstUse.getValue! ctx = block := by grind [BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem hInArray
   cases i <;> grind [Array.getElem?_of_mem]
 
 theorem BlockPtr.DefUse_back_eq_of_getFirstUse
     {firstUse : BlockOperandPtr}
     (hvalueFirstUse : block.DefUse ctx array missingUses)
-    (h : (block.get! ctx).firstUse = some firstUse) :
-    (firstUse.get! ctx).back = .blockFirstUse block := by
-  have : (firstUse.get! ctx).value = block := by grind
+    (h : block.getFirstUse! ctx = some firstUse) :
+    firstUse.getBack! ctx = .blockFirstUse block := by
+  have : firstUse.getValue! ctx = block := by grind [BlockPtr.DefUse]
   grind [Array.getElem?_of_mem]
 
 theorem BlockPtr.DefUse.value_eq_of_getFirstUse
     (hvalueFirstUse : BlockPtr.DefUse block ctx array missingUses)
-    (h : (block.get! ctx).firstUse = some firstUse) :
-    (firstUse.get! ctx).value = block := by
-  grind
+    (h : block.getFirstUse! ctx = some firstUse) :
+    firstUse.getValue! ctx = block := by
+  grind [BlockPtr.DefUse]
 
 grind_pattern BlockPtr.DefUse.value_eq_of_getFirstUse =>
-  BlockPtr.DefUse block ctx array missingUses, (block.get! ctx).firstUse, (firstUse.get! ctx).value
+  BlockPtr.DefUse block ctx array missingUses, block.getFirstUse! ctx, firstUse.getValue! ctx
 
 theorem BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
     {firstUse : BlockOperandPtr}
-    (hDefUse : (firstUse.get! ctx).value.DefUse ctx array missingUses)
+    (hDefUse : (firstUse.getValue! ctx).DefUse ctx array missingUses)
     (hFirstUse : firstUse ∈ array)
     (hDefUse' : block'.DefUse ctx array' missingUses') :
-    (firstUse.get! ctx).back = .blockFirstUse block' ↔
-    (block'.get! ctx).firstUse = some firstUse := by
+    firstUse.getBack! ctx = .blockFirstUse block' ↔
+    block'.getFirstUse! ctx = some firstUse := by
   constructor
   · grind [BlockPtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
   · grind [BlockPtr.DefUse_back_eq_of_getFirstUse]
@@ -373,8 +635,8 @@ theorem BlockPtr.DefUse_array_injective
     array[i]'iInBounds ≠ array[j]'jInBounds := by
   intros i
   induction i
-  · grind
-  · rintro ⟨_|_⟩ <;> grind
+  · grind [BlockPtr.DefUse]
+  · rintro ⟨_|_⟩ <;> grind [BlockPtr.DefUse]
 
 theorem BlockPtr.DefUse_array_toList_Nodup
     (hWF : BlockPtr.DefUse block ctx array missingUses) :
@@ -416,51 +678,51 @@ theorem BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx :
 @[grind .]
 theorem BlockPtr.DefUse.value!_eq_value!_of_nextUse!_eq {use : BlockOperandPtr}
     (useInArray : use ∈ array)
-    (useDefUse : (use.get! ctx).value.DefUse ctx array missingUses) :
-    (use.get! ctx).nextUse = some use' →
-    (use.get! ctx).value = (use'.get! ctx).value := by
+    (useDefUse : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use.getNextUse! ctx = some use' →
+    use.getValue! ctx = use'.getValue! ctx := by
   intros huse'
   have : use ∈ array := by grind
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
-  grind
+  grind [BlockPtr.DefUse]
 
 @[grind .]
 theorem BlockPtr.DefUse.value!_eq_value!_of_back!_eq_operandNextUse
     {use : BlockOperandPtr}
     (useInArray : use ∈ array)
-    (useDefUse : (use.get! ctx).value.DefUse ctx array missingUses) :
-    (use.get! ctx).back = .blockOperandNextUse use' →
-    (use.get! ctx).value = (use'.get! ctx).value := by
+    (useDefUse : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use.getBack! ctx = .blockOperandNextUse use' →
+    use.getValue! ctx = use'.getValue! ctx := by
   intros huse'
   have : use ∈ array := by grind
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
-  cases i <;> grind
+  cases i <;> grind [BlockPtr.DefUse]
 
 theorem BlockPtr.DefUse.nextUse!_ne_of_getFirstUse!_eq {value : BlockPtr} {use : BlockOperandPtr}
     (valueDefUse : BlockPtr.DefUse value ctx array missingUses)
     (useInArray : use ∈ array')
-    (useDefUse : (use.get! ctx).value.DefUse ctx array' missingUses') :
-    (value.get! ctx).firstUse = some firstUse →
-    (use.get! ctx).nextUse ≠ some firstUse := by
+    (useDefUse : (use.getValue! ctx).DefUse ctx array' missingUses') :
+    value.getFirstUse! ctx = some firstUse →
+    use.getNextUse! ctx ≠ some firstUse := by
   intros hFirstUse hNextUse
-  have : (use.get! ctx).value = (firstUse.get! ctx).value := by grind
-  have : (use.get! ctx).value = value := by grind
+  have : use.getValue! ctx = firstUse.getValue! ctx := by grind
+  have : use.getValue! ctx = value := by grind
   subst value
   have : firstUse = array[0]'(by grind) := by grind
   have ⟨j, jInBounds, hj⟩ := Array.getElem_of_mem useInArray
-  grind
+  grind [BlockPtr.DefUse]
 
 @[grind .]
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_self_of_value!_ne_self
     {use : BlockOperandPtr} {useInBounds}
-    (useOfOtherValue : (use.get! ctx).value ≠ value) :
+    (useOfOtherValue : use.getValue! ctx ≠ value) :
     value.DefUse ctx array missingUses →
     value.DefUse (use.setValue ctx value useInBounds) array (missingUses.insert use) := by
   intros hWF
   constructor <;> grind
 
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
-    {use : BlockOperandPtr} {useInBounds} (useOfOtherValue : (use.get! ctx).value ≠ value) :
+    {use : BlockOperandPtr} {useInBounds} (useOfOtherValue : use.getValue! ctx ≠ value) :
     value.DefUse ctx array →
     value.DefUse (use.setValue ctx value useInBounds) array (Std.ExtHashSet.ofList [use]) := by
   intros hWF
@@ -469,7 +731,7 @@ theorem BlockPtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne
 @[grind .]
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_mem_missingUses
     {use : BlockOperandPtr} {block block' : BlockPtr} {useInBounds}
-    (useOfOtherValue : (use.get! ctx).value ≠ block') {array} :
+    (useOfOtherValue : use.getValue! ctx ≠ block') {array} :
     use ∈ missingUses →
     block.DefUse ctx array missingUses →
     block.DefUse (use.setValue ctx block' useInBounds) array (missingUses.erase use) := by
@@ -479,16 +741,16 @@ theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_mem_missingUses
 @[grind .]
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_empty
     {use : BlockOperandPtr} {block block' : BlockPtr} {useInBounds}
-    (useOfOtherValue : (use.get! ctx).value ≠ block') {array} :
+    (useOfOtherValue : use.getValue! ctx ≠ block') {array} :
     block.DefUse ctx array (Std.ExtHashSet.ofList [use]) →
     block.DefUse (use.setValue ctx block' useInBounds) array := by
   intros hWF
-  constructor <;> grind
+  constructor <;> grind [BlockPtr.DefUse]
 
 @[grind .]
 theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
     {ctx : IRContext OpInfo} {use : BlockOperandPtr} {useInBounds} (block : BlockPtr)
-    (useOfOtherValue' : (use.get! ctx).value ≠ block')
+    (useOfOtherValue' : use.getValue! ctx ≠ block')
     (valueNe : block ≠ block') {array} :
     block'.DefUse ctx array missingUses →
     block'.DefUse (use.setValue ctx block useInBounds) array missingUses := by
@@ -496,28 +758,6 @@ theorem BlockPtr.DefUse.OpOperandPtr_setValue_other_of_value_ne
   apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
 end BlockPtr.DefUse
-
-/-- An operation chain owned by a block. -/
-structure BlockPtr.OpChain (block : BlockPtr) (ctx : IRContext OpInfo) (array : Array OperationPtr)
-    (missingOps : Std.ExtHashSet OperationPtr := ∅) : Prop where
-  blockInBounds : block.InBounds ctx
-  arrayInBounds (h : op ∈ array) : op.InBounds ctx
-  missingOpInBounds (hin : op ∈ missingOps) : op.InBounds ctx
-  opParent (h : op ∈ array) : (op.get! ctx).parent = some block
-  missingOpValue (hin : op ∈ missingOps) : (op.get! ctx).parent = block
-  allOpsInChain (op : OperationPtr) (opInBounds : op.InBounds ctx) :
-    (op.get! ctx).parent = some block → (op ∈ array ↔ op ∉ missingOps)
-  first : (block.get! ctx).firstOp = array[0]?
-  last : (block.get! ctx).lastOp = array[array.size-1]?
-  prevFirst (h : (block.get! ctx).firstOp = some firstOp) :
-    (firstOp.get! ctx).prev = none
-  prev i (h₁: i > 0) (h₂ : i < array.size) :
-    (array[i].get! ctx).prev = some array[i - 1]
-  next (hi : i < array.size) :
-    (array[i].get! ctx).next = array[i + 1]?
-
-
-attribute [grind →] BlockPtr.OpChain.blockInBounds
 
 @[grind .]
 theorem BlockPtr.OpChain_unique :
@@ -529,16 +769,26 @@ theorem BlockPtr.OpChain_unique :
   intros i
   induction i <;> grind [BlockPtr.OpChain]
 
+theorem BlockPtr.OpChain.allOpsInChain_emptySet
+    (hChain : BlockPtr.OpChain block ctx array ∅)
+    (op : OperationPtr) (opInBounds : op.InBounds ctx) :
+    op.getParent! ctx = some block → op ∈ array := by
+  grind [→ BlockPtr.OpChain.allOpsInChain]
+
+grind_pattern BlockPtr.OpChain.allOpsInChain_emptySet =>
+    BlockPtr.OpChain block ctx array ∅, op.getParent! ctx, some block where
+  guard (op.getParent! ctx) = some block
+
 theorem BlockPtr.OpChain.firstOp_eq_none_iff_lastOp_eq_none :
     BlockPtr.OpChain block ctx array missingOps →
-    ((block.get! ctx).firstOp = none ↔ (block.get! ctx).lastOp = none) := by
+    (block.getFirstOp! ctx = none ↔ block.getLastOp! ctx = none) := by
   grind [BlockPtr.OpChain]
 
 theorem BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self {op : OperationPtr}
     (hopInBounds : op.InBounds ctx)
     (hchain : BlockPtr.OpChain block ctx array)
-    (hop : (op.get! ctx).parent = some block) :
-    ((op.get! ctx).prev = none ↔ (block.get! ctx).firstOp = some op) := by
+    (hop : op.getParent! ctx = some block) :
+    (op.getPrevOp! ctx = none ↔ block.getFirstOp! ctx = some op) := by
   constructor
   · intro hprev
     have opInArray : op ∈ array := by grind [BlockPtr.OpChain]
@@ -550,8 +800,8 @@ theorem BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self {op : OperationPtr}
 theorem BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self {op : OperationPtr}
     (hopInBounds : op.InBounds ctx)
     (hchain : BlockPtr.OpChain block ctx array)
-    (hop : (op.get! ctx).parent = some block) :
-    ((op.get! ctx).next = none ↔ (block.get! ctx).lastOp = some op) := by
+    (hop : op.getParent! ctx = some block) :
+    (op.getNextOp! ctx = none ↔ block.getLastOp! ctx = some op) := by
   constructor
   · intro hprev
     have opInArray : op ∈ array := by grind [BlockPtr.OpChain]
@@ -560,64 +810,67 @@ theorem BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self {op : OperationPtr}
     grind [BlockPtr.OpChain]
   · grind [BlockPtr.OpChain]
 
-@[grind .]
 theorem BlockPtr.OpChain.parent!_firstOp_eq
     (hChain : BlockPtr.OpChain block ctx array missingOps)
     {firstOp : OperationPtr} :
-    (block.get! ctx).firstOp = some firstOp →
-    (firstOp.get! ctx).parent = some block := by
+    block.getFirstOp! ctx = some firstOp →
+    firstOp.getParent! ctx = some block := by
   grind [BlockPtr.OpChain]
 
-@[grind .]
+grind_pattern BlockPtr.OpChain.parent!_firstOp_eq =>
+  BlockPtr.OpChain block ctx array missingOps,
+  block.getFirstOp! ctx, (firstOp.getParent! ctx) where
+    guard (block.getFirstOp! ctx) = some firstOp
+
 theorem BlockPtr.OpChain.parent!_lastOp_eq
     (hChain : BlockPtr.OpChain block ctx array missingOps)
     {lastOp : OperationPtr} :
-    (block.get! ctx).lastOp = some lastOp →
-    (lastOp.get! ctx).parent = some block := by
+    block.getLastOp! ctx = some lastOp →
+    lastOp.getParent! ctx = some block := by
   grind [BlockPtr.OpChain]
 
-@[grind .]
+grind_pattern BlockPtr.OpChain.parent!_lastOp_eq =>
+  BlockPtr.OpChain block ctx array missingOps,
+  block.getLastOp! ctx, (lastOp.getParent! ctx) where
+    guard (block.getLastOp! ctx) = some lastOp
+
 theorem BlockPtr.OpChain.parent!_prevOp_eq
     {op prevOp : OperationPtr}
     (hChain : BlockPtr.OpChain block ctx array)
     (opInBounds : op.InBounds ctx) :
-    (op.get! ctx).parent = some block →
-    (op.get! ctx).prev = some prevOp →
-    (prevOp.get! ctx).parent = some block := by
+    op.getParent! ctx = some block →
+    op.getPrevOp! ctx = some prevOp →
+    prevOp.getParent! ctx = some block := by
   intros hParent hPrev
   have : op ∈ array := by grind [BlockPtr.OpChain]
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
   cases i <;> grind [BlockPtr.OpChain]
 
-@[grind .]
+grind_pattern BlockPtr.OpChain.parent!_prevOp_eq =>
+  BlockPtr.OpChain block ctx array,
+  op.getParent! ctx, op.getPrevOp! ctx, some block,
+  (prevOp.getParent! ctx) where
+    guard (op.getParent! ctx) = some block
+    guard (op.getPrevOp! ctx) = some prevOp
+
 theorem BlockPtr.OpChain.parent!_nextOp_eq
     {op nextOp : OperationPtr}
     (hChain : BlockPtr.OpChain block ctx array)
     (opInBounds : op.InBounds ctx) :
-    (op.get! ctx).parent = some block →
-    (op.get! ctx).next = some nextOp →
-    (nextOp.get! ctx).parent = some block := by
+    op.getParent! ctx = some block →
+    op.getNextOp! ctx = some nextOp →
+    nextOp.getParent! ctx = some block := by
   intros hParent hPext
   have : op ∈ array := by grind [BlockPtr.OpChain]
   have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem this
   cases i <;> grind [BlockPtr.OpChain]
 
-structure RegionPtr.BlockChain (region : RegionPtr) (ctx : IRContext OpInfo) (array : Array BlockPtr) : Prop where
-  inBounds : region.InBounds ctx
-  arrayInBounds (h : bl ∈ array) : bl.InBounds ctx
-  opParent (h : bl ∈ array) : (bl.get! ctx).parent = some region
-  first : (region.get! ctx).firstBlock = array[0]?
-  last : (region.get! ctx).lastBlock = array[array.size-1]?
-  prevFirst (h : (region.get! ctx).firstBlock = some fbl) :
-    (fbl.get! ctx).prev = none
-  prev i (h₁: i > 0) (h₂ : i < array.size) :
-    (array[i].get! ctx).prev = some array[i - 1]
-  next (hi : i < array.size) :
-    (array[i].get! ctx).next = array[i + 1]?
-  allBlocksInChain (bl : BlockPtr) (blInBoundsl : bl.InBounds ctx) :
-    (bl.get! ctx).parent = some region → bl ∈ array
-
-attribute [grind →] RegionPtr.BlockChain.inBounds
+grind_pattern BlockPtr.OpChain.parent!_nextOp_eq =>
+  BlockPtr.OpChain block ctx array,
+  op.getParent! ctx, op.getNextOp! ctx, some block,
+  (nextOp.getParent! ctx) where
+    guard (op.getParent! ctx) = some block
+    guard (op.getNextOp! ctx) = some nextOp
 
 @[grind .]
 theorem RegionPtr.BlockChain_unique :
@@ -643,82 +896,28 @@ theorem RegionPtr.BlockChain_array_injective
       intros iInBounds jInBounds hNe
       grind [RegionPtr.BlockChain]
 
-structure OperationPtr.WellFormed (ctx : IRContext OpInfo) (opPtr : OperationPtr) hop : Prop where
-  inBounds : Operation.FieldsInBounds opPtr ctx hop
-  result_index i (iInBounds : i < opPtr.getNumResults! ctx) : ((opPtr.getResult i).get! ctx).index = i
-  result_owner i (iInBounds : i < opPtr.getNumResults! ctx) :
-    ((opPtr.getResult i).get! ctx).owner = opPtr
-  operand_owner i (iInBounds : i < opPtr.getNumOperands! ctx) : ((opPtr.getOpOperand i).get! ctx).owner = opPtr
-  blockOperand_owner i (iInBounds : i < opPtr.getNumSuccessors! ctx) : ((opPtr.getBlockOperand i).get! ctx).owner = opPtr
-  regions_unique i (iInBounds : i < opPtr.getNumRegions! ctx) j (jInBounds : j < opPtr.getNumRegions! ctx) :
-    i ≠ j → opPtr.getRegion ctx i ≠ opPtr.getRegion ctx j
-  region_parent region (regionInBounds : region.InBounds ctx) :
-    (∃ i, i < opPtr.getNumRegions! ctx ∧ opPtr.getRegion! ctx i = region) ↔
-    (region.get! ctx).parent = some opPtr
-  opChain_of_parent_none : (opPtr.get! ctx).parent = none →
-    (opPtr.get! ctx).prev = none ∧ (opPtr.get! ctx).next = none
-  capResults_eq_numResults : (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx
-  capRegions_eq_numRegions : (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx
-  capOperands_eq_numOperands : (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx
-  capBlockOperands_eq_numSuccessors : (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx
-
-structure BlockPtr.WellFormed (ctx : IRContext OpInfo) (blockPtr : BlockPtr) hbl : Prop where
-  inBounds : Block.FieldsInBounds blockPtr ctx hbl
-  argument i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).index = i
-  argument_owners i (iInBounds : i < blockPtr.getNumArguments! ctx) : ((blockPtr.getArgument i).get! ctx).owner = blockPtr
-  prev_eq_of_parent_eq_none : (blockPtr.get! ctx).parent = none →
-    (blockPtr.get! ctx).prev = none
-  next_eq_of_parent_eq_none : (blockPtr.get! ctx).parent = none →
-    (blockPtr.get! ctx).next = none
-  capBlockArguments_eq_numBlockArguments : (blockPtr.get! ctx).capArguments = blockPtr.getNumArguments! ctx
-
-structure RegionPtr.WellFormed (ctx : IRContext OpInfo) (regionPtr : RegionPtr) where
-  inBounds : (regionPtr.get! ctx).FieldsInBounds ctx
-  parent_op {op} (heq : (regionPtr.get! ctx).parent = some op) : ∃ i, i < op.getNumRegions! ctx ∧ op.getRegion! ctx i = regionPtr
-
-structure IRContext.WellFormed (ctx : IRContext OpInfo)
-  (missingOperandUses : Std.ExtHashSet OpOperandPtr := ∅)
-  (missingSuccessorUses : Std.ExtHashSet BlockOperandPtr := ∅) : Prop where
-  inBounds : ctx.FieldsInBounds
-  valueDefUseChains (valuePtr : ValuePtr) (valuePtrInBounds : valuePtr.InBounds ctx) :
-    ∃ array, ValuePtr.DefUse valuePtr ctx array (missingOperandUses.filter (fun use => (use.get! ctx).value = valuePtr))
-  blockDefUseChains (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    ∃ array, BlockPtr.DefUse blockPtr ctx array (missingSuccessorUses.filter (fun use => (use.get! ctx).value = blockPtr))
-  opChain (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    ∃ array, BlockPtr.OpChain blockPtr ctx array
-  blockChain (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
-    ∃ array, RegionPtr.BlockChain regionPtr ctx array
-  operations (opPtr : OperationPtr) (opPtrInBounds : opPtr.InBounds ctx) :
-    opPtr.WellFormed ctx opPtrInBounds
-  blocks (blockPtr : BlockPtr) (blockPtrInBounds : blockPtr.InBounds ctx) :
-    blockPtr.WellFormed ctx blockPtrInBounds
-  regions (regionPtr : RegionPtr) (regionPtrInBounds : regionPtr.InBounds ctx) :
-    regionPtr.WellFormed ctx
-
-attribute [grind →] IRContext.WellFormed.inBounds
-
 @[grind .]
-theorem IRContext.empty_wellFormed [HasOpInfo opInfo] :
+theorem IRContext.empty_wellFormed [IsOpCode opInfo] :
     (IRContext.empty opInfo).WellFormed := by
   grind [IRContext.WellFormed]
 
 theorem BlockPtr.OpChain_unchanged
     (hWf : blockPtr.OpChain ctx array missingOps)
     (blockPtrInBounds' : blockPtr.InBounds ctx')
-    (hSameFirstOp : (blockPtr.get! ctx).firstOp = (blockPtr.get! ctx').firstOp)
-    (hSameLastOp : (blockPtr.get! ctx).lastOp = (blockPtr.get! ctx').lastOp)
+    (hSameFirstOp : blockPtr.getFirstOp! ctx = blockPtr.getFirstOp! ctx')
+    (hSameLastOp : blockPtr.getLastOp! ctx = blockPtr.getLastOp! ctx')
     (hSameOpFields : ∀ (opPtr : OperationPtr),
       opPtr.InBounds ctx →
-      (opPtr.get! ctx).parent = some blockPtr →
+      opPtr.getParent! ctx = some blockPtr →
         opPtr.InBounds ctx' ∧
-        (opPtr.get! ctx').parent = (opPtr.get! ctx).parent ∧
-        (opPtr.get! ctx').prev = (opPtr.get! ctx).prev ∧
-        (opPtr.get! ctx').next = (opPtr.get! ctx).next)
+        opPtr.getParent! ctx' = opPtr.getParent! ctx ∧
+        opPtr.getPrevOp! ctx' = opPtr.getPrevOp! ctx ∧
+        opPtr.getNextOp! ctx' = opPtr.getNextOp! ctx)
     (hSameOpFields' : ∀ (opPtr : OperationPtr),
       opPtr.InBounds ctx' →
-      (opPtr.get! ctx').parent = some blockPtr →
+      opPtr.getParent! ctx' = some blockPtr →
         opPtr.InBounds ctx ∧
-        (opPtr.get! ctx).parent = (opPtr.get! ctx').parent) :
+        opPtr.getParent! ctx = opPtr.getParent! ctx') :
     blockPtr.OpChain ctx' array missingOps := by
   constructor <;> grind [BlockPtr.OpChain]
 
@@ -769,22 +968,31 @@ theorem BlockPtr.OpChain.erase_getElem_array_eq_eraseIdx
 theorem RegionPtr.blockChain_unchanged
     (hWf : regionPtr.BlockChain ctx array)
     (regionPtrInBounds' : regionPtr.InBounds ctx')
-    (hSameFirst : (regionPtr.get! ctx).firstBlock = (regionPtr.get! ctx').firstBlock)
-    (hSameLast : (regionPtr.get! ctx).lastBlock = (regionPtr.get! ctx').lastBlock)
+    (hSameFirst : regionPtr.getFirstBlock! ctx = regionPtr.getFirstBlock! ctx')
+    (hSameLast : regionPtr.getLastBlock! ctx = regionPtr.getLastBlock! ctx')
     (hSameBlockFields : ∀ (blockPtr : BlockPtr),
       blockPtr.InBounds ctx →
-      (blockPtr.get! ctx).parent = some regionPtr →
+      blockPtr.getParent! ctx = some regionPtr →
         blockPtr.InBounds ctx' ∧
-        (blockPtr.get! ctx').parent = (blockPtr.get! ctx).parent ∧
-        (blockPtr.get! ctx').prev = (blockPtr.get! ctx).prev ∧
-        (blockPtr.get! ctx').next = (blockPtr.get! ctx).next)
+        blockPtr.getParent! ctx' = blockPtr.getParent! ctx ∧
+        blockPtr.getPrevBlock! ctx' = blockPtr.getPrevBlock! ctx ∧
+        blockPtr.getNextBlock! ctx' = blockPtr.getNextBlock! ctx)
     (hSameBlockFields' : ∀ (blockPtr : BlockPtr),
       blockPtr.InBounds ctx' →
-      (blockPtr.get! ctx').parent = some regionPtr →
+      blockPtr.getParent! ctx' = some regionPtr →
         blockPtr.InBounds ctx ∧
-        (blockPtr.get! ctx).parent = (blockPtr.get! ctx').parent) :
+        blockPtr.getParent! ctx = blockPtr.getParent! ctx') :
     regionPtr.BlockChain ctx' array := by
   constructor <;> grind [RegionPtr.BlockChain]
+
+theorem RegionPtr.BlockChain.prev_getElem_eq
+    (hChain : RegionPtr.BlockChain region ctx array)
+    {i : Nat} {hi : i < array.size} :
+    array[i].getPrevBlock! ctx = if i = 0 then none else some array[i - 1] := by
+  grind [RegionPtr.BlockChain]
+
+grind_pattern RegionPtr.BlockChain.prev_getElem_eq =>
+  RegionPtr.BlockChain region ctx array, array[i].getPrevBlock! ctx
 
 theorem OperationPtr.WellFormed_unchanged
     (hWf : opPtr.WellFormed ctx opPtrInBounds)
@@ -793,76 +1001,67 @@ theorem OperationPtr.WellFormed_unchanged
       opPtr.getNumOperands! ctx = opPtr.getNumOperands! ctx')
     (hSameOperandOwner :
       ∀ i, i < opPtr.getNumOperands! ctx →
-      ((opPtr.getOpOperand i).get! ctx).owner = ((opPtr.getOpOperand i).get! ctx').owner)
+      (opPtr.getOpOperand i).getOwner! ctx = (opPtr.getOpOperand i).getOwner! ctx')
     (hSameNumBlockOperands :
       opPtr.getNumSuccessors! ctx = opPtr.getNumSuccessors! ctx')
     (hSameBlockOperandOwner :
       ∀ i, i < opPtr.getNumSuccessors! ctx →
-      ((opPtr.getBlockOperand i).get! ctx).owner = ((opPtr.getBlockOperand i).get! ctx').owner)
+      (opPtr.getBlockOperand i).getOwner! ctx = (opPtr.getBlockOperand i).getOwner! ctx')
     (hSameNumResults :
       opPtr.getNumResults! ctx = opPtr.getNumResults! ctx')
     (hSameResultIndex :
       ∀ i, i < opPtr.getNumResults ctx opPtrInBounds →
-      ((opPtr.getResult i).get! ctx).index = ((opPtr.getResult i).get! ctx').index)
+      (opPtr.getResult i).getIndex! ctx = (opPtr.getResult i).getIndex! ctx')
     (hSameResultOwner :
       ∀ i, i < opPtr.getNumResults ctx opPtrInBounds →
-      ((opPtr.getResult i).get! ctx).owner = ((opPtr.getResult i).get! ctx').owner)
-    (hSameParent : (opPtr.get! ctx).parent = (opPtr.get! ctx').parent)
-    (hSamePrev : (opPtr.get! ctx).prev = (opPtr.get! ctx').prev)
-    (hSameNext : (opPtr.get! ctx).next = (opPtr.get! ctx').next)
+      (opPtr.getResult i).getOwner! ctx = (opPtr.getResult i).getOwner! ctx')
+    (hSameParent : opPtr.getParent! ctx = opPtr.getParent! ctx')
+    (hSamePrev : opPtr.getPrevOp! ctx = opPtr.getPrevOp! ctx')
+    (hSameNext : opPtr.getNextOp! ctx = opPtr.getNextOp! ctx')
     (hSameRegionParents :
       ∀ (regionPtr : RegionPtr), regionPtr.InBounds ctx →
-        (regionPtr.get! ctx).parent = some opPtr →
-        regionPtr.InBounds ctx' ∧ (regionPtr.get! ctx).parent = (regionPtr.get! ctx').parent)
+        regionPtr.getParent! ctx = some opPtr →
+        regionPtr.InBounds ctx' ∧ regionPtr.getParent! ctx = regionPtr.getParent! ctx')
     (hSameRegionParents' :
       ∀ (regionPtr : RegionPtr), regionPtr.InBounds ctx' →
-        (regionPtr.get! ctx').parent = some opPtr →
-        regionPtr.InBounds ctx ∧ (regionPtr.get! ctx).parent = (regionPtr.get! ctx').parent)
+        regionPtr.getParent! ctx' = some opPtr →
+        regionPtr.InBounds ctx ∧ regionPtr.getParent! ctx = regionPtr.getParent! ctx')
     (hSameNumRegions :
       opPtr.getNumRegions! ctx = opPtr.getNumRegions! ctx')
     (hSameRegions :
-      ∀ i, i < opPtr.getNumRegions! ctx → opPtr.getRegion! ctx i = opPtr.getRegion! ctx' i)
-    (hSameCapResults : (opPtr.get! ctx).capResults = (opPtr.get! ctx').capResults)
-    (hSameCapRegions : (opPtr.get! ctx).capRegions = (opPtr.get! ctx').capRegions)
-    (hSameCapOperands : (opPtr.get! ctx).capOperands = (opPtr.get! ctx').capOperands)
-    (hSameCapBlockOperands :
-      (opPtr.get! ctx).capBlockOperands = (opPtr.get! ctx').capBlockOperands) :
+      ∀ i, i < opPtr.getNumRegions! ctx → opPtr.getRegion! ctx i = opPtr.getRegion! ctx' i) :
     opPtr.WellFormed ctx' opPtrInBounds' := by
   constructor <;> grind [OperationPtr.WellFormed, Operation.FieldsInBounds]
 
 theorem BlockPtr.WellFormed_unchanged
     (hWf : blockPtr.WellFormed ctx blockPtrInBounds)
     (hInBounds' : Block.FieldsInBounds blockPtr ctx' blockPtrInBounds')
-    (hSameParent : (blockPtr.get! ctx).parent = (blockPtr.get! ctx').parent)
-    (hSamePrev : (blockPtr.get! ctx).prev = (blockPtr.get! ctx').prev)
-    (hSameNext : (blockPtr.get! ctx).next = (blockPtr.get! ctx').next)
+    (hSameParent : blockPtr.getParent! ctx = blockPtr.getParent! ctx')
+    (hSamePrev : blockPtr.getPrevBlock! ctx = blockPtr.getPrevBlock! ctx')
+    (hSameNext : blockPtr.getNextBlock! ctx = blockPtr.getNextBlock! ctx')
     (hSameNumArguments : blockPtr.getNumArguments! ctx = blockPtr.getNumArguments! ctx')
     (hSameArgumentOwner :
       ∀ i, i < blockPtr.getNumArguments! ctx →
-      ((blockPtr.getArgument i).get! ctx).owner = ((blockPtr.getArgument i).get! ctx').owner)
+      (blockPtr.getArgument i).getOwner! ctx = (blockPtr.getArgument i).getOwner! ctx')
     (hSameArgumentIndex :
       ∀ i, i < blockPtr.getNumArguments ctx →
-      ((blockPtr.getArgument i).get! ctx).index = ((blockPtr.getArgument i).get! ctx').index)
-    (hSameCapArguments : (blockPtr.get! ctx).capArguments = (blockPtr.get! ctx').capArguments) :
+      (blockPtr.getArgument i).getIndex! ctx = (blockPtr.getArgument i).getIndex! ctx') :
     blockPtr.WellFormed ctx' blockPtrInBounds' := by
   constructor <;> grind [BlockPtr.WellFormed]
 
 theorem RegionPtr.WellFormed_unchanged {regionPtr : RegionPtr}
     (hWf : regionPtr.WellFormed ctx)
-    (hInBounds' : (regionPtr.get! ctx').FieldsInBounds ctx')
-    (hSameParentOp : (regionPtr.get! ctx).parent = (regionPtr.get! ctx').parent)
+    (hInBounds' : regionPtr.FieldsInBounds ctx')
+    (hSameParentOp : regionPtr.getParent! ctx = regionPtr.getParent! ctx')
     (hSameNumRegions :
-      ∀ parent, (regionPtr.get! ctx).parent = some parent →
+      ∀ parent, regionPtr.getParent! ctx = some parent →
       parent.getNumRegions! ctx = parent.getNumRegions! ctx')
     (hSameRegions :
-      ∀ parent, (regionPtr.get! ctx).parent = some parent →
+      ∀ parent, regionPtr.getParent! ctx = some parent →
       ∀ i, i < parent.getNumRegions! ctx →
       parent.getRegion! ctx i = parent.getRegion! ctx' i) :
     regionPtr.WellFormed ctx' := by
   constructor <;> grind [RegionPtr.WellFormed]
-
-noncomputable def BlockPtr.operationList (block : BlockPtr) (ctx : IRContext OpInfo) (hctx : ctx.WellFormed) (hblock : block.InBounds ctx) : Array OperationPtr :=
-  (hctx.opChain block hblock).choose
 
 theorem BlockPtr.operationListWF (ctx : IRContext OpInfo) (block : BlockPtr) (hblock : block.InBounds ctx)
   (hctx : ctx.WellFormed) :
@@ -877,14 +1076,9 @@ theorem BlockPtr.operationList_iff_BlockPtr_OpChain :
 
 @[grind =_]
 theorem BlockPtr.operationList.mem (h : op.InBounds ctx) :
-    (op.get! ctx).parent = some block ↔
+    op.getParent! ctx = some block ↔
     op ∈ BlockPtr.operationList block ctx hctx hblock := by
   grind [BlockPtr.OpChain, BlockPtr.operationListWF]
-
-noncomputable def RegionPtr.blockList (region : RegionPtr)
-    (ctx : IRContext OpInfo) (hctx : ctx.WellFormed := by grind)
-    (hregion : region.InBounds ctx := by grind) : Array BlockPtr :=
-  (hctx.blockChain region hregion).choose
 
 @[grind .]
 theorem RegionPtr.blockListWF (ctx : IRContext OpInfo) (region : RegionPtr)
@@ -892,6 +1086,20 @@ theorem RegionPtr.blockListWF (ctx : IRContext OpInfo) (region : RegionPtr)
     (hctx : ctx.WellFormed := by grind) :
     RegionPtr.BlockChain region ctx (RegionPtr.blockList region ctx hctx hregion) :=
   Exists.choose_spec (hctx.blockChain region hregion)
+
+/-- If a region's first and last blocks coincide, every block in the region equals them. -/
+theorem RegionPtr.block_eq_of_first_eq_last {entry : BlockPtr}
+    (hctx : ctx.WellFormed)
+    (parent : bl.getParent! ctx = some region)
+    (first : region.getFirstBlock! ctx = some entry)
+    (last : region.getLastBlock! ctx = some entry) :
+    bl = entry := by
+  have blockInBounds : bl.InBounds ctx := by
+    grind [BlockPtr.getParent!_of_not_inBounds]
+  obtain ⟨array, chain⟩ := hctx.blockChain region (by grind)
+  have singleton := chain.eq_singleton_of_first_eq_last first last
+  have member := chain.allBlocksInChain bl blockInBounds parent
+  grind
 
 @[grind =]
 theorem RegionPtr.blockList_iff_RegionPtr_BlockChain :
@@ -901,44 +1109,41 @@ theorem RegionPtr.blockList_iff_RegionPtr_BlockChain :
 
 @[grind =_]
 theorem RegionPtr.blockList.mem :
-    (bl.get ctx blInBounds).parent = some region ↔
+    bl.getParent ctx blInBounds = some region ↔
     bl ∈ RegionPtr.blockList region ctx hctx hregion := by
   grind [RegionPtr.BlockChain, RegionPtr.blockListWF]
 
-noncomputable def ValuePtr.defUseArray (value : ValuePtr) (ctx : IRContext OpInfo) (hctx : ctx.WellFormed missingUses missingBlockUses) (hvalue : value.InBounds ctx) : Array OpOperandPtr :=
-  (hctx.valueDefUseChains value hvalue).choose
-
 @[grind .]
 theorem ValuePtr.defUseArrayWF {hctx : IRContext.WellFormed ctx missingUses missingBlockUses} :
-    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) (missingUses.filter (fun use => (use.get! ctx).value = value)) := by
+    ValuePtr.DefUse value ctx (ValuePtr.defUseArray value ctx hctx hvalue) (missingUses.filter (fun use => use.getValue! ctx = value)) := by
   grind [ValuePtr.defUseArray, IRContext.WellFormed]
 
 @[grind .]
 theorem ValuePtr.defUseArray_iff_ValuePtr_DefUse {hctx : ctx.WellFormed missingUses missingBlockUses} :
-    ValuePtr.DefUse value ctx array (missingUses.filter (fun use => (use.get! ctx).value = value)) ↔
+    ValuePtr.DefUse value ctx array (missingUses.filter (fun use => use.getValue! ctx = value)) ↔
     ValuePtr.defUseArray value ctx hctx hvalue = array := by
   grind [ValuePtr.defUseArrayWF]
 
 theorem ValuePtr.defUseArray_contains_operand_use
 {hctx : IRContext.WellFormed ctx} (h : operand.InBounds ctx) :
-    (operand.get! ctx).value = value ↔
+    operand.getValue! ctx = value ↔
     operand ∈ ValuePtr.defUseArray value ctx hctx hvalue := by
   grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
 
 theorem OperationPtr.getParent_prev_eq
     (opInBounds : OperationPtr.InBounds opPtr ctx)
-    (hopParent : (OperationPtr.get! opPtr ctx).parent = some block)
+    (hopParent : OperationPtr.getParent! opPtr ctx = some block)
     (hblock : BlockPtr.OpChain block ctx array)
-    (hprev : (OperationPtr.get! opPtr ctx).prev = some prevOp) :
-    (prevOp.get! ctx).parent = some block := by
+    (hprev : OperationPtr.getPrevOp! opPtr ctx = some prevOp) :
+    prevOp.getParent! ctx = some block := by
   grind [BlockPtr.OpChain, Array.getElem?_of_mem]
 
 theorem BlockPtr.OpChain_prev_ne
     (hop : OperationPtr.InBounds op ctx)
     (hctx : ctx.WellFormed)
-    (hparent : (op.get! ctx).parent = some block) :
+    (hparent : op.getParent! ctx = some block) :
     block.OpChain ctx array →
-    (op.get! ctx).prev ≠ some op := by
+    op.getPrevOp! ctx ≠ some op := by
   intros hNe
   have := hctx.inBounds
   have ⟨array, harray⟩ := hctx.opChain block (by grind)
@@ -953,16 +1158,16 @@ theorem BlockPtr.OpChain_prev_ne
 
 theorem BlockPtr.OpChain_next_ne
     (hop : OperationPtr.InBounds op ctx) (hctx : ctx.WellFormed)
-    (hparent : (op.get! ctx).parent = some block) :
+    (hparent : op.getParent! ctx = some block) :
     block.OpChain ctx array →
-    (op.get! ctx).next ≠ some op := by
+    op.getNextOp! ctx ≠ some op := by
   intros hNe
   have := hctx.inBounds
   have ⟨array, harray⟩ := hctx.opChain block (by grind)
-  have : op ∈ array := by grind [BlockPtr.OpChain]
+  have : op ∈ array := by grind
   intro heq
   have ⟨i, hi⟩ := Array.getElem?_of_mem this
-  have : array[i + 1]? = some op := by grind [BlockPtr.OpChain]
+  have : array[i + 1]? = some op := by grind
   grind [BlockPtr.OpChain_array_injective]
 
 theorem ValuePtr.DefUse.hasUses!_iff
@@ -978,22 +1183,26 @@ theorem ValuePtr.DefUse.getFirstUse!_none_iff
 theorem IRContext.WellFormed.OperationPtr_next!_eq_some_of_prev!_eq_some
     {ctx : IRContext OpInfo} {op prevOp : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (op.get! ctx).prev = some prevOp →
-    (prevOp.get! ctx).next = some op := by
-  cases hparent : (op.get! ctx).parent
+    op.getPrevOp! ctx = some prevOp →
+    prevOp.getNextOp! ctx = some op := by
+  cases hparent : op.getParent! ctx
   case none =>
-    grind [IRContext.WellFormed, BlockPtr.OpChain, OperationPtr.WellFormed]
+    grind [IRContext.WellFormed, OperationPtr.WellFormed.opChain_of_parent_none]
   case some parent =>
     intro hprev
     have ⟨array, harray⟩ := wf.opChain parent (by grind)
-    grind [Array.getElem?_of_mem, BlockPtr.OpChain]
+    have := BlockPtr.OpChain.allOpsInChain harray op (by grind) hparent
+    have hop : op ∈ array := by grind
+    have hprevOp : prevOp ∈ array := by grind [BlockPtr.OpChain]
+    have ⟨i, hi⟩ := Array.getElem_of_mem hop
+    cases i <;> grind [BlockPtr.OpChain]
 
 theorem IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some
     {ctx : IRContext OpInfo} {op nextOp : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (op.get! ctx).next = some nextOp →
-    (nextOp.get! ctx).prev = some op := by
-  cases hparent : (op.get! ctx).parent
+    op.getNextOp! ctx = some nextOp →
+    nextOp.getPrevOp! ctx = some op := by
+  cases hparent : op.getParent! ctx
   case none =>
     grind [IRContext.WellFormed, BlockPtr.OpChain, OperationPtr.WellFormed]
   case some parent =>
@@ -1004,39 +1213,39 @@ theorem IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some
 theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none
     {ctx : IRContext OpInfo} {op : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (op.get! ctx).next ≠ none →
-    (op.get! ctx).parent ≠ none := by
+    op.getNextOp! ctx ≠ none →
+    op.getParent! ctx ≠ none := by
   grind [IRContext.WellFormed, OperationPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_next!_ne_none =>
-  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).next, (op.get! ctx).parent
+  ctx.WellFormed missingUses missingSuccessorUses, op.getNextOp! ctx, op.getParent! ctx
 
 theorem IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none
     {ctx : IRContext OpInfo} {op : OperationPtr} (hop : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (op.get! ctx).prev ≠ none →
-    (op.get! ctx).parent ≠ none := by
+    op.getPrevOp! ctx ≠ none →
+    op.getParent! ctx ≠ none := by
   grind [IRContext.WellFormed, OperationPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.OperationPtr_parent!_ne_none_of_prev!_ne_none =>
-  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).prev, (op.get! ctx).parent
+  ctx.WellFormed missingUses missingSuccessorUses, op.getPrevOp! ctx, op.getParent! ctx
 
 theorem IRContext.WellFormed.OpOperandPtr_value!_eq_of_back!_eq_valueFirstUse
     {ctx : IRContext OpInfo} (wf : ctx.WellFormed)
     {firstUse : OpOperandPtr} (firstUseInBounds : firstUse.InBounds ctx) :
-    (firstUse.get! ctx).back = .valueFirstUse value →
-    (firstUse.get! ctx).value = value := by
-  have ⟨array, harray⟩ := wf.valueDefUseChains (firstUse.get! ctx).value (by grind)
+    firstUse.getBack! ctx = .valueFirstUse value →
+    firstUse.getValue! ctx = value := by
+  have ⟨array, harray⟩ := wf.valueDefUseChains (firstUse.getValue! ctx) (by grind)
   have hMem : firstUse ∈ array := by grind [ValuePtr.DefUse]
   grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
 grind_pattern IRContext.WellFormed.OpOperandPtr_value!_eq_of_back!_eq_valueFirstUse =>
-  ctx.WellFormed, (firstUse.get! ctx).back, OpOperandPtrPtr.valueFirstUse value
+  ctx.WellFormed, firstUse.getBack! ctx, OpOperandPtrPtr.valueFirstUse value
 
 theorem IRContext.WellFormed.OpOperandPtr_value_of_getFirstUse (wf : ctx.WellFormed)
     (valueInBounds : value.InBounds ctx) {firstUse : OpOperandPtr}
     (hFirstUse : value.getFirstUse! ctx = some firstUse) :
-    (firstUse.get! ctx).value = value := by
+    firstUse.getValue! ctx = value := by
   have ⟨array, harray⟩ := wf.valueDefUseChains value (by grind)
   grind [ValuePtr.DefUse]
 
@@ -1046,70 +1255,74 @@ grind_pattern IRContext.WellFormed.OpOperandPtr_value_of_getFirstUse =>
 theorem IRContext.WellFormed.ValuePtr_getFirstUse!_eq_of_back_eq_valueFirstUse
     {ctx : IRContext OpInfo} (wf : ctx.WellFormed) {firstUse : OpOperandPtr}
     (firstUseInBounds : firstUse.InBounds ctx)
-    (heq : (firstUse.get! ctx).back = .valueFirstUse value) :
+    (heq : firstUse.getBack! ctx = .valueFirstUse value) :
     value.getFirstUse! ctx = some firstUse := by
   have ⟨array, harray⟩ := wf.valueDefUseChains value (by grind)
   have := @ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
   grind [IRContext.WellFormed.OpOperandPtr_value!_eq_of_back!_eq_valueFirstUse, ValuePtr.DefUse]
 
 grind_pattern IRContext.WellFormed.ValuePtr_getFirstUse!_eq_of_back_eq_valueFirstUse =>
-  ctx.WellFormed, (firstUse.get! ctx).back, OpOperandPtrPtr.valueFirstUse value
+  ctx.WellFormed, firstUse.getBack! ctx, OpOperandPtrPtr.valueFirstUse value
 
 theorem IRContext.WellFormed.ValuePtr_hasUses_iff_operand_value_ne_value
     (ctxWf : ctx.WellFormed)
     {value : ValuePtr} (noUses : ¬ value.hasUses! ctx) (valueInBounds : value.InBounds ctx)
     {operand : OpOperandPtr} (hoperand : operand.InBounds ctx) :
-    (operand.get! ctx).value ≠ value := by
+    operand.getValue! ctx ≠ value := by
   grind [valueDefUseChains, ValuePtr.DefUse.hasUses!_iff, ValuePtr.DefUse]
 
 grind_pattern IRContext.WellFormed.ValuePtr_hasUses_iff_operand_value_ne_value =>
-  ctx.WellFormed, value.hasUses! ctx, (operand.get! ctx).value
+  ctx.WellFormed, value.hasUses! ctx, operand.getValue! ctx
 
 theorem BlockPtr.OpChain.mem_next!_of_mem
     (op nextOp : OperationPtr) (block : BlockPtr)
     (hWF : block.OpChain ctx array missingOps)
-    (hnext : (op.get! ctx).next = some nextOp)
+    (hnext : op.getNextOp! ctx = some nextOp)
     (hmem : op ∈ array) :
     nextOp ∈ array := by
   grind [BlockPtr.OpChain, Array.getElem_of_mem]
 
 grind_pattern BlockPtr.OpChain.mem_next!_of_mem =>
-  block.OpChain ctx array missingOps, (op.get! ctx).next, some nextOp, op ∈ array
+  block.OpChain ctx array missingOps, op.getNextOp! ctx, some nextOp, op ∈ array
 
 theorem BlockPtr.OpChain.mem_of_mem_next!
     (op nextOp : OperationPtr) (block : BlockPtr)
     (ctxWF : ctx.WellFormed)
     (hWF : block.OpChain ctx array)
-    (hnext : (op.get! ctx).next = some nextOp)
+    (hnext : op.getNextOp! ctx = some nextOp)
     (hop : op.InBounds ctx)
     (hmem : nextOp ∈ array) :
     op ∈ array := by
-  cases hparent : (op.get! ctx).parent; grind
+  cases hparent : (op.getParent! ctx); grind
   rename_i block'
   have ⟨array', harray'⟩ := ctxWF.opChain block' (by grind)
   grind
 
 grind_pattern BlockPtr.OpChain.mem_of_mem_next! =>
-  ctx.WellFormed, block.OpChain ctx array, (op.get! ctx).next, some nextOp, nextOp ∈ array
+  ctx.WellFormed, block.OpChain ctx array, op.getNextOp! ctx, some nextOp, nextOp ∈ array
 
-@[grind <=]
 theorem OperationPtr.parent!_next
     (op nextOp : OperationPtr)
     (hWF : ctx.WellFormed)
     (opInBounds : op.InBounds ctx)
-    (hnext : (op.get! ctx).next = some nextOp)
-    (hparent : (nextOp.get! ctx).parent = some block) :
-    (op.get! ctx).parent = some block := by
-  have ⟨array, harray⟩ := hWF.opChain block (by grind)
-  have : nextOp ∈ array := by grind
-  grind
+    (hnext : op.getNextOp! ctx = some nextOp) :
+    op.getParent! ctx = nextOp.getParent! ctx := by
+  cases parent : op.getParent! ctx with
+  | none => grind
+  | some block =>
+    have ⟨array, harray⟩ := hWF.opChain block (by grind)
+    grind
+
+grind_pattern OperationPtr.parent!_next =>
+  ctx.WellFormed, op.getNextOp! ctx, some nextOp where
+  guard (op.getNextOp! ctx) = some nextOp
 
 theorem IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some
     {ctx : IRContext OpInfo} {bl prevBl : BlockPtr} (hbl : bl.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (bl.get! ctx).prev = some prevBl →
-    (prevBl.get! ctx).next = some bl := by
-  cases hparent : (bl.get! ctx).parent
+    bl.getPrevBlock! ctx = some prevBl →
+    prevBl.getNextBlock! ctx = some bl := by
+  cases hparent : bl.getParent! ctx
   case none =>
     grind [IRContext.WellFormed, RegionPtr.BlockChain, BlockPtr.WellFormed]
   case some parent =>
@@ -1118,14 +1331,14 @@ theorem IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some
     grind [Array.getElem?_of_mem, RegionPtr.BlockChain]
 
 grind_pattern IRContext.WellFormed.BlockPtr_next!_eq_some_of_prev!_eq_some =>
-  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, some prevBl, (prevBl.get! ctx).next
+  ctx.WellFormed missingUses missingSuccessorUses, bl.getPrevBlock! ctx, some prevBl, prevBl.getNextBlock! ctx
 
 theorem IRContext.WellFormed.BlockPtr_prev!_eq_some_of_next!_eq_some
     {ctx : IRContext OpInfo} {bl nextBl : BlockPtr} (hbl : bl.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (bl.get! ctx).next = some nextBl →
-    (nextBl.get! ctx).prev = some bl := by
-  cases hparent : (bl.get! ctx).parent
+    bl.getNextBlock! ctx = some nextBl →
+    nextBl.getPrevBlock! ctx = some bl := by
+  cases hparent : bl.getParent! ctx
   case none =>
     grind [IRContext.WellFormed, RegionPtr.BlockChain, BlockPtr.WellFormed]
   case some parent =>
@@ -1134,34 +1347,34 @@ theorem IRContext.WellFormed.BlockPtr_prev!_eq_some_of_next!_eq_some
     grind [Array.getElem?_of_mem, RegionPtr.BlockChain]
 
 grind_pattern IRContext.WellFormed.BlockPtr_prev!_eq_some_of_next!_eq_some =>
-  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, some nextBl, (nextBl.get! ctx).prev
+  ctx.WellFormed missingUses missingSuccessorUses, bl.getNextBlock! ctx, some nextBl, nextBl.getPrevBlock! ctx
 
 theorem IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none
     {bl : BlockPtr} (hbl : bl.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (bl.get! ctx).next ≠ none →
-    (bl.get! ctx).parent ≠ none := by
+    bl.getNextBlock! ctx ≠ none →
+    bl.getParent! ctx ≠ none := by
   grind [IRContext.WellFormed, BlockPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none =>
-  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, (bl.get! ctx).parent
+  ctx.WellFormed missingUses missingSuccessorUses, bl.getNextBlock! ctx, bl.getParent! ctx
 
 theorem IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none
     {bl : BlockPtr} (hbl : bl.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (bl.get! ctx).prev ≠ none →
-    (bl.get! ctx).parent ≠ none := by
+    bl.getPrevBlock! ctx ≠ none →
+    bl.getParent! ctx ≠ none := by
   grind [IRContext.WellFormed, BlockPtr.WellFormed]
 
 grind_pattern IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none =>
-  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, (bl.get! ctx).parent
+  ctx.WellFormed missingUses missingSuccessorUses, bl.getPrevBlock! ctx, bl.getParent! ctx
 
 @[grind <=]
 theorem IRContext.WellFormed.exists_parent!_eq_some_of_next!_eq_some
     {bl : BlockPtr} (hbl : bl.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses)
-    (hnext : (bl.get! ctx).next = some nextBl) :
-    ∃ parent, (bl.get! ctx).parent = some parent := by
+    (hnext : bl.getNextBlock! ctx = some nextBl) :
+    ∃ parent, bl.getParent! ctx = some parent := by
   have := IRContext.WellFormed.BlockPtr_parent!_ne_none_of_next!_ne_none hbl wf (by grind)
   have := (Option.ne_none_iff_exists.mp this)
   grind
@@ -1170,8 +1383,8 @@ theorem IRContext.WellFormed.exists_parent!_eq_some_of_next!_eq_some
 theorem IRContext.WellFormed.exists_parent!_eq_some_of_prev!_eq_some
     {bl : BlockPtr} (hbl : bl.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses)
-    (hprev : (bl.get! ctx).prev = some prevBl) :
-    ∃ parent, (bl.get! ctx).parent = some parent := by
+    (hprev : bl.getPrevBlock! ctx = some prevBl) :
+    ∃ parent, bl.getParent! ctx = some parent := by
   have := IRContext.WellFormed.BlockPtr_parent!_ne_none_of_prev!_ne_none hbl wf (by grind)
   have := (Option.ne_none_iff_exists.mp this)
   grind
@@ -1180,126 +1393,182 @@ theorem IRContext.WellFormed.firstOp!_eq_some_iff
     {block : BlockPtr} (blockInBounds : block.InBounds ctx)
     {op : OperationPtr} (opInBounds : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (block.get! ctx).firstOp = some op ↔
-    ((op.get! ctx).parent = some block ∧ (op.get! ctx).prev = none) := by
+    block.getFirstOp! ctx = some op ↔
+    (op.getParent! ctx = some block ∧ op.getPrevOp! ctx = none) := by
   constructor
   · grind [IRContext.WellFormed, BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
   · have ⟨array, harray⟩ := wf.opChain block (by grind)
     grind [BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
 
 grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
-  ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).firstOp, some op
+  ctx.WellFormed missingUses missingSuccessorUses, block.getFirstOp! ctx, some op
 
 grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
-  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).parent, some block,
-  (op.get! ctx).prev
+  ctx.WellFormed missingUses missingSuccessorUses, op.getParent! ctx, some block,
+  op.getPrevOp! ctx
 
 theorem IRContext.WellFormed.lastOp!_eq_some_iff
     {block : BlockPtr} (blockInBounds : block.InBounds ctx)
     {op : OperationPtr} (opInBounds : op.InBounds ctx)
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
-    (block.get! ctx).lastOp = some op ↔
-    ((op.get! ctx).parent = some block ∧ (op.get! ctx).next = none) := by
+    block.getLastOp! ctx = some op ↔
+    (op.getParent! ctx = some block ∧ op.getNextOp! ctx = none) := by
   constructor
   · grind [IRContext.WellFormed, BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
   · have ⟨array, harray⟩ := wf.opChain block (by grind)
     grind [BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
 
 grind_pattern IRContext.WellFormed.lastOp!_eq_some_iff =>
-  ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).lastOp, some op
+  ctx.WellFormed missingUses missingSuccessorUses, block.getLastOp! ctx, some op
 
 grind_pattern IRContext.WellFormed.lastOp!_eq_some_iff =>
-  ctx.WellFormed missingUses missingSuccessorUses, (op.get! ctx).parent, some block,
-  (op.get! ctx).prev
+  ctx.WellFormed missingUses missingSuccessorUses, op.getParent! ctx, some block,
+  op.getPrevOp! ctx
 
 theorem RegionPtr.BlockChain.mem_next!_of_mem
     (bl nextBl : BlockPtr) (region : RegionPtr)
     (hWF : region.BlockChain ctx array)
-    (hnext : (bl.get! ctx).next = some nextBl)
+    (hnext : bl.getNextBlock! ctx = some nextBl)
     (hmem : bl ∈ array) :
     nextBl ∈ array := by
   grind [RegionPtr.BlockChain, Array.getElem_of_mem]
 
 grind_pattern RegionPtr.BlockChain.mem_next!_of_mem =>
-  region.BlockChain ctx array, (bl.get! ctx).next, some nextBl, bl ∈ array
+  region.BlockChain ctx array, bl.getNextBlock! ctx, some nextBl, bl ∈ array
 
 theorem RegionPtr.BlockChain.mem_prev!_of_mem
     (bl prevBl : BlockPtr) (region : RegionPtr)
     (hWF : region.BlockChain ctx array)
-    (hprev : (bl.get! ctx).prev = some prevBl)
+    (hprev : bl.getPrevBlock! ctx = some prevBl)
     (hmem : bl ∈ array) :
     prevBl ∈ array := by
-  grind [RegionPtr.BlockChain, Array.getElem_of_mem]
+  have ⟨i, hi, harray⟩ := Array.getElem_of_mem hmem
+  grind
 
 grind_pattern RegionPtr.BlockChain.mem_prev!_of_mem =>
-  region.BlockChain ctx array, (bl.get! ctx).prev, some prevBl, bl ∈ array
+  region.BlockChain ctx array, bl.getPrevBlock! ctx, some prevBl, bl ∈ array
 
 theorem RegionPtr.BlockChain.mem_of_mem_next!
     (bl nextBl : BlockPtr) (region : RegionPtr)
     (ctxWF : ctx.WellFormed)
     (hWF : region.BlockChain ctx array)
-    (hnext : (bl.get! ctx).next = some nextBl)
+    (hnext : bl.getNextBlock! ctx = some nextBl)
     (hbl : bl.InBounds ctx)
     (hmem : nextBl ∈ array) :
     bl ∈ array := by
-  cases hparent : (bl.get! ctx).parent; grind
+  cases hparent : (bl.getParent! ctx); grind
   rename_i region'
   have : region = region' := by grind [RegionPtr.BlockChain, Array.getElem_of_mem]
   have ⟨array', harray'⟩ := ctxWF.blockChain region' (by grind)
   grind
 
 grind_pattern RegionPtr.BlockChain.mem_of_mem_next! =>
-  ctx.WellFormed, region.BlockChain ctx array, (bl.get! ctx).next, some nextBl, nextBl ∈ array
+  ctx.WellFormed, region.BlockChain ctx array, bl.getNextBlock! ctx, some nextBl, nextBl ∈ array
 
 theorem BlockPtr.parent!_next {bl : BlockPtr}
     (blInBounds : bl.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
-    (hnext : (bl.get! ctx).next = some nextBl) :
-    (bl.get! ctx).parent = (nextBl.get! ctx).parent := by
+    (hnext : bl.getNextBlock! ctx = some nextBl) :
+    bl.getParent! ctx = nextBl.getParent! ctx := by
   intros
-  have ⟨parent, hparent⟩ : ∃ region, (bl.get! ctx).parent = some region := by grind
+  have ⟨parent, hparent⟩ : ∃ region, bl.getParent! ctx = some region := by grind
   have ⟨array, harray⟩ := hctx.blockChain parent (by grind)
   have : bl ∈ array := by grind [RegionPtr.BlockChain]
   grind [RegionPtr.BlockChain]
 
 grind_pattern BlockPtr.parent!_next =>
-  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).next, some nextBl
+  ctx.WellFormed missingUses missingSuccessorUses, bl.getNextBlock! ctx, some nextBl
 
 theorem BlockPtr.parent!_prev {bl : BlockPtr}
     (blInBounds : bl.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
-    (hprev : (bl.get! ctx).prev = some prevBl) :
-    (bl.get! ctx).parent = (prevBl.get! ctx).parent := by
+    (hprev : bl.getPrevBlock! ctx = some prevBl) :
+    bl.getParent! ctx = prevBl.getParent! ctx := by
   intros
-  have ⟨parent, hparent⟩ : ∃ region, (bl.get! ctx).parent = some region := by grind
+  have ⟨parent, hparent⟩ : ∃ region, bl.getParent! ctx = some region := by grind
   have ⟨array, harray⟩ := hctx.blockChain parent (by grind)
   have : bl ∈ array := by grind [RegionPtr.BlockChain]
   grind [RegionPtr.BlockChain]
 
 grind_pattern BlockPtr.parent!_prev =>
-  ctx.WellFormed missingUses missingSuccessorUses, (bl.get! ctx).prev, some prevBl
+  ctx.WellFormed missingUses missingSuccessorUses, bl.getPrevBlock! ctx, some prevBl
+
+theorem RegionPtr.firstBlock!_parent! {reg : RegionPtr}
+    (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
+    (hfirst : reg.getFirstBlock! ctx = some firstBl) :
+    firstBl.getParent! ctx = some reg := by
+  have ⟨array, harray⟩ := hctx.blockChain reg (by grind)
+  grind [RegionPtr.BlockChain]
+
+grind_pattern RegionPtr.firstBlock!_parent! =>
+    ctx.WellFormed missingUses missingSuccessorUses, reg.getFirstBlock! ctx, some firstBl,
+    (firstBl.getParent! ctx) where
+  guard (reg.getFirstBlock! ctx) = some firstBl
 
 theorem RegionPtr.lastBlock!_parent! {reg : RegionPtr}
     (regInBounds : reg.InBounds ctx) (hctx : ctx.WellFormed missingUses missingSuccessorUses)
-    (hlast : (reg.get! ctx).lastBlock = some lastBl) :
-    (lastBl.get! ctx).parent = some reg := by
+    (hlast : reg.getLastBlock! ctx = some lastBl) :
+    lastBl.getParent! ctx = some reg := by
   have ⟨array, harray⟩ := hctx.blockChain reg (by grind)
   grind [RegionPtr.BlockChain]
 
 grind_pattern RegionPtr.lastBlock!_parent! =>
-  ctx.WellFormed missingUses missingSuccessorUses, (reg.get! ctx).lastBlock, some lastBl,
-  (lastBl.get! ctx).parent
+  ctx.WellFormed missingUses missingSuccessorUses, reg.getLastBlock! ctx, some lastBl,
+  lastBl.getParent! ctx
 
-/-- Compute the index of an operation in its parent's operations list. -/
-noncomputable def OperationPtr.idxInParent (op : OperationPtr) (ctx : IRContext OpInfo)
-    (hop : op.InBounds ctx := by grind)
-    (hctx : ctx.WellFormed := by grind) : Nat :=
-  match hparent : (op.get! ctx).parent with
-  | some block => (block.operationList ctx hctx (by grind)).idxOf op
-  | none       => 0
+/-- Every indexed operation in a block's operation list is in bounds. -/
+@[grind .]
+theorem BlockPtr.operationList.inBounds_getElem {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
+    ((block.operationList ctx hctx hblock)[i]).InBounds ctx :=
+  (BlockPtr.operationListWF ctx block hblock hctx).arrayInBounds (Array.getElem_mem hi)
+
+/-- An operation's position in the block's operation list is its index in its parent. -/
+theorem BlockPtr.operationList.idxInParent_getElem {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (i : Nat) (hi : i < (block.operationList ctx hctx hblock).size) :
+    ((block.operationList ctx hctx hblock)[i]).idxInParent ctx (by grind) hctx = i := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  grind [OperationPtr.idxInParent, chain.idxOf_getElem_array i hi]
+
+/-- Looking up an operation at its index in its parent's list returns that operation. -/
+theorem BlockPtr.operationList.getElem?_idxInParent {block : BlockPtr} {op : OperationPtr}
+    (hctx : ctx.WellFormed) (parent : op.getParent! ctx = some block) :
+    (block.operationList ctx hctx (by grind))[op.idxInParent ctx (by grind) hctx]? = some op := by
+  unfold OperationPtr.idxInParent
+  split <;> grind [Array.getElem?_idxOf, BlockPtr.operationList.mem]
+
+grind_pattern BlockPtr.operationList.getElem?_idxInParent =>
+  (block.operationList ctx hctx (by grind))[op.idxInParent ctx (by grind) hctx]?,
+  op.getParent! ctx, some block where
+  guard op.getParent! ctx = some block
+
+/-- The last operation's index is immediately before the end of its parent's operation list. -/
+theorem OperationPtr.idxInParent_add_one_eq_size_of_getLastOp! {block : BlockPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (last : block.getLastOp! ctx = some op) :
+    op.idxInParent ctx (by grind) hctx + 1 = (block.operationList ctx hctx hblock).size := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  grind [BlockPtr.operationList.idxInParent_getElem hctx hblock
+    ((block.operationList ctx hctx hblock).size - 1)]
+
+grind_pattern OperationPtr.idxInParent_add_one_eq_size_of_getLastOp! =>
+  op.idxInParent ctx (by grind) hctx, block.getLastOp! ctx, some op where
+  guard block.getLastOp! ctx = some op
+
+/-- The first operation of a block has index zero in its parent. -/
+theorem OperationPtr.idxInParent_eq_zero_of_getFirstOp! {block : BlockPtr} {op : OperationPtr}
+    (hctx : ctx.WellFormed) (hblock : block.InBounds ctx)
+    (first : block.getFirstOp! ctx = some op) :
+    op.idxInParent ctx (by grind) hctx = 0 := by
+  have chain := BlockPtr.operationListWF ctx block hblock hctx
+  have zeroInBounds : 0 < (block.operationList ctx hctx hblock).size := by grind
+  have firstAtZero : (block.operationList ctx hctx hblock)[0] = op := by grind
+  simpa only [firstAtZero] using BlockPtr.operationList.idxInParent_getElem hctx hblock 0 zeroInBounds
 
 @[grind .]
 theorem OperationPtr.idxInParent_lt_size_operationList
     (op : OperationPtr) (ctx : IRContext OpInfo) (block : BlockPtr)
-    (hasParent : (op.get! ctx).parent = some block)
+    (hasParent : op.getParent! ctx = some block)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
     op.idxInParent ctx hop hctx <
@@ -1308,7 +1577,7 @@ theorem OperationPtr.idxInParent_lt_size_operationList
 
 theorem OperationPtr.idxInParent_next_eq
     (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
-    (hnext : (op.get! ctx).next = some nextOp)
+    (hnext : op.getNextOp! ctx = some nextOp)
     (hnextOp : nextOp.InBounds ctx)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
@@ -1332,20 +1601,11 @@ theorem OperationPtr.idxInParent_next_eq
     next opParent => grind
 
 grind_pattern OperationPtr.idxInParent_next_eq =>
-  nextOp.idxInParent ctx hnextOp hctx, (op.get! ctx).next, some nextOp
-
-/-- Compute the index of an operation in its parent's operations list from the tail (i.e. the last operation has index 0). -/
-noncomputable def OperationPtr.idxInParentFromTail (op : OperationPtr) (ctx : IRContext OpInfo)
-    (hop : op.InBounds ctx := by grind)
-    (hctx : ctx.WellFormed := by grind) : Nat :=
-  match hparent : (op.get! ctx).parent with
-  | some block =>
-    (block.operationList ctx hctx (by grind)).size - 1 - op.idxInParent ctx hop hctx
-  | none       => 0
+  nextOp.idxInParent ctx hnextOp hctx, op.getNextOp! ctx, some nextOp
 
 theorem OperationPtr.idxInParentFromTail_next_eq
     (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
-    (hnext : (op.get! ctx).next = some nextOp)
+    (hnext : op.getNextOp! ctx = some nextOp)
     (hnextOp : nextOp.InBounds ctx)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
@@ -1360,27 +1620,27 @@ theorem OperationPtr.idxInParentFromTail_next_eq
   grind
 
 grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
-  nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
+  nextOp.idxInParentFromTail ctx hnextOp hctx, op.getNextOp! ctx, some nextOp, ctx.WellFormed, op.InBounds ctx
 
 theorem OperationPtr.idxInParentFromTail_next_ne_zero
     (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
-    (hnext : (op.get! ctx).next = some nextOp)
+    (hnext : op.getNextOp! ctx = some nextOp)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
     op.idxInParentFromTail ctx hop hctx ≠ 0 := by
   simp only [OperationPtr.idxInParentFromTail]
   split; rotate_left; grind
   rename_i block hblock
-  have : (nextOp.get! ctx).parent = some block := by grind [IRContext.WellFormed]
+  have : nextOp.getParent! ctx = some block := by grind [IRContext.WellFormed]
   have := OperationPtr.idxInParent_lt_size_operationList nextOp ctx block (by grind) (by grind) hctx
   grind
 
 grind_pattern OperationPtr.idxInParentFromTail_next_ne_zero =>
-  op.idxInParentFromTail ctx hop hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
+  op.idxInParentFromTail ctx hop hctx, op.getNextOp! ctx, some nextOp, ctx.WellFormed, op.InBounds ctx
 
 theorem OperationPtr.idxInParentFromTail_next_lt_idxInParentFromTail
     (op : OperationPtr) (ctx : IRContext OpInfo) (nextOp : OperationPtr)
-    (hnext : (op.get! ctx).next = some nextOp)
+    (hnext : op.getNextOp! ctx = some nextOp)
     (hnextOp : nextOp.InBounds ctx)
     (hop : op.InBounds ctx)
     (hctx : ctx.WellFormed) :
@@ -1390,49 +1650,35 @@ theorem OperationPtr.idxInParentFromTail_next_lt_idxInParentFromTail
   grind
 
 grind_pattern OperationPtr.idxInParentFromTail_next_eq =>
-  nextOp.idxInParentFromTail ctx hnextOp hctx, (op.get! ctx).next, some nextOp, ctx.WellFormed, op.InBounds ctx
+  nextOp.idxInParentFromTail ctx hnextOp hctx, op.getNextOp! ctx, some nextOp, ctx.WellFormed, op.InBounds ctx
 
-/-- Prove preservation of the `region_parent` field of `OperationPtr.WellFormed`, if region parents, number of regions, and region pointers are unchanged in the new context. -/
+/--
+  Prove preservation of the `region_parent` field of `OperationPtr.WellFormed`, if
+  region parents, number of regions, and region pointers are unchanged in the
+  new context.
+-/
 theorem OperationPtr.WellFormed.region_parent.unchanged
     {opPtr : OperationPtr} {ctx ctx' : IRContext OpInfo}
     (h_getRegion : opPtr.getRegion! ctx' = opPtr.getRegion! ctx)
     (h_numRegions : opPtr.getNumRegions! ctx' = opPtr.getNumRegions! ctx)
-    (h_parent : (region.get! ctx').parent = (region.get! ctx).parent)
+    (h_parent : region.getParent! ctx' = region.getParent! ctx)
     (_h_inBounds : region.InBounds ctx)
     (h_wf : (∃ i, i < opPtr.getNumRegions! ctx ∧ opPtr.getRegion! ctx i = region) ↔
-             (region.get! ctx).parent = some opPtr) :
+             region.getParent! ctx = some opPtr) :
     (∃ i, i < opPtr.getNumRegions! ctx' ∧ opPtr.getRegion! ctx' i = region) ↔
-    (region.get! ctx').parent = some opPtr := by
+    region.getParent! ctx' = some opPtr := by
   simp only [h_getRegion, h_numRegions, h_parent, h_wf]
 
-theorem OperationPtr.WellFormed.numOperands_eq_capOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capOperands = opPtr.getNumOperands! ctx :=
-  fun h => h.capOperands_eq_numOperands
-grind_pattern OperationPtr.WellFormed.numOperands_eq_capOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capOperands
-
-theorem OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capBlockOperands = opPtr.getNumSuccessors! ctx :=
-  fun h => h.capBlockOperands_eq_numSuccessors
-grind_pattern OperationPtr.WellFormed.numSuccessors_eq_capBlockOperands => opPtr.WellFormed ctx, (opPtr.get! ctx).capBlockOperands
-
-@[grind =]
-theorem OperationPtr.WellFormed.numRegions_eq_capRegions {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capRegions = opPtr.getNumRegions! ctx :=
-  fun h => h.capRegions_eq_numRegions
-grind_pattern OperationPtr.WellFormed.numRegions_eq_capRegions => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capRegions
-
-@[grind =]
-theorem OperationPtr.WellFormed.numResults_eq_capResults {opPtr : OperationPtr} {ctx : IRContext OpInfo} {ib} :
-    opPtr.WellFormed ctx ib → (opPtr.get! ctx).capResults = opPtr.getNumResults! ctx :=
-  fun h => h.capResults_eq_numResults
-grind_pattern OperationPtr.WellFormed.numResults_eq_capResults => opPtr.WellFormed ctx ib, (opPtr.get! ctx).capResults
-
-/-- An IR context that also carries its well-formedness proof. -/
-structure WfIRContext (OpInfo : Type) [HasOpInfo OpInfo] where
+/--
+  An IR context that also carries its well-formedness proof.
+  This is the type that users are expected to work with most of the time, unless they
+  need to explicitly break the well-formedness invariant during a transformation.
+-/
+structure WfIRContext (OpInfo : Type) [IsOpCode OpInfo] where
   raw : IRContext OpInfo
   wellFormed : raw.WellFormed
 
-public instance {OpInfo} [HasOpInfo OpInfo] :
+public instance {OpInfo} [IsOpCode OpInfo] :
     Coe (WfIRContext OpInfo) (IRContext OpInfo) where
   coe wfCtx := wfCtx.raw
 
@@ -1441,7 +1687,7 @@ theorem WfIRContext_raw_wellFormed (wfCtx : WfIRContext OpInfo) :
     (wfCtx.raw).WellFormed := by
   grind [WfIRContext]
 
-instance instWfIRContextInhabited {OpInfo} [HasOpInfo OpInfo] :
+instance instWfIRContextInhabited {OpInfo} [IsOpCode OpInfo] :
     Inhabited (WfIRContext OpInfo) where
   default := ⟨IRContext.empty OpInfo, IRContext.empty_wellFormed⟩
 

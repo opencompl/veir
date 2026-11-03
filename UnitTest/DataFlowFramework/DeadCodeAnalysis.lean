@@ -1,0 +1,176 @@
+import UnitTest.DataFlowFramework.Helpers
+
+
+open Std (HashMap)
+open Veir
+
+private def run
+    (mlir : String)
+    (expectedBlockLives : Array (String × Bool))
+    (expectedEdgeLives : Array ((String × String) × Bool)) : String :=
+  runWithAnalyses mlir #[Veir.DeadCodeAnalysis] (fun top dfCtx ctx => Id.run do
+    match recoverNames top ctx mlir with
+    | Except.error err =>
+        return #[err]
+    | Except.ok recovered =>
+        checkNamedBlockLiveness dfCtx ctx recovered.blocks expectedBlockLives ++
+          checkNamedEdgeLiveness dfCtx ctx recovered.blocks expectedEdgeLives)
+
+private def testTopLevelAndFunctionEntryBlocksLive : String :=
+  run
+    r#""builtin.module"() ({
+^bb0:
+  "func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+  ^entry:
+    "func.return"() : () -> ()
+  }) : () -> ()
+}) : () -> ()"#
+    #[("bb0", true), ("entry", true)]
+    #[]
+
+private def testLiteralBranchWithoutSCPTakesKnownSuccessor : String :=
+  run
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^bb0:
+  %cond = "arith.constant"() <{ value = 1 : i1 }> : () -> i1
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb1:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+  "func.return"() : () -> ()
+^bb2:
+  %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+  "func.return"() : () -> ()
+}) : () -> ()"#
+    #[("bb1", true), ("bb2", false)]
+    #[ (("bb0", "bb1"), true)
+     , (("bb0", "bb2"), false)
+     ]
+
+private def testLlvmLiteralBranchWithoutSCPTakesKnownSuccessor : String :=
+  run
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^bb0:
+  %cond = "llvm.mlir.constant"() <{value = 0 : i1}> : () -> i1
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb1:
+  "func.return"() : () -> ()
+^bb2:
+  "func.return"() : () -> ()
+}) : () -> ()"#
+    #[("bb1", false), ("bb2", true)]
+    #[ (("bb0", "bb1"), false)
+     , (("bb0", "bb2"), true)
+     ]
+
+private def testUnknownBranchWithoutSCPMarksAllSuccessorsLive : String :=
+  run
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^bb0:
+  %cond = "test.test"() : () -> i1
+  "cf.cond_br"(%cond) [^bb1, ^bb2]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb1:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+  "func.return"() : () -> ()
+^bb2:
+  %y = "arith.constant"() <{ value = 20 : i32 }> : () -> i32
+  "func.return"() : () -> ()
+}) : () -> ()"#
+    #[("bb1", true), ("bb2", true)]
+    #[ (("bb0", "bb1"), true)
+     , (("bb0", "bb2"), true)
+     ]
+
+private def testDiamond : String :=
+  run
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^bb0:
+  "cf.br"() [^bb1] : () -> ()
+^bb1:
+  %cond = "arith.constant"() <{ value = 1 : i1 }> : () -> i1
+  "cf.cond_br"(%cond) [^bb2, ^bb3]
+    <{operandSegmentSizes = array<i32: 1, 0, 0>}> : (i1) -> ()
+^bb2:
+  "cf.br"() [^bb5] : () -> ()
+^bb3:
+  "cf.br"() [^bb4] : () -> ()
+^bb4:
+  "cf.br"() [^bb6] : () -> ()
+^bb5:
+  "cf.br"() [^bb6] : () -> ()
+^bb6:
+  %x = "arith.constant"() <{ value = 10 : i32 }> : () -> i32
+  "func.return"() : () -> ()
+}) : () -> ()"#
+    #[("bb1", true), ("bb2", true), ("bb3", false), ("bb4", false), ("bb5", true), ("bb6", true)]
+    #[ (("bb0", "bb1"), true)
+     , (("bb1", "bb2"), true)
+     , (("bb1", "bb3"), false)
+     , (("bb2", "bb5"), true)
+     , (("bb3", "bb4"), false)
+     , (("bb4", "bb6"), false)
+     , (("bb5", "bb6"), true)
+     ]
+
+
+/--
+Exercise reachability that is discovered against source order.
+
+`bb1` is scanned while dead, so its terminator subscribes the dead-code analysis
+to the block's liveness fact. Visiting the later `bb2` then makes `bb1` live.
+-/
+private def testReachabilityDiscoveredAfterSourceOrderScan : String :=
+  run
+    r#""func.func"() <{sym_name = "f", function_type = () -> ()}> ({
+^entry:
+  "cf.br"() [^bb0] : () -> ()
+^bb0:
+  "cf.br"() [^bb2] : () -> ()
+^bb1:
+  "cf.br"() [^bb0] : () -> ()
+^bb2:
+  "cf.br"() [^bb1] : () -> ()
+}) : () -> ()"#
+    #[("entry", true), ("bb0", true), ("bb1", true), ("bb2", true)]
+    #[ (("entry", "bb0"), true)
+     , (("bb0", "bb2"), true)
+     , (("bb2", "bb1"), true)
+     , (("bb1", "bb0"), true)
+     ]
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testReachabilityDiscoveredAfterSourceOrderScan
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testTopLevelAndFunctionEntryBlocksLive
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testLiteralBranchWithoutSCPTakesKnownSuccessor
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testLlvmLiteralBranchWithoutSCPTakesKnownSuccessor
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testUnknownBranchWithoutSCPMarksAllSuccessorsLive
+
+/--
+info: "ok"
+-/
+#guard_msgs in
+#eval! testDiamond

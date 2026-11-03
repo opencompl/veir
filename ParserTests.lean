@@ -1,69 +1,70 @@
 module
 
-import all Veir.Parser.ConstructionParser
-import all Veir.Parser.Transitions
-import all Veir.Parser.References
-import all Veir.Parser.Retire
-import all Veir.Parser.Blocks
-import all Veir.Parser.Operations
-import all Veir.Parser.Bindings
-import all Veir.Parser.Scopes
-import all Veir.Parser.Operands
-import all Veir.Parser.Syntax
-import all Veir.Parser.Liveness
-import all Veir.Parser.StaticIR
-import all Veir.Parser.Frames
-import all Veir.Parser.MlirParser
-import all Veir.Parser.BuffedIR
-import all Veir.Parser.IRContext
-import all Veir.Parser.AllocationFrames
-import all Veir.Parser.IRPointers
-import all Veir.Parser.State
-import all Veir.Parser.AttrParser
-import all Veir.Parser.Parser
-import all Veir.Parser.Lexer
-import all Veir.Parser.ParserError
-import all Veir.Parser.Location
+import all Veir.Buffered.Parser.ConstructionParser
+import all Veir.Buffered.Parser.Transitions
+import all Veir.Buffered.Parser.References
+import all Veir.Buffered.Parser.Retire
+import all Veir.Buffered.Parser.Blocks
+import all Veir.Buffered.Parser.Operations
+import all Veir.Buffered.Parser.Bindings
+import all Veir.Buffered.Parser.Scopes
+import all Veir.Buffered.Parser.Operands
+import all Veir.Buffered.Parser.Syntax
+import all Veir.Buffered.Parser.Liveness
+import all Veir.Buffered.Parser.StaticIR
+import all Veir.Buffered.Parser.Frames
+import all Veir.Buffered.Parser.MlirParser
+import all Veir.Buffered.Parser.BuffedIR
+import all Veir.Buffered.Parser.IRContext
+import all Veir.Buffered.Parser.AllocationFrames
+import all Veir.Buffered.Parser.IRPointers
+import all Veir.Buffered.Parser.State
+import all Veir.Buffered.Parser.AttrParser
+import all Veir.Buffered.Parser.Parser
+import all Veir.Buffered.Parser.Lexer
+import all Veir.Buffered.Parser.ParserError
+import all Veir.Buffered.Parser.Location
 import Lean
+import UnitTest.Buffered
 
 public section
 
 -- Audit the complete construction boundary and the successful-parse safety theorem.
 run_meta do
-  for declaration in #[``Veir.Parser.StaticParserState.initial,
-      ``Veir.Parser.StaticParserState.useValue,
-      ``Veir.Parser.StaticParserState.registerValues,
-      ``Veir.Parser.StaticParserState.defineBlock,
-      ``Veir.Parser.StaticParserState.constructOp,
-      ``Veir.Parser.StaticParserState.enterScope,
-      ``Veir.Parser.StaticParserState.restoreScope,
-      ``Veir.Parser.ParserFrame.trans,
-      ``Veir.Parser.retirePlaceholders,
-      ``Veir.Parser.StaticIR.valueType,
-      ``Veir.Parser.Construction.topLevel,
-      ``Veir.Parser.IR.createRegion,
-      ``Veir.Sim.OperationPtr.hasUses_spec,
-      ``Veir.Sim.OperationPtr.setAttributes_spec,
-      ``Veir.Sim.OperationPtr.setAttributes_wellFormed,
-      ``Veir.Rewriter.replaceBlockUse_wellFormed,
-      ``Veir.IRContext.fieldsInBounds_deallocEmptyBlock,
-      ``Veir.Parser.IR.createOp,
-      ``Veir.Parser.IR.createBlock,
-      ``Veir.Parser.IR.insertBlock,
-      ``Veir.Parser.IR.setAttributes,
-      ``Veir.Parser.IR.replaceValue,
-      ``Veir.Parser.IR.eraseOp,
-      ``Veir.Parser.IR.eraseBlock,
-      ``Veir.Parser.IR.replaceBlockUses,
-      ``Veir.Parser.parseSourceString,
-      ``Veir.Parser.parseSourceString_safe,
-      ``Veir.floatEqOfToBitsEq,
-      ``Veir.Rewriter.createOp_sim_inBounds_mono,
-      ``Veir.Rewriter.createOp_numResults,
-      ``Veir.Rewriter.createBlock_new_not_inBounds,
-      ``Veir.Rewriter.createBlock_numArguments,
-      ``Veir.Rewriter.eraseOp_value_inBounds,
-      ``Veir.Rewriter.eraseBlock_value_inBounds] do
+  for declaration in #[``Veir.Buffered.Parser.StaticParserState.initial,
+      ``Veir.Buffered.Parser.StaticParserState.useValue,
+      ``Veir.Buffered.Parser.StaticParserState.registerValues,
+      ``Veir.Buffered.Parser.StaticParserState.defineBlock,
+      ``Veir.Buffered.Parser.StaticParserState.constructOp,
+      ``Veir.Buffered.Parser.StaticParserState.enterScope,
+      ``Veir.Buffered.Parser.StaticParserState.restoreScope,
+      ``Veir.Buffered.Parser.ParserFrame.trans,
+      ``Veir.Buffered.Parser.retirePlaceholders,
+      ``Veir.Buffered.Parser.StaticIR.valueType,
+      ``Veir.Buffered.Parser.Construction.topLevel,
+      ``Veir.Buffered.Parser.IR.createRegion,
+      ``Veir.Buffered.Sim.OperationPtr.hasUses_spec,
+      ``Veir.Buffered.Sim.OperationPtr.setAttributes_spec,
+      ``Veir.Buffered.Sim.OperationPtr.setAttributes_wellFormed,
+      ``Veir.Buffered.Rewriter.replaceBlockUse_wellFormed,
+      ``Veir.Buffered.IRContext.fieldsInBounds_deallocEmptyBlock,
+      ``Veir.Buffered.Parser.IR.createOp,
+      ``Veir.Buffered.Parser.IR.createBlock,
+      ``Veir.Buffered.Parser.IR.insertBlock,
+      ``Veir.Buffered.Parser.IR.setAttributes,
+      ``Veir.Buffered.Parser.IR.replaceValue,
+      ``Veir.Buffered.Parser.IR.eraseOp,
+      ``Veir.Buffered.Parser.IR.eraseBlock,
+      ``Veir.Buffered.Parser.IR.replaceBlockUses,
+      ``Veir.Buffered.Parser.parseSourceString,
+      ``Veir.Buffered.Parser.parseSourceString_safe,
+      ``Veir.Buffered.floatEqOfToBitsEq,
+      ``Veir.Buffered.Rewriter.createOp_sim_inBounds_mono,
+      ``Veir.Buffered.Rewriter.createOp_numResults,
+      ``Veir.Buffered.Rewriter.createBlock_new_not_inBounds,
+      ``Veir.Buffered.Rewriter.createBlock_numArguments,
+      ``Veir.Buffered.Rewriter.eraseOp_value_inBounds,
+      ``Veir.Buffered.Rewriter.eraseBlock_value_inBounds] do
     let axioms ← Lean.collectAxioms declaration
     for axiomName in axioms do
       unless #[``propext, ``Classical.choice, ``Quot.sound].contains axiomName do
@@ -72,15 +73,15 @@ run_meta do
 -- Include private proofs and partial definitions' executable implementations, not only
 -- their opaque logical interfaces. `import all` above makes those bodies available.
 run_meta do
-  if (← Lean.getEnv).contains `Veir.Parser.IR.Registry then
+  if (← Lean.getEnv).contains `Veir.Buffered.Parser.IR.Registry then
     throwError "runtime pointer registry reintroduced into parser dependencies"
   let declarations := (← Lean.getEnv).constants.toList.filter fun (name, _) =>
-    (`Veir.Parser).isPrefixOf ((Lean.privateToUserName? name).getD name)
-  for loop in #[`Veir.Parser.StaticIR.replaceBlockUses,
-      `Veir.Parser.Construction.optionalOp, `Veir.Parser.Construction.blockBody,
-      `Veir.Parser.Construction.moreBlocks, `Veir.Parser.Construction.entryBlock,
-      `Veir.Parser.Construction.parseRegion, `Veir.Parser.Construction.regionList,
-      `Veir.Parser.Construction.opRegions] do
+    (`Veir.Buffered.Parser).isPrefixOf ((Lean.privateToUserName? name).getD name)
+  for loop in #[`Veir.Buffered.Parser.StaticIR.replaceBlockUses,
+      `Veir.Buffered.Parser.Construction.optionalOp, `Veir.Buffered.Parser.Construction.blockBody,
+      `Veir.Buffered.Parser.Construction.moreBlocks, `Veir.Buffered.Parser.Construction.entryBlock,
+      `Veir.Buffered.Parser.Construction.parseRegion, `Veir.Buffered.Parser.Construction.regionList,
+      `Veir.Buffered.Parser.Construction.opRegions] do
     let implementation := Lean.Compiler.mkUnsafeRecName loop
     unless declarations.any (fun (name, info) =>
         ((Lean.privateToUserName? name).getD name) == implementation
@@ -91,7 +92,7 @@ run_meta do
       unless #[``propext, ``Classical.choice, ``Quot.sound].contains axiomName do
         throwError "{declaration} depends on unexpected axiom {axiomName}"
 
-open Veir Veir.Parser
+open Veir.Buffered Veir.Buffered.Parser
 
 private def ensure (ok : Bool) (message : String) : IO Unit :=
   unless ok do throw (IO.userError message)
@@ -361,12 +362,12 @@ private def checkStaticLiveness : IO Unit := do
     exact (user.preserves.operation placeholder.inBounds).ib
   let phName := "forward".toUTF8
   let valueName := "defined".toUTF8
-  let loc : Veir.Parser.Location := default
+  let loc : Veir.Buffered.Parser.Location := default
   let data : MlirParserData := {
-    values := ({} : Std.HashMap ByteArray (Array IR.Value × Veir.Parser.Location)).insert valueName (#[value.val], loc)
+    values := ({} : Std.HashMap ByteArray (Array IR.Value × Veir.Buffered.Parser.Location)).insert valueName (#[value.val], loc)
     definitionsPerScope := #[{}]
     forwardValues := ({} : Std.HashMap ByteArray ForwardValue).insert phName
-      ⟨({} : Std.HashMap Nat (IR.Op × Veir.Parser.Location)).insert 0 (placeholder.pointer, loc), loc⟩
+      ⟨({} : Std.HashMap Nat (IR.Op × Veir.Buffered.Parser.Location)).insert 0 (placeholder.pointer, loc), loc⟩
     blocks := {} }
   have hf : ∀ n i op l, data.ForwardEntry n i op l ↔
       n = phName ∧ i = 0 ∧ op = placeholder.pointer ∧ l = loc := by
@@ -510,6 +511,7 @@ private def checkErrors : IO Unit := do
       ensure (error.contains "invalid-test:") "missing diagnostic source location"
 
 def main : IO Unit := do
+  UnitTest.Buffered.testParsers
   checkForwardValues
   checkForwardBlocks false
   checkForwardBlocks true

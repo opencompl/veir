@@ -1,576 +1,493 @@
 module
 
-public import ExArray.CompilerExtras
-import Veir.Prelude
-public import Veir.Prelude
 public import Veir.IR
-public import Veir.IR.Buffed.Basic
-public import Lean.Data.Json.Parser
-import Veir.IR.Buffed.InBounds
-import Veir.IR.Buffed.Meta
-import Veir.IR.Buffed.Basic
 
-
-@[expose] public section
+public section
 
 namespace Veir
 
-attribute [local grind]
-  Sim.ValuePtr.getOpOperandPtrPtr Sim.OpOperandPtr.getOpOperandPtrPtr
-  Sim.BlockOperandPtr.getBlockOperandPtrPtr Sim.BlockPtr.getBlockOperandPtrPtr
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {ctx : IRContext OpInfo}
 
-attribute [local grind]
- Sim.BlockArgumentPtr.toO
- Sim.BlockPtr.toO
- Sim.OperationPtr.toO
- Sim.BlockOperandPtr.toO
- Sim.OpOperandPtr.toO
- Sim.RegionPtr.toO
- Sim.OpResultPtr.toO
- Sim.ValuePtr.toO
+/-
+  Use def chain for operands.
+-/
 
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
-variable {ctx : Sim.IRContext OpInfo}
-
-/- Use def chain for operands. -/
-def Sim.OpOperandPtr.removeFromCurrent (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.OpOperandPtr)
+@[irreducible]
+def OpOperandPtr.removeFromCurrent (ctx: IRContext OpInfo) (operandPtr: OpOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
-    (ctxInBounds: ctx.spec.FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
-  let back := operandPtr.getBack ctx (by grind)
-  let nextUse := operandPtr.getNextUse ctx (by grind)
-  let ctx := back.set ctx nextUse (by grind) (by grind)
-  match hNextUse: nextUse.toOption with
+    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
+  let back := operandPtr.getBack ctx
+  let nextUse := operandPtr.getNextUse ctx
+  let ctx := back.set ctx nextUse
+  match hNextUse: nextUse with
   | none => ctx
-  | some nextPtr => nextPtr.setBack ctx back (by grind) (by grind)
+  | some nextPtr => nextPtr.setBack ctx back
 
-noncomputable
-def Sim.OpOperandPtr.removeFromCurrent! (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.OpOperandPtr) : Sim.IRContext OpInfo :=
+@[irreducible]
+def OpOperandPtr.removeFromCurrent! (ctx : IRContext OpInfo) (operandPtr : OpOperandPtr) : IRContext OpInfo :=
   let back := operandPtr.getBack! ctx
   let nextUse := operandPtr.getNextUse! ctx
   let ctx := back.set! ctx nextUse
-  match nextUse.toOption with
+  match nextUse with
   | none => ctx
   | some nextPtr => nextPtr.setBack! ctx back
 
 @[grind _=_, eq_bang ←]
-theorem Sim.OpOperandPtr.removeFromCurrent!_eq_removeFromCurrent
-    {operandPtr : Sim.OpOperandPtr}
-    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.spec.FieldsInBounds) :
-    removeFromCurrent! ctx operandPtr = operandPtr.removeFromCurrent ctx operandIn ctxIn := by
-  simp [Sim.OpOperandPtr.removeFromCurrent, removeFromCurrent!]
-  grind
+theorem OpOperandPtr.removeFromCurrent!_eq_removeFromCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    removeFromCurrent! ctx operandPtr = removeFromCurrent ctx operandPtr operandIn ctxIn := by
+  grind [removeFromCurrent, removeFromCurrent!]
 
 @[grind .]
-theorem Sim.OpOperandPtr.removeFromCurrent_fieldsInBounds :
-    (removeFromCurrent ctx operandPtr h₁ h₂).spec.FieldsInBounds := by
-  simp [removeFromCurrent]
-  grind
+theorem OpOperandPtr.removeFromCurrent_fieldsInBounds :
+    (removeFromCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
+  grind [removeFromCurrent]
 
 @[grind =]
-theorem Sim.OpOperandPtr.removeFromCurrent_veir_inBounds (ptr : Veir.GenericPtr) :
-    ptr.InBounds (removeFromCurrent ctx operand h₁ h₂).spec ↔ ptr.InBounds ctx.spec := by
-  simp [removeFromCurrent]; grind
-
-@[grind =]
-theorem Sim.OpOperandPtr.removeFromCurrent_inBounds (ptr : Sim.GenericPtr) :
+theorem OpOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (removeFromCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
-  simp [removeFromCurrent]; grind
+  grind [removeFromCurrent]
 
-def Sim.OpOperandPtr.insertIntoCurrent (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.OpOperandPtr)
-    (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.spec.FieldsInBounds) : IRContext OpInfo :=
-  let value : Sim.ValuePtr := operandPtr.getValue ctx (by grind)
-  let ctx := operandPtr.setBack ctx value.getOpOperandPtrPtr (by grind) (by grind)
-  let newNextUse := value.getFirstUse ctx (by grind)
-  let ctx := operandPtr.setNextUse ctx newNextUse (by grind) (by grind)
-  let ctx := value.setFirstUse ctx operandPtr.toO (by grind) (by grind)
-  match hNextUse: newNextUse.toOption with
+@[irreducible]
+def OpOperandPtr.insertIntoCurrent (ctx: IRContext OpInfo) (operandPtr: OpOperandPtr)
+    (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.FieldsInBounds) : IRContext OpInfo :=
+  let value := operandPtr.getValue ctx
+  let ctx := operandPtr.setBack ctx (OpOperandPtrPtr.valueFirstUse value)
+  let newNextUse := value.getFirstUse ctx
+  let ctx := operandPtr.setNextUse ctx newNextUse
+  let ctx := value.setFirstUse ctx operandPtr
+  match hNextUse: newNextUse with
   | none => ctx
-  | some nextUse => nextUse.setBack ctx operandPtr.getOpOperandPtrPtr (by grind) (by grind)
+  | some nextUse => nextUse.setBack ctx (OpOperandPtrPtr.operandNextUse operandPtr)
 
-noncomputable
-def Sim.OpOperandPtr.insertIntoCurrent! (ctx : Sim.IRContext OpInfo) (operandPtr : Sim.OpOperandPtr) : Sim.IRContext OpInfo :=
+@[irreducible]
+def OpOperandPtr.insertIntoCurrent! (ctx : IRContext OpInfo) (operandPtr : OpOperandPtr) : IRContext OpInfo :=
   let value := operandPtr.getValue! ctx
-  let ctx := operandPtr.setBack! ctx value.getOpOperandPtrPtr
+  let ctx := operandPtr.setBack! ctx (OpOperandPtrPtr.valueFirstUse value)
   let newNextUse := value.getFirstUse! ctx
   let ctx := operandPtr.setNextUse! ctx newNextUse
-  let ctx := value.setFirstUse! ctx operandPtr.toO
-  match newNextUse.toOption with
+  let ctx := value.setFirstUse! ctx operandPtr
+  match newNextUse with
   | none => ctx
-  | some nextUse => nextUse.setBack! ctx operandPtr.getOpOperandPtrPtr
+  | some nextUse => nextUse.setBack! ctx (OpOperandPtrPtr.operandNextUse operandPtr)
 
 @[grind _=_, eq_bang ←]
-theorem Sim.OpOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
-    {operandPtr : Sim.OpOperandPtr}
-    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.spec.FieldsInBounds) :
-    insertIntoCurrent! ctx operandPtr = operandPtr.insertIntoCurrent ctx operandIn ctxIn := by
-  simp [insertIntoCurrent, insertIntoCurrent!]
-  grind
+theorem OpOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    insertIntoCurrent! ctx operandPtr = insertIntoCurrent ctx operandPtr operandIn ctxIn := by
+  grind [insertIntoCurrent, insertIntoCurrent!]
 
 @[grind .]
-theorem Sim.OpOperandPtr.insertIntoCurrent_fieldsInBounds :
-    (insertIntoCurrent ctx operandPtr h₁ h₂).spec.FieldsInBounds := by
-  simp [insertIntoCurrent]
-  grind
+theorem OpOperandPtr.insertIntoCurrent_fieldsInBounds :
+    (insertIntoCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
+  grind [insertIntoCurrent]
 
 @[grind =]
-theorem Sim.OpOperandPtr.insertIntoCurrent_veir_inBounds (ptr : Veir.GenericPtr) :
-    ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂).spec ↔ ptr.InBounds ctx.spec := by
-  simp [insertIntoCurrent]
-  grind
-
-@[grind =]
-theorem Sim.OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
+theorem OpOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
-  simp [insertIntoCurrent]
-  grind
+  grind [insertIntoCurrent]
 
-/- Use def chain for operands. -/
+/-
+  Use def chain for operands.
+-/
 
-def Sim.BlockOperandPtr.removeFromCurrent (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.BlockOperandPtr)
+@[irreducible]
+def BlockOperandPtr.removeFromCurrent (ctx: IRContext OpInfo) (operandPtr: BlockOperandPtr)
     (operandIn: operandPtr.InBounds ctx := by grind)
-    (ctxInBounds: ctx.spec.FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
-  let back := operandPtr.getBack ctx (by grind)
-  let nextUse := operandPtr.getNextUse ctx (by grind)
-  let ctx := back.set ctx nextUse (by grind) (by grind)
-  match hNextUse: nextUse.toOption with
+    (ctxInBounds: ctx.FieldsInBounds := by grind) : IRContext OpInfo :=
+  let back := operandPtr.getBack ctx
+  let nextUse := operandPtr.getNextUse ctx
+  let ctx := back.set ctx nextUse
+  match hNextUse: nextUse with
   | none => ctx
-  | some nextPtr => nextPtr.setBack ctx back (by grind) (by grind)
+  | some nextPtr => nextPtr.setBack ctx back
 
-noncomputable
-def Sim.BlockOperandPtr.removeFromCurrent! (ctx : Sim.IRContext OpInfo) (operandPtr : Sim.BlockOperandPtr) :
-    Sim.IRContext OpInfo :=
+@[irreducible]
+def BlockOperandPtr.removeFromCurrent! (ctx : IRContext OpInfo) (operandPtr : BlockOperandPtr) :
+    IRContext OpInfo :=
   let back := operandPtr.getBack! ctx
   let nextUse := operandPtr.getNextUse! ctx
   let ctx := back.set! ctx nextUse
-  match nextUse.toOption with
+  match nextUse with
   | none => ctx
   | some nextPtr => nextPtr.setBack! ctx back
 
 @[grind _=_, eq_bang ←]
-theorem Sim.BlockOperandPtr.removeFromCurrent!_eq_removeFromCurrent
-    {operandPtr : Sim.BlockOperandPtr}
-    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.spec.FieldsInBounds) :
-    removeFromCurrent! ctx operandPtr = operandPtr.removeFromCurrent ctx operandIn ctxIn := by
-  simp [Sim.BlockOperandPtr.removeFromCurrent, removeFromCurrent!]
-  grind
+theorem BlockOperandPtr.removeFromCurrent!_eq_removeFromCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    removeFromCurrent! ctx operandPtr = removeFromCurrent ctx operandPtr operandIn ctxIn := by
+  grind [removeFromCurrent, removeFromCurrent!]
 
 @[grind .]
-theorem Sim.BlockOperandPtr.removeFromCurrent_fieldsInBounds :
-    (removeFromCurrent ctx operandPtr h₁ h₂).spec.FieldsInBounds := by
-  simp [removeFromCurrent]
-  grind
+theorem BlockOperandPtr.removeFromCurrent_fieldsInBounds :
+    (removeFromCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
+  grind [removeFromCurrent]
 
 @[grind =]
-theorem Sim.BlockOperandPtr.removeFromCurrent_veir_inBounds (ptr : Veir.GenericPtr) :
-    ptr.InBounds (removeFromCurrent ctx operand h₁ h₂).spec ↔ ptr.InBounds ctx.spec := by
-  simp [removeFromCurrent]
-  grind
-
-@[grind =]
-theorem Sim.BlockOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
+theorem BlockOperandPtr.removeFromCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (removeFromCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
-  simp [removeFromCurrent]
-  grind
+  grind [removeFromCurrent]
 
-def Sim.BlockOperandPtr.insertIntoCurrent (ctx: Sim.IRContext OpInfo) (operandPtr: Sim.BlockOperandPtr)
-    (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.spec.FieldsInBounds) : Sim.IRContext OpInfo :=
-  let block := operandPtr.getValue ctx (by grind)
-  let ctx := operandPtr.setBack ctx block.getBlockOperandPtrPtr (by grind) (by grind)
-  let newNextUse := block.getFirstUse ctx (by grind)
-  let ctx := operandPtr.setNextUse ctx newNextUse (by grind) (by grind)
-  let ctx := block.setFirstUse ctx operandPtr.toO (by grind) (by grind)
-  match hNextUse: newNextUse.toOption with
+@[irreducible]
+def BlockOperandPtr.insertIntoCurrent (ctx: IRContext OpInfo) (operandPtr: BlockOperandPtr)
+    (operandIn: operandPtr.InBounds ctx := by grind) (ctxInBounds: ctx.FieldsInBounds) : IRContext OpInfo :=
+  let block := operandPtr.getValue ctx
+  let ctx := operandPtr.setBack ctx (BlockOperandPtrPtr.blockFirstUse block)
+  let newNextUse := block.getFirstUse ctx
+  let ctx := operandPtr.setNextUse ctx newNextUse
+  let ctx := block.setFirstUse ctx operandPtr
+  match hNextUse: newNextUse with
   | none => ctx
-  | some nextUse => nextUse.setBack ctx operandPtr.getBlockOperandPtrPtr (by grind) (by grind)
+  | some nextUse => nextUse.setBack ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr) (by grind)
 
-noncomputable
-def Sim.BlockOperandPtr.insertIntoCurrent! (ctx : Sim.IRContext OpInfo) (operandPtr : Sim.BlockOperandPtr) : Sim.IRContext OpInfo :=
+@[irreducible]
+def BlockOperandPtr.insertIntoCurrent! (ctx : IRContext OpInfo) (operandPtr : BlockOperandPtr) : IRContext OpInfo :=
   let block := operandPtr.getValue! ctx
-  let ctx := operandPtr.setBack! ctx block.getBlockOperandPtrPtr
+  let ctx := operandPtr.setBack! ctx (BlockOperandPtrPtr.blockFirstUse block)
   let newNextUse := block.getFirstUse! ctx
   let ctx := operandPtr.setNextUse! ctx newNextUse
-  let ctx := block.setFirstUse! ctx operandPtr.toO
-  match newNextUse.toOption with
+  let ctx := block.setFirstUse! ctx operandPtr
+  match newNextUse with
   | none => ctx
-  | some nextUse => nextUse.setBack! ctx operandPtr.getBlockOperandPtrPtr
+  | some nextUse => nextUse.setBack! ctx (BlockOperandPtrPtr.blockOperandNextUse operandPtr)
 
 @[grind _=_, eq_bang ←]
-theorem Sim.BlockOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
-    {operandPtr : Sim.BlockOperandPtr}
-    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.spec.FieldsInBounds) :
-    insertIntoCurrent! ctx operandPtr = operandPtr.insertIntoCurrent ctx operandIn ctxIn := by
-  simp [insertIntoCurrent, insertIntoCurrent!]
-  grind
+theorem BlockOperandPtr.insertIntoCurrent!_eq_insertIntoCurrent
+    (operandIn : operandPtr.InBounds ctx) (ctxIn : ctx.FieldsInBounds) :
+    insertIntoCurrent! ctx operandPtr = insertIntoCurrent ctx operandPtr operandIn ctxIn := by
+  grind [insertIntoCurrent, insertIntoCurrent!]
 
 @[grind .]
-theorem Sim.BlockOperandPtr.insertIntoCurrent_fieldsInBounds :
-    (insertIntoCurrent ctx operandPtr h₁ h₂).spec.FieldsInBounds := by
-  simp [insertIntoCurrent]
-  grind
+theorem BlockOperandPtr.insertIntoCurrent_fieldsInBounds :
+    (insertIntoCurrent ctx operandPtr h₁ h₂).FieldsInBounds := by
+  grind [insertIntoCurrent]
 
 @[grind =]
-theorem Sim.BlockOperandPtr.insertIntoCurrent_veir_inBounds (ptr : Veir.GenericPtr) :
-    ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂).spec ↔ ptr.InBounds ctx.spec := by
-  simp [insertIntoCurrent]
-  grind
-
-@[grind =]
-theorem Sim.BlockOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
+theorem BlockOperandPtr.insertIntoCurrent_inBounds (ptr : GenericPtr) :
     ptr.InBounds (insertIntoCurrent ctx operand h₁ h₂) ↔ ptr.InBounds ctx := by
-  simp [insertIntoCurrent]
-  grind
+  grind [insertIntoCurrent]
 
-/- Operation linked list. -/
+/-
+  Operation linked list.
+-/
 
-def Sim.OperationPtr.linkBetween (self: Sim.OperationPtr) (ctx: Sim.IRContext OpInfo)
-    (prevOp: Sim.OptionOperationPtr) (nextOp: Sim.OptionOperationPtr)
+def OperationPtr.linkBetween (self: OperationPtr) (ctx: IRContext OpInfo)
+    (prevOp: Option OperationPtr) (nextOp: Option OperationPtr)
     (selfIn: self.InBounds ctx := by grind)
-    (prevIn: prevOp.InBounds ctx := by grind)
-    (nextIn: nextOp.InBounds ctx := by grind) : Sim.IRContext OpInfo :=
-  let ctx := self.setPrevOp ctx prevOp (by grind) (by grind)
-  let ctx := self.setNextOp ctx nextOp (by grind) (by cases h : nextOp.spec <;> grind)
-    match _ : prevOp.toOption with
+    (prevIn: ∀ prev, prevOp = some prev → (prev.InBounds ctx) := by grind)
+    (nextIn: ∀ next, nextOp = some next → (next.InBounds ctx) := by grind) : IRContext OpInfo :=
+  let ctx := self.setPrevOp ctx prevOp
+  let ctx := self.setNextOp ctx nextOp
+    match _ : prevOp with
     | none =>
-      match _ : nextOp.toOption with
+      match _ : nextOp with
       | none => ctx
-      | some nextOp => nextOp.setPrevOp ctx self.toO (by grind) (by grind)
+      | some nextOp => nextOp.setPrevOp ctx (some self)
     | some prevOp =>
-      let ctx := prevOp.setNextOp ctx self.toO (by grind) (by grind)
-      match _ : nextOp.toOption with
+      let ctx := prevOp.setNextOp ctx (some self)
+      match _ : nextOp with
       | none => ctx
-      | some nextOp => nextOp.setPrevOp ctx self.toO (by grind) (by grind)
+      | some nextOp => nextOp.setPrevOp ctx (some self)
 
-noncomputable def Sim.OperationPtr.linkBetween! (self : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
-    (prevOp : Sim.OptionOperationPtr) (nextOp : Sim.OptionOperationPtr) : Sim.IRContext OpInfo :=
+def OperationPtr.linkBetween! (self : OperationPtr) (ctx : IRContext OpInfo)
+    (prevOp : Option OperationPtr) (nextOp : Option OperationPtr) : IRContext OpInfo :=
   let ctx := self.setPrevOp! ctx prevOp
   let ctx := self.setNextOp! ctx nextOp
-  match prevOp.toOption with
+  match prevOp with
   | none =>
-    match nextOp.toOption with
+    match nextOp with
     | none => ctx
-    | some nextOp => nextOp.setPrevOp! ctx self.toO
+    | some nextOp => nextOp.setPrevOp! ctx (some self)
   | some prevOp =>
-    let ctx := prevOp.setNextOp! ctx self.toO
-    match nextOp.toOption with
+    let ctx := prevOp.setNextOp! ctx (some self)
+    match nextOp with
     | none => ctx
-    | some nextOp => nextOp.setPrevOp! ctx self.toO
+    | some nextOp => nextOp.setPrevOp! ctx (some self)
 
 @[grind _=_, eq_bang ←]
-theorem Sim.OperationPtr.linkBetween!_eq_linkBetween {self : Sim.OperationPtr}
-    (selfIn : self.InBounds ctx) (prevIn : prevOp.InBounds ctx) (nextIn : nextOp.InBounds ctx) :
-    linkBetween! self ctx prevOp nextOp = self.linkBetween ctx prevOp nextOp selfIn prevIn nextIn := by
-  simp [Sim.OperationPtr.linkBetween, linkBetween!]
-  grind
+theorem OperationPtr.linkBetween!_eq_linkBetween
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevOp = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextOp = some next → next.InBounds ctx) :
+    linkBetween! self ctx prevOp nextOp = linkBetween self ctx prevOp nextOp selfIn prevIn nextIn := by
+  unfold linkBetween linkBetween!; grind
 
 @[grind =]
-theorem Sim.OperationPtr.linkBetween_inBounds (ptr : GenericPtr) :
+theorem OperationPtr.linkBetween_inBounds (ptr : GenericPtr) :
     ptr.InBounds (linkBetween self ctx prevOp nextOp h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
-  simp [linkBetween]
-  grind
-
-@[grind =]
-theorem Sim.OperationPtr.linkBetween_veir_inBounds (ptr : Veir.GenericPtr) :
-    ptr.InBounds (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).spec ↔ ptr.InBounds ctx.spec := by
-  simp [linkBetween]
-  grind
+  unfold linkBetween; grind
 
 @[grind .]
-theorem Sim.OperationPtr.linkBetween_fieldsInBounds (_hx : ctx.spec.FieldsInBounds) :
-    (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).spec.FieldsInBounds := by
-  simp [linkBetween]
-  grind (gen := 20)
+theorem OperationPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (linkBetween self ctx prevOp nextOp h₁ h₂ h₃).FieldsInBounds := by
+  unfold linkBetween; simp only; split <;> grind
 
-/-- Set `self` parent to be `parent`. -/
-def Sim.OperationPtr.setParentWithCheck (self: Sim.OperationPtr) (ctx: Sim.IRContext OpInfo) (parent: Sim.BlockPtr)
-    (selfIn: self.InBounds ctx := by grind) (parentSim : parent.InBounds ctx := by grind) : Option (Sim.IRContext OpInfo) :=
-  match (self.getParent ctx (by grind)).toOption with
+/--
+  Set `self` parent to be `parent`.
+  Checks that `self` does not already have a parent.
+  TODO: We should also check that `self` does not contain `parent`.
+-/
+@[irreducible]
+def OperationPtr.setParentWithCheck (self: OperationPtr) (ctx: IRContext OpInfo) (parent: BlockPtr)
+    (selfIn: self.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
+  match (self.getParent ctx (by grind)) with
   | some _ => none
-  | none => self.setParent ctx parent.toO (by grind) (by grind)
+  | none => self.setParent ctx (some parent)
 
-noncomputable
-def Sim.OperationPtr.setParentWithCheck! (self : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (parent : Sim.BlockPtr) :
-    Option (Sim.IRContext OpInfo)  :=
-  match (self.getParent! ctx).toOption with
+@[irreducible]
+def OperationPtr.setParentWithCheck! (self : OperationPtr) (ctx : IRContext OpInfo) (parent : BlockPtr) :
+    Option (IRContext OpInfo)  :=
+  match self.getParent! ctx with
   | some _ => none
-  | none => self.setParent! ctx parent.toO
-
+  | none => self.setParent! ctx (some parent)
 
 @[grind _=_, eq_bang ←]
-theorem Sim.OperationPtr.setParentWithCheck!_eq_setParentWithCheck {self : Sim.OperationPtr} (selfIn : self.InBounds ctx) parentIb :
-    setParentWithCheck! self ctx parent = self.setParentWithCheck ctx parent selfIn parentIb := by
-  simp [Sim.OperationPtr.setParentWithCheck, setParentWithCheck!]
-  grind
+theorem OperationPtr.setParentWithCheck!_eq_setParentWithCheck
+    (selfIn : self.InBounds ctx) :
+    setParentWithCheck! self ctx parent = setParentWithCheck self ctx parent selfIn := by
+  grind [setParentWithCheck, setParentWithCheck!]
 
 @[grind .]
-theorem Sim.OperationPtr.setParentWithCheck_fieldsInBounds
-    (_h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
-    (setParentWithCheck self ctx parent h₂).maybe₁ (·.spec.FieldsInBounds) := by
-  simp [setParentWithCheck]
-  grind
+theorem OperationPtr.setParentWithCheck_fieldsInBounds
+    (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
+    (setParentWithCheck self ctx parent h₂).maybe₁ IRContext.FieldsInBounds := by
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
-theorem Sim.OperationPtr.setParentWithCheck_fieldsInBounds_some
-    (h₁ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
-    (_heq : setParentWithCheck self ctx parent h₁ = some newCtx) :
-    newCtx.spec.FieldsInBounds := by
-  simp [setParentWithCheck] at _heq ⊢
-  grind
+theorem OperationPtr.setParentWithCheck_fieldsInBounds_some
+    (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
+    (heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
+    newCtx.FieldsInBounds := by
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
-theorem Sim.OperationPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
-    h₁ h₂ (heq : setParentWithCheck self ctx parent h₁ h₂ = some newCtx) :
+theorem OperationPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
+    (h : self.InBounds ctx)
+    (heq : setParentWithCheck self ctx parent h = some newCtx) :
     ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
-  simp [setParentWithCheck] at heq ⊢
-  grind
+  grind [setParentWithCheck]
 
-@[grind =>]
-theorem Sim.OperationPtr.setParentWithCheck_veir_inBounds (ptr : Veir.GenericPtr)
-    h₁ h₂ (heq : setParentWithCheck self ctx parent h₁ h₂ = some newCtx) :
-    ptr.InBounds newCtx.spec ↔ ptr.InBounds ctx.spec := by
-  simp [setParentWithCheck] at heq ⊢
-  grind
-
-def Sim.OperationPtr.linkBetweenWithParent (self: Sim.OperationPtr) (ctx: Sim.IRContext OpInfo)
-    (prevOp: Sim.OptionOperationPtr) (nextOp: Sim.OptionOperationPtr) (parent: Sim.BlockPtr)
+@[irreducible]
+def OperationPtr.linkBetweenWithParent (self: OperationPtr) (ctx: IRContext OpInfo)
+    (prevOp: Option OperationPtr) (nextOp: Option OperationPtr)
+    (parent: BlockPtr)
     (selfIn: self.InBounds ctx := by grind)
-    (prevIn: prevOp.InBounds ctx := by grind)
-    (nextIn: nextOp.InBounds ctx := by grind)
+    (prevIn: ∀ prev, prevOp = some prev → (prev.InBounds ctx) := by grind)
+    (nextIn: ∀ next, nextOp = some next → (next.InBounds ctx) := by grind)
     (parentIn : parent.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
   let ctx := self.linkBetween ctx prevOp nextOp
-  rlet ctx ← self.setParentWithCheck ctx parent (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind])
-  match _ : prevOp.toOption with
+  rlet ctx ← self.setParentWithCheck ctx parent
+  match _ : prevOp with
     | none =>
-      let ctx := parent.setFirstOp ctx self.toO (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind])
-      match _ : nextOp.toOption with
-      | none => parent.setLastOp ctx self.toO (by grind) (by grind)
+      let ctx := parent.setFirstOp ctx (some self)
+      match _ : nextOp with
+      | none => parent.setLastOp ctx (some self)
       | some nextOp => ctx
     | some prevOp =>
-      match _ : nextOp.toOption with
-      | none => parent.setLastOp ctx self.toO (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind])
+      match _ : nextOp with
+      | none => parent.setLastOp ctx (some self)
       | some nextOp => ctx
 
-noncomputable def Sim.OperationPtr.linkBetweenWithParent! (self : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
-    (prevOp : Sim.OptionOperationPtr) (nextOp : Sim.OptionOperationPtr)
-    (parent : Sim.BlockPtr) : Option (Sim.IRContext OpInfo) :=
+@[irreducible]
+def OperationPtr.linkBetweenWithParent! (self : OperationPtr) (ctx : IRContext OpInfo)
+    (prevOp : Option OperationPtr) (nextOp : Option OperationPtr)
+    (parent : BlockPtr) : Option (IRContext OpInfo) :=
   let ctx := self.linkBetween! ctx prevOp nextOp
   rlet ctx ← self.setParentWithCheck! ctx parent
-  match prevOp.toOption with
+  match prevOp with
   | none =>
-    let ctx := parent.setFirstOp! ctx self.toO
-    match nextOp.toOption with
-    | none => parent.setLastOp! ctx self.toO
+    let ctx := parent.setFirstOp! ctx (some self)
+    match nextOp with
+    | none => parent.setLastOp! ctx (some self)
     | some _ => ctx
   | some _ =>
-    match nextOp.toOption with
-    | none => parent.setLastOp! ctx self.toO
+    match nextOp with
+    | none => parent.setLastOp! ctx (some self)
     | some _ => ctx
 
 @[grind _=_, eq_bang ←]
-theorem Sim.OperationPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
-    {self : Sim.OperationPtr}
-    (selfIn : self.InBounds ctx) (prevIn : prevOp.InBounds ctx) (nextIn : nextOp.InBounds ctx) (parentIn : parent.InBounds ctx) :
+theorem OperationPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevOp = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextOp = some next → next.InBounds ctx)
+    (parentIn : parent.InBounds ctx) :
     linkBetweenWithParent! self ctx prevOp nextOp parent =
-    self.linkBetweenWithParent ctx prevOp nextOp parent selfIn prevIn nextIn parentIn := by
-  simp [Sim.OperationPtr.linkBetweenWithParent, linkBetweenWithParent!]
-  grind
+    linkBetweenWithParent self ctx prevOp nextOp parent selfIn prevIn nextIn parentIn := by
+  grind [linkBetweenWithParent, linkBetweenWithParent!]
 
 @[grind .]
-theorem Sim.OperationPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)
+theorem OperationPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)
     (heq : linkBetweenWithParent self ctx prevOp nextOp parent h₁ h₂ h₃ h₄ = some newCtx) :
     ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
-  simp [linkBetweenWithParent] at heq ⊢
-  grind [generic_ptr_grind]
+  unfold linkBetweenWithParent at heq; grind
 
 @[grind .]
-theorem Sim.OperationPtr.linkBetweenWithParent_veir_inBounds (ptr : Veir.GenericPtr)
+theorem OperationPtr.linkBetweenWithParent_fieldsInBounds (hx : ctx.FieldsInBounds)
     (heq : linkBetweenWithParent self ctx prevOp nextOp parent h₁ h₂ h₃ h₄ = some newCtx) :
-    ptr.InBounds newCtx.spec ↔ ptr.InBounds ctx.spec := by
-  simp [linkBetweenWithParent] at heq ⊢
-  grind [generic_ptr_grind]
+    newCtx.FieldsInBounds := by
+  unfold linkBetweenWithParent at heq
+  split at heq <;> grind
 
-@[grind .]
-theorem Sim.OperationPtr.linkBetweenWithParent_fieldsInBounds (_hx : ctx.spec.FieldsInBounds)
-    (_heq : linkBetweenWithParent self ctx prevOp nextOp parent h₁ h₂ h₃ h₄ = some newCtx) :
-    newCtx.spec.FieldsInBounds := by
-  simp [linkBetweenWithParent] at _heq ⊢
-  grind
+/-
+  Block linked list.
+-/
 
-/- Block linked list. -/
-def Sim.BlockPtr.linkBetween (self: BlockPtr) (ctx: IRContext OpInfo)
-    (prevBlock: OptionBlockPtr) (nextBlock: OptionBlockPtr)
+@[irreducible]
+def BlockPtr.linkBetween (self: BlockPtr) (ctx: IRContext OpInfo)
+    (prevBlock: Option BlockPtr) (nextBlock: Option BlockPtr)
     (selfIn: self.InBounds ctx := by grind)
-    (prevIn: prevBlock.InBounds ctx := by grind)
-    (nextIn: nextBlock.InBounds ctx := by grind) : IRContext OpInfo :=
-  let ctx := self.setPrevBlock ctx prevBlock (by grind) (by grind)
-  let ctx := self.setNextBlock ctx nextBlock (by grind) (by cases h : nextBlock.spec <;> grind)
-  match _ : prevBlock.toOption with
+    (prevIn: ∀ prev, prevBlock = some prev → (prev.InBounds ctx) := by grind)
+    (nextIn: ∀ next, nextBlock = some next → (next.InBounds ctx) := by grind) : IRContext OpInfo :=
+  let ctx := self.setPrevBlock ctx prevBlock
+  let ctx := self.setNextBlock ctx nextBlock
+  match _ : prevBlock with
   | none =>
-    match _ : nextBlock.toOption with
+    match _ : nextBlock with
     | none => ctx
-    | some nextBlock => nextBlock.setPrevBlock ctx self.toO (by grind) (by grind)
+    | some nextBlock => nextBlock.setPrevBlock ctx (some self)
   | some prevBlock =>
-    let ctx := prevBlock.setNextBlock ctx self.toO (by grind) (by grind)
-    match _ : nextBlock.toOption with
+    let ctx := prevBlock.setNextBlock ctx (some self)
+    match _ : nextBlock with
     | none => ctx
-    | some nextBlock => nextBlock.setPrevBlock ctx self.toO (by grind) (by grind)
+    | some nextBlock => nextBlock.setPrevBlock ctx (some self)
 
-noncomputable
-def Sim.BlockPtr.linkBetween! (self : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
-    (prevBlock : Sim.OptionBlockPtr) (nextBlock : Sim.OptionBlockPtr) : Sim.IRContext OpInfo :=
+def BlockPtr.linkBetween! (self : BlockPtr) (ctx : IRContext OpInfo)
+    (prevBlock : Option BlockPtr) (nextBlock : Option BlockPtr) : IRContext OpInfo :=
   let ctx := self.setPrevBlock! ctx prevBlock
   let ctx := self.setNextBlock! ctx nextBlock
-  match prevBlock.toOption with
+  match prevBlock with
   | none =>
-    match nextBlock.toOption with
+    match nextBlock with
     | none => ctx
-    | some nextBlock => nextBlock.setPrevBlock! ctx self.toO
+    | some nextBlock => nextBlock.setPrevBlock! ctx (some self)
   | some prevBlock =>
-    let ctx := prevBlock.setNextBlock! ctx self.toO
-    match nextBlock.toOption with
+    let ctx := prevBlock.setNextBlock! ctx (some self)
+    match nextBlock with
     | none => ctx
-    | some nextBlock => nextBlock.setPrevBlock! ctx self.toO
+    | some nextBlock => nextBlock.setPrevBlock! ctx (some self)
 
 @[grind _=_, eq_bang ←]
-theorem Sim.BlockPtr.linkBetween!_eq_linkBetween {self : Sim.BlockPtr}
-    (selfIn : self.InBounds ctx) (prevIn : prevBlock.InBounds ctx) (nextIn : nextBlock.InBounds ctx) :
-    linkBetween! self ctx prevBlock nextBlock = self.linkBetween ctx prevBlock nextBlock selfIn prevIn nextIn := by
-  simp [Sim.BlockPtr.linkBetween, linkBetween!]
-  grind
+theorem BlockPtr.linkBetween!_eq_linkBetween
+    (selfIn : self.InBounds ctx)
+    (prevIn : ∀ prev, prevBlock = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextBlock = some next → next.InBounds ctx) :
+    linkBetween! self ctx prevBlock nextBlock = linkBetween self ctx prevBlock nextBlock selfIn prevIn nextIn := by
+  unfold linkBetween linkBetween!; grind
 
 @[grind =]
-theorem Sim.BlockPtr.linkBetween_inBounds (ptr : GenericPtr) :
+theorem BlockPtr.linkBetween_inBounds (ptr : GenericPtr) :
     ptr.InBounds (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃) ↔ ptr.InBounds ctx := by
-  simp [linkBetween]
-  grind
-
-@[grind =]
-theorem Sim.BlockPtr.linkBetween_veir_inBounds (ptr : Veir.GenericPtr) :
-    ptr.InBounds (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃).spec ↔ ptr.InBounds ctx.spec := by
-  simp [linkBetween]
-  grind
+  unfold linkBetween; grind
 
 @[grind .]
-theorem Sim.BlockPtr.linkBetween_fieldsInBounds (_hx : ctx.spec.FieldsInBounds) :
-    (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃).spec.FieldsInBounds := by
-  simp [linkBetween]
-  grind (gen := 20)
+theorem BlockPtr.linkBetween_fieldsInBounds (hx : ctx.FieldsInBounds) :
+    (linkBetween self ctx prevBlock nextBlock h₁ h₂ h₃).FieldsInBounds := by
+  unfold linkBetween; simp only; split <;> grind
 
-/-- Set `self` parent to be `parent`. -/
-def Sim.BlockPtr.setParentWithCheck (self: Sim.BlockPtr) (ctx: Sim.IRContext OpInfo) (parent: Sim.RegionPtr)
-    (selfIn: self.InBounds ctx := by grind) (parentIb : parent.InBounds ctx := by grind) : Option (Sim.IRContext OpInfo) :=
-  match (self.getParent ctx (by grind)).toOption with
+/--
+  Set `self` parent to be `parent`.
+  Checks that `self` does not already have a parent.
+  TODO: We should also check that `self` does not contain `parent`.
+-/
+@[irreducible]
+def BlockPtr.setParentWithCheck (self: BlockPtr) (ctx: IRContext OpInfo) (parent: RegionPtr)
+    (selfIn: self.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
+  match (self.getParent ctx (by grind)) with
   | some _ => none
-  | none => self.setParent ctx parent.toO (by grind) (by grind [generic_ptr_grind])
+  | none => self.setParent ctx (some parent)
 
-noncomputable
-def Sim.BlockPtr.setParentWithCheck! (self : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (parent : Sim.RegionPtr) :
-    Option (Sim.IRContext OpInfo) :=
-  match (self.getParent! ctx).toOption with
+@[irreducible]
+def BlockPtr.setParentWithCheck! (self : BlockPtr) (ctx : IRContext OpInfo) (parent : RegionPtr) :
+    Option (IRContext OpInfo) :=
+  match self.getParent! ctx with
   | some _ => none
-  | none => self.setParent! ctx parent.toO
+  | none => self.setParent! ctx (some parent)
 
 @[grind _=_, eq_bang ←]
-theorem Sim.BlockPtr.setParentWithCheck!_eq_setParentWithCheck {self : Sim.BlockPtr} (selfIn : self.InBounds ctx) :
-    setParentWithCheck! self ctx parent = self.setParentWithCheck ctx parent selfIn parentSim := by
-  simp [Sim.BlockPtr.setParentWithCheck, setParentWithCheck!]
-  grind
+theorem BlockPtr.setParentWithCheck!_eq_setParentWithCheck
+    (selfIn : self.InBounds ctx) :
+    setParentWithCheck! self ctx parent = setParentWithCheck self ctx parent selfIn := by
+  grind [setParentWithCheck, setParentWithCheck!]
 
 @[grind .]
-theorem Sim.BlockPtr.setParentWithCheck_fieldsInBounds
-    (_h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
-    (setParentWithCheck self ctx parent h₂ (by grind)).maybe₁ (·.spec.FieldsInBounds) := by
-  simp [setParentWithCheck]
-  grind
+theorem BlockPtr.setParentWithCheck_fieldsInBounds
+    (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx) :
+    (setParentWithCheck self ctx parent h₂).maybe₁ IRContext.FieldsInBounds := by
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
-theorem Sim.BlockPtr.setParentWithCheck_fieldsInBounds_some
-    (_h₁ : ctx.spec.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
-    (_heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
-    newCtx.spec.FieldsInBounds := by
-  simp [setParentWithCheck] at _heq ⊢
-  grind
+theorem BlockPtr.setParentWithCheck_fieldsInBounds_some
+    (h₁ : ctx.FieldsInBounds) (h₂ : self.InBounds ctx) (h₃ : parent.InBounds ctx)
+    (heq : setParentWithCheck self ctx parent h₂ = some newCtx) :
+    newCtx.FieldsInBounds := by
+  grind [setParentWithCheck, Option.maybe₁_def]
 
 @[grind =>]
-theorem Sim.BlockPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
-    (heq : setParentWithCheck self ctx parent h₁ h₂ = some newCtx) :
+theorem BlockPtr.setParentWithCheck_inBounds (ptr : GenericPtr)
+    (h : self.InBounds ctx)
+    (heq : setParentWithCheck self ctx parent h = some newCtx) :
     ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
-  simp [setParentWithCheck] at heq ⊢
-  grind
+  grind [setParentWithCheck]
 
-@[grind =>]
-theorem Sim.BlockPtr.setParentWithCheck_veir_inBounds (ptr : Veir.GenericPtr)
-    (heq : setParentWithCheck self ctx parent h₁ h₂ = some newCtx) :
-    ptr.InBounds newCtx.spec ↔ ptr.InBounds ctx.spec := by
-  simp [setParentWithCheck] at heq ⊢
-  grind
-
-def Sim.BlockPtr.linkBetweenWithParent (self: BlockPtr) (ctx: IRContext OpInfo)
-    (prevBlock: OptionBlockPtr) (nextBlock: OptionBlockPtr)
-    (parent: RegionPtr) (selfIn: self.InBounds ctx := by grind)
-    (prevIn: prevBlock.InBounds ctx := by grind)
-    (nextIn: nextBlock.InBounds ctx := by grind)
+@[irreducible]
+def BlockPtr.linkBetweenWithParent (self: BlockPtr) (ctx: IRContext OpInfo)
+    (prevBlock: Option BlockPtr) (nextBlock: Option BlockPtr)
+    (parent: RegionPtr)
+    (selfIn: self.InBounds ctx := by grind)
+    (prevIn: ∀ prev, prevBlock = some prev → (prev.InBounds ctx) := by grind)
+    (nextIn: ∀ next, nextBlock = some next → (next.InBounds ctx) := by grind)
     (parentIn : parent.InBounds ctx := by grind) : Option (IRContext OpInfo) :=
   let ctx := self.linkBetween ctx prevBlock nextBlock
-  rlet ctx ← self.setParentWithCheck ctx parent (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind])
-  match _ : prevBlock.toOption with
+  rlet ctx ← self.setParentWithCheck ctx parent
+  match _ : prevBlock with
     | none =>
-      let ctx := parent.setFirstBlock ctx self.toO (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind])
-      match _ : nextBlock.toOption with
-      | none =>
-        let ctx := parent.setLastBlock ctx self.toO (by grind) (by grind)
-        ctx
+      let ctx := parent.setFirstBlock ctx (some self)
+      match _ : nextBlock with
+      | none => parent.setLastBlock ctx (some self)
       | some nextBlock => ctx
     | some prevBlock =>
-      match _ : nextBlock.toOption with
-      | none => parent.setLastBlock ctx self.toO (by grind [generic_ptr_grind]) (by grind [generic_ptr_grind])
+      match _ : nextBlock with
+      | none => parent.setLastBlock ctx (some self)
       | some nextBlock => ctx
 
-noncomputable
-def Sim.BlockPtr.linkBetweenWithParent! (self : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo)
-    (prevBlock : Sim.OptionBlockPtr) (nextBlock : Sim.OptionBlockPtr)
-    (parent : Sim.RegionPtr) : Option (Sim.IRContext OpInfo) :=
+@[irreducible]
+def BlockPtr.linkBetweenWithParent! (self : BlockPtr) (ctx : IRContext OpInfo)
+    (prevBlock : Option BlockPtr) (nextBlock : Option BlockPtr)
+    (parent : RegionPtr) : Option (IRContext OpInfo) :=
   let ctx := self.linkBetween! ctx prevBlock nextBlock
   rlet ctx ← self.setParentWithCheck! ctx parent
-  match prevBlock.toOption with
+  match prevBlock with
   | none =>
-    let ctx := parent.setFirstBlock! ctx self.toO
-    match nextBlock.toOption with
-    | none => parent.setLastBlock! ctx self.toO
+    let ctx := parent.setFirstBlock! ctx (some self)
+    match nextBlock with
+    | none => parent.setLastBlock! ctx (some self)
     | some _ => ctx
   | some _ =>
-    match nextBlock.toOption with
-    | none => parent.setLastBlock! ctx self.toO
+    match nextBlock with
+    | none => parent.setLastBlock! ctx (some self)
     | some _ => ctx
 
 @[grind _=_, eq_bang ←]
-theorem Sim.BlockPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
-    {self : Sim.BlockPtr} {prevBlock : Sim.OptionBlockPtr} {nextBlock : Sim.OptionBlockPtr} {parent : Sim.RegionPtr}
+theorem BlockPtr.linkBetweenWithParent!_eq_linkBetweenWithParent
     (selfIn : self.InBounds ctx)
-    (prevIn : prevBlock.InBounds ctx)
-    (nextIn : nextBlock.InBounds ctx)
+    (prevIn : ∀ prev, prevBlock = some prev → prev.InBounds ctx)
+    (nextIn : ∀ next, nextBlock = some next → next.InBounds ctx)
     (parentIn : parent.InBounds ctx) :
     linkBetweenWithParent! self ctx prevBlock nextBlock parent =
-    self.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn := by
-  simp [Sim.BlockPtr.linkBetweenWithParent, linkBetweenWithParent!]
-  grind
+    linkBetweenWithParent self ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn := by
+  grind [linkBetweenWithParent, linkBetweenWithParent!]
 
 @[grind .]
-theorem Sim.BlockPtr.linkBetweenWithParent_veir_inBounds (ptr : Veir.GenericPtr)
-    (heq : linkBetweenWithParent self ctx prevBlock nextBlock parent h₁ h₂ h₃ h₄ = some newCtx) :
-    ptr.InBounds newCtx.spec ↔ ptr.InBounds ctx.spec := by
-  simp [linkBetweenWithParent] at heq ⊢
-  grind [generic_ptr_grind]
-
-@[grind .]
-theorem Sim.BlockPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)
+theorem BlockPtr.linkBetweenWithParent_inBounds (ptr : GenericPtr)
     (heq : linkBetweenWithParent self ctx prevBlock nextBlock parent h₁ h₂ h₃ h₄ = some newCtx) :
     ptr.InBounds newCtx ↔ ptr.InBounds ctx := by
-  simp [linkBetweenWithParent] at heq ⊢
-  grind [generic_ptr_grind]
+  unfold linkBetweenWithParent at heq
+  grind
 
 @[grind .]
-theorem Sim.BlockPtr.linkBetweenWithParent_fieldsInBounds (_hx : ctx.spec.FieldsInBounds)
-    (_heq : linkBetweenWithParent self ctx prevBlock nextBlock parent h₁ h₂ h₃ h₄ = some newCtx) :
-    newCtx.spec.FieldsInBounds := by
-  simp [linkBetweenWithParent] at _heq ⊢
-  grind
+theorem BlockPtr.linkBetweenWithParent_fieldsInBounds (hx : ctx.FieldsInBounds)
+    (heq : linkBetweenWithParent self ctx prevBlock nextBlock parent h₁ h₂ h₃ h₄ = some newCtx) :
+    newCtx.FieldsInBounds := by
+  unfold linkBetweenWithParent at heq
+  split at heq <;> grind

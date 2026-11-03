@@ -7,14 +7,23 @@ package exarray where
 /-! ## Static C FFI Library -/
 
 input_file ffi_static.c where
-  path := "c" / "ffi_static.cpp"
+  path := "c" / "ffi_static.c"
   text := true
 
 target ffi_static.o pkg : FilePath := do
   let srcJob ← ffi_static.c.fetch
   let oFile := pkg.buildDir / "c" / "ffi_static.o"
-  let weakArgs := #["-I", (← getLeanIncludeDir).toString]
-  buildO oFile srcJob weakArgs #["-std=c++23", "-fPIC", "-flto=full"] (pkg.dir / "compiler") getLeanTrace
+  let gmpInclude ← captureProc {cmd := "pkg-config", args := #["--variable=includedir", "gmp"]}
+  let lean ← getLeanInstall
+  -- Use Lean's compiler with its normal system header search for external GMP.
+  -- buildLeanO instead restricts headers to Lean's bundled sysroot.
+  -- Lean ships its resource headers under include/clang. External LEAN_CC compilers
+  -- must use their own headers: mixing versions breaks stdint/stdatomic guards.
+  let resourceArgs := if lean.customCc then #[]
+    else #["-isystem", (lean.includeDir / "clang").toString]
+  buildO oFile srcJob (#["-I", lean.includeDir.toString, "-I", gmpInclude] ++ resourceArgs ++ lean.cFlags)
+    #["-std=c11", "-fPIC", "-flto=full", "-O3", "-DLEAN_USE_GMP", "-fwrapv"]
+    lean.cc (extraDepTrace := do addLeanTrace; return (← getTrace))
 
 target libleanffi_static pkg : FilePath := do
   let ffiO ← ffi_static.o.fetch

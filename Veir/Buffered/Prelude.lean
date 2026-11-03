@@ -1,0 +1,131 @@
+module
+
+public import Lean
+public import Veir.Prelude
+public import Veir.Buffered.PrePrelude
+meta import Veir.Buffered.PrePrelude
+
+public section
+
+def Erased.map {α} (a : Erased α) (f : α → β) : Erased β :=
+  .mk (f a.out)
+
+@[simp, grind =]
+theorem Erased.map_out {a : Erased α} (f : α → β) : (a.map f).out = f a.out := by simp [map]
+
+theorem Erased.map_eq_mk (a : Erased α) (f : α → β) : a.map f = .mk (f a.out) := by
+  apply Erased.out_inj
+  simp
+
+@[simp, grind =]
+theorem Erased.map_mk (a : α) (f : α → β) : (Erased.mk a).map f = .mk (f a) := by
+  apply Erased.out_inj
+  simp
+
+@[simp, grind norm]
+theorem UInt64.add_int64_zero (x : UInt64) : x + (0 : Int64) = x := by
+  simp [UInt64.add_int64_r_def]
+
+@[simp, grind norm]
+theorem UInt64.uint64_zero_add (x : Int64) : (0 : UInt64) + x = x.toUInt64 := by
+  simp [UInt64.add_int64_r_def]
+
+@[grind =]
+theorem UInt64.toNat_toUSize_of_lt (i : UInt64) (hi : i.toNat < 2^32) :
+    i.toUSize.toNat = i.toNat := by
+  grind [UInt64.toNat_toUSize, System.Platform.numBits_eq]
+
+@[grind =]
+theorem Array.uget_eq_get_of_lt_uint32_max (i : UInt64) (hi : i.toNat < 2^32) (a : Array α) h :
+    a.uget i.toUSize h = a[i.toNat]'(by grind) := by
+  grind [Array.uget]
+
+open Lean Meta Simp in
+def mkInst : Expr := mkConst  `instHAddInt64UInt64_veir []
+open Lean Meta Simp in
+def mkInst' : Expr := mkConst `instHAddUInt64Int64_veir []
+
+builtin_dsimproc_decl normNatAddInst ((_ + _ : Int64)) :=
+  Lean.Meta.Grind.Arith.normInst 3 mkInst
+builtin_dsimproc_decl normNatAddInst' ((_ + _ : UInt64)) :=
+  Lean.Meta.Grind.Arith.normInst 3 mkInst'
+
+attribute [seval] normNatAddInst normNatAddInst'
+
+open Lean Meta Simp
+
+private meta def uint64Lit? (e : Expr) : Option UInt64 := do
+  return UInt64.ofNat (← e.nat?)
+
+private meta def int64Lit? (e : Expr) : Option Int64 :=
+  match_expr e with
+  | OfNat.ofNat _ _ _ =>
+    (Int64.ofNat ·) <$> e.nat?
+  | Neg.neg _ _ x => do
+    let_expr OfNat.ofNat _ _ _ := x | none
+    return -Int64.ofNat (← e.int?.map (·.toNat))
+  | _ => none
+
+dsimproc_decl reduceMixedAdd ((_ : Int64) + (_ : UInt64)) := fun e => do
+  let_expr HAdd.hAdd _ _ _ _ x y := e | return .continue
+  let some xv := int64Lit? x | return .continue
+  let some yv := uint64Lit? y | return .continue
+  return .done (toExpr (xv + yv))
+
+attribute [seval] reduceMixedAdd
+
+-- TODO: Move in prelude?
+instance : HAdd Nat (Std.Rco Int) (Std.Rco Int) where
+  hAdd x y := (x + y.lower)...(x + y.upper)
+
+@[grind =, layout_simp]
+theorem add_nat_range_def (n : Nat) (r : Std.Rco Int) : n + r = (n+r.lower)...(n + r.upper) := rfl
+
+attribute [grind norm] add_nat_range_def
+
+/-- When an array's size fits in a `UInt64`, `size.toUInt64` round-trips back to `size`. -/
+theorem Array.size_toUInt64_toNat (ar : Array α) (h : ar.size < UInt64.size) :
+    ar.size.toUInt64.toNat = ar.size := by
+  simp only [Nat.toUInt64_eq, UInt64.toNat_ofNat']
+  grind [Nat.mod_eq_of_lt]
+
+theorem Array.size_le_toNat {ar : Array α} {x : UInt64}
+    (hsz : ar.size < UInt64.size) (h : ar.size.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
+  have := Array.size_toUInt64_toNat ar hsz
+  rw [← this]
+  grind [UInt64.le_iff_toNat_le]
+
+/-- When an array's size fits in a `UInt32` (in particular under the `countCard` guards of the rewriter's `create*` entry points), `usize.toUInt64` round-trips back to `size`. -/
+theorem Array.usize_toUInt64_toNat (ar : Array α) (h : ar.size < UInt32.size) :
+    ar.usize.toUInt64.toNat = ar.size := by
+  have husize : ar.usize = USize.ofNat ar.size := rfl
+  rw [husize, USize.toNat_toUInt64, USize.toNat_ofNat_of_lt_32 h]
+
+theorem Array.usize_toUInt64_eq (ar : Array α) (h : ar.size < UInt32.size) :
+    ar.usize.toUInt64 = ar.size.toUInt64 := by
+  apply UInt64.toNat_inj.mp
+  rw [Array.usize_toUInt64_toNat ar h,
+    Array.size_toUInt64_toNat ar (Nat.lt_trans h (by decide))]
+
+theorem Array.usize_le_toNat {ar : Array α} {x : UInt64}
+    (hsz : ar.size < UInt32.size) (h : ar.usize.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
+  have := Array.usize_toUInt64_toNat ar hsz
+  rw [← this]
+  grind [UInt64.le_iff_toNat_le]
+
+-- TODO: remove
+/-- An array's size as a `UInt64`. -/
+@[irreducible] def Array.sizeU64 (ar : Array α) : UInt64 := ar.size.toUInt64
+
+theorem Array.sizeU64_eq (ar : Array α) : ar.sizeU64 = ar.size.toUInt64 := by
+  unfold Array.sizeU64
+  rfl
+
+theorem Array.sizeU64_toNat (ar : Array α) (h : ar.size < UInt64.size) :
+    ar.sizeU64.toNat = ar.size := by
+  rw [sizeU64_eq]
+  exact ar.size_toUInt64_toNat h
+
+macro:50 "rlet" h:ident ":" pat:term ":=" expr:term rest:term : term =>
+  `(match $h:ident : $expr:term with
+      | $pat => $rest)

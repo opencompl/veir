@@ -1,14 +1,14 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i8, i8, i8)}> ({
     %seven = "arith.constant"() <{ "value" = 64 : i8 }> : () -> i8
     %negone = "arith.constant"() <{ "value" = -1 : i8 }> : () -> i8
     %four = "arith.constant"() <{ "value" = 4 : i8 }> : () -> i8
     %nine = "arith.constant"() <{ "value" = 9 : i8 }> : () -> i8
-    %x = "arith.shrui"(%seven, %four) <{exact}> : (i8, i8) -> i8
-    %y = "arith.shrui"(%negone, %four) <{exact}> : (i8, i8) -> i8
-    %z = "arith.shrui"(%negone, %nine) <{exact}> : (i8, i8) -> i8
+    %x = "arith.shrui"(%seven, %four) <{isExact}> : (i8, i8) -> i8
+    %y = "arith.shrui"(%negone, %four) <{isExact}> : (i8, i8) -> i8
+    %z = "arith.shrui"(%negone, %nine) <{isExact}> : (i8, i8) -> i8
     "func.return"(%x, %y, %z) : (i8, i8, i8) -> ()
   }) : () -> ()
 }) : () -> ()

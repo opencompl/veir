@@ -1,0 +1,67 @@
+name: Rebuild the LLVM latest image
+
+# Rebuilds the runner image that is built from LLVM's main branch, so that
+# `lean_action_ci_llvm_latest.yml` has something current to run against. That
+# workflow is what tests the image: `nsc github profile rebuild-base-image`
+# only triggers a build and returns, so a job here could not wait for the image
+# it asked for, and testing the image is per-commit work anyway.
+#
+# It runs on a GitHub-hosted runner, since it cannot run on the profile it is
+# rebuilding.
+
+on:
+  schedule:
+    # Clear of the 06:00 `nightly-veir-tests.yml` run.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  # `nscloud-setup` exchanges a GitHub OIDC token for a short-lived Namespace
+  # one, so there is no pre-shared key to keep.
+  id-token: write
+  contents: read
+
+env:
+  # The tag of the runner profile, which is also the half of `runs-on` that
+  # follows `namespace-profile-`. The commands below want the profile's id
+  # instead, and look it up from this, so there is no id to keep anywhere.
+  PROFILE_TAG: veir-llvm-latest
+
+jobs:
+  rebuild-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: namespacelabs/nscloud-setup@df198f982fcecfb8264bea3f1274b56a61b6dfdc # v0.0.12
+
+      - name: Find the profile
+        run: |
+          profile_id=$(nsc github profile list -o json \
+            | jq -r --arg tag "$PROFILE_TAG" '.[] | select(.tag == $tag) | .profile_id')
+          test -n "$profile_id" || { echo "no runner profile tagged $PROFILE_TAG"; exit 1; }
+          echo "PROFILE_ID=$profile_id" >> "$GITHUB_ENV"
+
+      # The Dockerfile in the repository is the profile's, rather than a copy
+      # to paste into the dashboard. Applying it on every run keeps the two
+      # from drifting apart.
+      - name: Apply the Dockerfile to the profile
+        run: |
+          nsc github profile update \
+            --profile_id "$PROFILE_ID" \
+            --dockerfile .github/docker/namespace-llvm-latest-image.Dockerfile
+
+      # Applying a Dockerfile that differs from the profile's rebuilds the
+      # image by itself, so asking again would build it twice, and each build
+      # here compiles LLVM. On the schedule the file is the same as yesterday's
+      # and nothing would rebuild on its own, which is exactly when the rebuild
+      # has to be asked for: what moves is the commit the build clones, not
+      # the Dockerfile.
+      #
+      # `describe` does not report the Dockerfile the profile holds, so there
+      # is nothing to compare against to decide this per run.
+      - name: Rebuild the base image
+        if: github.event_name == 'schedule'
+        run: |
+          nsc github profile rebuild-base-image --profile_id "$PROFILE_ID"
+

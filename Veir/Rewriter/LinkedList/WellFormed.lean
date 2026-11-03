@@ -1,508 +1,484 @@
 module
 
-public import Veir.IR
 public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.LinkedList.Basic
 
 import Veir.Rewriter.LinkedList.GetSet
-import Veir.IR.WellFormed
-import Std.Data.HashSet
-import Std.Data.ExtHashSet
 
-@[expose] public section
+public section
 
 namespace Veir
-variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
-variable {ctx ctx' : Sim.IRContext OpInfo}
-
-attribute [local grind ext] OpOperand
+variable {OpInfo : Type} [HasOpInfo OpInfo]
+variable {ctx ctx' : IRContext OpInfo}
 
 /- OpOperandPtr.insertIntoCurrent -/
 
-theorem Sim.OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent_of_value_ne
-    (ctxInBounds : ctx.spec.FieldsInBounds) {use : OpOperandPtr} {use' : Veir.OpOperandPtr}
+attribute [local grind ext] OpOperand in
+theorem OpOperandPtr.fields_OpOperandPtr_insertIntoCurrent_of_value_ne
+    (ctxInBounds : ctx.FieldsInBounds) {use use' : OpOperandPtr}
     {useInBounds : use.InBounds ctx}
-    (useOfOtherValue : (use.spec.get! ctx.spec).value ≠ (use'.get! ctx.spec).value) array missingUses
-    (hWF : (use.spec.get! ctx.spec).value.DefUse ctx.spec array missingUses) :
-    use'.get! (insertIntoCurrent ctx use useInBounds ctxInBounds).spec = use'.get! ctx.spec := by
+    (useOfOtherValue : use.getValue! ctx ≠ use'.getValue! ctx) array missingUses
+    (hWF : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use'.getNextUse! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getNextUse! ctx ∧
+    use'.getBack! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getBack! ctx ∧
+    use'.getValue! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getValue! ctx := by
   grind [ValuePtr.DefUse.ValuePtr_getFirstUse_ne_of_value_ne]
 
-theorem Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
-    {value : Veir.ValuePtr} {use : Sim.OpOperandPtr} {hvalue : use.spec ∈ missingUses} (useIb : use.InBounds ctx)
-    (hWF: value.DefUse ctx.spec array missingUses) :
-    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds).spec (#[use.spec] ++ array) (missingUses.erase use.spec) := by
-  have : (use.spec.get! ctx.spec).value = value := by grind [ValuePtr.DefUse.missingUsesValue]
+theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
+    {value : ValuePtr} {hvalue : use ∈ missingUses}
+    (hWF: value.DefUse ctx array missingUses) :
+    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (missingUses.erase use) := by
+  have : use.getValue! ctx = value := by grind
   constructor
   case prevNextUse =>
-    simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
-      Nat.zero_add]
-    simp only [OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent]
-    intros i
-    cases i <;> grind [ValuePtr.DefUse]
+    intro i hi iInBounds
+    simp only [Array.getElem_append, List.size_toArray, List.length_cons, List.length_nil,
+      Nat.zero_add, Nat.lt_one_iff, (Nat.ne_of_lt hi).symm, ↓reduceDIte, List.getElem_toArray,
+      List.getElem_singleton]
+    grind [ValuePtr.DefUse_array_injective]
   case nextElems =>
     simp only [Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
-    grind [ValuePtr.DefUse]
-  all_goals grind [ValuePtr.DefUse]
+    intro i hi
+    rcases i with (_ | i)
+    · simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
+        Nat.lt_add_one, Array.getElem_append_left, List.getElem_toArray, List.getElem_cons_zero,
+        Array.getElem?_append, Nat.lt_irrefl, ↓reduceIte, Nat.sub_self]
+      grind
+    · simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
+        Nat.le_add_left, Array.getElem_append_right, Nat.add_one_sub_one,
+        OpOperandPtr.getNextUse!_OpOperandPtr_insertIntoCurrent, Array.getElem?_append, Nat.lt_one_iff,
+        Nat.add_eq_zero_iff, Nat.succ_ne_self, and_false, and_self, ↓reduceIte]
+      grind
+  all_goals grind
 
-theorem Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty
-    {value : Veir.ValuePtr} {use : Sim.OpOperandPtr} (useIb : use.InBounds ctx)
-    (hWF: value.DefUse ctx.spec array (Std.ExtHashSet.ofList [use.spec])) :
-    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds).spec (#[use.spec] ++ array) := by
-  have : ∅ = (Std.ExtHashSet.ofList [use.spec]).erase use.spec := by grind
+theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty
+    {value : ValuePtr}
+    (hWF: value.DefUse ctx array (Std.ExtHashSet.ofList [use])) :
+    value.DefUse (use.insertIntoCurrent ctx (by grind [ValuePtr.DefUse.missingUsesInBounds]) ctxInBounds) (#[use] ++ array) := by
+  have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by grind
   grind [ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self]
 
-theorem Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
-    {value value' : Veir.ValuePtr} {use : Sim.OpOperandPtr} (useIb : use.InBounds ctx)
-    (valueNe : value ≠ value') (hvalue : use.spec ∈ missingUses')
-    (hWF : value.DefUse ctx.spec array missingUses)
-    (hWF' : value'.DefUse ctx.spec array' missingUses') :
-    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds).spec array missingUses := by
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> grind [ValuePtr.DefUse]
+attribute [local grind ext] OpOperand in
+theorem ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
+    {value value' : ValuePtr} (valueNe : value ≠ value') (hvalue : use ∈ missingUses')
+    (hWF : value.DefUse ctx array missingUses)
+    (hWF' : value'.DefUse ctx array' missingUses') :
+    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
-    {block : Veir.BlockPtr} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.DefUse ctx.spec array missingUses) :
-    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec array missingUses := by
-  apply BlockPtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+theorem BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.DefUse ctx array missingUses) :
+    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
-    {block : Veir.BlockPtr} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.OpChain ctx.spec array) :
-    block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
+theorem BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
-    {region : Veir.RegionPtr} {use : OpOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx.spec array) :
-    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
+theorem RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
+    {region : RegionPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Operation.wellFormed_OpOperandPtr_insertIntoCurrent
-    {opPtr : Veir.OperationPtr} (opInBounds : opPtr.InBounds ctx.spec) {use : OpOperandPtr} {useInBounds}
-    (hWF : opPtr.WellFormed ctx.spec (by grind)) :
-    opPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec (by
-      have : opPtr.InBounds (OpOperandPtr.insertIntoCurrent ctx use useInBounds ctxInBounds).spec := by grind [generic_ptr_grind]
-      grind [generic_ptr_grind]) := by
-  apply OperationPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Operation.wellFormed_OpOperandPtr_insertIntoCurrent
+    {opPtr : OperationPtr} {opInBounds} {use : OpOperandPtr} {useInBounds}
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Block.wellFormed_OpOperandPtr_insertIntoCurrent
-    {blockPtr : Veir.BlockPtr} (blockInBounds : blockPtr.InBounds ctx.spec) {use : OpOperandPtr} {useInBounds}
-    (hWF : blockPtr.WellFormed ctx.spec (by grind)) :
-    blockPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec (by
-      have : blockPtr.InBounds (OpOperandPtr.insertIntoCurrent ctx use useInBounds ctxInBounds).spec := by grind [generic_ptr_grind]
-      grind) := by
-  apply BlockPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Block.wellFormed_OpOperandPtr_insertIntoCurrent
+    {blockPtr : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    blockPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Region.wellFormed_OpOperandPtr_insertIntoCurrent
-    {regionPtr : Veir.RegionPtr} (regionInBounds : regionPtr.InBounds ctx.spec) {use : OpOperandPtr} {useInBounds}
-    (hWF : regionPtr.WellFormed ctx.spec) :
-    regionPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec := by
-  apply RegionPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Region.wellFormed_OpOperandPtr_insertIntoCurrent
+    {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : OpOperandPtr} {useInBounds}
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
-    {ctx : Sim.IRContext OpInfo} {use : OpOperandPtr} (useInBounds : use.InBounds ctx) {ctxInBounds}
-    (useMissing : use.spec ∈ missingOperandUses)
-    (hWF : ctx.spec.WellFormed missingOperandUses missingSuccessorUses) :
-    (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec.WellFormed (missingOperandUses.erase use.spec) missingSuccessorUses := by
+theorem IRContext.wellFormed_OpOperandPtr_insertIntoCurrent
+    {ctx : IRContext OpInfo} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
+    (useMissing : use ∈ missingOperandUses)
+    (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
+    (use.insertIntoCurrent ctx useInBounds ctxInBounds).WellFormed (missingOperandUses.erase use) missingSuccessorUses := by
   constructor
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
-    by_cases hvalue: (use.spec.get! ctx.spec).value = valuePtr
+    by_cases hvalue: use.getValue! ctx = valuePtr
     · apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
-      apply Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
+      apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self
       · grind
-      · assumption
       · apply cast (a := h); congr
         grind
-    · let valuePtr' := (use.spec.get! ctx.spec).value
+    · let valuePtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.valueDefUseChains valuePtr' (by grind)
       apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
-      apply Sim.ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other useInBounds
+      apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
         (value' := valuePtr') (by grind) (hWF' := h') (hvalue := by grind)
       apply cast (a := h); congr
+      simp only [OpOperandPtr.getValue!_OpOperandPtr_insertIntoCurrent]
       ext; grind
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
-    apply Exists.intro array
-    apply Sim.BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
-    grind
+    apply Exists.intro _
+    apply BlockPtr.defUse_OpOperandPtr_insertIntoCurrent
+    simp only [BlockOperandPtr.getValue!_OpOperandPtr_insertIntoCurrent]
+    apply h
   · intros blockPtr blockPtrInBounds
-    have ⟨array, h⟩ := hWF.opChain blockPtr (by grind)
-    apply Exists.intro array
-    apply Sim.BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
+    have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
+    apply Exists.intro _
+    apply BlockPtr.opChain_OpOperandPtr_insertIntoCurrent
     apply h
   · intros regionPtr regionPtrInBounds
     have ⟨_, h⟩ := hWF.blockChain regionPtr (by grind)
     apply Exists.intro _
-    apply Sim.RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
+    apply RegionPtr.blockChain_OpOperandPtr_insertIntoCurrent
     apply h
   · intros opPtr opPtrInBounds
     have := hWF.operations opPtr (by grind)
-    grind [Sim.Operation.wellFormed_OpOperandPtr_insertIntoCurrent]
+    grind [Operation.wellFormed_OpOperandPtr_insertIntoCurrent]
   · intros blockPtr blockPtrInBounds
     have := hWF.blocks blockPtr (by grind)
-    grind [Sim.Block.wellFormed_OpOperandPtr_insertIntoCurrent]
+    grind [Block.wellFormed_OpOperandPtr_insertIntoCurrent]
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
-    grind [Sim.Region.wellFormed_OpOperandPtr_insertIntoCurrent]
+    grind [Region.wellFormed_OpOperandPtr_insertIntoCurrent]
 
 /- OpOperandPtr.removeFromCurrent -/
 
-theorem Sim.OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
-    {use : Sim.OpOperandPtr} {value : Veir.ValuePtr} {array : Array Veir.OpOperandPtr}
-    {useInBounds : use.InBounds ctx} {ctxInBounds}
-    (hWF : value.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
-    {i} (iPos : i > 0) (iInBounds : i < (array.erase use.spec).size)
-    :
-    (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).back = Veir.OpOperandPtrPtr.operandNextUse (array.erase use.spec)[i - 1] := by
-  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+theorem OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse
+    (useOfValue : OpOperandPtr.getValue! use ctx = value)
+    (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iPos : i > 0) (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    ((array.erase use)[i]).getBack! (removeFromCurrent ctx use useInBounds ctxInBounds) = OpOperandPtrPtr.operandNextUse (array.erase use)[i - 1] := by
+  simp only [OpOperandPtr.getBack!_OpOperandPtr_removeFromCurrent]
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
-  simp [huseIdx.symm]
+  subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
         grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
-  have hNextUse : (array[useIdx].get! ctx.spec).nextUse = array[useIdx + 1]? := by grind [ValuePtr.DefUse]
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind
   simp only [hNextUse]
   by_cases i = useIdx
   · subst useIdx
-    split <;> grind [ValuePtr.DefUse, Array.getElem?_eraseIdx_of_ge]
-  · by_cases i < useIdx <;> grind [ValuePtr.DefUse, ValuePtr.DefUse_array_injective]
+    split <;> grind [Array.getElem?_eraseIdx_of_ge]
+  · by_cases i < useIdx <;> grind [ValuePtr.DefUse_array_injective]
 
-theorem Sim.OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse
-    {use : Sim.OpOperandPtr} {value : Veir.ValuePtr} {array : Array Veir.OpOperandPtr} {ctxInBounds}
-    (useInBounds : Sim.OpOperandPtr.InBounds use ctx)
-    (hWF : value.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
-    {i} (iInBounds : i < (array.erase use.spec).size)
-    :
-    (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).nextUse = (array.erase use.spec)[i + 1]? := by
-  simp only [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
-  have useInArray : use.spec ∈ array := by grind [ValuePtr.DefUse]
+theorem OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse
+    (useInBounds : OpOperandPtr.InBounds use ctx)
+    (useOfValue : use.getValue! ctx = value)
+    (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    ((array.erase use)[i]).getNextUse! (removeFromCurrent ctx use useInBounds ctxInBounds) = (array.erase use)[i + 1]? := by
+  simp only [OpOperandPtr.getNextUse!_OpOperandPtr_removeFromCurrent]
+  have useInArray : use ∈ array := by grind
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
-  simp only [huseIdx.symm]
+  subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by
     grind [ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx]
-  have hNextUse : (array[useIdx].get! ctx.spec).nextUse = array[useIdx + 1]? := by
-    grind [ValuePtr.DefUse]
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind
   simp only [hNextUse]
-  by_cases i < useIdx <;> grind [ValuePtr.DefUse, ValuePtr.DefUse_array_injective]
+  by_cases hi : i < useIdx <;> grind [ValuePtr.DefUse_array_injective, hWF.back_array_eq]
 
-theorem Sim.OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
-    {valuePtr : Veir.ValuePtr} {operandPtr : Sim.OpOperandPtr}
-    {array array' : Array Veir.OpOperandPtr} {operandPtrInBounds ctxInBounds}
-    (valuePtrWF : valuePtr.DefUse ctx.spec array missingUses)
-    (operandValueWF : (operandPtr.spec.get! ctx.spec).value.DefUse ctx.spec array' missingUses')
-    (operandInArray : operandPtr.spec ∈ array') :
-    valuePtr.getFirstUse! (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds).spec =
-      if valuePtr.getFirstUse! ctx.spec = some operandPtr.spec then
-        (operandPtr.spec.get! ctx.spec).nextUse
+theorem OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse
+    {valuePtr : ValuePtr}
+    (valuePtrWF : valuePtr.DefUse ctx array missingUses)
+    (operandValueWF : (operandPtr.getValue! ctx).DefUse ctx array' missingUses')
+    (operandInArray : operandPtr ∈ array') :
+    valuePtr.getFirstUse! (OpOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+      if valuePtr.getFirstUse! ctx = some operandPtr then
+        operandPtr.getNextUse! ctx
       else
-        valuePtr.getFirstUse! ctx.spec := by
+        valuePtr.getFirstUse! ctx := by
   simp only [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
   congr 1
   simp [ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
-theorem Sim.ValuePtr.DefUse.getElem?_zero_erase_array_eq
-    {use : Sim.OpOperandPtr} {value : Veir.ValuePtr} {array : Array Veir.OpOperandPtr} {ctxInBounds}
-    (useInBounds : Sim.OpOperandPtr.InBounds use ctx)
-    (hWF : Veir.ValuePtr.DefUse value ctx.spec array missingUses) (useInArray: use.spec ∈ array)
-    {i} (iInBounds : i < (array.erase use.spec).size) :
-    (array.erase use.spec)[0]? = value.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds).spec := by
-  have hvalue : (use.spec.get! ctx.spec).value = value := by grind [ValuePtr.DefUse.useValue]
-  rw [Sim.OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse hWF
-    (by simpa only [hvalue] using hWF) useInArray]
-  obtain ⟨j, hj, heq⟩ := Array.getElem_of_mem useInArray
-  have herase : array.erase use.spec = array.eraseIdx j hj := by
-    rw [← heq]
-    exact ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx hWF
-  rw [herase]
-  by_cases hzero : j = 0 <;> grind [ValuePtr.DefUse, Array.getElem?_eraseIdx_of_ge]
+theorem ValuePtr.DefUse.getElem?_zero_erase_array_eq
+    (useInBounds : OpOperandPtr.InBounds use ctx)
+    (hWF : ValuePtr.DefUse value ctx array missingUses) (useInArray: use ∈ array) :
+    (array.erase use)[0]? = value.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
+  grind [Array.getElem_of_mem, ValuePtr.DefUse.erase_getElem_array_eq_eraseIdx,
+    ValuePtr.DefUse_array_injective, Array.getElem?_eraseIdx_of_ge]
 
-theorem Sim.ValuePtr.defUse_removeFromCurrent_self
-    {value : Veir.ValuePtr} {use : Sim.OpOperandPtr} {array : Array Veir.OpOperandPtr} {ctxInBounds}
-    (hvalue : use.spec ∈ array) (useIb : use.InBounds ctx)
-    (hWF: value.DefUse ctx.spec array missingUses) :
-    value.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds).spec (array.erase use.spec) (missingUses.insert use.spec) := by
-  have hUseValue : (use.spec.get! ctx.spec).value = value := by grind [ValuePtr.DefUse.useValue]
+theorem ValuePtr.defUse_removeFromCurrent_self
+    {value : ValuePtr} (hvalue : use ∈ array)
+    (hWF: value.DefUse ctx array missingUses) :
+    value.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) (array.erase use) (missingUses.insert use) := by
+  have hUseValue : use.getValue! ctx = value := by grind [ValuePtr.DefUse.useValue]
   constructor
   case prevNextUse =>
-    grind [OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, ValuePtr.DefUse]
+    intro i iPos iInBounds
+    apply OpOperandPtr.back!_array_getElem_removeFromCurrent_eq_of_DefUse hUseValue hWF <;>
+      grind [Array.mem_of_mem_erase, ValuePtr.DefUse.arrayInBounds]
   case nextElems =>
-    grind [OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, ValuePtr.DefUse]
+    intro i iInBounds
+    apply OpOperandPtr.nextUse!_array_getElem_removeFromCurrent_eq_of_DefUse _ hUseValue hWF <;>
+      grind [Array.mem_of_mem_erase, ValuePtr.DefUse.arrayInBounds]
   case firstElem =>
-    grind [ValuePtr.DefUse.getElem?_zero_erase_array_eq, Array.mem_of_mem_erase, ValuePtr.DefUse]
+    grind [ValuePtr.DefUse.getElem?_zero_erase_array_eq]
   case firstUseBack =>
     rw [OpOperandPtr.removeFromCurrent_ValuePtr_getFirstUse hWF (by simp [hUseValue]; exact hWF) (by grind)]
     intros firstUse
     split
-    · grind [ValuePtr.DefUse]
-    · simp [OpOperandPtr.get!_OpOperandPtr_removeFromCurrent]
+    · grind
+    · simp [OpOperandPtr.getBack!_OpOperandPtr_removeFromCurrent]
       intros heq
       simp only [ValuePtr.DefUse.nextUse!_ne_of_getFirstUse!_eq hWF hvalue
             (by simp [hUseValue]; exact hWF) heq,
         ↓reduceIte]
-      grind [ValuePtr.DefUse]
-  case allUsesInChain =>
-    intros use' use'InBounds hvalue'
-    by_cases h: use.spec = use' <;> grind [ValuePtr.DefUse]
-  all_goals grind [ValuePtr.DefUse]
+      grind
+  all_goals grind
 
-theorem Sim.ValuePtr.defUse_removeFromCurrent_other
-    {value value' : Veir.ValuePtr} {use : Sim.OpOperandPtr}
-    {array array' : Array Veir.OpOperandPtr} {ctxInBounds}
-    (valueNe : value ≠ value') {hvalue : use.spec ∈ array'}
-    (useIb : use.InBounds ctx)
-    (hWF : value.DefUse ctx.spec array missingUses)
-    (hWF' : value'.DefUse ctx.spec array' missingUses') :
-    value.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds).spec array missingUses := by
-  have : value.InBounds ctx.spec := by grind
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> try grind [ValuePtr.DefUse.useValue]
-  simp [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
-  intros h
-  have : (use.spec.get! ctx.spec).value = value' := by grind [ValuePtr.DefUse]
-  grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+attribute [local grind ext] OpOperand in
+theorem ValuePtr.defUse_removeFromCurrent_other
+    {value value' : ValuePtr} (valueNe : value ≠ value') {hvalue : use ∈ array'}
+    (hWF : value.DefUse ctx array missingUses)
+    (hWF' : value'.DefUse ctx array' missingUses') :
+    value.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> try grind
+  · simp [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
+    intros h
+    have : use.getValue! ctx = value' := by grind
+    grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
-theorem Sim.BlockPtr.defUse_OpOperandPtr_removeFromCurrent
-    {block : Veir.BlockPtr} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.DefUse ctx.spec array missingUses) :
-    block.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds).spec array missingUses := by
-  apply BlockPtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+theorem BlockPtr.defUse_OpOperandPtr_removeFromCurrent
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.DefUse ctx array missingUses) :
+    block.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.opChain_OpOperandPtr_removeFromCurrent
-    {block : Veir.BlockPtr} {use : OpOperandPtr} {useInBounds}
-    (hWF : block.OpChain ctx.spec array) :
-    block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
+theorem BlockPtr.opChain_OpOperandPtr_removeFromCurrent
+    {block : BlockPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.RegionPtr.blockChain_OpOperandPtr_removeFromCurrent
-    {region : Veir.RegionPtr} {use : OpOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx.spec array) :
-    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
+theorem RegionPtr.blockChain_OpOperandPtr_removeFromCurrent
+    {region : RegionPtr} {use : OpOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Operation.wellFormed_OpOperandPtr_removeFromCurrent
-    {opPtr : Veir.OperationPtr} {opInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : opPtr.WellFormed ctx.spec opInBounds) :
-    opPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds).spec (by grind) := by
-  apply OperationPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Operation.wellFormed_OpOperandPtr_removeFromCurrent
+    {opPtr : OperationPtr} {opInBounds} {use : OpOperandPtr} {useInBounds}
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Block.wellFormed_OpOperandPtr_removeFromCurrent
-    {blockPtr : Veir.BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
-    (hWF : blockPtr.WellFormed ctx.spec blockInBounds) :
-    blockPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds).spec (by grind) := by
-  apply BlockPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Block.wellFormed_OpOperandPtr_removeFromCurrent
+    {blockPtr : BlockPtr} {blockInBounds} {use : OpOperandPtr} {useInBounds}
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    blockPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Region.wellFormed_OpOperandPtr_removeFromCurrent
-    {regionPtr : Veir.RegionPtr} (regionInBounds : regionPtr.InBounds ctx.spec) {use : OpOperandPtr} {useInBounds}
-    (hWF : regionPtr.WellFormed ctx.spec) :
-    regionPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds).spec := by
-  apply RegionPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Region.wellFormed_OpOperandPtr_removeFromCurrent
+    {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : OpOperandPtr} {useInBounds}
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.IRContext.wellFormed_OpOperandPtr_removeFromCurrent
-    {ctx : Sim.IRContext OpInfo} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
-    (useMissing : use.spec ∉ missingOperandUses)
-    (hWF : ctx.spec.WellFormed missingOperandUses missingSuccessorUses) :
-    (use.removeFromCurrent ctx useInBounds ctxInBounds).spec.WellFormed (missingOperandUses.insert use.spec) missingSuccessorUses := by
+theorem IRContext.wellFormed_OpOperandPtr_removeFromCurrent
+    {ctx : IRContext OpInfo} {use : OpOperandPtr} {useInBounds} {ctxInBounds}
+    (useMissing : use ∉ missingOperandUses)
+    (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
+    (use.removeFromCurrent ctx useInBounds ctxInBounds).WellFormed (missingOperandUses.insert use) missingSuccessorUses := by
   constructor
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
-    by_cases hvalue: (use.spec.get! ctx.spec).value = valuePtr
+    by_cases hvalue: use.getValue! ctx = valuePtr
     · apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_true_eq]
-      apply Sim.ValuePtr.defUse_removeFromCurrent_self (array := array) (useIb := by grind)
+      apply ValuePtr.defUse_removeFromCurrent_self (array := array)
       · grind [h.allUsesInChain]
       · apply cast (a := h); congr
         grind
-    · let valuePtr' := (use.spec.get! ctx.spec).value
+    · let valuePtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.valueDefUseChains valuePtr' (by grind)
       apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_false_eq]
-      apply Sim.ValuePtr.defUse_removeFromCurrent_other (useIb := by grind)
+      apply ValuePtr.defUse_removeFromCurrent_other
         (value' := valuePtr') (by grind) (hWF' := h')
       · apply cast (a := h); congr
         grind
       · grind [h'.allUsesInChain]
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
-    apply Exists.intro array
-    apply Sim.BlockPtr.defUse_OpOperandPtr_removeFromCurrent
-    grind
+    apply Exists.intro _
+    apply BlockPtr.defUse_OpOperandPtr_removeFromCurrent
+    simp only [BlockOperandPtr.getValue!_OpOperandPtr_removeFromCurrent]
+    apply h
   · intros blockPtr blockPtrInBounds
-    have ⟨array, h⟩ := hWF.opChain blockPtr (by grind)
-    apply Exists.intro array
-    apply Sim.BlockPtr.opChain_OpOperandPtr_removeFromCurrent
+    have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
+    apply Exists.intro _
+    apply BlockPtr.opChain_OpOperandPtr_removeFromCurrent
     apply h
   · intros regionPtr regionPtrInBounds
     have ⟨_, h⟩ := hWF.blockChain regionPtr (by grind)
     apply Exists.intro _
-    apply Sim.RegionPtr.blockChain_OpOperandPtr_removeFromCurrent
+    apply RegionPtr.blockChain_OpOperandPtr_removeFromCurrent
     apply h
   · intros opPtr opPtrInBounds
     have := hWF.operations opPtr (by grind)
-    grind [Sim.Operation.wellFormed_OpOperandPtr_removeFromCurrent]
+    grind [Operation.wellFormed_OpOperandPtr_removeFromCurrent]
   · intros blockPtr blockPtrInBounds
     have := hWF.blocks blockPtr (by grind)
-    grind [Sim.Block.wellFormed_OpOperandPtr_removeFromCurrent]
+    grind [Block.wellFormed_OpOperandPtr_removeFromCurrent]
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
-    grind [Sim.Region.wellFormed_OpOperandPtr_removeFromCurrent]
+    grind [Region.wellFormed_OpOperandPtr_removeFromCurrent]
 
 section BlockOperandPtr.insertIntoCurrent
 
-theorem Sim.BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne
-    (ctxInBounds : ctx.spec.FieldsInBounds) {use use' : Sim.BlockOperandPtr}
+theorem BlockOperandPtr.fields_BlockOperandPtr_insertIntoCurrent_of_value_ne
+    (ctxInBounds : ctx.FieldsInBounds) {use use' : BlockOperandPtr}
     {useInBounds : use.InBounds ctx}
-    (useOfOtherValue : (use.spec.get! ctx.spec).value ≠ (use'.spec.get! ctx.spec).value) array missingUses
-    (hWF : (use.spec.get! ctx.spec).value.DefUse ctx.spec array missingUses) :
-    use'.spec.get! (insertIntoCurrent ctx use useInBounds ctxInBounds).spec = use'.spec.get! ctx.spec := by
-  simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+    (useOfOtherValue : use.getValue! ctx ≠ use'.getValue! ctx) array missingUses
+    (hWF : (use.getValue! ctx).DefUse ctx array missingUses) :
+    use'.getNextUse! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getNextUse! ctx ∧
+    use'.getBack! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getBack! ctx ∧
+    use'.getValue! (insertIntoCurrent ctx use useInBounds ctxInBounds) = use'.getValue! ctx := by
+  simp only [BlockOperandPtr.getNextUse!_BlockOperandPtr_insertIntoCurrent, BlockOperandPtr.getBack!_BlockOperandPtr_insertIntoCurrent, BlockOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent]
   have := BlockPtr.DefUse.getFirstUse_ne_of_value_ne useOfOtherValue hWF
   simp only [this, ↓reduceIte]
-  have : use.spec ≠ use'.spec := by grind
+  have : use ≠ use' := by grind
+  -- TODO: grind suspiciously fails here
   simp [this]
 
-theorem Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
-    {block : Veir.BlockPtr} {use : Sim.BlockOperandPtr} {hvalue : use.spec ∈ missingUses}
-    (useIb : use.InBounds ctx) (hWF: block.DefUse ctx.spec array missingUses) :
-    block.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds).spec (#[use.spec] ++ array) (missingUses.erase use.spec) := by
-  have : (use.spec.get! ctx.spec).value = block := by grind [BlockPtr.DefUse.missingUsesValue]
+theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
+    {block : BlockPtr} {hvalue : use ∈ missingUses}
+    (hWF: block.DefUse ctx array missingUses) :
+    block.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) (#[use] ++ array) (missingUses.erase use) := by
+  have : use.getValue! ctx = block := by grind [BlockPtr.DefUse.missingUsesValue]
   constructor
   case backNextUse =>
     simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
-    simp only [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
+    simp only [BlockOperandPtr.getBack!_BlockOperandPtr_insertIntoCurrent]
     intros i
     cases i <;> grind [BlockPtr.DefUse]
   case nextElems =>
     simp only [Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
       Nat.zero_add]
-    grind [BlockPtr.DefUse]
-  all_goals grind [BlockPtr.DefUse]
+    grind
+  all_goals grind
 
-theorem Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self_empty
-    {block : Veir.BlockPtr} {use : Sim.BlockOperandPtr} (useIb : use.InBounds ctx)
-    (hWF: block.DefUse ctx.spec array (Std.ExtHashSet.ofList [use.spec])) :
-    block.DefUse (use.insertIntoCurrent ctx (by grind [BlockPtr.DefUse.missingUsesInBounds]) ctxInBounds).spec (#[use.spec] ++ array) := by
-  have : ∅ = (Std.ExtHashSet.ofList [use.spec]).erase use.spec := by grind
-  grind [Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self]
+theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self_empty
+    {block : BlockPtr}
+    (hWF: block.DefUse ctx array (Std.ExtHashSet.ofList [use])) :
+    block.DefUse (use.insertIntoCurrent ctx (by grind [BlockPtr.DefUse.missingUsesInBounds]) ctxInBounds) (#[use] ++ array) := by
+  have : ∅ = (Std.ExtHashSet.ofList [use]).erase use := by grind
+  grind [BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self]
 
 attribute [grind →] BlockPtr.DefUse.missingUsesInBounds
 
-theorem Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
-    {value value' : Veir.BlockPtr} {use : Sim.BlockOperandPtr} (useIb : use.InBounds ctx)
-    (valueNe : value ≠ value') {hvalue : use.spec ∈ missingUses'}
-    (hWF : value.DefUse ctx.spec array missingUses)
-    (hWF' : value'.DefUse ctx.spec array' missingUses') :
-    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds).spec array missingUses := by
-  apply BlockPtr.DefUse.unchanged (ctx := ctx.spec)
-  · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-  · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-  · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-  · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-  · intros
-    simp [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
-    split
-    · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-    · split
-      · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-      · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-  · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-  · intros
-    simp [BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent]
-    split
-    · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-    · split
-      · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
-      · grind [BlockPtr.DefUse, BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent_of_value_ne]
+theorem BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
+    {value value' : BlockPtr} (valueNe : value ≠ value') {hvalue : use ∈ missingUses'}
+    (hWF : value.DefUse ctx array missingUses)
+    (hWF' : value'.DefUse ctx array' missingUses') :
+    value.DefUse (use.insertIntoCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx)
+    <;> grind [BlockOperandPtr.fields_BlockOperandPtr_insertIntoCurrent_of_value_ne]
 
-theorem Sim.ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
-    {block : Veir.ValuePtr} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : block.DefUse ctx.spec array missingUses) :
-    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec array missingUses := by
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+theorem ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
+    {block : ValuePtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : block.DefUse ctx array missingUses) :
+    block.DefUse (use.insertIntoCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
-    {block : Veir.BlockPtr} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : block.OpChain ctx.spec array) :
-    block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
+theorem BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
+    {block : BlockPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
-    {region : Veir.RegionPtr} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx.spec array) :
-    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
+theorem RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
+    {region : RegionPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.insertIntoCurrent ctx useInBounds ctxInBounds) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Operation.wellFormed_BlockOperandPtr_insertIntoCurrent
-    {opPtr : Veir.OperationPtr} {opInBounds} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : opPtr.WellFormed ctx.spec opInBounds) :
-    opPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec (by grind) := by
-  apply OperationPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Operation.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {opPtr : OperationPtr} {opInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Block.wellFormed_BlockOperandPtr_insertIntoCurrent
-    {blockPtr : Veir.BlockPtr} {blockInBounds} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : blockPtr.WellFormed ctx.spec blockInBounds) :
-    Veir.BlockPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec blockPtr (by grind) := by
-  apply BlockPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Block.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {blockPtr : BlockPtr} {blockInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    BlockPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) blockPtr (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Region.wellFormed_BlockOperandPtr_insertIntoCurrent
-    {regionPtr : Veir.RegionPtr} (regionInBounds : regionPtr.InBounds ctx.spec) {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : regionPtr.WellFormed ctx.spec) :
-    regionPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec := by
-  apply RegionPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Region.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : BlockOperandPtr} {useInBounds}
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.insertIntoCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.IRContext.wellFormed_BlockOperandPtr_insertIntoCurrent
-    {ctx : Sim.IRContext OpInfo} {use : Sim.BlockOperandPtr} {useInBounds} {ctxInBounds}
-    (useMissing : use.spec ∈ missingSuccessorUses)
-    (hWF : ctx.spec.WellFormed missingOperandUses missingSuccessorUses) :
-    (use.insertIntoCurrent ctx useInBounds ctxInBounds).spec.WellFormed
-      missingOperandUses (missingSuccessorUses.erase use.spec) := by
+theorem IRContext.wellFormed_BlockOperandPtr_insertIntoCurrent
+    {ctx : IRContext OpInfo} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
+    (useMissing : use ∈ missingSuccessorUses)
+    (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
+    (use.insertIntoCurrent ctx useInBounds ctxInBounds).WellFormed
+      missingOperandUses (missingSuccessorUses.erase use) := by
   constructor
   · grind
   · intros valuePtr valueptrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
-    apply Exists.intro array
-    apply Sim.ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
-    grind
+    apply Exists.intro _
+    apply ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
+    simp only [OpOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent]
+    apply h
   · intros blockPtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
-    by_cases hvalue: (use.spec.get! ctx.spec).value = blockPtr
+    by_cases hvalue: use.getValue! ctx = blockPtr
     · apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
-      apply Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self (array := array) (useIb := by grind)
+      apply BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self
       · grind
       · apply cast (a := h); congr
         grind
-    · let blockPtr' := (use.spec.get! ctx.spec).value
+    · let blockPtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.blockDefUseChains blockPtr' (by grind)
       apply Exists.intro _
       simp only [Std.ExtHashSet.filter_erase_eq]
-      apply Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
-        (value' := blockPtr') (by grind) (by grind) (hWF' := h') (hvalue := by grind)
+      apply BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
+        (value' := blockPtr') (by grind) (hWF' := h') (hvalue := by grind)
       apply cast (a := h); congr
+      simp only [BlockOperandPtr.getValue!_BlockOperandPtr_insertIntoCurrent]
       ext; grind
   · intros blockPtr blockPtrInBounds
-    have ⟨array, h⟩ := hWF.opChain blockPtr (by grind)
-    apply Exists.intro array
-    apply Sim.BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
+    have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
+    apply Exists.intro _
+    apply BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
     apply h
   · intros regionPtr regionPtrInBounds
     have ⟨_, h⟩ := hWF.blockChain regionPtr (by grind)
     apply Exists.intro _
-    apply Sim.RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
+    apply RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
     apply h
   · intros opPtr opPtrInBounds
     have := hWF.operations opPtr (by grind)
-    grind [Sim.Operation.wellFormed_BlockOperandPtr_insertIntoCurrent]
+    grind [Operation.wellFormed_BlockOperandPtr_insertIntoCurrent]
   · intros blockPtr blockPtrInBounds
     have := hWF.blocks blockPtr (by grind)
-    grind [Sim.Block.wellFormed_BlockOperandPtr_insertIntoCurrent]
+    grind [Block.wellFormed_BlockOperandPtr_insertIntoCurrent]
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
-    grind [Sim.Region.wellFormed_BlockOperandPtr_insertIntoCurrent]
+    grind [Region.wellFormed_BlockOperandPtr_insertIntoCurrent]
 
 end BlockOperandPtr.insertIntoCurrent
 
@@ -510,78 +486,66 @@ section BlockOperandPtr.removeFromCurrent
 
 attribute [local grind ext] BlockOperand
 
-theorem Sim.BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
-    {use : Sim.BlockOperandPtr} {block : Veir.BlockPtr} {array : Array Veir.BlockOperandPtr}
-    {useInBounds : use.InBounds ctx} {ctxInBounds}
-    (hWF : block.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
-    {i} (iPos : i > 0) (iInBounds : i < (array.erase use.spec).size)
-    :
-    (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).back =
-    Veir.BlockOperandPtrPtr.blockOperandNextUse (array.erase use.spec)[i - 1] := by
-  simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+theorem BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
+    (useOfBlock : BlockOperandPtr.getValue! use ctx = block)
+    (hWF : block.DefUse ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iPos : i > 0) (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    ((array.erase use)[i]).getBack! (removeFromCurrent ctx use useInBounds ctxInBounds) = BlockOperandPtrPtr.blockOperandNextUse (array.erase use)[i - 1] := by
+  simp only [BlockOperandPtr.getBack!_BlockOperandPtr_removeFromCurrent]
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
-  simp [← huseIdx]
+  subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by grind
-  have hNextUse : (array[useIdx].get! ctx.spec).nextUse = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
   simp only [hNextUse]
   by_cases i = useIdx
   · subst useIdx
-    split <;> grind [BlockPtr.DefUse, Array.getElem?_eraseIdx_of_ge]
-  · by_cases i < useIdx <;> grind [BlockPtr.DefUse, BlockPtr.DefUse_array_injective]
+    split <;> grind [Array.getElem?_eraseIdx_of_ge]
+  · by_cases i < useIdx <;> grind [BlockPtr.DefUse_array_injective]
 
-theorem Sim.BlockOperandPtr.nextUse!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
-    {use : Sim.BlockOperandPtr} {value : Veir.BlockPtr} {array : Array Veir.BlockOperandPtr} {ctxInBounds}
-    (useInBounds : Sim.BlockOperandPtr.InBounds use ctx)
-    (hWF : value.DefUse ctx.spec array missingUses) (useInArray: use.spec ∈ array)
-    {i} (iInBounds : i < (array.erase use.spec).size)
-    :
-    (((array.erase use.spec)[i]).get! (removeFromCurrent ctx use useInBounds ctxInBounds).spec).nextUse = (array.erase use.spec)[i + 1]? := by
-  simp only [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
-  have useInArray : use.spec ∈ array := by grind [ValuePtr.DefUse]
+theorem BlockOperandPtr.nextUse!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse
+    (useInBounds : BlockOperandPtr.InBounds use ctx)
+    (useOfValue : use.getValue! ctx = value)
+    (hWF : value.DefUse ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iInBounds : i < (array.erase use).size)
+    (iInBounds' : (array.erase use)[i].InBounds (removeFromCurrent ctx use useInBounds ctxInBounds)) :
+    ((array.erase use)[i]).getNextUse! (removeFromCurrent ctx use useInBounds ctxInBounds) = (array.erase use)[i + 1]? := by
+  simp only [BlockOperandPtr.getNextUse!_BlockOperandPtr_removeFromCurrent]
+  have useInArray : use ∈ array := by grind
   have ⟨useIdx, useIdxInBounds, huseIdx⟩ := Array.getElem_of_mem useInArray
-  simp only [← huseIdx]
+  subst use
   have herase : (array.erase (array[useIdx]'(by grind))) = array.eraseIdx useIdx (by grind) := by grind
-  have hNextUse : (array[useIdx].get! ctx.spec).nextUse = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
+  have hNextUse : array[useIdx].getNextUse! ctx = array[useIdx + 1]? := by grind [BlockPtr.DefUse]
   simp only [hNextUse]
-  by_cases i < useIdx <;> grind [BlockPtr.DefUse, BlockPtr.DefUse_array_injective]
+  by_cases i < useIdx <;> grind [BlockPtr.DefUse_array_injective]
 
-theorem Sim.BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse!
-    {blockPtr : Veir.BlockPtr} {operandPtr : Sim.BlockOperandPtr}
-    {array array' : Array Veir.BlockOperandPtr} {operandPtrInBounds ctxInBounds}
-    (valuePtrWF : blockPtr.DefUse ctx.spec array missingUses)
-    (operandValueWF : (operandPtr.spec.get! ctx.spec).value.DefUse ctx.spec array' missingUses')
-    (operandInArray : operandPtr.spec ∈ array') :
-    (blockPtr.get! (BlockOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds).spec).firstUse =
-      if (blockPtr.get! ctx.spec).firstUse = some operandPtr.spec then
-        (operandPtr.spec.get! ctx.spec).nextUse
+theorem BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse!
+    {blockPtr : BlockPtr}
+    (valuePtrWF : blockPtr.DefUse ctx array missingUses)
+    (operandValueWF : (operandPtr.getValue! ctx).DefUse ctx array' missingUses')
+    (operandInArray : operandPtr ∈ array') :
+    blockPtr.getFirstUse! (BlockOperandPtr.removeFromCurrent ctx operandPtr operandPtrInBounds ctxInBounds) =
+      if blockPtr.getFirstUse! ctx = some operandPtr then
+        operandPtr.getNextUse! ctx
       else
-        (blockPtr.get! ctx.spec).firstUse := by
-  simp only [BlockPtr.firstUse!_BlockOperandPtr_removeFromCurrent]
+        blockPtr.getFirstUse! ctx := by
+  simp only [BlockPtr.getFirstUse!_BlockOperandPtr_removeFromCurrent]
   congr 1
   simp [BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse operandValueWF (by grind) valuePtrWF]
 
-theorem Sim.BlockPtr.DefUse.getElem?_zero_erase_array_eq
-    {use : Sim.BlockOperandPtr} {block : Veir.BlockPtr} {array : Array Veir.BlockOperandPtr} {ctxInBounds}
-    (useInBounds : Sim.BlockOperandPtr.InBounds use ctx)
-    (hWF : Veir.BlockPtr.DefUse block ctx.spec array missingUses) (useInArray: use.spec ∈ array)
-    {i} (iInBounds : i < (array.erase use.spec).size) :
-    (array.erase use.spec)[0]? = (block.get! (use.removeFromCurrent ctx useInBounds ctxInBounds).spec).firstUse := by
-  have hvalue : (use.spec.get! ctx.spec).value = block := by grind [BlockPtr.DefUse.useValue]
-  rw [Sim.BlockOperandPtr.BlockOperandPtr_removeFromCurrent_BlockPtr_getFirstUse! hWF
-    (by simpa only [hvalue] using hWF) useInArray]
-  obtain ⟨j, hj, heq⟩ := Array.getElem_of_mem useInArray
-  have herase : array.erase use.spec = array.eraseIdx j hj := by
-    rw [← heq]
-    exact BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx hWF
-  rw [herase]
-  by_cases hzero : j = 0 <;> grind [BlockPtr.DefUse, Array.getElem?_eraseIdx_of_ge]
+theorem BlockPtr.DefUse.getElem?_zero_erase_array_eq
+    (useInBounds : BlockOperandPtr.InBounds use ctx)
+    (hWF : BlockPtr.DefUse block ctx array missingUses) (useInArray: use ∈ array)
+    {i} (iInBounds : i < (array.erase use).size) :
+    (array.erase use)[0]? = block.getFirstUse! (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
+  grind [Array.getElem_of_mem, BlockPtr.DefUse, BlockPtr.DefUse.erase_getElem_array_eq_eraseIdx,
+    BlockPtr.DefUse_array_injective, Array.getElem?_eraseIdx_of_ge]
 
-theorem Sim.BlockPtr.defUse_removeFromCurrent_self
-    {block : Veir.BlockPtr} {use : Sim.BlockOperandPtr} {array : Array Veir.BlockOperandPtr} {ctxInBounds}
-    {hvalue : use.spec ∈ array} (useIb : use.InBounds ctx)
-    (hWF: block.DefUse ctx.spec array missingUses) :
-    block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds).spec (array.erase use.spec) (missingUses.insert use.spec) := by
-  have hUseValue : (use.spec.get! ctx.spec).value = block := by grind [BlockPtr.DefUse.useValue]
+theorem BlockPtr.defUse_removeFromCurrent_self
+    {block : BlockPtr} {hvalue : use ∈ array}
+    (hWF: block.DefUse ctx array missingUses) :
+    block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) (array.erase use) (missingUses.insert use) := by
+  have hUseValue : use.getValue! ctx = block := by grind [BlockPtr.DefUse.useValue]
   constructor
   case backNextUse =>
     grind [BlockOperandPtr.back!_array_getElem_BlockOperandPtr_removeFromCurrent_eq_of_DefUse, Array.mem_of_mem_erase, BlockPtr.DefUse]
@@ -594,7 +558,7 @@ theorem Sim.BlockPtr.defUse_removeFromCurrent_self
     intros firstUse
     split
     · grind [BlockPtr.DefUse]
-    · simp [BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent]
+    · simp [BlockOperandPtr.getBack!_BlockOperandPtr_removeFromCurrent]
       intros heq
       simp only [BlockPtr.DefUse.nextUse!_ne_of_getFirstUse!_eq hWF hvalue
             (by simp [hUseValue]; exact hWF) heq,
@@ -602,479 +566,435 @@ theorem Sim.BlockPtr.defUse_removeFromCurrent_self
       grind [BlockPtr.DefUse]
   case allUsesInChain =>
     intros use' use'InBounds hvalue'
-    by_cases h: use.spec = use' <;> grind [BlockPtr.DefUse]
+    by_cases h: use = use' <;> grind [BlockPtr.DefUse]
   all_goals grind [BlockPtr.DefUse]
 
-theorem Sim.BlockPtr.defUse_BlockOperandPtr_removeFromCurrent_other
-    {block block' : Veir.BlockPtr} {use : Sim.BlockOperandPtr} (useIb : use.InBounds ctx)
-    {array array' : Array Veir.BlockOperandPtr} {ctxInBounds}
-    (valueNe : block ≠ block') {hvalue : use.spec ∈ array'}
-    (hWF : block.DefUse ctx.spec array missingUses)
-    (hWF' : block'.DefUse ctx.spec array' missingUses') :
-    block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds).spec array missingUses := by
-  apply BlockPtr.DefUse.unchanged (ctx := ctx.spec) <;>
-    grind [BlockPtr.DefUse, BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+theorem BlockPtr.defUse_BlockOperandPtr_removeFromCurrent_other
+    {block block' : BlockPtr} (valueNe : block ≠ block') {hvalue : use ∈ array'}
+    (hWF : block.DefUse ctx array missingUses)
+    (hWF' : block'.DefUse ctx array' missingUses') :
+    block.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds) array missingUses := by
+  have : use.getValue! ctx = block' := by grind
+  apply BlockPtr.DefUse.unchanged (ctx := ctx)
+    <;> grind [BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
-theorem Sim.ValuePtr.defUse_BlockOperandPtr_removeFromCurrent
-    {value : Veir.ValuePtr} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : value.DefUse ctx.spec array missingUses) :
-    value.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds).spec array missingUses := by
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+theorem ValuePtr.defUse_BlockOperandPtr_removeFromCurrent
+    {value : ValuePtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : value.DefUse ctx array missingUses) :
+    value.DefUse (use.removeFromCurrent ctx useInBounds ctxInBounds) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.opChain_BlockOperandPtr_removeFromCurrent
-    {block : Veir.BlockPtr} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : block.OpChain ctx.spec array) :
-    block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
+theorem BlockPtr.opChain_BlockOperandPtr_removeFromCurrent
+    {block : BlockPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : block.OpChain ctx array) :
+    block.OpChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.RegionPtr.blockChain_BlockOperandPtr_removeFromCurrent
-    {region : Veir.RegionPtr} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : region.BlockChain ctx.spec array) :
-    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds).spec array := by
-  apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
+theorem RegionPtr.blockChain_BlockOperandPtr_removeFromCurrent
+    {region : RegionPtr} {use : BlockOperandPtr} {useInBounds}
+    (hWF : region.BlockChain ctx array) :
+    region.BlockChain (use.removeFromCurrent ctx useInBounds ctxInBounds) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Operation.wellFormed_BlockOperandPtr_removeFromCurrent
-    {opPtr : Veir.OperationPtr} {opInBounds} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : opPtr.WellFormed ctx.spec opInBounds) :
-    opPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds).spec (by grind) := by
-  apply OperationPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Operation.wellFormed_BlockOperandPtr_removeFromCurrent
+    {opPtr : OperationPtr} {opInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : opPtr.WellFormed ctx opInBounds) :
+    opPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Block.wellFormed_BlockOperandPtr_removeFromCurrent
-    {blockPtr : Veir.BlockPtr} {blockInBounds} {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : blockPtr.WellFormed ctx.spec blockInBounds) :
-    blockPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds).spec (by grind) := by
-  apply BlockPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Block.wellFormed_BlockOperandPtr_removeFromCurrent
+    {blockPtr : BlockPtr} {blockInBounds} {use : BlockOperandPtr} {useInBounds}
+    (hWF : blockPtr.WellFormed ctx blockInBounds) :
+    blockPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) (by grind) := by
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Region.wellFormed_BlockOperandPtr_removeFromCurrent
-    {regionPtr : Veir.RegionPtr} (regionInBounds : regionPtr.InBounds ctx.spec) {use : Sim.BlockOperandPtr} {useInBounds}
-    (hWF : regionPtr.WellFormed ctx.spec) :
-    regionPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds).spec := by
-  apply RegionPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+theorem Region.wellFormed_BlockOperandPtr_removeFromCurrent
+    {regionPtr : RegionPtr} (regionInBounds : regionPtr.InBounds ctx) {use : BlockOperandPtr} {useInBounds}
+    (hWF : regionPtr.WellFormed ctx) :
+    regionPtr.WellFormed (use.removeFromCurrent ctx useInBounds ctxInBounds) := by
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
-    {ctx : Sim.IRContext OpInfo} {use : Sim.BlockOperandPtr} {useInBounds} {ctxInBounds}
-    (useMissing : use.spec ∉ missingSuccessorUses)
-    (hWF : ctx.spec.WellFormed missingOperandUses missingSuccessorUses) :
-    (use.removeFromCurrent ctx useInBounds ctxInBounds).spec.WellFormed
-      missingOperandUses (missingSuccessorUses.insert use.spec) := by
+theorem IRContext.wellFormed_BlockOperandPtr_removeFromCurrent
+    {ctx : IRContext OpInfo} {use : BlockOperandPtr} {useInBounds} {ctxInBounds}
+    (useMissing : use ∉ missingSuccessorUses)
+    (hWF : ctx.WellFormed missingOperandUses missingSuccessorUses) :
+    (use.removeFromCurrent ctx useInBounds ctxInBounds).WellFormed
+      missingOperandUses (missingSuccessorUses.insert use) := by
   constructor
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
-    apply Exists.intro array
-    apply Sim.ValuePtr.defUse_BlockOperandPtr_removeFromCurrent
-    grind
+    apply Exists.intro _
+    apply ValuePtr.defUse_BlockOperandPtr_removeFromCurrent
+    simp only [OpOperandPtr.getValue!_BlockOperandPtr_removeFromCurrent]
+    apply h
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
-    by_cases hvalue: (use.spec.get! ctx.spec).value = blockPtr
+    by_cases hvalue: use.getValue! ctx = blockPtr
     · apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_true_eq]
-      apply Sim.BlockPtr.defUse_removeFromCurrent_self (array := array)
+      apply BlockPtr.defUse_removeFromCurrent_self (array := array)
         <;> grind [h.allUsesInChain]
-    · let blockPtr' := (use.spec.get! ctx.spec).value
+    · let blockPtr' := use.getValue! ctx
       have ⟨array', h'⟩ := hWF.blockDefUseChains blockPtr' (by grind)
       apply Exists.intro _
       simp (disch := grind) only [Std.ExtHashSet.filter_insert_eq_of_false_eq]
-      apply Sim.BlockPtr.defUse_BlockOperandPtr_removeFromCurrent_other
-        (block' := blockPtr') (by grind) (by grind) (hWF' := h')
+      apply BlockPtr.defUse_BlockOperandPtr_removeFromCurrent_other
+        (block' := blockPtr') (by grind) (hWF' := h')
       · apply cast (a := h); congr
         grind
       · grind [h'.allUsesInChain]
   · intros blockPtr blockPtrInBounds
-    have ⟨array, h⟩ := hWF.opChain blockPtr (by grind)
-    apply Exists.intro array
-    apply Sim.BlockPtr.opChain_BlockOperandPtr_removeFromCurrent
+    have ⟨_, h⟩ := hWF.opChain blockPtr (by grind)
+    apply Exists.intro _
+    apply BlockPtr.opChain_BlockOperandPtr_removeFromCurrent
     apply h
   · intros regionPtr regionPtrInBounds
     have ⟨_, h⟩ := hWF.blockChain regionPtr (by grind)
     apply Exists.intro _
-    apply Sim.RegionPtr.blockChain_BlockOperandPtr_removeFromCurrent
+    apply RegionPtr.blockChain_BlockOperandPtr_removeFromCurrent
     apply h
   · intros opPtr opPtrInBounds
     have := hWF.operations opPtr (by grind)
-    grind [Sim.Operation.wellFormed_BlockOperandPtr_removeFromCurrent]
+    grind [Operation.wellFormed_BlockOperandPtr_removeFromCurrent]
   · intros blockPtr blockPtrInBounds
     have := hWF.blocks blockPtr (by grind)
-    grind [Sim.Block.wellFormed_BlockOperandPtr_removeFromCurrent]
+    grind [Block.wellFormed_BlockOperandPtr_removeFromCurrent]
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
-    grind [Sim.Region.wellFormed_BlockOperandPtr_removeFromCurrent]
+    grind [Region.wellFormed_BlockOperandPtr_removeFromCurrent]
 
 end BlockOperandPtr.removeFromCurrent
 
 section OperationPtr.linkBetweenWithParent
 
-variable {op : Sim.OperationPtr}
-variable {newCtx : Sim.IRContext OpInfo}
-variable {prevOp nextOp : Sim.OptionOperationPtr}
-variable {selfIn : op.InBounds ctx} {prevIn : prevOp.InBounds ctx} {nextIn : nextOp.InBounds ctx}
+variable {op : OperationPtr}
 
-theorem Sim.ValuePtr.defUse_OperationPtr_linkBetweenWithParent
-    {value : Veir.ValuePtr}
+theorem ValuePtr.defUse_OperationPtr_linkBetweenWithParent
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    ValuePtr.DefUse value ctx.spec array missingUses →
-    ValuePtr.DefUse value newCtx.spec array missingUses := by
+    ValuePtr.DefUse value ctx array missingUses →
+    ValuePtr.DefUse value newCtx array missingUses := by
   intros
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-
-theorem Sim.BlockPtr.defUse_OperationPtr_linkBetweenWithParent
-    {block : Veir.BlockPtr}
+theorem BlockPtr.defUse_OperationPtr_linkBetweenWithParent
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    BlockPtr.DefUse block ctx.spec array missingUses →
-    BlockPtr.DefUse block newCtx.spec array missingUses := by
+    BlockPtr.DefUse block ctx array missingUses →
+    BlockPtr.DefUse block newCtx array missingUses := by
   intros
-  apply BlockPtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-set_option maxHeartbeats 400000 in
-theorem Sim.BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self
-    {block : Sim.BlockPtr} {parentIn : block.InBounds ctx}
-    (ctxWf : ctx.spec.WellFormed)
+theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self
+    (ctxWf : ctx.WellFormed)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp block selfIn prevIn nextIn parentIn = some newCtx)
     (ip : InsertPoint)
-    (ipRepr : ip.IsRepr)
-    (ipInBounds : ip.InBounds ctx.spec)
-    (ipBlock : ip.block! ctx.spec = some block.spec)
+    (ipInBounds : ip.InBounds ctx)
+    (ipBlock : ip.block! ctx = block)
     (ipNext : ip.next = nextOp)
-    (ipPrev : ip.prev! ctx.spec = prevOp.spec)
-    (hOpChain : BlockPtr.OpChain block.spec ctx.spec array) :
-    BlockPtr.OpChain block.spec newCtx.spec (array.insertIdx (ip.idxIn ctx.spec block.spec (by grind) (by grind) (by grind) ctxWf) op.spec (by
-      have := @InsertPoint.idxIn.le_size_array; grind)) := by
+    (ipPrev : ip.prev! ctx = prevOp)
+    (hOpChain : BlockPtr.OpChain block ctx array) :
+    BlockPtr.OpChain block newCtx (array.insertIdx (ip.idxIn ctx block (by grind) (by grind) ctxWf) op (by apply InsertPoint.idxIn.le_size_array; grind)) := by
+  have opNotInArray : op ∉ array := by grind
   constructor
   case blockInBounds => grind
-  case arrayInBounds => grind [Array.mem_insertIdx, BlockPtr.OpChain]
+  case arrayInBounds => grind [Array.mem_insertIdx]
   case missingOpInBounds => grind
-  case opParent => grind [Array.mem_insertIdx, BlockPtr.OpChain]
+  case opParent => grind [Array.mem_insertIdx]
   case missingOpValue => grind
-  case allOpsInChain => grind [Array.mem_insertIdx, BlockPtr.OpChain]
+  case allOpsInChain => grind [Array.mem_insertIdx]
   case first =>
-    grind [InsertPoint.idxIn_InsertPoint_prev_none, BlockPtr.OpChain]
+    grind [InsertPoint.idxIn_InsertPoint_prev_none]
   case last =>
     simp only [Array.size_insertIdx, Nat.add_one_sub_one, Nat.lt_add_one, getElem?_pos]
-    grind [InsertPoint.next_eq_none_iff_idxIn_eq_size_array, BlockPtr.OpChain]
-  case prevFirst =>
-    grind [BlockPtr.OpChain]
+    grind [InsertPoint.next_eq_none_iff_idxIn_eq_size_array]
+  case prevFirst => grind
+  -- Give the link proofs the insertion-point facts directly, so their `grind only`
+  -- calls do not need to reconstruct them through the global linked-list rules.
+  all_goals
+    let idx := ip.idxIn ctx block ipInBounds (by grind) ctxWf
+    have nextAtIdx : nextOp = array[idx]? := by grind
+    have prevAtIdx := InsertPoint.prev!_eq_GetElem!_idxIn
+      (ip := ip) (inBounds := ipInBounds) (blockIsParent := by grind) (ctxWf := ctxWf) hOpChain
+    have idxLe : idx ≤ array.size := InsertPoint.idxIn.le_size_array hOpChain
+    have idxZero : prevOp = none ↔ idx = 0 := by
+      grind [InsertPoint.idxIn_InsertPoint_prev_none]
   case prev =>
     intro i hi₁ hi₂
-    let idx := ip.idxIn ctx.spec block.spec (by grind) (by grind) (by grind)
-    have : nextOp.spec = array[idx]? := by grind
-    by_cases h₁ : i < idx
-    · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
-    · by_cases h₂ : i = idx
-      · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
-      · by_cases h₃ : i - 1 = idx
-        · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
-        · simp only [Array.size_insertIdx] at hi₂
-          simp (disch := grind) only [Array.getElem_insertIdx_of_gt]
-          grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+    simp only [Array.size_insertIdx] at hi₂
+    grind only [= Array.getElem_insertIdx, = Array.size_insertIdx, = getElem?_pos,
+      = getElem?_neg, usr Array.getElem_mem, usr OperationPtr.getPrevOp!_OperationPtr_linkBetweenWithParent,
+      usr BlockPtr.OpChain.prev, BlockPtr.OpChain_array_injective]
   case next =>
     intro i hi
     simp only [Array.size_insertIdx] at hi
-    let idx := ip.idxIn ctx.spec block.spec (by grind) (by grind) (by grind)
-    have : nextOp.spec = array[idx]? := by grind
-    by_cases h₁ : i + 1 < idx
-    · grind (instances := 2000) [BlockPtr.OpChain]
-    · by_cases h₂ : i + 1 = idx
-      · have := @InsertPoint.prev!_eq_GetElem!_idxIn
-        grind
-      · by_cases h₃ : i = idx
-        · grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
-        · have : i > idx := by grind
-          cases hidx : idx <;> grind [BlockPtr.OpChain, BlockPtr.OpChain_array_injective]
+    grind only [= Array.getElem_insertIdx, = Array.getElem?_insertIdx, = Array.size_insertIdx,
+      = getElem?_pos, = getElem?_neg, usr Array.getElem_mem,
+      usr OperationPtr.getNextOp!_OperationPtr_linkBetweenWithParent, usr BlockPtr.OpChain.next,
+      BlockPtr.OpChain_array_injective]
 
-
-theorem Sim.BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
-    {block : Sim.BlockPtr} {block' : Veir.BlockPtr} {parentIn : block.InBounds ctx}
+theorem BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp block selfIn prevIn nextIn parentIn = some newCtx)
-    (prevParent : prevOp.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some block.spec) )
-    (nextParent : nextOp.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some block.spec) )
-    (hNeBlock : block.spec ≠ block') :
-    BlockPtr.OpChain block' ctx.spec array →
-    BlockPtr.OpChain block' newCtx.spec array := by
+    (prevParent : prevOp.maybe₁ (fun prev => prev.getParent! ctx = some block) )
+    (nextParent : nextOp.maybe₁ (fun next => next.getParent! ctx = some block) )
+    (hNeBlock : block ≠ block') :
+    BlockPtr.OpChain block' ctx array →
+    BlockPtr.OpChain block' newCtx array := by
   intros opChain
-  apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;>
-     grind [InsertPoint.prev.maybe₁_parent, Option.maybe₁_def]
+  apply BlockPtr.OpChain_unchanged (ctx := ctx)
+    <;> grind [InsertPoint.prev.maybe₁_parent, Option.maybe₁_def]
 
-theorem Sim.RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
-    {region : Veir.RegionPtr}
+theorem RegionPtr.blockChain_OperationPtr_linkBetweenWithParent
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    RegionPtr.BlockChain region ctx.spec array →
-    RegionPtr.BlockChain region newCtx.spec array := by
+    RegionPtr.BlockChain region ctx array →
+    RegionPtr.BlockChain region newCtx array := by
   intros
-  apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Operation.wellFormed_OperationPtr_linkBetweenWithParent
-    {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
-    {opPtr : Veir.OperationPtr} {opInBounds : opPtr.InBounds ctx.spec}
-    (prevOpParent : prevOp.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some parentBlock.spec))
-    (nextOpParent : nextOp.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some parentBlock.spec))
+theorem Operation.wellFormed_OperationPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx)
+    (prevOpParent : prevOp.maybe₁ (fun prev => prev.getParent! ctx = some parentBlock))
+    (nextOpParent : nextOp.maybe₁ (fun next => next.getParent! ctx = some parentBlock))
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    Veir.OperationPtr.WellFormed ctx.spec opPtr opInBounds →
-    Veir.OperationPtr.WellFormed newCtx.spec opPtr (by grind) := by
+    OperationPtr.WellFormed ctx opPtr opInBounds →
+    OperationPtr.WellFormed newCtx opPtr (by grind) := by
   intro wf
   constructor
   case region_parent =>
     intro region regionInBounds
-    apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx.spec) <;> grind [IRContext.WellFormed, OperationPtr.WellFormed]
+    apply OperationPtr.WellFormed.region_parent.unchanged (ctx := ctx) <;> grind [IRContext.WellFormed, OperationPtr.WellFormed]
   all_goals grind [Option.maybe₁_def, IRContext.WellFormed, OperationPtr.WellFormed]
 
-theorem Sim.Block.wellFormed_OperationPtr_linkBetweenWithParent
-    {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
-    {blockPtr : Veir.BlockPtr} {blockInBounds : blockPtr.InBounds ctx.spec}
+theorem Block.wellFormed_OperationPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    Veir.BlockPtr.WellFormed ctx.spec blockPtr blockInBounds →
-    Veir.BlockPtr.WellFormed newCtx.spec blockPtr (by grind) := by
+    BlockPtr.WellFormed ctx blockPtr blockInBounds →
+    BlockPtr.WellFormed newCtx blockPtr (by grind) := by
   intros
-  apply BlockPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+  apply BlockPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Region.wellFormed_OperationPtr_linkBetweenWithParent
-    {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
-    {regionPtr : Veir.RegionPtr}
-    (regionInBounds : regionPtr.InBounds ctx.spec)
+theorem Region.wellFormed_OperationPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx) (regionInBounds : regionPtr.InBounds ctx)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx) :
-    Veir.RegionPtr.WellFormed ctx.spec regionPtr →
-    Veir.RegionPtr.WellFormed newCtx.spec regionPtr := by
+    RegionPtr.WellFormed ctx regionPtr →
+    RegionPtr.WellFormed newCtx regionPtr := by
   intros
-  apply RegionPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+  apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.IRContext.wellFormed_OperationPtr_linkBetweenWithParent
-    {parentBlock : Sim.BlockPtr} {parentIn : parentBlock.InBounds ctx}
-    (hWF : ctx.spec.WellFormed)
+theorem IRContext.wellFormed_OperationPtr_linkBetweenWithParent
+    (hWF : ctx.WellFormed)
     (hctx : op.linkBetweenWithParent ctx prevOp nextOp parentBlock selfIn prevIn nextIn parentIn = some newCtx)
-    (prevOpParent : prevOp.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some parentBlock.spec))
-    (nextOpParent : nextOp.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some parentBlock.spec))
+    (prevOpParent : prevOp.maybe₁ (fun prev => prev.getParent! ctx = some parentBlock))
+    (nextOpParent : nextOp.maybe₁ (fun next => next.getParent! ctx = some parentBlock))
     {ip : InsertPoint}
-    (ipRepr : ip.IsRepr)
-    (ipInBounds : ip.InBounds ctx.spec)
-    (ipBlock : ip.block! ctx.spec = some parentBlock.spec)
+    (ipInBounds : ip.InBounds ctx)
+    (ipBlock : ip.block! ctx = parentBlock)
     (ipNext : ip.next = nextOp)
-    (ipPrev : ip.prev! ctx.spec = prevOp.spec) :
-    newCtx.spec.WellFormed := by
+    (ipPrev : ip.prev! ctx = prevOp) :
+    newCtx.WellFormed := by
   constructor
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
     exists array
-    grind [Sim.ValuePtr.defUse_OperationPtr_linkBetweenWithParent]
+    grind [ValuePtr.defUse_OperationPtr_linkBetweenWithParent]
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
     exists array
-    grind [Sim.BlockPtr.defUse_OperationPtr_linkBetweenWithParent]
+    grind [BlockPtr.defUse_OperationPtr_linkBetweenWithParent]
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.opChain blockPtr (by grind)
-    by_cases hBlock : blockPtr = parentBlock.spec
+    by_cases hBlock : blockPtr = parentBlock
     · subst hBlock
-      exact ⟨_, Sim.BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self
-        hWF hctx ip ipRepr ipInBounds ipBlock ipNext ipPrev h⟩
-    · exact ⟨_, Sim.BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
+      exact ⟨_, BlockPtr.opChain_OperationPtr_linkBetweenWithParent_self
+        hWF hctx ip ipInBounds ipBlock ipNext ipPrev h⟩
+    · exact ⟨_, BlockPtr.opChain_OperationPtr_linkBetweenWithParent_other
         hctx prevOpParent nextOpParent (Ne.symm hBlock) h⟩
   · intros regionPtr regionPtrInBounds
     have ⟨array, h⟩ := hWF.blockChain regionPtr (by grind)
     exists array
-    grind [Sim.RegionPtr.blockChain_OperationPtr_linkBetweenWithParent]
+    grind [RegionPtr.blockChain_OperationPtr_linkBetweenWithParent]
   · intros opPtr opPtrInBounds
     have := hWF.operations opPtr (by grind)
-    grind [Sim.Operation.wellFormed_OperationPtr_linkBetweenWithParent]
+    grind [Operation.wellFormed_OperationPtr_linkBetweenWithParent]
   · intros blockPtr blockPtrInBounds
     have := hWF.blocks blockPtr (by grind)
-    grind [Sim.Block.wellFormed_OperationPtr_linkBetweenWithParent]
+    grind [Block.wellFormed_OperationPtr_linkBetweenWithParent]
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
-    grind [Sim.Region.wellFormed_OperationPtr_linkBetweenWithParent]
+    grind [Region.wellFormed_OperationPtr_linkBetweenWithParent]
 
 end OperationPtr.linkBetweenWithParent
 
 section BlockPtr.linkBetweenWithParent
 
-variable {block : Sim.BlockPtr}
-variable {newCtx : Sim.IRContext OpInfo}
-variable {prevBlock nextBlock : Sim.OptionBlockPtr}
-variable {selfIn : block.InBounds ctx} {prevIn : prevBlock.InBounds ctx} {nextIn : nextBlock.InBounds ctx}
+variable {block : BlockPtr}
 
-theorem Sim.ValuePtr.defUse_BlockPtr_linkBetweenWithParent
-    {value : Veir.ValuePtr} {parent : Sim.RegionPtr} {parentIn : parent.InBounds ctx}
+theorem ValuePtr.defUse_BlockPtr_linkBetweenWithParent
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx) :
-    ValuePtr.DefUse value ctx.spec array missingUses →
-    ValuePtr.DefUse value newCtx.spec array missingUses := by
+    ValuePtr.DefUse value ctx array missingUses →
+    ValuePtr.DefUse value newCtx array missingUses := by
   intros
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.defUse_BlockPtr_linkBetweenWithParent
-    {block' : Veir.BlockPtr} {parent : Sim.RegionPtr} {parentIn : parent.InBounds ctx}
+theorem BlockPtr.defUse_BlockPtr_linkBetweenWithParent
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx) :
-    BlockPtr.DefUse block' ctx.spec array missingUses →
-    BlockPtr.DefUse block' newCtx.spec array missingUses := by
+    BlockPtr.DefUse block' ctx array missingUses →
+    BlockPtr.DefUse block' newCtx array missingUses := by
   intros
-  apply BlockPtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind
 
-theorem Sim.BlockPtr.opChain_BlockPtr_linkBetweenWithParent
-    {block' : Veir.BlockPtr} {parent : Sim.RegionPtr} {parentIn : parent.InBounds ctx}
+theorem BlockPtr.opChain_BlockPtr_linkBetweenWithParent
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
-    (hOpChain : BlockPtr.OpChain block' ctx.spec array) :
-    BlockPtr.OpChain block' newCtx.spec array := by
+    (hOpChain : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' newCtx array := by
   intros
-  apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
 
-set_option maxHeartbeats 1000000 in
-theorem Sim.RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
-    {parent : Sim.RegionPtr} {parentIn : parent.InBounds ctx}
-    (ctxWf : ctx.spec.WellFormed)
+theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
+    (ctxWf : ctx.WellFormed)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
     (bip : BlockInsertPoint)
-    (bipRepr : bip.IsRepr)
-    (bipInBounds : bip.InBounds ctx.spec)
-    (bipRegion : bip.region! ctx.spec = some parent.spec)
+    (bipInBounds : bip.InBounds ctx)
+    (bipRegion : bip.region! ctx = some parent)
     (bipNext : bip.next = nextBlock)
-    (bipPrev : bip.prev! ctx.spec = prevBlock.spec)
-    (hBlockChain : RegionPtr.BlockChain parent.spec ctx.spec array) :
-    RegionPtr.BlockChain parent.spec newCtx.spec
-      (array.insertIdx (bip.idxIn ctx.spec parent.spec (by grind) (by grind) (by grind) ctxWf) block.spec (by
-        have := @BlockInsertPoint.idxIn.le_size_array; grind)) := by
+    (bipPrev : bip.prev! ctx = prevBlock)
+    (hBlockChain : RegionPtr.BlockChain parent ctx array) :
+    RegionPtr.BlockChain parent newCtx (array.insertIdx (bip.idxIn ctx parent (by grind) (by grind) ctxWf) block (by apply BlockInsertPoint.idxIn.le_size_array; grind)) := by
   constructor
   case inBounds => grind
-  case arrayInBounds => grind [Array.mem_insertIdx, RegionPtr.BlockChain]
-  case opParent => grind [Array.mem_insertIdx, RegionPtr.BlockChain]
-  case allBlocksInChain => grind [Array.mem_insertIdx, RegionPtr.BlockChain]
-  case first => grind [RegionPtr.BlockChain]
+  case arrayInBounds => grind [Array.mem_insertIdx]
+  case opParent => grind [Array.mem_insertIdx]
+  case allBlocksInChain => grind [Array.mem_insertIdx]
+  case first => grind
   case last =>
     simp only [Array.size_insertIdx, Nat.add_one_sub_one, Nat.lt_add_one, getElem?_pos]
-    grind (instances := 2000) (splits := 20) [BlockInsertPoint.next_eq_none_iff_idxIn_eq_size_array, RegionPtr.BlockChain]
+    grind [BlockInsertPoint.next_eq_none_iff_idxIn_eq_size_array]
   case prevFirst =>
     intro bl
-    simp only [RegionPtr.firstBlock!_BlockPtr_linkBetweenWithParent hctx, and_true,
-      BlockPtr.prev!_BlockPtr_linkBetweenWithParent hctx]
+    simp only [RegionPtr.getFirstBlock!_BlockPtr_linkBetweenWithParent hctx, and_true,
+      BlockPtr.getPrevBlock!_BlockPtr_linkBetweenWithParent hctx]
     split
-    · have := @BlockPtr.parent!_of_BlockPtr_linkBetweenWithParent_eq
-      have := @BlockInsertPoint.BlockPtr_parent!_of_next_eq_some
-      grind
+    · grind
     · rename_i hprev
       split
       · subst nextBlock
         simp only [reduceCtorEq, imp_false]
         have ⟨prevOp, hprevOp⟩ := Option.ne_none_iff_exists.mp hprev
-        have := @BlockPtr.parent!_of_BlockPtr_linkBetweenWithParent_eq
-        have := @BlockInsertPoint.BlockPtr_parent!_of_next_eq_some
-        grind [RegionPtr.BlockChain]
-      · grind [RegionPtr.BlockChain]
+        have := BlockInsertPoint.prev_next (ctx := ctx) bipInBounds (prevOp := prevOp) (nextOp := bl)
+          (by grind) (by grind)
+        grind [RegionPtr.BlockChain.prevFirst]
+      · grind [RegionPtr.BlockChain.opParent]
   case prev =>
     intro i hi₁ hi₂
-    let idx := bip.idxIn ctx.spec parent.spec (by grind) (by grind) (by grind) ctxWf
-    have : nextBlock.spec = array[idx]? := by grind
+    let idx := bip.idxIn ctx parent (by grind) (by grind) ctxWf
+    have : nextBlock = array[idx]? := by grind
     by_cases h₁ : i < idx
-    · grind (gen := 10) (instances := 2000) [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+    · grind [RegionPtr.BlockChain_array_injective, RegionPtr.BlockChain.prev, → BlockInsertPoint.prev!_eq_getElem!_idxIn]
     · by_cases h₂ : i = idx
-      · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective,
+      · grind [RegionPtr.BlockChain_array_injective,
           BlockInsertPoint.prev!_eq_getElem!_idxIn]
       · by_cases h₃ : i - 1 = idx
-        · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
-        · grind (splits := 15) (instances := 2000) [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+        · grind [RegionPtr.BlockChain_array_injective]
+        · grind [RegionPtr.BlockChain_array_injective]
   case next =>
     intro i hi
     simp only [Array.size_insertIdx] at hi
-    let idx := bip.idxIn ctx.spec parent.spec (by grind) (by grind) (by grind) ctxWf
-    have : nextBlock.spec = array[idx]? := by grind
+    let idx := bip.idxIn ctx parent (by grind) (by grind) ctxWf
+    have : nextBlock = array[idx]? := by grind
     by_cases h₁ : i + 1 < idx
-    · grind (instances := 3000) [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective,
-        BlockInsertPoint.prev!_eq_getElem!_idxIn]
+    · grind [RegionPtr.BlockChain_array_injective, → BlockInsertPoint.prev!_eq_getElem!_idxIn]
     · by_cases h₂ : i + 1 = idx
       · have := @BlockInsertPoint.prev!_eq_getElem!_idxIn
-        grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+        grind [RegionPtr.BlockChain_array_injective]
       · by_cases h₃ : i = idx
-        · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+        · grind [RegionPtr.BlockChain_array_injective]
         · have : i > idx := by grind
-          cases hidx : idx
-          · grind [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
-          · have := @BlockPtr.parent!_of_BlockPtr_linkBetweenWithParent_eq
-            have := @BlockInsertPoint.BlockPtr_parent!_of_next_eq_some
-            grind (instances := 5000) [RegionPtr.BlockChain, RegionPtr.BlockChain_array_injective]
+          cases hidx : idx <;> grind [RegionPtr.BlockChain_array_injective]
 
-theorem Sim.RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
-    {parent : Sim.RegionPtr} {parentIn : parent.InBounds ctx} {region : Veir.RegionPtr}
+
+theorem RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parent selfIn prevIn nextIn parentIn = some newCtx)
-    (prevParent : prevBlock.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some parent.spec) )
-    (nextParent : nextBlock.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some parent.spec) )
-    (hNeRegion : parent.spec ≠ region) :
-    RegionPtr.BlockChain region ctx.spec array →
-    RegionPtr.BlockChain region newCtx.spec array := by
+    (prevParent : prevBlock.maybe₁ (fun prev => prev.getParent! ctx = some parent) )
+    (nextParent : nextBlock.maybe₁ (fun next => next.getParent! ctx = some parent) )
+    (hNeRegion : parent ≠ region) :
+    RegionPtr.BlockChain region ctx array →
+    RegionPtr.BlockChain region newCtx array := by
   intros blockChain
-  apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind [Option.maybe₁_def]
+  apply RegionPtr.blockChain_unchanged (ctx := ctx)
+    <;> grind [Option.maybe₁_def]
 
-theorem Sim.Operation.wellFormed_BlockPtr_linkBetweenWithParent
-    {parentRegion : Sim.RegionPtr} {parentIn : parentRegion.InBounds ctx}
-    {opPtr : Veir.OperationPtr} {opInBounds : opPtr.InBounds ctx.spec}
+theorem Operation.wellFormed_BlockPtr_linkBetweenWithParent
+    (ctxInBounds: IRContext.FieldsInBounds ctx)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx) :
-    Veir.OperationPtr.WellFormed ctx.spec opPtr opInBounds →
-    Veir.OperationPtr.WellFormed newCtx.spec opPtr (by grind) := by
+    OperationPtr.WellFormed ctx opPtr opInBounds →
+    OperationPtr.WellFormed newCtx opPtr (by grind) := by
   intros
-  apply OperationPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind
+  apply OperationPtr.WellFormed_unchanged (ctx := ctx) <;> grind
 
-theorem Sim.Block.wellFormed_BlockPtr_linkBetweenWithParent
-    {parentRegion : Sim.RegionPtr} {parentIn : parentRegion.InBounds ctx}
-    {block' : Veir.BlockPtr} {blockInBounds : block'.InBounds ctx.spec}
-    (ctxWf : Veir.IRContext.WellFormed ctx.spec)
-    (prevBlockParent : prevBlock.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some parentRegion.spec))
-    (nextBlockParent : nextBlock.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some parentRegion.spec))
+theorem Block.wellFormed_BlockPtr_linkBetweenWithParent
+    (ctxWf : IRContext.WellFormed ctx)
+    (prevBlockParent : prevBlock.maybe₁ (fun prev => prev.getParent! ctx = some parentRegion))
+    (nextBlockParent : nextBlock.maybe₁ (fun next => next.getParent! ctx = some parentRegion))
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
-    (hWF : Veir.BlockPtr.WellFormed ctx.spec block' blockInBounds) :
-    Veir.BlockPtr.WellFormed newCtx.spec block' (by grind) := by
-  by_cases hBlock : block' = block.spec <;> constructor <;> grind [BlockPtr.WellFormed, Option.maybe₁_def]
+    (hWF : BlockPtr.WellFormed ctx block' blockInBounds) :
+    BlockPtr.WellFormed newCtx block' (by grind) := by
+  by_cases hBlock : block' = block <;> constructor <;> grind [BlockPtr.WellFormed, Option.maybe₁_def]
 
-theorem Sim.Region.wellFormed_BlockPtr_linkBetweenWithParent
-    {parentRegion : Sim.RegionPtr} {parentIn : parentRegion.InBounds ctx} {region : Veir.RegionPtr}
+theorem Region.wellFormed_BlockPtr_linkBetweenWithParent
+    (ctxWf : IRContext.WellFormed ctx)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
-    (regionInBounds : region.InBounds ctx.spec)
-    (hWF : RegionPtr.WellFormed ctx.spec region) :
-    RegionPtr.WellFormed newCtx.spec region := by
-  by_cases hregion : region = parentRegion.spec
+    (regionInBounds : region.InBounds ctx)
+    (hWF : RegionPtr.WellFormed ctx region) :
+    RegionPtr.WellFormed newCtx region := by
+  by_cases hregion : region = parentRegion
   · constructor <;> try grind [RegionPtr.WellFormed, Option.maybe₁_def]
     simp only [OperationPtr.getRegion!_BlockPtr_linkBetweenWithParent hctx]
     grind [RegionPtr.WellFormed]
-  · apply RegionPtr.WellFormed_unchanged (ctx := ctx.spec) <;> grind [RegionPtr.WellFormed]
+  · apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind [RegionPtr.WellFormed]
 
-theorem Sim.IRContext.wellFormed_BlockPtr_linkBetweenWithParent
-    {parentRegion : Sim.RegionPtr} {parentIn : parentRegion.InBounds ctx}
-    (hWF : ctx.spec.WellFormed)
+theorem IRContext.wellFormed_BlockPtr_linkBetweenWithParent
+    (hWF : ctx.WellFormed)
     (hctx : block.linkBetweenWithParent ctx prevBlock nextBlock parentRegion selfIn prevIn nextIn parentIn = some newCtx)
-    (prevBlockParent : prevBlock.spec.maybe₁ (fun prev => (prev.get! ctx.spec).parent = some parentRegion.spec))
-    (nextBlockParent : nextBlock.spec.maybe₁ (fun next => (next.get! ctx.spec).parent = some parentRegion.spec))
+    (prevBlockParent : prevBlock.maybe₁ (fun prev => prev.getParent! ctx = some parentRegion))
+    (nextBlockParent : nextBlock.maybe₁ (fun next => next.getParent! ctx = some parentRegion))
     {ip : BlockInsertPoint}
-    {ipRepr : ip.IsRepr}
-    (ipInBounds : ip.InBounds ctx.spec)
-    (ipBlock : ip.region! ctx.spec = some parentRegion.spec)
+    (ipInBounds : ip.InBounds ctx)
+    (ipBlock : ip.region! ctx = parentRegion)
     (ipNext : ip.next = nextBlock)
-    (ipPrev : ip.prev! ctx.spec = prevBlock.spec) :
-    newCtx.spec.WellFormed := by
+    (ipPrev : ip.prev! ctx = prevBlock) :
+    newCtx.WellFormed := by
   constructor
   · grind
   · intros valuePtr valuePtrInBounds
     have ⟨array, h⟩ := hWF.valueDefUseChains valuePtr (by grind)
     exists array
-    grind [Sim.ValuePtr.defUse_BlockPtr_linkBetweenWithParent]
+    grind [ValuePtr.defUse_BlockPtr_linkBetweenWithParent]
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockDefUseChains blockPtr (by grind)
     exists array
-    grind [Sim.BlockPtr.defUse_BlockPtr_linkBetweenWithParent]
+    simp_all
+    grind [BlockPtr.defUse_BlockPtr_linkBetweenWithParent]
   · intros regionPtr regionPtrInBounds
     have ⟨array, h⟩ := hWF.opChain regionPtr (by grind)
     exists array
-    grind [Sim.BlockPtr.opChain_BlockPtr_linkBetweenWithParent]
+    grind [BlockPtr.opChain_BlockPtr_linkBetweenWithParent]
   · intros blockPtr blockPtrInBounds
     have ⟨array, h⟩ := hWF.blockChain blockPtr (by grind)
-    by_cases hBlock : blockPtr = parentRegion.spec
+    by_cases hBlock : blockPtr = parentRegion
     · subst hBlock
-      exact ⟨_, Sim.RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
-        hWF hctx ip ipRepr ipInBounds ipBlock ipNext ipPrev h⟩
-    · exact ⟨_, Sim.RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
+      exact ⟨_, RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_self
+        hWF hctx ip ipInBounds ipBlock ipNext ipPrev h⟩
+    · exact ⟨_, RegionPtr.blockChain_BlockPtr_linkBetweenWithParent_other
         hctx prevBlockParent nextBlockParent (Ne.symm hBlock) h⟩
   · intros opPtr opPtrInBounds
     have := hWF.operations opPtr (by grind)
-    grind [Sim.Operation.wellFormed_BlockPtr_linkBetweenWithParent]
+    grind [Operation.wellFormed_BlockPtr_linkBetweenWithParent]
   · intros blockPtr blockPtrInBounds
     have := hWF.blocks blockPtr (by grind)
-    grind [Sim.Block.wellFormed_BlockPtr_linkBetweenWithParent]
+    grind [Block.wellFormed_BlockPtr_linkBetweenWithParent]
   · intros regionPtr regionPtrInBounds
     have := hWF.regions regionPtr (by grind)
-    grind [Sim.Region.wellFormed_BlockPtr_linkBetweenWithParent]
+    grind [Region.wellFormed_BlockPtr_linkBetweenWithParent]
 
 end BlockPtr.linkBetweenWithParent
 

@@ -1,0 +1,489 @@
+module
+
+public import ExArray.CompilerExtras
+public import Veir.Buffered.IR
+public import Veir.Buffered.Rewriter.LinkedList.Basic
+public import Veir.Buffered.Rewriter.LinkedList.GetSet
+
+meta import Veir.Buffered.IR.Buffed.Basic
+import Veir.Buffered.IR.Buffed.Frames
+import Veir.Buffered.IR.Buffed.RawAccessorsLemmas
+import Veir.Buffered.IR.Buffed.Meta
+import Veir.Buffered.IR.Buffed.InBounds
+import Veir.Buffered.Rewriter.LinkedList.LayoutUnchanged
+
+set_option linter.unusedSectionVars false
+
+/-! Rewriter simulation proofs -/
+
+@[expose] public section
+namespace Veir.Buffered
+
+variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
+variable {ctx : Sim.IRContext OpInfo}
+
+@[inline]
+protected def Rewriter.setOperand (opPtr : Buffed.OperationMPtr) (oper : Buffed.OpOperandMPtr)
+    (ctx₀ : Buffed.IRBufContext) (idx : UInt64)
+    (hnum : (opPtr + Buffed.Operation.Offsets.opType).toInt + Buffed.Operation.Sizes.opType.toInt ≤ ctx₀.size)
+    -- The operand slot pointer is passed in precomputed: recomputing it here would re-run the
+    -- boxed `propertySizeOfEncoded` dispatch (two heap allocations in generic code) per operand.
+    (hoper : oper = opPtr + opPtr.computeOperandOffset (OpInfo := OpInfo) ctx₀ idx hnum)
+    (hslot : (opPtr + opPtr.computeOperandOffset (OpInfo := OpInfo) ctx₀ idx hnum).toNat + Buffed.OpOperand.size.toNat ≤ ctx₀.size)
+    (value : Buffed.ValueImplMPtr) : Buffed.IRBufContext :=
+  let ctx := oper.writeNextUse ctx₀ .none (by subst hoper; prove_setSlotBounds ctx₀)
+  -- `back` points at the value's `firstUse` slot, mirroring the spec's `OpOperandPtrPtr.valueFirstUse` (the use-list insertion re-writes it with the same value).
+  let ctx := oper.writeBack ctx (value + Buffed.ValueImpl.Offsets.firstUse) (by subst hoper; prove_setSlotBounds ctx₀)
+  let ctx := oper.writeOwner ctx opPtr (by subst hoper; prove_setSlotBounds ctx₀)
+  let ctx := oper.writeValue ctx value (by subst hoper; prove_setSlotBounds ctx₀)
+  ctx
+
+@[irreducible]
+protected def Rewriter.pushOperand (ctx : IRContext OpInfo) (opPtr : OperationPtr) (valuePtr : ValuePtr)
+    (opPtrInBounds : opPtr.InBounds ctx := by grind) (valueInBounds : valuePtr.InBounds ctx := by grind) : IRContext OpInfo :=
+  let op := (opPtr.get ctx (by grind))
+  let index := opPtr.getNumOperands ctx (by grind)
+  let operand := { value := valuePtr, owner := opPtr, back := OpOperandPtrPtr.valueFirstUse valuePtr, nextUse := none : OpOperand}
+  have : operand.FieldsInBounds ctx := by constructor <;> grind
+  opPtr.pushOperand ctx operand (by grind)
+
+set_option maxHeartbeats 1000000000 in
+/-- The `Sim` relation survives writing a fresh operand into slot `idx` of `opPtr`'s (pre-allocated) operand array while the spec pushes the corresponding `OpOperand`. -/
+theorem Rewriter.setOperand_pushOperand_sim (opPtr : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo)
+    (idx : UInt64) (valuePtr : Sim.ValuePtr)
+    (opPtrInBounds : opPtr.InBounds ctx) (valueInBounds : valuePtr.InBounds ctx)
+    (hidx : idx.toNat = opPtr.spec.getNumOperands! ctx.spec)
+    (hcap : idx.toNat < (opPtr.spec.get! ctx.spec).capOperands)
+    (hnum : (opPtr.impl + Buffed.Operation.Offsets.opType).toInt + Buffed.Operation.Sizes.opType.toInt ≤ ctx.buf.size)
+    {oper : Buffed.OpOperandMPtr}
+    (hoper : oper = opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum)
+    (hslot : (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + Buffed.OpOperand.size.toNat ≤ ctx.buf.size) :
+    Veir.Buffered.Sim ⟨Rewriter.setOperand opPtr.impl oper ctx.buf idx hnum hoper hslot valuePtr.impl,
+              .mk (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))⟩ := by
+  subst hoper
+  have hin := ctx.sim.in_bounds (.operation opPtr.spec) (by grind)
+  have hsz : ctx.buf.mem.size < 2^63 := by grind
+  have hincl := OperationPtr.nthOperand_range_included_op_range ctx opPtr.spec idx hcap (by grind)
+  have hidxlt : idx.toNat < 4294967296 := by
+    have := ctx.isRepr.operations_indices opPtr.spec (by grind) |>.capOperands
+    grind
+  have hmul : (Buffed.OpOperand.size * idx).toNat = Buffed.OpOperand.sizeNat * idx.toNat := by
+    rw [UInt64.toNat_mul]
+    grind
+  have hoff := OperationPtr.computeOperandsOffset!_ideal ctx opPtr (by grind) (by grind) hnum
+  have hopM : (UInt64.toNat opPtr.impl : Int) = opPtr.spec.toFlat := by
+    have := opPtrInBounds.sim
+    simp only [Sim.OperationPtr.Sim_def, OperationPtr.toM] at this
+    grind [OperationPtr.toFlat, OperationPtr.range]
+  have hslotaddr : ((opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat : Int)
+      = opPtr.spec.toFlat + (Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec + Buffed.OpOperand.sizeNat * idx.toNat) := by
+    simp only [Buffed.OperationMPtr.computeOperandOffset,
+      Buffed.OperationMPtr.computeOperandsOffset_eq_computeOperandsOffset!]
+    grind [Buffed.OperationMPtr.computeOperandOffset, IsIncludedI, IsIncludedIN]
+  have husz : (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ ctx.buf.mem.size := by
+    grind
+  have ek : ∀ (off : Int64) (n : Nat), off.toInt = n → n + 8 ≤ 32 →
+      ((opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) + off).toNat
+        = (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + n := by
+    intro off n hn h32
+    rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
+  have hread : ∀ (w : Nat) (a len : UInt64),
+      (a.toNat + len.toNat ≤ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
+       ∨ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ a.toNat) →
+      (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).mem.read! (w := w) a len = ctx.buf.mem.read! a len := by
+    intro w a len ha
+    simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+      Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+    rw [ExArray.read!_blit64_disjoint _ _ _ _ _
+        (by simp only [IsDisjoint]; have := ek Buffed.OpOperand.Offsets.value 24 (by decide) (by decide); omega),
+      ExArray.read!_blit64_disjoint _ _ _ _ _
+        (by simp only [IsDisjoint]; have := ek Buffed.OpOperand.Offsets.owner 16 (by decide) (by decide); omega),
+      ExArray.read!_blit64_disjoint _ _ _ _ _
+        (by simp only [IsDisjoint]; have := ek Buffed.OpOperand.Offsets.back 8 (by decide) (by decide); omega),
+      ExArray.read!_blit64_disjoint _ _ _ _ _
+        (by simp only [IsDisjoint]; have := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega)]
+  have hsizele : ctx.buf.mem.size ≤ (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).mem.size := by
+    simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+      Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+    grind [ExArray.blit64_size]
+  have hattr : (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).attributes = ctx.buf.attributes := by
+    simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+      Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+  have hfree : (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl).freeList = ctx.buf.freeList := by
+    simp only [Rewriter.setOperand, Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+      Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+  have hlay : ctx.spec.LayoutPreserved (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) :=
+    IRContext.LayoutPreserved.of_layoutUnchanged_ltr (by grind [Rewriter.pushOperand])
+  -- The four writes stay inside the fresh 32-byte slot; any window disjoint from it agrees.
+  have hagreeD : ∀ lo hi : Nat,
+      (hi ≤ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat
+       ∨ (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum).toNat + 32 ≤ lo) →
+      Buffed.AgreesOn (Rewriter.setOperand opPtr.impl (opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum) ctx.buf idx hnum rfl hslot valuePtr.impl) ctx.buf lo hi :=
+    fun lo hi hd => ⟨hsizele, fun w a len h1 h2 => hread w a len (by omega), fun _ _ h => by simp only [hattr]; exact h⟩
+  constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+  · -- fieldsInBounds
+    have hofib : OpOperand.FieldsInBounds
+        { value := valuePtr.spec, owner := opPtr.spec,
+          back := OpOperandPtrPtr.valueFirstUse valuePtr.spec, nextUse := none } ctx.spec := by
+      constructor <;> grind
+    clear hread hattr ek hagreeD
+    grind [Rewriter.pushOperand]
+  · -- repr
+    clear hread hattr ek hagreeD
+    grind [Rewriter.pushOperand, layout_grind]
+  · -- in_bounds
+    intros gptr gptrIb
+    clear hread hattr ek hagreeD
+    have := ctx.sim.in_bounds gptr (by grind [Rewriter.pushOperand])
+    grind [TopLevelPtr, Rewriter.pushOperand, Rewriter.setOperand]
+  · -- disjoint_allocs
+    clear hread hattr ek hagreeD
+    have := ctx.sim.disjoint_allocs
+    grind [TopLevelPtr, Rewriter.pushOperand]
+  · -- encoding_op
+    intros op opIb
+    have hopib : op.InBounds ctx.spec := by
+      clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+      grind [Rewriter.pushOperand]
+    have henc := ctx.sim.encoding_op op hopib
+    have hrrange := Veir.Buffered.Sim.OperationPtr.range_linear (ctx := ctx) op hopib
+    have hwrange := Veir.Buffered.Sim.OperationPtr.range_linear (ctx := ctx) opPtr.spec opPtrInBounds.ib
+    have hdisj := fun hne : op ≠ opPtr.spec =>
+      Veir.Buffered.Sim.disjoint_operation_operation (ctx := ctx) op opPtr.spec hopib opPtrInBounds.ib hne
+    have hareaOP : Buffed.Operation.Offsets.operandsInt op ctx.spec
+        = 72 + ((Buffed.Operation.propertySize (op.getOpType! ctx.spec)).toNat : Int) := by rfl
+    have hopM : (UInt64.toNat op.toM : Int) = op.toFlat := by
+      simp only [OperationPtr.toM]
+      grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', OperationPtr.toFlat, layout_grind]
+    have hgets : ((op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).prev = (op.get! ctx.spec).prev
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).next = (op.get! ctx.spec).next
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).parent = (op.get! ctx.spec).parent
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).attrs = (op.get! ctx.spec).attrs
+        ∧ op.getOpType! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = op.getOpType! ctx.spec
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).capBlockOperands = (op.get! ctx.spec).capBlockOperands
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).capRegions = (op.get! ctx.spec).capRegions
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).capOperands = (op.get! ctx.spec).capOperands
+        ∧ (op.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))).capResults = (op.get! ctx.spec).capResults
+        ∧ op.getProperties! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) (op.getOpType! ctx.spec) = op.getProperties! ctx.spec (op.getOpType! ctx.spec)) := by
+      clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+      grind [Rewriter.pushOperand]
+    obtain ⟨hgprev, hgnext, hgpar, hgattrs, hgty, hgcB, hgcRg, hgcO, hgcR, hgprops⟩ := hgets
+    constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+    · -- MatchesBase: framed — the write lands in the operand array, past the 72-byte header.
+      refine OperationPtr.matchesBase_frame ctx op hopib henc.toMatchesBase (hagreeD _ _ ?_) hlay
+        hgprev hgnext hgpar hgattrs hgty hgprops opIb
+      clear hread hattr ek hagreeD hoff husz hmul hidxlt
+      grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+        Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+        _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+        _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+      · refine OperationPtr.numBlockOperands_frame ctx op hopib henc.numBlockOperands (hagreeD _ _ ?_) hgcB
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+      · intros bo boIb heq
+        have hboib : bo.InBounds ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        have hbincl := Veir.Buffered.Sim.BlockOperandPtr.slot_included (ctx := ctx) bo hboib
+        have hboget : bo.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = bo.get! ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        refine BlockOperandPtr.matches_frame ctx bo hboib (henc.blockOperands bo hboib heq)
+          (hagreeD _ _ ?_) hlay hboget boIb
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+      · refine OperationPtr.numRegions_frame ctx op hopib henc.numRegions (hagreeD _ _ ?_) hgcRg
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+      · intros ridx ridxIn
+        have hnr : ridx < op.getNumRegions! ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        have hcapr := ctx.sim.repr.operations_indices op hopib |>.capRegions
+        refine OperationPtr.nthRegion_frame ctx op hopib ridx hnr (henc.regions ridx hnr)
+          (hagreeD _ _ ?_) ?_
+          (by clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+              grind [Rewriter.pushOperand])
+        · clear hread hattr ek hagreeD hoff husz hmul hidxlt
+          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+            _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+            _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+        · have hidxc : ridx < (op.get! ctx.spec).capRegions := by
+            clear hread hattr ek hagreeD
+            grind
+          have haddrR : ((op.toM.toNat : Nat) : Int) = op.id := by
+            grind [Veir.Buffered.OperationPtr.toM, _root_.Veir.Buffered.OperationPtr.toFlat]
+          have hcntr := ctx.sim.repr.operations_indices op hopib |>.regions
+          have hincl2 := OperationPtr.nthRegion_range_included_op_range ctx op ridx.toUInt64
+            (by clear hread hattr ek hagreeD hoff husz hmul hidxlt
+                grind [UInt64.toNat_ofNat']) hopib
+          refine hagreeD _ _ ?_
+          clear hread hattr ek hagreeD hoff husz hmul hidxlt
+          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+              Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+              _root_.Veir.Buffered.OperationPtr.toFlat, UInt64.toNat_ofNat']
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+      · refine OperationPtr.numOperands_frame ctx op hopib henc.numOperands (hagreeD _ _ ?_) hgcO
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+      · intros oper operIb heq
+        by_cases hnewop : oper = opPtr.spec.nextOperand ctx.spec
+        · -- the freshly pushed operand: reads land on the four writes just made
+          have hopeq : op = opPtr.spec := by
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind
+          subst hopeq
+          subst hnewop
+          have hnidx : (opPtr.spec.nextOperand ctx.spec).index = idx.toNat := by
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind
+          have hnop : (opPtr.spec.nextOperand ctx.spec).op = opPtr.spec := by
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind
+          have hreprN : (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)).IsRepr := by
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind [Rewriter.pushOperand, layout_grind]
+          have hnget : (opPtr.spec.nextOperand ctx.spec).get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))
+              = { value := valuePtr.spec, owner := opPtr.spec,
+                  back := OpOperandPtrPtr.valueFirstUse valuePtr.spec, nextUse := none } := by
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind [Rewriter.pushOperand]
+          have hopsame : Buffed.Operation.Offsets.operandsInt opPtr.spec (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))
+              = Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec := by
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind [Rewriter.pushOperand]
+          have hnflat : ((((opPtr.spec.nextOperand ctx.spec).toFlat (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))) : Nat) : Int)
+              = opPtr.spec.toFlat + Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec + ((idx.toNat * 32 : Nat) : Int) := by
+            rw [OpOperandPtr.toFlat_ideal hreprN _ operIb]
+            simp only [OpOperandPtr.toFlatNat, hnop, hnidx, hopsame, show Buffed.OpOperand.sizeNat = 32 from rfl]
+            have h0 : (0:Int) ≤ opPtr.spec.toFlat + Buffed.Operation.Offsets.operandsInt opPtr.spec ctx.spec := by
+              rw [hareaOP]
+              omega
+            omega
+          have hnMeq : (opPtr.spec.nextOperand ctx.spec).toM (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))
+              = opPtr.impl + Buffed.OperationMPtr.computeOperandOffset (OpInfo := OpInfo) ctx.buf opPtr.impl idx hnum := by
+            clear hread hagreeD hsizele hgprops henc hin hincl hoff husz ek hattr hlay
+              hwrange hrrange hdisj hareaOP hgprev hgnext hgpar hgattrs hgty
+              hgcB hgcRg hgcO hgcR hnget
+            simp only [OpOperandPtr.toM]
+            grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', UInt64.ofNat_toNat]
+          constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+          · -- nextUse
+            simp only [Buffed.OpOperandMPtr.readNextUse!, hnMeq, hnget, Rewriter.setOperand,
+              Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+              Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.value 24 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.owner 16 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.back 8 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.nextUse 0 (by decide) (by decide); omega),
+              ExArray.read64!_blit64_self]
+            simp [Sim.OptionOpOperandPtr.Sim_def, Sim.OptionOpOperandPtr.spec, Veir.Buffered.OpOperandPtr.toO]
+          · -- back
+            simp only [Buffed.OpOperandMPtr.readBack!, hnMeq, hnget, Rewriter.setOperand,
+              Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+              Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.value 24 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.back 8 (by decide) (by decide); omega),
+              ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.owner 16 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.back 8 (by decide) (by decide); omega),
+              ExArray.read64!_blit64_self]
+            have hvaft := Sim.ValuePtr.after_lt_ctx (ctx := ctx) valuePtr.spec valueInBounds.ib
+            have hvM := valueInBounds.sim
+            simp only [Sim.ValuePtr.Sim_def, Sim.ValuePtr.spec, Sim.RawIRContext.spec, Erased.out_mk] at hvM
+            have hvflatP : valuePtr.spec.toFlat (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = valuePtr.spec.toFlat ctx.spec := by
+              clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+              (try clear hnMeq hnflat); (try clear hslot hnum)
+              grind [Veir.Buffered.ValuePtr.toFlat, Veir.Buffered.OpResultPtr.toFlat, Veir.Buffered.BlockArgumentPtr.toFlat,
+                Rewriter.pushOperand]
+            have hvMnat : (UInt64.toNat valuePtr.impl : Int) = valuePtr.spec.toFlat ctx.spec := by
+              rw [← hvM]
+              simp only [Veir.Buffered.ValuePtr.toM]
+              clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+              (try clear hnMeq hnflat); (try clear hslot hnum)
+              grind [Nat.toUInt64_eq, UInt64.toNat_ofNat', UInt64.ofNat_toNat]
+            have hbackM : (OpOperandPtrPtr.valueFirstUse valuePtr.spec).toM (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind))
+                = valuePtr.impl + Buffed.ValueImpl.Offsets.firstUse := by
+              simp only [Veir.Buffered.OpOperandPtrPtr.toM, Veir.Buffered.OpOperandPtrPtr.toFlat, hvflatP]
+              have h2 : (valuePtr.impl + Buffed.ValueImpl.Offsets.firstUse).toNat = UInt64.toNat valuePtr.impl + 16 := by
+                rw [UInt64.uint64_add_int64_toNat_lt] <;>
+                  (clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt;
+                   (try clear hnMeq hnflat); (try clear hslot hnum);
+                   grind [show Buffed.ValueImpl.Offsets.firstUse.toInt = 16 from rfl,
+                     show Buffed.ValueImpl.Offsets.afterInt = 24 from rfl])
+              clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+              (try clear hnMeq hnflat); (try clear hslot hnum)
+              grind [Nat.toUInt64_eq, UInt64.toNat_ofNat',
+                show Buffed.ValueImpl.Offsets.firstUse.toInt = 16 from rfl,
+                show Buffed.ValueImpl.Offsets.afterInt = 24 from rfl]
+            simp only [Sim.OpOperandPtrPtr.Sim_def, Sim.OpOperandPtrPtr.spec, Sim.RawIRContext.spec, Erased.out_mk]
+            (try dsimp only)
+            exact hbackM
+          · -- owner
+            simp only [Buffed.OpOperandMPtr.readOwner!, hnMeq, hnget, Rewriter.setOperand,
+              Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+              Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+            rw [ExArray.read64!_blit64_disjoint _ _ _ _ _ (by simp only [IsDisjoint]; have h1 := ek Buffed.OpOperand.Offsets.value 24 (by decide) (by decide); have h2 := ek Buffed.OpOperand.Offsets.owner 16 (by decide) (by decide); omega),
+              ExArray.read64!_blit64_self]
+            have := opPtrInBounds.sim
+            clear hread hattr ek hoff hslotaddr husz hincl hmul hidxlt
+            (try clear hro8 hro4); (try clear hslot hnum)
+            grind [Rewriter.pushOperand]
+          · -- value
+            simp only [Buffed.OpOperandMPtr.readValue!, hnMeq, hnget, Rewriter.setOperand,
+              Buffed.OpOperandMPtr.writeValue, Buffed.OpOperandMPtr.writeOwner,
+              Buffed.OpOperandMPtr.writeBack, Buffed.OpOperandMPtr.writeNextUse]
+            rw [ExArray.read64!_blit64_self]
+            have hvM := valueInBounds.sim
+            have hvaft := Sim.ValuePtr.after_lt_ctx (ctx := ctx) valuePtr.spec valueInBounds.ib
+            simp only [Sim.ValuePtr.Sim_def, Sim.ValuePtr.spec, Sim.RawIRContext.spec, Erased.out_mk] at hvM ⊢
+            have hvflatP : valuePtr.spec.toFlat (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = valuePtr.spec.toFlat ctx.spec := by
+              clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+              (try clear hnMeq hnflat); (try clear hslot hnum)
+              grind [Veir.Buffered.ValuePtr.toFlat, Veir.Buffered.OpResultPtr.toFlat, Veir.Buffered.BlockArgumentPtr.toFlat,
+                Rewriter.pushOperand]
+            (try dsimp only)
+            simp only [Veir.Buffered.ValuePtr.toM, hvflatP]
+            rw [← hvM]
+            rfl
+        · -- pre-existing operand: framed — its slot sits strictly below the written one.
+          have hoperib : oper.InBounds ctx.spec := by
+            clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+            grind [Rewriter.pushOperand]
+          have hoincl := Veir.Buffered.Sim.OpOperandPtr.slot_included (ctx := ctx) oper hoperib
+          have hoidx : op = opPtr.spec → oper.index < idx.toNat := by
+            clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+            intro hop
+            grind [Veir.Buffered.OpOperandPtr.inBounds_def]
+          have hoperflat : ((oper.toFlatNat ctx.spec : Nat) : Int)
+              = op.toFlat + Buffed.Operation.Offsets.operandsInt op ctx.spec + ((oper.index * 32 : Nat) : Int) := by
+            simp only [OpOperandPtr.toFlatNat, heq, show Buffed.OpOperand.sizeNat = 32 from rfl]
+            have h0 : (0:Int) ≤ op.toFlat + Buffed.Operation.Offsets.operandsInt op ctx.spec := by
+              rw [hareaOP]
+              omega
+            omega
+          have hoperget : oper.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = oper.get! ctx.spec := by
+            clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+            grind [Rewriter.pushOperand]
+          refine OpOperandPtr.matches_frame ctx oper hoperib (henc.operands oper hoperib heq)
+            (hagreeD _ _ ?_) hlay hoperget operIb
+          clear hread hattr ek hagreeD hoff husz hmul hidxlt
+          grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+            Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+            _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+            _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+      · refine OperationPtr.numResults_frame ctx op hopib henc.numResults (hagreeD _ _ ?_) hgcR
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+      · intros res resIb heq
+        have hresib : res.InBounds ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        have hrincl := Veir.Buffered.Sim.OpResultPtr.slot_included (ctx := ctx) res hresib
+        have hresget : res.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = res.get! ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        refine OpResultPtr.matches_frame ctx res hresib (henc.results res hresib heq)
+          (hagreeD _ _ ?_) hlay hresget resIb
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+  · -- encoding_block
+    intros blk blkIb
+    have hblkib : blk.InBounds ctx.spec := by
+      clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+      grind [Rewriter.pushOperand]
+    have henc := ctx.sim.encoding_block blk hblkib
+    have hbrange := Veir.Buffered.Sim.BlockPtr.range_linear (ctx := ctx) blk hblkib
+    have hwrange := Veir.Buffered.Sim.OperationPtr.range_linear (ctx := ctx) opPtr.spec opPtrInBounds.ib
+    have hdisjB := Veir.Buffered.Sim.disjoint_block_operation (ctx := ctx) blk opPtr.spec hblkib opPtrInBounds.ib
+    have hbget : blk.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = blk.get! ctx.spec := by
+      clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+      grind [Rewriter.pushOperand]
+    constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+    · refine BlockPtr.matchesBase_frame ctx blk hblkib henc.toMatchesBase (hagreeD _ _ ?_) hlay
+        (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) (by rw [hbget]) blkIb
+      clear hread hattr ek hagreeD hoff husz hmul hidxlt
+      grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+        Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+        _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+        _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+    · constructor <;> try simp only [Sim.RawIRContext.spec, Erased.out_mk]
+      · refine BlockPtr.numArguments_frame ctx blk hblkib henc.numArguments (hagreeD _ _ ?_) (by rw [hbget])
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+      · intros arg argIn heq
+        have hargib : arg.InBounds ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        have haincl := Veir.Buffered.Sim.BlockArgumentPtr.slot_included (ctx := ctx) arg hargib
+        have hargget : arg.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = arg.get! ctx.spec := by
+          clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+          grind [Rewriter.pushOperand]
+        refine BlockArgumentPtr.matches_frame ctx arg hargib (henc.arguments arg hargib heq)
+          (hagreeD _ _ ?_) hlay hargget argIn
+        clear hread hattr ek hagreeD hoff husz hmul hidxlt
+        grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+          Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+          _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+          _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+  · -- encoding_region
+    intros rg rgIb
+    have hrgib : rg.InBounds ctx.spec := by
+      clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+      grind [Rewriter.pushOperand]
+    have henc := ctx.sim.encoding_region rg hrgib
+    have hrgrange := Veir.Buffered.Sim.RegionPtr.range_linear (ctx := ctx) rg hrgib
+    have hwrange := Veir.Buffered.Sim.OperationPtr.range_linear (ctx := ctx) opPtr.spec opPtrInBounds.ib
+    have hdisjR := Veir.Buffered.Sim.disjoint_region_operation (ctx := ctx) rg opPtr.spec hrgib opPtrInBounds.ib
+    have hrgget : rg.get! (Rewriter.pushOperand ctx.spec opPtr.spec valuePtr.spec (by grind) (by grind)) = rg.get! ctx.spec := by
+      clear hread hattr ek hagreeD hoff hslotaddr husz hincl hmul hidxlt
+      grind [Rewriter.pushOperand]
+    refine RegionPtr.matches_frame ctx rg hrgib henc (hagreeD _ _ ?_) hlay hrgget rgIb
+    clear hread hattr ek hagreeD hoff husz hmul hidxlt
+    grind (splits := 6) only [Erased.out_mk, isDisjointI_def, IsIncludedI, add_nat_range_def,
+      Veir.Buffered.Buffed.uint64_add_int64_toNat, Veir.Buffered.Sim.IRContext.inner_def,
+      _root_.Veir.Buffered.OperationPtr.toFlat, _root_.Veir.Buffered.BlockPtr.toFlat, _root_.Veir.Buffered.RegionPtr.toFlat,
+      _root_.Veir.Buffered.BlockPtr.rangeInt, _root_.Veir.Buffered.RegionPtr.rangeInt]
+  · -- attr_empty: the slot writes leave the attribute table untouched
+    (try dsimp only)
+    rw [hattr]
+    exact ctx.sim.attr_empty
+  · (try dsimp only)
+    rw [hfree]
+    exact ctx.sim.free_valid.mono (hsizele)
+  · (try dsimp only)
+    intro size address hm p hp
+    rw [hfree] at hm
+    have hold : p.InBounds ctx.spec := by grind [Rewriter.pushOperand, TopLevelPtr]
+    have hd := ctx.sim.free_disjoint size address hm p hold
+    cases p <;> grind [Rewriter.pushOperand, TopLevelPtr]
+
+
+end Veir.Buffered

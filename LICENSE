@@ -1,4 +1,5 @@
-Apache License 2.0 (Apache)
+Apache License 2.0 with LLVM Exceptions
+
 Apache License
 Version 2.0, January 2004
 http://www.apache.org/licenses/
@@ -69,8 +70,15 @@ In no event and under no legal theory, whether in tort (including negligence), c
 
 While redistributing the Work or Derivative Works thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability.
 
-==============================================================================
-License for Other Assets
-==============================================================================
+---- LLVM Exceptions to the Apache 2.0 License ----
 
-Some assets in this repository, in the `/images` directory, are licensed under terms different from Apache License 2.0. Please refer to the individual directories and files for license details.
+As an exception, if, as a result of your compiling your source code, portions of this Software are embedded into an Object form of such source code, you may redistribute such embedded portions in such Object form without complying with the conditions of Sections 4(a), 4(b) and 4(d) of the License.
+
+In addition, if you combine or link compiled forms of this Software with software that is licensed under the GPLv2 ("Combined Software") and if a court of competent jurisdiction determines that the patent provision (Section 3), the indemnity provision (Section 9) or other Section of the License conflicts with the conditions of the GPLv2, you may retroactively and prospectively choose to deem waived or otherwise exclude such Section(s) of the License, but only in their entirety and only with respect to the Combined Software.
+
+==============================================================================
+Software from third parties included in VeIR:
+==============================================================================
+VeIR contains third party software which is under different license terms. All such code will be identified clearly using at least one of two mechanisms:
+1) It will be in a separate directory tree with its own `LICENSE.txt` or `LICENSE` file at the top containing the specific license and restrictions which apply to that software, or
+2) It will contain specific license and restriction terms at the top of every file.

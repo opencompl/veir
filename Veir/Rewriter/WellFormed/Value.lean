@@ -1,17 +1,15 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.LinkedList.GetSet
-import Veir.Rewriter.LinkedList.WellFormed
 
 public section
 
 namespace Veir
+
+/-! ## Rewriter.replaceUse -/
 
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
@@ -20,13 +18,13 @@ theorem Rewriter.replaceUse_DefUse_newValue
     {value value' : ValuePtr}
     (useIn: use.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
-    (useOfValue' : (use.get! ctx).value = value')
+    (useOfValue' : use.getValue! ctx = value')
     (hvalueNe : value ≠ value')
     (hWF : value.DefUse ctx array)
     (hWF' : value'.DefUse ctx array') {newValueInBounds} :
     value.DefUse (Rewriter.replaceUse ctx use value useIn newValueInBounds ctxIn)
       (#[use] ++ array) := by
-  simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
+  simp only [replaceUse, ←OpOperandPtr.getValue!_eq_getValue]
   simp only [useOfValue', Ne.symm hvalueNe, ↓reduceIte]
   apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_self_empty
   apply ValuePtr.DefUse.OpOperandPtr_setValue_self_ofList_singleton_of_value!_ne_self
@@ -38,13 +36,13 @@ theorem Rewriter.replaceUse_DefUse_oldValue
     {value value' : ValuePtr}
     (useIn: use.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
-    (useOfValue' : (use.get! ctx).value = value)
+    (useOfValue' : use.getValue! ctx = value)
     (hvalueNe : value ≠ value')
     (hWF : value.DefUse ctx array)
     (hWF' : value'.DefUse ctx array') (newValueInBounds) :
     value.DefUse (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
       (array.erase use) := by
-  simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
+  simp only [replaceUse, ←OpOperandPtr.getValue!_eq_getValue]
   simp only [useOfValue', hvalueNe, ↓reduceIte]
   apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value' := value') (array' := array') (value := value)
@@ -60,7 +58,7 @@ theorem ValuePtr.defUseArray_Rewriter_replaceUse_oldValue
     {use : OpOperandPtr}
     (useIn : use.InBounds ctx)
     (ctxWf: ctx.WellFormed)
-    (useOfValue' : (use.get! ctx).value = oldValue)
+    (useOfValue' : use.getValue! ctx = oldValue)
     (hvalueNe : oldValue ≠ newValue) {newValueInBounds} {ctx'Wf : (Rewriter.replaceUse ctx use newValue useIn newValueInBounds ctxIn).WellFormed} {oldValueBounds} :
     ValuePtr.defUseArray oldValue (Rewriter.replaceUse ctx use newValue useIn newValueInBounds ctxIn) ctx'Wf oldValueBounds =
     (ValuePtr.defUseArray oldValue ctx ctxWf (by grind)).erase use := by
@@ -73,14 +71,14 @@ theorem ValuePtr.defUseArray_Rewriter_replaceUse_oldValue
 
 theorem Rewriter.replaceUse_DefUse_otherValue
     (ctxIn: ctx.FieldsInBounds)
-    (useOfValue' : (use.get! ctx).value = value)
+    (useOfValue' : use.getValue! ctx = value)
     (hWF : value.DefUse ctx array)
     (hWF' : value'.DefUse ctx array')
     (hWF'' : ValuePtr.DefUse value'' ctx array'')
     (hne : value'' ≠ value) (hne' : value'' ≠ value') (hne'' : value ≠ value') :
     value''.DefUse (Rewriter.replaceUse ctx use value' useIn newValueInBounds ctxIn)
       array'' := by
-  simp only [replaceUse, ←OpOperandPtr.get!_eq_get]
+  simp only [replaceUse, ←OpOperandPtr.getValue!_eq_getValue]
   simp only [useOfValue', hne'', ↓reduceIte]
   apply ValuePtr.defUse_OpOperandPtr_insertIntoCurrent_other
     (missingUses' := Std.ExtHashSet.ofList [use]) (use := use) (value := value'') (value' := value') (array' := array')
@@ -98,7 +96,7 @@ theorem Rewriter.replaceUse_DefUse (ctx: IRContext OpInfo) (use : OpOperandPtr)
     (useIn: use.InBounds ctx)
     (ctxIn: ctx.FieldsInBounds)
     (value value' : ValuePtr) (array array': Array OpOperandPtr)
-    (useOfValue' : (use.get ctx useIn).value = value)
+    (useOfValue' : use.getValue ctx useIn = value)
     (hWF : value.DefUse ctx array)
     (hWF' : value'.DefUse ctx array') newValueInBounds
     value'' array''
@@ -124,14 +122,14 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext OpInfo) (use : OpOperandP
     (ctxIn: ctx.FieldsInBounds)
     (hWf : IRContext.WellFormed ctx) :
     (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).WellFormed := by
-  by_cases h: (use.get ctx useIn).value = newValue
+  by_cases h: use.getValue ctx useIn = newValue
   case pos => grind [replaceUse]
   case neg =>
     constructor
     case inBounds => grind
     case valueDefUseChains =>
       intros valuePtr valuePtrInBounds
-      let value := (use.get ctx useIn).value
+      let value := use.getValue ctx useIn
       have ⟨array, harray⟩ := hWf.valueDefUseChains value (by grind)
       have ⟨newArray, hnewArray⟩ := hWf.valueDefUseChains newValue (by grind)
       have ⟨array', hArray'⟩ := hWf.valueDefUseChains valuePtr (by grind)
@@ -162,6 +160,8 @@ theorem Rewriter.replaceUse_WellFormed (ctx: IRContext OpInfo) (use : OpOperandP
     case regions =>
       intros regionPtr regionPtrInBounds
       apply RegionPtr.WellFormed_unchanged (ctx := ctx) <;> grind [IRContext.WellFormed]
+
+/-! ## Rewriter.replaceValue? -/
 
 theorem Rewriter.replaceValue?_WellFormed (ctx: IRContext OpInfo) (oldValue: ValuePtr) (newValue: ValuePtr)
     (oldIn: oldValue.InBounds ctx)
@@ -324,7 +324,7 @@ theorem OperationPtr.getOperand_replaceValue?
         (depth := depth) (newArray := newValueArray) (oldArray := oldValueArray)
       grind [ValuePtr.DefUse, ValuePtr.defUseArrayWF]
     · let operand := op.getOpOperand idx
-      let value := (operand.get ctx (by grind)).value
+      let value := operand.getValue ctx (by grind)
       let valueArray := value.defUseArray ctx hCtx (by grind)
       simp only [OperationPtr.getOperand_eq_OpOperandPtr_get] at h
       have : op.getOpOperand idx ∉ oldValueArray := by grind [ValuePtr.defUseArray_contains_operand_use]
@@ -350,16 +350,46 @@ theorem OperationPtr.getOperand_replaceOp?
     | _ => operand := by
   sorry
 
-set_option warn.sorry false in
-theorem BlockPtr.operationList_replaceOp?
-    (hWf : BlockPtr.operationList blockPtr ctx ctxWellFormed blockInBounds = array)
-    (hnewCtx : Rewriter.replaceOp? ctx oldOp newOp oldIn newIn ctxIn depth = some newCtx) :
-      BlockPtr.operationList blockPtr newCtx ctxWellFormed' blockInBounds' =
-      if blockPtr = blockPtr' then
-        array.erase oldOp
-      else
-        array := by
-  sorry
+theorem BlockPtr.opChain_rewriter_replaceUse
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn) array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_replaceUse
+    (ctxWf : ctx.WellFormed)
+    (h : Rewriter.replaceUse ctx use newValue useIn newIn ctxIn = newCtx) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_replaceUse]
+
+grind_pattern BlockPtr.operationList_rewriter_replaceUse =>
+  Rewriter.replaceUse ctx use newValue useIn newIn ctxIn,
+  newCtx.WellFormed,
+  block'.operationList newCtx newCtxWf blockInBounds'
+
+theorem BlockPtr.opChain_Rewriter_replaceValue?
+    (h : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx)
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block' newCtx array := by
+  induction depth generalizing ctx
+  case zero => simp [Rewriter.replaceValue?] at h
+  case succ depth ih =>
+    simp only [Rewriter.replaceValue?] at h
+    grind [BlockPtr.opChain_rewriter_replaceUse]
+
+theorem BlockPtr.operationList_rewriter_replaceValue?
+    (ctxWf : ctx.WellFormed)
+    (h : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf := by
+  grind [BlockPtr.opChain_Rewriter_replaceValue? h
+    (BlockPtr.operationListWF ctx block' (by grind) (by grind))]
+
+grind_pattern BlockPtr.operationList_rewriter_replaceValue? =>
+  Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth, some newCtx,
+  block'.operationList newCtx newCtxWf blockInBounds'
 
 /--
 info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -367,5 +397,77 @@ info: 'Veir.Rewriter.replaceValue?_WellFormed' depends on axioms: [propext, Clas
 #guard_msgs in
 #print axioms Rewriter.replaceValue?_WellFormed
 
+/-! ## Rewriter.setType
+
+`Rewriter.setType` only updates the `type` field of a value (an op result or a block argument).
+It touches no indices, owners, use links, parents, or def-use/op/block chains, and
+`IRContext.WellFormed` imposes no constraint on the `type` field, so it preserves
+well-formedness. Every chain is therefore "unchanged" by the rewrite. -/
+
+theorem BlockPtr.opChain_rewriter_setType
+    (hWf : BlockPtr.OpChain block ctx array missingOps) :
+    BlockPtr.OpChain block (Rewriter.setType ctx value newType hvalue) array missingOps := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind [Rewriter.setType]
+
+theorem ValuePtr.defUse_rewriter_setType
+    (hWf : ValuePtr.DefUse value' ctx array missingUses) :
+    ValuePtr.DefUse value' (Rewriter.setType ctx value newType hvalue) array missingUses := by
+  apply ValuePtr.DefUse.unchanged (ctx := ctx) <;> grind [Rewriter.setType]
+
+theorem BlockPtr.defUse_rewriter_setType
+    (hWf : BlockPtr.DefUse block ctx array missingUses) :
+    BlockPtr.DefUse block (Rewriter.setType ctx value newType hvalue) array missingUses := by
+  apply BlockPtr.DefUse.unchanged (ctx := ctx) <;> grind [Rewriter.setType]
+
+theorem RegionPtr.blockChain_rewriter_setType
+    (hWf : RegionPtr.BlockChain region ctx array) :
+    RegionPtr.BlockChain region (Rewriter.setType ctx value newType hvalue) array := by
+  apply RegionPtr.blockChain_unchanged (ctx := ctx) hWf <;> grind [Rewriter.setType]
+
+theorem IRContext.wellFormed_rewriter_setType
+    {value : ValuePtr} {newType : TypeAttr} {hvalue : value.InBounds ctx} :
+    ctx.WellFormed → (Rewriter.setType ctx value newType hvalue).WellFormed := by
+  intro wf
+  have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := wf
+  constructor
+  case inBounds => grind [Rewriter.setType_fieldsInBounds]
+  case valueDefUseChains =>
+    intros val hval
+    have ⟨array, harray⟩ := h₂ val (by grind)
+    exists array
+    grind [ValuePtr.defUse_rewriter_setType]
+  case blockDefUseChains =>
+    intros block hblock
+    have ⟨array, harray⟩ := h₃ block (by grind)
+    exists array
+    grind [BlockPtr.defUse_rewriter_setType]
+  case opChain =>
+    intros block hblock
+    have ⟨array, harray⟩ := h₄ block (by grind)
+    exists array
+    grind [BlockPtr.opChain_rewriter_setType]
+  case blockChain =>
+    intros region hregion
+    have ⟨array, harray⟩ := h₅ region (by grind)
+    exists array
+    grind [RegionPtr.blockChain_rewriter_setType]
+  case operations =>
+    intros op hop
+    have : op.InBounds ctx := by grind
+    apply OperationPtr.WellFormed_unchanged (ctx := ctx) (h₆ op this) <;> grind [Rewriter.setType]
+  case blocks =>
+    intros bl hbl
+    have : bl.InBounds ctx := by grind
+    apply BlockPtr.WellFormed_unchanged (ctx := ctx) (h₇ bl this) <;> grind [Rewriter.setType]
+  case regions =>
+    intros reg hreg
+    have : reg.InBounds ctx := by grind
+    apply RegionPtr.WellFormed_unchanged (ctx := ctx) (h₈ reg this) <;> grind [Rewriter.setType]
+
+/--
+info: 'Veir.IRContext.wellFormed_rewriter_setType' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms IRContext.wellFormed_rewriter_setType
 
 end Veir

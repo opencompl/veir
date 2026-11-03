@@ -1,11 +1,8 @@
 module
 
-public import Veir.IR.Basic
-public import Veir.IR.WellFormed
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.Rewriter.GetSet
 import Veir.Rewriter.WellFormed.Region
 import Veir.Rewriter.WellFormed.Operation
 import Veir.Rewriter.WellFormed.Block
@@ -17,13 +14,13 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
-theorem IRContext.wellFormed_IRContext_create :
+theorem IRContext.wellFormed_IRContext_create [HasDialect OpInfo Builtin] :
     IRContext.create OpInfo = some (ctx, op) →
     ctx.WellFormed := by
   simp only [create]
   split; grind; rename_i ctx₁ region hctx₁
   have : ctx₁.WellFormed := by
-    grind [IRContext.wellFormed_Rewriter_createRegion, IRContext.empty_wellFormed]
+    exact IRContext.wellFormed_Rewriter_createRegion IRContext.empty_wellFormed hctx₁
   split; grind; rename_i ctx₂ op' hctx₂
   have : ctx₂.WellFormed := by grind [Rewriter.createOp_WellFormed]
   split; grind; rename_i ctx₃ op'' hctx₃

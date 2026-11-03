@@ -1,0 +1,72 @@
+name: Lean Action CI (Namespace)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  merge_group:
+
+env:
+  LEAN_CC: ${{ github.workspace }}/Tools/lean-clang
+
+jobs:
+  buildns:
+    # The runner profile pins the machine shape (32 vCPU, eight times what the
+    # GitHub-hosted runner in the sibling `Lean Action CI` workflow gets, so
+    # Lake builds with `-j32` instead of `-j4`), the cache volume and the git
+    # mirror. Nix supplies the native dependencies; the custom base image
+    # supplies `lit`, `filecheck`, and the `llubi`/`alive-exec` cross-check tools.
+    # Its Dockerfile is `.github/docker/namespace-base-image.Dockerfile`.
+    runs-on: namespace-profile-veir
+
+    steps:
+      - uses: namespacelabs/nscloud-checkout-action@66f2dc6f6c42a8ac6c4e53473c4840006822831e # v9.0.1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Activate the Nix development environment
+        uses: nicknovitski/nix-develop@9be7cfb4b10451d3390a75dc18ad0465bed4932a # v1.2.1
+        with:
+          arguments: --no-write-lock-file
+
+      # The checkout wipes the workspace, so create the build directories
+      # before binding the cache volume. Otherwise the action skips them with
+      # "Some cache paths missing" and still reports success.
+      - name: Create the build directories
+        run: mkdir -p .lake ExArray/.lake lean-ctrees/.lake
+
+      # Path dependencies keep their build trees outside the root `.lake`.
+      - name: Set up caches
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
+        with:
+          path: |
+            ~/.elan
+            ${{ github.workspace }}/.lake
+            ${{ github.workspace }}/ExArray/.lake
+            ${{ github.workspace }}/lean-ctrees/.lake
+
+      # One invocation: `lean-action` runs `lake build` and then `lake test`,
+      # so a second one only repeated the build as a no-op.
+      - name: Build and test the project
+        uses: leanprover/lean-action@fe408643ea7367d8c0404a8be3975bb145f5fb64 # v1.7.0
+        with:
+          build-args: "--iofail"
+          test-args: "--iofail"
+          test: true
+          use-github-cache: false
+
+      - name: Run buffered backend tests
+        run: |
+          lake build parser-tests allocator-tests ir-reuse-tests --iofail
+          lake exe parser-tests
+          lake exe allocator-tests
+          lake exe ir-reuse-tests
+
+      # `lit` and `filecheck` come from the image, so there is nothing to
+      # install and no virtualenv to activate.
+      - name: Run filecheck tests
+        run: lit Test/ -v

@@ -1,7 +1,7 @@
 // RUN: veir-opt %s -p=cse --allow-unregistered-dialect | filecheck %s
 
 "builtin.module"() ({
-  "llvm.func"() ({
+  "llvm.func"()  <{function_type = !llvm.func<void (i32, i32)>, sym_name = "foo"}> ({
 ^bb0(%arg0 : i32, %arg1 : i32):
     // Pure integer divs and remainders are non-commutative; duplicates with
     // the same operands merge, swapped operands stay distinct. Soundness
@@ -48,6 +48,23 @@
     // CHECK-NEXT: %[[AND:.*]] = "llvm.and"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: %[[XOR:.*]] = "llvm.xor"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
     // CHECK-NEXT: "test.test"(%[[AND]], %[[AND]], %[[XOR]], %[[XOR]]) : (i32, i32, i32, i32) -> ()
+
+    // The min/max intrinsics are commutative, so swapped operands merge too.
+    %smax0 = "llvm.intr.smax"(%arg0, %arg1) : (i32, i32) -> i32
+    %smax1 = "llvm.intr.smax"(%arg1, %arg0) : (i32, i32) -> i32
+    %smin0 = "llvm.intr.smin"(%arg0, %arg1) : (i32, i32) -> i32
+    %smin1 = "llvm.intr.smin"(%arg1, %arg0) : (i32, i32) -> i32
+    %umax0 = "llvm.intr.umax"(%arg0, %arg1) : (i32, i32) -> i32
+    %umax1 = "llvm.intr.umax"(%arg1, %arg0) : (i32, i32) -> i32
+    %umin0 = "llvm.intr.umin"(%arg0, %arg1) : (i32, i32) -> i32
+    %umin1 = "llvm.intr.umin"(%arg1, %arg0) : (i32, i32) -> i32
+    "test.test"(%smax0, %smax1, %smin0, %smin1, %umax0, %umax1, %umin0, %umin1) : (i32, i32, i32, i32, i32, i32, i32, i32) -> ()
+
+    // CHECK-NEXT: %[[SMAX:.*]] = "llvm.intr.smax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    // CHECK-NEXT: %[[SMIN:.*]] = "llvm.intr.smin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    // CHECK-NEXT: %[[UMAX:.*]] = "llvm.intr.umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    // CHECK-NEXT: %[[UMIN:.*]] = "llvm.intr.umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+    // CHECK-NEXT: "test.test"(%[[SMAX]], %[[SMAX]], %[[SMIN]], %[[SMIN]], %[[UMAX]], %[[UMAX]], %[[UMIN]], %[[UMIN]]) : (i32, i32, i32, i32, i32, i32, i32, i32) -> ()
 
     %cond0 = "test.source"() : () -> i1
     %cond1 = "test.source"() : () -> i1

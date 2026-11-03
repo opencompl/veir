@@ -1,13 +1,13 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
-    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !reg
-    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !reg
-    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !reg
-    %d = "riscv.packw"(%a, %b) : (!reg, !reg) -> !reg
-    %e = "riscv.packw"(%a, %c) : (!reg, !reg) -> !reg
-    "func.return"(%d, %e) : (!reg, !reg) -> ()
+  "func.func"() <{sym_name = "main", function_type = () -> (!riscv.reg, !riscv.reg)}> ({
+    %a = "riscv.li"() <{ value = 2 : i64 }> : () -> !riscv.reg
+    %b = "riscv.li"() <{ value = 5 : i64 }> : () -> !riscv.reg
+    %c = "riscv.li"() <{ value = -5 : i64 }> : () -> !riscv.reg
+    %d = "riscv.packw"(%a, %b) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    %e = "riscv.packw"(%a, %c) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+    "func.return"(%d, %e) : (!riscv.reg, !riscv.reg) -> ()
   }) : () -> ()
 }) : () -> ()
 

@@ -1,13 +1,9 @@
 module
 
-public import Veir.IR.Basic
 public import Veir.Rewriter.Basic
 
 import all Veir.Rewriter.Basic
-import Veir.IR.WellFormed
-import Veir.Rewriter.Basic
 import Veir.Rewriter.GetSet
-import Veir.Rewriter.LinkedList.GetSet
 
 public section
 
@@ -19,23 +15,38 @@ variable (ctxInBounds : ctx.FieldsInBounds)
 variable (opPtr opPtr' : OperationPtr)
 variable (opPtrInBounds : opPtr.InBounds ctx)
 
-include ctxInBounds in
-@[simp, local grind →]
-theorem Rewriter.pushBlockOperand_DefUse_getElem?
+@[simp, local grind =]
+theorem Rewriter.pushBlockOperand_DefUse_getNextUse!
     array (arrayWf : BlockPtr.DefUse blockPtr ctx array) (i : Nat) (hISize : i < array.size) :
-    (array[i].get (Rewriter.pushBlockOperand ctx opPtr
-        blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) (by grind [BlockPtr.DefUse])) =
-      {
-        (BlockOperandPtr.get array[i] ctx (by grind [BlockPtr.DefUse])) with
-        back := (if i = 0
-          then
-            .blockOperandNextUse (opPtr.nextBlockOperand ctx)
-          else
-            (BlockOperandPtr.get array[i] ctx (by grind [BlockPtr.DefUse])).back) }
-    := by
-  apply BlockOperand.ext <;> grind [BlockPtr.DefUse]
+    array[i].getNextUse! (Rewriter.pushBlockOperand ctx opPtr
+        blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =
+      array[i].getNextUse! ctx := by
+  grind [BlockPtr.DefUse]
 
-set_option maxHeartbeats 4000000 in -- TODO
+@[simp, local grind =]
+theorem Rewriter.pushBlockOperand_DefUse_getBack!
+    array (arrayWf : BlockPtr.DefUse blockPtr ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getBack! (Rewriter.pushBlockOperand ctx opPtr
+        blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =
+      if i = 0 then .blockOperandNextUse (opPtr.nextBlockOperand ctx) else array[i].getBack! ctx := by
+  grind [BlockPtr.DefUse]
+
+@[simp, local grind =]
+theorem Rewriter.pushBlockOperand_DefUse_getOwner!
+    array (arrayWf : BlockPtr.DefUse blockPtr ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getOwner! (Rewriter.pushBlockOperand ctx opPtr
+        blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =
+      array[i].getOwner! ctx := by
+  grind [BlockPtr.DefUse]
+
+@[simp, local grind =]
+theorem Rewriter.pushBlockOperand_DefUse_getValue!
+    array (arrayWf : BlockPtr.DefUse blockPtr ctx array) (i : Nat) (hISize : i < array.size) :
+    array[i].getValue! (Rewriter.pushBlockOperand ctx opPtr
+        blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) =
+      array[i].getValue! ctx := by
+  grind [BlockPtr.DefUse]
+
 theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBounds : blockPtr'.InBounds ctx) :
     ∃ array, BlockPtr.DefUse blockPtr' (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds) array := by
   have ⟨array', arrayWf'⟩ := hOpWf.blockDefUseChains blockPtr' blockPtr'InBounds
@@ -46,8 +57,7 @@ theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBo
     subst blockPtr'
     exists (#[opPtr.nextBlockOperand ctx] ++ array)
     constructor
-    case arrayInBounds =>
-      grind [ValuePtr.DefUse]
+    case arrayInBounds => grind [ValuePtr.DefUse]
     case firstElem => grind
     case nextElems =>
       intros i hi
@@ -56,11 +66,15 @@ theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBo
       rw [Array.getElem?_append_right (by grind)]
       simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.zero_add,
         Nat.add_one_sub_one]
-      by_cases hi0 : i = 0 <;> grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+      by_cases hi0 : i = 0
+      · grind [BlockOperandPtr.getValue!_pushBlockOperand', BlockPtr.DefUse]
+      · rw [Array.getElem_append_right]
+        · grind [BlockOperandPtr.getValue!_pushBlockOperand', BlockPtr.DefUse]
+        · grind
     case useValue =>
       intro use hUse
       have ⟨i, hI, hUseI⟩ := Array.mem_iff_getElem.mp hUse
-      grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+      grind [BlockOperandPtr.getValue!_pushBlockOperand', BlockPtr.DefUse]
     case backNextUse =>
       simp only [gt_iff_lt, Array.size_append, List.size_toArray, List.length_cons, List.length_nil,
         Nat.zero_add]
@@ -69,15 +83,15 @@ theorem Rewriter.pushBlockOperand_DefUse (hOpWf : ctx.WellFormed) (blockPtr'InBo
       simp only [Array.getElem_append, List.size_toArray, List.length_cons, List.length_nil,
         Nat.zero_add, Nat.lt_one_iff, iNeZero, ↓reduceDIte, List.getElem_toArray,
         List.getElem_singleton]
-      grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+      grind [BlockOperandPtr.getValue!_pushBlockOperand', BlockPtr.DefUse]
     case allUsesInChain =>
-      grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
-    all_goals grind [BlockOperandPtr.get!_pushBlockOperand', BlockPtr.DefUse]
+      grind [BlockOperandPtr.getValue!_pushBlockOperand', BlockPtr.DefUse]
+    all_goals grind [BlockOperandPtr.getValue!_pushBlockOperand', BlockPtr.DefUse]
   -- Case where the use def chains are preserved
   case neg =>
     exists array'
     apply BlockPtr.DefUse.unchanged (ctx := ctx) <;>
-      grind [BlockOperandPtr.get!_pushBlockOperand']
+      grind [BlockOperandPtr.getValue!_pushBlockOperand']
 
 /--
 info: 'Veir.Rewriter.pushBlockOperand_DefUse' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -133,6 +147,25 @@ info: 'Veir.Rewriter.pushBlockOperand_WellFormed' depends on axioms: [propext, C
 #guard_msgs in
 #print axioms Rewriter.pushBlockOperand_WellFormed
 
+theorem BlockPtr.opChain_rewriter_pushBlockOperand
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds)
+      array := by
+  apply BlockPtr.OpChain_unchanged (ctx := ctx) <;> grind
+
+theorem BlockPtr.operationList_rewriter_pushBlockOperand
+    (h : Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds =
+      newCtx) (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' newCtx newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_pushBlockOperand]
+
+grind_pattern BlockPtr.operationList_rewriter_pushBlockOperand =>
+  Rewriter.pushBlockOperand ctx opPtr blockPtr opPtrInBounds blockPtrInBounds ctxInBounds,
+  newCtx.WellFormed, block'.operationList newCtx newCtxWf blockInBounds'
+
 theorem Rewriter.initBlockOperands_WellFormed (hOpWf : ctx.WellFormed) :
     (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄).WellFormed := by
   induction n generalizing ctx
@@ -141,3 +174,21 @@ theorem Rewriter.initBlockOperands_WellFormed (hOpWf : ctx.WellFormed) :
   case succ n ih =>
     simp only [initBlockOperands]
     grind [Rewriter.pushBlockOperand_WellFormed]
+
+theorem BlockPtr.opChain_rewriter_initBlockOperands
+    (hWf : BlockPtr.OpChain block' ctx array) :
+    BlockPtr.OpChain block'
+      (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄) array := by
+  fun_induction Rewriter.initBlockOperands <;>
+    grind [BlockPtr.opChain_rewriter_pushBlockOperand]
+
+theorem BlockPtr.operationList_rewriter_initBlockOperands (ctxWf : ctx.WellFormed) :
+    BlockPtr.operationList block' (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄)
+      newCtxWf blockInBounds' =
+    BlockPtr.operationList block' ctx ctxWf (by grind) := by
+  simp only [←BlockPtr.operationList_iff_BlockPtr_OpChain]
+  grind [BlockPtr.opChain_rewriter_initBlockOperands]
+
+grind_pattern BlockPtr.operationList_rewriter_initBlockOperands =>
+  (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄).WellFormed,
+  block'.operationList (Rewriter.initBlockOperands ctx opPtr operands n h₁ h₂ h₃ h₄) newCtxWf blockInBounds'

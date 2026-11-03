@@ -1,10 +1,16 @@
 name = "VeIR"
 version = "0.1.0"
-defaultTargets = ["buffed-benchmark"]
-moreLeanArgs = ["--tstack=400000"]
-moreServerArgs = ["--tstack=400000"]
+defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "veir2mir", "Veir", "buffed-benchmark", "veir-parse"]
+testRunner = "UnitTest"
+buildType = "release"
 moreLeancArgs = ["-flto=full"]
 moreLinkArgs = ["-flto=full"]
+moreLeanArgs = ["--tstack=400000"]
+moreServerArgs = ["--tstack=400000"]
+
+[[require]]
+name = "lean-ctrees"
+path = "lean-ctrees"
 
 [[require]]
 name = "ExArray"
@@ -12,12 +18,35 @@ path = "ExArray"
 
 [[lean_lib]]
 name = "Veir"
-root = "BuffedBenchmark"
+root = "Veir"
+
+[[lean_lib]]
+name = "UnitTest"
+root = "UnitTest"
+
+[[lean_exe]]
+name = "veir-opt"
+root = "Exe.VeirOpt"
+
+[[lean_exe]]
+name = "run-benchmarks"
+root = "Exe.RunBenchmarks"
+
+[[lean_exe]]
+name = "veir-interpret"
+root = "Exe.VeirInterpret"
+
+[[lean_exe]]
+name = "veir2mir"
+root = "Exe.VeirToMIR"
 
 [[lean_exe]]
 name = "buffed-benchmark"
 root = "BuffedBenchmark"
-# moreLeancArgs = ["-g", "-O0"]
+
+[[lean_exe]]
+name = "veir-parse"
+root = "VeirParse"
 
 [[lean_exe]]
 name = "allocator-tests"
@@ -26,10 +55,6 @@ root = "AllocatorTests"
 [[lean_exe]]
 name = "ir-reuse-tests"
 root = "IRReuseTests"
-
-[[lean_exe]]
-name = "veir-parse"
-root = "VeirParse"
 
 [[lean_exe]]
 name = "parser-tests"

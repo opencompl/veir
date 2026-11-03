@@ -4,7 +4,7 @@ VeIR is a compiler infrastructure written in Lean that offers both an
 [MLIR](https://mlir.llvm.org/)-style imperative design and
 (optional) ITP-level verification.
 VeIR connects with MLIR via the MLIR textual format, making it
-easy to combine MLIR and VeIR tooling.
+easy to combine MLIR and VeIR tools.
 
 | VeIR Features                                         | Complete   | Verified |
 |-------------------------------------------------------|------------| ---------|
@@ -15,63 +15,58 @@ easy to combine MLIR and VeIR tooling.
 | peephole rewriter (declarative)                       |            |           |
 | interpreter framework                                 | ✅         |           |
 
-## Testing
+## Building and testing
+
+Building VeIR requires [Lean 4 and its build tool Lake](https://lean-lang.org/install/).
+
+Common tasks are wrapped in the [`Makefile`](Makefile): `make build` to build and
+`make tests` to run the tests. Run `make` to list every target.
+
+Lake builds ExArray's native C code with Lean's bundled LLVM toolchain.
+Non-Nix builds need GMP development headers and `pkg-config` (or `pkgconf`).
+
+With Nix, `nix develop` enters a development shell containing Lean's toolchain
+manager and all native and Python dependencies needed by those Make targets.
+Executable targets like `veir-opt` and `veir-interpret` can be run with `nix run
+.#veir-opt`, `nix run .#veir-interpret`, etc. For convenience, makefile targets
+are also exposed as flake apps with `nix run .#build` and `nix run .#tests`;
+`nix run .` displays the Makefile help.
+If both [`direnv`](https://direnv.net) and Nix are installed, run `direnv allow`
+to automatically activate the development shell whenever you enter the project
+directory.
 
 Our testing framework is split into two parts: unit tests written in Lean and
 [FileCheck](https://llvm.org/docs/CommandGuide/FileCheck.html) tests for the
-command line tool `veir-opt`.
+command line tool `veir-opt`. The FileCheck tests require
+[uv](https://docs.astral.sh/uv/) to be installed.
 
-### Unit Tests
+Run a single benchmark with `lake exe run-benchmarks <name>` (see
+[`Veir/Benchmarks.lean`](Veir/Benchmarks.lean) for the available names).
 
-Run the unit tests with:
+## Buffered IR backend
 
-```bash
-lake test
+The capacity-aware buffered backend is available alongside the upstream IR under
+`Veir.Buffered`. Its `veir-parse` and `buffed-benchmark` executables are included in the
+normal build; main's parser, rewriter, passes, and CLI tools retain their existing APIs.
+Full-LTO native builds use Clang via `Tools/lean-clang` (set automatically by direnv or
+`nix develop`; otherwise run `export LEAN_CC="$PWD/Tools/lean-clang"`).
+See [the buffered backend documentation](Veir/Buffered/README.md) for renamed modules,
+static parser guarantees, allocation reuse, tests, and performance measurements.
+
+```sh
+lake build parser-tests allocator-tests ir-reuse-tests
+lake exe parser-tests
+lake exe allocator-tests
+lake exe ir-reuse-tests
 ```
-
-### FileCheck Tests
-
-FileCheck tests require [uv](https://docs.astral.sh/uv/) to be installed.
-
-First, install dependencies:
-
-```bash
-uv sync
-```
-
-Then run the tests:
-
-```bash
-uv run lit Test/ -v
-```
-
-## Running the benchmarks
-
-```bash
-lake exe buffed-benchmark add-fold-forwards 10000 100
-```
-
-To check performance changes, build the before/after executables with the same
-Lean toolchain and compiler flags, then compare all nine supported cases:
-
-```bash
-PERF_CPU=4 PERF_CSV=/tmp/veir-performance.csv \
-  Tools/compare-buffed-performance.pl /path/to/before/buffed-benchmark \
-  .lake/build/bin/buffed-benchmark 10000 9 100
-```
-
-`PERF_CPU` is optional (Linux `taskset`). The comparison discards two warmups,
-alternates execution order, and reports median construction/rewrite times and
-variation. Run it without concurrent builds. Set `PERF_MAX_RATIO` to fail on
-regressions above a chosen ratio; by default that check excludes phases shorter
-than 1 ms (`PERF_MIN_MS`), but all timings are reported.
 
 ## From C to VeIR
 
 This section gives an example showing how to run code through a VeIR
 pass, starting from C code.
 
-Prerequisite: An up-to-date MLIR bin directory in your PATH.
+Prerequisite: LLVM and MLIR, as described below in
+[Installing LLVM and MLIR](#installing-llvm-and-mlir).
 
 Start with a C function:
 ```bash
@@ -112,209 +107,164 @@ compiler driver and emit the optimized MLIR to stdout:
 Tools/vcc demorgan.c --emit-mlir -O -o -
 ```
 
-Without an explicit emit mode, `vcc` translates VeIR's output back to
-LLVM IR and asks `clang` to produce an executable:
+Without an explicit emit mode, `vcc` produces a 64-bit RISC-V Linux
+executable using VeIR's own RISC-V backend. VeIR selects instructions, and
+`llc` allocates registers and prints the assembly, which `clang` then assembles
+and links. Pass `--llvm-backend` to instead translate VeIR's output back to
+LLVM IR and let `clang` generate the code. This is useful for programs that use
+constructs VeIR's backend can't handle yet, such as `switch` statements and
+some stack allocations. Either way, this needs the environment described in
+[Setting up a RISC-V user-mode environment](#setting-up-a-risc-v-user-mode-environment).
+For example, [`Test/Vcc/primes.c`](Test/Vcc/primes.c) returns the 10th prime
+number, 29, as its exit status:
 ```bash
-cat << _end_ > hello.c
-#include <stdio.h>
-
-int main(void) {
-  printf("hello, world\n");
-}
-_end_
-
-Tools/vcc hello.c -o hello
+Tools/vcc Test/Vcc/primes.c -o primes
+./primes; echo $?
 ```
 
-## Reusing deleted IR storage
+## Installing LLVM and MLIR
 
-The buffered context has an exact-size free list. Erasing an operation, block,
-or region releases its complete byte allocation; subsequent rewriter
-construction reuses a free allocation of the same size before extending the
-arena. Operation allocations include the results preceding the operation header
-and all reserved capacity. Live pointers do not move.
+LLVM and MLIR are optional: VeIR builds without them, and the tests that need
+them are skipped when they aren't in `PATH`. But they are useful for getting
+real code into and out of VeIR. The
+[C to VeIR](#from-c-to-veir) workflow, `Tools/vcc`, and `Tools/vsmith --riscv`
+all use `clang`, `opt`, `llc`, `ld.lld`, `mlir-translate`, and `mlir-opt`.
 
-Free-list lookup, insertion, and removal take expected amortized O(1) time.
-Reallocation clears the reused range with `memset`, taking O(allocation size),
-then initializes its header and properties. Deletion does not scan or compact
-the arena. The existing operand/use unlinking costs still apply to operation
-erasure. As with other persistent buffer mutations, keeping an old context
-snapshot can require copying the backing buffer on the next write.
-
-`Rewriter.eraseOp` now releases storage after detaching the operation and its
-operands. `Rewriter.eraseBlock` and `Rewriter.eraseRegion` release detached
-containers; callers must first remove their contents and uses and supply the
-`FieldsInBounds` proof ruling out dangling references. These APIs do not
-recursively delete a subtree. Their well-formedness theorems, together with the
-updated construction and replacement proofs, are exported by
-`Veir.Rewriter.WellFormed`.
-
-The free-list invariant proves that free ranges are in bounds, mutually
-disjoint, and disjoint from every live allocation. Allocation consumes its slot
-and preserves the encoding of all other objects. These invariants and the
-specification context are erased from the generated executable rewriter code.
-
-This is arena reuse: memory is retained for future allocations, rather than
-returned to the operating system. Free ranges are neither split nor coalesced,
-so a workload that continually requests new sizes can still grow the arena.
-The separate attribute table remains append-only.
-
-Validation:
-
-```sh
-lake build Veir.Rewriter.WellFormed allocator-tests ir-reuse-tests
-lake exe allocator-tests
-lake exe ir-reuse-tests
+VeIR works with either LLVM/MLIR 23 or a recent nightly snapshot of LLVM 24, with
+the RISC-V target enabled. Our tests assume LLVM/MLIR 23.1.3, the version CI uses
+(see [`.github/docker/namespace-base-image.Dockerfile`](.github/docker/namespace-base-image.Dockerfile)).
+On Debian or Ubuntu, [apt.llvm.org](https://apt.llvm.org) packages both. Its
+`llvm.sh` script adds the repository and installs clang and lld; `llc`, `opt`,
+and the MLIR tools are separate packages. For LLVM/MLIR 23:
+```bash
+wget https://apt.llvm.org/llvm.sh
+sudo bash llvm.sh 23
+sudo apt-get install -y llvm-23 mlir-23-tools
+export PATH=/usr/lib/llvm-23/bin:$PATH
 ```
 
-The tests cover slot clearing, neighboring bytes, shared snapshots, distinct
-size classes, spare capacity, and 10,000 allocation/erasure cycles for each IR
-object kind without arena growth after warmup.
+For the LLVM 24 snapshot, use `24` in place of `23` throughout. apt.llvm.org
+installs the latest LLVM 23 point release, which may be newer than 23.1.3; to
+match CI exactly, build the `llvmorg-23.1.3` tag from source.
 
-## Parsing MLIR into the buffered IR
+Elsewhere, including macOS, build LLVM from source with the `mlir` and `lld`
+projects enabled, and put the build's `bin` directory first in `PATH`.
 
-`veir-parse` parses a file in MLIR's generic operation form directly into the buffered
-context (`Veir/Parser/`). Its state and construction primitives carry `Sim.IRContext OpCode`
-and simulated operation, block, region, and value pointers directly. Their specification
-fields stay in `Erased`; operands, successors, and regions use ordinary pointer arrays.
-`Veir/Parser/StaticIR.lean` calls the rewriter directly, without generated `*Impl` wrappers,
-dummy specifications, or specialization warm-ups. Forward references use detached
-`builtin.unrealized_conversion_cast` placeholders that are replaced and erased on definition,
-and a forward-declared block that turns out to have arguments is replaced by a fresh block with
-the right argument capacity. Construction requires erased liveness certificates: there is no
-allocation registry, pointer-validation lookup, or final root-address check. The attribute
-parser only covers the attributes and types of this branch's `Attribute`.
+## Setting up a RISC-V user-mode environment
 
-```sh
-lake build veir-parse
-.lake/build/bin/veir-parse input.mlir [--allow-unregistered-dialect] [--print] [--lex-only] [--repeat=N]
+VeIR's RISC-V backend is tested by running 64-bit RISC-V Linux executables
+under QEMU's user-mode emulator, `qemu-riscv64`. The setup below also gives
+you a riscv64 cross toolchain for compiling and debugging your own programs.
+
+### Linux
+
+On Debian or Ubuntu, install the cross toolchain and user-mode QEMU:
+```bash
+sudo apt-get install -y \
+  gcc-riscv64-linux-gnu g++-riscv64-linux-gnu libc6-dev-riscv64-cross \
+  qemu-user qemu-user-binfmt gdb-multiarch
 ```
 
-`--print` prints the parsed module back in generic form (values and blocks are named by their
-buffer address), `--lex-only` only runs the lexer, `--repeat=N` parses the input N times.
-The parse time is reported on stderr. Parsed contexts expose the raw buffer as `.buf`, and
-`SourceInfo.opLocation?` looks up a simulated operation's source location by its address.
-
-Run the parser regression tests with:
-
-```sh
-lake exe parser-tests
+`qemu-user-binfmt` registers QEMU with the kernel so that riscv64 executables
+can be run directly. Dynamically linked executables also need to find the
+riscv64 C library:
+```bash
+export QEMU_LD_PREFIX=/usr/riscv64-linux-gnu
 ```
 
-They cover forward SSA references, repeated forward successors (with and without block
-arguments), nested scopes, properties, type aliases, unregistered operations, and diagnostics.
+`Tools/vcc` and `Tools/vsmith` also need LLVM; see
+[Installing LLVM and MLIR](#installing-llvm-and-mlir).
 
-### Parser state verification
+### macOS
 
-The production parser uses `StaticParserState`: context-independent `MlirParserData`, a
-well-formed `StaticIR.Context`, and an erased `data.Live ctx.raw` proof. `State.lean` keeps
-suspended block scopes explicit; `Liveness.lean` proves bounds, exclusive placeholder ownership,
-and absence of published placeholder aliases. Source locations are historical metadata, not
-liveness evidence. Context transactions consume the old state before mutating its buffer.
+`qemu-riscv64` only runs on Linux hosts, so on macOS the emulator runs inside a
+small Linux VM managed by [Lima](https://lima-vm.io). Create a VM named `rv64`
+(this is the name `vsmith` looks for). Your home directory is mounted in the VM
+at the same path:
+```bash
+brew install lima
+limactl start --name=rv64 --vm-type=vz --mount-writable template:ubuntu-24.04
+```
 
-`Transitions.lean` supplies composable preservation frames for caller-held handles.
-`References.lean`, `Retire.lean`, and `Blocks.lean` resolve names, publish definitions, and
-reclaim exclusively owned placeholders. `Operations.lean` and `Bindings.lean` retain allocation,
-result-count, and argument-count certificates through construction and registration.
-`Scopes.lean` and `ConstructionParser.lean` carry these contracts through mutually recursive
-region/block/operation parsing and scope restoration. Ordinary name lookup is still needed;
-no second allocation-address lookup validates its result.
+Then install the packages from the Linux section inside the VM. Set
+`QEMU_LD_PREFIX` in the VM's `/etc/environment` rather than a shell profile, so
+that commands run with `limactl shell rv64 <command>` see it too. Lima reuses its
+SSH connection, so `--reconnect` is needed once for the setting to take effect:
+```bash
+limactl shell rv64 sudo apt-get update
+limactl shell rv64 sudo apt-get install -y \
+  gcc-riscv64-linux-gnu g++-riscv64-linux-gnu libc6-dev-riscv64-cross \
+  qemu-user qemu-user-binfmt gdb-multiarch clang lld
+limactl shell rv64 sh -c \
+  "echo QEMU_LD_PREFIX=/usr/riscv64-linux-gnu | sudo tee -a /etc/environment"
+limactl shell --reconnect rv64 true
+```
 
-`parseSourceString` returns `StaticIR.Context × IR.Op × SourceInfo`. Its
-`parseSourceString_safe` theorem derives structural well-formedness and root liveness directly
-from the recursive parser's result certificate. The old runtime registry, checked-array
-reconstruction, permissive reference adapter, and final root lookup have been removed.
-`BuffedIR.lean` retains proof-taking construction aliases; arbitrary pointers no longer fit
-those APIs without genuine current-context bounds proofs. Addresses remain context-local and
-reusable, not generation-tagged identifiers.
+Use `limactl shell rv64` to open a shell in the VM, or `limactl shell rv64
+<command>` to run a single command. `limactl stop rv64` and `limactl start
+rv64` stop and restart it. Inside the VM, your macOS home directory is at the
+same path (for example `/Users/<you>`), but the VM's own `~` is a different
+directory.
 
-All specification computations and preservation certificates erase. Allocation capacity checks,
-syntax/type diagnostics, and physical deletion-condition guards (no uses/regions, detached empty
-blocks) still execute; these are not pointer-provenance validation. Erasure returns `none` when
-its semantic conditions fail.
+To compile for riscv64 Linux on the Mac itself, as `Tools/vcc` does, you need
+LLVM (see [Installing LLVM and MLIR](#installing-llvm-and-mlir)). clang also
+needs a copy of the VM's riscv64 headers and libraries. Copy them out of the VM
+and point `RISCV_SYSROOT` at the copy (add the `export` to your shell profile):
+```bash
+mkdir -p ~/.local/riscv64-linux-gnu-sysroot
+limactl shell rv64 tar -C / -cf - usr/riscv64-linux-gnu usr/lib/gcc-cross/riscv64-linux-gnu \
+  | tar -C ~/.local/riscv64-linux-gnu-sysroot -xf -
+export RISCV_SYSROOT=~/.local/riscv64-linux-gnu-sysroot
+```
 
-There are no parser construction `sorry`s, new axioms, or unchecked casts. Tests audit all parser
-declarations, including private proofs and partial functions' executable implementations, allowing
-only `propext`, `Classical.choice`, and `Quot.sound`. They also reject reintroducing the allocation
-registry into parser dependencies. Coverage includes grouped/large forward-result sets,
-self-references, caller-local handles, nested same-name block scopes, deletion guards, and static
-rejection of invalid ghost specifications. The old floating-point equality axiom is a theorem
-using Lean's float model.
+Then link with `lld`, and run the result in the VM:
+```bash
+clang --target=riscv64-linux-gnu --sysroot=$RISCV_SYSROOT -fuse-ld=lld -O2 Test/Vcc/primes.c -o primes-rv
+limactl shell rv64 $PWD/primes-rv
+```
 
-This establishes structural IR safety and static parser-state provenance, not MLIR semantic
-validity (typing, dominance, dialect rules) or correctness of the accepted parser language.
+The program must be under your home directory for the VM to see it.
 
-### Parser benchmark
+### Checking the setup
 
-#### Comparison with main and allocator copy-on-write correction
+On Linux, or in a shell inside the VM on macOS, from the root of this repository
+(each program should exit with status 29):
+```bash
+riscv64-linux-gnu-gcc -O2 Test/Vcc/primes.c -o primes-rv; ./primes-rv; echo $?
+riscv64-linux-gnu-gcc -O2 -static Test/Vcc/primes.c -o primes-rv-static; ./primes-rv-static; echo $?
+clang --target=riscv64-linux-gnu -O2 Test/Vcc/primes.c -o primes-clang; ./primes-clang; echo $?
+```
 
-Parse-only measurements compare main `f9804b76` with `e588b78a` plus the allocator correction
-in `Veir/IR/Buffed/RawAccessors.lean`. Both use Lean 4.35.0, release `-O3`, full LTO, CPU 3
-on a Ryzen 9 9950X, three warm-ups and nine alternating samples. Main's semantic verifier
-is disabled; input reading, printing, and final IR destruction are outside the timing interval.
-Main's parser sources are unchanged; its compiler version and native flags were normalized.
+To debug a program, start it under QEMU's GDB stub and attach `gdb-multiarch`:
+```bash
+qemu-riscv64 -g 1234 ./primes-rv-static &
+gdb-multiarch -ex 'set architecture riscv:rv64' -ex 'target remote :1234' ./primes-rv-static
+```
 
-| Input | N | Main | Buffered before correction | Buffered corrected |
-|-------|--:|-----:|---------------------------:|-------------------:|
-| SSA chain | 1,000 | 4.660 ms | 6.672 ms | 4.022 ms |
-| SSA chain | 10,000 | 46.734 ms | 170.420 ms | 39.732 ms |
-| SSA chain | 100,000 | 506.061 ms | 12,503.340 ms | 421.974 ms |
-| Forward SSA chain | 10,000 | 46.083 ms | 151.723 ms | 42.090 ms |
-| Nested regions | 10,000 | 99.695 ms | 1,431.994 ms | 86.922 ms |
+## Running vsmith in RISC-V mode
 
-Times are medians; the before-correction column is from the preceding benchmark session.
-N counts arithmetic steps for SSA chains (N+2 total operations), definitions for forward
-chains (N+1 operations), and definition/region-owner/nested-user groups for nested inputs
-(3N+1 operations).
+[`Tools/vsmith`](Tools/vsmith) is a differential fuzzer: it generates random
+programs and checks that `veir-interpret` gives the same result before and after
+optimization. With `--riscv` it runs the RISC-V pipeline instead, and it also
+lowers each optimized program to LLVM MIR, compiles it into a static riscv64
+Linux executable, runs it under `qemu-riscv64`, and checks that the value it
+returns matches the interpreter's:
+```bash
+lake build
+Tools/vsmith --riscv --iterations 1000
+```
 
-The initial slowdown was an allocator COW bug, not specification evaluation. Profiling the
-100,000-step input put 92% of sampled CPU time in memory copying under `IRBufContext.reserve`.
-Its fresh-allocation branch read `bctx.usize` after extending the buffer, retaining the old
-buffer and forcing a full copy at almost every allocation. Using `bctx.size.toUInt64` reuses
-the scalar size already read by the capacity check; generated C no longer retains the buffer
-for a later size read. COW checks and all bounds/preservation proofs remain intact.
+This needs, in your PATH:
 
-#### Historical comparison before the allocator correction
+- `llc`, `clang`, and `ld.lld` from LLVM 23 or a recent LLVM 24 snapshot,
+  with the RISC-V target enabled (see [Installing LLVM and MLIR](#installing-llvm-and-mlir)).
+- Either `qemu-riscv64` (Linux), or `limactl` with a running Lima VM named `rv64`
+  (macOS). When `qemu-riscv64` is not in PATH, vsmith runs each executable in
+  the VM with `limactl shell rv64`.
 
-A local comparison against the immediately preceding runtime-registry parser used CPU affinity,
-three warm-ups, and nine alternating samples. Median parse times:
-
-| Input | Operations | Runtime registry | Static provenance |
-|-------|-----------:|-----------------:|------------------:|
-| SSA chain | 1,000 | 7.098 ms | 6.608 ms |
-| SSA chain | 10,000 | 175.245 ms | 171.311 ms |
-| Forward SSA chain | 1,000 | 10.713 ms | 6.881 ms |
-| Forward SSA chain | 10,000 | 280.713 ms | 151.416 ms |
-
-Generated C was inspected for buffer ownership and metadata copy-on-write. In particular,
-definition-set updates consume the old data record before hash insertion, and recursive scope
-restoration reads the returned scope stack rather than retaining old SSA/location tables.
-These results are not a comparison against the pre-`Erased` migration baseline; peak memory
-has not been measured.
-
-The measurements below are historical, from before the `Erased` port; they have not been
-reproduced for the new implementation.
-
-Inputs are `add-tree-N.mlir` files as produced by the `print-add-tree` benchmark of the
-evaluation scripts: a `builtin.module` with N/2 pairs of `"test.test"() : () -> i32` and
-`"arith.addi"(%c, %acc) : (i32, i32) -> i32`, i.e. about N operations. Times are the best of 3
-runs on one machine; `mlir-opt` and the main-branch `veir-opt` always print their output and
-were run with their verifiers disabled.
-
-| N       | veir-parse, parse only | veir-parse, parse + print | main-branch veir-opt | mlir-opt |
-|---------|-----------------------:|--------------------------:|---------------------:|---------:|
-| 10 000  | 0.03 s                 | 0.05 s                    | 0.06 s               | 0.06 s   |
-| 100 000 | 0.34 s                 | 0.47 s                    | 0.55 s               | 0.19 s   |
-| 300 000 | 1.21 s                 | 1.60 s                    | 1.74 s               | 0.57 s   |
-
-Peak resident memory at N = 300 000: 235 MB (`veir-parse`), 304 MB (main-branch `veir-opt`),
-240 MB (`mlir-opt`). Of the 1.21 s parse time at N = 300 000, lexing the 3.9 M tokens takes
-0.14 s and building the 300 000 operations in the buffered context takes about 0.03 s
-(`buffed-benchmark add-fold-forwards 150000` reports its `create` time); the rest is spent in
-the parser itself.
-
-A `perf` profile of the N = 300 000 parse is flat: about a third of the samples are in
-allocation and reference counting (`lean_dec_ref_cold`, `mi_malloc_small`, `mi_free`), the
-largest single Lean symbol is the per-operation insertion into the `opLocations` table (5 %),
-followed by byte-array comparison and hashing of value names, the name-table updates when
-leaving a scope, the lexer (2 %) and the operation construction itself (1 %).
+Pass `--no-mir-exec` to skip compiling and running, and only compare interpreter
+results. Other useful options are `--seed` to reproduce a run, `--workers` to
+limit parallelism, and `--keep` to keep the work directory after a successful
+run. It is always kept when a mismatch is found. The executable for a failing
+case is left there as `<case>.elf`, so you can rerun it with `qemu-riscv64` and
+debug it as described above.

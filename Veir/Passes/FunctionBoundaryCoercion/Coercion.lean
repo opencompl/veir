@@ -1,0 +1,148 @@
+module
+
+public import Veir.Pass
+import Veir.Passes.DCE.dce
+
+namespace Veir
+
+/-! ## Coercing function boundaries
+
+  Rewrite each `func.func`/`llvm.func`/`cir.func`'s arguments and return values to a coerced
+  type, inserting`unrealized_conversion_cast`s to bridge to/from the original types.
+
+  The coercion applied is selected by a `BoundaryCoercion` flag:
+  - `.riscvReg`: i1-, i8-, i16-, i32-, i64-, and pointer-typed boundaries become `!riscv.reg`.
+    `isel-abi-riscv64` applies this only to LLVM functions as its first step.
+  - `.modArithToInt legalizeWidth`: `!mod_arith.int<q : iN>`-typed boundaries become `i(legalizeWidth N)`
+  - `.cirToStd`: `!cir.int<s|u, N>`- and `!cir.bool`-typed boundaries become `iN` and `i1`
+-/
+
+/-- Selects which boundary coercion the shared implementation applies. -/
+public inductive BoundaryCoercion where
+  | riscvReg
+  | modArithToInt (legalizeWidth : Nat → Nat)
+  | cirToStd
+
+/-- The type a boundary value of type `t` is coerced to, or `none` to leave it alone. -/
+public def BoundaryCoercion.target : BoundaryCoercion → TypeAttr → Option TypeAttr
+  | .riscvReg, t =>
+    match t.val with
+    | .integerType x =>
+      if x.bitwidth ∈ [1, 8, 16, 32, 64] then some (RegisterType.mk : TypeAttr) else none
+    | .llvmPointerType _ => some (RegisterType.mk : TypeAttr)
+    | _ => none
+  | .modArithToInt legalizeWidth, t =>
+    match t.val with
+    | .modArithType mt => some (IntegerType.signless (legalizeWidth mt.bitwidth) : TypeAttr)
+    | _ => none
+  | .cirToStd, t =>
+    match t.val with
+    | .cirIntType it => some (IntegerType.signless it.width : TypeAttr)
+    | .cirBoolType _ => some (IntegerType.signless 1 : TypeAttr)
+    | _ => none
+
+/-- The return-terminator opcode paired with a function op (`func.return` for
+    `func.func`, `llvm.return` for `llvm.func`, `cir.return` for `cir.func`). -/
+def returnOpCodeFor : OpCode → OpCode
+  | .llvm .func => .llvm .return
+  | .cir .func => .cir .return
+  | _ => .func .return
+
+set_option warn.sorry false in
+/-- Coerce one function's arguments and return values as dictated by `coercion`,
+    inserting bridging casts and rewriting the `function_type` to match. Handles
+    `func.func`, `llvm.func` and `cir.func`. -/
+def coerceFunction (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) : ExceptT String IO (WfIRContext OpCode) := do
+  -- Shadow the parameter: from here on `ctx` always names the latest version, with no
+  -- separate old binding left around to second-guess.
+  let mut ctx := ctx
+  let some funcOp := FunctionOp.of? op ctx.raw | return ctx
+  let some entry := funcOp.getEntryBlock? | return ctx
+  let returnCode := returnOpCodeFor (op.getOpType! ctx.raw)
+  -- Default the output types to the currently-declared ones, then flip coerced positions.
+  -- This preserves uncoerced results and `llvm.func`'s `void` return.
+  let mut outputs : Array Attribute := funcOp.getResultTypes
+  -- (1) Coerce entry-block arguments (the function parameters). This mirrors the
+  --     block-argument coercion in `isel-br-riscv64`, which skips entry blocks.
+  let mut inputs : Array Attribute := #[]
+  for i in List.range (entry.getNumArguments! ctx.raw) do
+    let bap : BlockArgumentPtr := { block := entry, index := i }
+    let origType := (ValuePtr.blockArgument bap).getType! ctx.raw
+    match coercion.target origType with
+    | some newType =>
+      ctx := WfRewriter.setType ctx bap newType sorry
+      let ip := InsertPoint.atStart entry ctx.raw sorry
+      let some (ctx', cast) := WfRewriter.createOp ctx
+        Builtin.unrealized_conversion_cast #[origType] #[] #[] #[] default (some ip)
+        sorry sorry sorry sorry | throw "cannot create a cast for a function argument"
+      let ctx' := WfRewriter.replaceValue ctx' bap (cast.getResult 0) sorry sorry sorry
+      ctx := WfRewriter.pushOperand ctx' cast bap sorry sorry
+      inputs := inputs.push newType.val
+    | none =>
+      inputs := inputs.push origType.val
+  -- (2) Coerce the operands of every return terminator in this function.
+  let mut returnOps : Array OperationPtr := #[]
+  for region in op.getRegions! ctx.raw do
+    let mut block? := region.getFirstBlock! ctx.raw
+    while let some block := block? do
+      let mut inner? := block.getFirstOp! ctx.raw
+      while let some inner := inner? do
+        if inner.getOpType! ctx.raw == returnCode then
+          returnOps := returnOps.push inner
+        inner? := inner.getNextOp! ctx.raw
+      block? := block.getNextBlock! ctx.raw
+  for retOp in returnOps do
+    for j in List.range (retOp.getNumOperands! ctx.raw) do
+      let opVal := retOp.getOperand! ctx.raw j
+      let opType := opVal.getType! ctx.raw
+      match coercion.target opType with
+      | some newType =>
+        let some (ctx', cast) := WfRewriter.createOp ctx
+          Builtin.unrealized_conversion_cast #[newType] #[opVal] #[] #[] default
+          (some (InsertPoint.before retOp)) sorry sorry sorry sorry
+          | throw "cannot create a cast for a return operand"
+        ctx := WfRewriter.replaceOperand ctx' ⟨retOp, j⟩ (cast.getResult 0) sorry sorry
+        -- The `j`-th operand maps to the `j`-th declared result: the verifier guarantees
+        -- a return's operand count equals the function's declared result count.
+        outputs := outputs.set! j newType.val
+      | none => pure ()
+  -- (3) Rewrite the function_type to reflect the coerced boundary types.
+  -- `funcOp` belongs to the context before the rewrites above, so cast it again.
+  let some funcOp := FunctionOp.of? op ctx.raw | return ctx
+  ctx := FunctionOp.setFunctionType! ctx funcOp inputs outputs
+  return ctx
+
+/-- Coerce the boundaries of functions selected by `shouldCoerce`. -/
+public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
+    (shouldCoerce : IRContext OpCode → OperationPtr → Bool := fun _ _ => true) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  let mut ctx := ctx
+  let funcOps := ctx.raw.operations.keys.filter fun o =>
+    o.isFunctionLike ctx.raw && shouldCoerce ctx.raw o
+  for op in funcOps do
+    ctx ← coerceFunction coercion ctx op
+  return ctx
+
+
+def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  let ctx ← coerceFunctionBoundaries coercion ctx
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+  | none => throw "Error while applying DCE after function boundary coercion"
+  | some ctx => pure ctx
+
+public def CoerceModArithFunctionBoundariesPass : Pass OpCode :=
+  { name := "coerce-mod-arith-function-boundaries"
+    description := "Coerce `!mod_arith.int` function boundaries to their storage integer type."
+    options := .ofList [
+      ("pow2-width", { description := "Widen the storage integer type to a power-of-two bitwidth." })]
+    run := fun options =>
+      CoerceFunctionBoundariesPass.impl
+        (.modArithToInt
+          (if (options.get? "pow2-width").getD false then Nat.nextPowerOfTwo else id)) }
+
+public def CoerceCirFunctionBoundariesPass : Pass OpCode :=
+  { name := "coerce-cir-function-boundaries"
+    description := "Coerce `!cir.int` and `!cir.bool` function boundaries to the builtin integer of the same width."
+    run := fun _ => CoerceFunctionBoundariesPass.impl .cirToStd }

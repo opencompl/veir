@@ -1,0 +1,246 @@
+module
+
+public import Veir.GlobalOpInfo
+public import Veir.Analysis.DataFlow.Domains.IntegerRangeDomain
+public import Veir.Analysis.DataFlow.Domains.LivenessDomain
+public import Veir.Rewriter.InsertPoint
+public import Veir.Analysis.DataFlow.Domains.ConstantDomain
+
+open Std (HashSet Queue)
+
+public section
+
+namespace Veir
+
+/-!
+# Facts in the dataflow framework
+
+In the mathematics of monotone dataflow frameworks, an analysis assigns abstract
+states (each from some lattice) to program points and repeatedly applies monotone
+transfer functions until a fixpoint is reached. A fixpoint `f` is such that 
+`f(x) = x`. So in other words, when nothing changes.
+
+This file defines the objects used to store those abstract states. A
+`Fact` is one piece of analysis information and a `LatticeAnchor` says 
+where in the IR that information lives (such as an SSA value or a CFG 
+edge).
+-/
+
+/--
+A successor slot of a branching operation. Distinct slots may target the same block.
+-/
+structure CFGEdge where
+  terminator : OperationPtr
+  successorIndex : Nat
+deriving BEq, Hashable, DecidableEq
+
+/--
+The control flow graph positions and SSA values where dataflow facts are attached.
+-/
+inductive LatticeAnchor
+  | InsertPoint (point : InsertPoint)
+  | BlockPtr (block : BlockPtr)
+  | ValuePtr (value : ValuePtr)
+  | CFGEdge (edge : CFGEdge)
+deriving BEq, Hashable, DecidableEq
+
+instance : Coe InsertPoint LatticeAnchor where
+  coe := .InsertPoint
+
+instance : Coe BlockPtr LatticeAnchor where
+  coe := .BlockPtr
+
+/-!
+# Analyses and facts
+-/
+
+/-- Test-only domain used to exercise hooks in the sparse dataflow framework. -/
+inductive TestDomain where
+  /-- No information has reached the fact. -/
+  | bottom
+  /-- A natural-number value supplied by the test analysis. -/
+  | value (n : Nat)
+  /-- The conservative state used when no more precise entry state is available. -/
+  | top
+deriving BEq, DecidableEq, Repr
+
+/--
+Tags to match on for different `DataFlowAnalysis` types.
+-/
+inductive AnalysisKind where
+  | deadCode
+  /-- Analysis tag reserved for dataflow framework unit tests. -/
+  | test
+  | sparseConstantPropagation
+  | integerRange
+  | modArithRange
+deriving BEq, Hashable, Repr, DecidableEq
+
+/--
+Tags to match on for different fact types.
+-/
+inductive FactKind where
+  | dominator
+  | liveness
+  /-- Sparse fact tag reserved for dataflow framework unit tests. -/
+  | test
+  | sparseConstant
+  | integerRange
+  | modArithRange
+deriving BEq, ReflBEq, LawfulBEq, Hashable, Repr, DecidableEq
+
+/--
+The identity of a dataflow fact: its location in the IR and its fact kind.
+-/
+structure FactKey where
+  anchor : LatticeAnchor
+  kind : FactKind
+deriving Hashable, DecidableEq
+
+abbrev WorkItem := InsertPoint × AnalysisKind
+
+/--
+A FIFO worklist that keeps at most one pending copy of each work item.
+-/
+structure WorkList where
+  queue : Queue WorkItem
+  pending : HashSet WorkItem
+
+namespace WorkList
+
+/-- An empty worklist. -/
+def empty : WorkList :=
+  { queue := .empty
+    pending := ∅ }
+
+/-- Enqueue `workItem` unless it is already pending. -/
+def enqueue (workList : WorkList) (workItem : WorkItem) : WorkList :=
+  if workList.pending.contains workItem then
+    workList
+  else
+    { queue := workList.queue.enqueue workItem
+      pending := workList.pending.insert workItem }
+
+/--
+Remove and return the oldest pending work item, if any.
+The worklist is returned in both cases, so that callers can keep it unshared.
+-/
+def dequeue? (workList : WorkList) : Option WorkItem × WorkList :=
+  match workList.queue.dequeue? with
+  | none => (none, workList)
+  | some (workItem, queue) =>
+    (some workItem, { queue, pending := workList.pending.erase workItem })
+
+end WorkList
+
+/-- Dominance information attached to a block. -/
+structure DominatorPayload where
+  iDom : Option BlockPtr := none
+  nextInReversePostOrder : Option BlockPtr := none
+
+/-- A sparse dataflow fact payload with analysis specific metadata. -/
+structure SparsePayload (Domain : Type) (Metadata : Type := Unit) where
+  latticeElement : Domain
+  metadata : Metadata
+deriving BEq, DecidableEq, Repr
+
+/--
+Tracks whether a control flow point or edge is live.
+-/
+structure LivenessPayload where
+  latticeElement : Liveness := .dead
+
+/--
+The fact specific data stored for each fact kind.
+-/
+@[expose] def FactPayload : FactKind → Type
+  | .dominator => DominatorPayload
+  | .liveness => LivenessPayload
+  | .test => SparsePayload TestDomain Unit
+  | .sparseConstant => SparsePayload AbstractConstant (Option OpCode)
+  | .integerRange => SparsePayload IntegerRangeLattice Unit
+  | .modArithRange => SparsePayload IntegerRangeLattice Unit
+
+/--
+A dataflow fact stored by the framework.
+
+Each fact associates with a lattice anchor (some location in the program), has
+an array of dependents (other facts that "depend" on this fact's current state in
+some fashion), has an array of analysis subscribers (similar to dependents except
+it's entire analyses that depend on this fact's current state), and has the fact
+specific payload determined by its `FactKind`.
+-/
+structure Fact (kind : FactKind) where
+  dependents : Array WorkItem := #[]
+  subscribers : Array AnalysisKind := #[]
+  payload : FactPayload kind
+
+namespace Fact
+
+/--
+Set the fact's dependents.
+-/
+def setDependents (fact : Fact kind) (dependents : Array WorkItem) : Fact kind :=
+  { fact with dependents := dependents }
+
+/--
+Add one dependent work item to the fact.
+-/
+def addDependent (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
+  fact.setDependents (fact.dependents.push workItem)
+
+/-- Add a work item to the fact's dependents unless it is already present. -/
+def addDependentOnce (fact : Fact kind) (workItem : WorkItem) : Fact kind :=
+  if fact.dependents.any (· = workItem) then fact else fact.addDependent workItem
+
+/--
+Subscribe one analysis to changes of this fact.
+-/
+def subscribe (fact : Fact kind) (analysisKind : AnalysisKind) : Fact kind :=
+  if fact.subscribers.contains analysisKind then
+    fact
+  else
+    { fact with subscribers := (fact.subscribers.push analysisKind) }
+
+/--
+Enqueue all dependents of this fact.
+-/
+def enqueueDependents (fact : Fact kind) (workList : WorkList) : WorkList :=
+  Id.run do
+    let mut workList := workList
+    for workItem in fact.dependents do
+      workList := workList.enqueue workItem
+    workList
+
+def iDom (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.iDom
+
+def setIDom (fact : Fact .dominator) (iDom : BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with iDom := some iDom } }
+
+def nextInReversePostOrder (fact : Fact .dominator) : Option BlockPtr :=
+  fact.payload.nextInReversePostOrder
+
+def setNextInReversePostOrder
+    (fact : Fact .dominator)
+    (next : Option BlockPtr) : Fact .dominator :=
+  { fact with payload := { fact.payload with nextInReversePostOrder := next } }
+
+def live (fact : Fact .liveness) : Bool :=
+  match fact.payload.latticeElement with
+  | .dead => false
+  | .live => true
+
+def latticeElement (fact : Fact .liveness) : Liveness :=
+  fact.payload.latticeElement
+
+def setToLive (fact : Fact .liveness) : Fact .liveness :=
+  { fact with payload := { fact.payload with latticeElement := .live } }
+
+end Fact
+
+abbrev DominatorFact := Fact .dominator
+
+abbrev LivenessFact := Fact .liveness
+
+end Veir

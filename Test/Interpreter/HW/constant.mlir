@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32)}> ({
     %pos = "hw.constant"() <{ "value" = 3 : i32 }> : () -> i32
     %zero = "hw.constant"() <{ "value" = 0 : i32 }> : () -> i32
     %neg = "hw.constant"() <{ "value" = -4 : i32 }> : () -> i32

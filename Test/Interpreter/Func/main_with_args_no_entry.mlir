@@ -1,7 +1,7 @@
 // RUN: not veir-interpret %s 2>&1 | filecheck %s
 
 "builtin.module"() ({
-  "func.func"() <{sym_name = "main"}> ({
+  "func.func"() <{sym_name = "main", function_type = (i32) -> i32}> ({
     ^0(%arg0 : i32):
       "func.return"(%arg0) : (i32) -> ()
   }) : () -> ()
