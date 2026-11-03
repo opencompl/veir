@@ -256,37 +256,55 @@ theorem icmp_refinement_uge {x y : LLVM.Int 64} :
 
 /-! ### Immediate-constant refinements for ordered comparisons
 
-  Each theorem justifies one arm of the `slti` immediate-form selection in
-  `isel-sdag-riscv64`, comparing `x` against a constant that equals the
+  Each theorem justifies one arm of the `slti` immediate-form selection of `g_icmp` in
+  `isel-riscv64`, comparing `x` against a constant that equals the
   sign-extension of the 12-bit immediate `imm` actually encoded in the emitted
   instruction. For the `≤` predicates the constant is `sext(imm) - 1`, capturing
   the `x ≤ C == x < C+1` rewrite (the code stores `C+1` as the immediate). The
   unsigned off-by-one form carries the `imm ≠ 0` hypothesis that the code
   enforces by rejecting `C = -1` (else `C+1` wraps past `UINT_MAX`). -/
 
+/-- `icmp slt x C` with `C = sext(imm)` -> `slti x imm`. -/
+theorem icmp_refinement_slt_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.slt) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
+/-- `icmp ult x C` with `C = sext(imm)` -> `sltiu x imm`. -/
+theorem icmp_refinement_ult_imm {x : LLVM.Int 64} (imm : BitVec 12) :
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.ult) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 64) := by
+  veir_bv_decide
+
 /-- `icmp sge x C` with `C = sext(imm)` -> `xori (slti x imm) 1`. -/
 theorem icmp_refinement_sge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.sge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.sge) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.slti imm (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /-- `icmp uge x C` with `C = sext(imm)` -> `xori (sltiu x imm) 1`. -/
 theorem icmp_refinement_uge_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.uge) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64)) LLVM.IntPred.uge) 64
+        false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.xori 1#12 (Data.RISCV.sltiu imm (LLVM.Int.toReg x))) 64) := by
   veir_bv_decide
 
 /-- `icmp sle x C` with `C = sext(imm) - 1` -> `slti x imm` (i.e. `x < C+1`). -/
 theorem icmp_refinement_sle_imm {x : LLVM.Int 64} (imm : BitVec 12) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sle) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.sle)
+        64 false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.slti imm (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
 /-- `icmp ule x C` with `C = sext(imm) - 1` -> `sltiu x imm`; needs `imm ≠ 0`
     (else `C = UINT_MAX` and `C+1` wraps to `0`). -/
 theorem icmp_refinement_ule_imm {x : LLVM.Int 64} (imm : BitVec 12) (h : imm ≠ 0) :
-    (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 1) := by
+    (LLVM.Int.zext (Data.LLVM.Int.icmp x (LLVM.Int.val (imm.signExtend 64 - 1)) LLVM.IntPred.ule)
+        64 false (by decide)) ⊒
+      (RISCV.Reg.toInt (Data.RISCV.sltiu imm (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
 /--

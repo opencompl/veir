@@ -1642,6 +1642,66 @@ def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
   let generic := preds.map (gmirIcmp_pattern · false)
   (peepholes ++ generic).map (·.compile)
 
+/--
+  The immediate of the `riscv.slti`/`riscv.sltiu` that `gmir.g_icmp pred x, c` (`i64`) is lowered
+  to:
+  `gmir.g_icmp slt x, c` -> `riscv.slti x, c`
+  `gmir.g_icmp ult x, c` -> `riscv.sltiu x, c`
+  `gmir.g_icmp sge x, c` -> `riscv.slti x, c` + `riscv.xori _, 1`
+  `gmir.g_icmp uge x, c` -> `riscv.sltiu x, c` + `riscv.xori _, 1`
+  `gmir.g_icmp sle x, c` -> `riscv.slti x, c + 1`
+  `gmir.g_icmp ule x, c` -> `riscv.sltiu x, c + 1`
+  The immediate must fit in 12 bits, and `ule` excludes `c = -1`, where `c + 1` wraps. This is as
+  in LLVM's `PatGprSimm12` (`RISCVInstrInfo.td`), `TargetLowering::SimplifySetCC`
+  (`TargetLowering.cpp`) and the expansion of `SETGE`/`SETUGE` (`RISCVISelLowering.cpp`).
+-/
+def sltiImm? (pred : Data.LLVM.IntPred) (c : Int) : Option Int :=
+  let value := (BitVec.ofInt 64 c).toInt
+  let imm? : Option Int := match pred with
+    | .slt | .ult | .sge | .uge => some value
+    | .sle => some (value + 1)
+    | .ule => if value = -1 then none else some (value + 1)
+    | _ => none
+  imm?.filter fun imm => -2048 ≤ imm && imm ≤ 2047
+
+/-- `gmir.g_icmp pred x, c` (`i64`) -> `slti`/`sltiu` with the immediate `sltiImm? pred c`,
+    inverted with `xori _ 1` for `sge`/`uge` (see `sltiImm?`). -/
+def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
+  let unsigned := pred matches .ult | .uge | .ule
+  let invert := pred matches .sge | .uge
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let resType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value type
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+          fun ⟨const⟩ => (sltiImm? pred const.value).isSome
+      let root ← MatchProg.root (.gmir .g_icmp) #[lhs, constant.res[0]!] #[resType]
+          (fun props => props.predicate = pred)
+      matchLegal .g_icmp resType root.properties (type₁ := type)
+      return (resType, lhs, constant.properties))
+    (fun (resType, lhs, constProps) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let castOp ← CreateProg.operation (.builtin .unrealized_conversion_cast) #[lhs] #[regType]
+      let cmpOp ← if unsigned then do
+          let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .sltiu)))
+              constProps fun ⟨const⟩ => (sltiImm? pred const.value).map mkRISCVImm
+          CreateProg.operation (.riscv .sltiu) #[castOp.res[0]!] #[regType] props
+        else do
+          let props ← CreateProg.applyNative (Outputs := Handle OpCode (.prop (.riscv .slti)))
+              constProps fun ⟨const⟩ => (sltiImm? pred const.value).map mkRISCVImm
+          CreateProg.operation (.riscv .slti) #[castOp.res[0]!] #[regType] props
+      let resOp ← if invert then do
+          let xoriProps ← CreateProg.property (.riscv .xori) (mkRISCVImm 1)
+          CreateProg.operation (.riscv .xori) #[cmpOp.res[0]!] #[regType] xoriProps
+        else pure cmpOp
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[resOp.res[0]!] #[resType])
+    (fun castBackOp => castBackOp)
+
+/-- The `slti`/`sltiu` selections of `gmir.g_icmp` (see `gmirSlti_pattern`). -/
+def gmirSlti : Array (Puddle.CompiledPattern OpCode) :=
+  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map (gmirSlti_pattern · |>.compile)
+
 /-! # Pass implementation -/
 
 def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -1655,7 +1715,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
-    gmirCpopw.run]
+    gmirCpopw.run] ++ gmirSlti.map (·.run)
   let ctx ← match RewritePattern.applyInContext early ctx with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx

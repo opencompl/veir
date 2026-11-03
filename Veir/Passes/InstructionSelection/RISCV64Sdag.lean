@@ -147,105 +147,6 @@ def orcb (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite orcb_local rewriter op opInBounds
 
-
-
-/-! ## Immediate selection
-
-  These rules replicate LLVM's `PatGprImm` family from `RISCVInstrInfo.td` /
-  `RISCVInstrInfoZb.td`: an arithmetic/logic node with a constant operand selects
-  directly to the immediate form of the instruction, rather than materializing the
-  constant into a register first. Each rule matches the LLVM op with an
-  `llvm.mlir.constant` operand and, when the immediate fits the instruction's field,
-  emits the immediate-form RISC-V op. The constant is matched only on the right
-  operand, since the canonicalizer (run before isel) places it there — mirroring
-  `PatGprImm`'s `(OpNode GPR:$rs1, imm)` shape. The reg-reg fallback (non-constant
-  operand, or out-of-range immediate) is handled by the generic `isel-riscv64` pass,
-  which also selects the immediate forms of the i64 and word operations (`addi`, `addiw`, ...) on
-  gMIR.
-
-  See the `PatGprImm`/`PatGprSimm12`/`PatGprUimmLog2XLen` classes:
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1386-L1393
--/
-
-/-- Emit `[xori _ 1] (<dst> x immVal)` for the comparison operand `lhs`, or bail (leaving `op`
-    for the reg-reg lowering) when `immVal` does not fit a signed 12-bit field. `dst` is either
-    `.slti` or `.sltiu`, both with `RISCVImmediateProperties` (hence `h`); `wrap` selects the
-    `≥`-predicate `xori _ 1` inversion. -/
-def sltiEmitLocal (op : OperationPtr) (lhs : ValuePtr) (dst : Riscv)
-    (h : Riscv.propertiesOf dst = RISCVImmediateProperties) (immVal : Int) (wrap : Bool)
-    (ctx : WfIRContext OpCode) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  if immVal < -2048 || immVal > 2047 then return (ctx, none)
-  let immProps := RISCVImmediateProperties.mk (BitVec.ofInt 64 immVal)
-  let (ctx, xCastOp) ← castToRegLocal ctx lhs
-  let (ctx, cmpOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk] #[xCastOp.getResult 0]
-      #[] #[] (cast h.symm immProps) none
-  if wrap then
-    let one := RISCVImmediateProperties.mk 1#64
-    let (ctx, xorOp) ← WfRewriter.createOp! ctx Riscv.xori #[RegisterType.mk] #[cmpOp.getResult 0]
-        #[] #[] one none
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (xorOp.getResult 0)
-    some (ctx, some (#[xCastOp, cmpOp, xorOp, castBackOp], #[castBackOp.getResult 0]))
-  else
-    let (ctx, castBackOp) ← replaceWithRegLocal ctx op (cmpOp.getResult 0)
-    some (ctx, some (#[xCastOp, cmpOp, castBackOp], #[castBackOp.getResult 0]))
-
-/--
-  Immediate-form integer comparison selection (`PatGprSimm12` family). When the
-  rhs is a constant that fits a signed 12-bit immediate, lower `icmp` directly to
-  `slti`/`sltiu`, inverting the sense with `xori _ 1` for the `≥` predicates and
-  using the identity `x ≤ C  ==  x < C+1` for the `≤` predicates:
-
-      slt  x C  ->       slti  x C
-      ult  x C  ->       sltiu x C
-      sge  x C  -> xori (slti  x C)      1
-      uge  x C  -> xori (sltiu x C)      1
-      sle  x C  ->       slti  x (C+1)
-      ule  x C  ->       sltiu x (C+1)              (requires C ≠ -1)
-
-  Canonicalization moves the constant to the rhs before isel, so we only match
-  there. Each emitted immediate (`C` or `C+1`) must still land in `[-2048, 2047]`,
-  otherwise we bail and defer to the reg-reg `icmp` lowering in `isel-riscv64`.
-  For the unsigned `≤` off-by-one form, `C = -1` (unsigned `UINT_MAX`) is
-  excluded: there `C+1` wraps to `0` and `x < 0` would not equal `x ≤ UINT_MAX`.
-
-  The `>` predicates (`sgt`/`ugt`) are deliberately *not* handled: their reg-reg
-  lowering (`slt`/`sltu` with swapped operands, no `xori`) is already the same
-  instruction count, and folding the constant is strictly worse for `x > 0`,
-  which the reg-reg path plus the `li 0 -> x0` combine lowers to a single
-  `slt x0, x`.
-
-  LLVM correspondence (commit d9906882fc61):
-  * `slt`/`ult` immediate: `PatGprSimm12<setlt, SLTI>` / `<setult, SLTIU>`
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1636-L1638
-  * `sle`/`ule` off-by-one (`x <= C == x < C+1`, plus the `x <= MAX -> true`
-    fold that motivates the `C = -1` guard): generic `SimplifySetCC`
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/SelectionDAG/TargetLowering.cpp#L5273-L5290
-  * `sge`/`uge` `xori`-inversion: `SETGE`/`SETUGE` are `Expand`ed (legalized to
-    `xor (setlt ...), 1`)
-    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L326-L332
--/
-def slti_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, prop) := matchIcmp op ctx.raw | return (ctx, none)
-  let .integerType lt := (lhs.getType! ctx.raw).val | return (ctx, none)
-  if lt.bitwidth ≠ 64 then return (ctx, none)
-  let some cst := matchConstantIntVal rhs ctx.raw | return (ctx, none)
-  let c := cst
-  match prop.predicate with
-  | .slt => sltiEmitLocal op lhs .slti  rfl c       false ctx
-  | .ult => sltiEmitLocal op lhs .sltiu rfl c       false ctx
-  | .sge => sltiEmitLocal op lhs .slti  rfl c       true  ctx
-  | .uge => sltiEmitLocal op lhs .sltiu rfl c       true  ctx
-  | .sle => sltiEmitLocal op lhs .slti  rfl (c + 1) false ctx
-  | .ule => if c = -1 then return (ctx, none) else sltiEmitLocal op lhs .sltiu rfl (c + 1) false ctx
-  | _    => return (ctx, none)
-
-/-- Immediate-form integer comparison selection (`PatGprSimm12` family, see `slti_local`). -/
-def slti (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite slti_local rewriter op opInBounds
-
 /-! ## Zbs single-bit immediate selection
 
   These mirror the Zbs mask patterns in `RISCVInstrInfoZb.td`: `bseti`/`binvi`/`bclri`
@@ -517,7 +418,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
   let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb,
-    bexti, bseti, bclri, binvi, slliuw, slti,
+    bexti, bseti, bclri, binvi, slliuw,
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying SDAG patterns"

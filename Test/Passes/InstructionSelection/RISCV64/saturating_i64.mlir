@@ -73,7 +73,7 @@
         // CHECK:      "riscv.sra"
         // CHECK:      "riscv.li"() <{"value" = -9223372036854775808 : i64}>
         // CHECK:      "riscv.li"() <{"value" = 9223372036854775807 : i64}>
-        // CHECK:      "riscv.slt"
+        // CHECK:      "riscv.slti"
         // CHECK:      "riscv.czeroeqz"
         // CHECK:      "riscv.czeronez"
         // CHECK:      "riscv.or"
