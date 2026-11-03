@@ -13,7 +13,7 @@
       ^9():
         "riscv_cf.unreachable"() : () -> ()
       ^10(%arg10_0 : !riscv.reg):
-        "llvm.return"(%arg10_0) : (!riscv.reg) -> ()
+        "riscv_cf.return"(%arg10_0) : (!riscv.reg) -> ()
     }) : () -> ()
 }) : () -> ()
 
