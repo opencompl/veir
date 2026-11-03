@@ -226,12 +226,12 @@ def lowerOp : LocalRewritePattern OpCode := fun ctx op =>
 
 /-! # Pass implementation -/
 
-def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (_op : OperationPtr)
-    (_ : _op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+def IselAbiRISCV64.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries .riscvReg ctx fun ctx op =>
     op.getOpType! ctx == .llvm .func && supportsFunctionAbi ctx op
   -- The rewrite driver inserts the new operations, replaces results, and removes dead casts.
-  match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx with
+  match RewritePattern.applyInContext (.fromLocalRewrite lowerOp) ctx op with
   | none => throw "Error while applying isel-abi-riscv64"
   | some ctx => pure ctx
 

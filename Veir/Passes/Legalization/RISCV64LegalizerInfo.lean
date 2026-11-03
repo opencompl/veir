@@ -284,7 +284,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    run := fun _ ctx _ _ => riscv64LegalizerInfo.legalize ctx }
+    run := fun _ ctx op _ => riscv64LegalizerInfo.legalize ctx op }
 
 end
 

@@ -358,7 +358,7 @@ def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.
     notNotToX, deMorganAndToOr, deMorganOrToAnd,
     mulNegOneToNeg, uremPow2ToAnd, sextSextToSext, bitreverseBitreverseToX, minMaxSelfToX
   ]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 

@@ -1894,7 +1894,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Composed loop: select expressions of several gMIR operations into one instruction, before
      the later loops select their inner operations. -/
   let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
-  let ctx ← match RewritePattern.applyInContext composed ctx with
+  let ctx ← match RewritePattern.applyInContext composed ctx op with
   | none => throw "Error while applying composed instruction-selection patterns"
   | some ctx => pure ctx
   /- Early loop: fold composed intrinsics and inspect constants before the per-op
@@ -1907,7 +1907,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
     gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
     gmirCpopw.run, gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
-  let ctx ← match RewritePattern.applyInContext early ctx with
+  let ctx ← match RewritePattern.applyInContext early ctx op with
   | none => throw "Error while applying early memory-lowering patterns"
   | some ctx => pure ctx
   /- Main loop: the existing per-op lowerings. -/
@@ -1931,7 +1931,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
     gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
     gmirIcmp.map (·.run)
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying main instruction-selection patterns"
   | some ctx => pure ctx
 

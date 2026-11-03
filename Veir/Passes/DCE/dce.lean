@@ -17,7 +17,7 @@ public def eliminateDeadOp (rewriter: PatternRewriter OpCode) (op: OperationPtr)
 def DCEPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[eliminateDeadOp]
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying DCE"
   | some ctx => pure ctx
 
