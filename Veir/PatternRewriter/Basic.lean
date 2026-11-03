@@ -60,6 +60,14 @@ def Worklist.push (worklist: Worklist) (op: OperationPtr) : Worklist :=
       indexInStack := worklist.indexInStack.insert op newIndex,
       wf_index := by grind }
 
+/-- Push an operation during initial seeding, where the traversal visits it only once. -/
+@[inline]
+private def Worklist.pushNew (worklist : Worklist) (op : OperationPtr) : Worklist :=
+  let newIndex := worklist.stack.size
+  { stack := worklist.stack.push (some op)
+    indexInStack := worklist.indexInStack.insert op newIndex
+    wf_index := by grind }
+
 def Worklist.pop (worklist: Worklist) : (Option OperationPtr) × Worklist :=
   let newStack := worklist.stack.popWhile (· = none)
   let hwf : ArrayInv newStack worklist.indexInStack := by grind
@@ -291,22 +299,33 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
 - are visited before the operations defining their operands, this removes whole chains of dead
 - operations in one sweep, instead of popping each definition once while its dead users still
 - exist and again after they are erased.
+-
+- Seeding does not notify operand definitions when erasing a dead operation: each in-scope
+- definition is either still to be visited or already on the worklist. The pop-time deadness
+- check handles definitions visited before their users (e.g. across blocks in layout order).
+- Without these notifications, each surviving operation is pushed exactly once.
 -/
 private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInfo)
     (op : OperationPtr) : PatternRewriter OpInfo := Id.run do
   let mut rewriter := rewriter
   let numRegions := op.getNumRegions! rewriter.ctx.raw
+  -- Avoid setting up the traversal loops for the common case of a leaf operation.
+  if numRegions == 0 then return rewriter
   for i in 0...numRegions do
     let mut block? := (op.getRegion! rewriter.ctx.raw (numRegions - 1 - i)).getLastBlock! rewriter.ctx.raw
     while let some block := block? do
       let mut child? := block.getLastOp! rewriter.ctx.raw
       while let some child := child? do
         let prev? := child.getPrevOp! rewriter.ctx.raw
-        if child.isTriviallyDead rewriter.ctx.raw then
-          rewriter := rewriter.eraseOp! child
+        if hdead : child.isTriviallyDead rewriter.ctx.raw then
+          rewriter := if hin : child.InBounds rewriter.ctx.raw then
+            { rewriter with
+              ctx := WfRewriter.eraseOp rewriter.ctx child hdead.1 hdead.2.1 hin
+              hasDoneAction := true }
+          else
+            panic! "PatternRewriter.seedNestedReversePostOrder: operation is out of bounds"
         else
-          -- Erasing a user may already have pushed `child`; move it to its post-order position.
-          rewriter := { rewriter with worklist := rewriter.worklist.remove child |>.push child }
+          rewriter := { rewriter with worklist := rewriter.worklist.pushNew child }
           rewriter := rewriter.seedNestedReversePostOrder child
         child? := prev?
       block? := block.getPrevBlock! rewriter.ctx.raw
