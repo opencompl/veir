@@ -14,132 +14,6 @@ namespace Veir
 
 /-! # SelectionDAG Lowering Patterns  -/
 
-/--
-  Shared shape of the Zbb negated-operand lowerings (`andn`/`orn`/`xnor`): match a binary LLVM
-  op on `i64` one of whose operands is a `not` (`xor _, -1`), cast the plain operand `x` and the
-  `not`'s operand `y` to registers, apply the binary reg-reg riscv op `dst`, and cast the result
-  back to `i64`.
--/
-def lowerBinopNotLocal {P : Type}
-    (match? : OperationPtr → IRContext OpCode → Option (ValuePtr × ValuePtr × P))
-    (dst : Riscv) (props : propertiesOf (OpCode.riscv dst))
-    (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (lhs, rhs, _) := match? op ctx | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  let some (x, y) :=
-    (match matchNot rhs ctx.raw with
-     | some y => some (lhs, y)
-     | none => match matchNot lhs ctx.raw with
-               | some y => some (rhs, y)
-               | none => none) | return (ctx, none)
-  let (ctx, xCastOp) ← castToRegLocal ctx x
-  let (ctx, yCastOp) ← castToRegLocal ctx y
-  let (ctx, newOp) ← WfRewriter.createOp! ctx dst #[RegisterType.mk]
-      #[xCastOp.getResult 0, yCastOp.getResult 0] #[] #[] props none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (newOp.getResult 0)
-  some (ctx, some (#[xCastOp, yCastOp, newOp, castBackOp], #[castBackOp.getResult 0]))
-
-/--
-  `and x (not y)` -> `riscv.andn x y`. The `not` may appear on either operand.
--/
-def andn_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinopNotLocal matchAnd .andn () ctx op
-
-/--
-  `and x (not y)` -> `riscv.andn x y`. The `not` may appear on either operand.
--/
-def andn (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite andn_local rewriter op opInBounds
-
-/--
-  `or x (not y)` -> `riscv.orn x y`. The `not` may appear on either operand.
--/
-def orn_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinopNotLocal matchOr .orn () ctx op
-
-/--
-  `or x (not y)` -> `riscv.orn x y`. The `not` may appear on either operand.
--/
-def orn (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite orn_local rewriter op opInBounds
-
-/--
-  `xor x (not y)` -> `riscv.xnor x y`. The `not` may appear on either operand.
--/
-def xnor_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) :=
-  lowerBinopNotLocal matchXor .xnor () ctx op
-
-/--
-  `xor x (not y)` -> `riscv.xnor x y`. The `not` may appear on either operand.
--/
-def xnor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite xnor_local rewriter op opInBounds
-
-/-- The mask `orcb_local`'s soundness gate looks for: `0x0101_0101_0101_0101 <<< Y`, whose only
-    set bit in each byte is bit `Y`. -/
-def orcbMaskBV (y : Nat) : BitVec 64 := BitVec.ofNat 64 0x0101010101010101 <<< y
-
-def matchOrcbRight (b m : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
-    Option (propertiesOf (OpCode.llvm .lshr)) := do
-  if y = 0 then
-    if b = m then return { exact := false } else none
-  let some bOp := b.definingOp? | none
-  let some (m', yShamt, lshrProps) := matchLshr bOp ctx | none
-  let some yc := matchConstantIntVal yShamt ctx | none
-  if yc = (y : Int) ∧ m' = m then return lshrProps else none
-
-def matchOrcbMask (mo0 mo1 : ValuePtr) (y : Nat) (ctx : IRContext OpCode) :
-    Option (ValuePtr × Int) := do
-  if let some attr1 := matchConstantIntVal mo1 ctx then
-    if BitVec.ofInt 64 attr1 = orcbMaskBV y then
-      return (mo0, attr1)
-  let some attr0 := matchConstantIntVal mo0 ctx | none
-  if BitVec.ofInt 64 attr0 = orcbMaskBV y then return (mo1, attr0) else none
-
-/--
-  `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
-  where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
--/
-def orcb_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
-    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (a, b, _) := matchSub op ctx.raw | return (ctx, none)
-  let .integerType t := ((op.getResult 0).getType! ctx.raw).val | return (ctx, none)
-  if t.bitwidth ≠ 64 then return (ctx, none)
-  /- left operand must be `shl M (8 - Y)` for some `0 ≤ Y < 8` -/
-  let some aOp := a.definingOp? | return (ctx, none)
-  let some (m, shamt, _) := matchShl aOp ctx.raw | return (ctx, none)
-  let some shc := matchConstantIntVal shamt ctx.raw | return (ctx, none)
-  if shc < 1 || 8 < shc then return (ctx, none)
-  let y : Nat := (8 - shc).toNat
-  /- right operand must be `M` itself (when `Y = 0`) or `lshr M Y` -/
-  let some _lshrProps := matchOrcbRight b m y ctx | return (ctx, none)
-  /- soundness gate: `M = and Z (0x0101_0101_0101_0101 <<< Y)` -/
-  let some mOp := m.definingOp? | return (ctx, none)
-  let some (mo0, mo1, _) := matchAnd mOp ctx.raw | return (ctx, none)
-  let some _zAttr := matchOrcbMask mo0 mo1 y ctx | return (ctx, none)
-  let (ctx, mCastOp) ← castToRegLocal ctx m
-  /- actual `riscv.orcb` -/
-  let (ctx, orcbOp) ← WfRewriter.createOp! ctx Riscv.orcb #[RegisterType.mk] #[mCastOp.getResult 0]
-      #[] #[] () none
-  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (orcbOp.getResult 0)
-  some (ctx, some (#[mCastOp, orcbOp, castBackOp], #[castBackOp.getResult 0]))
-
-/--
-  `sub (shl M (8 - Y)) (lshr M Y)` -> `riscv.orcb M`,
-  where `M = and Z (0x0101_0101_0101_0101 <<< Y)`
--/
-def orcb (rewriter : PatternRewriter OpCode) (op : OperationPtr)
-    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
-  RewritePattern.fromLocalRewrite orcb_local rewriter op opInBounds
-
 /-! ## Division by a constant power of two
 
   RISC-V has no divide-by-constant strength reduction in hardware, so a `udiv`/`sdiv`
@@ -313,7 +187,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- `sdivPow2Exact`/`sdivwPow2Exact` are listed before `sdivPow2`/`sdivwPow2` to
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
-  let pattern := RewritePattern.GreedyRewritePattern #[andn, orn, xnor, orcb,
+  let pattern := RewritePattern.GreedyRewritePattern #[
     udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying SDAG patterns"
