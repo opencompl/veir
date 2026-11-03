@@ -196,11 +196,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .customFor [s64],
       .minScalar (.type 0) 64,
     ]
-    -- LLVM lowers these, and its `lower` picks between two lowerings: with `g_smin`/`g_smax`/
-    -- `g_umin`/`g_umax` where those are legal or custom for the type, and with an overflowing
-    -- operation and a `g_select` otherwise. `lower?` cannot query the rules, so we make the same
-    -- choice here: min and max are legal only for `s64` (Zbb), and the other types are custom
-    -- legalized with `lowerAddSubSatToAddoSubo`, which LLVM's `lower` would pick for them.
+    -- min and max are legal only for `s64` (Zbb), and the other types are custom
+    -- legalized with `lowerAddSubSatToAddoSubo`, as in LLVM
     | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat => [
       .lowerIf (.typeIs (.type 0) s64),
       .customIf fun _ => true,
