@@ -290,9 +290,9 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
 
 /--
 Seed the worklist with the operations nested under `op` (not `op` itself), pushing them in
-reverse post-order so that they are popped in post-order. We erase trivially dead operations
-rather then pushing them -- a trick from InstCombine that allows removal of chains of dead
-operations.
+reverse post-order so that they are popped in post-order. (Erasing trivially dead operations
+here rather than pushing them -- a trick from InstCombine that allows removal of chains of dead
+operations -- is currently disabled.)
 -/
 private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInfo)
     (op : OperationPtr) : PatternRewriter OpInfo := Id.run do
@@ -304,6 +304,7 @@ private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInf
       let mut child? := block.getLastOp! rewriter.ctx.raw
       while let some child := child? do
         let prev? := child.getPrevOp! rewriter.ctx.raw
+        /- Disabled for now: erasing dead ops during seeding needs proofs we aren't ready for.
         if hdead : child.isTriviallyDead rewriter.ctx.raw then
           rewriter := if hin : child.InBounds rewriter.ctx.raw then
             { rewriter with
@@ -312,8 +313,9 @@ private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInf
           else
             panic! "PatternRewriter.seedNestedReversePostOrder: operation is out of bounds"
         else
-          rewriter := { rewriter with worklist := rewriter.worklist.pushNew child }
-          rewriter := rewriter.seedNestedReversePostOrder child
+        -/
+        rewriter := { rewriter with worklist := rewriter.worklist.pushNew child }
+        rewriter := rewriter.seedNestedReversePostOrder child
         child? := prev?
       block? := block.getPrevBlock! rewriter.ctx.raw
   rewriter
