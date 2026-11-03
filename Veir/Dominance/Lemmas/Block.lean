@@ -65,6 +65,19 @@ theorem not_dominated_of_locallyReachable_dominated
   simp only [List.count_append, List.count_cons] at beforeCount afterCount
   grind
 
+/-- Proper SSA dominance composes when the endpoints are distinct. -/
+theorem trans_of_ne
+    (first : dominator.ProperlyDominatesInSSACFGRegion middle region ctx)
+    (second : middle.ProperlyDominatesInSSACFGRegion dominated region ctx)
+    (distinct : dominator ≠ dominated) :
+    dominator.ProperlyDominatesInSSACFGRegion dominated region ctx := by
+  refine ⟨first.1, second.2.1, first.2.2.1, distinct, ?_⟩
+  intro entryBlock blocks entry path
+  obtain ⟨pre, post, split, prefixPath, _⟩ :=
+    path.split_of_mem (second.mem_of_path entry path)
+  have inPrefix := first.mem_of_path entry prefixPath
+  grind
+
 /-- Proper SSA dominance is transitive when the final block is locally reachable. -/
 theorem trans_of_reachable
     (first : dominator.ProperlyDominatesInSSACFGRegion middle region ctx)
@@ -76,18 +89,29 @@ theorem trans_of_reachable
     subst dominated
     exact first.not_dominated_of_locallyReachable_dominated
       (second.locallyReachable_dominator_of_locallyReachable_dominated reachable) second
-  refine ⟨first.1, second.2.1, first.2.2.1, distinct, ?_⟩
-  intro entryBlock blocks entry path
-  obtain ⟨pre, post, split, prefixPath, _⟩ :=
-    path.split_of_mem (second.mem_of_path entry path)
-  have inPrefix := first.mem_of_path entry prefixPath
-  grind
+  exact first.trans_of_ne second distinct
 
 end BlockPtr.ProperlyDominatesInSSACFGRegion
 
 namespace BlockPtr.ProperlyDominatesInRegion
 
 variable {dominator dominated source predecessor successor : BlockPtr} {region : RegionPtr}
+
+/-- Regional proper dominance composes when the endpoints are distinct. -/
+theorem trans_of_ne {middle : BlockPtr}
+    (first : dominator.ProperlyDominatesInRegion middle region ctx)
+    (second : middle.ProperlyDominatesInRegion dominated region ctx)
+    (distinct : dominator ≠ dominated) :
+    dominator.ProperlyDominatesInRegion dominated region ctx := by
+  cases first with
+  | Ssa first =>
+    cases second with
+    | Ssa second => exact .Ssa (first.trans_of_ne second distinct)
+    | Graph second => grind [ProperlyDominatesInSSACFGRegion, ProperlyDominatesInGraphRegion]
+  | Graph first =>
+    cases second with
+    | Ssa second => grind [ProperlyDominatesInSSACFGRegion, ProperlyDominatesInGraphRegion]
+    | Graph second => exact .Graph (by grind [ProperlyDominatesInGraphRegion])
 
 /-- Regional proper dominance is transitive when the final block is locally reachable. -/
 theorem trans_of_reachable {middle : BlockPtr}
@@ -223,6 +247,58 @@ theorem predecessor_of_dominates_successor
       apply ProperlyDominates.AncestorDominatedInRegion ancestor (h := localDominance)
       exact IRNode.Ancestor.of_same_parent_of_properAncestor (parent := .region region)
         properAncestry (by grind) (by grind)
+
+/-- Block dominance extends to descendants of the dominated block. -/
+@[grind →]
+theorem of_ancestor_dominated {block₁ block₂ block₃ : BlockPtr}
+    (dominance : block₁.Dominates block₂ ctx) (ancestry : block₂.Ancestor block₃ ctx) :
+    block₁.Dominates block₃ ctx := by
+  by_cases same : block₁ = block₃
+  · exact Or.inl same
+  apply Or.inr
+  rcases dominance with rfl | dominance
+  · exact .Ancestor ancestry same
+  · cases dominance with
+    | Ancestor upper _ => exact .Ancestor (upper.trans ancestry) same
+    | AncestorDominatedInRegion ancestor region upper localDominance =>
+      exact .AncestorDominatedInRegion ancestor region (upper.trans ancestry) localDominance true
+
+/-- Block dominance is transitive, including for unreachable blocks. -/
+@[grind →]
+theorem trans {block₁ block₂ block₃ : BlockPtr}
+    (first : block₁.Dominates block₂ ctx) (second : block₂.Dominates block₃ ctx) :
+    block₁.Dominates block₃ ctx := by
+  rcases first with rfl | first
+  · exact second
+  rcases second with rfl | second
+  · exact Or.inr first
+  cases second with
+  | Ancestor ancestry _ => exact BlockPtr.Dominates.of_ancestor_dominated (Or.inr first) ancestry
+  | AncestorDominatedInRegion target region targetAncestry localSecond =>
+    cases first with
+    | Ancestor ancestry distinct =>
+      have ancestorOfRegion :=
+        (ancestry.toProperAncestor (by simpa using distinct)).ancestor_of_parent_descendant
+          (show (IRNode.block block₂).parent! ctx = some (.region region) by grind)
+      have regionOfTarget : region.Ancestor target ctx := .of_parent (by grind)
+      exact (show block₁.Dominates block₁ ctx from Or.inl rfl).of_ancestor_dominated
+        ((ancestorOfRegion.trans regionOfTarget).trans targetAncestry)
+    | AncestorDominatedInRegion middle middleRegion middleAncestry localFirst =>
+      by_cases same : middle = block₂
+      · subst middle
+        have sameRegion : middleRegion = region := by grind
+        subst middleRegion
+        by_cases sameTarget : block₁ = target
+        · subst target
+          exact (show block₁.Dominates block₁ ctx from Or.inl rfl).of_ancestor_dominated targetAncestry
+        · exact Or.inr (.AncestorDominatedInRegion target region targetAncestry
+            (localFirst.trans_of_ne localSecond sameTarget) true)
+      · have middleOfRegion :=
+          (middleAncestry.toProperAncestor (by simpa using same)).ancestor_of_parent_descendant
+            (show (IRNode.block block₂).parent! ctx = some (.region region) by grind)
+        have regionOfTarget : region.Ancestor target ctx := .of_parent (by grind)
+        exact Or.inr (.AncestorDominatedInRegion middle middleRegion
+          ((middleOfRegion.trans regionOfTarget).trans targetAncestry) localFirst true)
 
 end BlockPtr.Dominates
 
