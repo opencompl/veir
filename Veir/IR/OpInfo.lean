@@ -55,16 +55,21 @@ structure FunctionOpInterface (Properties : Type) where
   /-- Return the properties with the function type replaced. -/
   setFunctionType : Properties → FunctionType → Properties
 
-/-- The callee of a call: a symbol, or an SSA value. -/
-inductive CallInterfaceCallable where
+/-- The callee of a call: a symbol, or one of its operands. -/
+inductive CallInterfaceCallable (α : Type) where
   | symbol (ref : FlatSymbolRefAttr)
-  | value (value : ValuePtr)
+  | value (value : α)
 deriving Inhabited, Repr, DecidableEq
 
-/-- Information exposed by call-like operations. -/
+/--
+Information exposed by call-like operations. It only selects among the operands, so it works for
+any operand type `α`: the IR uses it on SSA values, and the interpreter on runtime values.
+-/
 structure CallOpInterface (Properties : Type) where
   /-- Return the callee of the call, given its operands. -/
-  getCallableForCallee? : Properties → Array ValuePtr → Option CallInterfaceCallable
+  getCallableForCallee? : {α : Type} → Properties → Array α → Option (CallInterfaceCallable α)
+  /-- Return the operands passed as arguments to the callee. -/
+  getArgOperands : {α : Type} → Properties → Array α → Array α
 
 /-- The SSA values forwarded from a branch operation to one of its successors. -/
 structure SuccessorOperands where

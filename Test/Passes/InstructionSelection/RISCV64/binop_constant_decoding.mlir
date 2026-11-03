@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "binop_constants", function_type = (i64, i32) -> (i64, i64, i64, i32)}> ({

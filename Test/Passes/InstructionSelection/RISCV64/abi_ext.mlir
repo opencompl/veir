@@ -14,7 +14,7 @@
     "llvm.return"(%x) : (i1) -> ()
   }) : () -> ()
   // CHECK-LABEL: "sym_name" = "ret_zext_i1"
-  // CHECK: %[[R:.*]] = "riscv.andi"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+  // CHECK: %[[R:.*]] = "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: "riscv_cf.return"(%[[R]])
 
   "llvm.func"() <{sym_name = "ret_sext_i8", function_type = !llvm.func<i8 (i8)>, res_attrs = [{llvm.signext}]}> ({
@@ -100,7 +100,7 @@
     "llvm.return"() : () -> ()
   }) : () -> ()
   // CHECK-LABEL: "sym_name" = "caller"
-  // CHECK: %[[BZ:.*]] = "riscv.andi"(%{{.*}}) <{"value" = 1 : i64}>
+  // CHECK: %[[BZ:.*]] = "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}>
   // CHECK-NEXT: "riscv_cf.call"(%[[BZ]]) <{"callee" = @ret_zext_i1}>
   // CHECK: %[[BS:.*]] = "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}>
   // CHECK-NEXT: "riscv_cf.call"(%[[BS]]) <{"callee" = @ret_sext_i1}>

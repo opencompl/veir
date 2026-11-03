@@ -11,7 +11,7 @@ structure RegisterStack where
   free : List RegisterType
   /-- The next virtual register index, used when `free` is empty. -/
   next : Nat
-deriving Inhabited
+deriving Inhabited, DecidableEq, Repr
 
 namespace RegisterStack
 

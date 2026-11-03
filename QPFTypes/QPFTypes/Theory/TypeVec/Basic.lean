@@ -43,8 +43,10 @@ variable {n : Nat}
 
 /-- Support for extending a `TypeVec` by one element.
   At index `0` (i.e. `Fin2.fz`) returns `β`; at index `i.succ` (i.e. `Fin2.fs i`) returns `α i`. -/
-def TypeVec.append1 (α : TypeVec n) (β : Type _) : TypeVec (n + 1) :=
-  Fin.cases β α
+@[instance_reducible]
+def TypeVec.append1 (α : TypeVec n) (β : Type _) : TypeVec (n + 1)
+  | ⟨0, _⟩ => β
+  | ⟨i + 1, h⟩ => α ⟨i, Nat.lt_of_succ_lt_succ h⟩
 
 @[inherit_doc] scoped infixl:67 " ::: " => TypeVec.append1
 
@@ -53,7 +55,11 @@ Extend a `TypeVec` with a new element at the _front_ of the list.
 -/
 -- TODO(WS): When do we use this?
 def TypeVec.cons (α : Type u) (αs : TypeVec.{u} n) : TypeVec (n + 1) :=
-  Fin.lastCases α αs
+  fun ⟨i, hi⟩ =>
+    if _: (i = n) then
+      α
+    else
+      αs ⟨i, by grind⟩
 @[inherit_doc] scoped infixr:67 " <: " => TypeVec.cons
 
 namespace TypeVec
@@ -62,18 +68,24 @@ def nil : TypeVec 0 :=
   Fin.elim0
 
 /-- retain only a `n-length` prefix of the argument -/
-def drop (α : TypeVec.{u} (n + 1)) : TypeVec n := fun i => α i.succ
+@[instance_reducible]
+def drop (α : TypeVec.{u} (n + 1)) : TypeVec n :=
+  fun ⟨i, h⟩ => α ⟨i + 1, Nat.add_lt_add_right h 1⟩
 
 /-- take the last value of a `(n+1)-length` vector -/
+@[instance_reducible]
 def last (α : TypeVec.{u} (n + 1)) : Type _ :=
-  α 0
+  α ⟨0, Nat.zero_lt_succ n⟩
 
 /-- take the first value of a `(n+1)-length` vector -/
+@[instance_reducible]
 def head (α : TypeVec.{u} (n + 1)) : Type _ :=
-  α (.last _)
+  α ⟨n, by grind⟩
 
 /-- retain only a `n-length` _suffix_ of the argument -/
-def tail (α : TypeVec.{u} (n + 1)) : TypeVec n := fun i => α i.castSucc
+@[instance_reducible]
+def tail (α : TypeVec.{u} (n + 1)) : TypeVec n :=
+  fun ⟨i, h⟩ => α ⟨i, Nat.lt_add_right 1 h⟩
 
 section HeadTail
 variable (βs : TypeVec.{u} n) (β : Type u)
@@ -82,7 +94,7 @@ variable (βs : TypeVec.{u} n) (β : Type u)
     (βs ::: β).head = match n with
       | 0 => β
       | _+1 => βs.head := by
-  cases n <;> grind [append1, head, Fin.last]
+  cases n <;> rfl
 
 @[grind =] theorem tail_append1 :
     (βs ::: β).tail = match n with
@@ -95,14 +107,15 @@ variable (βs : TypeVec.{u} n) (β : Type u)
     <;> rfl
 
 @[simp, grind =] theorem head_cons : (β <: βs).head = β := by
-  grind [head, cons]
+  simp [head, cons]
 @[simp, grind =] theorem tail_cons : (β <: βs).tail = βs := by
-  funext i; grind [tail, cons]
+  funext i; simp [tail, cons]; grind
 
 @[simp, grind =] theorem cons_head_tail {βs : TypeVec (n+1)} :
     βs.head <: βs.tail = βs := by
-  funext i; cases i using Fin.lastCases
-  <;> grind [cons, head, tail]
+  funext i
+  fun_cases (βs.head <: βs.tail) i
+  <;> simp [head, tail]
 
 end HeadTail
 

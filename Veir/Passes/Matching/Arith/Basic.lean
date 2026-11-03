@@ -15,7 +15,7 @@ def matchArithConstantIntVal (val : ValuePtr) (ctx : IRContext OpCode) : Option 
   let .opResult result := val | none
   let some .constant := toDialect? Arith (result.op.getOpType! ctx) | none
   let properties := result.op.getProperties! ctx Arith.constant
-  return properties.value
+  properties.intAttr?
 
 def matchArithRemui (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf Arith.remui) := do

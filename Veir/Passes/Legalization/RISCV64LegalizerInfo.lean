@@ -3,7 +3,7 @@ module
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
 import Veir.Passes.Legalization.Legalizer
-import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.Legalization.LegalizerHelper
 
 /-!
 # RISC-V 64 Legalization
@@ -17,24 +17,43 @@ https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/RISCV/GISel/RISCV
 namespace Veir
 
 /--
-  Custom legalization of `i32` binary operations into their RISC-V word variant
-  (e.g. `g_add` -> `riscv.addw`, `g_sdiv` -> `riscv.divw`).
-  For `g_add`/`g_sub`/`g_mul`, LLVM emits `G_SEXT_INREG` here instead, and selects the word variant
-  later. For `g_sdiv`/`g_udiv`/`g_urem` and the shifts, LLVM custom-legalizes into `RISCV::G_DIVW`,
-  `RISCV::G_SLLW` etc.
+  Custom legalization of an `i32` binary operation into the word operation `wordOpcode` (LLVM's
+  `RISCV::G_*`).
 -/
-def customLegalizeWord (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
-  lowerBinary (.gmir opcode) (·.bitwidth = 32) riscvOp riscvProps
+def customLegalizeWordBinary (wordOpcode : GMIR_RISCV) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let lhs ← Puddle.MatchProg.value type
+      let rhs ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.gmir wordOpcode.base) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let lhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[lhs] #[wideType]
+      let rhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[rhs] #[wideType]
+      let word ← Puddle.CreateProg.operation (.gmir_riscv wordOpcode)
+          #[lhs.res[0]!, rhs.res[0]!] #[wideType]
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[word.res[0]!] #[type])
+    (fun trunc => trunc)
 
 /--
-  Custom legalization of `i32` unary operations into their RISC-V word variant
-  (`g_ctlz` -> `riscv.clzw`, `g_cttz` -> `riscv.ctzw`, `g_ctpop` -> `riscv.cpopw`). For `g_ctlz`
-  and `g_cttz`, LLVM custom-legalizes into `RISCV::G_CLZW` and `RISCV::G_CTZW`.
+  Custom legalization of an `i32` unary operation into the word operation `wordOpcode` (LLVM's
+  `RISCV::G_CLZW`/`G_CTZW`).
 -/
-def customLegalizeWordUnary (opcode : GMIR) (riscvOp : Riscv)
-    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Puddle.Pattern OpCode :=
-  lowerUnary (.gmir opcode) 32 riscvOp riscvProps
+def customLegalizeWordUnary (wordOpcode : GMIR_RISCV) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
+      let x ← Puddle.MatchProg.value type
+      let _ ← Puddle.MatchProg.root (.gmir wordOpcode.base) #[x] #[type]
+      return (type, x))
+    (fun (type, x) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let x ← Puddle.CreateProg.operation (.gmir .g_anyext) #[x] #[wideType]
+      let word ← Puddle.CreateProg.operation (.gmir_riscv wordOpcode) #[x.res[0]!] #[wideType]
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[word.res[0]!] #[type])
+    (fun trunc => trunc)
 
 section
 open Puddle in
@@ -57,6 +76,25 @@ def customLegalizeBitreverse8 : Pattern OpCode :=
       CreateProg.operation (.gmir .g_trunc) #[brev8.res[0]!] #[type])
     (fun op => op)
 
+open Puddle in
+/--
+  Custom legalization of the `i64` `g_abs` into `g_smax x (0 - x)` (Zbb), as LLVM's
+  `LegalizerHelper::lowerAbsToMaxNeg`. The negation of the minimum value wraps back to it, which
+  is then its own absolute value.
+-/
+def customLegalizeAbs : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let src ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir .g_abs) #[src] #[type]
+      return (type, src))
+    (fun (type, src) => do
+      let zero ← createConstant type 0
+      let neg ← CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, src] #[type]
+      CreateProg.operation (.gmir .g_smax) #[src, neg.res[0]!] #[type])
+    (fun op => op)
+
 end
 
 private def s8 : LLT := .scalar 8
@@ -71,12 +109,14 @@ def riscv64LegalizerInfo : LegalizerInfo where
   rules
     | .g_add | .g_sub => [
       .legalFor [s64],
+      -- LLVM custom-legalizes `s32` into the `s64` operation and a `G_SEXT_INREG` of 32 bits, and
+      -- selects `addw`/`subw` later (see `GMIR_RISCV`).
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
     | .g_shl | .g_lshr | .g_ashr => [
       .legalForTypePairs [(s64, s64)],
-      -- TODO: Widen shifts by a constant instead once shifts by an immediate are also selected.
+      -- Unlike LLVM, which widens a shift by a constant, we also use a word shift for it.
       .customForTypePairs [(s32, s32)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
@@ -85,6 +125,13 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalForTypePairs [(s64, s64), (s64, p0)],
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
+    ]
+    -- LLVM is also legal for `s32`, for floating point, and for `p0`, which `g_select` does not
+    -- accept yet.
+    | .g_select => [
+      .legalForTypePairs [(s64, s64)],
+      .minScalar (.type 0) 64,
+      .minScalar (.type 1) 64,
     ]
     | .g_anyext => [
       .alwaysLegal,
@@ -120,6 +167,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
       ]
     | .g_mul => [
       .legalFor [s64],
+      -- LLVM widens `s32` to `s64`, and selects `mulw` later (see `GMIR_RISCV`).
       .customFor [s32],
       .minScalar (.type 0) 64,
     ]
@@ -133,14 +181,23 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 0) 32,
       .minScalar (.type 0) 64,
     ]
-    -- LLVM has no `s32` rule for `g_ctpop`: it widens it to a `g_ctpop` of a `g_zext`, and selects
-    -- that into `cpopw` with a pattern. We custom-legalize it like `g_ctlz` and `g_cttz` instead.
-    | .g_ctlz | .g_cttz | .g_ctpop => [
+    | .g_ctlz | .g_cttz => [
       .legalForTypePairs [(s64, s64)],
       .customForTypePairs [(s32, s32)],
       .minScalar (.type 0) 32,
       .widenScalarToNextPow2 (.type 0),
       .scalarSameSizeAs (.type 1) (.type 0),
+    ]
+    -- As in LLVM, there is no word variant of `g_ctpop`: it is widened to a `g_ctpop` of a
+    -- `g_zext`, which instruction selection selects into `cpopw`.
+    | .g_ctpop => [
+      .legalForTypePairs [(s64, s64)],
+      .minScalar (.type 0) 64,
+      .scalarSameSizeAs (.type 1) (.type 0),
+    ]
+    -- As in LLVM, these are lowered to `g_ctlz` and `g_cttz`.
+    | .g_ctlz_zero_poison | .g_cttz_zero_poison => [
+      .lower,
     ]
     | .g_bswap => [
       .legalFor [s64],
@@ -157,26 +214,71 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_brev8 => [
       .legalFor [s64],
     ]
+    | .g_smin | .g_smax | .g_umin | .g_umax => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    | .g_abs => [
+      .customFor [s64],
+      .minScalar (.type 0) 64,
+    ]
+    -- min and max are legal only for `s64` (Zbb), and the other types are custom
+    -- legalized with `lowerAddSubSatToAddoSubo`, as in LLVM
+    | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat => [
+      .lowerIf (.typeIs (.type 0) s64),
+      .customIf fun _ => true,
+    ]
+    -- As in LLVM, these are always lowered.
+    | .g_sshlsat | .g_ushlsat => [
+      .lower,
+    ]
+    -- As in LLVM, these are lowered to the wrapping operation and comparisons.
+    | .g_uaddo | .g_usubo => [
+      .lower,
+    ]
+    -- As in LLVM, these are widened first, where the overflow is a comparison of the wide result,
+    -- and lowered at `s64`.
+    | .g_saddo | .g_ssubo => [
+      .minScalar (.type 0) 64,
+      .lower,
+    ]
+    -- As in LLVM, funnel shifts are lowered to shifts. The amount is widened first, so that the
+    -- width of the shifted values fits in it.
+    | .g_fshl | .g_fshr => [
+      .scalarSameSizeAs (.type 1) (.type 0),
+      .lowerIf (.scalarNarrowerThan (.type 0) 64),
+    ]
     | .g_constant => [
       -- LLVM's custom `i64` rule only decides on the constant pool, which we don't need.
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_br => [
+      .alwaysLegal,
+    ]
+    | .g_brcond => [
+      .legalFor [s64],
+      .minScalar (.type 0) 64,
+    ]
     | _ => []
   legalizeCustom
-    | .g_add => customLegalizeWord .g_add .addw ()
-    | .g_sub => customLegalizeWord .g_sub .subw ()
-    | .g_mul => customLegalizeWord .g_mul .mulw ()
-    | .g_sdiv => customLegalizeWord .g_sdiv .divw ()
-    | .g_udiv => customLegalizeWord .g_udiv .divuw ()
-    | .g_urem => customLegalizeWord .g_urem .remuw ()
-    | .g_shl => customLegalizeWord .g_shl .sllw ()
-    | .g_lshr => customLegalizeWord .g_lshr .srlw ()
-    | .g_ashr => customLegalizeWord .g_ashr .sraw ()
-    | .g_ctlz => customLegalizeWordUnary .g_ctlz .clzw ()
-    | .g_cttz => customLegalizeWordUnary .g_cttz .ctzw ()
-    | .g_ctpop => customLegalizeWordUnary .g_ctpop .cpopw ()
+    | .g_add => customLegalizeWordBinary .g_addw
+    | .g_sub => customLegalizeWordBinary .g_subw
+    | .g_mul => customLegalizeWordBinary .g_mulw
+    | .g_sdiv => customLegalizeWordBinary .g_divw
+    | .g_udiv => customLegalizeWordBinary .g_divuw
+    | .g_urem => customLegalizeWordBinary .g_remuw
+    | .g_shl => customLegalizeWordBinary .g_sllw
+    | .g_lshr => customLegalizeWordBinary .g_srlw
+    | .g_ashr => customLegalizeWordBinary .g_sraw
+    | .g_ctlz => customLegalizeWordUnary .g_clzw
+    | .g_cttz => customLegalizeWordUnary .g_ctzw
     | .g_bitreverse => customLegalizeBitreverse8
+    | .g_abs => customLegalizeAbs
+    | .g_uaddsat => lowerAddSubSatToAddoSubo .g_uaddsat false true
+    | .g_usubsat => lowerAddSubSatToAddoSubo .g_usubsat false false
+    | .g_saddsat => lowerAddSubSatToAddoSubo .g_saddsat true true
+    | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
 def LegalizeRISCV64Pass : Pass OpCode :=

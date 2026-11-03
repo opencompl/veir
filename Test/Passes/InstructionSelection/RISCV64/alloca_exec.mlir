@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=EXEC
-// RUN: veir-opt %s -p=isel-sdag-riscv64 > %t.partial
+// RUN: veir-opt %s -p=llvm-to-gmir > %t.partial
 // RUN: veir-interpret %t.partial | filecheck %s --check-prefix=EXEC
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir-interpret %t | filecheck %s --check-prefix=EXEC

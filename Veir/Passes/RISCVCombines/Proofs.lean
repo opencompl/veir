@@ -60,6 +60,14 @@ theorem drop_slli_srli_slt {rs1 rs2 : Reg} :
     RISCV.srli 63 (RISCV.slli 63 (RISCV.slt rs2 rs1)) = RISCV.slt rs2 rs1 := by
   veir_bv_decide
 
+/--
+  Prove the correctness of the `drop_andi_one_srli` combine: `riscv.srli 63`
+  leaves only bit 0, so masking it with 1 changes nothing.
+-/
+theorem drop_andi_one_srli {x : Reg} :
+    RISCV.andi 1 (RISCV.srli 63 x) = RISCV.srli 63 x := by
+  veir_bv_decide
+
 /-- `sltu` analogue of `drop_slli_srli_slt`. -/
 theorem drop_slli_srli_sltu {rs1 rs2 : Reg} :
     RISCV.srli 63 (RISCV.slli 63 (RISCV.sltu rs2 rs1)) = RISCV.sltu rs2 rs1 := by

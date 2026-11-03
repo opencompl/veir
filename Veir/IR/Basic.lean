@@ -1479,6 +1479,13 @@ theorem getArguments!.mem_iff_exists_index {block : BlockPtr} :
     grind
   · grind
 
+/-- Membership in a block's arguments guarantees that the block is in bounds. -/
+@[grind →]
+theorem inBounds_of_mem_getArguments! {block : BlockPtr}
+    (mem : value ∈ block.getArguments! ctx) : block.InBounds ctx := by
+  grind [getArguments!.mem_iff_exists_index, getNumArguments!,
+    get!_of_not_inBounds, Block.default_arguments_eq]
+
 theorem getArguments!.mem_getArgument_iff {op : BlockPtr} :
     (op.getArgument index : ValuePtr) ∈ op.getArguments! ctx ↔
     index < op.getNumArguments! ctx := by

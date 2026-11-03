@@ -263,8 +263,8 @@ theorem Cofix.ext_mk {α : TypeVec n} (x y : F (α ::: Cofix F α)) (h : Cofix.m
 ### QPF instance for Cofix
 -/
 
-theorem Cofix.abs_repr {α} (x : Cofix F α) : Quot.mk Mcongr (Cofix.repr x) = x := by
-  let R := fun a b : Cofix F α => Quot.mk Mcongr (Cofix.repr b) = a
+theorem Cofix.abs_repr {α} (x : Cofix F α) : abs (repr x) = x := by
+  let R := fun a b : Cofix F α => Quot.mk Mcongr (repr b) = a
   apply Cofix.bisim_rel R
   · rintro a b rfl
     cases b using Quot.ind with | mk b =>

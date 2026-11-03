@@ -81,6 +81,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     return (#[], mem, some (.return operands))
   | .gmir gmirOp => do
     GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
+  | .gmir_riscv gmirRiscvOp =>
+    GMIR_RISCV.interpretOp' gmirRiscvOp properties resultTypes operands blockOperands mem
   | .builtin .unrealized_conversion_cast => do
     let some resType := resultTypes[0]? | none
     match resType.val, operands.toList with

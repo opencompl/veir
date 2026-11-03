@@ -40,9 +40,18 @@ def of? (op : OperationPtr) (ctx : IRContext OpCode) : Option (CallOp ctx op) :=
 variable {ctx : IRContext OpCode} {op : OperationPtr}
 
 /-- Returns the callee of the call. -/
-def getCallableForCallee? (callOp : CallOp ctx op) : Option CallInterfaceCallable :=
+def getCallableForCallee? (callOp : CallOp ctx op) : Option (CallInterfaceCallable ValuePtr) :=
   let props := op.getProperties! ctx (op.getOpType! ctx)
   callOp.callOpInterface.getCallableForCallee? props (op.getOperands! ctx)
+
+/--
+Returns the operands passed as arguments to the callee.
+
+This is equivalent to `mlir::CallOpInterface::getArgOperands` in MLIR.
+-/
+def getArgOperands (callOp : CallOp ctx op) : Array ValuePtr :=
+  let props := op.getProperties! ctx (op.getOpType! ctx)
+  callOp.callOpInterface.getArgOperands props (op.getOperands! ctx)
 
 /-- Returns the operation defining the callee of the call. -/
 def resolveCallable? (callOp : CallOp ctx op) : Option OperationPtr := do

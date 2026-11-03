@@ -9,7 +9,7 @@
 
 "builtin.module"() ({
   ^4():
-    "llvm.func"() <{"function_type" = !llvm.func<i64 ()>, "sym_name" = "main"}> ({
+    "llvm.func"() <{"function_type" = !llvm.func<!riscv.reg ()>, "sym_name" = "main"}> ({
       ^6():
         %235 = "riscv.li"() <{"value" = 4629700571555692552 : i64}> : () -> !riscv.reg
         %233 = "riscv.li"() <{"value" = 562954319692288 : i64}> : () -> !riscv.reg
@@ -17,9 +17,7 @@
         %229 = "riscv.sub"(%235, %233) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %225 = "riscv.add"(%233, %229) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %221 = "riscv.sltu"(%225, %229) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        %222 = "builtin.unrealized_conversion_cast"(%221) : (!riscv.reg) -> i1
-        %93 = "builtin.unrealized_conversion_cast"(%222) : (i1) -> !riscv.reg
-        "riscv_cf.bnez"(%93, %233, %229, %229, %231, %235, %233, %229, %231) [^15, ^16] <{"operandSegmentSizes" = array<i32: 1, 3, 5>}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
+        "riscv_cf.bnez"(%221, %233, %229, %229, %231, %235, %233, %229, %231) [^15, ^16] <{"operandSegmentSizes" = array<i32: 1, 3, 5>}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
       ^16(%arg16_0 : !riscv.reg, %arg16_1 : !riscv.reg, %arg16_2 : !riscv.reg, %arg16_3 : !riscv.reg, %arg16_4 : !riscv.reg):
         %217 = "riscv.li"() <{"value" = -844424930132031 : i64}> : () -> !riscv.reg
         %215 = "riscv.li"() <{"value" = 4613 : i64}> : () -> !riscv.reg
@@ -29,26 +27,21 @@
         %146 = "riscv.addi"(%229) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
         %202 = "riscv.slt"(%207, %149) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %203 = "riscv.xori"(%202) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-        %204 = "builtin.unrealized_conversion_cast"(%203) : (!riscv.reg) -> i1
         %143 = "riscv.andi"(%146) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-        %108 = "builtin.unrealized_conversion_cast"(%204) : (i1) -> !riscv.reg
-        "riscv_cf.bnez"(%108, %215, %arg16_0, %229, %arg16_3) [^43, ^15] <{"operandSegmentSizes" = array<i32: 1, 1, 3>}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
+        "riscv_cf.bnez"(%203, %215, %arg16_0, %229, %arg16_3) [^43, ^15] <{"operandSegmentSizes" = array<i32: 1, 1, 3>}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
       ^43(%arg43_0 : !riscv.reg):
         %198 = "riscv.li"() <{"value" = 1074298886 : i64}> : () -> !riscv.reg
         %140 = "riscv.andi"(%198) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
         %194 = "riscv.li"() <{"value" = 36 : i64}> : () -> !riscv.reg
         %137 = "riscv.andi"(%arg16_0) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
         "riscv_cf.branch"(%137, %140, %215) [^15] : (!riscv.reg, !riscv.reg, !riscv.reg) -> ()
-      ^63(%arg63_0 : i64, %arg63_1 : i64, %arg63_2 : i64):
+      ^63(%arg63_0 : !riscv.reg, %arg63_1 : !riscv.reg, %arg63_2 : !riscv.reg):
         %192 = "riscv.li"() <{"value" = 9223372036854775803 : i64}> : () -> !riscv.reg
-        %187 = "builtin.unrealized_conversion_cast"(%arg63_1) : (i64) -> !riscv.reg
-        %189 = "riscv.slt"(%211, %187) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        %189 = "riscv.slt"(%211, %arg63_1) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %190 = "riscv.xori"(%189) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-        %191 = "builtin.unrealized_conversion_cast"(%190) : (!riscv.reg) -> i1
         %185 = "riscv.srl"(%207, %225) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %134 = "riscv.srli"(%192) <{"value" = 42 : i64}> : (!riscv.reg) -> !riscv.reg
-        %115 = "builtin.unrealized_conversion_cast"(%191) : (i1) -> !riscv.reg
-        "riscv_cf.bnez"(%115, %143, %192, %134, %185, %194, %185) [^15, ^15] <{"operandSegmentSizes" = array<i32: 1, 3, 3>}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
+        "riscv_cf.bnez"(%190, %143, %192, %134, %185, %194, %185) [^15, ^15] <{"operandSegmentSizes" = array<i32: 1, 3, 3>}> : (!riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg, !riscv.reg) -> ()
       ^15(%arg15_0 : !riscv.reg, %arg15_1 : !riscv.reg, %arg15_2 : !riscv.reg):
         %179 = "riscv.li"() <{"value" = -142606337 : i64}> : () -> !riscv.reg
         %177 = "riscv.li"() <{"value" = 27021735211565058 : i64}> : () -> !riscv.reg
@@ -59,8 +52,7 @@
         %165 = "riscv.xor"(%235, %169) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %161 = "riscv.xor"(%233, %165) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %157 = "riscv.xor"(%175, %161) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        %158 = "builtin.unrealized_conversion_cast"(%157) : (!riscv.reg) -> i64
-        "llvm.return"(%158) : (i64) -> ()
+        "riscv_cf.return"(%157) : (!riscv.reg) -> ()
     }) : () -> ()
 }) : () -> ()
 

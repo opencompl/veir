@@ -294,8 +294,7 @@ private def WfIRContext.verifyPDLPatternBodies (ctx : WfIRContext OpCode) :
 -/
 private def WfIRContext.verifyDominance
     (ctx : WfIRContext OpCode) (root : OperationPtr) : Except String Unit := do
-  let some dfCtx := Veir.fixpointSolve root #[DominanceAnalysis] ctx
-    | throw "dominance analysis did not reach a fixpoint"
+  let dfCtx := DominanceAnalysis root .empty ctx
   let positions := ctx.opPositions
   ctx.raw.forOpsDepM fun op opIn => do
     let some block := op.getParent ctx.raw opIn | return
@@ -495,17 +494,17 @@ private theorem OperationPtr.verifyIntegerBinop_ok_of_Verified {op : OperationPt
   | ok u => rfl
   | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
 
-theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds}
-    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant) :
+theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds} {attr : IntegerAttr}
+    (opVerify : op.Verified ctx opInBounds) (opType : op.getOpType! ctx.raw = .arith .constant)
+    (hProp : op.getProperties! ctx.raw Arith.constant = .int attr) :
     op.getNumResults! ctx.raw = 1 ∧
     op.getNumOperands! ctx.raw = 0 ∧
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 0 ∧
-    (op.getResult 0).getType! ctx.raw =
-      .of IntegerType (op.getProperties! ctx.raw Arith.constant).value.type := by
+    (op.getResult 0).getType! ctx.raw = .of IntegerType attr.type := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
-    ← getOpType!_eq_getOpType, opType, ne_eq,
+    ← getOpType!_eq_getOpType, opType, hProp, ne_eq,
     bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
     ite_not] at opVerify
   simp only [TypeAttr.inj]

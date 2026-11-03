@@ -12,7 +12,7 @@ import UnitTest.Verifier
 import UnitTest.RegisterAllocation
 import UnitTest.FP
 import UnitTest.Bitblasting.Bitblasting
-import UnitTest.DataFlowFramework.Dominance
+import UnitTest.Dominance
 import UnitTest.DataFlowFramework.DeadCodeAnalysis
 import UnitTest.DataFlowFramework.EntryState
 import UnitTest.DataFlowFramework.ModArithRangeAnalysis
@@ -32,3 +32,4 @@ import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
 import UnitTest.DataLayout
+import UnitTest.RegisterAllocation

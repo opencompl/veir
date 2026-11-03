@@ -1,9 +1,9 @@
-// RUN: veir-opt %s -p=isel-br-riscv64{strict=false} --print-op-generic | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64{strict=false} --print-op-generic | filecheck %s
 
 // With `strict=false`, a branch whose operand does not fit a register survives
 // with its target block, while the other branch is lowered.
 
-// CHECK:      "llvm.br"(%{{.*}}) [^{{.*}}] : (i128) -> ()
+// CHECK:      "gmir.g_br"(%{{.*}}) [^{{.*}}] : (i128) -> ()
 // CHECK-NEXT: ^{{.*}}(%{{.*}} : i128):
 // CHECK-NEXT:   "func.return"
 // CHECK:      "riscv_cf.branch"(%{{.*}}) [^{{.*}}] : (!riscv.reg) -> ()

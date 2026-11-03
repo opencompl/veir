@@ -121,4 +121,26 @@
   // CHECK-LABEL: "set12"
   // CHECK:      %[[E:.*]] = "riscv.zextb"(%{{.*}})
   // CHECK:      "riscv_cf.call"(%{{.*}}, %[[E]], %{{.*}}) <{"callee" = @memset}>
+
+  // Non-constant memset length also needs the fill byte zero-extended.
+  "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, i8, i64)>, linkage = #llvm.linkage<external>, sym_name = "setn"}> ({
+  ^bb0(%d: !llvm.ptr, %c: i8, %n: i64):
+    "llvm.intr.memset"(%d, %c, %n) <{isVolatile = false}> : (!llvm.ptr, i8, i64) -> ()
+    "llvm.return"() : () -> ()
+  }) : () -> ()
+  // CHECK-LABEL: "setn"
+  // CHECK:      %[[E:.*]] = "riscv.zextb"(%{{.*}})
+  // CHECK-NEXT: %[[N:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
+  // CHECK-NEXT: "riscv_cf.call"(%{{.*}}, %[[E]], %[[N]]) <{"callee" = @memset}>
+
+  // A zero-length operation stays on the inline path and creates no call or access.
+  "llvm.func"() <{function_type = !llvm.func<void (!llvm.ptr, !llvm.ptr)>, linkage = #llvm.linkage<external>, sym_name = "cpy0"}> ({
+  ^bb0(%d: !llvm.ptr, %s: !llvm.ptr):
+    %n = "gmir.g_constant"() <{value = 0 : i64}> : () -> i64
+    "llvm.intr.memcpy"(%d, %s, %n) <{isVolatile = false}> : (!llvm.ptr, !llvm.ptr, i64) -> ()
+    "llvm.return"() : () -> ()
+  }) : () -> ()
+  // CHECK-LABEL: "cpy0"
+  // CHECK-NOT: riscv
+  // CHECK: "llvm.return"
 }) : () -> ()

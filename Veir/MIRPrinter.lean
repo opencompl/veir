@@ -17,10 +17,16 @@ public section
   output of the `isel-*` pipeline) and emits textual MIR with virtual
   registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
-  Five structural translations happen here:
+  Anything that is not fully lowered is rejected with an error rather than
+  printed (see `checkFunction`): every function body must consist of `riscv`,
+  `riscv_cf`, `rv64` and `riscv_stack` operations on `!riscv.reg` values, inside
+  an `llvm.func` or `riscv_cf.func`. Global initializer regions are exempt; they
+  are LLVM operations by design. An operation the printer cannot translate is
+  likewise an error.
+
+  Four structural translations happen here:
   * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
     block has a single predecessor).
-  * `builtin.unrealized_conversion_cast` (reg ↔ i64/i1) becomes a `COPY`.
   * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
     prologue, epilogue and CFI to `llc` (see `Frame`).
   * `riscv_cf.call` expands to LLVM's call sequence, passing arguments and
@@ -299,11 +305,14 @@ def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array Value
   let nsucc := term.getNumSuccessors! ctx
   let ops := getOperands ctx term
   let segs := segments? ctx term
-  -- first segment (if any) is the comparison operands, not block args
-  let mut off := match segs with | some s => (s[0]!).toNat | none => 0
+  -- leading segments (one per comparison operand) are not block args
+  let ncmp := match segs with | some s => s.size - nsucc | none => 0
+  let mut off := match segs with
+    | some s => (s.extract 0 ncmp).foldl (fun acc n => acc + n.toNat) 0
+    | none => 0
   let mut res := #[]
   for k in 0...nsucc do
-    let nk := match segs with | some s => (s[k+1]!).toNat | none => ops.size
+    let nk := match segs with | some s => (s[ncmp + k]!).toNat | none => ops.size
     res := res.push (ops.extract off (off + nk))
     off := off + nk
   return res
@@ -392,6 +401,14 @@ def callee? (ctx : IRContext OpCode) (op : OperationPtr) : Option String :=
 def maxRegArgs : Nat := 8
 def maxRegResults : Nat := 2
 
+/-- The MLIR name of `op`'s operation, such as `llvm.call`. -/
+def opName (ctx : IRContext OpCode) (op : OperationPtr) : String :=
+  String.fromUTF8! (IsOpCode.name (op.getOpType! ctx))
+
+/-- The error for an operation the printer has no translation for. -/
+def unhandled (op : OperationPtr) (ctx : IRContext OpCode) : IO.Error :=
+  IO.userError s!"'{opName ctx op}' cannot be printed as MIR"
+
 /-- The alignment of the incoming stack argument slot `k`, at offset `8 * k`
     from the 16-byte aligned incoming `sp`. -/
 def stackArgAlign (k : Nat) : Nat :=
@@ -415,8 +432,8 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
   let args := if callee.isSome then ops else ops.extract 1 ops.size
   let nres := op.getNumResults! ctx
   if args.size > maxRegArgs || nres > maxRegResults then
-    IO.println s!"    ; UNHANDLED riscv_cf.call with {args.size} args and {nres} results"
-    return
+    throw (IO.userError
+      s!"riscv_cf.call with {args.size} arguments and {nres} results is not supported")
   let target := s!"%t{op.id}"
   if callee.isNone then
     IO.println s!"    {target}:gprjalrnonx7 = COPY {operandOf ctx fr (ops[0]!)}"
@@ -437,8 +454,7 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
 /-- Emit a return: copy the returned values into a0.. and `PseudoRET`. -/
 def emitReturn (ctx : IRContext OpCode) (fr : Frame) (ops : Array ValuePtr) : IO Unit := do
   if ops.size > maxRegResults then
-    IO.println s!"    ; UNHANDLED return of {ops.size} values"
-    return
+    throw (IO.userError s!"returning {ops.size} values is not supported")
   for i in 0...ops.size do
     IO.println s!"    $x{10 + i} = COPY {operandOf ctx fr (ops[i]!)}"
   let uses := (List.range ops.size).map (fun i => s!" implicit $x{10 + i}")
@@ -453,12 +469,6 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   let imm := (immValue? ctx op).getD 0
   let volatile_ := isVolatile ctx op
   match opType with
-  | .builtin .unrealized_conversion_cast =>
-    let operandAttr := (op.getOperandTypes! ctx)[0]?.map (·.val)
-    match operandAttr with
-    | some (Attribute.integerType { bitwidth := 32, .. }) =>
-      IO.println s!"    {res} = PseudoZEXT_W {v 0}"
-    | _ => IO.println s!"    {res} = COPY {v 0}"
   | .riscv rop =>
     match rop with
     | .li => IO.println s!"    {res} = PseudoLI {imm}"
@@ -499,7 +509,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
         | none =>
           match regRegMnem rop with
           | some m => IO.println s!"    {res} = {m} {v 0}, {v 1}"
-          | none => IO.println s!"    ; UNHANDLED {reprStr rop}"
+          | none => throw (unhandled op ctx)
   -- `rv64.get_register` references a physical register (e.g. the zero register
   -- `$x0`). Copy it into a virtual register so every use -- including PHI
   -- operands, which may not be physical registers -- is valid MIR; the register
@@ -507,7 +517,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
   | .rv64 .get_register =>
     match (op.getResultTypes! ctx)[0]?.bind (physRegName? ·.val) with
     | some name => IO.println s!"    {res} = COPY {name}"
-    | none => IO.println s!"    ; UNHANDLED op"
+    | none => throw (unhandled op ctx)
   -- A stack object is declared in the `stack` section, not by an instruction.
   -- When it folds, its accesses name it and nothing is emitted here; otherwise
   -- its address has to reach a register.
@@ -515,7 +525,7 @@ def emitRegular (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO U
     if fr.folded.contains op.id then pure ()
     else IO.println s!"    {res} = ADDI %stack.{fr.fi[op.id]!}, 0"
   | .riscv_cf .call => emitCall ctx fr op
-  | _ => IO.println s!"    ; UNHANDLED op"
+  | _ => throw (unhandled op ctx)
 
 /-- Emit a terminator operation (branch / return).  `lsuccs` gives the lowered
     successor block index for each successor position (trampolines when split). -/
@@ -561,9 +571,9 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   -- for `llvm.trap`.
   | .riscv_cf .unreachable =>
     IO.println "    UNIMP"
-  | .llvm .return | .func .return | .riscv_cf .return =>
+  | .riscv_cf .return =>
     emitReturn ctx fr ops
-  | _ => IO.println s!"    ; UNHANDLED terminator"
+  | _ => throw (unhandled op ctx)
 
 /-- Emit the op list of a block, treating the last op as the terminator. -/
 partial def emitOps (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
@@ -680,6 +690,35 @@ def numArgs (ctx : IRContext OpCode) (blocks : Array BlockPtr) : Nat :=
   match blocks[0]? with
   | some b => b.getNumArguments! ctx
   | none => 0
+
+/-- Whether a value of type `t` lives in a RISC-V register, as every lowered value does. -/
+def isRegType (t : Attribute) : Bool :=
+  t matches .registerType _
+
+/--
+  Check that the function `op`, whose reachable blocks are `blocks`, is fully lowered:
+  it is an `llvm.func` or `riscv_cf.func`, every argument and result is a register, and
+  every operation is from `riscv`, `riscv_cf`, `rv64` or `riscv_stack`. Block arguments
+  then are registers too, since the verifier matches them to those operations' results.
+  Only reachable blocks are checked, since only they are printed. A declaration has no
+  blocks, so only its kind is checked: its LLVM types merely name an external symbol.
+-/
+def checkFunction (ctx : IRContext OpCode) {op : OperationPtr} (funcOp : FunctionOp ctx op)
+    (blocks : Array BlockPtr) : Except String Unit := do
+  let opType := op.getOpType! ctx
+  if opType != .llvm .func && opType != .riscv_cf .func then
+    throw s!"'{opName ctx op}' is not supported; functions must be llvm.func or riscv_cf.func"
+  if funcOp.isExternal then return
+  for t in funcOp.getArgumentTypes do
+    if !isRegType t then throw s!"argument of unlowered type {t}"
+  for t in funcOp.getResultTypes do
+    if !isRegType t && !(t matches .llvmVoidType _) then
+      throw s!"result of unlowered type {t}"
+  for b in blocks do
+    for o in collectOps ctx (b.getFirstOp! ctx) do
+      match o.getOpType! ctx with
+      | .riscv _ | .riscv_cf _ | .rv64 _ | .riscv_stack _ => pure ()
+      | _ => throw s!"unlowered operation '{opName ctx o}'"
 
 /-- Print the MIR document for one function. -/
 def printFunction (ctx : IRContext OpCode) (name : String) (blocks : Array BlockPtr) :
@@ -887,9 +926,14 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     IR module, then one MIR document per function with a body.  The stub defines
     those functions and globals and declares every direct callee or `riscv.la`
     target defined nowhere else, since the MIR parser resolves each `@sym`
-    against the IR module. -/
+    against the IR module. Every function is checked with `checkFunction` before
+    anything is printed; a failed check or an untranslatable operation throws. -/
 def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
     IO Unit := do
+  for op in funcOps do
+    let some funcOp := FunctionOp.of? op ctx | continue
+    if let .error e := checkFunction ctx funcOp (reachableBlocks ctx funcOp) then
+      throw (IO.userError s!"function {llvmSymbol (String.fromUTF8! funcOp.getSymName.value)}: {e}")
   let funcs := funcOps.filterMap fun op => do
     let funcOp ← FunctionOp.of? op ctx
     if funcOp.isExternal then
@@ -918,6 +962,7 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
   IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
   IO.println "..."
   for (name, blocks) in funcs do
-    printFunction ctx name blocks
+    try printFunction ctx name blocks
+    catch e => throw (IO.userError s!"function {llvmSymbol name}: {e}")
 
 end Veir.MIRPrinter

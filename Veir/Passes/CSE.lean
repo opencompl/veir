@@ -144,8 +144,7 @@ def key? (ctx : IRContext OpCode) (op : OperationPtr) : Option Key := do
     enclosing possibly isolated scope. -/
 def run (ctx : WfIRContext OpCode) (top : OperationPtr) :
     WfIRContext OpCode := Id.run do
-  let some dfCtx := Veir.fixpointSolve top #[Veir.DominanceAnalysis] ctx
-    | panic! "Dominance analysis not expected to fail"
+  let dfCtx := Veir.DominanceAnalysis top .empty ctx
   let ops := top.opsInDominanceOrder dfCtx ctx
   let mut ctx := ctx
   let mut available : Std.HashMap Key (Array OperationPtr) := Std.HashMap.emptyWithCapacity

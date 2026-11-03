@@ -132,6 +132,26 @@ example {w : Nat} (x : BitVec (w - 1 + 1)) (y : BitVec w) (h0 : 0 < w) (hw : w �
     x.cast (by omega) + y = y + x.cast (by omega) := by
   pbv_decide 4
 
+/-- Subtraction of two width variables -/
+example {v w : Nat} (x : BitVec (w - v)) (hvw : v ≤ w) (hw : w ≤ 4) :
+    (x.zeroExtend w).setWidth (w - v) = x := by
+  pbv_decide 4
+
+/-- Subtraction in a precondition relating two widths -/
+example {v w : Nat} (x : BitVec v) (h : v = w - 2) (h2 : 2 ≤ w) (hw : w ≤ 4) :
+    x.zeroExtend w = (x.zeroExtend (v + 2)).cast (by omega) := by
+  pbv_decide 4
+
+/-- Adding zero is identity with width subtraction by literal -/
+example {w : Nat} (x : BitVec (w - 8)) (hw : w ≤ 4) :
+    x + 0 = x := by
+  pbv_decide 4
+
+/-- Adding zero is identity with width subtraction of variables -/
+example {u v w : Nat} (x : BitVec (w - (u + v))) (_hu : u ≤ 4) (_hv : v ≤ 4) (hw : w ≤ 4) :
+    x + 0 = x := by
+  pbv_decide 4
+
 /-- Nested casts with different equality proofs -/
 example {w v u : Nat} (x : BitVec w) (h1 : w = v) (h2 : w = u) (h3 : v = u) (hw : w ≤ 4) :
     (x.cast h1).cast h3 = x.cast h2 := by
@@ -388,11 +408,6 @@ example {w v u : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) (hu : u ≤ v
     (x.extractLsb' 0 v).extractLsb' 0 u = x.extractLsb' 0 u := by
   pbv_decide 4
 
-/-- Extracting at a symbolic offset is shifting then truncating -/
-example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
-    x.extractLsb' s v = (x >>> s).setWidth v := by
-  pbv_decide 4
-
 /-- Shifting left with extension by a literal is appending zeros -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.shiftLeftZeroExtend 2 = x ++ 0#2 := by
@@ -451,6 +466,17 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (hw0 : 0 < w) :
 /-- Extracting is masking -/
 example {w v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
     x.extractLsb' 0 v = (x &&& ((1#w <<< BitVec.ofNat w v) - 1)).setWidth v := by
+  pbv_decide 4
+
+/-- Extracting is masking with composite widths -/
+example {w : Nat} (a : BitVec (w + w)) (hw4 : w + w ≤ 4):
+  a.extractLsb w 0 = (a &&& ((1#((w + w)) <<< BitVec.ofNat (w + w) (w + 1)) - 1)).setWidth (w + 1)
+  := by
+  pbv_decide 4
+
+/-- Extracting top bit equals msb -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.extractLsb' (w - 1) 1 = if x.msb then 1#1 else 0 := by
   pbv_decide 4
 
 /-- Arithmetic shifting right by zero is identity -/

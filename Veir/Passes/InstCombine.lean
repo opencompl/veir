@@ -252,6 +252,101 @@ def deMorganOrToAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite deMorganOrToAnd_local rewriter op opInBounds
 
+/-- Rewrites `x * -1` to `0 - x`. Both overflow as signed integers exactly when `x` is the minimum
+    signed value, so `nsw` carries over; `nuw` does not. -/
+def mulNegOneToNeg_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, properties) := matchMul op ctx.raw
+    | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw
+    | return (ctx, none)
+  if cst ≠ -1 then
+    return (ctx, none)
+  let .integerType type := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let (ctx, zero) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
+    #[] #[] cstProp none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sub #[lhs.getType! ctx.raw]
+    #[zero.getResult 0, lhs] #[] #[] ({ nsw := properties.nsw, nuw := false } : NswNuwProperties)
+    none
+  some (ctx, some (#[zero, newOp], #[newOp.getResult 0]))
+
+def mulNegOneToNeg (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite mulNegOneToNeg_local rewriter op opInBounds
+
+/-- Rewrites `x urem 2^k` to `x & (2^k - 1)`. -/
+def uremPow2ToAnd_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchUrem op ctx.raw
+    | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw
+    | return (ctx, none)
+  let .integerType type := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  -- The divisor as an unsigned integer.
+  let divisor := (BitVec.ofInt type.bitwidth cst).toNat
+  if divisor = 0 || divisor &&& (divisor - 1) ≠ 0 then
+    return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (divisor - 1) type))
+  let (ctx, mask) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
+    #[] #[] cstProp none
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.and #[lhs.getType! ctx.raw]
+    #[lhs, mask.getResult 0] #[] #[] () none
+  some (ctx, some (#[mask, newOp], #[newOp.getResult 0]))
+
+def uremPow2ToAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite uremPow2ToAnd_local rewriter op opInBounds
+
+/-- Rewrites `sext (sext x)` to `sext x`. -/
+def sextSextToSext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (inner, _) := matchSext op ctx.raw
+    | return (ctx, none)
+  let some innerOp := inner.definingOp?
+    | return (ctx, none)
+  let some (x, _) := matchSext innerOp ctx.raw
+    | return (ctx, none)
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.sext
+    #[(op.getResult 0 : ValuePtr).getType! ctx.raw] #[x] #[] #[] () none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def sextSextToSext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite sextSextToSext_local rewriter op opInBounds
+
+/-- Rewrites `bitreverse (bitreverse x)` to `x`. -/
+def bitreverseBitreverseToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some inner := matchBitreverse op ctx.raw
+    | return (ctx, none)
+  let some innerOp := inner.definingOp?
+    | return (ctx, none)
+  let some x := matchBitreverse innerOp ctx.raw
+    | return (ctx, none)
+  some (ctx, some (#[], #[x]))
+
+def bitreverseBitreverseToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite bitreverseBitreverseToX_local rewriter op opInBounds
+
+/-- Rewrites `minmax x, x` to `x`, for `minmax` ∈ {`smax`, `smin`, `umax`, `umin`}. -/
+def minMaxSelfToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs) := (matchSmax op ctx.raw).orElse fun _ =>
+      (matchSmin op ctx.raw).orElse fun _ =>
+      (matchUmax op ctx.raw).orElse fun _ => matchUmin op ctx.raw
+    | return (ctx, none)
+  if lhs ≠ rhs then
+    return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def minMaxSelfToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite minMaxSelfToX_local rewriter op opInBounds
+
 def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
@@ -260,7 +355,8 @@ def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.
     andiSelfToX, andiZeroToZero,
     oriZeroToX, oriSelfToX,
     xoriZeroToX, xoriSelfToZero,
-    notNotToX, deMorganAndToOr, deMorganOrToAnd
+    notNotToX, deMorganAndToOr, deMorganOrToAnd,
+    mulNegOneToNeg, uremPow2ToAnd, sextSextToSext, bitreverseBitreverseToX, minMaxSelfToX
   ]
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"

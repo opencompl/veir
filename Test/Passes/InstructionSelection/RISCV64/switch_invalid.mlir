@@ -1,7 +1,7 @@
-// RUN: not veir-opt %s -p=isel-br-riscv64 2>&1 | filecheck %s
+// RUN: not veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 2>&1 | filecheck %s
 
 // `llvm.switch` is not supported.
-// CHECK: isel-br-riscv64: cannot lower a branch other than llvm.br or llvm.cond_br
+// CHECK: isel-br-riscv64: cannot lower a branch other than g_br or g_brcond
 "builtin.module"() ({
     "func.func"()  <{"function_type" = (i32) -> (i32), "sym_name" = "a"}> ({
     ^bb0(%v: i32):

@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-br-riscv64 | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir,isel-br-riscv64 | filecheck %s
 
 "builtin.module"() ({
     "func.func"()  <{"function_type" = (i64) -> (i64), "sym_name" = "a"}> ({
@@ -89,6 +89,6 @@
 // CHECK-NEXT:     "riscv_cf.branch"([[RA]]) [^[[BB1:[0-9]+]]] : (!riscv.reg) -> ()
 // CHECK-NEXT:   ^[[BB1]]([[B:%[a-z0-9_]+]] : !riscv.reg):
 // CHECK-NEXT:     [[RB:%[a-z0-9]+]] = "builtin.unrealized_conversion_cast"([[B]]) : (!riscv.reg) -> i32
-// CHECK-NEXT:     [[ADD:%[a-z0-9]+]] = "llvm.add"([[RB]], [[RB]]) : (i32, i32) -> i32
+// CHECK-NEXT:     [[ADD:%[a-z0-9]+]] = "gmir.g_add"([[RB]], [[RB]]) : (i32, i32) -> i32
 // CHECK-NEXT:     "func.return"([[ADD]]) : (i32) -> ()
 // CHECK-NEXT: }

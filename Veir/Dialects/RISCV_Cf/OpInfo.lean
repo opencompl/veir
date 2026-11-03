@@ -128,15 +128,20 @@ def Riscv_Cf.functionInterface? (op : Riscv_Cf) :
         setFunctionType := fun props functionType => { props with function_type := functionType } }
   | _ => none
 
+/--
+`riscv_cf.call` calls the function it names, or else the one whose address is its first operand.
+-/
+def Riscv_Cf.callInterface : CallOpInterface RISCVCallProperties where
+  getCallableForCallee? props operands :=
+    match props.callee with
+    | some callee => some (.symbol callee)
+    | none => operands[0]?.map .value
+  getArgOperands props operands := if props.callee.isSome then operands else operands.extract 1
+
 def Riscv_Cf.callOpInterface? (op : Riscv_Cf) :
     Option (CallOpInterface (Riscv_Cf.propertiesOf op)) :=
   match op with
-  | .call =>
-    some
-      { getCallableForCallee? := fun props operands =>
-          match props.callee with
-          | some callee => some (.symbol callee)
-          | none => operands[0]?.map .value }
+  | .call => some Riscv_Cf.callInterface
   | _ => none
 
 def Riscv_Cf.unconditionalBranch? (op : Riscv_Cf) (_props : Riscv_Cf.propertiesOf op) :
