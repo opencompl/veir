@@ -8,6 +8,10 @@ public import Veir.GlobalOpInfo
 namespace Veir
 
 public section
+/--
+Assign a register to an unassigned register-typed SSA value, updating its type in the context.
+Preserve existing assignments and reject values with non-register types.
+-/
 def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : RegisterStack) :
     Except String (WfIRContext OpCode × RegisterStack × RegisterType) := do
   let .registerType reg := (value.getType! ctx.raw).val
@@ -17,13 +21,18 @@ def allocateRegister (ctx : WfIRContext OpCode) (value : ValuePtr) (stack : Regi
   let ctx := WfRewriter.setType! ctx value reg
   return (ctx, s, reg)
 
-def allocateOp (ctx: WfIRContext OpCode) (op: OperationPtr) (stack: RegisterStack) :
+/--
+Allocate registers for operations during a backward traversal.
+Assign registers to all results (if not allocated) before releasing their registers for reuse by operands.
+Only reusing virtual registers at the current stage.
+-/
+partial def allocateOps (ctx: WfIRContext OpCode) (op: Option OperationPtr) (stack: RegisterStack) :
     Except String (WfIRContext OpCode × RegisterStack) := do
+    let some op := op | return (ctx, stack)
     let mut ctx := ctx
     let mut stack := stack
     let mut resultRegs : Array RegisterType := #[]
 
-    -- free allocated virtual registers in results
     for result in op.getResults! ctx.raw do
         let (newCtx, newStack, reg) ← allocateRegister ctx result stack
         ctx := newCtx
@@ -32,30 +41,22 @@ def allocateOp (ctx: WfIRContext OpCode) (op: OperationPtr) (stack: RegisterStac
 
     for reg in resultRegs do
         if reg.index.any (· < 0) then
-            -- only push virtual registers to the reusable stack
             stack := stack.push reg
 
-    -- allocate virtual registers to operands
     for operand in op.getOperands! ctx.raw do
         let (newCtx, newStack, _) ← allocateRegister ctx operand stack
         ctx := newCtx
         stack := newStack
 
-    return (ctx, stack)
+    allocateOps ctx (op.getPrevOp! ctx.raw) stack
 
-def allocateBlock (ctx: WfIRContext OpCode) (block: BlockPtr):
+/--
+Allocate registers for all operations in a block, traversing backwards with the default empty register stack.
+Return the context with updated register types on SSA values.
+-/
+def allocateBlock (ctx : WfIRContext OpCode) (block : BlockPtr) :
     Except String (WfIRContext OpCode) := do
-
-    let mut ctx := ctx
-    let mut stack : RegisterStack := default
-    let mut cur? := block.getLastOp! ctx.raw
-
-    while let some cur := cur? do
-        let (newCtx, newStack) ← allocateOp ctx cur stack
-        ctx := newCtx
-        stack := newStack
-        cur? := cur.getPrevOp! ctx.raw
-
-    return ctx
+  let (ctx, _) ← allocateOps ctx (block.getLastOp! ctx.raw) default
+  return ctx
 end
 end Veir
