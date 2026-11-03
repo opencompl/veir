@@ -103,7 +103,8 @@ theorem Rewriter.initBlockArgumentsLoop_constructionWellFormed {blockPtr : Sim.B
     (wf : BlockConstructionWellFormed ctx.spec blockPtr.spec ∅ ∅)
     (heq : initBlockArgumentsLoop blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
     BlockConstructionWellFormed ctx'.spec blockPtr.spec ∅ ∅ := by
-  fun_induction initBlockArgumentsLoop
+  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  fun_induction initBlockArgumentsLoopSim
   · cases Option.some.inj heq
     exact wf
   · simp at heq
@@ -115,7 +116,7 @@ theorem Rewriter.initBlockArguments_constructionWellFormed {blockPtr : Sim.Block
     (wf : BlockConstructionWellFormed ctx.spec blockPtr.spec ∅ ∅)
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
     BlockConstructionWellFormed ctx'.spec blockPtr.spec ∅ ∅ := by
-  simp only [initBlockArguments] at heq
+  simp only [initBlockArguments.unfold] at heq
   exact initBlockArgumentsLoop_constructionWellFormed wf heq
 
 theorem Rewriter.initBlockArguments_numArguments {blockPtr : Sim.BlockPtr}
@@ -123,16 +124,18 @@ theorem Rewriter.initBlockArguments_numArguments {blockPtr : Sim.BlockPtr}
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx')
     (hindex : index.toNat ≤ types.size) :
     blockPtr.spec.getNumArguments! ctx'.spec = types.size := by
-  simp only [initBlockArguments] at heq
-  fun_induction initBlockArgumentsLoop <;>
+  simp only [initBlockArguments.unfold] at heq
+  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  fun_induction initBlockArgumentsLoopSim <;>
     grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_mod_size]
 
 theorem Rewriter.initBlockArguments_preserves_capArguments (ptr : Veir.Buffered.BlockPtr)
     {blockPtr : Sim.BlockPtr} {ctx ctx' : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
     (ptr.get! ctx'.spec).capArguments = (ptr.get! ctx.spec).capArguments := by
-  simp only [initBlockArguments] at heq
-  fun_induction initBlockArgumentsLoop
+  simp only [initBlockArguments.unfold] at heq
+  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  fun_induction initBlockArgumentsLoopSim
   · grind
   · simp at heq
   · rename_i hpush ih
@@ -143,8 +146,9 @@ theorem Rewriter.initBlockArguments_preserves_parent (ptr : Veir.Buffered.BlockP
     {blockPtr : Sim.BlockPtr} {ctx ctx' : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some ctx') :
     (ptr.get! ctx'.spec).parent = (ptr.get! ctx.spec).parent := by
-  simp only [initBlockArguments] at heq
-  fun_induction initBlockArgumentsLoop
+  simp only [initBlockArguments.unfold] at heq
+  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  fun_induction initBlockArgumentsLoopSim
   · grind
   · simp at heq
   · rename_i hpush ih

@@ -105,7 +105,8 @@ def InsertPoint.block! (insertionPoint : InsertPoint) (ctx : IRContext OpInfo) :
   | before op => (op.get! ctx).parent
   | atEnd b => b
 
-def InsertPoint.block (insertionPoint : InsertPoint) (ctx : Sim.IRContext OpInfo)
+buffed (inline := true)
+def InsertPoint.blockSim (insertionPoint : InsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : insertionPoint.InBounds ctx.spec := by grind)
     (_hRepr : insertionPoint.IsRepr := by grind) : Sim.OptionBlockPtr :=
   match insertionPoint with
@@ -117,28 +118,29 @@ theorem InsertPoint.block!_eq_block (insertionPoint : InsertPoint) (ctx : Sim.IR
     (hIn : insertionPoint.InBounds ctx.spec) hRepr :
     insertionPoint.block! ctx.spec = (insertionPoint.block ctx hIn hRepr).spec := by
   cases insertionPoint <;>
-    grind [InsertPoint.block!, InsertPoint.block]
+    grind [InsertPoint.block!, InsertPoint.block.unfold]
 
 @[grind .]
 theorem InsertPoint.block_InBounds {insertionPoint : InsertPoint} {ctx : Sim.IRContext OpInfo}
     (ctxFieldsInBounds : ctx.spec.FieldsInBounds) (hIn : insertionPoint.InBounds ctx.spec) hRepr :
     insertionPoint.InBounds ctx.spec →
     (insertionPoint.block ctx hIn hRepr).InBounds ctx := by
-  simp only [InsertPoint.block]
+  simp only [InsertPoint.block.unfold]
   grind
 
 @[simp, grind =]
 theorem InsertPoint.block!_before_eq :
     InsertPoint.block! (before op) ctx =
     (op.get! ctx).parent := by
-  grind [InsertPoint.block]
+  grind [InsertPoint.block.unfold]
 
 @[simp, grind =]
 theorem InsertPoint.block!_atEnd_eq :
     InsertPoint.block! (atEnd blockPtr) ctx =
     blockPtr := by rfl
 
-def InsertPoint.prev (ip : InsertPoint) (ctx : Sim.IRContext OpInfo) (inBounds : ip.InBounds ctx.spec) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def InsertPoint.prevSim (ip : InsertPoint) (ctx : Sim.IRContext OpInfo) (inBounds : ip.InBounds ctx.spec) : Sim.OptionOperationPtr :=
   match ip with
   | before op => op.toSim.getPrevOp ctx (by grind)
   | atEnd block => block.toSim.getLastOp ctx (by grind)
@@ -152,13 +154,13 @@ def InsertPoint.prev! (ip : InsertPoint) (ctx : IRContext OpInfo) : Option Opera
 theorem InsertPoint.prev_inBounds {ip : InsertPoint} {ctx : Sim.IRContext OpInfo} h :
     ip.InBounds ctx.spec →
     (ip.prev ctx h).InBounds ctx := by
-  cases ip <;> simp_all only [prev, InBounds] <;> grind
+  cases ip <;> simp_all only [prev.unfold, InBounds] <;> grind
 
 @[grind _=_]
 theorem InsertPoint.prev!_eq_prev {ip : InsertPoint} {ctx : Sim.IRContext OpInfo}
     (hIn : ip.InBounds ctx.spec) :
     ip.prev! ctx.spec = (ip.prev ctx hIn).spec := by
-  cases ip <;> grind [InsertPoint.prev!, InsertPoint.prev]
+  cases ip <;> grind [InsertPoint.prev!, InsertPoint.prev.unfold]
 
 @[simp, grind =]
 theorem InsertPoint.prev!_before_eq :
@@ -179,7 +181,8 @@ theorem InsertPoint.prev!_inBounds {ipInBounds : InsertPoint.InBounds ip ctx} {c
   simp_all only [InsertPoint.prev!, InsertPoint.InBounds]
   grind
 
-def InsertPoint.next (ip : InsertPoint) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def InsertPoint.nextSim (ip : InsertPoint) : Sim.OptionOperationPtr :=
   match ip with
   | before op => op.toSim.toO
   | atEnd _ => .none
@@ -187,7 +190,7 @@ def InsertPoint.next (ip : InsertPoint) : Sim.OptionOperationPtr :=
 @[grind .]
 theorem InsertPoint.next_inBounds {ctx : Sim.IRContext OpInfo} {ipInBounds : InsertPoint.InBounds ip ctx.spec} :
     (ip.next).InBounds ctx := by
-  simp_all only [next, InsertPoint.InBounds]
+  simp_all only [next.unfold, InsertPoint.InBounds]
   split
   · grind
   · split at ipInBounds
@@ -197,7 +200,7 @@ theorem InsertPoint.next_inBounds {ctx : Sim.IRContext OpInfo} {ipInBounds : Ins
 @[simp, grind =]
 theorem InsertPoint.next_before_eq :
     (InsertPoint.next (before op)).spec = some op := by
-  simp [InsertPoint.next, Sim.OperationPtr.toO, OperationPtr.toSim, Sim.OptionOperationPtr.spec]
+  simp [InsertPoint.next.unfold, Sim.OperationPtr.toO, OperationPtr.toSim, Sim.OptionOperationPtr.spec]
 
 @[simp, grind =]
 theorem InsertPoint.next_atEnd_eq :
@@ -207,7 +210,7 @@ theorem InsertPoint.next_atEnd_eq :
 theorem InsertPoint.next_eq_none_iff_eq_atEnd {ip : InsertPoint} :
     ip.next.spec = none ↔ ∃ block, ip = .atEnd block := by
   cases ip <;>
-    grind [InsertPoint.next, Sim.OperationPtr.toO,
+    grind [InsertPoint.next.unfold, Sim.OperationPtr.toO,
       Sim.OptionOperationPtr.none]
 
 @[grind =]
@@ -221,7 +224,7 @@ theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} (hRepr : ip.Is
     omega
   obtain ⟨nextImpl, nextSpec⟩ := nextOp
   cases ip <;>
-    simp_all [InsertPoint.next, Sim.OperationPtr.toO,
+    simp_all [InsertPoint.next.unfold, Sim.OperationPtr.toO,
       Sim.OptionOperationPtr.none, Sim.OptionOperationPtr.toOption, Sim.OperationPtr.Sim_def,
       OperationPtr.toSim, Option.get!, InsertPoint.IsRepr, Sim.OperationPtr.spec]
   grind [Erased.out_inj]
@@ -450,7 +453,8 @@ def prev! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option BlockPtr :=
   | before block => (block.get! ctx).prev
   | atEnd region => (region.get! ctx).lastBlock
 
-def prev (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
+buffed (inline := true)
+def prevSim (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : ip.InBounds ctx.spec := by grind) : Sim.OptionBlockPtr :=
   match ip with
   | before block => block.toSim.getPrevBlock ctx (by grind)
@@ -460,7 +464,7 @@ def prev (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
 theorem prev!_eq_prev {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo}
     (hIn : ip.InBounds ctx.spec) :
     ip.prev! ctx.spec = (ip.prev ctx hIn).spec := by
-  cases ip <;> grind [prev!, prev]
+  cases ip <;> grind [prev!, prev.unfold]
 
 @[simp, grind =]
 theorem prev!_before :
@@ -486,9 +490,10 @@ theorem prev!_inBounds {ip : BlockInsertPoint}
 theorem prev_inBounds {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo} h :
     ip.InBounds ctx.spec →
     (ip.prev ctx h).InBounds ctx := by
-  cases ip <;> simp_all only [prev, InBounds] <;> grind
+  cases ip <;> simp_all only [prev.unfold, InBounds] <;> grind
 
-def next (ip : BlockInsertPoint) : Sim.OptionBlockPtr :=
+buffed (inline := true)
+def nextSim (ip : BlockInsertPoint) : Sim.OptionBlockPtr :=
   match ip with
   | before bl => bl.toSim.toO
   | atEnd _ => .none
@@ -496,7 +501,7 @@ def next (ip : BlockInsertPoint) : Sim.OptionBlockPtr :=
 @[simp, grind =]
 theorem next_before :
     (BlockInsertPoint.next (before blockPtr)).spec = some blockPtr := by
-  simp [BlockInsertPoint.next, Sim.BlockPtr.toO, BlockPtr.toSim, Sim.OptionBlockPtr.spec]
+  simp [BlockInsertPoint.next.unfold, Sim.BlockPtr.toO, BlockPtr.toSim, Sim.OptionBlockPtr.spec]
 
 @[simp, grind =]
 theorem next_atEnd :
@@ -506,7 +511,7 @@ theorem next_atEnd :
 theorem next_inBounds {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo} :
     ip.InBounds ctx.spec →
     ip.next.InBounds ctx := by
-  cases ip <;> simp_all only [next, InBounds]
+  cases ip <;> simp_all only [next.unfold, InBounds]
   · grind
   · simp [Sim.OptionBlockPtr.none]
     intros
@@ -520,7 +525,8 @@ def region! (ip : BlockInsertPoint) (ctx : IRContext OpInfo) : Option RegionPtr 
   | before bl => bl.get! ctx |>.parent
   | atEnd rg => some rg
 
-def region (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
+buffed (inline := true)
+def regionSim (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : ip.InBounds ctx.spec := by grind)
     (_hRepr : ip.IsRepr := by grind) : Sim.OptionRegionPtr :=
   match ip with
@@ -531,7 +537,7 @@ def region (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
 theorem region!_eq_region (ip : BlockInsertPoint) (ctx : Sim.IRContext OpInfo)
     (hIn : ip.InBounds ctx.spec) hRepr :
     ip.region! ctx.spec = (ip.region ctx hIn hRepr).spec := by
-  cases ip <;> grind [region!, region]
+  cases ip <;> grind [region!, region.unfold]
 
 @[simp, grind =]
 theorem region!_before :
@@ -546,7 +552,7 @@ theorem region_InBounds {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo}
     (ip.region ctx hIn hRepr).toOption = some regionPtr →
     ip.InBounds ctx.spec →
     regionPtr.InBounds ctx := by
-  simp only [region]
+  simp only [region.unfold]
   split
   · intro h _; exact Sim.RegionPtr.inBounds_of_optionPtr_inBounds _ (by grind) _ h
   · grind

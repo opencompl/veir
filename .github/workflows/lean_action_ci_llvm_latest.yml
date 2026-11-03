@@ -69,6 +69,7 @@ jobs:
           lake exe parser-tests
           lake exe allocator-tests
           lake exe ir-reuse-tests
+          python3 Tools/check-buffed-wrapper-codegen
 
       # `Test/lit.cfg` pins the cross-check tools to the versions of the other
       # image, so without `-Dforce-cross-checks=1` every cross-check would skip

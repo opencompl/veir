@@ -70,7 +70,7 @@ theorem Rewriter.createOp_preserves_wellFormed
       properties insertionPoint hoper hblockOperands hregions hins hrep htypes hx =
       some (newCtx, newOp)) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.createOp] at h
+  simp only [Rewriter.createOp.unfold] at h
   split at h <;> try contradiction
   split at h
   · contradiction

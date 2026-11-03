@@ -1,6 +1,7 @@
 module
 
 public import Veir.Buffered.IR.Buffed.SimDefs
+public import Veir.Buffered.IR.Buffed.ArgumentFlattening
 public import Lean
 
 public section

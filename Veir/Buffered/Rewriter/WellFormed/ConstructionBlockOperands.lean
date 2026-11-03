@@ -36,18 +36,18 @@ theorem Rewriter.pushBlockOperandAt_blockDefUse
     ∃ a, b.DefUse (Rewriter.pushBlockOperandAt op ctx idx block hop hb hi hc).spec a := by
   have ⟨a, ha⟩ := hchains b hb'
   have ⟨a', ha'⟩ := hchains block.spec (by grind)
-  simp only [Rewriter.pushBlockOperandAt]
+  simp only [Rewriter.pushBlockOperandAt.unfold]
   by_cases he : b = block.spec
   · subst b
     refine ⟨_, Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_self_empty (array := a) (by grind) ?_⟩
     have hh := BlockPtr.DefUse.pushBlockOperand_construction_self (op := op.spec) (hop := hop.ib) (hblock := hb.ib) ha
-    simpa [Rewriter.pushBlockOperandAtUnattached_spec, Sim.OperationPtr.getBlockOperandPtr,
-      Sim.OperationPtr.getBlockOperandPtr, hi, OperationPtr.nextBlockOperand,
+    simpa [Rewriter.pushBlockOperandAtUnattached_spec, Sim.OperationPtr.getBlockOperandPtr.unfold,
+      Sim.OperationPtr.getBlockOperandPtr.unfold, hi, OperationPtr.nextBlockOperand,
       OperationPtr.getBlockOperand, OperationPtr.getNumSuccessors!_eq_getNumSuccessors (hin := hop.ib)] using hh
   · refine ⟨a, Sim.BlockPtr.defUse_BlockOperandPtr_insertIntoCurrent_other
       (array' := a') (missingUses' := Std.ExtHashSet.ofList [op.spec.nextBlockOperand ctx.spec])
       (by grind) he (hvalue := by
-        simp [Sim.OperationPtr.getBlockOperandPtr,
+        simp [Sim.OperationPtr.getBlockOperandPtr.unfold,
           hi, OperationPtr.nextBlockOperand, OperationPtr.getBlockOperand,
           OperationPtr.getNumSuccessors!_eq_getNumSuccessors (hin := hop.ib)]) ?_ ?_⟩
     · simpa [Rewriter.pushBlockOperandAtUnattached_spec] using
@@ -65,7 +65,7 @@ theorem Rewriter.pushBlockOperandAt_constructionWellFormed
   · intros v hv
     have ⟨a, ha⟩ := IRContext.ConstructionWellFormed.valueDefUseChains wf v (by grind)
     exists a
-    simp only [Rewriter.pushBlockOperandAt]
+    simp only [Rewriter.pushBlockOperandAt.unfold]
     apply Sim.ValuePtr.defUse_BlockOperandPtr_insertIntoCurrent
     apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> grind
   · intros b hb'
@@ -76,30 +76,30 @@ theorem Rewriter.pushBlockOperandAt_constructionWellFormed
   · intros b hb'
     have ⟨a, ha⟩ := IRContext.ConstructionWellFormed.opChain wf b (by grind)
     exists a
-    simp only [Rewriter.pushBlockOperandAt]
+    simp only [Rewriter.pushBlockOperandAt.unfold]
     apply Sim.BlockPtr.opChain_BlockOperandPtr_insertIntoCurrent
     apply BlockPtr.OpChain_unchanged (ctx := ctx.spec) <;> grind
   · intros r hr
     have ⟨a, ha⟩ := IRContext.ConstructionWellFormed.blockChain wf r (by grind)
     exists a
-    simp only [Rewriter.pushBlockOperandAt]
+    simp only [Rewriter.pushBlockOperandAt.unfold]
     apply Sim.RegionPtr.blockChain_BlockOperandPtr_insertIntoCurrent
     apply RegionPtr.blockChain_unchanged (ctx := ctx.spec) <;> grind
   · intros o ho
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂⟩ :=
       IRContext.ConstructionWellFormed.operations wf o (by grind)
-    simp only [Rewriter.pushBlockOperandAt]
+    simp only [Rewriter.pushBlockOperandAt.unfold]
     refine ⟨by grind, by grind, by grind, by grind, by grind, by grind, ?_,
       by grind, by grind, by grind, by grind, by grind⟩
     intro r hr
     simpa [pushBlockOperandAtUnattached_spec] using h₇ r (by grind)
   · intros b hb'
     have ⟨h₁, h₂, h₃, h₄, h₅, h₆⟩ := IRContext.ConstructionWellFormed.blocks wf b (by grind)
-    simp only [Rewriter.pushBlockOperandAt]
+    simp only [Rewriter.pushBlockOperandAt.unfold]
     constructor <;> grind
   · intros r hr
     have ⟨h₁, h₂⟩ := IRContext.ConstructionWellFormed.regions wf r (by grind)
-    simp only [Rewriter.pushBlockOperandAt]
+    simp only [Rewriter.pushBlockOperandAt.unfold]
     constructor
     · grind
     · intro parent hp
@@ -112,7 +112,8 @@ theorem Rewriter.initBlockOperands_constructionWellFormed
     (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
     (heq : Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄ = ctx') :
     ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
-  fun_induction initBlockOperands
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim
   case case1 => subst ctx'; exact wf
   case case2 ctx0 index0 hop hoperands hidx hcap h value nextCtx ih =>
     apply ih _ heq
@@ -123,63 +124,72 @@ theorem Rewriter.initBlockOperands_numSuccessors
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄}
     (hindex : index.toNat ≤ operands.size) :
     op.spec.getNumSuccessors! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = operands.size := by
-  fun_induction initBlockOperands <;>
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
     grind [UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_mod_size]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_numResults (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     ptr.getNumResults! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = ptr.getNumResults! ctx.spec := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_numRegions (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     ptr.getNumRegions! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = ptr.getNumRegions! ctx.spec := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_numOperands (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     ptr.getNumOperands! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = ptr.getNumOperands! ctx.spec := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_capResults (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capResults = (ptr.get! ctx.spec).capResults := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_capRegions (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capRegions = (ptr.get! ctx.spec).capRegions := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_capOperands (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capOperands = (ptr.get! ctx.spec).capOperands := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_capBlockOperands (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capBlockOperands = (ptr.get! ctx.spec).capBlockOperands := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 @[grind .]
 theorem Rewriter.initBlockOperands_preserves_parent (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).parent = (ptr.get! ctx.spec).parent := by
-  fun_induction initBlockOperands <;>
-    grind (gen := 20) [Rewriter.pushBlockOperandAt]
+  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  fun_induction initBlockOperandsSim <;>
+    grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
 end Veir.Buffered

@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Check that noinline flattened calls do not allocate Sim argument wrappers."""
+import pathlib
+import re
+import subprocess
+
+root = pathlib.Path(__file__).resolve().parent.parent
+# Keep the migration complete even for the standalone benchmark declarations.
+rows = [line.split("\t") for line in (root / "Tools/buffed-declarations.tsv").read_text().splitlines()
+        if line and not line.startswith("#")]
+assert len(rows) == 202, "historical buffed inventory changed unexpectedly"
+for file, declaration, _, inline in rows:
+    text = (root / file).read_text()
+    pattern = (rf"\bbuffed\s+\(inline\s*:=\s*{inline}\)\s+def\s+"
+               rf"{re.escape(declaration)}Sim(?=[\s({{:])")
+    assert len(re.findall(pattern, text)) == 1, f"missing historical conversion: {file}: {declaration}"
+subprocess.run(["lake", "build", "UnitTest.Buffed:c.o", "UnitTest.BuffedAdoption"], cwd=root, check=True)
+source = (root / ".lake/build/ir/UnitTest/Buffed.c").read_text()
+
+
+def function(name, argument_type):
+    pattern = rf"^LEAN_EXPORT uint64_t \w*UnitTest_Buffed_{name}\(([^)]*)\)\{{"
+    match = re.search(pattern, source, re.MULTILINE)
+    assert match, f"missing generated C function: {name}"
+    assert re.fullmatch(rf"{re.escape(argument_type)}\s+\w+", match[1]), (
+        f"{name} should have exactly one runtime argument, got {match[1]}"
+    )
+    depth = 1
+    end = match.end()
+    while depth and end < len(source):
+        depth += (source[end] == "{") - (source[end] == "}")
+        end += 1
+    assert depth == 0, f"unterminated function: {name}"
+    return source[match.end():end - 1]
+
+
+for caller, callee, arg_type in [
+    ("rawCaller", "addressInner___redArg", "uint64_t"),
+    ("rawContextCaller___redArg", "contextSizeInner___redArg", "lean_object*"),
+]:
+    body = function(caller, arg_type)
+    assert callee in body, f"{caller} no longer calls its noinline inner function"
+    for forbidden in ("lean_alloc_ctor", "lean_ctor_get", "lean_box_uint64"):
+        assert forbidden not in body, f"{caller} introduces a wrapper: {forbidden}"
+    function(callee, arg_type)
+
+print("Buffered wrapper codegen passed: scalar pointer and raw context calls allocate no Sim wrappers.")

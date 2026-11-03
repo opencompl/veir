@@ -27,7 +27,7 @@ private def hasUsesFrom (ctx : IRContext OpInfo) (op : OperationPtr) (ib : op.In
 private theorem result_spec (ctx : IRContext OpInfo) (op : OperationPtr)
     (ib : op.InBounds ctx) (index : UInt64) :
     (op.getResultPtr ctx index ib).spec = op.spec.getResult index.toNat := by
-  simp [OperationPtr.getResultPtr, OpResultPtr.spec, OperationPtr.spec, Erased.map_out]
+  simp [OperationPtr.getResultPtr.unfold, OpResultPtr.spec, OperationPtr.spec, Erased.map_out]
 
 private theorem firstUse_none_iff (ctx : IRContext OpInfo) (op : OperationPtr)
     (ib : op.InBounds ctx) (index : UInt64) (hr : (op.getResultPtr ctx index ib).InBounds ctx) :

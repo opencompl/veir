@@ -26,14 +26,14 @@ def ResultLive.value (ctx : IR.RawContext) (p : IR.Op) (index : UInt64)
     (hp : p.InBounds ctx) (h : ResultLive ctx p index) :
     { v : IR.Value // v.InBounds ctx ∧ v.spec = .opResult ⟨p.spec, index.toNat⟩ } :=
   ⟨Sim.ValuePtr.fromOpResultPtr (p.getResultPtr ctx index hp), h.inBounds hp, by
-    simp [Sim.ValuePtr.fromOpResultPtr, Sim.ValuePtr.spec, Sim.OperationPtr.getResultPtr,
+    simp [Sim.ValuePtr.fromOpResultPtr, Sim.ValuePtr.spec, Sim.OperationPtr.getResultPtr.unfold,
       OperationPtr.getResult, Sim.OperationPtr.spec, Erased.map_out]⟩
 
 def ArgumentLive.value (ctx : IR.RawContext) (p : IR.Block) (index : UInt64)
     (hp : p.InBounds ctx) (h : ArgumentLive ctx p index) :
     { v : IR.Value // v.InBounds ctx ∧ v.spec = .blockArgument ⟨p.spec, index.toNat⟩ } :=
   ⟨Sim.ValuePtr.fromBlockArgumentPtr (p.getArgumentPtr ctx index hp), h.inBounds hp, by
-    simp [Sim.ValuePtr.fromBlockArgumentPtr, Sim.ValuePtr.spec, Sim.BlockPtr.getArgumentPtr,
+    simp [Sim.ValuePtr.fromBlockArgumentPtr, Sim.ValuePtr.spec, Sim.BlockPtr.getArgumentPtr.unfold,
       BlockPtr.getArgument, Sim.BlockPtr.spec, Erased.map_out]⟩
 
 theorem result_stable {d : MlirParserData} {p : IR.Op} {v : IR.Value} {index : Nat}

@@ -7,6 +7,7 @@ import Veir.Buffered.Printer
 open Veir.Buffered
 open Attribute
 set_option maxHeartbeats 100000000
+set_option maxRecDepth 4096
 set_option warn.sorry false
 
 namespace Program
@@ -72,14 +73,16 @@ def randIdx {α : Type} (rng : Xoshiro256PP) (arr : Array α) : Xoshiro256PP × 
 
 end Xoshiro256PP
 
-def empty : Option (Sim.IRContext OpCode × Sim.OperationPtr × InsertPoint) := do
+buffed (inline := true)
+def emptySim : Option (Sim.IRContext OpCode × Sim.OperationPtr × InsertPoint) := do
   let (ctx, topLevelOp) ← IRContext.create OpCode
   let region := topLevelOp.getRegionPtr! ctx 0
   let block := region.getFirstBlock! ctx
   let insertPoint := InsertPoint.atEnd ⟨block.impl.toNat⟩
   (ctx, topLevelOp, insertPoint)
 
-def constFoldTreeGo (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constFoldTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (pc : Nat) (inc : Int) (accVal : Sim.ValuePtr) : Option (Sim.IRContext OpCode) := do
   match i with
   | 0 =>
@@ -97,7 +100,7 @@ def constFoldTreeGo (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Insert
     let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[accVal, rhsVal] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry
     let accResult := acc.getResultPtr ctx 0 sorry
     let accVal : Sim.ValuePtr := Sim.ValuePtr.fromOpResultPtr accResult
-    constFoldTreeGo i ctx insertPoint opcode prop pc inc accVal
+    constFoldTreeGoSim i ctx insertPoint opcode prop pc inc accVal
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -107,7 +110,8 @@ def constFoldTreeGo (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Insert
 --   %3 = arith.constant [inc] : u64
 --   %4 = [opcode] %2, %3 : u64
 --   ...
-def constFoldTree (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constFoldTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
   let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] ({ value := IntegerAttr.mk root (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
 
@@ -116,16 +120,20 @@ def constFoldTree (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opco
 
   constFoldTreeGo size ctx insertPoint opcode prop pc inc accVal
 
-def addZeroTree (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := true)
+def addZeroTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTree ctx ip (.arith .addi) () size pc 42 0
 
-def addOneTree (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := true)
+def addOneTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTree ctx ip (.arith .addi) () size pc 42 1
 
-def mulTwoTree (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := true)
+def mulTwoTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTree ctx ip (.arith .muli) () size pc 42 2
 
-def constFoldTreeSparseGo (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constFoldTreeSparseGoSim (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (inc : Int) (constants runningTotals : Array Sim.ValuePtr) : Option (Sim.IRContext OpCode) := do
   if runningTotals.size ≥ size then
     let back := runningTotals.back!
@@ -138,7 +146,7 @@ def constFoldTreeSparseGo (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (ins
       let (ctx, op) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] ({ value := IntegerAttr.mk inc (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry sorry
       let constResultPtr := op.getResultPtr ctx 0 sorry
       let constants := constants.push (Sim.ValuePtr.fromOpResultPtr constResultPtr)
-      constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
+      constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
 
     else
       let (rng, lhs) := rng.randIdx runningTotals
@@ -151,14 +159,15 @@ def constFoldTreeSparseGo (ctx : Sim.IRContext OpCode) (rng : Xoshiro256PP) (ins
           let (ctx, op) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[lhs, rhs] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry sorry
           let result := op.getResultPtr ctx 0 sorry
           let runningTotals := runningTotals.push (Sim.ValuePtr.fromOpResultPtr result)
-          constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
+          constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
         else
-          constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
+          constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
       else
-        constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
+        constFoldTreeSparseGoSim ctx rng insertPoint opcode prop size pc inc constants runningTotals
 partial_fixpoint
 
-def constReuseTreeGo (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constReuseTreeGoSim (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (pc : Nat) (accVal reuseVal : Sim.ValuePtr) : Option (Sim.IRContext OpCode) := do
   match i with
   | 0 =>
@@ -170,7 +179,7 @@ def constReuseTreeGo (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Inser
     let (ctx, acc) ← Rewriter.createOp ctx thisOp #[IntegerType.mk 32] #[accVal, reuseVal] #[] #[] thisProp insertPoint sorry sorry sorry sorry sorry sorry sorry
     let accResult := acc.getResultPtr ctx 0 sorry
     let accVal : Sim.ValuePtr := Sim.ValuePtr.fromOpResultPtr accResult
-    constReuseTreeGo i ctx insertPoint opcode prop pc accVal reuseVal
+    constReuseTreeGoSim i ctx insertPoint opcode prop pc accVal reuseVal
 
 -- Create a program that looks like:
 -- func @main() -> u64 {
@@ -179,7 +188,8 @@ def constReuseTreeGo (i : Nat) (ctx : Sim.IRContext OpCode) (insertPoint : Inser
 --   %2 = [opcode] %0, %reuse : u64
 --   %3 = [opcode] %2, %reuse : u64
 --   ...
-def constReuseTree (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
 
   let (ctx, acc) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] ({ value := IntegerAttr.mk root (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
@@ -194,7 +204,8 @@ def constReuseTree (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opc
 
   constReuseTreeGo size ctx insertPoint opcode prop pc accVal reuseVal
 
-def addZeroReuseTree (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := false)
+def addZeroReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constReuseTree ctx ip (.arith .addi) () size pc 42 0
 
 -- Create a program that looks like:
@@ -206,7 +217,8 @@ def addZeroReuseTree (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : 
 --   %4 = [opcode] %3, %reuse : u64
 --   %5 = [opcode] %4, %reuse : u64
 --   ...
-def constLotsOfReuseTree (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (lhs rhs : Int) : Option (Sim.IRContext OpCode) := do
 
   let (ctx, lhsOp) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] ({ value := IntegerAttr.mk lhs (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
@@ -225,12 +237,14 @@ def constLotsOfReuseTree (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint
 
   constReuseTreeGo size ctx insertPoint opcode prop pc reuseVal reuseVal
 
-def addZeroLotsOfReuseTree (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := false)
+def addZeroLotsOfReuseTreeSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constLotsOfReuseTree ctx ip (.arith .addi) () size pc 42 0
 
 -- Create a program that looks like constFoldTree but with randomly selected constants as rhs and
 -- randomly selected previous ops as lhs
-def constFoldTreeSparse (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
+buffed (inline := true)
+def constFoldTreeSparseSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint) (opcode : OpCode)
     (prop : propertiesOf opcode) (size pc : Nat) (root inc : Int) : Option (Sim.IRContext OpCode) := do
   let (ctx, root) ← Rewriter.createOp ctx (.arith .constant) #[IntegerType.mk 32] #[] #[] #[] ({ value := IntegerAttr.mk root (IntegerType.mk 32) } : ArithConstantProperties) insertPoint sorry sorry sorry sorry sorry sorry
   let  rootResult := root.getResultPtr ctx 0 sorry
@@ -241,13 +255,16 @@ def constFoldTreeSparse (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
 
   constFoldTreeSparseGo ctx rng insertPoint opcode prop size pc inc constants runningTotals
 
-def addZeroTreeSparse (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := false)
+def addZeroTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 0
 
-def addOneTreeSparse (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := false)
+def addOneTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .addi) () size pc 42 1
 
-def mulTwoTreeSparse (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
+buffed (inline := false)
+def mulTwoTreeSparseSim (ctx : Sim.IRContext OpCode) (ip : InsertPoint) (size pc : Nat) : Option (Sim.IRContext OpCode) :=
   constFoldTreeSparse ctx ip (.arith .muli) () size pc 42 2
 
 end Program
@@ -269,7 +286,8 @@ def _root_.Veir.Buffered.Sim.OperationPtr.getConstantValue! (ctx : Sim.IRContext
    inlining, the compiler can sink that read past the rewrite call, keeping the old
    buffer shared and forcing a full copy on every rewrite. -/
 @[inline]
-def addIConstantFolding (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .addi) then
     return ctx
 
@@ -315,23 +333,26 @@ def addIConstantFolding (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : O
     (Rewriter.eraseOp ctx rhsOpPtr sorry sorry sorry sorry sorry : Option (Sim.IRContext OpCode))
 
 
-def rewriteForwardsAddIConstFoldingGo (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteForwardsAddIConstFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
   match maybeOp.toOption with
   | none => ctx
   | some op =>
     let next := op.getNextOp ctx sorry
     let ctx ← addIConstantFolding ctx op
-    rewriteForwardsAddIConstFoldingGo ctx next
+    rewriteForwardsAddIConstFoldingGoSim ctx next
 partial_fixpoint
 
-def rewriteForwardsAddIConstFolding (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteForwardsAddIConstFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   let region := topOp.getRegionPtr! ctx 0
   let block ← (region.getFirstBlock! ctx).toOption
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIConstFoldingGo ctx maybeOp
 
 @[inline]
-def addIZeroFolding (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .addi) then
     return ctx
 
@@ -365,22 +386,25 @@ def addIZeroFolding (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Optio
 
   return ctx
 
-def rewriteForwardsAddIZeroFoldingGo (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteForwardsAddIZeroFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
   match maybeOp.toOption with
   | none => ctx
   | some op =>
     let next := op.getNextOp ctx sorry
     let ctx ← addIZeroFolding ctx op
-    rewriteForwardsAddIZeroFoldingGo ctx next
+    rewriteForwardsAddIZeroFoldingGoSim ctx next
 partial_fixpoint
 
-def rewriteForwardsAddIZeroFolding (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteForwardsAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   let region := topOp.getRegionPtr! ctx 0
   let block ← (region.getFirstBlock! ctx).toOption
   let maybeOp := (block.getFirstOp! ctx)
   rewriteForwardsAddIZeroFoldingGo ctx maybeOp
 
-def rewriteFirstAddIZeroFoldingGo (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteFirstAddIZeroFoldingGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
   match maybeOp.toOption with
   | none => ctx
   | some op =>
@@ -388,17 +412,19 @@ def rewriteFirstAddIZeroFoldingGo (ctx : Sim.IRContext OpCode) (maybeOp : Sim.Op
       let ctx ← addIZeroFolding ctx op
       ctx
     else
-      rewriteFirstAddIZeroFoldingGo ctx (op.getNextOp ctx sorry)
+      rewriteFirstAddIZeroFoldingGoSim ctx (op.getNextOp ctx sorry)
 partial_fixpoint
 
-def rewriteFirstAddIZeroFolding (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteFirstAddIZeroFoldingSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   let region := topOp.getRegionPtr ctx 0 sorry sorry
   let block ← (region.getFirstBlock ctx sorry).toOption
   let maybeOp := (block.getFirstOp ctx sorry)
   rewriteFirstAddIZeroFoldingGo ctx maybeOp
 
 @[inline]
-def mulITwoReduce (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   if op.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .muli) then
     return ctx
 
@@ -430,16 +456,18 @@ def mulITwoReduce (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Option 
 
   return ctx
 
-def rewriteForwardsMulITwoReduceGo (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteForwardsMulITwoReduceGoSim (ctx : Sim.IRContext OpCode) (maybeOp : Sim.OptionOperationPtr) : Option (Sim.IRContext OpCode) := do
   match maybeOp.toOption with
   | none => ctx
   | some op =>
     let next := op.getNextOp ctx sorry
     let ctx ← mulITwoReduce ctx op
-    rewriteForwardsMulITwoReduceGo ctx next
+    rewriteForwardsMulITwoReduceGoSim ctx next
 partial_fixpoint
 
-def rewriteForwardsMulITwoReduce (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def rewriteForwardsMulITwoReduceSim (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : Option (Sim.IRContext OpCode) := do
   let region := topOp.getRegionPtr! ctx 0
   let block ← (region.getFirstBlock! ctx).toOption
   let maybeOp := (block.getFirstOp! ctx)
@@ -450,7 +478,8 @@ end Custom
 def print (ctx : Sim.IRContext OpCode) (topOp : Sim.OperationPtr) : IO Unit := do
   Printer.printModule ctx topOp
 
-def createManyOpsLoop (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
+buffed (inline := true)
+def createManyOpsLoopSim (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
     (prev2 prev1 : Sim.ValuePtr) (n : Nat) : Option (Sim.IRContext OpCode) :=
   match n with
   | 0 => some ctx
@@ -458,12 +487,13 @@ def createManyOpsLoop (ctx : Sim.IRContext OpCode) (insertPoint : InsertPoint)
     match Rewriter.createOp ctx (.arith .addi) #[IntegerType.mk 32] #[prev2, prev1] #[] #[]
         () (some insertPoint) sorry sorry sorry sorry sorry sorry sorry with
     | some (ctx, op) =>
-      createManyOpsLoop ctx insertPoint prev1
+      createManyOpsLoopSim ctx insertPoint prev1
         (Sim.ValuePtr.fromOpResultPtr (op.getResultPtr ctx 0 sorry)) n
     | _ => none
 
 -- set_option trace.Compiler.reduceArity true
-def createManyOps (n : Nat) : Option (Sim.BlockPtr × Sim.IRContext OpCode) := do
+buffed (inline := true)
+def createManyOpsSim (n : Nat) : Option (Sim.BlockPtr × Sim.IRContext OpCode) := do
   -- Top-level `builtin.module` with one region holding a single empty block.
   let some (ctx, topOp) := IRContext.create OpCode
     | none
@@ -493,7 +523,8 @@ def createManyOps (n : Nat) : Option (Sim.BlockPtr × Sim.IRContext OpCode) := d
   let ctx ← createManyOpsLoop ctx insertPoint param param n
   pure (block, ctx)
 
-def replaceOps.loop (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (depth : UInt64 := -1) :
+buffed (inline := true)
+def replaceOps.loopSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (depth : UInt64 := -1) :
   Option (Sim.IRContext OpCode) := do
   if depth = 0 then none else
   if (op.getNextOp ctx sorry).impl = .none then
@@ -507,12 +538,13 @@ def replaceOps.loop (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (depth 
       -- let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry | none
       let prevop := op.getPrevOp ctx (by sorry) |>.toOption.get sorry
       let some ctx := Rewriter.replaceOp? ctx op prevop sorry sorry sorry sorry sorry sorry | none
-      replaceOps.loop ctx nextOp (depth - 1)
+      replaceOps.loopSim ctx nextOp (depth - 1)
     else
       none
 partial_fixpoint
 
-def replaceOps (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : Option (Sim.IRContext OpCode) := do
+buffed (inline := true)
+def replaceOpsSim (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : Option (Sim.IRContext OpCode) := do
   let first := block.getFirstOp ctx (by sorry) |>.toOption.get sorry
   let second := first.getNextOp ctx (by sorry) |>.toOption.get sorry
   -- let second := second.getNextOp ctx (by sorry) |>.toOption.get sorry
@@ -526,14 +558,16 @@ def check (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 := Id.run
   first.impl
   -- (first.getPrevOp ctx (by sorry)).impl
 
-def blockLength.loop (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (count : UInt64 := 0) : UInt64 :=
-  -- let ctx := dumpOp op ctx "blockLength.loop"
+buffed (inline := true)
+def blockLength.loopSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) (count : UInt64 := 0) : UInt64 :=
+  -- let ctx := dumpOp op ctx "blockLength.loopSim"
   match op.getNextOp ctx (by sorry) |>.toOption with
   | none => count
-  | some nextOp => blockLength.loop ctx nextOp (count + 1)
+  | some nextOp => blockLength.loopSim ctx nextOp (count + 1)
 partial_fixpoint
 
-def blockLength (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 := Id.run do
+buffed (inline := true)
+def blockLengthSim (ctx : Sim.IRContext OpCode) (block : Sim.BlockPtr) : UInt64 := Id.run do
   let first := block.getFirstOp ctx (by sorry) |>.toOption.get sorry
   blockLength.loop ctx first 0
 

@@ -6,6 +6,8 @@ import UnitTest.Parser
 import UnitTest.AttrParser
 import UnitTest.MlirParser
 import UnitTest.Buffered
+import UnitTest.BuffedImport
+import UnitTest.BuffedAdoption
 import UnitTest.IR.Operation
 import UnitTest.Dialect
 import UnitTest.BuiltinProperties

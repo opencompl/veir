@@ -23,7 +23,7 @@ theorem Rewriter.createOp_sim_inBounds_mono {ctx next : Parser.IR.RawContext}
     {opType types operands successors regions props ip h₁ h₂ h₃ h₄ h₅ h₆ p}
     (hc : createOp ctx opType types operands successors regions props ip h₁ h₂ h₃ h₄ h₅ h₆ = some (next, p))
     (q : Sim.GenericPtr) (hq : q.InBounds ctx) : q.InBounds next := by
-  simp only [createOp] at hc
+  simp only [createOp.unfold] at hc
   split at hc
   · contradiction
   · split at hc
@@ -65,19 +65,19 @@ private theorem dealloc_value {ctx : Parser.IR.RawContext} {op : Sim.OperationPt
   have hlay := IRContext.layoutPreserved_OperationPtr_dealloc op.spec hi.ib
   have heq := ValuePtr.layoutPreserved_same_toM hlay hib
   constructor
-  · simp only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.ValuePtr.Sim_def, Sim.IRContext.inner, Sim.RawIRContext.spec, Erased.out_mk]
     change v.spec.toM (op.spec.dealloc ctx.spec hi.ib) = v.impl
     rw [← heq]
     exact hv.sim.out
-  · simpa only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+  · simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.IRContext.spec, Erased.out_mk] using hib
 
 theorem Rewriter.eraseOp_value_inBounds {ctx : Parser.IR.RawContext} {op : Sim.OperationPtr} {v : Sim.ValuePtr}
     {hc hi ho hs hd} (hv : v.InBounds ctx)
     (hne : ∀ res, v.spec = .opResult res → res.op ≠ op.spec) :
     v.InBounds (eraseOp ctx op hc hi ho hs hd) := by
-  simp only [eraseOp]
+  simp only [eraseOp.unfold]
   apply dealloc_value (hne := hne)
   grind [generic_ptr_grind]
 
@@ -89,7 +89,7 @@ theorem Rewriter.createOp_numResults {ctx next : Parser.IR.RawContext}
   have hib := Rewriter.createOp_new_inBounds p hc
   have hcap := (Rewriter.createOp_preserves_wellFormed wf hc).operations p.spec hib.ib
     |>.capResults_eq_numResults
-  simp only [createOp] at hc
+  simp only [createOp.unfold] at hc
   split at hc
   · contradiction
   · split at hc
@@ -123,7 +123,7 @@ theorem Rewriter.createOp_numResults {ctx next : Parser.IR.RawContext}
 
 theorem Rewriter.createBlock_new_not_inBounds {ctx next : Parser.IR.RawContext} {types ip hip hrep p}
     (hc : createBlock ctx types ip hip hrep = some (next, p)) : ¬ p.spec.InBounds ctx.spec := by
-  simp only [createBlock] at hc
+  simp only [createBlock.unfold] at hc
   split at hc
   · split at hc
     · grind
@@ -140,7 +140,7 @@ theorem Rewriter.createBlock_numArguments {ctx next : Parser.IR.RawContext} {typ
     (_wf : ctx.spec.WellFormed)
     (hc : createBlock ctx types ip hip hrep = some (next, p)) :
     p.spec.getNumArguments! next.spec = types.size := by
-  simp only [createBlock] at hc
+  simp only [createBlock.unfold] at hc
   split at hc
   · split at hc
     · contradiction
@@ -154,7 +154,7 @@ theorem Rewriter.createBlock_numArguments {ctx next : Parser.IR.RawContext} {typ
           · contradiction
           · rename_i inserted hinsert
             obtain ⟨rfl, rfl⟩ := Option.some.inj hc
-            simp only [insertBlock?] at hinsert
+            simp only [insertBlock?.unfold] at hinsert
             grind
         · obtain ⟨rfl, rfl⟩ := Option.some.inj hc
           exact hn
@@ -176,7 +176,7 @@ theorem Rewriter.eraseBlock_value_inBounds {ctx : Parser.IR.RawContext} {block :
   have hl := IRContext.layoutPreserved_BlockPtr_dealloc block.spec hi.ib
   have heq := ValuePtr.layoutPreserved_same_toM hl hib
   constructor
-  · simp only [eraseBlock, Sim.BlockPtr.dealloc, Sim.BlockPtr.forget, Sim.IRContext.releaseRange,
+  · simp only [eraseBlock.unfold, Sim.BlockPtr.dealloc.unfold, Sim.BlockPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.ValuePtr.Sim_def, Sim.IRContext.inner, Sim.RawIRContext.spec, Erased.map_out, Erased.out_mk]
     change v.spec.toM (block.spec.dealloc ctx.spec) = v.impl
     rw [← heq]

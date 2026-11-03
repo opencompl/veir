@@ -118,9 +118,9 @@ theorem OperationPtr.getOpOperand_inBounds (op : OperationPtr)
     (op.getOperandPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getOperandPtr_eq_getOperandPtr!]
   constructor
-  · simpa [Sim.OpOperandPtr.Sim_def, getOperandPtr!, Sim.OpOperandPtr.spec, IRContext.inner_def] using
+  · simpa [Sim.OpOperandPtr.Sim_def, getOperandPtr!.unfold, Sim.OpOperandPtr.spec, IRContext.inner_def] using
       OperationPtr.getOpOperand_toM op hop i h₂
-  · simpa [getOperandPtr!, Sim.OpOperandPtr.spec] using
+  · simpa [getOperandPtr!.unfold, Sim.OpOperandPtr.spec] using
       OperationPtr.getOpOperand_veir_inBounds op hop i h₂
 
 /-- The spec-level block operand pointer is in bounds when its index is below the count. -/
@@ -161,9 +161,9 @@ theorem OperationPtr.getBlockOperand_inBounds (op : OperationPtr)
     (op.getBlockOperandPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getBlockOperandPtr_eq_getBlockOperandPtr!]
   constructor
-  · simpa [Sim.BlockOperandPtr.Sim_def, getBlockOperandPtr!, Sim.BlockOperandPtr.spec, IRContext.inner_def] using
+  · simpa [Sim.BlockOperandPtr.Sim_def, getBlockOperandPtr!.unfold, Sim.BlockOperandPtr.spec, IRContext.inner_def] using
       OperationPtr.getBlockOperand_toM op hop i h₂
-  · simpa [getBlockOperandPtr!, Sim.BlockOperandPtr.spec] using
+  · simpa [getBlockOperandPtr!.unfold, Sim.BlockOperandPtr.spec] using
       OperationPtr.getBlockOperand_veir_inBounds op hop i h₂
 
 /-- The spec-level result pointer is in bounds when its index is below the result count. -/
@@ -205,9 +205,9 @@ theorem OperationPtr.getResult_inBounds (op : OperationPtr)
     (op.getResultPtr ctx i hop).InBounds ctx := by
   rw [Sim.OperationPtr.getResultPtr_eq_getResultPtr!]
   constructor
-  · simpa [Sim.OpResultPtr.Sim_def, getResultPtr!, Sim.OpResultPtr.spec, IRContext.inner_def] using
+  · simpa [Sim.OpResultPtr.Sim_def, getResultPtr!.unfold, Sim.OpResultPtr.spec, IRContext.inner_def] using
       OperationPtr.getResult_toM op hop i h₂
-  · simpa [getResultPtr!, Sim.OpResultPtr.spec] using
+  · simpa [getResultPtr!.unfold, Sim.OpResultPtr.spec] using
       OperationPtr.getResult_veir_inBounds op hop i h₂
 
 @[grind =>]
@@ -555,9 +555,9 @@ theorem BlockPtr.getArgument_inBounds (block : BlockPtr)
     (block.getArgumentPtr ctx i hblock).InBounds ctx := by
   rw [Sim.BlockPtr.getArgumentPtr_eq_getArgumentPtr!]
   constructor
-  · simpa [Sim.BlockArgumentPtr.Sim_def, getArgumentPtr!, Sim.BlockArgumentPtr.spec] using
+  · simpa [Sim.BlockArgumentPtr.Sim_def, getArgumentPtr!.unfold, Sim.BlockArgumentPtr.spec] using
       BlockPtr.getArgument_toM block hblock i h₂
-  · simpa [getArgumentPtr!, Sim.BlockArgumentPtr.spec] using
+  · simpa [getArgumentPtr!.unfold, Sim.BlockArgumentPtr.spec] using
       BlockPtr.getArgument_veir_inBounds block hblock i h₂
 
 @[grind =]

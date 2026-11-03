@@ -102,7 +102,8 @@ theorem Rewriter.initOpResults_constructionWellFormed {opPtr : Sim.OperationPtr}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ConstructionWellFormed ctx.spec opPtr.spec ∅ ∅ →
     ConstructionWellFormed ctx'.spec opPtr.spec ∅ ∅ := by
-  fun_induction initOpResults
+  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  fun_induction initOpResultsSim
   · subst ctx'
     exact id
   · rename_i ih
@@ -116,19 +117,22 @@ theorem Rewriter.initOpResults_numResults {opPtr : Sim.OperationPtr}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx')
     (hindex : index.toNat ≤ resultTypes.size) :
     opPtr.spec.getNumResults! ctx'.spec = resultTypes.size := by
-  fun_induction initOpResults <;> grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
+  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  fun_induction initOpResultsSim <;> grind [Array.usize_toUInt64_toNat, UInt64.le_iff_toNat_le]
 
 theorem Rewriter.initOpResults_preserves_capResults (ptr : Veir.Buffered.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).capResults = (ptr.get! ctx.spec).capResults := by
-  fun_induction initOpResults <;> grind [Rewriter.pushResultAt_spec]
+  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  fun_induction initOpResultsSim <;> grind [Rewriter.pushResultAt_spec]
 
 theorem Rewriter.initOpResults_preserves_parent (ptr : Veir.Buffered.OperationPtr)
     {opPtr : Sim.OperationPtr} {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).parent = (ptr.get! ctx.spec).parent := by
-  fun_induction initOpResults <;> grind [Rewriter.pushResultAt_spec]
+  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  fun_induction initOpResultsSim <;> grind [Rewriter.pushResultAt_spec]
 
 /-- Completing the result loop restores the result capacity equality. -/
 theorem Rewriter.initOpResults_finishesResults {opPtr : Sim.OperationPtr}

@@ -93,7 +93,8 @@ theorem Sim.BlockPtr.allocRecycledRaw_fresh {ctx : Sim.IRContext OpInfo}
 
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
-def Sim.BlockPtr.allocRecycled (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Option (Sim.BlockPtr × Sim.IRContext OpInfo) :=
+buffed (inline := false)
+def Sim.BlockPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) : Option (Sim.BlockPtr × Sim.IRContext OpInfo) :=
   if hnumArgs : numArgs.toNat ≤ Buffed.countCard then
   match h : allocRecycledRaw ctx.buf numArgs hnumArgs with
   | none => none
@@ -115,7 +116,7 @@ def Sim.BlockPtr.allocRecycled (ctx : Sim.IRContext OpInfo) (numArgs : UInt64) :
 theorem Sim.BlockPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo} (numArgs : UInt64)
     (h : allocRecycled ctx numArgs = some (ptr, ctx')) :
     Veir.Buffered.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptr.impl.toNat = some (ctx'.spec, ptr.spec) := by
-  simp only [allocRecycled] at h
+  simp only [allocRecycled.unfold] at h
   split at h
   rotate_left
   · contradiction

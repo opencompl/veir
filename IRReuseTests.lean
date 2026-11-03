@@ -42,7 +42,7 @@ private def cycleOperation (a : EmptyArena) : Option EmptyArena := do
     unfold NoObjects at old
     cases q <;> grind [TopLevelPtr.InBounds, OperationPtr.dealloc, OperationPtr.inBounds_def]
   pure ⟨Sim.OperationPtr.dealloc c p ib (fieldsOfEmpty he), by
-    simpa only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+    simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.IRContext.spec, Erased.out_mk] using he⟩
 
 private def cycleBlock (a : EmptyArena) : Option EmptyArena := do

@@ -65,6 +65,7 @@ jobs:
           lake exe parser-tests
           lake exe allocator-tests
           lake exe ir-reuse-tests
+          python3 Tools/check-buffed-wrapper-codegen
 
       # `lit` and `filecheck` come from the image, so there is nothing to
       # install and no virtualenv to activate.

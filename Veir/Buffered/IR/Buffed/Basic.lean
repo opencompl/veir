@@ -209,123 +209,136 @@ macro "prove_setSlotBounds" ctx₀:ident : tactic => `(tactic|
 /-! ## Debugging printers -/
 
 @[inline]
-def dumpOp (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOpSim (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨op.impl.debugPrint (OpInfo := OpInfo) pref ctx.buf, ctx.spec', by rw [Buffed.OperationMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOp_eq (op : Sim.OperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOp op ctx pref = ctx := by
-  simp only [dumpOp]; congr 1
+  simp only [dumpOp.unfold]; congr 1
 
 @[inline]
-def dumpRegion (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpRegionSim (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨region.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.RegionMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpRegion_eq (region : Sim.RegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpRegion region ctx pref = ctx := by
-  simp only [dumpRegion]; congr 1
+  simp only [dumpRegion.unfold]; congr 1
 
 @[inline]
-def dumpBlock (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpBlockSim (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨block.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.BlockMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpBlock_eq (block : Sim.BlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpBlock block ctx pref = ctx := by
-  simp only [dumpBlock]; congr 1
+  simp only [dumpBlock.unfold]; congr 1
 
 @[inline]
-def dumpValue (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpValueSim (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨value.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.ValueImplMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpValue_eq (value : Sim.ValuePtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpValue value ctx pref = ctx := by
-  simp only [dumpValue]; congr 1
+  simp only [dumpValue.unfold]; congr 1
 
 @[inline]
-def dumpOpResult (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOpResultSim (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨result.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.OpResultMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOpResult_eq (result : Sim.OpResultPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOpResult result ctx pref = ctx := by
-  simp only [dumpOpResult]; congr 1
+  simp only [dumpOpResult.unfold]; congr 1
 
 @[inline]
-def dumpBlockArgument (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpBlockArgumentSim (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨arg.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.BlockArgumentMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpBlockArgument_eq (arg : Sim.BlockArgumentPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpBlockArgument arg ctx pref = ctx := by
-  simp only [dumpBlockArgument]; congr 1
+  simp only [dumpBlockArgument.unfold]; congr 1
 
 @[inline]
-def dumpOpOperand (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOpOperandSim (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.OpOperandMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOpOperand_eq (operand : Sim.OpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOpOperand operand ctx pref = ctx := by
-  simp only [dumpOpOperand]; congr 1
+  simp only [dumpOpOperand.unfold]; congr 1
 
 @[inline]
-def dumpBlockOperand (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpBlockOperandSim (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.BlockOperandMPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpBlockOperand_eq (operand : Sim.BlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpBlockOperand operand ctx pref = ctx := by
-  simp only [dumpBlockOperand]; congr 1
+  simp only [dumpBlockOperand.unfold]; congr 1
 
 /-! ### Nullable (`Option*Ptr`) dumpers — print `null` for the sentinel. -/
 
 @[inline]
-def dumpOptionOp (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOptionOpSim (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨op.impl.debugPrint (OpInfo := OpInfo) pref ctx.buf, ctx.spec', by rw [Buffed.OperationOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOptionOp_eq (op : Sim.OptionOperationPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionOp op ctx pref = ctx := by
-  simp only [dumpOptionOp]; congr 1
+  simp only [dumpOptionOp.unfold]; congr 1
 
 @[inline]
-def dumpOptionBlock (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOptionBlockSim (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨block.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.BlockOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOptionBlock_eq (block : Sim.OptionBlockPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionBlock block ctx pref = ctx := by
-  simp only [dumpOptionBlock]; congr 1
+  simp only [dumpOptionBlock.unfold]; congr 1
 
 @[inline]
-def dumpOptionRegion (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOptionRegionSim (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨region.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.RegionOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOptionRegion_eq (region : Sim.OptionRegionPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionRegion region ctx pref = ctx := by
-  simp only [dumpOptionRegion]; congr 1
+  simp only [dumpOptionRegion.unfold]; congr 1
 
 @[inline]
-def dumpOptionOpOperand (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOptionOpOperandSim (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.OpOperandOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOptionOpOperand_eq (operand : Sim.OptionOpOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionOpOperand operand ctx pref = ctx := by
-  simp only [dumpOptionOpOperand]; congr 1
+  simp only [dumpOptionOpOperand.unfold]; congr 1
 
 @[inline]
-def dumpOptionBlockOperand (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
+buffed (inline := true)
+def dumpOptionBlockOperandSim (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String := "") : Sim.IRContext OpInfo :=
   ⟨operand.impl.debugPrint pref ctx.buf, ctx.spec', by rw [Buffed.BlockOperandOPtr.debugPrint_eq]; exact ctx.sim⟩
 
 @[simp, grind =]
 theorem dumpOptionBlockOperand_eq (operand : Sim.OptionBlockOperandPtr) (ctx : Sim.IRContext OpInfo) (pref : String) :
     dumpOptionBlockOperand operand ctx pref = ctx := by
-  simp only [dumpOptionBlockOperand]; congr 1
+  simp only [dumpOptionBlockOperand.unfold]; congr 1
 
 
 /-! ## Setters and getters -/
@@ -333,7 +346,8 @@ theorem dumpOptionBlockOperand_eq (operand : Sim.OptionBlockOperandPtr) (ctx : S
 /-- Return a dead byte range to the arena. The two disjointness premises rule out
 both dangling live allocations and double-freeing an already free range. -/
 @[inline]
-def Sim.IRContext.releaseRange (ctx : Sim.IRContext OpInfo) (address size : UInt64)
+buffed (inline := true)
+def Sim.IRContext.releaseRangeSim (ctx : Sim.IRContext OpInfo) (address size : UInt64)
     (hs : 0 < size.toNat) (hb : address.toNat + size.toNat ≤ ctx.buf.mem.size)
     (hfree : ∀ s a, a ∈ ctx.buf.freeList.bucket s →
       address.toNat + size.toNat ≤ a.toNat ∨ a.toNat + s.toNat ≤ address.toNat)
@@ -582,7 +596,8 @@ private theorem BlockArgumentPtr.matches_OperationPtr_dealloc
     grind [Buffed.BlockArgumentMPtr.readOwner!]
 
 @[inline]
-def Sim.OperationPtr.forget (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec ib.ib).FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
   ⟨ctx.buf,
@@ -694,7 +709,8 @@ def Sim.OperationPtr.forget (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr
 /-- Remove the operation from the spec and return its entire byte allocation to
 the exact-size pool. Existing pointers are unchanged. -/
 @[inline]
-def Sim.OperationPtr.dealloc (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec ib.ib).FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
   let address := Buffed.OperationMPtr.allocationStart ctx.buf ptr.impl
@@ -717,7 +733,7 @@ def Sim.OperationPtr.dealloc (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPt
     exact UInt64.le_iff_toNat_le.mpr (by omega)
   let ctx' := Sim.OperationPtr.forget ctx ptr ib fib
   have hspec : ctx'.spec = ptr.spec.dealloc ctx.spec ib.ib := by
-    simp only [ctx', forget, Sim.IRContext.spec, Erased.out_mk]
+    simp only [ctx', forget.unfold, Sim.IRContext.spec, Erased.out_mk]
   ctx'.releaseRange address size (by omega) (by
     simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range, Sim.RawIRContext.spec] at hin
     change address.toNat + size.toNat ≤ ctx.buf.mem.size
@@ -749,7 +765,8 @@ def Sim.OperationPtr.dealloc (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPt
       omega)
 
 @[inline]
-def Sim.OperationPtr.setNextOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.setNextOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (nextIb : next.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeNext ctx.buf next.impl (by prove_setLinkBoundsOp ctx ptr),
     (Erased.mk (ptr.spec, ctx.spec, next.spec)).map (fun (ptr, ctx, value) => ptr.setNextOp! ctx value), by
@@ -771,13 +788,14 @@ noncomputable def Sim.OperationPtr.setNextOp! (ctx : Sim.IRContext OpInfo) (ptr 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.setNextOp_eq_setNextOp! (ctx : IRContext OpInfo) ptr next ib nextIb :
     setNextOp ctx ptr next ib nextIb = setNextOp! ctx ptr next := by
-  simp [setNextOp, setNextOp!]
+  simp [setNextOp.unfold, setNextOp!]
   split
   · grind
   · prove_setLinkBoundsOp ctx ptr
 
 @[inline]
-def Sim.OperationPtr.getNextOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getNextOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readNext ctx.buf (by prove_setLinkBoundsOp ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).next)⟩
 
@@ -786,22 +804,23 @@ theorem Sim.OperationPtr.getNextOp_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.O
     (ib : ptr.InBounds ctx) :
     (getNextOp ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_op ptr.spec (by grind)).next
-  grind [getNextOp]
+  grind [getNextOp.unfold]
 
 @[simp, grind =]
 theorem Sim.OperationPtr.getNextOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) :
     (getNextOp ctx ptr ib).spec = (ptr.spec.get ctx.spec).next := by
-  grind [getNextOp]
+  grind [getNextOp.unfold]
 
 @[inline]
-def Sim.OperationPtr.getNextOp! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def Sim.OperationPtr.getNextOp!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readNext! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).next)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getNextOp_eq_getNextOp! (ctx : IRContext OpInfo) ptr ib :
     getNextOp ctx ptr ib = getNextOp! ctx ptr := by
-  simp [getNextOp, getNextOp!] <;> grind
+  simp [getNextOp.unfold, getNextOp!.unfold] <;> grind
 
 @[inline]
 def Sim.OperationPtr.getOpType (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
@@ -838,7 +857,8 @@ theorem Sim.OperationPtr.getOpType!_eq_of_getOpTypeEncoded!_eq {ctx : Sim.IRCont
   rw [h, SerializableOpInfo.decode_encode]
 
 @[inline]
-def Sim.OperationPtr.setPrevOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (prev : Sim.OptionOperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.setPrevOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (prev : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (prevIb : prev.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writePrev ctx.buf prev.impl (by prove_setLinkBoundsOp ctx ptr), (Erased.mk (ptr.spec, ctx.spec, prev.spec)).map (fun (ptr, ctx, value) => ptr.setPrevOp! ctx value), by
     prove_setLinkSim ctx op Buffed.OperationMPtr.writePrev operationMPtr_writePrev OperationPtr_setPrevOp
@@ -859,7 +879,7 @@ noncomputable def Sim.OperationPtr.setPrevOp! (ctx : Sim.IRContext OpInfo) (ptr 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.setPrevOp_eq_setPrevOp! (ctx : IRContext OpInfo) ptr prev ib prevIb :
     setPrevOp ctx ptr prev ib prevIb = setPrevOp! ctx ptr prev := by
-  simp [setPrevOp, setPrevOp!]
+  simp [setPrevOp.unfold, setPrevOp!]
   split
   · grind
   · prove_setLinkBoundsOp ctx ptr
@@ -868,7 +888,7 @@ theorem Sim.OperationPtr.setPrevOp_eq_setPrevOp! (ctx : IRContext OpInfo) ptr pr
 theorem Sim.OperationPtr.setNextOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (nextIb : next.InBounds ctx) :
     (setNextOp ctx ptr next ib nextIb).spec = ptr.spec.setNextOp ctx.spec next.spec := by
-  grind [setNextOp]
+  grind [setNextOp.unfold]
 
 @[simp, grind =]
 theorem Sim.OperationPtr.setNextOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (next : Sim.OptionOperationPtr)
@@ -877,7 +897,8 @@ theorem Sim.OperationPtr.setNextOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
   grind
 
 @[inline]
-def Sim.OperationPtr.getPrevOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getPrevOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readPrev ctx.buf (by prove_setLinkBoundsOp ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).prev)⟩
 
@@ -885,26 +906,28 @@ def Sim.OperationPtr.getPrevOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
 theorem Sim.OperationPtr.getPrevOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) :
     (getPrevOp ctx ptr ib).spec = (ptr.spec.get ctx.spec).prev := by
-  grind [getPrevOp]
+  grind [getPrevOp.unfold]
 
 @[grind .]
 theorem Sim.OperationPtr.getPrevOp_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) :
     (getPrevOp ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_op ptr.spec (by grind)).prev
-  grind [getPrevOp]
+  grind [getPrevOp.unfold]
 
 @[inline]
-def Sim.OperationPtr.getPrevOp! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def Sim.OperationPtr.getPrevOp!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readPrev! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).prev)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getPrevOp_eq_getPrevOp! (ctx : IRContext OpInfo) ptr ib :
     getPrevOp ctx ptr ib = getPrevOp! ctx ptr := by
-  simp [getPrevOp, getPrevOp!] <;> grind
+  simp [getPrevOp.unfold, getPrevOp!.unfold] <;> grind
 
 @[inline]
-def Sim.OperationPtr.setParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (parent : Sim.OptionBlockPtr)
+buffed (inline := true)
+def Sim.OperationPtr.setParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (parent : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (parentIb : parent.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeParent ctx.buf parent.impl (by prove_setLinkBoundsOp ctx ptr), (Erased.mk (ptr.spec, ctx.spec, parent.spec)).map (fun (ptr, ctx, value) => ptr.setParent! ctx value), by
     prove_setLinkSim ctx op Buffed.OperationMPtr.writeParent operationMPtr_writeParent OperationPtr_setParent
@@ -925,7 +948,7 @@ noncomputable def Sim.OperationPtr.setParent! (ctx : Sim.IRContext OpInfo) (ptr 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.setParent_eq_setParent! (ctx : IRContext OpInfo) ptr parent ib parentIb :
     setParent ctx ptr parent ib parentIb = setParent! ctx ptr parent := by
-  simp [setParent, setParent!]
+  simp [setParent.unfold, setParent!]
   split
   · grind
   · prove_setLinkBoundsOp ctx ptr
@@ -934,7 +957,7 @@ theorem Sim.OperationPtr.setParent_eq_setParent! (ctx : IRContext OpInfo) ptr pa
 theorem Sim.OperationPtr.setPrevOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (prev : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (prevIb : prev.InBounds ctx) :
     (setPrevOp ctx ptr prev ib prevIb).spec = ptr.spec.setPrevOp ctx.spec prev.spec := by
-  grind [setPrevOp]
+  grind [setPrevOp.unfold]
 
 @[simp, grind =]
 theorem Sim.OperationPtr.setPrevOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (prev : Sim.OptionOperationPtr)
@@ -943,7 +966,8 @@ theorem Sim.OperationPtr.setPrevOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
   grind
 
 @[inline]
-def Sim.OperationPtr.getParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readParent ctx.buf (by prove_setLinkBoundsOp ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).parent)⟩
 
@@ -951,29 +975,30 @@ def Sim.OperationPtr.getParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
 theorem Sim.OperationPtr.getParent_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) :
     (getParent ctx ptr ib).spec = (ptr.spec.get ctx.spec).parent := by
-  grind [getParent]
+  grind [getParent.unfold]
 
 @[grind .]
 theorem Sim.OperationPtr.getParent_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) :
     (getParent ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_op ptr.spec (by grind)).parent
-  grind [getParent]
+  grind [getParent.unfold]
 
 @[inline]
-def Sim.OperationPtr.getParent! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : Sim.OptionBlockPtr :=
+buffed (inline := true)
+def Sim.OperationPtr.getParent!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readParent! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).parent)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getParent_eq_getParent! (ctx : IRContext OpInfo) ptr ib :
     getParent ctx ptr ib = getParent! ctx ptr := by
-  simp [getParent, getParent!] <;> grind
+  simp [getParent.unfold, getParent!.unfold] <;> grind
 
 @[simp, grind =]
 theorem Sim.OperationPtr.setParent_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (parent : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (parentIb : parent.InBounds ctx) :
     (setParent ctx ptr parent ib parentIb).spec = ptr.spec.setParent ctx.spec parent.spec := by
-  grind [setParent]
+  grind [setParent.unfold]
 
 @[simp, grind =]
 theorem Sim.OperationPtr.setParent!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (parent : Sim.OptionBlockPtr)
@@ -983,7 +1008,8 @@ theorem Sim.OperationPtr.setParent!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
 
 set_option maxHeartbeats 1000000000 in
 @[inline]
-def Sim.OperationPtr.setAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (attrs : DictionaryAttr) (_ib : ptr.InBounds ctx) : Option (Sim.IRContext OpInfo) := do
   match _ : ctx with
   | ⟨ctxBuf', ctxSpec', ctxSim⟩ =>
@@ -1291,7 +1317,7 @@ theorem Sim.OperationPtr.setAttributes_spec (ctx : Sim.IRContext OpInfo) (ptr : 
     (attrs : DictionaryAttr) (ib : ptr.InBounds ctx) {ctx' : Sim.IRContext OpInfo} :
     setAttributes ctx ptr attrs ib = some ctx' →
     ctx'.spec = ptr.spec.setAttributes ctx.spec attrs := by
-  simp only [setAttributes]; grind
+  simp only [setAttributes.unfold]; grind
 
 @[inline]
 def Sim.OperationPtr.getAttributes (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
@@ -1319,14 +1345,16 @@ theorem Sim.OperationPtr.getAttributes_eq_getAttributes! (ctx : IRContext OpInfo
   simp [getAttributes, getAttributes!] <;> grind
 
 @[inline]
-def Sim.OperationPtr.getOperandPtr (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getOperandPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.OpOperandPtr :=
   ⟨ptr.impl + ptr.impl.computeOperandOffset (OpInfo := OpInfo) ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
    ptr.spec'.map (·.getOpOperand index.toNat)⟩
 
 
 @[inline]
-def Sim.OperationPtr.getOperandPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getOperandPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.OpOperandPtr :=
   ⟨ptr.impl + ptr.impl.computeOperandOffset! (OpInfo := OpInfo) ctx.buf index,
    ptr.spec'.map (·.getOpOperand index.toNat)⟩
@@ -1334,7 +1362,7 @@ def Sim.OperationPtr.getOperandPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.Oper
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getOperandPtr_eq_getOperandPtr! (ctx : IRContext OpInfo) ptr index ib :
     getOperandPtr ctx ptr index ib = getOperandPtr! ctx ptr index := by
-  simp [getOperandPtr, getOperandPtr!]
+  simp [getOperandPtr.unfold, getOperandPtr!.unfold]
 
 /-! Loop-friendly operand accessors. `getOperandPtr` recomputes the operands base offset on every
 call, which in generic code is a `propertySizeOfEncoded` call through the boxed `HasBuffedOpCode`
@@ -1355,7 +1383,8 @@ theorem Sim.OperationPtr.getOperandsOffset_eq (ctx : Sim.IRContext OpInfo) (ptr 
   OperationPtr.computeOperandOffset_eq ctx ptr ib.ib ib.sim _
 
 @[inline]
-def Sim.OperationPtr.getOperandPtrAt (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getOperandPtrAtSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (off : Int64) (index : UInt64) (_ib : ptr.InBounds ctx)
     (_hoff : off = Buffed.Operation.Offsets.operands ptr.spec ctx.spec) : Sim.OpOperandPtr :=
   ⟨ptr.impl + (off + Buffed.OpOperand.size * index), ptr.spec'.map (·.getOpOperand index.toNat)⟩
@@ -1365,12 +1394,13 @@ theorem Sim.OperationPtr.getOperandPtrAt_eq_getOperandPtr (ctx : Sim.IRContext O
     (ptr : Sim.OperationPtr) (off : Int64) (index : UInt64) (ib : ptr.InBounds ctx)
     (hoff : off = Buffed.Operation.Offsets.operands ptr.spec ctx.spec) :
     getOperandPtrAt ctx ptr off index ib hoff = getOperandPtr ctx ptr index ib := by
-  simp only [getOperandPtrAt, getOperandPtr,
+  simp only [getOperandPtrAt.unfold, getOperandPtr.unfold,
     Buffed.OperationMPtr.computeOperandOffset]
   rw [hoff, OperationPtr.computeOperandOffset_eq ctx ptr ib.ib ib.sim]
 
 @[inline]
-def Sim.OperationPtr.getOperandPtrOf (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getOperandPtrOfSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (c : OpInfo) (index : UInt64)
     (_hty : ptr.getOpTypeEncoded! ctx = SerializableOpInfo.encode c) : Sim.OpOperandPtr :=
   ⟨ptr.impl + (Buffed.Operation.Offsets.properties + Buffed.Operation.propertySize c + Buffed.OpOperand.size * index),
@@ -1381,20 +1411,22 @@ theorem Sim.OperationPtr.getOperandPtrOf_eq_getOperandPtr! (ctx : Sim.IRContext 
     (ptr : Sim.OperationPtr) (c : OpInfo) (index : UInt64)
     (hty : ptr.getOpTypeEncoded! ctx = SerializableOpInfo.encode c) :
     getOperandPtrOf ctx ptr c index hty = getOperandPtr! ctx ptr index := by
-  rw [getOperandPtrOf]
+  rw [getOperandPtrOf.unfold]
   simp only [getOpTypeEncoded!] at hty
-  simp only [getOperandPtr!,
+  simp only [getOperandPtr!.unfold,
     Buffed.OperationMPtr.computeOperandOffset!, Buffed.OperationMPtr.computeOperandsOffset!,
     hty, HasBuffedOpCode.propertySizeOfEncoded_eq, SerializableOpInfo.decode_encode]
 
 @[inline]
-def Sim.OperationPtr.getResultPtr (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getResultPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.OpResultPtr :=
   ⟨ptr.impl + ptr.impl.computeResultOffset ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
    ptr.spec'.map (·.getResult index.toNat)⟩
 
 @[inline]
-def Sim.OperationPtr.getResultPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getResultPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.OpResultPtr :=
   ⟨ptr.impl + ptr.impl.computeResultOffset! ctx.buf index,
    ptr.spec'.map (·.getResult index.toNat)⟩
@@ -1402,16 +1434,18 @@ def Sim.OperationPtr.getResultPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.Opera
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getResultPtr_eq_getResultPtr! (ctx : IRContext OpInfo) ptr index ib :
     getResultPtr ctx ptr index ib = getResultPtr! ctx ptr index := by
-  simp [getResultPtr, getResultPtr!]
+  simp [getResultPtr.unfold, getResultPtr!.unfold]
 
 @[inline]
-def Sim.OperationPtr.getRegionPtr (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getRegionPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) (hindex : index.toNat < ptr.spec.getNumRegions! ctx.spec) : Sim.RegionPtr :=
   ⟨ptr.impl.readNthRegion (OpInfo := OpInfo) ctx.buf index (by prove_setLinkBoundsOp ctx ptr) (by prove_setLinkBoundsRegionSlot ctx ptr index),
    (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.getRegion! ctx index.toNat)⟩
 
 @[inline]
-def Sim.OperationPtr.getRegionPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getRegionPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.RegionPtr :=
   ⟨ptr.impl.readNthRegion! (OpInfo := OpInfo) ctx.buf index,
    (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.getRegion! ctx index.toNat)⟩
@@ -1419,16 +1453,18 @@ def Sim.OperationPtr.getRegionPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.Opera
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getRegionPtr_eq_getRegionPtr! (ctx : IRContext OpInfo) ptr index ib hindex :
     getRegionPtr ctx ptr index ib hindex = getRegionPtr! ctx ptr index := by
-  grind [getRegionPtr, getRegionPtr!]
+  grind [getRegionPtr.unfold, getRegionPtr!.unfold]
 
 @[inline]
-def Sim.OperationPtr.getBlockOperandPtr (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getBlockOperandPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.BlockOperandPtr :=
   ⟨ptr.impl + ptr.impl.computeBlockOperandOffset (OpInfo := OpInfo) ctx.buf index (by prove_setLinkBoundsOp ctx ptr),
    ptr.spec'.map (·.getBlockOperand index.toNat)⟩
 
 @[inline]
-def Sim.OperationPtr.getBlockOperandPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
+buffed (inline := true)
+def Sim.OperationPtr.getBlockOperandPtr!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (index : UInt64) : Sim.BlockOperandPtr :=
   ⟨ptr.impl + ptr.impl.computeBlockOperandOffset! (OpInfo := OpInfo) ctx.buf index,
    ptr.spec'.map (·.getBlockOperand index.toNat)⟩
@@ -1436,7 +1472,7 @@ def Sim.OperationPtr.getBlockOperandPtr! (ctx : Sim.IRContext OpInfo) (ptr : Sim
 @[eq_bang, grind _=_]
 theorem Sim.OperationPtr.getBlockOperandPtr_eq_getBlockOperandPtr! (ctx : IRContext OpInfo) ptr index ib :
     getBlockOperandPtr ctx ptr index ib = getBlockOperandPtr! ctx ptr index := by
-  simp [getBlockOperandPtr, getBlockOperandPtr!]
+  simp [getBlockOperandPtr.unfold, getBlockOperandPtr!.unfold]
 
 @[inline]
 def Sim.OperationPtr.getNumOperands (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr) (_ib : ptr.InBounds ctx) : UInt64 :=
@@ -1535,7 +1571,8 @@ theorem Sim.OperationPtr.getNumRegions!_spec_of_wf (ctx : IRContext OpInfo) ptr 
   grind [IRContext.WellFormed.operations]
 
 @[inline]
-def Sim.OpOperandPtr.setNextUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.setNextUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (nextUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (nextUseIb : nextUse.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeNextUse ctx.buf nextUse.impl (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, nextUse.spec)).map (fun (ptr, ctx, value) => ptr.setNextUse! ctx value), by
@@ -1558,7 +1595,7 @@ noncomputable def Sim.OpOperandPtr.setNextUse! (ctx : Sim.IRContext OpInfo) (ptr
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.setNextUse_eq_setNextUse! (ctx : IRContext OpInfo) ptr nextUse ib nextUseIb :
     setNextUse ctx ptr nextUse ib nextUseIb = setNextUse! ctx ptr nextUse := by
-  simp [setNextUse, setNextUse!]
+  simp [setNextUse.unfold, setNextUse!]
   split
   · grind
   · prove_setLinkBoundsOpOperand ctx ptr
@@ -1568,7 +1605,7 @@ theorem Sim.OpOperandPtr.setNextUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
     (nextUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (nextUseIb : nextUse.InBounds ctx) :
     (setNextUse ctx ptr nextUse ib nextUseIb).spec = ptr.spec.setNextUse ctx.spec nextUse.spec := by
-  grind [setNextUse]
+  grind [setNextUse.unfold]
 
 @[simp, grind =]
 theorem Sim.OpOperandPtr.setNextUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1578,7 +1615,8 @@ theorem Sim.OpOperandPtr.setNextUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Si
   grind
 
 @[inline]
-def Sim.OpOperandPtr.getNextUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.getNextUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readNextUse ctx.buf (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).nextUse)⟩
 
@@ -1586,7 +1624,7 @@ def Sim.OpOperandPtr.getNextUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperan
 theorem Sim.OpOperandPtr.getNextUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getNextUse ctx ptr ib).spec = (ptr.spec.get ctx.spec).nextUse := by
-  grind [getNextUse]
+  grind [getNextUse.unfold]
 
 @[grind .]
 theorem Sim.OpOperandPtr.getNextUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1595,19 +1633,21 @@ theorem Sim.OpOperandPtr.getNextUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.OpOperandPtr.inBounds_def])
     |>.operands ptr.spec (by grind) (by grind)
     |>.nextUse
-  grind [getNextUse]
+  grind [getNextUse.unfold]
 
 @[inline]
-def Sim.OpOperandPtr.getNextUse! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.OptionOpOperandPtr :=
+buffed (inline := true)
+def Sim.OpOperandPtr.getNextUse!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readNextUse! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).nextUse)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.getNextUse_eq_getNextUse! (ctx : IRContext OpInfo) ptr ib :
     getNextUse ctx ptr ib = getNextUse! ctx ptr := by
-  simp [getNextUse, getNextUse!] <;> grind
+  simp [getNextUse.unfold, getNextUse!.unfold] <;> grind
 
 @[inline]
-def Sim.OpOperandPtr.setBack (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.setBackSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (back : Sim.OpOperandPtrPtr)
     (ib : ptr.InBounds ctx) (backIb : back.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeBack ctx.buf back.impl (by prove_setLinkBoundsOpOperand ctx ptr),
@@ -1631,7 +1671,7 @@ noncomputable def Sim.OpOperandPtr.setBack! (ctx : Sim.IRContext OpInfo) (ptr : 
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.setBack_eq_setBack! (ctx : IRContext OpInfo) ptr back ib backIb :
     setBack ctx ptr back ib backIb = setBack! ctx ptr back := by
-  simp [setBack, setBack!]
+  simp [setBack.unfold, setBack!]
   split
   · grind
   · prove_setLinkBoundsOpOperand ctx ptr
@@ -1641,7 +1681,7 @@ theorem Sim.OpOperandPtr.setBack_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
     (back : Sim.OpOperandPtrPtr)
     (ib : ptr.InBounds ctx) (backIb : back.InBounds ctx) :
     (setBack ctx ptr back ib backIb).spec = ptr.spec.setBack ctx.spec back.spec := by
-  grind [setBack]
+  grind [setBack.unfold]
 
 @[simp, grind =]
 theorem Sim.OpOperandPtr.setBack!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1651,14 +1691,15 @@ theorem Sim.OpOperandPtr.setBack!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.O
   grind
 
 @[inline]
-def Sim.OpOperandPtr.getBack (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.getBackSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.OpOperandPtrPtr :=
   ⟨ptr.impl.readBack ctx.buf (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).back)⟩
 
 @[simp, grind =]
 theorem Sim.OpOperandPtr.getBack_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) (ib : ptr.InBounds ctx) :
     (getBack ctx ptr ib).spec = (ptr.spec.get ctx.spec).back := by
-  grind [getBack]
+  grind [getBack.unfold]
 
 @[grind .]
 theorem Sim.OpOperandPtr.getBack_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) (ib : ptr.InBounds ctx) :
@@ -1666,19 +1707,21 @@ theorem Sim.OpOperandPtr.getBack_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpO
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.OpOperandPtr.inBounds_def])
     |>.operands ptr.spec (by grind) (by grind)
     |>.back
-  grind [getBack]
+  grind [getBack.unfold]
 
 @[inline]
-def Sim.OpOperandPtr.getBack! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.OpOperandPtrPtr :=
+buffed (inline := true)
+def Sim.OpOperandPtr.getBack!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.OpOperandPtrPtr :=
   ⟨ptr.impl.readBack! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).back)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.getBack_eq_getBack! (ctx : IRContext OpInfo) ptr ib :
     getBack ctx ptr ib = getBack! ctx ptr := by
-  simp [getBack, getBack!] <;> grind
+  simp [getBack.unfold, getBack!.unfold] <;> grind
 
 @[inline]
-def Sim.OpOperandPtr.setOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.setOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (owner : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeOwner ctx.buf owner.impl (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, owner.spec)).map (fun (ptr, ctx, value) => ptr.setOwner! ctx value), by
@@ -1701,7 +1744,7 @@ noncomputable def Sim.OpOperandPtr.setOwner! (ctx : Sim.IRContext OpInfo) (ptr :
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.setOwner_eq_setOwner! (ctx : IRContext OpInfo) ptr owner ib ownerIb :
     setOwner ctx ptr owner ib ownerIb = setOwner! ctx ptr owner := by
-  simp [setOwner, setOwner!]
+  simp [setOwner.unfold, setOwner!]
   split
   · grind
   · prove_setLinkBoundsOpOperand ctx ptr
@@ -1711,7 +1754,7 @@ theorem Sim.OpOperandPtr.setOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.O
     (owner : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) :
     (setOwner ctx ptr owner ib ownerIb).spec = ptr.spec.setOwner ctx.spec owner.spec := by
-  grind [setOwner]
+  grind [setOwner.unfold]
 
 @[simp, grind =]
 theorem Sim.OpOperandPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1721,7 +1764,8 @@ theorem Sim.OpOperandPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.
   grind
 
 @[inline]
-def Sim.OpOperandPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.getOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.OperationPtr :=
   ⟨ptr.impl.readOwner ctx.buf (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
@@ -1729,7 +1773,7 @@ def Sim.OpOperandPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandP
 theorem Sim.OpOperandPtr.getOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getOwner ctx ptr ib).spec = (ptr.spec.get ctx.spec).owner := by
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[grind .]
 theorem Sim.OpOperandPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1738,19 +1782,21 @@ theorem Sim.OpOperandPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.OpOperandPtr.inBounds_def])
     |>.operands ptr.spec (by grind) (by grind)
     |>.owner
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[inline]
-def Sim.OpOperandPtr.getOwner! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.OperationPtr :=
+buffed (inline := true)
+def Sim.OpOperandPtr.getOwner!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.OperationPtr :=
   ⟨ptr.impl.readOwner! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.getOwner_eq_getOwner! (ctx : IRContext OpInfo) ptr ib :
     getOwner ctx ptr ib = getOwner! ctx ptr := by
-  simp [getOwner, getOwner!] <;> grind
+  simp [getOwner.unfold, getOwner!.unfold] <;> grind
 
 @[inline]
-def Sim.OpOperandPtr.setValue (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.setValueSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (value : Sim.ValuePtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeValue ctx.buf value.impl (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, value.spec)).map (fun (ptr, ctx, value) => ptr.setValue! ctx value), by
@@ -1773,7 +1819,7 @@ noncomputable def Sim.OpOperandPtr.setValue! (ctx : Sim.IRContext OpInfo) (ptr :
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.setValue_eq_setValue! (ctx : IRContext OpInfo) ptr value ib valueIb :
     setValue ctx ptr value ib valueIb = setValue! ctx ptr value := by
-  simp [setValue, setValue!]
+  simp [setValue.unfold, setValue!]
   split
   · grind
   · prove_setLinkBoundsOpOperand ctx ptr
@@ -1783,7 +1829,7 @@ theorem Sim.OpOperandPtr.setValue_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.O
     (value : Sim.ValuePtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) :
     (setValue ctx ptr value ib valueIb).spec = ptr.spec.setValue ctx.spec value.spec := by
-  grind [setValue]
+  grind [setValue.unfold]
 
 @[simp, grind =]
 theorem Sim.OpOperandPtr.setValue!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1793,7 +1839,8 @@ theorem Sim.OpOperandPtr.setValue!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.
   grind
 
 @[inline]
-def Sim.OpOperandPtr.getValue (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
+buffed (inline := true)
+def Sim.OpOperandPtr.getValueSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.ValuePtr :=
   ⟨ptr.impl.readValue ctx.buf (by prove_setLinkBoundsOpOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).value)⟩
 
@@ -1801,7 +1848,7 @@ def Sim.OpOperandPtr.getValue (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandP
 theorem Sim.OpOperandPtr.getValue_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getValue ctx ptr ib).spec = (ptr.spec.get ctx.spec).value := by
-  grind [getValue]
+  grind [getValue.unfold]
 
 @[grind .]
 theorem Sim.OpOperandPtr.getValue_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr)
@@ -1809,19 +1856,21 @@ theorem Sim.OpOperandPtr.getValue_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
     (getValue ctx ptr ib).Sim ctx.inner := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.OpOperandPtr.inBounds_def])
     |>.operands ptr.spec (by grind) (by grind) |>.value
-  grind [getValue]
+  grind [getValue.unfold]
 
 @[inline]
-def Sim.OpOperandPtr.getValue! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.ValuePtr :=
+buffed (inline := true)
+def Sim.OpOperandPtr.getValue!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtr) : Sim.ValuePtr :=
   ⟨ptr.impl.readValue! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).value)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtr.getValue_eq_getValue! (ctx : IRContext OpInfo) ptr ib :
     getValue ctx ptr ib = getValue! ctx ptr := by
-  simp [getValue, getValue!] <;> grind
+  simp [getValue.unfold, getValue!.unfold] <;> grind
 
 @[inline]
-def Sim.OpResultPtr.setFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
+buffed (inline := true)
+def Sim.OpResultPtr.setFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
     (firstUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeFirstUse ctx.buf firstUse.impl (by prove_setLinkBoundsOpResult ctx ptr), (Erased.mk (ptr.spec, ctx.spec, firstUse.spec)).map (fun (ptr, ctx, value) => ptr.setFirstUse! ctx value), by
@@ -1844,7 +1893,7 @@ noncomputable def Sim.OpResultPtr.setFirstUse! (ctx : Sim.IRContext OpInfo) (ptr
 @[eq_bang, grind _=_]
 theorem Sim.OpResultPtr.setFirstUse_eq_setFirstUse! (ctx : IRContext OpInfo) ptr firstUse ib firstUseIb :
     setFirstUse ctx ptr firstUse ib firstUseIb = setFirstUse! ctx ptr firstUse := by
-  simp [setFirstUse, setFirstUse!]
+  simp [setFirstUse.unfold, setFirstUse!]
   split
   · grind
   · prove_setLinkBoundsOpResult ctx ptr
@@ -1854,7 +1903,7 @@ theorem Sim.OpResultPtr.setFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
     (firstUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) :
     (setFirstUse ctx ptr firstUse ib firstUseIb).spec = ptr.spec.setFirstUse ctx.spec firstUse.spec := by
-  grind [setFirstUse]
+  grind [setFirstUse.unfold]
 
 @[simp, grind =]
 theorem Sim.OpResultPtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
@@ -1864,7 +1913,8 @@ theorem Sim.OpResultPtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Si
   grind
 
 @[inline]
-def Sim.OpResultPtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
+buffed (inline := true)
+def Sim.OpResultPtr.getFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readFirstUse ctx.buf (by prove_setLinkBoundsOpResult ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstUse)⟩
 
@@ -1872,7 +1922,7 @@ def Sim.OpResultPtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResult
 theorem Sim.OpResultPtr.getFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstUse ctx ptr ib).spec = (ptr.spec.get ctx.spec).firstUse := by
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[grind .]
 theorem Sim.OpResultPtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
@@ -1880,19 +1930,21 @@ theorem Sim.OpResultPtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.
     (getFirstUse ctx ptr ib).Sim ctx.inner := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.OpResultPtr.inBounds_def])
     |>.results ptr.spec (by grind) (by grind) |>.firstUse
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[inline]
-def Sim.OpResultPtr.getFirstUse! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr) : Sim.OptionOpOperandPtr :=
+buffed (inline := true)
+def Sim.OpResultPtr.getFirstUse!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readFirstUse! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstUse)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OpResultPtr.getFirstUse_eq_getFirstUse! (ctx : IRContext OpInfo) ptr ib :
     getFirstUse ctx ptr ib = getFirstUse! ctx ptr := by
-  simp [getFirstUse, getFirstUse!] <;> grind
+  simp [getFirstUse.unfold, getFirstUse!.unfold] <;> grind
 
 @[inline]
-def Sim.OpResultPtr.setOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
+buffed (inline := true)
+def Sim.OpResultPtr.setOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
     (owner : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeOwner ctx.buf owner.impl (by prove_setLinkBoundsOpResult ctx ptr), (Erased.mk (ptr.spec, ctx.spec, owner.spec)).map (fun (ptr, ctx, value) => ptr.setOwner! ctx value), by
@@ -1915,7 +1967,7 @@ noncomputable def Sim.OpResultPtr.setOwner! (ctx : Sim.IRContext OpInfo) (ptr : 
 @[eq_bang, grind _=_]
 theorem Sim.OpResultPtr.setOwner_eq_setOwner! (ctx : IRContext OpInfo) ptr owner ib ownerIb :
     setOwner ctx ptr owner ib ownerIb = setOwner! ctx ptr owner := by
-  simp [setOwner, setOwner!]
+  simp [setOwner.unfold, setOwner!]
   split
   · grind
   · prove_setLinkBoundsOpResult ctx ptr
@@ -1925,7 +1977,7 @@ theorem Sim.OpResultPtr.setOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
     (owner : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) :
     (setOwner ctx ptr owner ib ownerIb).spec = ptr.spec.setOwner ctx.spec owner.spec := by
-  grind [setOwner]
+  grind [setOwner.unfold]
 
 @[simp, grind =]
 theorem Sim.OpResultPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
@@ -1935,7 +1987,8 @@ theorem Sim.OpResultPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.O
   grind
 
 @[inline]
-def Sim.OpResultPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
+buffed (inline := true)
+def Sim.OpResultPtr.getOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
     (ib : ptr.InBounds ctx) : Sim.OperationPtr :=
   ⟨ptr.impl.readOwner ctx.buf (by prove_setLinkBoundsOpResult ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
@@ -1943,7 +1996,7 @@ def Sim.OpResultPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr
 theorem Sim.OpResultPtr.getOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
     (ib : ptr.InBounds ctx) :
     (getOwner ctx ptr ib).spec = (ptr.spec.get ctx.spec).owner := by
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[grind .]
 theorem Sim.OpResultPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr)
@@ -1951,19 +2004,21 @@ theorem Sim.OpResultPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpR
     (getOwner ctx ptr ib).Sim := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.OpResultPtr.inBounds_def])
     |>.results ptr.spec (by grind) (by grind) |>.owner
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[inline]
-def Sim.OpResultPtr.getOwner! (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr) : Sim.OperationPtr :=
+buffed (inline := true)
+def Sim.OpResultPtr.getOwner!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpResultPtr) : Sim.OperationPtr :=
   ⟨ptr.impl.readOwner! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.OpResultPtr.getOwner_eq_getOwner! (ctx : IRContext OpInfo) ptr ib :
     getOwner ctx ptr ib = getOwner! ctx ptr := by
-  simp [getOwner, getOwner!] <;> grind
+  simp [getOwner.unfold, getOwner!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockArgumentPtr.setFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
+buffed (inline := true)
+def Sim.BlockArgumentPtr.setFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (firstUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeFirstUse ctx.buf firstUse.impl (by prove_setLinkBoundsBlockArgument ctx ptr), (Erased.mk (ptr.spec, ctx.spec, firstUse.spec)).map (fun (ptr, ctx, value) => ptr.setFirstUse! ctx value), by
@@ -1986,7 +2041,7 @@ noncomputable def Sim.BlockArgumentPtr.setFirstUse! (ctx : Sim.IRContext OpInfo)
 @[eq_bang, grind _=_]
 theorem Sim.BlockArgumentPtr.setFirstUse_eq_setFirstUse! (ctx : IRContext OpInfo) ptr firstUse ib firstUseIb :
     setFirstUse ctx ptr firstUse ib firstUseIb = setFirstUse! ctx ptr firstUse := by
-  simp [setFirstUse, setFirstUse!]
+  simp [setFirstUse.unfold, setFirstUse!]
   split
   · grind
   · prove_setLinkBoundsBlockArgument ctx ptr
@@ -1996,7 +2051,7 @@ theorem Sim.BlockArgumentPtr.setFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr 
     (firstUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) :
     (setFirstUse ctx ptr firstUse ib firstUseIb).spec = ptr.spec.setFirstUse ctx.spec firstUse.spec := by
-  grind [setFirstUse]
+  grind [setFirstUse.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockArgumentPtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
@@ -2006,7 +2061,8 @@ theorem Sim.BlockArgumentPtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr
   grind
 
 @[inline]
-def Sim.BlockArgumentPtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
+buffed (inline := true)
+def Sim.BlockArgumentPtr.getFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readFirstUse ctx.buf (by prove_setLinkBoundsBlockArgument ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstUse)⟩
 
@@ -2014,7 +2070,7 @@ def Sim.BlockArgumentPtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.Blo
 theorem Sim.BlockArgumentPtr.getFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstUse ctx ptr ib).spec = (ptr.spec.get ctx.spec).firstUse := by
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[grind .]
 theorem Sim.BlockArgumentPtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
@@ -2022,19 +2078,21 @@ theorem Sim.BlockArgumentPtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr :
     (getFirstUse ctx ptr ib).Sim ctx.inner := by
   have := ctx.sim.encoding_block ptr.spec.block (by grind [Veir.Buffered.BlockArgumentPtr.inBounds_def])
    |>.arguments ptr.spec (by grind) (by grind) |>.firstUse
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[inline]
-def Sim.BlockArgumentPtr.getFirstUse! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr) : Sim.OptionOpOperandPtr :=
+buffed (inline := true)
+def Sim.BlockArgumentPtr.getFirstUse!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readFirstUse! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstUse)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockArgumentPtr.getFirstUse_eq_getFirstUse! (ctx : IRContext OpInfo) ptr ib :
     getFirstUse ctx ptr ib = getFirstUse! ctx ptr := by
-  simp [getFirstUse, getFirstUse!] <;> grind
+  simp [getFirstUse.unfold, getFirstUse!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockArgumentPtr.setIndex (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
+buffed (inline := true)
+def Sim.BlockArgumentPtr.setIndexSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (index : UInt64) (ib : ptr.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeIndex ctx.buf index (by prove_setLinkBoundsBlockArgument ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.setIndex! ctx index.toNat), by
     prove_setLinkSim ctx ba Buffed.BlockArgumentMPtr.writeIndex blockArgumentMPtr_writeIndex BlockArgumentPtr_setIndex
@@ -2056,7 +2114,7 @@ noncomputable def Sim.BlockArgumentPtr.setIndex! (ctx : Sim.IRContext OpInfo) (p
 @[eq_bang, grind _=_]
 theorem Sim.BlockArgumentPtr.setIndex_eq_setIndex! (ctx : IRContext OpInfo) ptr index ib :
     setIndex ctx ptr index ib = setIndex! ctx ptr index := by
-  simp [setIndex, setIndex!]
+  simp [setIndex.unfold, setIndex!]
   split
   · grind
   · prove_setLinkBoundsBlockArgument ctx ptr
@@ -2066,7 +2124,7 @@ theorem Sim.BlockArgumentPtr.setIndex_spec (ctx : Sim.IRContext OpInfo) (ptr : S
     (index : UInt64)
     (ib : ptr.InBounds ctx) :
     (setIndex ctx ptr index ib).spec = ptr.spec.setIndex ctx.spec index.toNat := by
-  grind [setIndex]
+  grind [setIndex.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockArgumentPtr.setIndex!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
@@ -2091,7 +2149,8 @@ theorem Sim.BlockArgumentPtr.getIndex_eq_getIndex! (ctx : IRContext OpInfo) ptr 
   simp [getIndex, getIndex!]
 
 @[inline]
-def Sim.BlockArgumentPtr.setOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
+buffed (inline := true)
+def Sim.BlockArgumentPtr.setOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (owner : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeOwner ctx.buf owner.impl (by prove_setLinkBoundsBlockArgument ctx ptr), (Erased.mk (ptr.spec, ctx.spec, owner.spec)).map (fun (ptr, ctx, value) => ptr.setOwner! ctx value), by
@@ -2114,7 +2173,7 @@ noncomputable def Sim.BlockArgumentPtr.setOwner! (ctx : Sim.IRContext OpInfo) (p
 @[eq_bang, grind _=_]
 theorem Sim.BlockArgumentPtr.setOwner_eq_setOwner! (ctx : IRContext OpInfo) ptr owner ib ownerIb :
     setOwner ctx ptr owner ib ownerIb = setOwner! ctx ptr owner := by
-  simp [setOwner, setOwner!]
+  simp [setOwner.unfold, setOwner!]
   split
   · grind
   · prove_setLinkBoundsBlockArgument ctx ptr
@@ -2124,7 +2183,7 @@ theorem Sim.BlockArgumentPtr.setOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : S
     (owner : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) :
     (setOwner ctx ptr owner ib ownerIb).spec = ptr.spec.setOwner ctx.spec owner.spec := by
-  grind [setOwner]
+  grind [setOwner.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockArgumentPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
@@ -2134,7 +2193,8 @@ theorem Sim.BlockArgumentPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : 
   grind
 
 @[inline]
-def Sim.BlockArgumentPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
+buffed (inline := true)
+def Sim.BlockArgumentPtr.getOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (ib : ptr.InBounds ctx) : Sim.BlockPtr :=
   ⟨ptr.impl.readOwner ctx.buf (by prove_setLinkBoundsBlockArgument ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
@@ -2142,7 +2202,7 @@ def Sim.BlockArgumentPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockA
 theorem Sim.BlockArgumentPtr.getOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
     (ib : ptr.InBounds ctx) :
     (getOwner ctx ptr ib).spec = (ptr.spec.get ctx.spec).owner := by
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[grind .]
 theorem Sim.BlockArgumentPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr)
@@ -2150,19 +2210,21 @@ theorem Sim.BlockArgumentPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Si
     (getOwner ctx ptr ib).Sim := by
   have := ctx.sim.encoding_block ptr.spec.block (by grind [Veir.Buffered.BlockArgumentPtr.inBounds_def])
     |>.arguments ptr.spec (by grind) (by grind) |>.owner
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[inline]
-def Sim.BlockArgumentPtr.getOwner! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr) : Sim.BlockPtr :=
+buffed (inline := true)
+def Sim.BlockArgumentPtr.getOwner!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockArgumentPtr) : Sim.BlockPtr :=
   ⟨ptr.impl.readOwner! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockArgumentPtr.getOwner_eq_getOwner! (ctx : IRContext OpInfo) ptr ib :
     getOwner ctx ptr ib = getOwner! ctx ptr := by
-  simp [getOwner, getOwner!] <;> grind
+  simp [getOwner.unfold, getOwner!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockOperandPtr.setNextUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.setNextUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (nextUse : Sim.OptionBlockOperandPtr)
     (ib : ptr.InBounds ctx) (nextUseIb : nextUse.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeNextUse ctx.buf nextUse.impl (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, nextUse.spec)).map (fun (ptr, ctx, value) => ptr.setNextUse! ctx value), by
@@ -2185,7 +2247,7 @@ noncomputable def Sim.BlockOperandPtr.setNextUse! (ctx : Sim.IRContext OpInfo) (
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.setNextUse_eq_setNextUse! (ctx : IRContext OpInfo) ptr nextUse ib nextUseIb :
     setNextUse ctx ptr nextUse ib nextUseIb = setNextUse! ctx ptr nextUse := by
-  simp [setNextUse, setNextUse!]
+  simp [setNextUse.unfold, setNextUse!]
   split
   · grind
   · prove_setLinkBoundsBlockOperand ctx ptr
@@ -2195,7 +2257,7 @@ theorem Sim.BlockOperandPtr.setNextUse_spec (ctx : Sim.IRContext OpInfo) (ptr : 
     (nextUse : Sim.OptionBlockOperandPtr)
     (ib : ptr.InBounds ctx) (nextUseIb : nextUse.InBounds ctx) :
     (setNextUse ctx ptr nextUse ib nextUseIb).spec = ptr.spec.setNextUse ctx.spec nextUse.spec := by
-  grind [setNextUse]
+  grind [setNextUse.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockOperandPtr.setNextUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2205,7 +2267,8 @@ theorem Sim.BlockOperandPtr.setNextUse!_spec (ctx : Sim.IRContext OpInfo) (ptr :
   grind
 
 @[inline]
-def Sim.BlockOperandPtr.getNextUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.getNextUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockOperandPtr :=
   ⟨ptr.impl.readNextUse ctx.buf (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).nextUse)⟩
 
@@ -2213,7 +2276,7 @@ def Sim.BlockOperandPtr.getNextUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.Block
 theorem Sim.BlockOperandPtr.getNextUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getNextUse ctx ptr ib).spec = (ptr.spec.get ctx.spec).nextUse := by
-  grind [getNextUse]
+  grind [getNextUse.unfold]
 
 @[grind .]
 theorem Sim.BlockOperandPtr.getNextUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2221,19 +2284,21 @@ theorem Sim.BlockOperandPtr.getNextUse_sim (ctx : Sim.IRContext OpInfo) (ptr : S
     (getNextUse ctx ptr ib).Sim ctx.inner := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.BlockOperandPtr.inBounds_def])
     |>.blockOperands ptr.spec (by grind) (by grind) |>.nextUse
-  grind [getNextUse]
+  grind [getNextUse.unfold]
 
 @[inline]
-def Sim.BlockOperandPtr.getNextUse! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.OptionBlockOperandPtr :=
+buffed (inline := true)
+def Sim.BlockOperandPtr.getNextUse!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.OptionBlockOperandPtr :=
   ⟨ptr.impl.readNextUse! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).nextUse)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.getNextUse_eq_getNextUse! (ctx : IRContext OpInfo) ptr ib :
     getNextUse ctx ptr ib = getNextUse! ctx ptr := by
-  simp [getNextUse, getNextUse!] <;> grind
+  simp [getNextUse.unfold, getNextUse!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockOperandPtr.setBack (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.setBackSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (back : Sim.BlockOperandPtrPtr)
     (ib : ptr.InBounds ctx) (backIb : back.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeBack ctx.buf back.impl (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, back.spec)).map (fun (ptr, ctx, value) => ptr.setBack! ctx value), by
@@ -2256,7 +2321,7 @@ noncomputable def Sim.BlockOperandPtr.setBack! (ctx : Sim.IRContext OpInfo) (ptr
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.setBack_eq_setBack! (ctx : IRContext OpInfo) ptr back ib backIb :
     setBack ctx ptr back ib backIb = setBack! ctx ptr back := by
-  simp [setBack, setBack!]
+  simp [setBack.unfold, setBack!]
   split
   · grind
   · prove_setLinkBoundsBlockOperand ctx ptr
@@ -2266,7 +2331,7 @@ theorem Sim.BlockOperandPtr.setBack_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
     (back : Sim.BlockOperandPtrPtr)
     (ib : ptr.InBounds ctx) (backIb : back.InBounds ctx) :
     (setBack ctx ptr back ib backIb).spec = ptr.spec.setBack ctx.spec back.spec := by
-  grind [setBack]
+  grind [setBack.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockOperandPtr.setBack!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2276,7 +2341,8 @@ theorem Sim.BlockOperandPtr.setBack!_spec (ctx : Sim.IRContext OpInfo) (ptr : Si
   grind
 
 @[inline]
-def Sim.BlockOperandPtr.getBack (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.getBackSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.BlockOperandPtrPtr :=
   ⟨ptr.impl.readBack ctx.buf (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).back)⟩
 
@@ -2284,7 +2350,7 @@ def Sim.BlockOperandPtr.getBack (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOpe
 theorem Sim.BlockOperandPtr.getBack_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getBack ctx ptr ib).spec = (ptr.spec.get ctx.spec).back := by
-  grind [getBack]
+  grind [getBack.unfold]
 
 @[grind .]
 theorem Sim.BlockOperandPtr.getBack_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2292,19 +2358,21 @@ theorem Sim.BlockOperandPtr.getBack_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.
     (getBack ctx ptr ib).Sim ctx.inner := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.BlockOperandPtr.inBounds_def])
     |>.blockOperands ptr.spec (by grind) (by grind) |>.back
-  grind [getBack]
+  grind [getBack.unfold]
 
 @[inline]
-def Sim.BlockOperandPtr.getBack! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.BlockOperandPtrPtr :=
+buffed (inline := true)
+def Sim.BlockOperandPtr.getBack!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.BlockOperandPtrPtr :=
   ⟨ptr.impl.readBack! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).back)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.getBack_eq_getBack! (ctx : IRContext OpInfo) ptr ib :
     getBack ctx ptr ib = getBack! ctx ptr := by
-  simp [getBack, getBack!] <;> grind
+  simp [getBack.unfold, getBack!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockOperandPtr.setOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.setOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (owner : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeOwner ctx.buf owner.impl (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, owner.spec)).map (fun (ptr, ctx, value) => ptr.setOwner! ctx value), by
@@ -2327,7 +2395,7 @@ noncomputable def Sim.BlockOperandPtr.setOwner! (ctx : Sim.IRContext OpInfo) (pt
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.setOwner_eq_setOwner! (ctx : IRContext OpInfo) ptr owner ib ownerIb :
     setOwner ctx ptr owner ib ownerIb = setOwner! ctx ptr owner := by
-  simp [setOwner, setOwner!]
+  simp [setOwner.unfold, setOwner!]
   split
   · grind
   · prove_setLinkBoundsBlockOperand ctx ptr
@@ -2337,7 +2405,7 @@ theorem Sim.BlockOperandPtr.setOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Si
     (owner : Sim.OperationPtr)
     (ib : ptr.InBounds ctx) (ownerIb : owner.InBounds ctx) :
     (setOwner ctx ptr owner ib ownerIb).spec = ptr.spec.setOwner ctx.spec owner.spec := by
-  grind [setOwner]
+  grind [setOwner.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockOperandPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2347,7 +2415,8 @@ theorem Sim.BlockOperandPtr.setOwner!_spec (ctx : Sim.IRContext OpInfo) (ptr : S
   grind
 
 @[inline]
-def Sim.BlockOperandPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.getOwnerSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.OperationPtr :=
   ⟨ptr.impl.readOwner ctx.buf (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
@@ -2355,7 +2424,7 @@ def Sim.BlockOperandPtr.getOwner (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOp
 theorem Sim.BlockOperandPtr.getOwner_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getOwner ctx ptr ib).spec = (ptr.spec.get ctx.spec).owner := by
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[grind .]
 theorem Sim.BlockOperandPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2363,19 +2432,21 @@ theorem Sim.BlockOperandPtr.getOwner_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim
     (getOwner ctx ptr ib).Sim := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.BlockOperandPtr.inBounds_def])
     |>.blockOperands ptr.spec (by grind) (by grind) |>.owner
-  grind [getOwner]
+  grind [getOwner.unfold]
 
 @[inline]
-def Sim.BlockOperandPtr.getOwner! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.OperationPtr :=
+buffed (inline := true)
+def Sim.BlockOperandPtr.getOwner!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.OperationPtr :=
   ⟨ptr.impl.readOwner! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).owner)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.getOwner_eq_getOwner! (ctx : IRContext OpInfo) ptr ib :
     getOwner ctx ptr ib = getOwner! ctx ptr := by
-  simp [getOwner, getOwner!] <;> grind
+  simp [getOwner.unfold, getOwner!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockOperandPtr.setValue (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.setValueSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (value : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeValue ctx.buf value.impl (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec, value.spec)).map (fun (ptr, ctx, value) => ptr.setValue! ctx value), by
@@ -2398,7 +2469,7 @@ noncomputable def Sim.BlockOperandPtr.setValue! (ctx : Sim.IRContext OpInfo) (pt
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.setValue_eq_setValue! (ctx : IRContext OpInfo) ptr value ib valueIb :
     setValue ctx ptr value ib valueIb = setValue! ctx ptr value := by
-  simp [setValue, setValue!]
+  simp [setValue.unfold, setValue!]
   split
   · grind
   · prove_setLinkBoundsBlockOperand ctx ptr
@@ -2408,7 +2479,7 @@ theorem Sim.BlockOperandPtr.setValue_spec (ctx : Sim.IRContext OpInfo) (ptr : Si
     (value : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) :
     (setValue ctx ptr value ib valueIb).spec = ptr.spec.setValue ctx.spec value.spec := by
-  grind [setValue]
+  grind [setValue.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockOperandPtr.setValue!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2418,7 +2489,8 @@ theorem Sim.BlockOperandPtr.setValue!_spec (ctx : Sim.IRContext OpInfo) (ptr : S
   grind
 
 @[inline]
-def Sim.BlockOperandPtr.getValue (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtr.getValueSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) : Sim.BlockPtr :=
   ⟨ptr.impl.readValue ctx.buf (by prove_setLinkBoundsBlockOperand ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).value)⟩
 
@@ -2426,7 +2498,7 @@ def Sim.BlockOperandPtr.getValue (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOp
 theorem Sim.BlockOperandPtr.getValue_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
     (ib : ptr.InBounds ctx) :
     (getValue ctx ptr ib).spec = (ptr.spec.get ctx.spec).value := by
-  grind [getValue]
+  grind [getValue.unfold]
 
 @[grind .]
 theorem Sim.BlockOperandPtr.getValue_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr)
@@ -2434,16 +2506,17 @@ theorem Sim.BlockOperandPtr.getValue_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim
     (getValue ctx ptr ib).Sim := by
   have := ctx.sim.encoding_op ptr.spec.op (by grind [Veir.Buffered.BlockOperandPtr.inBounds_def])
     |>.blockOperands ptr.spec (by grind) (by grind) |>.value
-  grind [getValue]
+  grind [getValue.unfold]
 
 @[inline]
-def Sim.BlockOperandPtr.getValue! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.BlockPtr :=
+buffed (inline := true)
+def Sim.BlockOperandPtr.getValue!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtr) : Sim.BlockPtr :=
   ⟨ptr.impl.readValue! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).value)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtr.getValue_eq_getValue! (ctx : IRContext OpInfo) ptr ib :
     getValue ctx ptr ib = getValue! ctx ptr := by
-  simp [getValue, getValue!] <;> grind
+  simp [getValue.unfold, getValue!.unfold] <;> grind
 
 @[inline]
 def Sim.BlockPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext) (numArgs : UInt64)
@@ -3023,7 +3096,8 @@ theorem Sim.BlockPtr.allocEmpty_spec {ctx : Sim.IRContext OpInfo} numArgs :
   fun h => ⟨ptr.impl.toNat, Sim.BlockPtr.allocEmpty_spec' numArgs h⟩
 
 @[inline]
-def Sim.BlockPtr.setParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.setParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (parent : Sim.OptionRegionPtr)
     (ib : ptr.InBounds ctx) (parentIb : parent.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeParent ctx.buf parent.impl (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec, parent.spec)).map (fun (ptr, ctx, value) => ptr.setParent! ctx value), by
@@ -3046,7 +3120,7 @@ noncomputable def Sim.BlockPtr.setParent! (ctx : Sim.IRContext OpInfo) (ptr : Si
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.setParent_eq_setParent! (ctx : IRContext OpInfo) ptr parent ib parentIb :
     setParent ctx ptr parent ib parentIb = setParent! ctx ptr parent := by
-  simp [setParent, setParent!]
+  simp [setParent.unfold, setParent!]
   split
   · grind
   · prove_setLinkBoundsBlock ctx ptr
@@ -3056,7 +3130,7 @@ theorem Sim.BlockPtr.setParent_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Bloc
     (parent : Sim.OptionRegionPtr)
     (ib : ptr.InBounds ctx) (parentIb : parent.InBounds ctx) :
     (setParent ctx ptr parent ib parentIb).spec = ptr.spec.setParent ctx.spec parent.spec := by
-  grind [setParent]
+  grind [setParent.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockPtr.setParent!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3066,7 +3140,8 @@ theorem Sim.BlockPtr.setParent!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Blo
   grind
 
 @[inline]
-def Sim.BlockPtr.getParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionRegionPtr :=
   ⟨ptr.impl.readParent ctx.buf (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).parent)⟩
 
@@ -3074,26 +3149,28 @@ def Sim.BlockPtr.getParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getParent_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getParent ctx ptr ib).spec = (ptr.spec.get ctx.spec).parent := by
-  grind [getParent]
+  grind [getParent.unfold]
 
 @[grind .]
 theorem Sim.BlockPtr.getParent_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getParent ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_block ptr.spec (by grind)).parent
-  grind [getParent]
+  grind [getParent.unfold]
 
 @[inline]
-def Sim.BlockPtr.getParent! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionRegionPtr :=
+buffed (inline := true)
+def Sim.BlockPtr.getParent!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionRegionPtr :=
   ⟨ptr.impl.readParent! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).parent)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getParent_eq_getParent! (ctx : IRContext OpInfo) ptr ib :
     getParent ctx ptr ib = getParent! ctx ptr := by
-  simp [getParent, getParent!] <;> grind
+  simp [getParent.unfold, getParent!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockPtr.setFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.setFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (firstUse : Sim.OptionBlockOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeFirstUse ctx.buf firstUse.impl (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec, firstUse.spec)).map (fun (ptr, ctx, value) => ptr.setFirstUse! ctx value), by
@@ -3116,7 +3193,7 @@ noncomputable def Sim.BlockPtr.setFirstUse! (ctx : Sim.IRContext OpInfo) (ptr : 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.setFirstUse_eq_setFirstUse! (ctx : IRContext OpInfo) ptr firstUse ib firstUseIb :
     setFirstUse ctx ptr firstUse ib firstUseIb = setFirstUse! ctx ptr firstUse := by
-  simp [setFirstUse, setFirstUse!]
+  simp [setFirstUse.unfold, setFirstUse!]
   split
   · grind
   · prove_setLinkBoundsBlock ctx ptr
@@ -3126,7 +3203,7 @@ theorem Sim.BlockPtr.setFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Bl
     (firstUse : Sim.OptionBlockOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) :
     (setFirstUse ctx ptr firstUse ib firstUseIb).spec = ptr.spec.setFirstUse ctx.spec firstUse.spec := by
-  grind [setFirstUse]
+  grind [setFirstUse.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockPtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3136,7 +3213,8 @@ theorem Sim.BlockPtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.B
   grind
 
 @[inline]
-def Sim.BlockPtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockOperandPtr :=
   ⟨ptr.impl.readFirstUse ctx.buf (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstUse)⟩
 
@@ -3144,26 +3222,28 @@ def Sim.BlockPtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstUse ctx ptr ib).spec = (ptr.spec.get ctx.spec).firstUse := by
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[grind .]
 theorem Sim.BlockPtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstUse ctx ptr ib).Sim ctx.inner := by
   have := (ctx.sim.encoding_block ptr.spec (by grind)).firstUse
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[inline]
-def Sim.BlockPtr.getFirstUse! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionBlockOperandPtr :=
+buffed (inline := true)
+def Sim.BlockPtr.getFirstUse!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionBlockOperandPtr :=
   ⟨ptr.impl.readFirstUse! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstUse)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getFirstUse_eq_getFirstUse! (ctx : IRContext OpInfo) ptr ib :
     getFirstUse ctx ptr ib = getFirstUse! ctx ptr := by
-  simp [getFirstUse, getFirstUse!] <;> grind
+  simp [getFirstUse.unfold, getFirstUse!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockPtr.setFirstOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.setFirstOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (firstOp : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (firstOpIb : firstOp.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeFirstOp ctx.buf firstOp.impl (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec, firstOp.spec)).map (fun (ptr, ctx, value) => ptr.setFirstOp! ctx value), by
@@ -3186,7 +3266,7 @@ noncomputable def Sim.BlockPtr.setFirstOp! (ctx : Sim.IRContext OpInfo) (ptr : S
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.setFirstOp_eq_setFirstOp! (ctx : IRContext OpInfo) ptr firstOp ib firstOpIb :
     setFirstOp ctx ptr firstOp ib firstOpIb = setFirstOp! ctx ptr firstOp := by
-  simp [setFirstOp, setFirstOp!]
+  simp [setFirstOp.unfold, setFirstOp!]
   split
   · grind
   · prove_setLinkBoundsBlock ctx ptr
@@ -3196,7 +3276,7 @@ theorem Sim.BlockPtr.setFirstOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Blo
     (firstOp : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (firstOpIb : firstOp.InBounds ctx) :
     (setFirstOp ctx ptr firstOp ib firstOpIb).spec = ptr.spec.setFirstOp ctx.spec firstOp.spec := by
-  grind [setFirstOp]
+  grind [setFirstOp.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockPtr.setFirstOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3206,7 +3286,8 @@ theorem Sim.BlockPtr.setFirstOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Bl
   grind
 
 @[inline]
-def Sim.BlockPtr.getFirstOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getFirstOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readFirstOp ctx.buf (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstOp)⟩
 
@@ -3214,26 +3295,28 @@ def Sim.BlockPtr.getFirstOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getFirstOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstOp ctx ptr ib).spec = (ptr.spec.get ctx.spec).firstOp := by
-  grind [getFirstOp]
+  grind [getFirstOp.unfold]
 
 @[grind .]
 theorem Sim.BlockPtr.getFirstOp_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstOp ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_block ptr.spec (by grind)).firstOp
-  grind [getFirstOp]
+  grind [getFirstOp.unfold]
 
 @[inline]
-def Sim.BlockPtr.getFirstOp! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def Sim.BlockPtr.getFirstOp!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readFirstOp! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstOp)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getFirstOp_eq_getFirstOp! (ctx : IRContext OpInfo) ptr ib :
     getFirstOp ctx ptr ib = getFirstOp! ctx ptr := by
-  simp [getFirstOp, getFirstOp!] <;> grind
+  simp [getFirstOp.unfold, getFirstOp!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockPtr.setLastOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.setLastOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (lastOp : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (lastOpIb : lastOp.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeLastOp ctx.buf lastOp.impl (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec, lastOp.spec)).map (fun (ptr, ctx, value) => ptr.setLastOp! ctx value), by
@@ -3256,7 +3339,7 @@ noncomputable def Sim.BlockPtr.setLastOp! (ctx : Sim.IRContext OpInfo) (ptr : Si
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.setLastOp_eq_setLastOp! (ctx : IRContext OpInfo) ptr lastOp ib lastOpIb :
     setLastOp ctx ptr lastOp ib lastOpIb = setLastOp! ctx ptr lastOp := by
-  simp [setLastOp, setLastOp!]
+  simp [setLastOp.unfold, setLastOp!]
   split
   · grind
   · prove_setLinkBoundsBlock ctx ptr
@@ -3266,7 +3349,7 @@ theorem Sim.BlockPtr.setLastOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Bloc
     (lastOp : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (lastOpIb : lastOp.InBounds ctx) :
     (setLastOp ctx ptr lastOp ib lastOpIb).spec = ptr.spec.setLastOp ctx.spec lastOp.spec := by
-  grind [setLastOp]
+  grind [setLastOp.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockPtr.setLastOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3276,7 +3359,8 @@ theorem Sim.BlockPtr.setLastOp!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Blo
   grind
 
 @[inline]
-def Sim.BlockPtr.getLastOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getLastOpSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readLastOp ctx.buf (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).lastOp)⟩
 
@@ -3284,26 +3368,28 @@ def Sim.BlockPtr.getLastOp (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getLastOp_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getLastOp ctx ptr ib).spec = (ptr.spec.get ctx.spec).lastOp := by
-  grind [getLastOp]
+  grind [getLastOp.unfold]
 
 @[grind .]
 theorem Sim.BlockPtr.getLastOp_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getLastOp ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_block ptr.spec (by grind)).lastOp
-  grind [getLastOp]
+  grind [getLastOp.unfold]
 
 @[inline]
-def Sim.BlockPtr.getLastOp! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def Sim.BlockPtr.getLastOp!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readLastOp! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).lastOp)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getLastOp_eq_getLastOp! (ctx : IRContext OpInfo) ptr ib :
     getLastOp ctx ptr ib = getLastOp! ctx ptr := by
-  simp [getLastOp, getLastOp!] <;> grind
+  simp [getLastOp.unfold, getLastOp!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockPtr.setNextBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.setNextBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (next : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (nextIb : next.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeNext ctx.buf next.impl (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec, next.spec)).map (fun (ptr, ctx, value) => ptr.setNextBlock! ctx value), by
@@ -3326,7 +3412,7 @@ noncomputable def Sim.BlockPtr.setNextBlock! (ctx : Sim.IRContext OpInfo) (ptr :
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.setNextBlock_eq_setNextBlock! (ctx : IRContext OpInfo) ptr next ib nextIb :
     setNextBlock ctx ptr next ib nextIb = setNextBlock! ctx ptr next := by
-  simp [setNextBlock, setNextBlock!]
+  simp [setNextBlock.unfold, setNextBlock!]
   split
   · grind
   · prove_setLinkBoundsBlock ctx ptr
@@ -3336,7 +3422,7 @@ theorem Sim.BlockPtr.setNextBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.B
     (next : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (nextIb : next.InBounds ctx) :
     (setNextBlock ctx ptr next ib nextIb).spec = ptr.spec.setNextBlock ctx.spec next.spec := by
-  grind [setNextBlock]
+  grind [setNextBlock.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockPtr.setNextBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3346,7 +3432,8 @@ theorem Sim.BlockPtr.setNextBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.
   grind
 
 @[inline]
-def Sim.BlockPtr.getNextBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getNextBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readNext ctx.buf (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).next)⟩
 
@@ -3354,26 +3441,28 @@ def Sim.BlockPtr.getNextBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getNextBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getNextBlock ctx ptr ib).spec = (ptr.spec.get ctx.spec).next := by
-  grind [getNextBlock]
+  grind [getNextBlock.unfold]
 
 @[grind .]
 theorem Sim.BlockPtr.getNextBlock_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getNextBlock ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_block ptr.spec (by grind)).next
-  grind [getNextBlock]
+  grind [getNextBlock.unfold]
 
 @[inline]
-def Sim.BlockPtr.getNextBlock! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
+buffed (inline := true)
+def Sim.BlockPtr.getNextBlock!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readNext! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).next)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getNextBlock_eq_getNextBlock! (ctx : IRContext OpInfo) ptr ib :
     getNextBlock ctx ptr ib = getNextBlock! ctx ptr := by
-  simp [getNextBlock, getNextBlock!] <;> grind
+  simp [getNextBlock.unfold, getNextBlock!.unfold] <;> grind
 
 @[inline]
-def Sim.BlockPtr.setPrevBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.setPrevBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (prev : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (prevIb : prev.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writePrev ctx.buf prev.impl (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec, prev.spec)).map (fun (ptr, ctx, value) => ptr.setPrevBlock! ctx value), by
@@ -3396,7 +3485,7 @@ noncomputable def Sim.BlockPtr.setPrevBlock! (ctx : Sim.IRContext OpInfo) (ptr :
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.setPrevBlock_eq_setPrevBlock! (ctx : IRContext OpInfo) ptr prev ib prevIb :
     setPrevBlock ctx ptr prev ib prevIb = setPrevBlock! ctx ptr prev := by
-  simp [setPrevBlock, setPrevBlock!]
+  simp [setPrevBlock.unfold, setPrevBlock!]
   split
   · grind
   · prove_setLinkBoundsBlock ctx ptr
@@ -3406,7 +3495,7 @@ theorem Sim.BlockPtr.setPrevBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.B
     (prev : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (prevIb : prev.InBounds ctx) :
     (setPrevBlock ctx ptr prev ib prevIb).spec = ptr.spec.setPrevBlock ctx.spec prev.spec := by
-  grind [setPrevBlock]
+  grind [setPrevBlock.unfold]
 
 @[simp, grind =]
 theorem Sim.BlockPtr.setPrevBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3416,7 +3505,8 @@ theorem Sim.BlockPtr.setPrevBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.
   grind
 
 @[inline]
-def Sim.BlockPtr.getPrevBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getPrevBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readPrev ctx.buf (by prove_setLinkBoundsBlock ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).prev)⟩
 
@@ -3424,23 +3514,24 @@ def Sim.BlockPtr.getPrevBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getPrevBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getPrevBlock ctx ptr ib).spec = (ptr.spec.get ctx.spec).prev := by
-  grind [getPrevBlock]
+  grind [getPrevBlock.unfold]
 
 @[grind .]
 theorem Sim.BlockPtr.getPrevBlock_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) :
     (getPrevBlock ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_block ptr.spec (by grind)).prev
-  grind [getPrevBlock]
+  grind [getPrevBlock.unfold]
 
 @[inline]
-def Sim.BlockPtr.getPrevBlock! (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
+buffed (inline := true)
+def Sim.BlockPtr.getPrevBlock!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readPrev! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).prev)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getPrevBlock_eq_getPrevBlock! (ctx : IRContext OpInfo) ptr ib :
     getPrevBlock ctx ptr ib = getPrevBlock! ctx ptr := by
-  simp [getPrevBlock, getPrevBlock!] <;> grind
+  simp [getPrevBlock.unfold, getPrevBlock!.unfold] <;> grind
 
 @[inline]
 def Sim.BlockPtr.getNumArguments (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
@@ -3464,13 +3555,15 @@ theorem Sim.BlockPtr.getNumArguments_eq_getNumArguments! (ctx : IRContext OpInfo
   simp [getNumArguments, getNumArguments!]
 
 @[inline]
-def Sim.BlockPtr.getArgumentPtr (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getArgumentPtrSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (index : UInt64) (_ib : ptr.InBounds ctx) : Sim.BlockArgumentPtr :=
   ⟨ptr.impl + Buffed.BlockMPtr.computeArgumentOffset index,
    ptr.spec'.map (·.getArgument index.toNat)⟩
 
 @[inline]
-def Sim.BlockPtr.getArgumentPtr! (_ctx : IRContext OpInfo) (ptr : Sim.BlockPtr)
+buffed (inline := true)
+def Sim.BlockPtr.getArgumentPtr!Sim (_ctx : IRContext OpInfo) (ptr : Sim.BlockPtr)
     (index : UInt64) : Sim.BlockArgumentPtr :=
   ⟨ptr.impl + Buffed.BlockMPtr.computeArgumentOffset! index,
    ptr.spec'.map (·.getArgument index.toNat)⟩
@@ -3479,15 +3572,16 @@ def Sim.BlockPtr.getArgumentPtr! (_ctx : IRContext OpInfo) (ptr : Sim.BlockPtr)
 theorem Sim.BlockPtr.getArgumentPtr_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (index : UInt64) (ib : ptr.InBounds ctx) :
     (getArgumentPtr ctx ptr index ib).spec = ptr.spec.getArgument index.toNat := by
-  grind [getArgumentPtr]
+  grind [getArgumentPtr.unfold]
 
 @[eq_bang, grind _=_]
 theorem Sim.BlockPtr.getArgumentPtr_eq_getArgumentPtr! (ctx : IRContext OpInfo) ptr index ib :
     getArgumentPtr ctx ptr index ib = getArgumentPtr! ctx ptr index := by
-  simp [getArgumentPtr, getArgumentPtr!]
+  simp [getArgumentPtr.unfold, getArgumentPtr!.unfold]
 
 @[inline]
-def Sim.RegionPtr.setParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+buffed (inline := true)
+def Sim.RegionPtr.setParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (parent : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (parentIb : parent.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeParent ctx.buf parent.impl (by prove_setLinkBoundsRegion ctx ptr), (Erased.mk (ptr.spec, ctx.spec, parent.spec)).map (fun (ptr, ctx, value) => ptr.setParent! ctx value), by
@@ -3510,7 +3604,7 @@ noncomputable def Sim.RegionPtr.setParent! (ctx : Sim.IRContext OpInfo) (ptr : S
 @[eq_bang, grind _=_]
 theorem Sim.RegionPtr.setParent_eq_setParent! (ctx : IRContext OpInfo) ptr parent ib parentIb :
     setParent ctx ptr parent ib parentIb = setParent! ctx ptr parent := by
-  simp [setParent, setParent!]
+  simp [setParent.unfold, setParent!]
   split
   · grind
   · prove_setLinkBoundsRegion ctx ptr
@@ -3520,7 +3614,7 @@ theorem Sim.RegionPtr.setParent_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Reg
     (parent : Sim.OptionOperationPtr)
     (ib : ptr.InBounds ctx) (parentIb : parent.InBounds ctx) :
     (setParent ctx ptr parent ib parentIb).spec = ptr.spec.setParent ctx.spec parent.spec := by
-  grind [setParent]
+  grind [setParent.unfold]
 
 @[simp, grind =]
 theorem Sim.RegionPtr.setParent!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
@@ -3530,31 +3624,34 @@ theorem Sim.RegionPtr.setParent!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Re
   grind
 
 @[inline]
-def Sim.RegionPtr.getParent (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def Sim.RegionPtr.getParentSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readParent ctx.buf (by prove_setLinkBoundsRegion ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).parent)⟩
 
 @[simp, grind =]
 theorem Sim.RegionPtr.getParent_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx) :
     (getParent ctx ptr ib).spec = (ptr.spec.get ctx.spec).parent := by
-  grind [getParent]
+  grind [getParent.unfold]
 
 @[grind .]
 theorem Sim.RegionPtr.getParent_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) (ib : ptr.InBounds ctx) :
     (getParent ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_region ptr.spec (by grind)).parent
-  grind [getParent]
+  grind [getParent.unfold]
 
 @[inline]
-def Sim.RegionPtr.getParent! (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) : Sim.OptionOperationPtr :=
+buffed (inline := true)
+def Sim.RegionPtr.getParent!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) : Sim.OptionOperationPtr :=
   ⟨ptr.impl.readParent! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).parent)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.RegionPtr.getParent_eq_getParent! (ctx : IRContext OpInfo) ptr ib :
     getParent ctx ptr ib = getParent! ctx ptr := by
-  simp [getParent, getParent!] <;> grind
+  simp [getParent.unfold, getParent!.unfold] <;> grind
 
 @[inline]
-def Sim.RegionPtr.setFirstBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+buffed (inline := true)
+def Sim.RegionPtr.setFirstBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (firstBlock : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (firstBlockIb : firstBlock.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeFirstBlock ctx.buf firstBlock.impl (by prove_setLinkBoundsRegion ctx ptr), (Erased.mk (ptr.spec, ctx.spec, firstBlock.spec)).map (fun (ptr, ctx, value) => ptr.setFirstBlock! ctx value), by
@@ -3577,7 +3674,7 @@ noncomputable def Sim.RegionPtr.setFirstBlock! (ctx : Sim.IRContext OpInfo) (ptr
 @[eq_bang, grind _=_]
 theorem Sim.RegionPtr.setFirstBlock_eq_setFirstBlock! (ctx : IRContext OpInfo) ptr firstBlock ib firstBlockIb :
     setFirstBlock ctx ptr firstBlock ib firstBlockIb = setFirstBlock! ctx ptr firstBlock := by
-  simp [setFirstBlock, setFirstBlock!]
+  simp [setFirstBlock.unfold, setFirstBlock!]
   split
   · grind
   · prove_setLinkBoundsRegion ctx ptr
@@ -3587,7 +3684,7 @@ theorem Sim.RegionPtr.setFirstBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
     (firstBlock : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (firstBlockIb : firstBlock.InBounds ctx) :
     (setFirstBlock ctx ptr firstBlock ib firstBlockIb).spec = ptr.spec.setFirstBlock ctx.spec firstBlock.spec := by
-  grind [setFirstBlock]
+  grind [setFirstBlock.unfold]
 
 @[simp, grind =]
 theorem Sim.RegionPtr.setFirstBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
@@ -3597,7 +3694,8 @@ theorem Sim.RegionPtr.setFirstBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Si
   grind
 
 @[inline]
-def Sim.RegionPtr.getFirstBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+buffed (inline := true)
+def Sim.RegionPtr.getFirstBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readFirstBlock ctx.buf (by prove_setLinkBoundsRegion ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstBlock)⟩
 
@@ -3605,26 +3703,28 @@ def Sim.RegionPtr.getFirstBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPt
 theorem Sim.RegionPtr.getFirstBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstBlock ctx ptr ib).spec = (ptr.spec.get ctx.spec).firstBlock := by
-  grind [getFirstBlock]
+  grind [getFirstBlock.unfold]
 
 @[grind .]
 theorem Sim.RegionPtr.getFirstBlock_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) :
     (getFirstBlock ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_region ptr.spec (by grind)).firstBlock
-  grind [getFirstBlock]
+  grind [getFirstBlock.unfold]
 
 @[inline]
-def Sim.RegionPtr.getFirstBlock! (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) : Sim.OptionBlockPtr :=
+buffed (inline := true)
+def Sim.RegionPtr.getFirstBlock!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readFirstBlock! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).firstBlock)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.RegionPtr.getFirstBlock_eq_getFirstBlock! (ctx : IRContext OpInfo) ptr ib :
     getFirstBlock ctx ptr ib = getFirstBlock! ctx ptr := by
-  simp [getFirstBlock, getFirstBlock!] <;> grind
+  simp [getFirstBlock.unfold, getFirstBlock!.unfold] <;> grind
 
 @[inline]
-def Sim.RegionPtr.setLastBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+buffed (inline := true)
+def Sim.RegionPtr.setLastBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (lastBlock : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (lastBlockIb : lastBlock.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeLastBlock ctx.buf lastBlock.impl (by prove_setLinkBoundsRegion ctx ptr), (Erased.mk (ptr.spec, ctx.spec, lastBlock.spec)).map (fun (ptr, ctx, value) => ptr.setLastBlock! ctx value), by
@@ -3647,7 +3747,7 @@ noncomputable def Sim.RegionPtr.setLastBlock! (ctx : Sim.IRContext OpInfo) (ptr 
 @[eq_bang, grind _=_]
 theorem Sim.RegionPtr.setLastBlock_eq_setLastBlock! (ctx : IRContext OpInfo) ptr lastBlock ib lastBlockIb :
     setLastBlock ctx ptr lastBlock ib lastBlockIb = setLastBlock! ctx ptr lastBlock := by
-  simp [setLastBlock, setLastBlock!]
+  simp [setLastBlock.unfold, setLastBlock!]
   split
   · grind
   · prove_setLinkBoundsRegion ctx ptr
@@ -3657,7 +3757,7 @@ theorem Sim.RegionPtr.setLastBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.
     (lastBlock : Sim.OptionBlockPtr)
     (ib : ptr.InBounds ctx) (lastBlockIb : lastBlock.InBounds ctx) :
     (setLastBlock ctx ptr lastBlock ib lastBlockIb).spec = ptr.spec.setLastBlock ctx.spec lastBlock.spec := by
-  grind [setLastBlock]
+  grind [setLastBlock.unfold]
 
 @[simp, grind =]
 theorem Sim.RegionPtr.setLastBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
@@ -3667,7 +3767,8 @@ theorem Sim.RegionPtr.setLastBlock!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim
   grind
 
 @[inline]
-def Sim.RegionPtr.getLastBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
+buffed (inline := true)
+def Sim.RegionPtr.getLastBlockSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readLastBlock ctx.buf (by prove_setLinkBoundsRegion ctx ptr), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).lastBlock)⟩
 
@@ -3675,26 +3776,28 @@ def Sim.RegionPtr.getLastBlock (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr
 theorem Sim.RegionPtr.getLastBlock_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) :
     (getLastBlock ctx ptr ib).spec = (ptr.spec.get ctx.spec).lastBlock := by
-  grind [getLastBlock]
+  grind [getLastBlock.unfold]
 
 @[grind .]
 theorem Sim.RegionPtr.getLastBlock_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) :
     (getLastBlock ctx ptr ib).Sim := by
   have := (ctx.sim.encoding_region ptr.spec (by grind)).lastBlock
-  grind [getLastBlock]
+  grind [getLastBlock.unfold]
 
 @[inline]
-def Sim.RegionPtr.getLastBlock! (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) : Sim.OptionBlockPtr :=
+buffed (inline := true)
+def Sim.RegionPtr.getLastBlock!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr) : Sim.OptionBlockPtr :=
   ⟨ptr.impl.readLastBlock! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => (ptr.get! ctx).lastBlock)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.RegionPtr.getLastBlock_eq_getLastBlock! (ctx : IRContext OpInfo) ptr ib :
     getLastBlock ctx ptr ib = getLastBlock! ctx ptr := by
-  simp [getLastBlock, getLastBlock!] <;> grind
+  simp [getLastBlock.unfold, getLastBlock!.unfold] <;> grind
 
 @[inline]
-def Sim.ValuePtr.setFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
+buffed (inline := true)
+def Sim.ValuePtr.setFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
     (firstUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.writeFirstUse ctx.buf firstUse.impl (by prove_setLinkBoundsValue), (Erased.mk (ptr.spec, ctx.spec, firstUse.spec)).map (fun (ptr, ctx, value) => ptr.setFirstUse! ctx value), by
@@ -3717,7 +3820,7 @@ noncomputable def Sim.ValuePtr.setFirstUse! (ctx : Sim.IRContext OpInfo) (ptr : 
 @[eq_bang, grind _=_]
 theorem Sim.ValuePtr.setFirstUse_eq_setFirstUse! (ctx : IRContext OpInfo) ptr firstUse ib firstUseIb :
     setFirstUse ctx ptr firstUse ib firstUseIb = setFirstUse! ctx ptr firstUse := by
-  simp [setFirstUse, setFirstUse!]
+  simp [setFirstUse.unfold, setFirstUse!]
   split
   · grind
   · prove_setLinkBoundsValue
@@ -3727,7 +3830,7 @@ theorem Sim.ValuePtr.setFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.Va
     (firstUse : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (firstUseIb : firstUse.InBounds ctx) :
     (setFirstUse ctx ptr firstUse ib firstUseIb).spec = ptr.spec.setFirstUse ctx.spec firstUse.spec := by
-  grind [setFirstUse]
+  grind [setFirstUse.unfold]
 
 @[simp, grind =]
 theorem Sim.ValuePtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
@@ -3737,7 +3840,8 @@ theorem Sim.ValuePtr.setFirstUse!_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.V
   grind
 
 @[inline]
-def Sim.ValuePtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
+buffed (inline := true)
+def Sim.ValuePtr.getFirstUseSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
     (ib : ptr.InBounds ctx) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readFirstUse ctx.buf (by prove_setLinkBoundsValue), (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.getFirstUse! ctx)⟩
 
@@ -3745,7 +3849,7 @@ def Sim.ValuePtr.getFirstUse (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
 theorem Sim.ValuePtr.getFirstUse_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
     (ib : ptr.InBounds ctx) :
     (getFirstUse ctx ptr ib).spec = ptr.spec.getFirstUse ctx.spec (by grind) := by
-  grind [getFirstUse]
+  grind [getFirstUse.unfold]
 
 @[grind .]
 theorem Sim.ValuePtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr)
@@ -3755,29 +3859,31 @@ theorem Sim.ValuePtr.getFirstUse_sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Val
   case opResult res =>
     have := ctx.sim.encoding_op res.op (by grind [Veir.Buffered.OpResultPtr.inBounds_def])
       |>.results res (by grind) (by grind) |>.firstUse
-    simp_all [getFirstUse, eq_bang]
+    simp_all [getFirstUse.unfold, eq_bang]
     unfold Buffed.OpResultMPtr.readFirstUse! at this
     unfold Buffed.ValueImplMPtr.readFirstUse!
     grind
   case blockArgument arg =>
     have := ctx.sim.encoding_block arg.block (by grind [Veir.Buffered.BlockArgumentPtr.inBounds_def])
       |>.arguments arg (by grind) (by grind) |>.firstUse
-    simp_all [getFirstUse, eq_bang]
+    simp_all [getFirstUse.unfold, eq_bang]
     unfold Buffed.BlockArgumentMPtr.readFirstUse! at this
     unfold Buffed.ValueImplMPtr.readFirstUse!
     grind
 
 @[inline]
-def Sim.ValuePtr.getFirstUse! (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr) : Sim.OptionOpOperandPtr :=
+buffed (inline := true)
+def Sim.ValuePtr.getFirstUse!Sim (ctx : Sim.IRContext OpInfo) (ptr : Sim.ValuePtr) : Sim.OptionOpOperandPtr :=
   ⟨ptr.impl.readFirstUse! ctx.buf, (Erased.mk (ptr.spec, ctx.spec)).map (fun (ptr, ctx) => ptr.getFirstUse! ctx)⟩
 
 @[eq_bang, grind _=_]
 theorem Sim.ValuePtr.getFirstUse_eq_getFirstUse! (ctx : IRContext OpInfo) ptr ib :
     getFirstUse ctx ptr ib = getFirstUse! ctx ptr := by
-  simp [getFirstUse, getFirstUse!] <;> grind
+  simp [getFirstUse.unfold, getFirstUse!.unfold] <;> grind
 
 @[inline]
-def Sim.OpOperandPtrPtr.set (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtrPtr)
+buffed (inline := true)
+def Sim.OpOperandPtrPtr.setSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtrPtr)
     (value : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.write ctx.buf value.impl (by
@@ -3804,7 +3910,7 @@ noncomputable def Sim.OpOperandPtrPtr.set! (ctx : Sim.IRContext OpInfo) (ptr : S
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtrPtr.set_eq_set! (ctx : IRContext OpInfo) ptr value ib valueIb :
     set ctx ptr value ib valueIb = set! ctx ptr value := by
-  simp [set, set!]
+  simp [set.unfold, set!]
   split
   · grind
   · have : ctx.buf.mem.size < 2^63 := by grind
@@ -3816,10 +3922,11 @@ theorem Sim.OpOperandPtrPtr.set_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpO
     (value : Sim.OptionOpOperandPtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) :
     (set ctx ptr value ib valueIb).spec = ptr.spec.set ctx.spec value.spec := by
-  grind [set]
+  grind [set.unfold]
 
 @[inline]
-def Sim.BlockOperandPtrPtr.set (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtrPtr)
+buffed (inline := true)
+def Sim.BlockOperandPtrPtr.setSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtrPtr)
     (value : Sim.OptionBlockOperandPtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) : Sim.IRContext OpInfo :=
   ⟨ptr.impl.write ctx.buf value.impl (by
@@ -3846,7 +3953,7 @@ noncomputable def Sim.BlockOperandPtrPtr.set! (ctx : Sim.IRContext OpInfo) (ptr 
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtrPtr.set_eq_set! (ctx : IRContext OpInfo) ptr value ib valueIb :
     set ctx ptr value ib valueIb = set! ctx ptr value := by
-  simp [set, set!]
+  simp [set.unfold, set!]
   split
   · grind
   · have : ctx.buf.mem.size < 2^63 := by grind
@@ -3858,7 +3965,7 @@ theorem Sim.BlockOperandPtrPtr.set_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.
     (value : Sim.OptionBlockOperandPtr)
     (ib : ptr.InBounds ctx) (valueIb : value.InBounds ctx) :
     (set ctx ptr value ib valueIb).spec = ptr.spec.set ctx.spec value.spec := by
-  grind [set]
+  grind [set.unfold]
 
 /-! Allocation of empty regions and operations. -/
 

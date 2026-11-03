@@ -143,7 +143,7 @@ def OpAllocation.result {before : RawContext} {count : Nat} (a : OpAllocation be
     rw [a.results]
     exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) index.isLt
   ⟨Sim.ValuePtr.fromOpResultPtr result, by grind [generic_ptr_grind], by
-    simp [result, Sim.ValuePtr.fromOpResultPtr, Sim.ValuePtr.spec, Sim.OperationPtr.getResultPtr,
+    simp [result, Sim.ValuePtr.fromOpResultPtr, Sim.ValuePtr.spec, Sim.OperationPtr.getResultPtr.unfold,
       OperationPtr.getResult, Sim.OperationPtr.spec, Erased.map_out]⟩
 
 def BlockAllocation.argument {before : RawContext} {count : Nat} (a : BlockAllocation before count)
@@ -154,7 +154,7 @@ def BlockAllocation.argument {before : RawContext} {count : Nat} (a : BlockAlloc
     rw [a.arguments]
     exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) index.isLt
   ⟨Sim.ValuePtr.fromBlockArgumentPtr arg, by grind [generic_ptr_grind], by
-    simp [arg, Sim.ValuePtr.fromBlockArgumentPtr, Sim.ValuePtr.spec, Sim.BlockPtr.getArgumentPtr,
+    simp [arg, Sim.ValuePtr.fromBlockArgumentPtr, Sim.ValuePtr.spec, Sim.BlockPtr.getArgumentPtr.unfold,
       BlockPtr.getArgument, Sim.BlockPtr.spec, Erased.map_out]⟩
 
 structure Mutation (before : RawContext) where

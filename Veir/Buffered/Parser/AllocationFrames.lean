@@ -13,7 +13,7 @@ namespace Veir.Buffered
 theorem Rewriter.createBlock_new_inBounds
     {ctx next : Parser.IR.RawContext} {types ip hip hrep p}
     (heq : createBlock ctx types ip hip hrep = some (next, p)) : p.InBounds next := by
-  simp only [createBlock] at heq
+  simp only [createBlock.unfold] at heq
   split at heq
   · split at heq
     · grind
@@ -31,7 +31,7 @@ theorem Rewriter.createBlock_new_inBounds
 theorem Rewriter.createRegion_inBounds_mono {ctx next : Parser.IR.RawContext} {p}
     (hc : createRegion ctx = some (next, p)) (q : Sim.GenericPtr) (hq : q.InBounds ctx) :
     q.InBounds next := by
-  simp only [createRegion] at hc
+  simp only [createRegion.unfold] at hc
   split at hc
   · simp at hc
   · simp at hc
@@ -42,7 +42,7 @@ private theorem dealloc_operation {ctx : Parser.IR.RawContext} {op p : Sim.Opera
     p.InBounds (op.dealloc ctx hi hd) := by
   constructor
   · exact hp.sim
-  · simp only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.IRContext.spec, Erased.out_mk]
     grind [OperationPtr.dealloc, OperationPtr.inBounds_def]
 
@@ -50,7 +50,7 @@ private theorem dealloc_block {ctx : Parser.IR.RawContext} {op : Sim.OperationPt
     {hi hd} (hp : p.InBounds ctx) : p.InBounds (op.dealloc ctx hi hd) := by
   constructor
   · exact hp.sim
-  · simp only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.IRContext.spec, Erased.out_mk]
     grind [OperationPtr.dealloc, BlockPtr.inBounds_def]
 
@@ -58,26 +58,26 @@ private theorem dealloc_region {ctx : Parser.IR.RawContext} {op : Sim.OperationP
     {hi hd} (hp : p.InBounds ctx) : p.InBounds (op.dealloc ctx hi hd) := by
   constructor
   · exact hp.sim
-  · simp only [Sim.OperationPtr.dealloc, Sim.OperationPtr.forget, Sim.IRContext.releaseRange,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
       Sim.IRContext.spec, Erased.out_mk]
     grind [OperationPtr.dealloc, RegionPtr.inBounds_def]
 
 theorem Rewriter.eraseOp_operation_inBounds {ctx : Parser.IR.RawContext} {op p : Sim.OperationPtr}
     {hc hi ho hs hd} (hp : p.InBounds ctx) (hne : p.spec ≠ op.spec) :
     p.InBounds (eraseOp ctx op hc hi ho hs hd) := by
-  simp only [eraseOp]
+  simp only [eraseOp.unfold]
   apply dealloc_operation (hne := hne)
   grind [generic_ptr_grind]
 
 theorem Rewriter.eraseOp_block_inBounds {ctx : Parser.IR.RawContext} {op : Sim.OperationPtr} {p : Sim.BlockPtr}
     {hc hi ho hs hd} (hp : p.InBounds ctx) : p.InBounds (eraseOp ctx op hc hi ho hs hd) := by
-  simp only [eraseOp]
+  simp only [eraseOp.unfold]
   apply dealloc_block
   grind [generic_ptr_grind]
 
 theorem Rewriter.eraseOp_region_inBounds {ctx : Parser.IR.RawContext} {op : Sim.OperationPtr} {p : Sim.RegionPtr}
     {hc hi ho hs hd} (hp : p.InBounds ctx) : p.InBounds (eraseOp ctx op hc hi ho hs hd) := by
-  simp only [eraseOp]
+  simp only [eraseOp.unfold]
   apply dealloc_region
   grind [generic_ptr_grind]
 

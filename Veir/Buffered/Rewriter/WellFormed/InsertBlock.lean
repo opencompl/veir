@@ -24,7 +24,7 @@ theorem Rewriter.insertBlock?_WellFormed
     (heq : Rewriter.insertBlock? ctx newBlock ip newBlockIn ipIn ipRepr ctxIn =
       some newCtx) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.insertBlock?] at heq
+  simp only [Rewriter.insertBlock?.unfold] at heq
   split at heq
   · simp at heq
   · rename_i parent hParent
@@ -32,7 +32,7 @@ theorem Rewriter.insertBlock?_WellFormed
       BlockInsertPoint.region_InBounds ctxIn ipIn ipRepr hParent ipIn
     have hRegionIB : (ip.region ctx ipIn ipRepr).InBounds ctx := by
       cases ip <;>
-        grind [BlockInsertPoint.region,
+        grind [BlockInsertPoint.region.unfold,
           generic_ptr_grind]
     have hParentSpec : (ip.region ctx ipIn ipRepr).spec = some parent.spec :=
       Sim.OptionRegionPtr.toOption_some hRegionIB hParent

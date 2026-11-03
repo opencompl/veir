@@ -81,7 +81,8 @@ theorem Sim.RegionPtr.allocRecycledRaw_fresh {ctx : Sim.IRContext OpInfo}
 
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
-def Sim.RegionPtr.allocRecycled (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPtr × Sim.IRContext OpInfo) :=
+buffed (inline := false)
+def Sim.RegionPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) : Option (Sim.RegionPtr × Sim.IRContext OpInfo) :=
   match h : allocRecycledRaw ctx.buf with
   | none => none
   | some (b, ptr) =>
@@ -99,7 +100,7 @@ def Sim.RegionPtr.allocRecycled (ctx : Sim.IRContext OpInfo) : Option (Sim.Regio
 theorem Sim.RegionPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo}
     (h : allocRecycled ctx = some (ptr, ctx')) :
     Veir.Buffered.RegionPtr.allocEmptyAt ctx.spec ptr.impl.toNat = some (ctx'.spec, ptr.spec) := by
-  simp only [allocRecycled] at h
+  simp only [allocRecycled.unfold] at h
   split at h
   · contradiction
   · rename_i b p hi

@@ -161,7 +161,7 @@ theorem OpOperandPtr.get!_OpOperandPtr_removeFromCurrent {opOperand : Veir.Buffe
           else
             (opOperand.get! ctx.spec).nextUse
     } := by
-  simp [removeFromCurrent]
+  simp [removeFromCurrent.unfold]
   split
   · split
     · grind
@@ -268,126 +268,126 @@ attribute [local grind =] Sim.OpOperandPtr.insertIntoCurrent!
 theorem BlockPtr.firstUse!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).firstUse =
     (block.get! ctx.spec).firstUse := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.capArguments!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).capArguments =
     (block.get! ctx.spec).capArguments := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.prev!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).prev =
     (block.get! ctx.spec).prev := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.next!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).next =
     (block.get! ctx.spec).next := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.parent!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).parent =
     (block.get! ctx.spec).parent := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.firstOp!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).firstOp =
     (block.get! ctx.spec).firstOp := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.lastOp!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} :
     (block.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).lastOp =
     (block.get! ctx.spec).lastOp := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.prev!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).prev =
     (operation.get! ctx.spec).prev := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.next!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).next =
     (operation.get! ctx.spec).next := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.parent!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).parent =
     (operation.get! ctx.spec).parent := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getOpType!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getOpType! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getOpType! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.attrs!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).attrs =
     (operation.get! ctx.spec).attrs := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.capResults!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).capResults =
     (operation.get! ctx.spec).capResults := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.capBlockOperands!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).capBlockOperands =
     (operation.get! ctx.spec).capBlockOperands := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.capRegions!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).capRegions =
     (operation.get! ctx.spec).capRegions := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.capOperands!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     (operation.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec).capOperands =
     (operation.get! ctx.spec).capOperands := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getProperties!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getProperties! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getProperties! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getNumResults! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getNumResults! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[grind =]
@@ -397,14 +397,14 @@ theorem OpResultPtr.get!_OpOperandPtr_insertIntoCurrent {opResult : Veir.Buffere
       { opResult.get! ctx.spec with firstUse := some opOperand'.spec }
     else
       opResult.get! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getNumOperands! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getNumOperands! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[grind =]
@@ -424,7 +424,7 @@ theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent {opOperand : Veir.Buffe
           else
             (opOperand.get! ctx.spec).nextUse
     } := by
-  simp only [insertIntoCurrent]
+  simp only [insertIntoCurrent.unfold]
   by_cases h: opOperand = opOperand'.spec
   · grind [Sim.ValuePtr.getOpOperandPtrPtr, Sim.OpOperandPtr.getOpOperandPtrPtr]
   · split
@@ -459,49 +459,49 @@ theorem OpOperandPtr.get!_OpOperandPtr_insertIntoCurrent {opOperand : Veir.Buffe
 theorem OperationPtr.getOperands!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getOperands! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getOperands! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getNumSuccessors! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getNumSuccessors! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockOperandPtr.get!_OpOperandPtr_insertIntoCurrent {blockOperand : Veir.Buffered.BlockOperandPtr} :
     blockOperand.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     blockOperand.get! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getNumRegions! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     operation.getNumRegions! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem OperationPtr.getRegion!_OpOperandPtr_insertIntoCurrent {operation : Veir.Buffered.OperationPtr} :
     operation.getRegion! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec i =
     operation.getRegion! ctx.spec i := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockOperandPtrPtr.get!_OpOperandPtr_insertIntoCurrent {blockOperandPtr : Veir.Buffered.BlockOperandPtrPtr} :
     blockOperandPtr.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     blockOperandPtr.get! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem BlockPtr.getNumArguments!_OpOperandPtr_insertIntoCurrent {block : Veir.Buffered.BlockPtr} {hop} :
     block.getNumArguments! (opOperand'.insertIntoCurrent ctx newOperands hop).spec =
     block.getNumArguments! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[grind =]
@@ -511,14 +511,14 @@ theorem BlockArgumentPtr.get!_OpOperandPtr_insertIntoCurrent {blockArg : Veir.Bu
       { blockArg.get! ctx.spec with firstUse := some opOperand'.spec }
     else
       blockArg.get! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem RegionPtr.get!_OpOperandPtr_insertIntoCurrent {region : Veir.Buffered.RegionPtr} :
     region.get! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     region.get! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[grind =]
@@ -528,14 +528,14 @@ theorem ValuePtr.getFirstUse!_OpOperandPtr_insertIntoCurrent {value : Veir.Buffe
       some opOperand'.spec
     else
       value.getFirstUse! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[simp, grind =]
 theorem ValuePtr.getType!_OpOperandPtr_insertIntoCurrent {value : Veir.Buffered.ValuePtr} :
     value.getType! (opOperand'.insertIntoCurrent ctx hopOperand' ctxInBounds).spec =
     value.getType! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 @[grind =]
@@ -547,7 +547,7 @@ theorem OpOperandPtrPtr.get!_OpOperandPtr_insertIntoCurrent {opOperandPtr : Veir
       some opOperand'.spec
     else
       opOperandPtr.get! ctx.spec := by
-  simp [OpOperandPtr.insertIntoCurrent]
+  simp [OpOperandPtr.insertIntoCurrent.unfold]
   grind
 
 section BlockOperandPtr.removeFromCurrent
@@ -711,7 +711,7 @@ theorem BlockOperandPtr.get!_BlockOperandPtr_removeFromCurrent {blockOperand : V
           else
             (blockOperand.get! ctx.spec).nextUse
     } := by
-  simp [removeFromCurrent]
+  simp [removeFromCurrent.unfold]
   split
   · split
     · grind
@@ -951,7 +951,7 @@ theorem BlockOperandPtr.get!_BlockOperandPtr_insertIntoCurrent {blockOperand : V
           else
             (blockOperand.get! ctx.spec).nextUse
     } := by
-  simp [insertIntoCurrent]
+  simp [insertIntoCurrent.unfold]
   split <;> simp
   · simp [Veir.Buffered.BlockOperandPtr.get!_BlockOperandPtr_setNextUse]
     split
@@ -1253,7 +1253,7 @@ grind_pattern OperationPtr.next!_OperationPtr_setParentWithCheck =>
 theorem OperationPtr.parent!_of_OperationPtr_setParentWithCheck_eq :
     op'.setParentWithCheck ctx newParent selfIn parentSim = some newCtx →
     (op'.spec.get! ctx.spec).parent = none := by
-  simp [setParentWithCheck]
+  simp [setParentWithCheck.unfold]
   have : (getParent ctx op' (by grind)).InBounds ctx := by grind [generic_ptr_grind]
   grind
 
@@ -1988,7 +1988,7 @@ attribute [local grind] Sim.BlockPtr.setParentWithCheck
 theorem BlockPtr.parent!_of_BlockPtr_setParentWithCheck_eq :
     block'.setParentWithCheck ctx newParent selfIn parentSim = some newCtx →
     (block'.spec.get! ctx.spec).parent = none := by
-  simp [setParentWithCheck]
+  simp [setParentWithCheck.unfold]
   have : (getParent ctx block' (by grind)).InBounds ctx := by grind [generic_ptr_grind]
   grind
 

@@ -55,6 +55,57 @@ is **not** the newer merge target. Raw results are in `/tmp/veir-merge-performan
 The benchmark results below predate the namespace relocation and identify their historical
 baselines explicitly.
 
+## Argument-only `buffed` wrappers
+
+Import `Veir.Buffered.IR.Buffed.Meta` (or the narrower `ArgumentFlattening` module)
+and write:
+
+```lean
+open Veir.Buffered
+
+buffed (inline := false) def addressSim (p : Sim.OperationPtr) : UInt64 := p.impl
+```
+
+This keeps `addressSim` inline and generates:
+
+- `addressInner p_impl p_spec' := addressSim ⟨p_impl, p_spec'⟩`, with one argument
+  per field of each simulated context/pointer argument. `inline := false` makes
+  this function noinline; `inline := true` (the default) makes it inline.
+- Inline `address p := addressInner p.impl p.spec'`, with the original signature.
+- `address.unfold : address p = p.impl`, rewriting to the original definition's body.
+
+The generator threads dependencies through fields and subsequent arguments, preserves
+`Erased` specifications and proof fields verbatim, and leaves results, ordinary arrays,
+and ordinary options unchanged. It does **not** generate `Impl`/`Spec` functions, split
+results, rewrite recursive calls, or require `Erased.map` to inline. Recursive unfolding
+equations use the original recursion theorem; private helpers are expanded in theorem
+statements so rewriting works across module boundaries. Safe definitions are supported,
+including well-founded recursion and `partial_fixpoint` equations. Ordinary `partial def`
+and unsafe definitions cannot supply this unfolding contract. A non-exported opaque computational helper must be made public
+(or the source function kept private) rather than exposed by an unchecked rewrite.
+
+`UnitTest.Buffed` covers the full pointer family, dependent contexts/results, polymorphism,
+private definitions, recursion, attributes, and native execution. `UnitTest.BuffedImport`
+checks exported equations. Run `python3 Tools/check-buffed-wrapper-codegen` to additionally
+verify that generated C passes a raw scalar pointer/raw context directly to the noinline
+inner function without constructing a `Sim` wrapper at the call site.
+
+All **202** declarations marked `buffed` in `yqlxtmmr` (`4e230ff25`), including five
+`protected buffed` declarations, now use this generator,
+including the benchmark rewrites, IR accessors/setters, recycling, linked lists, construction,
+and printer helpers. Their original `inline := ...` choices control the new inner functions.
+`Tools/buffed-declarations.tsv` records the complete historical inventory;
+`UnitTest.BuffedAdoption` checks the 169 production signatures, flattened arities, inline
+and protected attributes, and generated equations' axioms. The codegen runner additionally
+checks all 202 source declarations, including the 33 benchmark functions with pre-existing
+proof placeholders. Proofs unfold `foo.unfold`; induction uses the original `fooSim` definition.
+
+Flattening does not guarantee a speedup: matched pre-/post-adoption measurements (CPU
+pinned, two warmups, nine alternating samples; 5k/10k operations) show 4–14% slower
+millisecond-scale rewrites and 16–30% slower construction with these historical inline
+choices, while the repeated-reuse-first rewrite is about 20% faster. No result/spec
+splitting or speculative inline-policy tuning is included in this adoption.
+
 ## Running the benchmarks
 
 ```bash

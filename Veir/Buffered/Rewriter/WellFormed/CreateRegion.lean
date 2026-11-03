@@ -83,7 +83,7 @@ theorem Rewriter.createRegion_wellFormed
     (wf : ctx.spec.WellFormed)
     (hcreate : Rewriter.createRegion ctx = some (ctx', region)) :
     ctx'.spec.WellFormed := by
-  simp only [createRegion] at hcreate
+  simp only [createRegion.unfold] at hcreate
   split at hcreate
   · simp at hcreate
   · simp only [Option.some.injEq, Prod.mk.injEq] at hcreate

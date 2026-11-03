@@ -148,7 +148,8 @@ theorem Sim.OperationPtr.allocRecycledRaw_fresh
 
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
-def Sim.OperationPtr.allocRecycled (ctx : Sim.IRContext OpInfo) (op : OpInfo)
+buffed (inline := false)
+def Sim.OperationPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) (op : OpInfo)
     (props : HasOpInfo.propertiesOf op) (nr no nb ng : UInt64)
     (hr : nr.toNat ≤ countCard) (ho : no.toNat ≤ countCard)
     (hbo : nb.toNat ≤ countCard) (hg : ng.toNat ≤ countCard) :
@@ -171,7 +172,7 @@ theorem Sim.OperationPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo} :
     allocRecycled ctx op props nr no nb ng hr ho hbo hg = some (ptr, ctx') →
     Veir.Buffered.OperationPtr.allocEmptyAt ctx.spec op props nr.toNat nb.toNat ng.toNat no.toNat
       ptr.impl.toNat = some (ctx'.spec, ptr.spec) := by
-  simp only [allocRecycled, allocationSpec]
+  simp only [allocRecycled.unfold, allocationSpec]
   split
   · simp
   · rename_i b p h

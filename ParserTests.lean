@@ -26,6 +26,7 @@ import all Veir.Buffered.Parser.ParserError
 import all Veir.Buffered.Parser.Location
 import Lean
 import UnitTest.Buffered
+import UnitTest.Buffed
 
 public section
 
@@ -512,6 +513,8 @@ private def checkErrors : IO Unit := do
 
 def main : IO Unit := do
   UnitTest.Buffered.testParsers
+  UnitTest.Buffed.runTests
+  UnitTest.Buffed.checkContext StaticIR.empty.raw
   checkForwardValues
   checkForwardBlocks false
   checkForwardBlocks true

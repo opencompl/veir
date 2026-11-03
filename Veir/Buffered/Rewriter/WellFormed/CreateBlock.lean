@@ -21,7 +21,7 @@ theorem Rewriter.createBlock_preserves_wellFormed
     (wf : ctx.spec.WellFormed)
     (h : Rewriter.createBlock ctx argTypes insertionPoint hip hrep = some (newCtx, newBlock)) :
     newCtx.spec.WellFormed := by
-  simp only [Rewriter.createBlock] at h
+  simp only [Rewriter.createBlock.unfold] at h
   split at h
   · split at h
     · contradiction

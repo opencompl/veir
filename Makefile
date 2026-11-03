@@ -20,6 +20,7 @@ tests: build ## run all tests
 	lake exe parser-tests
 	lake exe allocator-tests
 	lake exe ir-reuse-tests
+	uv run python Tools/check-buffed-wrapper-codegen
 	uv run lit Test/ -v
 	cd ExArray && lake exe test
 
