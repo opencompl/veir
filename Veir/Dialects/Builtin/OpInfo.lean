@@ -105,14 +105,7 @@ def Builtin.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 1 1
     pure ()
   | .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "builtin.module: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "builtin.module: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "builtin.module: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "builtin.module: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     pure ()
 
 /-- A `builtin.module` is an optional symbol. -/
