@@ -112,7 +112,7 @@ theorem Rewriter.initBlockOperands_constructionWellFormed
     (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
     (heq : Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄ = ctx') :
     ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim
   case case1 => subst ctx'; exact wf
   case case2 ctx0 index0 hop hoperands hidx hcap h value nextCtx ih =>
@@ -124,7 +124,7 @@ theorem Rewriter.initBlockOperands_numSuccessors
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄}
     (hindex : index.toNat ≤ operands.size) :
     op.spec.getNumSuccessors! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = operands.size := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind [UInt64.le_iff_toNat_le, UInt64.toNat_add, UInt64.toNat_mod_size]
 
@@ -132,7 +132,7 @@ theorem Rewriter.initBlockOperands_numSuccessors
 theorem Rewriter.initBlockOperands_preserves_numResults (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     ptr.getNumResults! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = ptr.getNumResults! ctx.spec := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -140,7 +140,7 @@ theorem Rewriter.initBlockOperands_preserves_numResults (ptr : OperationPtr)
 theorem Rewriter.initBlockOperands_preserves_numRegions (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     ptr.getNumRegions! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = ptr.getNumRegions! ctx.spec := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -148,7 +148,7 @@ theorem Rewriter.initBlockOperands_preserves_numRegions (ptr : OperationPtr)
 theorem Rewriter.initBlockOperands_preserves_numOperands (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     ptr.getNumOperands! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec = ptr.getNumOperands! ctx.spec := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -156,7 +156,7 @@ theorem Rewriter.initBlockOperands_preserves_numOperands (ptr : OperationPtr)
 theorem Rewriter.initBlockOperands_preserves_capResults (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capResults = (ptr.get! ctx.spec).capResults := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -164,7 +164,7 @@ theorem Rewriter.initBlockOperands_preserves_capResults (ptr : OperationPtr)
 theorem Rewriter.initBlockOperands_preserves_capRegions (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capRegions = (ptr.get! ctx.spec).capRegions := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -172,7 +172,7 @@ theorem Rewriter.initBlockOperands_preserves_capRegions (ptr : OperationPtr)
 theorem Rewriter.initBlockOperands_preserves_capOperands (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capOperands = (ptr.get! ctx.spec).capOperands := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -180,7 +180,7 @@ theorem Rewriter.initBlockOperands_preserves_capOperands (ptr : OperationPtr)
 theorem Rewriter.initBlockOperands_preserves_capBlockOperands (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).capBlockOperands = (ptr.get! ctx.spec).capBlockOperands := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 
@@ -188,7 +188,7 @@ theorem Rewriter.initBlockOperands_preserves_capBlockOperands (ptr : OperationPt
 theorem Rewriter.initBlockOperands_preserves_parent (ptr : OperationPtr)
     {ctx : Sim.IRContext OpInfo} {op : Sim.OperationPtr} {operands index h₁ h₂ h₃ h₄} :
     (ptr.get! (Rewriter.initBlockOperands op ctx operands index h₁ h₂ h₃ h₄).spec).parent = (ptr.get! ctx.spec).parent := by
-  simp only [show @initBlockOperands = @initBlockOperandsSim from rfl] at *
+  simp only [initBlockOperands.eq_sim] at *
   fun_induction initBlockOperandsSim <;>
     grind (gen := 20) [Rewriter.pushBlockOperandAt.unfold]
 

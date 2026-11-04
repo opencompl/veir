@@ -55,7 +55,7 @@ is **not** the newer merge target. Raw results are in `/tmp/veir-merge-performan
 The benchmark results below predate the namespace relocation and identify their historical
 baselines explicitly.
 
-## Argument-only `buffed` wrappers
+## Argument-only `buffed` flattening
 
 Import `Veir.Buffered.IR.Buffed.Meta` (or the narrower `ArgumentFlattening` module)
 and write:
@@ -70,16 +70,24 @@ This keeps `addressSim` inline and generates:
 
 - `addressInner p_impl p_spec' := addressSim ⟨p_impl, p_spec'⟩`, with one argument
   per field of each simulated context/pointer argument. `inline := false` makes
-  this function noinline; `inline := true` (the default) makes it inline.
+  this nonrecursive function noinline; `inline := true` (the default) makes it inline.
+  Recursive inners are always noinline, regardless of the flag, including `partial_fixpoint`.
 - Inline `address p := addressInner p.impl p.spec'`, with the original signature.
+- `address.eq_sim : address p = addressSim p`, the checked equivalence contract.
 - `address.unfold : address p = p.impl`, rewriting to the original definition's body.
 
 The generator threads dependencies through fields and subsequent arguments, preserves
 `Erased` specifications and proof fields verbatim, and leaves results, ordinary arrays,
-and ordinary options unchanged. It does **not** generate `Impl`/`Spec` functions, split
-results, rewrite recursive calls, or require `Erased.map` to inline. Recursive unfolding
-equations use the original recursion theorem; private helpers are expanded in theorem
-statements so rewriting works across module boundaries. Safe definitions are supported,
+and ordinary options unchanged. For recursive definitions, `fooInner` contains a rewritten
+copy of the body: input structs are locally rebound from their fields, and recursive calls
+invoke `fooInner` with projected fields rather than returning to `fooSim`. These local
+rebindings can disappear during compilation; they are not recursive struct-valued arguments.
+The generator does **not** generate `Impl`/`Spec` functions, split results, or require
+`Erased.map` to inline. Equivalence uses functional induction for terminating recursion,
+and admissible least-fixed-point reindexing for `partial_fixpoint` (not an assumption
+that unfolding equations have unique solutions). Unfolding equations retain the original
+body; private helpers are expanded in theorem statements so rewriting works across module
+boundaries. Safe definitions are supported,
 including well-founded recursion and `partial_fixpoint` equations. Ordinary `partial def`
 and unsafe definitions cannot supply this unfolding contract. A non-exported opaque computational helper must be made public
 (or the source function kept private) rather than exposed by an unchecked rewrite.
@@ -88,23 +96,54 @@ and unsafe definitions cannot supply this unfolding contract. A non-exported opa
 private definitions, recursion, attributes, and native execution. `UnitTest.BuffedImport`
 checks exported equations. Run `python3 Tools/check-buffed-wrapper-codegen` to additionally
 verify that generated C passes a raw scalar pointer/raw context directly to the noinline
-inner function without constructing a `Sim` wrapper at the call site.
+inner function without constructing a `Sim` wrapper at the call site. It also checks
+allocation-free recursive test bodies and the raw recursive calling convention of the
+production replacement loop; a forwarding adapter to the boxed source fails these checks.
 
 All **202** declarations marked `buffed` in `yqlxtmmr` (`4e230ff25`), including five
 `protected buffed` declarations, now use this generator,
 including the benchmark rewrites, IR accessors/setters, recycling, linked lists, construction,
-and printer helpers. Their original `inline := ...` choices control the new inner functions.
+and printer helpers. Their original `inline := ...` choices control nonrecursive inner
+functions. Recursive inners override these choices with `@[noinline]`: Lean skips body
+specialization for inline templates but generally cannot inline recursive calls. Source
+`fooSim` definitions and nonrecursive outer wrappers remain inline.
 `Tools/buffed-declarations.tsv` records the complete historical inventory;
 `UnitTest.BuffedAdoption` checks the 169 production signatures, flattened arities, inline
-and protected attributes, and generated equations' axioms. The codegen runner additionally
+and protected attributes, actual recursive inner declarations, and generated equations' axioms. The codegen runner additionally
 checks all 202 source declarations, including the 33 benchmark functions with pre-existing
-proof placeholders. Proofs unfold `foo.unfold`; induction uses the original `fooSim` definition.
+proof placeholders. Proofs unfold `foo.unfold`; before induction on the original `fooSim`,
+use `simp only [foo.eq_sim] at *`. Recursive wrappers are no longer definitionally equal
+to the original function: use the proved equivalence rather than `rfl`.
 
-Flattening does not guarantee a speedup: matched pre-/post-adoption measurements (CPU
+Historical measurements **before recursive-body rewriting**: matched pre-/post-adoption measurements (CPU
 pinned, two warmups, nine alternating samples; 5k/10k operations) show 4–14% slower
 millisecond-scale rewrites and 16–30% slower construction with these historical inline
 choices, while the repeated-reuse-first rewrite is about 20% faster. No result/spec
-splitting or speculative inline-policy tuning is included in this adoption.
+splitting or speculative inline-policy tuning was included in that comparison. Those
+figures measure the old forwarding implementation, not the rewritten recursive inners.
+
+Historical measurements with recursive-body rewriting **before disabling recursive inner
+inlining**: matched 5k/10k comparisons show 1.5–11.1% faster
+construction versus forwarding; ordinary millisecond-scale rewrites remain within about
+3%. The repeated-reuse-first case is **13–18% slower** versus forwarding, including
+2.380 → 2.688 ms at 300k. This is not direct-`Erased` parity: primary construction and
+millisecond-scale rewrites remain 6.6–18.3% and 2.5–10.2% slower respectively. Results
+and historical inline policies were unchanged in those measurements; argument flattening
+alone was not a complete optimization fix.
+
+With **all recursive inners noinline**, the inventory audit finds 19 recursive inners:
+18 changed (ten benchmark and eight production helpers); `replaceValue?Inner` was already
+noinline. Nonrecursive policies, source definitions, outer wrappers, and results are unchanged.
+Matched CPU-4 runs (two warmups, nine alternating samples) at 10k/100 show 5.8–8.6% faster
+construction versus the previous recursive implementation. Fold/multiply rewrites improve
+3.8–7.3%, while zero/reuse rewrites change little. At 100k, construction improves 6.4–9.9%;
+repeated reuse at 300k is essentially unchanged (2.707 → 2.691 ms).
+Ordinary 10k rewrites remain 0.3–7.5% slower than direct `Erased`; versus pre-`Erased`, six
+are 4.8–14.3% slower while sparse constant folding is 15.4× faster. The additional eight
+production changes are not uniformly beneficial versus the ten-benchmark-only experiment:
+reuse-forwards rewriting is 3.7% slower in that comparison. Two noisy primary pairs were
+repeated without discarding their original samples. Results, hashes, all samples, and
+validation logs are in `/tmp/veir-buffed-all-recursive-noinline/`.
 
 ## Running the benchmarks
 

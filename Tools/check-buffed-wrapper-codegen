@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that noinline flattened calls do not allocate Sim argument wrappers."""
+"""Check flattened entry points and genuine field-based recursive implementations."""
 import pathlib
 import re
 import subprocess
@@ -18,20 +18,25 @@ subprocess.run(["lake", "build", "UnitTest.Buffed:c.o", "UnitTest.BuffedAdoption
 source = (root / ".lake/build/ir/UnitTest/Buffed.c").read_text()
 
 
-def function(name, argument_type):
-    pattern = rf"^LEAN_EXPORT uint64_t \w*UnitTest_Buffed_{name}\(([^)]*)\)\{{"
-    match = re.search(pattern, source, re.MULTILINE)
+def function(name, argument_types, *, text=source, prefix="UnitTest_Buffed_", result="uint64_t"):
+    pattern = rf"^LEAN_EXPORT {re.escape(result)} \w*{prefix}{name}\(([^)]*)\)\{{"
+    match = re.search(pattern, text, re.MULTILINE)
     assert match, f"missing generated C function: {name}"
-    assert re.fullmatch(rf"{re.escape(argument_type)}\s+\w+", match[1]), (
-        f"{name} should have exactly one runtime argument, got {match[1]}"
-    )
+    if isinstance(argument_types, str):
+        argument_types = [argument_types]
+    arguments = [argument.strip() for argument in match[1].split(",")]
+    assert len(arguments) == len(argument_types), f"unexpected arity for {name}: {match[1]}"
+    for argument, expected in zip(arguments, argument_types):
+        assert re.fullmatch(rf"{re.escape(expected)}\s+\w+", argument), (
+            f"unexpected argument representation for {name}: {argument}, expected {expected}"
+        )
     depth = 1
     end = match.end()
-    while depth and end < len(source):
-        depth += (source[end] == "{") - (source[end] == "}")
+    while depth and end < len(text):
+        depth += (text[end] == "{") - (text[end] == "}")
         end += 1
     assert depth == 0, f"unterminated function: {name}"
-    return source[match.end():end - 1]
+    return text[match.end():end - 1]
 
 
 for caller, callee, arg_type in [
@@ -44,4 +49,32 @@ for caller, callee, arg_type in [
         assert forbidden not in body, f"{caller} introduces a wrapper: {forbidden}"
     function(callee, arg_type)
 
-print("Buffered wrapper codegen passed: scalar pointer and raw context calls allocate no Sim wrappers.")
+# These must contain the recursive implementation, not an adapter back to fooSim.
+# Both non-tail and tail recursion are covered, including changing pointer values,
+# a raw context, explicit/named arguments, well-founded recursion, and partial_fixpoint.
+for name, arguments in [
+    ("count", ["uint64_t", "lean_object*"]),
+    ("stride", ["uint64_t", "lean_object*"]),
+    ("advance", ["uint64_t", "lean_object*"]),
+    ("namedRec", ["uint64_t", "lean_object*", "uint64_t"]),
+    ("contextRec", ["lean_object*", "lean_object*"]),
+    ("partialAdvance", ["uint64_t", "lean_object*"]),
+]:
+    body = function(name + "Inner___redArg", arguments)
+    assert name + "Sim" not in body, f"{name} still forwards to the boxed recursive implementation"
+    assert name + "Inner___redArg(" in body or "goto _start;" in body, f"missing recursion in {name}"
+    for forbidden in ("lean_alloc_ctor", "lean_box_uint64"):
+        assert forbidden not in body, f"{name} rebuilds a Sim wrapper: {forbidden}"
+
+# A real hot path, not just a synthetic reader. Its result remains Option (Sim.IRContext),
+# so result allocations are allowed; the recursive calling convention must be raw.
+rewriter = (root / ".lake/build/ir/Veir/Buffered/Rewriter/Basic.c").read_text()
+# Lean retains a Unit-valued erased-spec parameter until native optimization.
+body = function("replaceValue_x3fInner___redArg", ["lean_object*", "lean_object*", "uint64_t", "uint64_t", "uint64_t"],
+                text=rewriter, prefix="Veir_Buffered_Rewriter_", result="lean_object*")
+assert "replaceValue_x3fSim" not in body, "replacement still calls the boxed source implementation"
+assert "goto _start;" in body or "replaceValue_x3fInner___redArg(" in body, "missing replacement recursion"
+assert "lean_alloc_ctor(0, 0, 8)" not in body, "replacement rebuilds pointer wrappers"
+assert body.count("lean_alloc_ctor(0, 1, 0)") == 1, "replacement must only wrap its final context result"
+
+print("Buffered codegen passed: allocation-free test loops and raw production replacement recursion.")

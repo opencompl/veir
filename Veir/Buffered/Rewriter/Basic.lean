@@ -243,25 +243,25 @@ decreasing_by
 @[grind .]
 theorem Rewriter.detachOperands.loop_inBounds (ptr : Sim.GenericPtr) :
     ptr.InBounds (detachOperands.loop ctx op off index hCtx hOp hIndex hoff) ↔ ptr.InBounds ctx := by
-  simp only [show @loop = @loopSim from rfl] at *
+  simp only [loop.eq_sim] at *
   fun_induction loopSim <;> grind
 
 @[grind .]
 theorem Rewriter.detachOperands.loop_fieldsInBounds :
     ctx.spec.FieldsInBounds → (detachOperands.loop ctx op off index hCtx hOp hIndex hoff).spec.FieldsInBounds := by
-  simp only [show @loop = @loopSim from rfl] at *
+  simp only [loop.eq_sim] at *
   fun_induction loopSim <;> grind
 
 @[simp, grind =]
 theorem Rewriter.detachOperands.loop_preserves_numSuccessors (hctx : ctx.spec.FieldsInBounds) {op' : Veir.Buffered.OperationPtr} :
     op'.getNumSuccessors! (detachOperands.loop ctx op off idx hctx hOp hIndex hoff).spec = op'.getNumSuccessors! ctx.spec := by
-  simp only [show @loop = @loopSim from rfl] at *
+  simp only [loop.eq_sim] at *
   fun_induction loopSim <;> grind
 
 @[simp, grind =]
 theorem Rewriter.detachOperands.loop_preserves_capSuccessors (hctx : ctx.spec.FieldsInBounds) {op' : Veir.Buffered.OperationPtr} :
     (op'.get! (detachOperands.loop ctx op off idx hctx hOp hIndex hoff).spec).capBlockOperands = (op'.get! ctx.spec).capBlockOperands := by
-  simp only [show @loop = @loopSim from rfl] at *
+  simp only [loop.eq_sim] at *
   fun_induction loopSim <;> grind
 
 buffed (inline := true)
@@ -318,13 +318,13 @@ decreasing_by grind [UInt64.toNat_mod_size, UInt64.toNat_sub, UInt64.le_iff_toNa
 @[grind .]
 theorem Rewriter.detachBlockOperands.loop_inBounds (ptr : Sim.GenericPtr) :
     ptr.InBounds (detachBlockOperands.loop ctx op index hCtx hOp hIndex) ↔ ptr.InBounds ctx := by
-  simp only [show @loop = @loopSim from rfl] at *
+  simp only [loop.eq_sim] at *
   fun_induction loopSim <;> grind
 
 @[grind .]
 theorem Rewriter.detachBlockOperands.loop_fieldsInBounds :
     ctx.spec.FieldsInBounds → (detachBlockOperands.loop ctx op index hCtx hOp hIndex).spec.FieldsInBounds := by
-  simp only [show @loop = @loopSim from rfl] at *
+  simp only [loop.eq_sim] at *
   fun_induction loopSim <;> grind
 
 buffed (inline := true)
@@ -456,69 +456,69 @@ decreasing_by
 theorem Rewriter.replaceValue?_veir_inBounds (ptr : Veir.Buffered.GenericPtr) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     (ptr.InBounds ctx.spec ↔ ptr.InBounds ctx'.spec) := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [replaceUse.unfold]
 
 @[grind =>]
 theorem Rewriter.replaceValue?_inBounds (ptr : Sim.GenericPtr) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     (ptr.InBounds ctx ↔ ptr.InBounds ctx') := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind
 
 @[grind .]
 theorem Rewriter.replaceValue?_fieldsInBounds :
      ctx.spec.FieldsInBounds → (replaceValue? ctx old new h₁ h₂ h₃ d).maybe₁ (·.spec.FieldsInBounds) := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_results_size (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     op.spec.getNumResults! ctx'.spec = op.spec.getNumResults! ctx.spec := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent' (op : Sim.OperationPtr) (hop : op.InBounds ctx)
     (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
     (op.spec.get! ctx'.spec).parent = (op.spec.get! ctx.spec).parent := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_parent (op : Sim.OperationPtr) (hop : op.InBounds ctx)
     (hctx' : replaceValue? ctx old new h₁ h₂ h₃ d = some ctx') :
     (op.spec.get! ctx'.spec).parent = (op.spec.get! ctx.spec).parent := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_numOperands (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     op.spec.getNumOperands! ctx'.spec = op.spec.getNumOperands! ctx.spec := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_capOperands (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     (op.spec.get! ctx'.spec).capOperands = (op.spec.get! ctx.spec).capOperands := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_numSuccessors (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     op.spec.getNumSuccessors! ctx'.spec = op.spec.getNumSuccessors! ctx.spec := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceValue?_preserves_capBlockOperands (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceValue? ctx old new h₁ h₂ h₃ d = some ctx' →
     (op.spec.get! ctx'.spec).capBlockOperands = (op.spec.get! ctx.spec).capBlockOperands := by
-  simp only [show @replaceValue? = @replaceValue?Sim from rfl] at *
+  simp only [replaceValue?.eq_sim] at *
   fun_induction replaceValue?Sim <;> grind [Rewriter.replaceUse.unfold]
 
 buffed (inline := true)
@@ -547,7 +547,7 @@ decreasing_by
 theorem Rewriter.replaceOpResults_inBounds {ptr : Sim.GenericPtr} :
     replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     (ptr.InBounds ctx ↔ ptr.InBounds newCtx) := by
-  simp only [show @replaceOpResults = @replaceOpResultsSim from rfl] at *
+  simp only [replaceOpResults.eq_sim] at *
   fun_induction replaceOpResultsSim <;> grind [Rewriter.replaceUse.unfold]
 
 grind_pattern Rewriter.replaceOpResults_inBounds =>
@@ -561,35 +561,35 @@ grind_pattern Rewriter.replaceOpResults_inBounds =>
 theorem Rewriter.replaceOpResults_fieldsInBounds :
     replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     newCtx.spec.FieldsInBounds := by
-  simp only [show @replaceOpResults = @replaceOpResultsSim from rfl] at *
+  simp only [replaceOpResults.eq_sim] at *
   fun_induction replaceOpResultsSim <;> grind [Rewriter.replaceUse.unfold]
 
 @[grind .]
 theorem Rewriter.replaceOpResults_preserves_numOperands (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     op.spec.getNumOperands! newCtx.spec = op.spec.getNumOperands! ctx.spec := by
-  simp only [show @replaceOpResults = @replaceOpResultsSim from rfl] at *
+  simp only [replaceOpResults.eq_sim] at *
   fun_induction replaceOpResultsSim <;> grind [generic_ptr_grind]
 
 @[grind .]
 theorem Rewriter.replaceOpResults_preserves_capOperands (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     (op.spec.get! newCtx.spec).capOperands = (op.spec.get! ctx.spec).capOperands := by
-  simp only [show @replaceOpResults = @replaceOpResultsSim from rfl] at *
+  simp only [replaceOpResults.eq_sim] at *
   fun_induction replaceOpResultsSim <;> grind [generic_ptr_grind]
 
 @[grind .]
 theorem Rewriter.replaceOpResults_preserves_numSuccessors (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     op.spec.getNumSuccessors! newCtx.spec = op.spec.getNumSuccessors! ctx.spec := by
-  simp only [show @replaceOpResults = @replaceOpResultsSim from rfl] at *
+  simp only [replaceOpResults.eq_sim] at *
   fun_induction replaceOpResultsSim <;> grind [generic_ptr_grind]
 
 @[grind .]
 theorem Rewriter.replaceOpResults_preserves_capBlockOperands (op : Sim.OperationPtr) (hop : op.InBounds ctx) :
     replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo ctxInBounds = some newCtx →
     (op.spec.get! newCtx.spec).capBlockOperands = (op.spec.get! ctx.spec).capBlockOperands := by
-  simp only [show @replaceOpResults = @replaceOpResultsSim from rfl] at *
+  simp only [replaceOpResults.eq_sim] at *
   fun_induction replaceOpResultsSim <;> grind [generic_ptr_grind]
 
 buffed (inline := true)
@@ -760,7 +760,7 @@ theorem Rewriter.initBlockArguments_fieldsInBounds {blockPtr : Sim.BlockPtr}
     ctx.spec.FieldsInBounds → newCtx.spec.FieldsInBounds := by
   simp [initBlockArguments.unfold] at heq
   revert heq
-  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  simp only [initBlockArgumentsLoop.eq_sim] at *
   fun_induction initBlockArgumentsLoopSim <;> grind
 
 /-- This theorem is a more general version of `initBlockArguments_inBounds` that is needed for the induction step in the proof of that theorem. -/
@@ -780,7 +780,7 @@ theorem Rewriter.initBlockArguments_inBounds' (ptr : Veir.Buffered.GenericPtr) {
     | _ => ptr.InBounds ctx.spec := by
   simp [initBlockArguments.unfold] at heq
   revert heq
-  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  simp only [initBlockArgumentsLoop.eq_sim] at *
   fun_induction initBlockArgumentsLoopSim <;>
     grind (gen := 20) (splits := 20) [BlockArgumentPtr.inBounds_def, → Array.usize_le_toNat]
 
@@ -806,7 +806,7 @@ theorem Rewriter.initBlockArguments_inBounds_veir_mono (ptr : Veir.Buffered.Gene
     ptr.InBounds ctx.spec → ptr.InBounds newCtx.spec := by
   simp [initBlockArguments.unfold] at heq
   revert heq
-  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  simp only [initBlockArgumentsLoop.eq_sim] at *
   fun_induction initBlockArgumentsLoopSim
   · grind
   · grind
@@ -819,7 +819,7 @@ theorem Rewriter.initBlockArguments_inBounds_mono (ptr : Sim.GenericPtr) {blockP
     ptr.InBounds ctx → ptr.InBounds newCtx := by
   simp [initBlockArguments.unfold] at heq
   revert heq
-  simp only [show @initBlockArgumentsLoop = @initBlockArgumentsLoopSim from rfl] at *
+  simp only [initBlockArgumentsLoop.eq_sim] at *
   fun_induction initBlockArgumentsLoopSim <;> grind
 
 buffed (inline := true)
@@ -997,7 +997,7 @@ theorem Rewriter.initOpRegions_fieldsInBounds {opPtr : Sim.OperationPtr}
     ctx.spec.FieldsInBounds →
     initOpRegions opPtr ctx regions n opPtrInBounds hregions hctx hn hcap = some ctx' →
     ctx'.spec.FieldsInBounds := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind
 
 @[grind .]
@@ -1006,7 +1006,7 @@ theorem Rewriter.initOpRegions_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Sim
     ptr.InBounds ctx →
     initOpRegions opPtr ctx regions n opPtrInBounds hregions hctx hn hcap = some ctx' →
     ptr.InBounds ctx' := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind
 
 @[grind .]
@@ -1015,7 +1015,7 @@ theorem Rewriter.initOpRegions_inBounds_veir_mono (ptr : Veir.Buffered.GenericPt
     ptr.InBounds ctx.spec →
     initOpRegions opPtr ctx regions n opPtrInBounds hregions hctx hn hcap = some ctx' →
     ptr.InBounds ctx'.spec := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind
 
 @[grind .]
@@ -1023,7 +1023,7 @@ theorem Rewriter.initOpRegions_preserves_numOperands (ptr : Veir.Buffered.Operat
     {ctx ctx' : Sim.IRContext OpInfo} {index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     ptr.getNumOperands! ctx'.spec = ptr.getNumOperands! ctx.spec := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt.unfold]
 
 @[grind .]
@@ -1031,7 +1031,7 @@ theorem Rewriter.initOpRegions_preserves_numSuccessors (ptr : Veir.Buffered.Oper
     {ctx ctx' : Sim.IRContext OpInfo} {index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     ptr.getNumSuccessors! ctx'.spec = ptr.getNumSuccessors! ctx.spec := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt.unfold]
 
 /- Region pushes never touch the operand/block-operand capacities (cf. the `initOpResults` capacity-preservation lemmas above). -/
@@ -1039,14 +1039,14 @@ theorem Rewriter.initOpRegions_preserves_capOperands (ptr : Veir.Buffered.Operat
     {ctx ctx' : Sim.IRContext OpInfo} {index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     (ptr.get! ctx'.spec).capOperands = (ptr.get! ctx.spec).capOperands := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt.unfold]
 
 theorem Rewriter.initOpRegions_preserves_capBlockOperands (ptr : Veir.Buffered.OperationPtr)
     {ctx ctx' : Sim.IRContext OpInfo} {index h₁ h₂ h₃ h₄ h₅}
     (heq : Rewriter.initOpRegions opPtr ctx regions index h₁ h₂ h₃ h₄ h₅ = some ctx') :
     (ptr.get! ctx'.spec).capBlockOperands = (ptr.get! ctx.spec).capBlockOperands := by
-  simp only [show @initOpRegions = @initOpRegionsSim from rfl] at *
+  simp only [initOpRegions.eq_sim] at *
   fun_induction initOpRegionsSim <;> grind (gen := 20) [pushRegionAt.unfold]
 
 buffed (inline := true)
@@ -1166,7 +1166,7 @@ theorem Rewriter.initOpResults_fieldsInBounds {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind
 
 @[grind .]
@@ -1174,7 +1174,7 @@ theorem Rewriter.initOpResults_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Sim
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind
 
 @[grind .]
@@ -1182,7 +1182,7 @@ theorem Rewriter.initOpResults_inBounds_veir_mono (ptr : Veir.Buffered.GenericPt
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ptr.InBounds ctx.spec → ptr.InBounds ctx'.spec := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind
 
 /-- Application-form variant (cf. `initOpOperands_inBounds_mono'`): with the non-`Option` return
@@ -1219,7 +1219,7 @@ theorem Rewriter.initOpResults_preserves_numRegions (ptr : Veir.Buffered.Operati
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ptr.getNumRegions! ctx'.spec = ptr.getNumRegions! ctx.spec := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
 @[grind .]
@@ -1227,7 +1227,7 @@ theorem Rewriter.initOpResults_preserves_numOperands (ptr : Veir.Buffered.Operat
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ptr.getNumOperands! ctx'.spec = ptr.getNumOperands! ctx.spec := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
 @[grind .]
@@ -1235,7 +1235,7 @@ theorem Rewriter.initOpResults_preserves_numSuccessors (ptr : Veir.Buffered.Oper
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     ptr.getNumSuccessors! ctx'.spec = ptr.getNumSuccessors! ctx.spec := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
 /- Pushing results only grows the `results` array, so every capacity field survives the loop. -/
@@ -1243,21 +1243,21 @@ theorem Rewriter.initOpResults_preserves_capRegions (ptr : Veir.Buffered.Operati
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).capRegions = (ptr.get! ctx.spec).capRegions := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
 theorem Rewriter.initOpResults_preserves_capOperands (ptr : Veir.Buffered.OperationPtr)
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).capOperands = (ptr.get! ctx.spec).capOperands := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
 theorem Rewriter.initOpResults_preserves_capBlockOperands (ptr : Veir.Buffered.OperationPtr)
     {ctx ctx' : Sim.IRContext OpInfo} {resultTypes index h₁ h₂ h₃ h₄ h₅}
     (heq : initOpResults opPtr ctx resultTypes index h₁ h₂ h₃ h₄ h₅ = ctx') :
     (ptr.get! ctx'.spec).capBlockOperands = (ptr.get! ctx.spec).capBlockOperands := by
-  simp only [show @initOpResults = @initOpResultsSim from rfl] at *
+  simp only [initOpResults.eq_sim] at *
   fun_induction initOpResultsSim <;> grind [Rewriter.pushResult]
 
 protected buffed (inline := true)
@@ -1428,21 +1428,21 @@ theorem Rewriter.initOpOperands.loop_inBounds_mono (ptr : Sim.GenericPtr) {opPtr
     {ctx ctx' : Sim.IRContext OpInfo} {h₁ operands h₂ off index hidx hcap hoff}
     (heq : initOpOperands.loop opPtr ctx h₁ operands h₂ off index hidx hcap hoff = ctx') :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
-  simp only [show @initOpOperands.loop = @initOpOperands.loopSim from rfl] at *
+  simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim <;> grind
 
 @[grind .]
 theorem Rewriter.initOpOperands.loop_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ off index hidx hcap hoff} :
     ptr.InBounds ctx → ptr.InBounds (initOpOperands.loop opPtr ctx h₁ operands h₂ off index hidx hcap hoff) := by
-  simp only [show @initOpOperands.loop = @initOpOperands.loopSim from rfl] at *
+  simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim <;> grind
 
 @[grind .]
 theorem Rewriter.initOpOperands.loop_inBounds_veir_mono (ptr : Veir.Buffered.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ off index hidx hcap hoff} :
     ptr.InBounds ctx.spec → ptr.InBounds (initOpOperands.loop opPtr ctx h₁ operands h₂ off index hidx hcap hoff).spec := by
-  simp only [show @initOpOperands.loop = @initOpOperands.loopSim from rfl] at *
+  simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim <;> grind
 
 @[grind .]
@@ -1450,14 +1450,14 @@ theorem Rewriter.initOpOperands.loop_preserves_numSuccessors! (ptr : Veir.Buffer
     {ctx ctx' : Sim.IRContext OpInfo} {h₁ operands h₂ off index hidx hcap hoff}
     (heq : initOpOperands.loop opPtr ctx h₁ operands h₂ off index hidx hcap hoff = ctx') :
     ptr.getNumSuccessors! ctx'.spec = ptr.getNumSuccessors! ctx.spec := by
-  simp only [show @initOpOperands.loop = @initOpOperands.loopSim from rfl] at *
+  simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim <;> grind
 
 theorem Rewriter.initOpOperands.loop_preserves_capBlockOperands (ptr : Veir.Buffered.OperationPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ off index hidx hcap hoff} :
     (ptr.get! (initOpOperands.loop opPtr ctx h₁ operands h₂ off index hidx hcap hoff).spec).capBlockOperands
       = (ptr.get! ctx.spec).capBlockOperands := by
-  simp only [show @initOpOperands.loop = @initOpOperands.loopSim from rfl] at *
+  simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim <;> grind [Rewriter.pushOperand_preserves_capBlockOperands]
 
 /-! Wrapper lemmas: the original `initOpOperands` statements, proved by case-splitting the
@@ -1630,7 +1630,7 @@ theorem Rewriter.initBlockOperands_fieldsInBounds {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {operands index h₁ h₂ h₃ h₄}
     (heq : initBlockOperands opPtr ctx operands index h₁ h₂ h₃ h₄ = ctx') :
     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
-  simp only [show @Rewriter.initBlockOperands = @Rewriter.initBlockOperandsSim from rfl] at *
+  simp only [Rewriter.initBlockOperands.eq_sim] at *
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
 @[grind .]
@@ -1638,21 +1638,21 @@ theorem Rewriter.initBlockOperands_inBounds_mono (ptr : Sim.GenericPtr) {opPtr :
     {ctx ctx' : Sim.IRContext OpInfo} {operands index h₁ h₂ h₃ h₄}
     (heq : initBlockOperands opPtr ctx operands index h₁ h₂ h₃ h₄ = ctx') :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
-  simp only [show @Rewriter.initBlockOperands = @Rewriter.initBlockOperandsSim from rfl] at *
+  simp only [Rewriter.initBlockOperands.eq_sim] at *
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
 @[grind .]
 theorem Rewriter.initBlockOperands_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {operands index h₁ h₂ h₃ h₄} :
     ptr.InBounds ctx → ptr.InBounds (initBlockOperands opPtr ctx operands index h₁ h₂ h₃ h₄) := by
-  simp only [show @Rewriter.initBlockOperands = @Rewriter.initBlockOperandsSim from rfl] at *
+  simp only [Rewriter.initBlockOperands.eq_sim] at *
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
 @[grind .]
 theorem Rewriter.initBlockOperands_inBounds_veir_mono (ptr : Veir.Buffered.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {operands index h₁ h₂ h₃ h₄} :
     ptr.InBounds ctx.spec → ptr.InBounds (initBlockOperands opPtr ctx operands index h₁ h₂ h₃ h₄).spec := by
-  simp only [show @Rewriter.initBlockOperands = @Rewriter.initBlockOperandsSim from rfl] at *
+  simp only [Rewriter.initBlockOperands.eq_sim] at *
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
 set_option maxHeartbeats 4000000 in

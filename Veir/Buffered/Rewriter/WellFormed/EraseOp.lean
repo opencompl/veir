@@ -151,7 +151,7 @@ theorem Rewriter.detachOperands.loop_wellFormed
       (missingOperands.insertMany
         ((0...=index.toNat).toList.map (fun i => OpOperandPtr.mk op.spec i)))
       missingSuccessors := by
-  simp only [show @Rewriter.detachOperands.loop = @Rewriter.detachOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachOperands.loopSim generalizing missingOperands missingSuccessors
   case case1 =>
     let use := op.getOperandPtrAt _ off 0 (by assumption) (by assumption)
@@ -1063,7 +1063,7 @@ theorem Rewriter.detachBlockOperands.loop_wellFormed
       missingOperands
       (missingSuccessors.insertMany
         ((0...=index.toNat).toList.map (fun i => BlockOperandPtr.mk op.spec i))) := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim generalizing missingOperands missingSuccessors
   case case1 =>
     let use := op.getBlockOperandPtr _ 0 (by assumption)
@@ -1232,7 +1232,7 @@ theorem OpResultPtr.firstUse!_detachOperands_loop_eq_none_of_firstUse!_eq_none
     (h : (result.get! ctx.spec).firstUse = none) :
     (result.get! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec).firstUse = none := by
-  simp only [show @Rewriter.detachOperands.loop = @Rewriter.detachOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachOperands.loopSim generalizing missingUses missingSuccessors
   case case1 =>
     let use := operation.getOperandPtrAt _ off 0 (by assumption) (by assumption)
@@ -1335,7 +1335,7 @@ theorem OpResultPtr.firstUse!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     (result.get! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec).firstUse = (result.get! ctx.spec).firstUse := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim
   case case1 =>
     rename_i _ _ _ currentCtx hCtxCur hOpCur hIndexCur currentCtx'
@@ -1394,7 +1394,7 @@ theorem OperationPtr.getNumResults!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     op'.getNumResults! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec = op'.getNumResults! ctx.spec := by
-  simp only [show @Rewriter.detachOperands.loop = @Rewriter.detachOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachOperands.loopSim
   case case1 =>
     rename_i _ _ _ currentCtx hCtxCur hOpCur hIndexCur hoffCur currentCtx'
@@ -1428,7 +1428,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumResults! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumResults! ctx.spec := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim
   case case1 =>
     rename_i _ _ _ currentCtx hCtxCur hOpCur hIndexCur currentCtx'
@@ -1463,7 +1463,7 @@ theorem OperationPtr.getNumOperands!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     op'.getNumOperands! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec = op'.getNumOperands! ctx.spec := by
-  simp only [show @Rewriter.detachOperands.loop = @Rewriter.detachOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachOperands.loopSim <;>
     grind [Sim.OperationPtr.getNumOperands!_OpOperandPtr_removeFromCurrent]
 
@@ -1489,7 +1489,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumOperands! ctx.spec := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim <;>
     grind [Sim.OperationPtr.getNumOperands!_BlockOperandPtr_removeFromCurrent]
 
@@ -1515,7 +1515,7 @@ theorem OperationPtr.getNumSuccessors!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumSuccessors! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumSuccessors! ctx.spec := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim <;>
     grind [Sim.OperationPtr.getNumSuccessors!_BlockOperandPtr_removeFromCurrent]
 
@@ -1557,7 +1557,7 @@ theorem OperationPtr.parent!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     (op'.get! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec).parent = (op'.get! ctx.spec).parent := by
-  simp only [show @Rewriter.detachOperands.loop = @Rewriter.detachOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachOperands.loopSim <;>
     grind [Sim.OperationPtr.parent!_OpOperandPtr_removeFromCurrent]
 
@@ -1583,7 +1583,7 @@ theorem OperationPtr.parent!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     (op'.get! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec).parent = (op'.get! ctx.spec).parent := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim <;>
     grind [Sim.OperationPtr.parent!_BlockOperandPtr_removeFromCurrent]
 
@@ -1610,7 +1610,7 @@ theorem OperationPtr.getNumRegions!_detachOperands_loop
     (hoff : off = Buffed.Operation.Offsets.operands operation.spec ctx.spec) :
     op'.getNumRegions! (Rewriter.detachOperands.loop ctx operation off index
       hCtx hOp hIndex hoff).spec = op'.getNumRegions! ctx.spec := by
-  simp only [show @Rewriter.detachOperands.loop = @Rewriter.detachOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachOperands.loopSim <;>
     grind [Sim.OperationPtr.getNumRegions!_OpOperandPtr_removeFromCurrent]
 
@@ -1636,7 +1636,7 @@ theorem OperationPtr.getNumRegions!_detachBlockOperands_loop
     (hIndex : index.toNat < operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachBlockOperands.loop ctx operation index
       hCtx hOp hIndex).spec = op'.getNumRegions! ctx.spec := by
-  simp only [show @Rewriter.detachBlockOperands.loop = @Rewriter.detachBlockOperands.loopSim from rfl] at *
+  simp only [Rewriter.detachBlockOperands.loop.eq_sim] at *
   fun_induction Rewriter.detachBlockOperands.loopSim <;>
     grind [Sim.OperationPtr.getNumRegions!_BlockOperandPtr_removeFromCurrent]
 

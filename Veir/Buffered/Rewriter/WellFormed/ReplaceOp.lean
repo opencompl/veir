@@ -781,7 +781,7 @@ theorem Rewriter.replaceValue?_WellFormed
     (ctxIn : ctx.spec.FieldsInBounds) (hWf : ctx.spec.WellFormed) :
     Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth = some newCtx →
     newCtx.spec.WellFormed := by
-  simp only [show @Rewriter.replaceValue? = @Rewriter.replaceValue?Sim from rfl] at *
+  simp only [Rewriter.replaceValue?.eq_sim] at *
   fun_induction Rewriter.replaceValue?Sim
   case case1 => simp
   case case2 =>
@@ -799,7 +799,7 @@ theorem Rewriter.replaceValue?_oldValue_firstUse_eq_none
     (heq : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth =
       some newCtx) :
     oldValue.spec.getFirstUse! newCtx.spec = none := by
-  simp only [show @Rewriter.replaceValue? = @Rewriter.replaceValue?Sim from rfl] at *
+  simp only [Rewriter.replaceValue?.eq_sim] at *
   fun_induction Rewriter.replaceValue?Sim <;>
     grind [Sim.OptionOpOperandPtr.toOption_none_iff_spec_none,
       Sim.ValuePtr.getFirstUse_spec, Sim.ValuePtr.getFirstUse_sim,
@@ -822,7 +822,7 @@ theorem Rewriter.replaceValue?_preserves_numRegions
     (heq : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth =
       some newCtx) :
     op.spec.getNumRegions! newCtx.spec = op.spec.getNumRegions! ctx.spec := by
-  simp only [show @Rewriter.replaceValue? = @Rewriter.replaceValue?Sim from rfl] at *
+  simp only [Rewriter.replaceValue?.eq_sim] at *
   fun_induction Rewriter.replaceValue?Sim <;>
     grind [Rewriter.replaceUse.unfold, generic_ptr_grind]
 
@@ -840,7 +840,7 @@ theorem Rewriter.replaceValue?_DefUse_otherValue
     (heq : Rewriter.replaceValue? ctx oldValue newValue oldIn newIn ctxIn depth =
       some newCtx) :
     value.spec.DefUse newCtx.spec array := by
-  simp only [show @Rewriter.replaceValue? = @Rewriter.replaceValue?Sim from rfl] at *
+  simp only [Rewriter.replaceValue?.eq_sim] at *
   fun_induction Rewriter.replaceValue?Sim generalizing array oldArray newArray
   case case1 => simp at heq
   case case2 =>
@@ -905,7 +905,7 @@ theorem Sim.IRContext.wellFormed_replaceOpResults
     Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB hNumFrom hNumTo
       ctxInBounds = some newCtx →
     newCtx.spec.WellFormed := by
-  simp only [show @Rewriter.replaceOpResults = @Rewriter.replaceOpResultsSim from rfl] at *
+  simp only [Rewriter.replaceOpResults.eq_sim] at *
   fun_induction Rewriter.replaceOpResultsSim
   case case1 =>
     intro heq
@@ -929,7 +929,7 @@ theorem OpResult.hasUses_replaceOpResults_self_ge
       i < toOp.spec.getNumResults! ctx.spec →
       (ValuePtr.opResult (fromOp.spec.getResult i)).hasUses! newCtx.spec =
         (ValuePtr.opResult (fromOp.spec.getResult i)).hasUses! ctx.spec := by
-  simp only [show @Rewriter.replaceOpResults = @Rewriter.replaceOpResultsSim from rfl] at *
+  simp only [Rewriter.replaceOpResults.eq_sim] at *
   fun_induction Rewriter.replaceOpResultsSim
   case case1 =>
     cases heq
@@ -1035,7 +1035,7 @@ theorem OpResult.hasUses_replaceOpResults_self
       hNumFrom hNumTo ctxInBounds = some newCtx) :
     ∀ i, i < index.toNat →
       (ValuePtr.opResult (fromOp.spec.getResult i)).hasUses! newCtx.spec = false := by
-  simp only [show @Rewriter.replaceOpResults = @Rewriter.replaceOpResultsSim from rfl] at *
+  simp only [Rewriter.replaceOpResults.eq_sim] at *
   fun_induction Rewriter.replaceOpResultsSim
   case case1 =>
     intros i hi
@@ -1082,7 +1082,7 @@ theorem OpResult.hasUses_replaceOpResults_self
       have heq' : Rewriter.replaceOpResults nextCtx fromOp toOp indexPred hFromNext
           hToNext (Nat.le_of_lt hFromIndex) (Nat.le_of_lt hToIndex) wfNext.inBounds =
           some newCtx := by
-        exact heq
+        simpa only [Rewriter.replaceOpResults.eq_sim] using heq
       have hKeep := OpResult.hasUses_replaceOpResults_self_ge
         nextCtx fromOp toOp indexPred hFromNext hToNext
         (Nat.le_of_lt hFromIndex) (Nat.le_of_lt hToIndex) wfNext.inBounds wfNext neOps heq'
@@ -1103,7 +1103,7 @@ theorem OperationPtr.getNumResults!_replaceOpResults
     (heq : Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB
       hNumFrom hNumTo ctxInBounds = some newCtx) :
     op.spec.getNumResults! newCtx.spec = op.spec.getNumResults! ctx.spec := by
-  simp only [show @Rewriter.replaceOpResults = @Rewriter.replaceOpResultsSim from rfl] at *
+  simp only [Rewriter.replaceOpResults.eq_sim] at *
   fun_induction Rewriter.replaceOpResultsSim <;>
     grind [Rewriter.replaceValue?_preserves_results_size, generic_ptr_grind]
 
@@ -1113,7 +1113,7 @@ theorem OperationPtr.getNumRegions!_replaceOpResults
     (heq : Rewriter.replaceOpResults ctx fromOp toOp index fromOpIB toOpIB
       hNumFrom hNumTo ctxInBounds = some newCtx) :
     op.spec.getNumRegions! newCtx.spec = op.spec.getNumRegions! ctx.spec := by
-  simp only [show @Rewriter.replaceOpResults = @Rewriter.replaceOpResultsSim from rfl] at *
+  simp only [Rewriter.replaceOpResults.eq_sim] at *
   fun_induction Rewriter.replaceOpResultsSim <;>
     grind [Rewriter.replaceValue?_preserves_numRegions, generic_ptr_grind]
 

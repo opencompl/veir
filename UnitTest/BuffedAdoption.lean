@@ -41,9 +41,14 @@ run_meta do
     unless isProtected env base == isProtected env source &&
         isProtected env inner == isProtected env source do
       throwError "protected modifier was not preserved: {base}"
-    let expectedInline := if inlineFlag == "true" then .inline else .noinline
+    let recursiveSource := (← isRecursiveDefinition source) ||
+      (Elab.PartialFixpoint.eqnInfoExt.find? env source).isSome
+    let expectedInline := if inlineFlag == "true" && !recursiveSource then .inline else .noinline
     unless getInlineAttribute? env inner == some expectedInline do
       throwError "wrong inner inlining policy: {inner}"
+    if recursiveSource then
+      unless (← isRecursiveDefinition inner) || (Elab.PartialFixpoint.eqnInfoExt.find? env inner).isSome do
+        throwError "recursive inner is only a forwarding adapter: {inner}"
     let original ← getConstInfoDefn source
     let wrapper ← getConstInfoDefn base
     unless wrapper.type == original.type do

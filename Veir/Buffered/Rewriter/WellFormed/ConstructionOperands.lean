@@ -131,7 +131,7 @@ theorem Rewriter.initOpOperands.loop_constructionWellFormed
     (wf : ConstructionWellFormed ctx.spec op.spec ∅ ∅)
     (heq : initOpOperands.loop op ctx hop operands hv off index hi hc ho = ctx') :
     ConstructionWellFormed ctx'.spec op.spec ∅ ∅ := by
-  simp only [show @initOpOperands.loop = @initOpOperands.loopSim from rfl] at *
+  simp only [initOpOperands.loop.eq_sim] at *
   fun_induction initOpOperands.loopSim
   case case1 =>
     cases heq
