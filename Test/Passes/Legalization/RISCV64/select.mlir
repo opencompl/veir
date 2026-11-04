@@ -16,4 +16,17 @@
     "test.test"(%r) : (i8) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
+
+  "func.func"() <{function_type = (i1, !llvm.ptr, !llvm.ptr) -> (), sym_name = "pointer"}> ({
+  ^bb0(%c: i1, %t: !llvm.ptr, %f: !llvm.ptr):
+    // A pointer already fills a register: only the condition is widened.
+    // CHECK:      %[[EXT:.*]] = "gmir.g_anyext"(%{{.*}}) : (i1) -> i64
+    // CHECK-NEXT: %[[ONE:.*]] = "gmir.g_constant"() <{"value" = 1 : i64}> : () -> i64
+    // CHECK-NEXT: %[[COND:.*]] = "gmir.g_and"(%[[EXT]], %[[ONE]]) : (i64, i64) -> i64
+    // CHECK-NEXT: %[[SEL:.*]] = "gmir.g_select"(%[[COND]], %{{.*}}, %{{.*}}) : (i64, !llvm.ptr, !llvm.ptr) -> !llvm.ptr
+    // CHECK-NEXT: "test.test"(%[[SEL]]) : (!llvm.ptr) -> ()
+    %r = "gmir.g_select"(%c, %t, %f) : (i1, !llvm.ptr, !llvm.ptr) -> !llvm.ptr
+    "test.test"(%r) : (!llvm.ptr) -> ()
+    "func.return"() : () -> ()
+  }) : () -> ()
 }) : () -> ()
