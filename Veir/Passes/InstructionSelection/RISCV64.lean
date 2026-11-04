@@ -950,7 +950,7 @@ def memIntrinsic : RewritePattern OpCode :=
   .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
     #[.fromLocalRewrite memIntrinsicInline_local]
 
-/--
+/-!
 An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
 power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`.
 -/
