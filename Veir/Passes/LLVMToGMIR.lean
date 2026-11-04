@@ -171,14 +171,13 @@ def g_fshr := (lowerFunnelShift .intr__fshr .g_fshr).compile
 
 /--
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
-  selects as `g_select` does, see `GMIR.selectNonzero_one`.
-  TODO: Also translate selects of pointers, once `g_select` accepts them.
+  selects as `g_select` does, see `GMIR.selectNonzero_one`. The values are integers or pointers.
 -/
 def lowerSelect : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let condType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
-      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let type ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
       let cond ← Puddle.MatchProg.value condType
       let tval ← Puddle.MatchProg.value type
       let fval ← Puddle.MatchProg.value type

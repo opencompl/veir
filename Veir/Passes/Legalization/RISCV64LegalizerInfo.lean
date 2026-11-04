@@ -126,10 +126,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
-    -- LLVM is also legal for `s32`, for floating point, and for `p0`, which `g_select` does not
-    -- accept yet.
+    -- LLVM is also legal for `s32` and for floating point.
     | .g_select => [
-      .legalForTypePairs [(s64, s64)],
+      .legalForTypePairs [(s64, s64), (p0, s64)],
       .minScalar (.type 0) 64,
       .minScalar (.type 1) 64,
     ]
