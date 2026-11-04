@@ -275,6 +275,14 @@ private def OperationPtr.verifyGMIRICmp {OpInfo : Type} [IsOpCode OpInfo]
   let resultType := (op.getResult 0).getType! ctx.raw
   resultType.verifyIntegerType s!"{instrName}: Expected result to have integer type"
 
+private def OperationPtr.verifyGMIRSelect {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo) : Except String PUnit := do
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    "gmir.g_select: Expected the condition to have integer type"
+  -- `gmir.g_select` also selects pointers. The type groups make the other values match operand 1.
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerOrPointerType
+    "gmir.g_select: Expected the selected values to have integer or pointer type"
+
 /--
 Converts a shift amount (type group 1) to the width `w` of the shifted value (type group 0).
 An amount that does not fit in `w` bits is out of range, so it is replaced by the all-ones value,
@@ -778,11 +786,13 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_shl | .g_lshr | .g_ashr
   | .g_saddsat | .g_uaddsat | .g_ssubsat | .g_usubsat | .g_sshlsat | .g_ushlsat
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_bitreverse
-  -- TODO: Also accept a `g_select` of pointers, as LLVM does.
-  | .g_select | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
+  | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
+  | .g_select =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    opPtr.verifyGMIRSelect ctx
   | .g_bswap =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn

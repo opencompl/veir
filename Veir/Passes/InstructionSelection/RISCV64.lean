@@ -818,13 +818,13 @@ def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
 
-/-- llvm.freeze arg : Int w ->
+/-- llvm.freeze arg : Int w, for w ≤ 64 ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
 def freeze_pattern : Pattern OpCode :=
   lowerRegCast (.llvm .freeze) fun opType resType _ =>
     match opType.val, resType.val with
     | .integerType opType, .integerType resType =>
-      (opType.bitwidth = 64 ∨ opType.bitwidth = 32) ∧ (resType.bitwidth = 64 ∨ resType.bitwidth = 32)
+      opType.bitwidth ≤ 64 && opType == resType
     | _, _ => false
 
 /-- llvm.freeze arg : Int w ->
@@ -1048,9 +1048,9 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     (select c, 0, f) -> (czero.nez f, c)
     (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
   ```
-  A legal `g_select` selects `i64` values with an `i64` condition, which is true when it is
-  nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the `g_constant`,
-  so they run in the early loop, before `gmirConstant` lowers it.
+  A legal `g_select` selects `i64` or pointer values with an `i64` condition, which is true when
+  it is nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the
+  `g_constant`, so they run in the early loop, before `gmirConstant` lowers it.
 -/
 
 /--
@@ -1099,7 +1099,7 @@ def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
 def gmirSelect_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := TypeAttr)
       let condType ← MatchProg.type (Attr := IntegerType)
       let cond ← MatchProg.value condType
       let tval ← MatchProg.value type
