@@ -39,42 +39,63 @@ def function(name, argument_types, *, text=source, prefix="UnitTest_Buffed_", re
     return text[match.end():end - 1]
 
 
-for caller, callee, arg_type in [
-    ("rawCaller", "addressInner___redArg", "uint64_t"),
-    ("rawContextCaller___redArg", "contextSizeInner___redArg", "lean_object*"),
+for caller, callee, arg_type, result in [
+    ("rawCaller", "addressInner___redArg", "uint64_t", "uint64_t"),
+    ("rawContextCaller___redArg", "contextSizeInner___redArg", "lean_object*", "uint64_t"),
+    ("rawPointerResultCaller", "keepPointerInner___redArg", "uint64_t", "uint64_t"),
+    ("rawContextResultCaller___redArg", "keepContextInner___redArg", "lean_object*", "lean_object*"),
 ]:
-    body = function(caller, arg_type)
+    body = function(caller, arg_type, result=result)
     assert callee in body, f"{caller} no longer calls its noinline inner function"
     for forbidden in ("lean_alloc_ctor", "lean_ctor_get", "lean_box_uint64"):
         assert forbidden not in body, f"{caller} introduces a wrapper: {forbidden}"
-    function(callee, arg_type)
+    function(callee, arg_type, result=result)
 
 # These must contain the recursive implementation, not an adapter back to fooSim.
 # Both non-tail and tail recursion are covered, including changing pointer values,
 # a raw context, explicit/named arguments, well-founded recursion, and partial_fixpoint.
-for name, arguments in [
-    ("count", ["uint64_t", "lean_object*"]),
-    ("stride", ["uint64_t", "lean_object*"]),
-    ("advance", ["uint64_t", "lean_object*"]),
-    ("namedRec", ["uint64_t", "lean_object*", "uint64_t"]),
-    ("contextRec", ["lean_object*", "lean_object*"]),
-    ("partialAdvance", ["uint64_t", "lean_object*"]),
+for name, arguments, result in [
+    ("count", ["uint64_t", "lean_object*"], "uint64_t"),
+    ("stride", ["uint64_t", "lean_object*"], "uint64_t"),
+    ("advance", ["uint64_t", "lean_object*"], "uint64_t"),
+    ("namedRec", ["uint64_t", "lean_object*", "uint64_t"], "uint64_t"),
+    ("contextRec", ["lean_object*", "lean_object*"], "uint64_t"),
+    ("partialAdvance", ["uint64_t", "lean_object*"], "uint64_t"),
+    ("pointerResult", ["uint64_t", "lean_object*"], "uint64_t"),
+    ("contextResult", ["lean_object*", "lean_object*"], "lean_object*"),
 ]:
-    body = function(name + "Inner___redArg", arguments)
+    body = function(name + "Inner___redArg", arguments, result=result)
     assert name + "Sim" not in body, f"{name} still forwards to the boxed recursive implementation"
     assert name + "Inner___redArg(" in body or "goto _start;" in body, f"missing recursion in {name}"
     for forbidden in ("lean_alloc_ctor", "lean_box_uint64"):
         assert forbidden not in body, f"{name} rebuilds a Sim wrapper: {forbidden}"
 
-# A real hot path, not just a synthetic reader. Its result remains Option (Sim.IRContext),
-# so result allocations are allowed; the recursive calling convention must be raw.
+# Optional pointer results retain ordinary Option/UInt64 boxing, but no Sim box
+# or reconstruction/map work may occur after the recursive call.
+for name in ("partialPointer", "partialNeverPointer"):
+    body = function(name + "Inner___redArg", ["uint64_t", "lean_object*"], result="lean_object*")
+    assert "goto _start;" in body, f"lost tail recursion in {name}"
+    assert "lean_alloc_ctor(0, 0, 8)" not in body, f"Sim pointer result in {name}"
+    assert name + "Sim" not in body, f"source evaluation in {name}"
+
+# A real hot path: the result is now Option IRBufContext. Only the ordinary
+# Option allocation remains, not an enclosing Sim.IRContext allocation.
 rewriter = (root / ".lake/build/ir/Veir/Buffered/Rewriter/Basic.c").read_text()
-# Lean retains a Unit-valued erased-spec parameter until native optimization.
-body = function("replaceValue_x3fInner___redArg", ["lean_object*", "lean_object*", "uint64_t", "uint64_t", "uint64_t"],
+# Erased specification references disappear from the raw-result ABI as well.
+body = function("replaceValue_x3fInner___redArg", ["lean_object*", "uint64_t", "uint64_t", "uint64_t"],
                 text=rewriter, prefix="Veir_Buffered_Rewriter_", result="lean_object*")
 assert "replaceValue_x3fSim" not in body, "replacement still calls the boxed source implementation"
 assert "goto _start;" in body or "replaceValue_x3fInner___redArg(" in body, "missing replacement recursion"
 assert "lean_alloc_ctor(0, 0, 8)" not in body, "replacement rebuilds pointer wrappers"
-assert body.count("lean_alloc_ctor(0, 1, 0)") == 1, "replacement must only wrap its final context result"
+assert "lean_alloc_ctor(0, 1, 0)" not in body, "replacement wraps its context result"
 
-print("Buffered codegen passed: allocation-free test loops and raw production replacement recursion.")
+linked = (root / ".lake/build/ir/Veir/Buffered/Rewriter/LinkedList/Basic.c").read_text()
+for pointer in ("OpOperandPtr", "BlockOperandPtr"):
+    body = function("removeFromCurrentInner___redArg", ["lean_object*", "uint64_t"],
+                    text=linked, prefix=f"Veir_Buffered_Sim_{pointer}_", result="lean_object*")
+    assert "lean_alloc_ctor(0, 1, 0)" not in body, f"{pointer} wraps its context result"
+    assert not re.search(r"\b\w*removeFromCurrentSim(?:___at___\w+)?(?:___redArg)?\(", body), (
+        f"{pointer} evaluates its source again"
+    )
+
+print("Buffered codegen passed: raw arguments/results, tail recursion, and no Sim result wrappers on hot paths.")

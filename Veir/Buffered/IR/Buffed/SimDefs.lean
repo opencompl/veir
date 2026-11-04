@@ -1,5 +1,7 @@
 module
 
+-- Generated wrappers need this at runtime even when `buffed` is imported as meta.
+public import Veir.Buffered.IR.Buffed.ResultView
 public import Veir.Buffered.IR.Buffed.RawAccessors
 public import Veir.Buffered.IR.Buffed.Layout
 public import Veir.Buffered.Prelude

@@ -2,14 +2,17 @@ module
 
 public import Veir.Buffered.IR.Buffed.SimDefs
 public import Veir.Buffered.IR.Buffed.ArgumentFlatteningLemmas
+public import Veir.Buffered.IR.Buffed.ResultView
 public import Lean
 import all Init.Internal.Order.Basic
 
 /-!
-`buffed def fooSim ... := ...` introduces an argument-flattened `fooInner` and an
-inline wrapper `foo`. This is only a calling-convention transformation: every field,
-including `Erased` specifications and dependent proofs, is passed unchanged. Results
-are neither projected nor reconstructed. No specification function is generated.
+`buffed def fooSim ... := ...` introduces a raw-argument/raw-result `fooInner`
+and an inline wrapper `foo` with the original signature. Argument fields, including
+erased specifications and dependent proofs, are passed unchanged. Sim result leaves
+are projected to their buffered context or raw pointer; a checked projection equation
+lets the wrapper restore the exact original result from an erased source reference.
+No separate specification function or unchecked reconstruction is generated.
 -/
 
 open Lean Meta Elab Command
@@ -35,6 +38,95 @@ private meta def splitInfo? (type : Expr) : MetaM (Option (Expr × StructureInfo
     return (getStructureInfo? (← getEnv) type.getAppFn.constName!).map (type, ·)
   return none
 
+/-- Run a small checked proof without tactic recovery inserting `sorry`. -/
+private meta def proveResult (type : Expr) (tactic : Syntax) : MetaM Expr := do
+  let goal ← mkFreshExprSyntheticOpaqueMVar type
+  let goals ← (Elab.Tactic.run goal.mvarId! (Elab.Tactic.evalTactic tactic)).run' { errToSorry := false }
+  unless goals.isEmpty do throwError "buffed: result proof failed\n{goals}"
+  let proof ← instantiateMVars goal
+  if proof.hasSyntheticSorry then throwError "buffed: invalid result proof"
+  return proof
+
+/-- Views descend through ordinary options/products and proof subtypes. Arrays and
+unrecognized result leaves retain their ordinary representations. -/
+private meta partial def resultView? (type : Expr) : MetaM (Option Expr) := do
+  if let some (ty, structInfo) ← splitInfo? type then
+    let project ← withLocalDeclD `value ty fun value =>
+      mkLambdaFVars #[value] (mkProj ty.getAppFn.constName! 0 value)
+    let rawType ← forallTelescope (← inferType project) fun _ ret => pure ret
+    let restore ← withLocalDeclD `reference (← mkAppM ``Erased #[ty]) fun ref =>
+      withLocalDeclD `raw rawType fun raw => do
+        let original ← mkAppM ``Erased.out #[ref]
+        withLocalDeclD `raw_eq (← mkEq raw (mkApp project original)) fun h => do
+          let ctor := (← getConstInfoInduct ty.getAppFn.constName!).ctors.head!
+          let mut value := mkAppN (mkConst ctor ty.getAppFn.constLevels!) ty.getAppArgs
+          value := mkApp value raw
+          for i in [1:structInfo.fieldNames.size] do
+            let field := mkProj ty.getAppFn.constName! i original
+            let expected := (← whnf (← inferType value)).bindingDomain!
+            if ← isProp expected then
+              let fieldSyntax ← PrettyPrinter.delab field
+              let hId := mkIdent (← h.fvarId!.getDecl).userName
+              let proof ← proveResult expected (← `(tactic| (subst $hId:ident; simpa only [Erased.mk_out] using $fieldSyntax)))
+              value := mkApp value proof
+            else if (← inferType field).isAppOf ``Erased then
+              value := mkApp value (← mkAppM ``Erased.mk #[← mkAppM ``Erased.out #[field]])
+            else
+              throwError "buffed: non-erased trailing result field: {field}"
+          mkLambdaFVars #[ref, raw, h] value
+    let law ← lambdaTelescope restore fun xs body => do
+      let hId := mkIdent (← xs[2]!.fvarId!.getDecl).userName
+      let goal ← mkEq body (← mkAppM ``Erased.out #[xs[0]!])
+      let proof ← proveResult goal (← `(tactic| (subst $hId:ident; simp only [Erased.mk_out])))
+      mkLambdaFVars xs proof
+    return some (← mkAppM ``ResultView.mk #[project, restore, law])
+  let type ← whnf type
+  let args := type.getAppArgs
+  if type.isAppOfArity ``Option 1 then
+    return ← (← resultView? args[0]!).mapM fun view => mkAppM ``ResultView.option #[view]
+  if type.isAppOfArity ``Prod 2 then
+    let a ← resultView? args[0]!
+    let b ← resultView? args[1]!
+    if a.isNone && b.isNone then return none
+    let a ← a.getDM (mkAppM ``ResultView.identity #[args[0]!])
+    let b ← b.getDM (mkAppM ``ResultView.identity #[args[1]!])
+    return some (← mkAppM ``ResultView.prod #[a, b])
+  if type.isAppOfArity ``Subtype 2 then
+    return ← (← resultView? args[0]!).mapM fun view => mkAppM ``ResultView.subtype #[view, args[1]!]
+  return none
+
+private meta def packResult (body : Expr) : MetaM Expr := do
+  if let some view ← resultView? (← inferType body) then
+    mkAppM ``ResultView.project #[view, body]
+  else pure body
+
+private meta def unpackResult (source raw property : Expr) : MetaM Expr := do
+  if let some view ← resultView? (← inferType source) then
+    let ref ← mkAppM ``Erased.mk #[source]
+    let project ← mkAppM ``ResultView.project #[view]
+    let refEq ← mkAppM ``congrArg #[project, ← mkAppM ``Erased.out_mk #[source]]
+    let property ← mkEqTrans property (← mkEqSymm refEq)
+    let checked ← whnf (← mkAppM ``ResultView.Checked #[view, ref])
+    let value ← mkAppOptM ``Subtype.mk #[some checked.getAppArgs[0]!, some checked.getAppArgs[1]!, some raw, some property]
+    mkAppM ``ResultView.unpack #[view, ref, value]
+  else pure raw
+
+syntax (name := resultTerm) "buffed_project% " "(" term ")" "(" term ")" : term
+syntax (name := inferredResultTerm) "buffed_project_infer% " "(" term ")" : term
+
+@[term_elab resultTerm]
+public meta def elabResultTerm : Term.TermElab := fun stx _ => do
+  let type ← Term.elabType stx[2]
+  let body ← Term.elabTerm stx[5] type
+  Term.synthesizeSyntheticMVarsNoPostponing
+  packResult (← instantiateMVars body)
+
+@[term_elab inferredResultTerm]
+public meta def elabInferredResultTerm : Term.TermElab := fun stx _ => do
+  let body ← Term.elabTerm stx[2] none
+  Term.synthesizeSyntheticMVarsNoPostponing
+  packResult (← instantiateMVars body)
+
 private meta def baseName (name : Name) : CoreM Name := do
   let .str parent last := name
     | throwError "buffed: expected a definition with a `Sim` suffix"
@@ -45,13 +137,14 @@ private meta def baseName (name : Name) : CoreM Name := do
 /-- Thread substitutions through later binders, including types and proof arguments
 that depend on an earlier context or pointer. Constructor fields are processed in
 order for the same reason (in particular `IRContext.sim` depends on both fields). -/
-private meta def innerDefinition (info : DefinitionVal) : MetaM (Expr × Expr) := do
+private meta def innerDefinition (info : DefinitionVal) (flattenResult := true) : MetaM (Expr × Expr) := do
   forallTelescope info.type fun xs _ => do
     let rec go (remaining : List Expr) (old replacements locals : Array Expr) :
         MetaM (Expr × Expr) := do
       match remaining with
       | [] =>
         let body := mkAppN (mkConst info.name (info.levelParams.map Level.param)) replacements
+        let body ← if flattenResult then packResult body else pure body
         return (← mkForallFVars locals (← inferType body), ← mkLambdaFVars locals body)
       | x :: rest =>
         let decl ← x.fvarId!.getDecl
@@ -131,7 +224,9 @@ public meta def elabRecursiveCall : Term.TermElab := fun stx expectedType? => do
     let original := .str parent ((last.dropEnd 5).toString ++ "Sim")
     -- The original declaration's temporary recursive-name alias is no longer in scope.
     let source : Term := ⟨← qualifyRecursiveHead original source⟩
-    let e ← Term.elabTerm source expectedType?
+    let originalInfo ← getConstInfo original
+    let flattensResult ← forallTelescope originalInfo.type fun _ ret => do pure (← resultView? ret).isSome
+    let e ← Term.elabTerm source (if flattensResult then none else expectedType?)
     Term.synthesizeSyntheticMVarsNoPostponing
     let e := (← instantiateMVars e).consumeMData
     -- A locally shadowed name is not a recursive reference.
@@ -178,12 +273,102 @@ private meta partial def substRebindings (substitutions : Array (Name × Term))
         return (← `($value.$(mkIdent rest):ident)).raw
   return s.setArgs (← s.getArgs.mapM (substRebindings substitutions))
 
+private meta partial def checkResultTail (stx : Syntax) : MetaM Unit := do
+  if stx.isOfKind ``recursiveCall then
+    throwError "buffed: non-tail recursion with a projected result is not supported"
+  stx.getArgs.forM checkResultTail
+
+set_option maxHeartbeats 1000000 in
+mutual
+/-- Project result leaves, not an entire recursive result after the call. This
+keeps tail calls raw instead of introducing an Option reconstruction/map cycle. -/
+private meta partial def projectTail (sourceType elementType : Term) (stx : Term)
+    (inDo := false) : MetaM Term := do
+  if stx.raw.isOfKind ``recursiveCall then return stx
+  match stx with
+  | `(let $d:letDecl; $body) =>
+    checkResultTail d
+    let body ← projectTail sourceType elementType body inDo
+    `(let $d:letDecl; $body)
+  | `(have $d:letDecl; $body) =>
+    checkResultTail d
+    let body ← projectTail sourceType elementType body inDo
+    `(have $d:letDecl; $body)
+  | `(if $c then $t else $e) =>
+    let t ← projectTail sourceType elementType t inDo
+    let e ← projectTail sourceType elementType e inDo
+    `(if $c then $t else $e)
+  | `(if $h : $c then $t else $e) =>
+    let t ← projectTail sourceType elementType t inDo
+    let e ← projectTail sourceType elementType e inDo
+    `(if $h : $c then $t else $e)
+  | `(some $e) => `(some (buffed_project% ($elementType) ($e)))
+  | `(none) => pure stx
+  | _ =>
+    if stx.raw.isOfKind ``Parser.Term.match then
+      let i := stx.raw.getNumArgs - 1
+      let alts := stx.raw[i]
+      let alts' ← alts[0].getArgs.mapM fun alt => do
+        let j := alt.getNumArgs - 1
+        pure (alt.setArg j (← projectTail sourceType elementType ⟨alt[j]⟩ inDo))
+      return ⟨stx.raw.setArg i (alts.setArg 0 (alts[0].setArgs alts'))⟩
+    else if stx.raw.isOfKind ``Parser.Term.do then
+      return ⟨stx.raw.setArg 1 (← projectDoTail sourceType elementType stx.raw[1])⟩
+    else if stx.raw.getNumArgs > 0 && stx.raw[0].isToken "rlet" then
+      let i := stx.raw.getNumArgs - 1
+      return ⟨stx.raw.setArg i (← projectTail sourceType elementType ⟨stx.raw[i]⟩ inDo)⟩
+    else
+      checkResultTail stx
+      if inDo then `(buffed_project_infer% ($stx))
+      else `(buffed_project% ($sourceType) ($stx))
+
+private meta partial def projectDoTail (sourceType elementType : Term) (seq : Syntax)
+    (tailPos := true) : MetaM Syntax := do
+  let mut items := seq[0]
+  for i in [:items.getNumArgs] do
+    let item := items[i]
+    let stmt ← projectDoItem sourceType elementType item[0] (tailPos && i + 1 == items.getNumArgs)
+    items := items.setArg i (item.setArg 0 stmt)
+  return seq.setArg 0 items
+
+private meta partial def projectDoItem (sourceType elementType : Term) (stmt : Syntax)
+    (tailPos : Bool) : MetaM Syntax := do
+  if stmt.isOfKind ``Parser.Term.doExpr && tailPos then
+    return stmt.setArg 0 (← projectTail sourceType elementType ⟨stmt[0]⟩ true)
+  else if stmt.isOfKind ``Parser.Term.doReturn && stmt[1].getNumArgs > 0 then
+    let value : Term := ⟨stmt[1][0]⟩
+    let value ← `(buffed_project% ($elementType) ($value))
+    return stmt.setArg 1 (stmt[1].setArg 0 value)
+  else if stmt.isOfKind ``Parser.Term.doIf then
+    let stmt := stmt.setArg 3 (← projectDoTail sourceType elementType stmt[3] tailPos)
+    let elseIfs ← stmt[4].getArgs.mapM fun branch => do
+      pure (branch.setArg 3 (← projectDoTail sourceType elementType branch[3] tailPos))
+    let stmt := stmt.setArg 4 (stmt[4].setArgs elseIfs)
+    if stmt[5].getNumArgs > 0 then
+      return stmt.setArg 5 (stmt[5].setArg 1 (← projectDoTail sourceType elementType stmt[5][1] tailPos))
+    else return stmt
+  else if stmt.isOfKind ``Parser.Term.doMatch then
+    let i := stmt.getNumArgs - 1
+    let alts := stmt[i]
+    let alts' ← alts[0].getArgs.mapM fun alt => do
+      let j := alt.getNumArgs - 1
+      pure (alt.setArg j (← projectDoTail sourceType elementType alt[j] tailPos))
+    return stmt.setArg i (alts.setArg 0 (alts[0].setArgs alts'))
+  else return stmt
+end
+
 private meta def recursiveCommand (name inner : Name) (inlineInner : Bool)
     (defn : Syntax) : MetaM (TSyntax `command) := do
   let info ← getConstInfoDefn name
-  let (innerType, _) ← innerDefinition info
+  let (innerType, originalCall) ← innerDefinition info false
   let levels := info.levelParams.map Level.param
-  let (binders, ret) ← forallTelescope innerType fun xs ret => do
+  let (binders, ret, sourceType, elementType, flattenResult) ← forallTelescope innerType fun xs sourceType => do
+    let sourceCall := originalCall.beta xs
+    let packed ← packResult sourceCall
+    let flattenResult := packed != sourceCall
+    let ret ← inferType packed
+    let sourceType ← whnf sourceType
+    let elementType := if sourceType.isAppOfArity ``Option 1 then sourceType.getAppArgs[0]! else sourceType
     let binders ← xs.mapM fun x => do
       let d ← x.fvarId!.getDecl
       let id := mkIdent d.userName
@@ -193,7 +378,7 @@ private meta def recursiveCommand (name inner : Name) (inlineInner : Bool)
       | .implicit => `(Parser.Term.bracketedBinderF| {$id : $ty})
       | .strictImplicit => `(Parser.Term.bracketedBinderF| ⦃$id : $ty⦄)
       | .instImplicit => `(Parser.Term.bracketedBinderF| [$id : $ty])
-    return (binders, ← syntaxOf ret)
+    return (binders, ← syntaxOf ret, ← syntaxOf sourceType, ← syntaxOf elementType, flattenResult)
   let (rebindings, substitutions) ← forallTelescope info.type fun xs _ => do
     let mut rebindings : Array (Ident × Term × Term) := #[]
     let mut substitutions : Array (Name × Term) := #[]
@@ -208,6 +393,8 @@ private meta def recursiveCommand (name inner : Name) (inlineInner : Bool)
         substitutions := substitutions.push (d.userName, typed)
     return (rebindings, substitutions)
   let mut body : Term := ⟨← replaceSelf name inner defn[3][1]⟩
+  if flattenResult then
+    body ← projectTail sourceType elementType body
   for (id, ty, value) in rebindings.reverse do
     body ← `(let $id : $ty := $value; $body)
   -- The termination measure lives outside the body's rebinding lets.
@@ -269,19 +456,32 @@ private meta def partialEquality (name inner : Name) (xs : Array Expr) : MetaM E
             pure <| mkAppN (mkConst ctor ty.getAppFn.constLevels!)
               (ty.getAppArgs ++ structInfo.fieldNames.mapIdx (fun i _ => mkProj ty.getAppFn.constName! i arg))
         pure <| arg.replace fun e => (replacements.find? (·.1 == e)).map (·.2)
-      mkLambdaFVars #[f] (← mkLambdaFVars ys (mkAppN f args))
+      mkLambdaFVars #[f] (← mkLambdaFVars ys (← packResult (mkAppN f args)))
   let hadm ← withLocalDeclD `bound b fun bound =>
     forallTelescope b fun args type => do
       let mut resultInst := innerArgs[1]!
       for arg in args do
         resultInst := (mkApp resultInst.headBeta.getAppArgs[2]! arg).headBeta
       let order ← mkAppOptM ``Lean.Order.CCPO.toPartialOrder #[some type, some resultInst]
-      let predicate ← withLocalDeclD `v type fun v => do
-        mkLambdaFVars #[v] (← mkAppOptM ``Lean.Order.PartialOrder.rel (#[type, order, v, mkAppN bound args].map some))
-      let h ← mkAppOptM ``admissible_upper (#[type, resultInst, mkAppN bound args].map some)
-      let sourceInputs ← withLocalDeclD `f a fun f => do
+      let (sourceInputs, sourceType) ← withLocalDeclD `f a fun f => do
         let value := (mkAppN (mkApp reindex f) args).headBeta
-        pure value.getAppArgs
+        let some call := value.find? (fun e => e.getAppFn == f)
+          | throwError "buffed: missing source evaluation in result reindexing"
+        return (call.getAppArgs, ← inferType call)
+      let predicate ← withLocalDeclD `v sourceType fun v => do
+        let projected ← packResult v
+        mkLambdaFVars #[v] (← mkAppOptM ``Lean.Order.PartialOrder.rel (#[type, order, projected, mkAppN bound args].map some))
+      let h ← if (← resultView? sourceType).isSome then do
+        let sourceType ← whnf sourceType
+        let type ← whnf type
+        unless sourceType.isAppOfArity ``Option 1 && type.isAppOfArity ``Option 1 do
+          throwError "buffed: unsupported projected fixed-point order: {sourceType}"
+        let project ← withLocalDeclD `value sourceType fun value => do
+          mkLambdaFVars #[value] (← packResult value)
+        let sourceBottom ← mkAppOptM ``Option.none #[some sourceType.getAppArgs[0]!]
+        let botProof ← mkEqRefl (mkApp project sourceBottom)
+        mkAppM ``admissible_option_project #[project, botProof, mkAppN bound args]
+      else mkAppOptM ``admissible_upper (#[type, resultInst, mkAppN bound args].map some)
       let mut h ← admissibleApplication a sourceArgs[1]! sourceInputs.toList predicate h
       for arg in args.reverse do
         h ← mkAppOptM ``Lean.Order.admissible_pi #[some a, some sourceArgs[1]!, none, none, some (← mkLambdaFVars #[arg] h)]
@@ -289,9 +489,15 @@ private meta def partialEquality (name inner : Name) (xs : Array Expr) : MetaM E
   let commute ← withLocalDeclD `f a fun f => do
     let lhs := mkApp reindex (mkApp sourceArgs[2]! f)
     let rhs := mkApp innerArgs[2]! (mkApp reindex f)
-    unless ← withTransparency .reducible <| isDefEq lhs rhs do
-      throwError "buffed: recursive fixed-point bodies do not commute for {name}"
-    mkLambdaFVars #[f] (← mkEqRefl lhs)
+    let proof ← if ← withTransparency .reducible <| isDefEq lhs rhs then mkEqRefl lhs else
+      proveResult (← mkEq lhs rhs) (← `(tactic| (
+        funext
+        dsimp only [ResultView.project, ResultView.option, ResultView.prod, ResultView.subtype, ResultView.identity]
+        try with_reducible simp only [Bind.bind, Pure.pure, Function.comp_def, Option.map_bind, Option.map_some, Option.map_none, ResultView.map_ite, ResultView.map_dite]
+        all_goals (repeat' (first
+          | with_reducible rfl
+          | (split <;> try with_reducible simp_all only [Bind.bind, Pure.pure, Function.comp_def, Option.map_bind, Option.map_some, Option.map_none, ResultView.map_ite, ResultView.map_dite]))))))
+    mkLambdaFVars #[f] proof
   let fusion ← mkAppOptM ``reindex_fix
     (#[a, b, sourceArgs[1]!, innerArgs[1]!, sourceArgs[2]!, innerArgs[2]!, sourceArgs[3]!, innerArgs[3]!, reindex].map some)
   -- Avoid eager default-transparency unification of these proof arguments: it
@@ -301,7 +507,7 @@ private meta def partialEquality (name inner : Name) (xs : Array Expr) : MetaM E
   let view ← withLocalDeclD `g b fun g =>
     mkLambdaFVars #[g] (innerValue.replace fun e => if e == innerFix then some g else none)
   let equality ← withTransparency .reducible <| mkAppM ``congrArg #[view, equality]
-  let expected ← mkEq sourceValue innerValue
+  let expected ← mkEq (← packResult sourceValue) innerValue
   unless ← withTransparency .reducible <| isDefEq (← inferType equality) expected do
     throwError "buffed: fixed-point reindexing did not recover the original application for {name}"
   mkEqSymm equality
@@ -325,6 +531,45 @@ private meta def normalizeSimEta (e : Expr) : MetaM Expr :=
     let some x := candidate | return .continue
     if ← isDefEq e x then return .done x else return .continue)
 
+/-- Functional induction can generalize a dependent pair selected by an `if`.
+Split its recorded equation before simplifying dependent opcode/property arguments. -/
+private meta def normalizeInductionCases : Elab.Tactic.TacticM Unit := do
+  let mut result := []
+  for goal in ← Elab.Tactic.getGoals do
+    let equation? ← goal.withContext do
+      for decl in ← getLCtx do
+        if let some (_, lhs, rhs) := decl.type.eq? then
+          if lhs.isAppOf ``ite || lhs.isAppOf ``dite then
+            let .const constructor _ := rhs.getAppFn | continue
+            if let some (.ctorInfo _) := (← getEnv).find? constructor then
+              return some decl.userName
+      return none
+    Elab.Tactic.setGoals [goal]
+    if let some name := equation? then
+      let id := mkIdent name
+      Elab.Tactic.evalTactic (← `(tactic| (try (split at $id:ident; all_goals (cases ($id:ident))))))
+    result := result ++ (← Elab.Tactic.getGoals)
+  Elab.Tactic.setGoals result
+
+private meta def rewriteResultConditions : Elab.Tactic.TacticM Unit := do
+  let mut result := []
+  for goal in ← Elab.Tactic.getGoals do
+    let names ← goal.withContext do
+      let mut names := #[]
+      for decl in ← getLCtx do
+        if !decl.isLet && !decl.type.isForall && (← isProp decl.type) then
+          names := names.push decl.userName
+      return names
+    Elab.Tactic.setGoals [goal]
+    for name in names do
+      let id := mkIdent name
+      Elab.Tactic.evalTactic (← `(tactic| all_goals (try (first
+        | with_reducible rewrite [ite_eq_left ($id:ident)]
+        | with_reducible rewrite [ite_eq_right ($id:ident)]
+        | with_reducible rewrite [ite_eq_right (Nat.not_lt.mpr ($id:ident))]))))
+    result := result ++ (← Elab.Tactic.getGoals)
+  Elab.Tactic.setGoals result
+
 private meta def generate (name : Name) (inlineInner : Bool) (recursive := false) : MetaM Unit := do
   let info ← getConstInfoDefn name
   unless info.safety == .safe do
@@ -333,35 +578,39 @@ private meta def generate (name : Name) (inlineInner : Bool) (recursive := false
   let .str parent last := base | unreachable!
   let inner := .str parent (last ++ "Inner")
   let unfoldName := base ++ `unfold
-  for generated in (if recursive then #[base, unfoldName] else #[inner, base, unfoldName]) do
+  for generated in (if recursive then #[base, unfoldName, base ++ `eq_sim, base ++ `inner_eq_sim]
+      else #[inner, base, unfoldName, base ++ `eq_sim, base ++ `inner_eq_sim]) do
     if (← getEnv).contains generated then
       throwError "buffed: declaration already exists: {generated}"
   unless recursive do
     let (type, value) ← innerDefinition info
     addDefinition { info with name := inner, type, value, all := [inner] } inlineInner
   let levels := info.levelParams.map Level.param
-  let wrapper ← forallTelescope info.type fun xs _ => do
-    mkLambdaFVars xs (mkAppN (mkConst inner levels) (← projectedArgs xs))
-  addDefinition { info with name := base, value := wrapper, all := [base] } true
-  if isProtected (← getEnv) name then
-    modifyEnv fun env => addProtected (addProtected env base) inner
   let equality ← forallTelescope info.type fun xs _ => do
     if !recursive then
-      return ← mkLambdaFVars xs (← mkEqRefl (mkAppN (mkConst name levels) xs))
+      return ← mkLambdaFVars xs (← mkEqRefl (← packResult (mkAppN (mkConst name levels) xs)))
     if (PartialFixpoint.eqnInfoExt.find? (← getEnv) name).isSome then
       return ← mkLambdaFVars xs (← partialEquality name inner xs)
-    let goal ← mkForallFVars xs (← mkEq (mkAppN (mkConst inner levels) (← projectedArgs xs)) (mkAppN (mkConst name levels) xs))
+    let goal ← mkForallFVars xs (← mkEq (mkAppN (mkConst inner levels) (← projectedArgs xs)) (← packResult (mkAppN (mkConst name levels) xs)))
     let proof ← mkFreshExprSyntheticOpaqueMVar goal
     let goals ← (Elab.Tactic.run proof.mvarId! do
       Elab.Tactic.evalTactic (← `(tactic| intros))
       Elab.Tactic.evalTactic (← `(tactic| fun_induction $(mkIdent name)))
+      normalizeInductionCases
       Elab.Tactic.evalTactic (← `(tactic| all_goals (conv => lhs; unfold $(mkIdent inner))))
-      Elab.Tactic.evalTactic (← `(tactic| all_goals (try dsimp only at *)))
+      Elab.Tactic.evalTactic (← `(tactic| all_goals (try dsimp only [ResultView.project, ResultView.option, ResultView.prod, ResultView.subtype, ResultView.identity] at *)))
       let goals ← (← Elab.Tactic.getGoals).mapM fun g => g.withContext do
         g.replaceTargetDefEq (← normalizeSimEta (← g.getType))
       Elab.Tactic.setGoals goals
-      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try simp_all (config := { zetaDelta := true }) only); (try with_reducible assumption); (try with_reducible rfl))))
-      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try simp_all (config := { zetaDelta := true })); (try with_reducible assumption); (try with_reducible rfl); (try grind))))
+      rewriteResultConditions
+      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try with_reducible simp only [Bind.bind, Pure.pure, Function.comp_def, Option.map_none, Option.map_some, Option.map_bind, dite_eq_left, dite_eq_right, ite_eq_left, ite_eq_right]); (try with_reducible assumption); (try with_reducible rfl))))
+      Elab.Tactic.evalTactic (← `(tactic| all_goals (try split)))
+      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try contradiction); (try with_reducible assumption); (try with_reducible rfl))))
+      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try with_reducible simp_all (config := { zetaDelta := true }) only [Bind.bind, Pure.pure, Function.comp_def, Option.map_bind, Option.map_none, Option.map_some]); (try with_reducible assumption); (try with_reducible rfl))))
+      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try with_reducible simp_all (config := { zetaDelta := true })); (try with_reducible assumption); (try with_reducible rfl); (try grind))))
+      Elab.Tactic.evalTactic (← `(tactic| all_goals ((try with_reducible simp only [Bind.bind, Pure.pure, Function.comp_def, Option.map_bind, Option.map_none, Option.map_some]); (try with_reducible rfl))))
+      rewriteResultConditions
+      Elab.Tactic.evalTactic (← `(tactic| all_goals (try with_reducible rfl)))
       ).run' { errToSorry := false }
     unless goals.isEmpty do throwError "buffed: could not prove recursive argument equivalence for {name}\n{goals}"
     let proof ← instantiateMVars proof
@@ -369,6 +618,25 @@ private meta def generate (name : Name) (inlineInner : Bool) (recursive := false
   if equality.hasSyntheticSorry ||
       (equality.hasNonSyntheticSorry && !(← collectAxioms name).contains ``sorryAx) then
     throwError "buffed: invalid recursive equivalence proof for {name}"
+  let rawEqName := base ++ `inner_eq_sim
+  let rawEqType ← forallTelescope info.type fun xs _ => do
+    mkForallFVars xs (← mkEq (mkAppN (mkConst inner levels) (← projectedArgs xs))
+      (← packResult (mkAppN (mkConst name levels) xs)))
+  addDecl (.thmDecl { name := rawEqName, levelParams := info.levelParams, type := rawEqType, value := equality })
+  let wrapper ← forallTelescope info.type fun xs _ => do
+    let source := mkAppN (mkConst name levels) xs
+    let raw := mkAppN (mkConst inner levels) (← projectedArgs xs)
+    let property := mkAppN (mkConst rawEqName levels) xs
+    mkLambdaFVars xs (← unpackResult source raw property)
+  addDefinition { info with name := base, value := wrapper, all := [base] } true
+  if isProtected (← getEnv) name then
+    modifyEnv fun env => addProtected (addProtected env base) inner
+  let equality ← forallTelescope info.type fun xs ret => do
+    if (← resultView? ret).isSome then
+      let goal ← mkEq (wrapper.beta xs) (mkAppN (mkConst name levels) xs)
+      let proof ← proveResult goal (← `(tactic| simp only [ResultView.unpack_eq, Erased.out_mk]))
+      mkLambdaFVars xs proof
+    else mkLambdaFVars xs (mkAppN (mkConst rawEqName levels) xs)
   let eqName := base ++ `eq_sim
   let equalityType ← forallTelescope info.type fun xs _ => do
     mkForallFVars xs (← mkEq (mkAppN (mkConst base levels) xs) (mkAppN (mkConst name levels) xs))

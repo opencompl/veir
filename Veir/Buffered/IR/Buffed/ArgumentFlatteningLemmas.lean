@@ -3,8 +3,9 @@ module
 public import Init.Internal.Order.Basic
 import all Init.Internal.Order.Basic
 
-/-! Logical support for reindexing the arguments of a `partial_fixpoint`.
-There is no change to its result domain or its least-fixed-point semantics. -/
+/-! Checked least-fixed-point fusion for argument reindexing and raw-result
+projection. Optional result projection preserves bottom and admissibility, including
+for logically nonterminating source functions. -/
 
 public section
 namespace Veir.Buffered.Buffed
@@ -15,6 +16,14 @@ theorem admissible_upper {α : Sort u} [CCPO α] (b : α) :
     admissible (fun a => a ⊑ b) := by
   intro c hc h
   exact csup_le hc h
+
+theorem admissible_option_project {α : Type u} {β : Type v}
+    (project : Option α → Option β) (h : project none = none) (bound : Option β) :
+    admissible (fun value => project value ⊑ bound) := by
+  apply admissible_flatOrder
+  change project none ⊑ bound
+  rw [h]
+  exact FlatOrder.rel.bot
 
 theorem admissible_eval {α : Sort u} {β : α → Sort v} [∀ x, CCPO (β x)]
     (x : α) (P : β x → Prop) (hP : admissible P) :

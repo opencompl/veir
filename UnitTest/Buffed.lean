@@ -21,6 +21,14 @@ example (p : Sim.OperationPtr) : address p = p.impl := by rw [address.unfold]
 example (p : Sim.OperationPtr) : address p = addressSim p := rfl
 example (p : Sim.OperationPtr) : addressInner p.impl p.spec' = p.impl := rfl
 
+buffed (inline := false) def keepPointerSim (p : Sim.OperationPtr) : Sim.OperationPtr := p
+
+@[noinline] def rawPointerResultCaller (raw : UInt64) : UInt64 :=
+  (keepPointer ⟨raw, .mk { id := raw.toNat }⟩).impl
+
+example (p : Sim.OperationPtr) : keepPointer p = p := by rw [keepPointer.unfold]
+example (p : Sim.OperationPtr) : keepPointerInner p.impl p.spec' = p.impl := rfl
+
 buffed def identitySim {α : Type u} (x : α) : α := x
 example {α : Type u} (x : α) : identity x = x := by rw [identity.unfold]
 
@@ -39,11 +47,13 @@ buffed def certifiedSim (p : Sim.OperationPtr) : { _q : Sim.OperationPtr // (0 :
   ⟨p, privateProof⟩
 example (p : Sim.OperationPtr) : certified p = ⟨p, rfl⟩ := by rw [certified.unfold]
 
--- Nothing is done to arrays, ordinary options, or the return type.
+-- Arrays and public signatures stay unchanged; pointer result leaves become raw.
 buffed (inline := false) def containersSim
     (xs : Array Sim.OperationPtr) (x : Option Sim.OperationPtr) := (xs, x)
 example (xs : Array Sim.OperationPtr) (x : Option Sim.OperationPtr) :
     containers xs x = (xs, x) := by rw [containers.unfold]
+example (xs : Array Sim.OperationPtr) (x : Option Sim.OperationPtr) :
+    containersInner xs x = (xs, x.map (·.impl)) := rfl
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
@@ -67,6 +77,22 @@ buffed (inline := false) def contextSizeSim (ctx : Sim.IRContext OpInfo) : UInt6
 @[noinline]
 def rawContextCaller (buf : Buffed.IRBufContext) (spec : Erased (IRContext OpInfo))
     (sim : Sim ⟨buf, spec⟩) : UInt64 := contextSize ⟨buf, spec, sim⟩
+
+buffed (inline := false) def keepContextSim (ctx : Sim.IRContext OpInfo) : Sim.IRContext OpInfo := ctx
+
+@[noinline]
+def rawContextResultCaller (buf : Buffed.IRBufContext) (spec : Erased (IRContext OpInfo))
+    (sim : Sim ⟨buf, spec⟩) : Buffed.IRBufContext := (keepContext ⟨buf, spec, sim⟩).buf
+
+buffed def pointerResultSim (p : Sim.OperationPtr) (n : Nat) : Sim.OperationPtr :=
+  match n with
+  | 0 => p
+  | n + 1 => pointerResultSim ⟨p.impl + 1, .mk { id := (p.impl + 1).toNat }⟩ n
+
+buffed def contextResultSim (ctx : Sim.IRContext OpInfo) (n : Nat) : Sim.IRContext OpInfo :=
+  match n with
+  | 0 => ctx
+  | n + 1 => contextResultSim ctx n
 
 buffed (inline := false) def rawContextSim (ctx : Sim.RawIRContext OpInfo) := ctx.buf
 
@@ -126,6 +152,24 @@ buffed (inline := false) def partialNeverSim (p : Sim.OperationPtr) (n : Nat) : 
   if n = 0 then some p.impl else partialNeverSim p (n + 1)
 partial_fixpoint
 
+buffed def partialPointerSim (p : Sim.OperationPtr) (n : Nat) : Option Sim.OperationPtr :=
+  if n = 0 then some p
+  else partialPointerSim ⟨p.impl + 1, .mk { id := (p.impl + 1).toNat }⟩ (n - 1)
+partial_fixpoint
+
+buffed def partialDoPointerSim (p : Sim.OperationPtr) (n : Nat) : Option Sim.OperationPtr := do
+  let p ← some p
+  if n = 0 then return p
+  partialDoPointerSim p (n - 1)
+partial_fixpoint
+
+buffed def partialNeverPointerSim (p : Sim.OperationPtr) (n : Nat) : Option Sim.OperationPtr :=
+  if n = 0 then some p else partialNeverPointerSim p (n + 1)
+partial_fixpoint
+
+example (p : Sim.OperationPtr) (n : Nat) : partialNeverPointer p n = partialNeverPointerSim p n :=
+  partialNeverPointer.eq_sim p n
+
 buffed def shadowSim (p : Sim.OperationPtr) (n : Nat) : UInt64 :=
   let shadowSim := fun n : Nat => p.impl + n.toUInt64
   shadowSim n
@@ -174,6 +218,15 @@ example (p : Sim.BlockPtr) : implicit (p := p) = p.impl := by rw [implicit.unfol
 #guard_msgs in
 buffed def missingSuffix (n : Nat) := n
 
+/-- error: buffed: non-tail recursion with a projected result is not supported -/
+#guard_msgs in
+buffed def nonTailResultSim (p : Sim.OperationPtr) (n : Nat) : Sim.OperationPtr :=
+  match n with
+  | 0 => p
+  | n + 1 =>
+    let q := nonTailResultSim p n
+    ⟨q.impl + 1, .mk { id := (q.impl + 1).toNat }⟩
+
 private opaque opaqueValue : UInt64 := 0
 /-- error: buffed: cannot export unfolding equation; non-exported constant UnitTest.Buffed.opaqueValue -/
 #guard_msgs in
@@ -188,6 +241,8 @@ run_meta do
   for name in #[``addressInner, ``dependentInner, ``contextInner, ``countInner,
       ``strideInner, ``advanceInner, ``namedRecInner, ``dependentRecInner, ``contextRecInner,
       ``partialWalkInner, ``partialAdvanceInner, ``partialNeverInner,
+      ``partialPointerInner, ``partialDoPointerInner, ``partialNeverPointerInner,
+      ``pointerResultInner, ``contextResultInner,
       ``Qualified.walkInner, ``hiddenCountInner] do
     unless getInlineAttribute? env name == some .noinline do
       throwError "missing noinline attribute on {name}"
@@ -203,29 +258,38 @@ run_meta do
     let some (_, _, rhs) := eq.eq? | throwError "expected unfolding equality"
     if rhs.getUsedConstants.contains ``addressSim || rhs.getUsedConstants.contains ``addressInner then
       throwError "unfolding stopped at a wrapper instead of the original body"
-  unless (← isDefEq (← getConstInfo ``containersInner).type (← getConstInfo ``containersSim).type) do
-    throwError "ordinary arrays/options were transformed"
   for name in #[``address.unfold, ``dependent.unfold, ``context.unfold, ``count.unfold,
       ``certified.unfold, ``stride.eq_sim, ``advance.unfold, ``namedRec.unfold,
       ``dependentRec.unfold, ``contextRec.unfold, ``partialWalk.unfold, ``partialAdvance.unfold,
       ``partialWalk.eq_sim, ``partialAdvance.eq_sim, ``partialNever.eq_sim,
+      ``partialPointer.eq_sim, ``partialDoPointer.eq_sim,
+      ``partialNeverPointer.eq_sim, ``partialNeverPointer.inner_eq_sim,
+      ``keepContext.eq_sim, ``keepPointer.eq_sim, ``pointerResult.eq_sim, ``contextResult.eq_sim,
       ``Qualified.walk.unfold, ``hiddenCount.unfold] do
     let axioms ← collectAxioms name
     unless axioms.all (#[``propext, ``Classical.choice, ``Quot.sound].contains ·) do
       throwError "unexpected axioms in {name}: {axioms}"
   for suffix in ["Impl", "Spec"] do
     if env.contains (.str `UnitTest.Buffed ("address" ++ suffix)) then
-      throwError "the argument-only generator produced an unwanted {suffix} declaration"
+      throwError "the generator produced an unwanted separate {suffix} declaration"
 
 def checkContext (ctx : Sim.IRContext OpInfo) : IO Unit := do
   unless rawContextCaller ctx.buf ctx.spec' ctx.sim == ctx.buf.size.toUInt64 do
     throw (IO.userError "flattened context call")
+  unless (rawContextResultCaller ctx.buf ctx.spec' ctx.sim).size == ctx.buf.size do
+    throw (IO.userError "flattened context result")
+  unless (contextResult ctx 10).buf.size == ctx.buf.size do
+    throw (IO.userError "flattened recursive context result")
   unless contextRec ctx 10 == ctx.buf.size.toUInt64 + 10 do
     throw (IO.userError "flattened recursive context call")
 
 def runTests : IO Unit := do
   for n in [:100] do
     let p : Sim.OperationPtr := ⟨n.toUInt64, .mk { id := n }⟩
+    unless rawPointerResultCaller n.toUInt64 == n.toUInt64 do
+      throw (IO.userError "flattened pointer result")
+    unless (pointerResult p 10).impl == n.toUInt64 + 10 do
+      throw (IO.userError "flattened recursive pointer result")
     unless rawCaller n.toUInt64 == n.toUInt64 do throw (IO.userError "flattened pointer call")
     unless count p 10 == n.toUInt64 + 10 do throw (IO.userError "flattened recursive call")
     unless stride p 10 == n.toUInt64 + 5 do throw (IO.userError "flattened well-founded call")
@@ -234,6 +298,10 @@ def runTests : IO Unit := do
     unless (dependentRec p 10 n).2 == n do throw (IO.userError "flattened dependent result")
     unless partialWalk p 10 == some n.toUInt64 do throw (IO.userError "flattened option fixed point")
     unless partialAdvance p 10 == n.toUInt64 + 10 do throw (IO.userError "flattened flat-order fixed point")
+    unless (partialPointer p 10).map (·.impl) == some (n.toUInt64 + 10) do
+      throw (IO.userError "flattened partial pointer result")
+    unless (partialDoPointer p 10).map (·.impl) == some n.toUInt64 do
+      throw (IO.userError "flattened partial early return")
     unless shadow p 10 == n.toUInt64 + 10 do throw (IO.userError "shadowed recursive name")
     unless hiddenCount p 10 == n.toUInt64 do throw (IO.userError "private recursive call")
     unless Qualified.walk p 10 == n.toUInt64 do throw (IO.userError "qualified recursive call")

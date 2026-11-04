@@ -20,6 +20,16 @@ open Lean Meta Compiler
 
 private meta def inventory : String := include_str "../Tools/buffed-declarations.tsv"
 
+private meta partial def hasSimResult (type : Expr) : MetaM Bool := do
+  let type ← whnf type
+  let name := type.getAppFn.constName?.getD .anonymous
+  if name.getPrefix == `Veir.Buffered.Sim then return true
+  if name == ``Option || name == ``Subtype then
+    return ← hasSimResult type.getAppArgs[0]!
+  if name == ``Prod then
+    return (← hasSimResult type.getAppArgs[0]!) || (← hasSimResult type.getAppArgs[1]!)
+  return false
+
 run_meta do
   let mut total : Nat := 0
   let mut production : Nat := 0
@@ -61,11 +71,14 @@ run_meta do
           if let some info := getStructureInfo? env name then
             return n + info.fieldNames.size
         return n + 1
-    forallTelescope (← getConstInfo inner).type fun args _ => do
+    forallTelescope (← getConstInfo inner).type fun args ret => do
       unless args.size == expectedArity do
         throwError "unflattened arguments in {inner}: {args.size} != {expectedArity}"
-    for axiomName in (← collectAxioms (base ++ `unfold)) do
-      unless #[``propext, ``Classical.choice, ``Quot.sound].contains axiomName do
-        throwError "unexpected axiom in {base}.unfold: {axiomName}"
+      if ← hasSimResult ret then
+        throwError "unflattened result in {inner}: {ret}"
+    for suffix in [`unfold, `eq_sim, `inner_eq_sim] do
+      for axiomName in (← collectAxioms (base ++ suffix)) do
+        unless #[``propext, ``Classical.choice, ``Quot.sound].contains axiomName do
+          throwError "unexpected axiom in {base}.{suffix}: {axiomName}"
   unless total == 202 && production == 169 do
     throwError "incomplete historical coverage: {total} total / {production} production"

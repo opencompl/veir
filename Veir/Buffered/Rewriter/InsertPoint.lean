@@ -204,7 +204,7 @@ theorem InsertPoint.next_before_eq :
 
 @[simp, grind =]
 theorem InsertPoint.next_atEnd_eq :
-    InsertPoint.next (atEnd blockPtr) = .none := by rfl
+    InsertPoint.next (atEnd blockPtr) = .none := by rw [InsertPoint.next.unfold]
 
 @[grind =]
 theorem InsertPoint.next_eq_none_iff_eq_atEnd {ip : InsertPoint} :
@@ -505,7 +505,7 @@ theorem next_before :
 
 @[simp, grind =]
 theorem next_atEnd :
-    BlockInsertPoint.next (atEnd regionPtr) = .none := by rfl
+    BlockInsertPoint.next (atEnd regionPtr) = .none := by rw [BlockInsertPoint.next.unfold]
 
 @[grind .]
 theorem next_inBounds {ip : BlockInsertPoint} {ctx : Sim.IRContext OpInfo} :
