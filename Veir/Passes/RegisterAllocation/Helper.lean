@@ -59,8 +59,6 @@ def getFunctionEntry (ctx : WfIRContext OpCode) (f : OperationPtr) :
       inner? := inner.getNextOp! ctx.raw
       if inner.getNumRegions! ctx.raw != 0 then
           throw "register allocation does not support operations with nested regions"
-  if funcOp.getNumArguments != 0 then
-    throw "register allocation does not support function arguments"
   if funcOp.getNumResults != 0 then
     throw "register allocation does not support function return values"
   return some entry
