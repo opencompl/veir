@@ -818,13 +818,13 @@ def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 /-- llvm.mlir.poison -> riscv.li 0 -/
 def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
 
-/-- llvm.freeze arg : Int w ->
+/-- llvm.freeze arg : Int w, for w ≤ 64 ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
 def freeze_pattern : Pattern OpCode :=
   lowerRegCast (.llvm .freeze) fun opType resType _ =>
     match opType.val, resType.val with
     | .integerType opType, .integerType resType =>
-      (opType.bitwidth = 64 ∨ opType.bitwidth = 32) ∧ (resType.bitwidth = 64 ∨ resType.bitwidth = 32)
+      opType.bitwidth ≤ 64 && opType == resType
     | _, _ => false
 
 /-- llvm.freeze arg : Int w ->

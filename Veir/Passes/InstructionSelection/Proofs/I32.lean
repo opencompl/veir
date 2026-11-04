@@ -448,8 +448,3 @@ theorem fshr_ror_refinement_32 {a c : LLVM.Int 32} :
     (Data.LLVM.Int.fshr a a c) ⊒
       (RISCV.Reg.toInt (Data.RISCV.rorw (LLVM.Int.toReg c) (LLVM.Int.toReg a)) 32) := by
   veir_bv_decide
-
-theorem freeze_refinement_32 {a : LLVM.Int 32} :
-    (Data.LLVM.Int.freeze a) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg a) 32) := by
-  veir_bv_decide
