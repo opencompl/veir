@@ -982,9 +982,9 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
     (select c, 0, f) -> (czero.nez f, c)
     (select c, t, f) -> (or (czero.eqz t, c), (czero.nez f, c))
   ```
-  A legal `g_select` selects `i64` values with an `i64` condition, which is true when it is
-  nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the `g_constant`,
-  so they run in the early loop, before `gmirConstant` lowers it.
+  A legal `g_select` selects `i64` or pointer values with an `i64` condition, which is true when
+  it is nonzero, as `czero.eqz` and `czero.nez` test it. The zero-arm patterns inspect the
+  `g_constant`, so they run in the early loop, before `gmirConstant` lowers it.
 -/
 
 /--
@@ -1033,7 +1033,7 @@ def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
 def gmirSelect_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := TypeAttr)
       let condType ← MatchProg.type (Attr := IntegerType)
       let cond ← MatchProg.value condType
       let tval ← MatchProg.value type
