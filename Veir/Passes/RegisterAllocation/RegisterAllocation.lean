@@ -31,8 +31,8 @@ def RegisterAllocationPass.allocatableBlocks (ctx : WfIRContext OpCode) (op : Op
     let mut f? := block.getFirstOp! ctx.raw
     while let some f := f? do
         f? := f.getNextOp! ctx.raw
-        let some fct_block ← getFunctionEntry ctx f | continue
-        entries := entries.push fct_block
+        let some fctBlock ← getFunctionEntry ctx f | continue
+        entries := entries.push fctBlock
     return entries
 
 /--
