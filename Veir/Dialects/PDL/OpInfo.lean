@@ -293,13 +293,13 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
         throw s!"Expected operand {i} to be of type '!pdl.type' or '!pdl.range<type>'"
   | .pattern =>
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
+      throw "pdl.pattern: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+      throw "pdl.pattern: Expected 0 result(s)"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+      throw "pdl.pattern: Expected 1 region(s)"
+    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
+      throw "pdl.pattern: Expected 0 successor(s)"
     let props : PDL.propertiesOf .pattern :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.pattern
         (op.getProperties! ctx.raw (ofDialect OpInfo PDL.pattern))

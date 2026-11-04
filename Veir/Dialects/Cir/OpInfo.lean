@@ -338,14 +338,14 @@ def Cir.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "cir.func: Expected 1 region"
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 operands"
+      throw "cir.func: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 results"
+      throw "cir.func: Expected 0 result(s)"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "cir.func: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 successors"
+      throw "cir.func: Expected 0 successor(s)"
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyCirReturnTypes ctx opIn

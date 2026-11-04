@@ -128,13 +128,13 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .module => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
+      throw "hw.module: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
+      throw "hw.module: Expected 0 result(s)"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+      throw "hw.module: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+      throw "hw.module: Expected 0 successor(s)"
     pure ()
   | .output => do
     op.verifyTerminatorCounts ctx opIn 0
