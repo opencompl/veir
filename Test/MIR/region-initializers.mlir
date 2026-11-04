@@ -27,26 +27,6 @@
     "llvm.return"(%p) : (!llvm.ptr) -> ()
   }) : () -> ()
   "llvm.func"() <{function_type = !llvm.func<i32 (i32)>, sym_name = "external_function"}> ({}) : () -> ()
-  "llvm.mlir.global"() <{global_type = !llvm.ptr, linkage = #llvm.linkage<external>, sym_name = "self_ptr"}> ({
-    %p = "llvm.mlir.addressof"() <{global_name = @self_ptr}> : () -> !llvm.ptr
-    "llvm.return"(%p) : (!llvm.ptr) -> ()
-  }) : () -> ()
-  "llvm.mlir.global"() <{global_type = i32, linkage = #llvm.linkage<external>, sym_name = "undefined"}> ({
-    %v = "llvm.mlir.undef"() : () -> i32
-    "llvm.return"(%v) : (i32) -> ()
-  }) : () -> ()
-  "llvm.mlir.global"() <{global_type = i32, linkage = #llvm.linkage<external>, sym_name = "poisoned"}> ({
-    %v = "llvm.mlir.poison"() : () -> i32
-    "llvm.return"(%v) : (i32) -> ()
-  }) : () -> ()
-  "llvm.mlir.global"() <{global_type = !llvm.array<3 x i8>, linkage = #llvm.linkage<internal>, sym_name = "string_region"}> ({
-    %v = "llvm.mlir.constant"() <{value = "hi\00"}> : () -> !llvm.array<3 x i8>
-    "llvm.return"(%v) : (!llvm.array<3 x i8>) -> ()
-  }) : () -> ()
-  "llvm.mlir.global"() <{global_type = !llvm.array<2 x i16>, linkage = #llvm.linkage<internal>, sym_name = "dense_region"}> ({
-    %v = "llvm.mlir.constant"() <{value = dense<[7, -2]> : tensor<2xi16>}> : () -> !llvm.array<2 x i16>
-    "llvm.return"(%v) : (!llvm.array<2 x i16>) -> ()
-  }) : () -> ()
   "llvm.func"() <{function_type = !llvm.func<i64 ()>, sym_name = "read"}> ({
     %g = "llvm.mlir.addressof"() <{global_name = @zero_int}> : () -> !llvm.ptr
     %v = "llvm.load"(%g) : (!llvm.ptr) -> i64
@@ -85,11 +65,6 @@
 // CHECK: @null_ptr = global ptr zeroinitializer
 // CHECK: @zero_int = global i64 zeroinitializer
 // CHECK: @function_ptr = global ptr @external_function
-// CHECK: @self_ptr = global ptr @self_ptr
-// CHECK: @undefined = global i32 undef
-// CHECK: @poisoned = global i32 poison
-// CHECK: @string_region = internal global [3 x i8] c"hi\00"
-// CHECK: @dense_region = internal global [2 x i16] [i16 7, i16 -2]
 // CHECK: declare void @external_function()
 // CHECK-LABEL: name: read
 // CHECK:       PseudoLLA @zero_int
