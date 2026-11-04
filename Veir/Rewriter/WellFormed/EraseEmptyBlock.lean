@@ -10,7 +10,7 @@ variable {OpInfo : Type} [HasOpInfo OpInfo]
 attribute [local grind =] Option.maybe_def
 
 /-- An empty, unused detached block has no incoming references, so its allocation may
-    be reclaimed without assuming the post-deallocation field-bounds invariant. -/
+    be logically deleted without assuming the post-deallocation field-bounds invariant. -/
 theorem IRContext.fieldsInBounds_deallocEmptyBlock
     {ctx : IRContext OpInfo} (block : BlockPtr) (ib : block.InBounds ctx)
     (wf : ctx.WellFormed) (parent : (block.get! ctx).parent = none)

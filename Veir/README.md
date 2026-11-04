@@ -13,17 +13,17 @@ liveness proofs. There is no unbuffered backend, compiler pass pipeline, or inte
 - The source-input API is `Veir.Parser.parseSourceString`, with the theorem
   `Veir.Parser.parseSourceString_safe`. `UnitTest.ParserAPI` checks it through the library root.
 - Executables: `buffed-benchmark`, `veir-parse`, `parser-tests`, `allocator-tests`, and
-  `ir-reuse-tests`. The unbuffered CLI tools and their dependencies/tests are removed.
-- ExArray's native `ffi_static.c` retains zero-on-extension, explicit range clearing,
-  allocation reuse, and the bit-width argument required by `ExArray.read`'s ABI.
+  `ir-allocation-tests`. The unbuffered CLI tools and their dependencies/tests are removed.
+- ExArray's native `ffi_static.c` retains zero-on-extension, copy-on-write, and
+  the bit-width argument required by `ExArray.read`'s ABI.
 - Direnv, Nix, Make, and CI select `Tools/lean-clang` for full-LTO builds. In a plain shell,
   set `export LEAN_CC="$PWD/Tools/lean-clang"` (Clang and GMP/pkg-config are required).
 
 ```sh
-lake build buffed-benchmark veir-parse parser-tests allocator-tests ir-reuse-tests
+lake build buffed-benchmark veir-parse parser-tests allocator-tests ir-allocation-tests
 lake exe parser-tests
 lake exe allocator-tests
-lake exe ir-reuse-tests
+lake exe ir-allocation-tests
 ```
 
 ### Historical merge validation
@@ -105,16 +105,17 @@ in the production replacement loop and operand-removal helpers. A forwarding ada
 the boxed source fails these checks.
 
 All **202** declarations marked `buffed` in `yqlxtmmr` (`4e230ff25`), including five
-`protected buffed` declarations, now use this generator,
-including the benchmark rewrites, IR accessors/setters, recycling, linked lists, construction,
+`protected buffed` declarations, were migrated to this generator. After removing
+`releaseRange`, **201** remain (168 production and 33 benchmark declarations),
+including the benchmark rewrites, IR accessors/setters, allocation, linked lists, construction,
 and printer helpers. Their original `inline := ...` choices control nonrecursive inner
 functions. Recursive inners override these choices with `@[noinline]`: Lean skips body
 specialization for inline templates but generally cannot inline recursive calls. Source
 `fooSim` definitions and nonrecursive outer wrappers remain inline.
-`Tools/buffed-declarations.tsv` records the complete historical inventory;
-`UnitTest.BuffedAdoption` checks the 169 production signatures, flattened arities/results, inline
+`Tools/buffed-declarations.tsv` records the retained inventory, with the fresh allocators renamed;
+`UnitTest.BuffedAdoption` checks the 168 production signatures, flattened arities/results, inline
 and protected attributes, actual recursive inner declarations, and generated equations' axioms. The codegen runner additionally
-checks all 202 source declarations, including the 33 benchmark functions with pre-existing
+checks all 201 source declarations, including the 33 benchmark functions with pre-existing
 proof placeholders. Proofs unfold `foo.unfold`; before induction on the original `fooSim`,
 use `simp only [foo.eq_sim] at *`. Reconstructed results need not be definitionally equal
 to the original function: use the proved equivalence rather than `rfl`.
@@ -181,50 +182,38 @@ variation. Run it without concurrent builds. Set `PERF_MAX_RATIO` to fail on
 regressions above a chosen ratio; by default that check excludes phases shorter
 than 1 ms (`PERF_MIN_MS`), but all timings are reported.
 
-## Reusing deleted IR storage
+## Append-only arena allocation
 
-The buffered context has an exact-size free list. Erasing an operation, block,
-or region releases its complete byte allocation; subsequent rewriter
-construction reuses a free allocation of the same size before extending the
-arena. Operation allocations include the results preceding the operation header
-and all reserved capacity. Live pointers do not move.
+Allocation appends zero-initialized bytes to the arena, as it did before the
+free-list introduction (`66bbf61e5`). Deleted addresses are never reused.
+There is no free list, size-class lookup, release bookkeeping, slot clearing,
+or compaction. The separate attribute table is also append-only. All storage
+is retained until its context and any shared snapshots are dropped.
 
-Free-list lookup, insertion, and removal take expected amortized O(1) time.
-Reallocation clears the reused range with `memset`, taking O(allocation size),
-then initializes its header and properties. Deletion does not scan or compact
-the arena. The existing operand/use unlinking costs still apply to operation
-erasure. As with other persistent buffer mutations, keeping an old context
-snapshot can require copying the backing buffer on the next write.
+`Rewriter.eraseOp` still detaches the operation and its operands and logically
+deletes it. `Rewriter.eraseBlock` and `Rewriter.eraseRegion` logically delete
+detached containers; callers must first remove their contents and uses and
+supply the `FieldsInBounds` proof ruling out dangling references. These APIs
+do not recursively delete a subtree. Their safety and well-formedness proofs
+remain, as do static parser ownership/liveness and erased specifications.
+Logical deletion itself leaves the runtime buffer unchanged.
 
-`Rewriter.eraseOp` now releases storage after detaching the operation and its
-operands. `Rewriter.eraseBlock` and `Rewriter.eraseRegion` release detached
-containers; callers must first remove their contents and uses and supply the
-`FieldsInBounds` proof ruling out dangling references. These APIs do not
-recursively delete a subtree. Their well-formedness theorems, together with the
-updated construction and replacement proofs, are exported by
-`Veir.Rewriter.WellFormed`.
-
-The free-list invariant proves that free ranges are in bounds, mutually
-disjoint, and disjoint from every live allocation. Allocation consumes its slot
-and preserves the encoding of all other objects. These invariants and the
-specification context are erased from the generated executable rewriter code.
-
-This is arena reuse: memory is retained for future allocations, rather than
-returned to the operating system. Free ranges are neither split nor coalesced,
-so a workload that continually requests new sizes can still grow the arena.
-The separate attribute table remains append-only.
+Reservations are proved to start at the old arena end and preserve old reads.
+Live pointer offsets do not change. Holding a shared snapshot can still require
+copy-on-write when the arena is extended or modified. Repeated allocation and
+deletion intentionally grows memory rather than reaching a reuse plateau.
 
 Validation:
 
 ```sh
-lake build Veir.Rewriter.WellFormed allocator-tests ir-reuse-tests
+lake build Veir.Rewriter.WellFormed allocator-tests ir-allocation-tests
 lake exe allocator-tests
-lake exe ir-reuse-tests
+lake exe ir-allocation-tests
 ```
 
-The tests cover slot clearing, neighboring bytes, shared snapshots, distinct
-size classes, spare capacity, and 10,000 allocation/erasure cycles for each IR
-object kind without arena growth after warmup.
+Tests cover zeroed appended bytes, preserved old bytes and snapshots, overflow
+rejection, spare capacity and back-allocated results, and 10,000 allocation/
+deletion cycles for each IR object kind with the expected arena growth.
 
 ## Parsing MLIR into the buffered IR
 
@@ -269,7 +258,7 @@ liveness evidence. Context transactions consume the old state before mutating it
 
 `Transitions.lean` supplies composable preservation frames for caller-held handles.
 `References.lean`, `Retire.lean`, and `Blocks.lean` resolve names, publish definitions, and
-reclaim exclusively owned placeholders. `Operations.lean` and `Bindings.lean` retain allocation,
+logically delete exclusively owned placeholders. `Operations.lean` and `Bindings.lean` retain allocation,
 result-count, and argument-count certificates through construction and registration.
 `Scopes.lean` and `ConstructionParser.lean` carry these contracts through mutually recursive
 region/block/operation parsing and scope restoration. Ordinary name lookup is still needed;

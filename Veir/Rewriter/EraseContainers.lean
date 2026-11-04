@@ -6,7 +6,7 @@ public import Veir.IR.Buffed.ContainerDealloc
 namespace Veir
 variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
-/-- Erase a detached block and reclaim its allocation. As with operation
+/-- Logically erase a detached block, retaining its arena storage. As with operation
  deallocation, `hDealloc` rules out dangling references from surviving IR:
  the block must have no operations, successor uses, or argument uses. -/
 buffed (inline := true)
@@ -16,7 +16,7 @@ def Rewriter.eraseBlockSim (ctx : Sim.IRContext OpInfo) (block : Sim.BlockPtr)
     (hDealloc : (block.spec.dealloc ctx.spec).FieldsInBounds) : Sim.IRContext OpInfo :=
   Sim.BlockPtr.dealloc ctx block ib hDealloc
 
-/-- Erase a detached region and reclaim its allocation. `hDealloc` rules out
+/-- Logically erase a detached region, retaining its arena storage. `hDealloc` rules out
  surviving blocks or operations that still reference the region. -/
 buffed (inline := true)
 def Rewriter.eraseRegionSim (ctx : Sim.IRContext OpInfo) (region : Sim.RegionPtr)
@@ -29,14 +29,14 @@ def Rewriter.eraseRegionSim (ctx : Sim.IRContext OpInfo) (region : Sim.RegionPtr
 theorem Rewriter.eraseBlock_spec (ctx : Sim.IRContext OpInfo) (block : Sim.BlockPtr)
     (ib : block.InBounds ctx) (hp hd) :
     (eraseBlock ctx block ib hp hd).spec = block.spec.dealloc ctx.spec := by
-  simp [eraseBlock.unfold, Sim.BlockPtr.dealloc.unfold, Sim.BlockPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  simp [eraseBlock.unfold, Sim.BlockPtr.dealloc.unfold, Sim.BlockPtr.forget.unfold,
     Sim.IRContext.spec]
 
 @[simp]
 theorem Rewriter.eraseRegion_spec (ctx : Sim.IRContext OpInfo) (region : Sim.RegionPtr)
     (ib : region.InBounds ctx) (hp hd) :
     (eraseRegion ctx region ib hp hd).spec = region.spec.dealloc ctx.spec := by
-  simp [eraseRegion.unfold, Sim.RegionPtr.dealloc.unfold, Sim.RegionPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  simp [eraseRegion.unfold, Sim.RegionPtr.dealloc.unfold, Sim.RegionPtr.forget.unfold,
     Sim.IRContext.spec]
 
 theorem Rewriter.eraseBlock_wellFormed (ctx : Sim.IRContext OpInfo) (block : Sim.BlockPtr)

@@ -111,13 +111,13 @@ theorem Sim.BlockPtr.allocEmpty_constructionWellFormed
   exact BlockPtr.allocEmptyAtAddress_constructionWellFormed wf
     (Sim.BlockPtr.allocEmpty_spec' ca halloc)
 
-theorem Sim.BlockPtr.allocRecycled_constructionWellFormed
+theorem Sim.BlockPtr.allocFresh_constructionWellFormed
     [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
     {ctx ctx' : Sim.IRContext OpInfo}
     (wf : ctx.spec.WellFormed)
-    (halloc : Sim.BlockPtr.allocRecycled ctx ca = some (newBlock, ctx')) :
+    (halloc : Sim.BlockPtr.allocFresh ctx ca = some (newBlock, ctx')) :
     BlockConstructionWellFormed ctx'.spec newBlock.spec ∅ ∅ := by
   exact BlockPtr.allocEmptyAtAddress_constructionWellFormed wf
-    (Sim.BlockPtr.allocRecycled_spec' ca halloc)
+    (Sim.BlockPtr.allocFresh_spec' ca halloc)
 
 end Veir

@@ -68,13 +68,13 @@ theorem Sim.RegionPtr.allocEmpty_wellFormed
     ctx'.spec.WellFormed := by
   exact Veir.RegionPtr.allocEmptyAt_wellFormed wf (Sim.RegionPtr.allocEmpty_spec' halloc)
 
-theorem Sim.RegionPtr.allocRecycled_wellFormed
+theorem Sim.RegionPtr.allocFresh_wellFormed
     [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
     {ctx ctx' : Sim.IRContext OpInfo}
     (wf : ctx.spec.WellFormed)
-    (halloc : Sim.RegionPtr.allocRecycled ctx = some (region, ctx')) :
+    (halloc : Sim.RegionPtr.allocFresh ctx = some (region, ctx')) :
     ctx'.spec.WellFormed := by
-  exact Veir.RegionPtr.allocEmptyAt_wellFormed wf (Sim.RegionPtr.allocRecycled_spec' halloc)
+  exact Veir.RegionPtr.allocEmptyAt_wellFormed wf (Sim.RegionPtr.allocFresh_spec' halloc)
 
 /-- Successful region creation preserves full well-formedness. -/
 theorem Rewriter.createRegion_wellFormed
@@ -88,6 +88,6 @@ theorem Rewriter.createRegion_wellFormed
   · simp at hcreate
   · simp only [Option.some.injEq, Prod.mk.injEq] at hcreate
     obtain ⟨rfl, rfl⟩ := hcreate
-    exact Sim.RegionPtr.allocRecycled_wellFormed wf (by assumption)
+    exact Sim.RegionPtr.allocFresh_wellFormed wf (by assumption)
 
 end Veir

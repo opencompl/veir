@@ -42,7 +42,7 @@ private theorem dealloc_operation {ctx : Parser.IR.RawContext} {op p : Sim.Opera
     p.InBounds (op.dealloc ctx hi hd) := by
   constructor
   · exact hp.sim
-  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
       Sim.IRContext.spec, Erased.out_mk]
     grind [OperationPtr.dealloc, OperationPtr.inBounds_def]
 
@@ -50,7 +50,7 @@ private theorem dealloc_block {ctx : Parser.IR.RawContext} {op : Sim.OperationPt
     {hi hd} (hp : p.InBounds ctx) : p.InBounds (op.dealloc ctx hi hd) := by
   constructor
   · exact hp.sim
-  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
       Sim.IRContext.spec, Erased.out_mk]
     grind [OperationPtr.dealloc, BlockPtr.inBounds_def]
 
@@ -58,7 +58,7 @@ private theorem dealloc_region {ctx : Parser.IR.RawContext} {op : Sim.OperationP
     {hi hd} (hp : p.InBounds ctx) : p.InBounds (op.dealloc ctx hi hd) := by
   constructor
   · exact hp.sim
-  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
       Sim.IRContext.spec, Erased.out_mk]
     grind [OperationPtr.dealloc, RegionPtr.inBounds_def]
 

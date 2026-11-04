@@ -16,10 +16,10 @@ build: ## build the project
 tests: build ## run all tests
 	uv sync
 	lake test
-	lake build parser-tests allocator-tests ir-reuse-tests
+	lake build parser-tests allocator-tests ir-allocation-tests
 	lake exe parser-tests
 	lake exe allocator-tests
-	lake exe ir-reuse-tests
+	lake exe ir-allocation-tests
 	uv run python Tools/check-buffed-wrapper-codegen
 	uv run python Tools/check-orphan-modules
 	uv run python Tools/check-parser-cli

@@ -15,12 +15,11 @@ theorem Sim.IRContext.reservation_disjoint (ctx : Sim.IRContext OpInfo)
     (h : ctx.buf.reserve size = some (b, address)) (p : TopLevelPtr) (hp : p.InBounds ctx.spec) :
     (p.range ctx.spec).upper ≤ address.toNat ∨
       (address.toNat : Int) + size.toNat ≤ (p.range ctx.spec).lower := by
-  rcases Buffed.IRBufContext.reserve_origin h with ⟨free, ht, _⟩ | ⟨ha, _⟩
-  · exact ctx.sim.free_disjoint size address (Buffed.FreeList.take_mem ht) p hp
-  · have := ctx.sim.in_bounds p hp
-    left
-    rw [ha]
-    simpa only [IsIncludedIN, ExArray.range_def] using this.2
+  have ha := Buffed.IRBufContext.reserve_origin h
+  have := ctx.sim.in_bounds p hp
+  left
+  rw [ha]
+  simpa only [IsIncludedIN, ExArray.range_def] using this.2
 
 theorem Sim.OperationPtr.reservation_fresh (ctx : Sim.IRContext OpInfo)
     {b : Buffed.IRBufContext} {size address ptr : UInt64}

@@ -34,11 +34,6 @@ theorem BlockMPtr.initialize_attributes (b : IRBufContext) (ptr : BlockMPtr) (na
     (ptr.initialize b na hb).attributes = b.attributes := by
   simp [BlockMPtr.initialize, BlockMPtr.writeNumArguments, BlockMPtr.writeFirstUse, BlockMPtr.writePrev, BlockMPtr.writeNext, BlockMPtr.writeParent, BlockMPtr.writeFirstOp, BlockMPtr.writeLastOp, IRBufContext.size_def]
 
-@[simp]
-theorem BlockMPtr.initialize_freeList (b : IRBufContext) (ptr : BlockMPtr) (na : UInt64) (hb) :
-    (ptr.initialize b na hb).freeList = b.freeList := by
-  simp [BlockMPtr.initialize, BlockMPtr.writeNumArguments, BlockMPtr.writeFirstUse, BlockMPtr.writePrev, BlockMPtr.writeNext, BlockMPtr.writeParent, BlockMPtr.writeFirstOp, BlockMPtr.writeLastOp, IRBufContext.size_def]
-
 theorem BlockMPtr.initialize_reads (b : IRBufContext) (ptr : BlockMPtr) (na : UInt64) (hb) :
     BlockMPtr.readNumArguments! (ptr.initialize b na hb) ptr = na ∧
     BlockMPtr.readFirstUse! (ptr.initialize b na hb) ptr = BlockOperandOPtr.none ∧
@@ -110,11 +105,6 @@ theorem RegionMPtr.initialize_size (b : IRBufContext) (ptr : RegionMPtr)  (hb) :
 @[simp]
 theorem RegionMPtr.initialize_attributes (b : IRBufContext) (ptr : RegionMPtr)  (hb) :
     (ptr.initialize b  hb).attributes = b.attributes := by
-  simp [RegionMPtr.initialize, RegionMPtr.writeParent, RegionMPtr.writeFirstBlock, RegionMPtr.writeLastBlock, IRBufContext.size_def]
-
-@[simp]
-theorem RegionMPtr.initialize_freeList (b : IRBufContext) (ptr : RegionMPtr)  (hb) :
-    (ptr.initialize b  hb).freeList = b.freeList := by
   simp [RegionMPtr.initialize, RegionMPtr.writeParent, RegionMPtr.writeFirstBlock, RegionMPtr.writeLastBlock, IRBufContext.size_def]
 
 theorem RegionMPtr.initialize_reads (b : IRBufContext) (ptr : RegionMPtr)  (hb) :

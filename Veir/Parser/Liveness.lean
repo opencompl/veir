@@ -132,7 +132,7 @@ theorem Live.takeForwardName {d : MlirParserData} {ctx : IR.RawContext} (h : d.L
   privateValues v hv n i op l he := h.privateValues v hv n i op l (forwardEntry_takeForwardName.mp he).2
   uniqueBlocks := h.uniqueBlocks
 
-/-- No surviving table reference may target a reclaimed operation. Caller-local references
+/-- No surviving table reference may target a deleted operation. Caller-local references
 have a separate obligation, discharged using `OpDeletion.values`/`operations`. -/
 structure CanDeleteOp (d : MlirParserData) (dead : IR.Op) : Prop where
   values : ∀ v, d.DefinedValue v → ∀ res, v.spec = .opResult res → res.op ≠ dead.spec

@@ -2,9 +2,9 @@ module
 
 import all Veir.IR.Buffed.Basic
 import all Veir.IR.Buffed.ContainerDealloc
-import all Veir.IR.Buffed.RecycledBlock
-import all Veir.IR.Buffed.RecycledOperation
-import all Veir.IR.Buffed.RecycledRegion
+import all Veir.IR.Buffed.AllocateBlock
+import all Veir.IR.Buffed.AllocateOperation
+import all Veir.IR.Buffed.AllocateRegion
 import all Veir.Rewriter.Basic
 import all Veir.Rewriter.EraseContainers
 import all Veir.Rewriter.InsertPoint
@@ -80,5 +80,6 @@ run_meta do
       for axiomName in (← collectAxioms (base ++ suffix)) do
         unless #[``propext, ``Classical.choice, ``Quot.sound].contains axiomName do
           throwError "unexpected axiom in {base}.{suffix}: {axiomName}"
-  unless total == 202 && production == 169 do
-    throwError "incomplete historical coverage: {total} total / {production} production"
+  -- releaseRange was removed with the arena reclamation system.
+  unless total == 201 && production == 168 do
+    throwError "incomplete retained coverage: {total} total / {production} production"

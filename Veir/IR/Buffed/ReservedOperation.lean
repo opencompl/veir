@@ -42,15 +42,6 @@ theorem Sim.OperationPtr.allocReserved_sim {ctx : Sim.IRContext OpInfo} {opType 
     (hRattrs : Buffed.OperationMPtr.readAttrs! ctxBuf ptrImpl = 0)
     (hrp : HasBuffedProperties.readPropertyAt opType
       (ptrImpl + Buffed.Operation.Offsets.properties) ctxBuf = some props)
-    (hfreeValid : ctxBuf.freeList.Valid ctxBuf.mem.size)
-    (hfreeOld : ∀ (s a : UInt64), a ∈ ctxBuf.freeList.bucket s →
-      ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
-        (p.range ctx.spec).upper ≤ a.toNat ∨
-          (a.toNat : Int) + s.toNat ≤ (p.range ctx.spec).lower)
-    (hfreeNew : ∀ (s a : UInt64), a ∈ ctxBuf.freeList.bucket s →
-      a.toNat + s.toNat ≤ start ∨
-        start + (Buffed.OperationMPtr.computeOperationSize numResults numOperands
-          numBlockOperands numRegions (Buffed.Operation.propertySize opType)).toNat ≤ a.toNat)
     (heqSpec : Veir.OperationPtr.allocEmptyAt ctx.spec opType props numResults.toNat
       numBlockOperands.toNat numRegions.toNat numOperands.toNat ptrImpl.toNat
       = some (ctxSpec, ptrSpec)) :
@@ -298,15 +289,5 @@ theorem Sim.OperationPtr.allocReserved_sim {ctx : Sim.IRContext OpInfo} {opType 
   · -- `attr_empty`
     exact hattrs ctx.sim.attr_empty
 
-  · exact hfreeValid
-  · intro size address hm p hp
-    rcases (Veir.OperationPtr.allocEmptyAt_topLevelPtr_iff p heqSpec).mp hp with hold | rfl
-    · rw [hrgOld p hold]
-      exact hfreeOld size address hm p hold
-    · have hd := hfreeNew size address hm
-      simp only [TopLevelPtr.range, Veir.OperationPtr.range_ideal hrepr' hnewIb,
-        Veir.OperationPtr.rangeInt, Buffed.Operation.rangeInt, add_nat_range_def,
-        Veir.OperationPtr.toFlat]
-      grind
 
 end Veir

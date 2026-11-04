@@ -16,7 +16,7 @@ macro "header_bounds" : tactic => `(tactic|
    grind (instances := 4000) [UInt64.uint64_add_int64_toInt_lt, OperationMPtr.writeNumOperands_size, OperationMPtr.writeNumResults_size, OperationMPtr.writeNumBlockOperands_size, OperationMPtr.writeNumRegions_size, OperationMPtr.writeParent_size, OperationMPtr.writeNext_size, OperationMPtr.writePrev_size, OperationMPtr.writeOpType_size, OperationMPtr.writeAttrs_size]))
 
 /-- Initialize every scalar header field, including the attribute index, in a
-reserved range. The same initializer works for fresh and recycled storage. -/
+freshly appended range. -/
 @[inline]
 def OperationMPtr.initialize (b : IRBufContext) (ptr : OperationMPtr)
     (nr no nb ng : UInt64) (ty : UInt32) (hb : ptr.toNat + 72 ≤ b.mem.size) : IRBufContext :=
@@ -41,12 +41,6 @@ theorem OperationMPtr.initialize_size (b : IRBufContext) (ptr : OperationMPtr)
 theorem OperationMPtr.initialize_attributes (b : IRBufContext) (ptr : OperationMPtr)
     (nr no nb ng : UInt64) (ty : UInt32) (hb) :
     (ptr.initialize b nr no nb ng ty hb).attributes = b.attributes := by
-  simp [OperationMPtr.initialize, OperationMPtr.writeNumOperands, OperationMPtr.writeNumResults, OperationMPtr.writeNumBlockOperands, OperationMPtr.writeNumRegions, OperationMPtr.writeParent, OperationMPtr.writeNext, OperationMPtr.writePrev, OperationMPtr.writeOpType, OperationMPtr.writeAttrs]
-
-@[simp]
-theorem OperationMPtr.initialize_freeList (b : IRBufContext) (ptr : OperationMPtr)
-    (nr no nb ng : UInt64) (ty : UInt32) (hb) :
-    (ptr.initialize b nr no nb ng ty hb).freeList = b.freeList := by
   simp [OperationMPtr.initialize, OperationMPtr.writeNumOperands, OperationMPtr.writeNumResults, OperationMPtr.writeNumBlockOperands, OperationMPtr.writeNumRegions, OperationMPtr.writeParent, OperationMPtr.writeNext, OperationMPtr.writePrev, OperationMPtr.writeOpType, OperationMPtr.writeAttrs]
 
 theorem OperationMPtr.initialize_reads (b : IRBufContext) (ptr : OperationMPtr)
@@ -136,12 +130,6 @@ theorem OperationMPtr.initializeOp_size (b : IRBufContext) (ptr : OperationMPtr)
     (ptr.initializeOp b nr no nb ng op props hb ha).mem.size = b.mem.size := by
   simp only [initializeOp, HasBuffedProperties.preserves_size]
   exact ptr.initialize_size b nr no nb ng (SerializableOpInfo.encode op) _
-
-@[simp]
-theorem OperationMPtr.initializeOp_freeList (b : IRBufContext) (ptr : OperationMPtr)
-    (nr no nb ng : UInt64) (op : OpInfo) (props : HasOpInfo.propertiesOf op) (hb ha) :
-    (ptr.initializeOp b nr no nb ng op props hb ha).freeList = b.freeList := by
-  simp [initializeOp, HasBuffedProperties.preserves_freeList]
 
 theorem OperationMPtr.initializeOp_attributes (b : IRBufContext) (ptr : OperationMPtr)
     (nr no nb ng : UInt64) (op : OpInfo) (props : HasOpInfo.propertiesOf op) (hb ha)

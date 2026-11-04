@@ -2,7 +2,7 @@ module
 
 public import ExArray.CompilerExtras
 
-public import Veir.IR.Buffed.Recycling
+public import Veir.IR.Buffed.Allocation
 public import Veir.IR.Buffed.InBounds
 import all Veir.IR.Buffed.Basic
 
@@ -38,7 +38,7 @@ theorem Sim.OperationPtr.reserved_header_bounds
   exact ⟨hptr, by omega⟩
 
 @[inline]
-def Sim.OperationPtr.allocRecycledRaw (ctx : Buffed.IRBufContext) (op : OpInfo)
+def Sim.OperationPtr.allocFreshRaw (ctx : Buffed.IRBufContext) (op : OpInfo)
     (props : HasOpInfo.propertiesOf op) (nr no nb ng : UInt64)
     (hr : nr.toNat ≤ countCard) (ho : no.toNat ≤ countCard)
     (hbo : nb.toNat ≤ countCard) (hg : ng.toNat ≤ countCard) :
@@ -54,16 +54,16 @@ def Sim.OperationPtr.allocRecycledRaw (ctx : Buffed.IRBufContext) (op : OpInfo)
         (by rw [Buffed.IRBufContext.reserve_attributes hres]; exact ha), ptr)
   else none
 
-theorem Sim.OperationPtr.allocRecycledRaw_eq
+theorem Sim.OperationPtr.allocFreshRaw_eq
     {ctx b' : Buffed.IRBufContext} {op : OpInfo} {props : HasOpInfo.propertiesOf op}
     {nr no nb ng : UInt64} {hr ho hbo hg} {ptr : Buffed.OperationMPtr}
-    (h : allocRecycledRaw ctx op props nr no nb ng hr ho hbo hg = some (b', ptr)) :
+    (h : allocFreshRaw ctx op props nr no nb ng hr ho hbo hg = some (b', ptr)) :
     ∃ b address,
       ctx.reserve (Buffed.OperationMPtr.computeOperationSize nr no nb ng
         (Buffed.Operation.propertySize op)) = some (b, address) ∧
       ptr = address + 40 * nr ∧
       ∃ hb ha, b' = Buffed.OperationMPtr.initializeOp b ptr nr no nb ng op props hb ha := by
-  unfold allocRecycledRaw at h
+  unfold allocFreshRaw at h
   split at h
   · split at h
     · contradiction
@@ -73,14 +73,14 @@ theorem Sim.OperationPtr.allocRecycledRaw_eq
   · contradiction
 
 
-theorem Sim.OperationPtr.allocRecycled_sim
+theorem Sim.OperationPtr.allocFresh_sim
     {ctx : Sim.IRContext OpInfo} {op : OpInfo} {props : HasOpInfo.propertiesOf op}
     {nr no nb ng : UInt64} {hr ho hbo hg} {b' : Buffed.IRBufContext} {ptr : Buffed.OperationMPtr}
     {spec : Veir.IRContext OpInfo} {sptr : Veir.OperationPtr}
-    (h : allocRecycledRaw ctx.buf op props nr no nb ng hr ho hbo hg = some (b', ptr))
+    (h : allocFreshRaw ctx.buf op props nr no nb ng hr ho hbo hg = some (b', ptr))
     (hspec : Veir.OperationPtr.allocEmptyAt ctx.spec op props nr.toNat nb.toNat ng.toNat no.toNat
       ptr.toNat = some (spec, sptr)) : Veir.Sim ⟨b', .mk spec⟩ := by
-  obtain ⟨b, address, hres, rfl, hb, ha, rfl⟩ := allocRecycledRaw_eq h
+  obtain ⟨b, address, hres, rfl, hb, ha, rfl⟩ := allocFreshRaw_eq h
   let ptr := address + 40 * nr
   have hptr := reserved_header_bounds hr ho hbo hg hres |>.1
   have hbounds := Buffed.IRBufContext.reserve_bounds hres
@@ -89,7 +89,6 @@ theorem Sim.OperationPtr.allocRecycled_sim
   have hattrs := Buffed.IRBufContext.reserve_attributes hres
   have hdisj := ctx.reservation_disjoint hres
   have hsize := Buffed.OperationMPtr.initializeOp_size b ptr nr no nb ng op props hb ha
-  have hfree := Buffed.OperationMPtr.initializeOp_freeList b ptr nr no nb ng op props hb ha
   obtain ⟨hno, hnr, hnb, hng, hpar, hnext, hprev, hty, hattr⟩ :=
     Buffed.OperationMPtr.initializeOp_reads b ptr nr no nb ng op props hb ha
   apply allocReserved_sim (h₁ := hr) (h₂ := ho) (h₃ := hbo) (h₄ := hg)
@@ -97,7 +96,7 @@ theorem Sim.OperationPtr.allocRecycled_sim
     (by rw [hsize]; exact hbounds.2) ?_ ?_ hdisj
     hnr hno hnb hng hprev hnext hpar hty hattr
     (Buffed.OperationMPtr.initializeOp_property b ptr nr no nb ng op props hb ha)
-    ?_ ?_ ?_ hspec
+    hspec
   · intro i a hi
     apply Buffed.OperationMPtr.initializeOp_attributes
     rwa [hattrs]
@@ -118,26 +117,16 @@ theorem Sim.OperationPtr.allocRecycled_sim
           simp only [show Buffed.OpResult.size.toNat = 40 from rfl,
             show Buffed.Operation.sizeBase.toNat = 72 from rfl] at hcompute
           omega)]
-      exact Buffed.IRBufContext.reserve_read_disjoint hres w n len hold hdr
+      exact Buffed.IRBufContext.reserve_read hres w n len hold
     · intro i a hi
       apply Buffed.OperationMPtr.initializeOp_attributes
       rwa [hattrs]
-  · rw [hfree, hsize]
-    exact Buffed.IRBufContext.reserve_free_valid ctx.sim.free_valid hres
-  · intro s a hm p hp
-    rw [hfree] at hm
-    exact ctx.sim.free_disjoint s a (Buffed.IRBufContext.reserve_free_subset hres s a hm) p hp
-  · intro s a hm
-    rw [hfree] at hm
-    exact Buffed.IRBufContext.reserve_free_disjoint ctx.sim.free_valid hres s a hm
-
-
-theorem Sim.OperationPtr.allocRecycledRaw_fresh
+theorem Sim.OperationPtr.allocFreshRaw_fresh
     {ctx : Sim.IRContext OpInfo} {op : OpInfo} {props : HasOpInfo.propertiesOf op}
     {nr no nb ng : UInt64} {hr ho hbo hg} {b' : Buffed.IRBufContext} {ptr : Buffed.OperationMPtr}
-    (h : allocRecycledRaw ctx.buf op props nr no nb ng hr ho hbo hg = some (b', ptr)) :
+    (h : allocFreshRaw ctx.buf op props nr no nb ng hr ho hbo hg = some (b', ptr)) :
     ¬ (⟨ptr.toNat⟩ : Veir.OperationPtr).InBounds ctx.spec := by
-  obtain ⟨b, address, hres, rfl, hb, ha, _⟩ := allocRecycledRaw_eq h
+  obtain ⟨b, address, hres, rfl, hb, ha, _⟩ := allocFreshRaw_eq h
   have hptr := reserved_header_bounds hr ho hbo hg hres |>.1
   have hc := Buffed.OperationMPtr.computeOperationSize_toNat nr no nb ng
     (Buffed.Operation.propertySize op) hr ho hbo hg (Nat.le_of_lt HasDialectOpInfo.propertySize_small)
@@ -149,30 +138,30 @@ theorem Sim.OperationPtr.allocRecycledRaw_fresh
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
 buffed (inline := false)
-def Sim.OperationPtr.allocRecycledSim (ctx : Sim.IRContext OpInfo) (op : OpInfo)
+def Sim.OperationPtr.allocFreshSim (ctx : Sim.IRContext OpInfo) (op : OpInfo)
     (props : HasOpInfo.propertiesOf op) (nr no nb ng : UInt64)
     (hr : nr.toNat ≤ countCard) (ho : no.toNat ≤ countCard)
     (hbo : nb.toNat ≤ countCard) (hg : ng.toNat ≤ countCard) :
     Option (Sim.OperationPtr × Sim.IRContext OpInfo) :=
-  match h : allocRecycledRaw ctx.buf op props nr no nb ng hr ho hbo hg with
+  match h : allocFreshRaw ctx.buf op props nr no nb ng hr ho hbo hg with
   | none => none
   | some (b, ptr) =>
     have hsome : (allocationSpec ctx.spec ptr.toNat op props nr.toNat nb.toNat ng.toNat no.toNat).isSome := by
       apply Veir.OperationPtr.allocEmptyAt_isSome_of_not_mem
-      exact allocRecycledRaw_fresh h
+      exact allocFreshRaw_fresh h
     let specRes := ctx.spec'.map (fun spec =>
       (allocationSpec spec ptr.toNat op props nr.toNat nb.toNat ng.toNat no.toNat).get!)
     some (⟨ptr, specRes.map Prod.snd⟩, ⟨b, specRes.map Prod.fst, by
       rw [Erased.map_eq_mk]
-      apply allocRecycled_sim (sptr := specRes.out.2) h
+      apply allocFresh_sim (sptr := specRes.out.2) h
       simpa only [specRes, Erased.map_out, Sim.IRContext.spec, Option.get!, allocationSpec] using
         (Option.some_get! _ hsome).symm⟩)
 
-theorem Sim.OperationPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo} :
-    allocRecycled ctx op props nr no nb ng hr ho hbo hg = some (ptr, ctx') →
+theorem Sim.OperationPtr.allocFresh_spec' {ctx : Sim.IRContext OpInfo} :
+    allocFresh ctx op props nr no nb ng hr ho hbo hg = some (ptr, ctx') →
     Veir.OperationPtr.allocEmptyAt ctx.spec op props nr.toNat nb.toNat ng.toNat no.toNat
       ptr.impl.toNat = some (ctx'.spec, ptr.spec) := by
-  simp only [allocRecycled.unfold, allocationSpec]
+  simp only [allocFresh.unfold, allocationSpec]
   split
   · simp
   · rename_i b p h
@@ -180,27 +169,27 @@ theorem Sim.OperationPtr.allocRecycled_spec' {ctx : Sim.IRContext OpInfo} :
     have hsome := Veir.OperationPtr.allocEmptyAt_isSome_of_not_mem
       (opType := op) (properties := props) (capResults := nr.toNat)
       (capBlockOperands := nb.toNat) (capRegions := ng.toNat) (capOperands := no.toNat)
-      (allocRecycledRaw_fresh h)
+      (allocFreshRaw_fresh h)
     simp_all only [Option.some.injEq, Prod.mk.injEq]
     obtain ⟨⟨rfl, rfl⟩, rfl, rfl⟩ := heq
     simp only [Sim.IRContext.spec, Sim.OperationPtr.spec, Erased.map_out, Option.get!]
     grind
 
 @[grind! .]
-theorem Sim.OperationPtr.allocRecycled_spec {ctx : Sim.IRContext OpInfo} :
-    allocRecycled ctx op props nr no nb ng hr ho hbo hg = some (ptr, ctx') →
+theorem Sim.OperationPtr.allocFresh_spec {ctx : Sim.IRContext OpInfo} :
+    allocFresh ctx op props nr no nb ng hr ho hbo hg = some (ptr, ctx') →
     ∃ addr, Veir.OperationPtr.allocEmptyAt ctx.spec op props nr.toNat nb.toNat ng.toNat no.toNat
       addr = some (ctx'.spec, ptr.spec) := by
   intro h
-  exact ⟨ptr.impl.toNat, allocRecycled_spec' h⟩
+  exact ⟨ptr.impl.toNat, allocFresh_spec' h⟩
 
 namespace Sim
 variable {ctx ctx' : IRContext OpInfo}
 @[grind =>]
-theorem OperationPtr.allocRecycled_genericPtr_iff (ptr : GenericPtr)
-    (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+theorem OperationPtr.allocFresh_genericPtr_iff (ptr : GenericPtr)
+    (heq : allocFresh ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr = .fromOperation ptr') := by
-  have hspec := Sim.OperationPtr.allocRecycled_spec' heq
+  have hspec := Sim.OperationPtr.allocFresh_spec' heq
   have hlay := Veir.OperationPtr.allocEmptyAt_preservesLayout hspec
   have hptr := Veir.OperationPtr.allocEmptyAt_ptr_eq hspec
   constructor
@@ -221,37 +210,37 @@ theorem OperationPtr.allocRecycled_genericPtr_iff (ptr : GenericPtr)
     · refine ⟨?_, (Veir.OperationPtr.allocEmptyAt_genericPtr_iff _ hspec).mpr (.inr (by grind [Sim.GenericPtr.fromOperation]))⟩
       grind [Sim.GenericPtr.fromOperation, Veir.GenericPtr.toM, Veir.OperationPtr.toM]
 
-theorem OperationPtr.allocRecycled_operationPtr_iff (ptr : OperationPtr)
-    (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+theorem OperationPtr.allocFresh_operationPtr_iff (ptr : OperationPtr)
+    (heq : allocFresh ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx' ↔ (ptr.InBounds ctx ∨ ptr =  ptr') := by
   simpa only [GenericPtr.iff_operation, GenericPtr.fromOperation_inj] using
-    OperationPtr.allocRecycled_genericPtr_iff (.fromOperation ptr) heq
+    OperationPtr.allocFresh_genericPtr_iff (.fromOperation ptr) heq
 
 @[grind . ]
-theorem OperationPtr.allocRecycled_genericPtr_mono (ptr : GenericPtr)
-    (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+theorem OperationPtr.allocFresh_genericPtr_mono (ptr : GenericPtr)
+    (heq : allocFresh ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
   grind
 
 @[grind .]
-theorem OperationPtr.allocRecycled_newBlock_inBounds
-    (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+theorem OperationPtr.allocFresh_newBlock_inBounds
+    (heq : allocFresh ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr'.InBounds ctx' := by
-  have := (OperationPtr.allocRecycled_genericPtr_iff (.fromOperation ptr') heq).mpr (.inr rfl)
+  have := (OperationPtr.allocFresh_genericPtr_iff (.fromOperation ptr') heq).mpr (.inr rfl)
   grind [generic_ptr_grind]
 
 @[grind .]
-theorem OperationPtr.allocRecycled_newBlock_veir_inBounds {ptr : Veir.GenericPtr}
-    (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+theorem OperationPtr.allocFresh_newBlock_veir_inBounds {ptr : Veir.GenericPtr}
+    (heq : allocFresh ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ptr.InBounds ctx.spec → ptr.InBounds ctx'.spec := by
-  have hspec := Sim.OperationPtr.allocRecycled_spec' heq
+  have hspec := Sim.OperationPtr.allocFresh_spec' heq
   grind
 
 @[grind .]
-theorem OperationPtr.allocRecycled_not_inBounds
-    (heq : allocRecycled ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
+theorem OperationPtr.allocFresh_not_inBounds
+    (heq : allocFresh ctx type properties c₁ c₂ c₃ c₄ h₁ h₂ h₃ h₄ = some (ptr', ctx')) :
     ¬ ptr'.spec.InBounds ctx.spec :=
-  Veir.OperationPtr.allocEmptyAt_not_inBounds (Sim.OperationPtr.allocRecycled_spec' heq)
+  Veir.OperationPtr.allocEmptyAt_not_inBounds (Sim.OperationPtr.allocFresh_spec' heq)
 end Sim
 
 end Veir

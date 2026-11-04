@@ -1795,7 +1795,7 @@ theorem Rewriter.eraseOp_WellFormed
     rw [Rewriter.detachOperands_inBounds]
     rw [Rewriter.detachOpIfAttached_inBounds]
     exact (Sim.GenericPtr.iff_operation op).mpr hOp
-  simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
     Sim.IRContext.spec, Erased.out_mk] using
     Rewriter.eraseOpDeallocatedSpec_wellFormed ctx op wf hCtx hOp
       hOpers hBlOpers noRegions noUses hOpAfter.ib

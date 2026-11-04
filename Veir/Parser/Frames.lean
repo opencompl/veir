@@ -31,7 +31,7 @@ theorem Rewriter.createOp_sim_inBounds_mono {ctx next : Parser.IR.RawContext}
     · rename_i op allocated halloc
       split at hc
       · grind
-      · have ha := Sim.OperationPtr.allocRecycled_genericPtr_mono q halloc hq
+      · have ha := Sim.OperationPtr.allocFresh_genericPtr_mono q halloc hq
         split at hc
         · contradiction
         · rename_i withRegions hregions
@@ -65,12 +65,12 @@ private theorem dealloc_value {ctx : Parser.IR.RawContext} {op : Sim.OperationPt
   have hlay := IRContext.layoutPreserved_OperationPtr_dealloc op.spec hi.ib
   have heq := ValuePtr.layoutPreserved_same_toM hlay hib
   constructor
-  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  · simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
       Sim.ValuePtr.Sim_def, Sim.IRContext.inner, Sim.RawIRContext.spec, Erased.out_mk]
     change v.spec.toM (op.spec.dealloc ctx.spec hi.ib) = v.impl
     rw [← heq]
     exact hv.sim.out
-  · simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  · simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
       Sim.IRContext.spec, Erased.out_mk] using hib
 
 theorem Rewriter.eraseOp_value_inBounds {ctx : Parser.IR.RawContext} {op : Sim.OperationPtr} {v : Sim.ValuePtr}
@@ -103,7 +103,7 @@ theorem Rewriter.createOp_numResults {ctx next : Parser.IR.RawContext}
           have hr : (allocated.spec.get! regionsCtx.spec).capResults = types.size := by
             rw [Rewriter.initOpRegions_preserves_capResults _ hregions,
               Rewriter.initOpResults_preserves_capResults _ (heq := rfl)]
-            have hs := Sim.OperationPtr.allocRecycled_spec' halloc
+            have hs := Sim.OperationPtr.allocFresh_spec' halloc
             clear hc hcap hib wf hregions
             grind [Operation.empty, Array.sizeU64_toNat]
           split at hc
@@ -176,7 +176,7 @@ theorem Rewriter.eraseBlock_value_inBounds {ctx : Parser.IR.RawContext} {block :
   have hl := IRContext.layoutPreserved_BlockPtr_dealloc block.spec hi.ib
   have heq := ValuePtr.layoutPreserved_same_toM hl hib
   constructor
-  · simp only [eraseBlock.unfold, Sim.BlockPtr.dealloc.unfold, Sim.BlockPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+  · simp only [eraseBlock.unfold, Sim.BlockPtr.dealloc.unfold, Sim.BlockPtr.forget.unfold,
       Sim.ValuePtr.Sim_def, Sim.IRContext.inner, Sim.RawIRContext.spec, Erased.map_out, Erased.out_mk]
     change v.spec.toM (block.spec.dealloc ctx.spec) = v.impl
     rw [← heq]

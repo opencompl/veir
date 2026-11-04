@@ -512,11 +512,7 @@ meta def mkMain (cfg : Cfg) (spec : Term) (wAttr : TSyntax ``Parser.Tactic.grind
        $tRegion:tactic
      · have := ($ctx).sim.attr_empty
        grind only [Erased.out_mk, $wAttr:grindParam]
-     · simpa [$writerSimp:simpLemma] using ($ctx).sim.free_valid
-     · simp only [$writerSimp:simpLemma]
-       intros size address hm ptr hib
-       have := ($ctx).sim.free_disjoint size address hm ptr (by grind)
-       grind [TopLevelPtr]))
+))
 
 end ProveSetLinkSim
 

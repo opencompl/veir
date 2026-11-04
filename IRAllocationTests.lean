@@ -1,7 +1,7 @@
 import ExArray.CompilerExtras
-import Veir.IR.Buffed.RecycledOperation
-import Veir.IR.Buffed.RecycledBlock
-import Veir.IR.Buffed.RecycledRegion
+import Veir.IR.Buffed.AllocateOperation
+import Veir.IR.Buffed.AllocateBlock
+import Veir.IR.Buffed.AllocateRegion
 import Veir.Rewriter.EraseContainers
 import Veir.GlobalOpInfo
 import Veir.IR.InBounds
@@ -29,12 +29,12 @@ private theorem fieldsOfEmpty {ctx : Veir.IRContext OpCode} (h : NoObjects ctx) 
   · intro p hp; exact False.elim (h (.block p) hp)
   · intro p hp; exact False.elim (h (.region p) hp)
 
-/-- Exercise the verified allocator and deallocator with spare capacities and
-back-allocated results. No proof assumptions are used by this regression test. -/
+/-- Exercise verified append-only allocation and logical deletion with spare
+capacities and back-allocated results. No proof assumptions are used. -/
 private def cycleOperation (a : EmptyArena) : Option EmptyArena := do
-  rlet h : (p, c) ← Sim.OperationPtr.allocRecycled a.ctx (.builtin .unrealized_conversion_cast) ()
+  rlet h : (p, c) ← Sim.OperationPtr.allocFresh a.ctx (.builtin .unrealized_conversion_cast) ()
     3 2 1 2 (by decide) (by decide) (by decide) (by decide)
-  have hs := Sim.OperationPtr.allocRecycled_spec' h
+  have hs := Sim.OperationPtr.allocFresh_spec' h
   have ib : p.InBounds c := by grind
   have he : NoObjects (p.spec.dealloc c.spec ib.ib) := by
     intro q hq
@@ -42,12 +42,12 @@ private def cycleOperation (a : EmptyArena) : Option EmptyArena := do
     unfold NoObjects at old
     cases q <;> grind [TopLevelPtr.InBounds, OperationPtr.dealloc, OperationPtr.inBounds_def]
   pure ⟨Sim.OperationPtr.dealloc c p ib (fieldsOfEmpty he), by
-    simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold, Sim.IRContext.releaseRange.unfold,
+    simpa only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold,
       Sim.IRContext.spec, Erased.out_mk] using he⟩
 
 private def cycleBlock (a : EmptyArena) : Option EmptyArena := do
-  rlet h : (p, c) ← Sim.BlockPtr.allocRecycled a.ctx 5
-  have hs := Sim.BlockPtr.allocRecycled_spec' 5 h
+  rlet h : (p, c) ← Sim.BlockPtr.allocFresh a.ctx 5
+  have hs := Sim.BlockPtr.allocFresh_spec' 5 h
   have ib : p.InBounds c := by grind
   have he : NoObjects (p.spec.dealloc c.spec) := by
     intro q hq
@@ -58,8 +58,8 @@ private def cycleBlock (a : EmptyArena) : Option EmptyArena := do
   pure ⟨Rewriter.eraseBlock c p ib hp (fieldsOfEmpty he), by simpa using he⟩
 
 private def cycleRegion (a : EmptyArena) : Option EmptyArena := do
-  rlet h : (p, c) ← Sim.RegionPtr.allocRecycled a.ctx
-  have hs := Sim.RegionPtr.allocRecycled_spec' h
+  rlet h : (p, c) ← Sim.RegionPtr.allocFresh a.ctx
+  have hs := Sim.RegionPtr.allocFresh_spec' h
   have ib : p.InBounds c := by grind
   have he : NoObjects (p.spec.dealloc c.spec) := by
     intro q hq
@@ -69,15 +69,33 @@ private def cycleRegion (a : EmptyArena) : Option EmptyArena := do
   have hp : (p.spec.get! c.spec).parent = none := by grind [Region.empty]
   pure ⟨Rewriter.eraseRegion c p ib hp (fieldsOfEmpty he), by simpa using he⟩
 
+-- Deletion changes only the erased specification, not the runtime arena.
+example (ctx : Sim.IRContext OpCode) (p : Sim.OperationPtr) (ib : p.InBounds ctx)
+    (fib : (p.spec.dealloc ctx.spec ib.ib).FieldsInBounds) :
+    (Sim.OperationPtr.dealloc ctx p ib fib).buf = ctx.buf := by
+  simp only [Sim.OperationPtr.dealloc.unfold, Sim.OperationPtr.forget.unfold]
+
+example (ctx : Sim.IRContext OpCode) (p : Sim.BlockPtr) (ib : p.InBounds ctx)
+    (fib : (p.spec.dealloc ctx.spec).FieldsInBounds) :
+    (Sim.BlockPtr.dealloc ctx p ib fib).buf = ctx.buf := by
+  simp only [Sim.BlockPtr.dealloc.unfold, Sim.BlockPtr.forget.unfold]
+
+example (ctx : Sim.IRContext OpCode) (p : Sim.RegionPtr) (ib : p.InBounds ctx)
+    (fib : (p.spec.dealloc ctx.spec).FieldsInBounds) :
+    (Sim.RegionPtr.dealloc ctx p ib fib).buf = ctx.buf := by
+  simp only [Sim.RegionPtr.dealloc.unfold, Sim.RegionPtr.forget.unfold]
+
 def main : IO Unit := do
   let some first := cycleOperation initial >>= cycleBlock >>= cycleRegion
     | throw (IO.userError "initial IR allocation/erasure failed")
-  let highWater := first.ctx.buf.mem.size
+  let bytesPerCycle := first.ctx.buf.mem.size
+  unless bytesPerCycle > 0 do
+    throw (IO.userError "allocations did not grow the arena")
   let mut arena := first
-  for _ in [:10000] do
+  for i in [:10000] do
     let some next := cycleOperation arena >>= cycleBlock >>= cycleRegion
       | throw (IO.userError "IR allocation/erasure cycle failed")
+    unless next.ctx.buf.mem.size == (i + 2) * bytesPerCycle do
+      throw (IO.userError "deleted storage was reused or arena growth was incorrect")
     arena := next
-  unless arena.ctx.buf.mem.size == highWater do
-    throw (IO.userError s!"IR arena grew from {highWater} to {arena.ctx.buf.mem.size}")
-  IO.println s!"Verified IR reuse tests passed: 30,000 allocations/erasures, {highWater} bytes."
+  IO.println s!"Verified append-only IR tests passed: 30,000 further allocations/erasures, {arena.ctx.buf.mem.size} bytes."

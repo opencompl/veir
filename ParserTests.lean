@@ -286,11 +286,11 @@ private def checkDeletionGuards : IO Unit := do
     let op ← requireSome
       (StaticIR.createOp StaticIR.empty (.builtin .unrealized_conversion_cast) types #[] #[] #[] () none
         (by simp) (by simp) (by simp) (by simp) (by simp)) "unused operation allocation failed"
-    ensure (StaticIR.eraseOp op.ctx op.pointer op.inBounds).isSome "unused operation was not reclaimable"
+    ensure (StaticIR.eraseOp op.ctx op.pointer op.inBounds).isSome "unused operation was not erasable"
   let block ← requireSome (StaticIR.createBlock StaticIR.empty #[] none (by simp) (by simp)) "block allocation failed"
-  ensure (StaticIR.eraseBlock block.ctx block.pointer block.inBounds).isSome "empty block was not reclaimable"
+  ensure (StaticIR.eraseBlock block.ctx block.pointer block.inBounds).isSome "empty block was not erasable"
   let argBlock ← requireSome (StaticIR.createBlock StaticIR.empty #[ty] none (by simp) (by simp)) "argument allocation failed"
-  ensure (StaticIR.eraseBlock argBlock.ctx argBlock.pointer argBlock.inBounds).isNone "argument block was reclaimed"
+  ensure (StaticIR.eraseBlock argBlock.ctx argBlock.pointer argBlock.inBounds).isNone "argument block was erased"
   for index in List.finRange 2 do
     let definition ← requireSome
       (StaticIR.createOp StaticIR.empty (.builtin .unrealized_conversion_cast) #[ty, ty] #[] #[] #[] () none
@@ -301,18 +301,18 @@ private def checkDeletionGuards : IO Unit := do
         (by intro i hi; have := value.property.1; simp_all) (by simp) (by simp) (by simp) (by simp))
       "consumer allocation failed"
     ensure (StaticIR.eraseOp user.ctx definition.pointer (user.preserves.operation definition.inBounds)).isNone
-      "operation with live uses was reclaimed"
+      "operation with live uses was erased"
   let region ← requireSome (StaticIR.createRegion StaticIR.empty) "region allocation failed"
   let ip := StaticIR.regionEnd region.ctx.raw region.pointer region.inBounds
   let attached ← requireSome
     (StaticIR.createBlock region.ctx #[] (some ip.val) (by simpa using ip.property.1) (by simpa using ip.property.2))
     "attached block allocation failed"
-  ensure (StaticIR.eraseBlock attached.ctx attached.pointer attached.inBounds).isNone "attached block was reclaimed"
+  ensure (StaticIR.eraseBlock attached.ctx attached.pointer attached.inBounds).isNone "attached block was erased"
   let root ← requireSome
     (StaticIR.createOp attached.ctx (.builtin .unrealized_conversion_cast) #[] #[] #[] #[region.pointer] () none
       (by simp) (by simp) (by intro i hi; have := attached.preserves.region region.inBounds; simp_all)
       (by simp) (by simp)) "region owner allocation failed"
-  ensure (StaticIR.eraseOp root.ctx root.pointer root.inBounds).isNone "region owner was reclaimed"
+  ensure (StaticIR.eraseOp root.ctx root.pointer root.inBounds).isNone "region owner was erased"
   let use ← requireSome
     (StaticIR.createOp block.ctx (.builtin .unrealized_conversion_cast) #[] #[] #[block.pointer] #[] () none
       (by simp) (by intro i hi; have := block.inBounds; simp_all) (by simp) (by simp) (by simp))

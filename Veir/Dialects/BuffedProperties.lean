@@ -454,39 +454,4 @@ end AttrCodec
 
 end
 
-@[simp]
-public theorem NswNuwProperties.writeProperty_freeList (p : NswNuwProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h) : (p.writeProperty addr bctx h).freeList = bctx.freeList := by
-  simp [NswNuwProperties.writeProperty]
-
-@[simp]
-public theorem ExactProperties.writeProperty_freeList (p : ExactProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h) : (p.writeProperty addr bctx h).freeList = bctx.freeList := by
-  simp [ExactProperties.writeProperty]
-
-@[simp]
-public theorem DisjointProperties.writeProperty_freeList (p : DisjointProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h) : (p.writeProperty addr bctx h).freeList = bctx.freeList := by
-  simp [DisjointProperties.writeProperty]
-
-@[simp]
-public theorem NnegProperties.writeProperty_freeList (p : NnegProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h) : (p.writeProperty addr bctx h).freeList = bctx.freeList := by
-  simp [NnegProperties.writeProperty]
-
-@[simp]
-public theorem IcmpProperties.writeProperty_freeList (p : IcmpProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h) : (p.writeProperty addr bctx h).freeList = bctx.freeList := by
-  simp [IcmpProperties.writeProperty]
-
-@[simp]
-public theorem FastMathFlagsProperties.writeProperty_freeList (p : FastMathFlagsProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h) : (p.writeProperty addr bctx h).freeList = bctx.freeList := by
-  simp [FastMathFlagsProperties.writeProperty]
-
-@[simp]
-public theorem AttrCodec.writeProperty_freeList {P : Type} (c : AttrCodec P) (p : P) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h ha) : (c.writeProperty p addr bctx h ha).freeList = bctx.freeList := by
-  simp [AttrCodec.writeProperty]
-
 end Veir

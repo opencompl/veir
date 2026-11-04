@@ -2,7 +2,7 @@
 
 This checkout contains the **buffer-backed VeIR implementation only**, with the scope of
 its original buffered branch and the subsequent verification and generator improvements.
-It provides an MLIR-style IR, verified construction and rewriting, allocation recycling,
+It provides an MLIR-style IR, verified construction and rewriting, append-only arena allocation,
 and a parser/printer for generic MLIR syntax.
 
 ## Scope
@@ -28,10 +28,10 @@ native builds use the compiler wrapper:
 export LEAN_CC="$PWD/Tools/lean-clang"
 lake build
 lake test
-lake build parser-tests allocator-tests ir-reuse-tests
+lake build parser-tests allocator-tests ir-allocation-tests
 lake exe parser-tests
 lake exe allocator-tests
-lake exe ir-reuse-tests
+lake exe ir-allocation-tests
 python3 Tools/check-buffed-wrapper-codegen
 python3 Tools/check-orphan-modules
 python3 Tools/check-parser-cli

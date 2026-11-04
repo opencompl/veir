@@ -288,16 +288,6 @@ instance : HasBuffedProperties Llvm where
             IcmpProperties.writeProperty_attributes,
             FastMathFlagsProperties.writeProperty_attributes] using hsome
         | exact hsome
-  preserves_freeList {op p addr bctx h hattrs} := by
-    cases op <;> cases p <;> first
-      | exact AttrCodec.writeProperty_freeList _ _ addr bctx h hattrs
-      | exact NswNuwProperties.writeProperty_freeList _ addr bctx h
-      | exact ExactProperties.writeProperty_freeList _ addr bctx h
-      | exact DisjointProperties.writeProperty_freeList _ addr bctx h
-      | exact NnegProperties.writeProperty_freeList _ addr bctx h
-      | exact IcmpProperties.writeProperty_freeList _ addr bctx h
-      | exact FastMathFlagsProperties.writeProperty_freeList _ addr bctx h
-      | rfl
   preserves_size {op p addr bctx h hattrs} := by
     cases op <;> cases p <;> first
       | exact AttrCodec.writeProperty_size _ _ addr bctx h hattrs

@@ -27,13 +27,6 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
     (hparent : Buffed.BlockMPtr.readParent! ctxBuf ptrImpl = Buffed.RegionOPtr.none)
     (hfirst : Buffed.BlockMPtr.readFirstOp! ctxBuf ptrImpl = Buffed.OperationOPtr.none)
     (hlast : Buffed.BlockMPtr.readLastOp! ctxBuf ptrImpl = Buffed.OperationOPtr.none)
-    (hfreeValid : ctxBuf.freeList.Valid ctxBuf.mem.size)
-    (hfreeOld : ∀ (s a : UInt64), a ∈ ctxBuf.freeList.bucket s →
-      ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
-        (p.range ctx.spec).upper ≤ a.toNat ∨
-          (a.toNat : Int) + s.toNat ≤ (p.range ctx.spec).lower)
-    (hfreeNew : ∀ (s a : UInt64), a ∈ ctxBuf.freeList.bucket s →
-      a.toNat + s.toNat ≤ ptrImpl.toNat ∨ ptrImpl.toNat + (56 + numArgs.toNat * 40) ≤ a.toNat)
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.BlockPtr}
     (hspec : Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, .mk ctxSpec⟩ := by
@@ -223,14 +216,5 @@ theorem Sim.BlockPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo) (numArgs : U
         (by grind [TopLevelPtr.range, Veir.RegionPtr.rangeInt, Veir.RegionPtr.toFlat])) hlay (by grind) rgIb
   · rw [hattr]
     exact ctx.sim.attr_empty
-  · exact hfreeValid
-  · intro size address hm p hp
-    rcases hmem p hp with hold | rfl
-    · rw [hrange p hold]
-      exact hfreeOld size address hm p hold
-    · have hd := hfreeNew size address hm
-      simp only [TopLevelPtr.range]
-      rw [hnewrange.1, hnewrange.2]
-      omega
 
 end Veir

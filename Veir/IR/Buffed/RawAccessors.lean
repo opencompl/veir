@@ -3,7 +3,6 @@ module
 public import ExArray.Basic
 public import Std.Data.HashMap
 public import Veir.IR.Buffed.Layout
-public import Veir.IR.Buffed.FreeList
 -- Exposes the body of `dbgTrace` so the `*.debugPrint` printers (which use `dbg_trace`) can be proved to return the buffer context unchanged.
 import all Init.Util
 
@@ -132,14 +131,13 @@ abbrev GenericOPtr.none : GenericOPtr := -1
 structure IRBufContext where
   mem : ExArray
   attributes : Array Attribute
-  freeList : FreeList := ∅
 
 /-- The default context reserves attribute-table slot 0 for the empty dictionary attribute: freshly allocated operations leave their (zero-initialized) `attrs` field pointing at it. -/
 instance : Inhabited IRBufContext where
-  default := ⟨default, #[.dictionaryAttr DictionaryAttr.empty], ∅⟩
+  default := ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩
 
 theorem IRBufContext.default_def :
-    (default : IRBufContext) = ⟨default, #[.dictionaryAttr DictionaryAttr.empty], ∅⟩ := rfl
+    (default : IRBufContext) = ⟨default, #[.dictionaryAttr DictionaryAttr.empty]⟩ := rfl
 
 end Buffed
 
@@ -157,7 +155,6 @@ class HasBuffedProperties (opCode: Type) [HasDialectOpInfo opCode] where
   read_after_write : readPropertyAt op addr (writePropertyAt op p addr bctx h hattrs) = some p
   only_adds_attributes (i : Nat) : bctx.attributes[i]? = some a →  (writePropertyAt op p addr bctx h hattrs).attributes[i]? = some a
   preserves_size : (writePropertyAt op p addr bctx h hattrs).mem.size = bctx.mem.size
-  preserves_freeList : (writePropertyAt op p addr bctx h hattrs).freeList = bctx.freeList
   only_modifies_properties (hd : IsDisjoint (n.toNat...(n.toNat+len.toNat)) (addr.toNat...(addr.toNat + (HasDialectOpInfo.propertySize op).toNat))) :
     (writePropertyAt op p addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! (w := w) n len
   /-- A successful `readPropertyAt` survives any buffer change that does not shrink the buffer,
@@ -241,14 +238,17 @@ theorem IRBufContext.insertAttrs_size {bctx bctx' : IRBufContext} {attrs : Attri
     rfl
   · exact absurd h (by simp)
 
-@[inline] def noOverflowsAdd (x y : UInt64) : Bool := x ≤ x + y
+@[inline] def noOverflowsAdd (x y : UInt64) : Bool :=
+  x ≤ x + y && x + y < ((1 : UInt64) <<< 63) - 1
+
+theorem noOverflowsAdd_correct (h : noOverflowsAdd x y) :
+    x.toNat + y.toNat < Int64.maxNatValue := by
+  grind [noOverflowsAdd]
 
 @[inline]
 def IRBufContext.alloc (bctx : IRBufContext) (size : UInt64) : Option (IRBufContext) :=
-  -- Check the unbounded natural-number sizes directly. This both prevents `UInt64`
-  -- wraparound and establishes exactly the capacity bound required by `ExArray.extend`.
-  if h : bctx.size + size.toNat < Int64.maxNatValue then
-    let mem := bctx.mem.extend size (by simpa only [IRBufContext.size_def] using h)
+  if h : noOverflowsAdd bctx.usize size then
+    let mem := bctx.mem.extend size (by grind [→ noOverflowsAdd_correct, IRBufContext.size_def])
     some { bctx with mem }
   else
     none
@@ -270,77 +270,18 @@ theorem IRBufContext.usize_toNat (bctx : IRBufContext) :
     bctx.usize.toNat = bctx.size := by
   simp [usize, size_def, ExArray.usize_size_toNat]
 
-/-- Release an entire allocation, including its capacity rather than just its
-populated fields. Bytes remain untouched until the next allocation uses them. -/
-@[inline]
-def IRBufContext.release (bctx : IRBufContext) (address size : UInt64) : IRBufContext :=
-  { bctx with freeList := bctx.freeList.release address size }
-
-/-- Reserve a zeroed exact-size allocation. The returned address is the start of
-the allocation (an operation's result array precedes its operation pointer).
-The bounds check is defensive; callers must additionally know free slots do not
-overlap live allocations. -/
+/-- Append a zeroed allocation. The returned address is its start (an operation's
+result array precedes its operation pointer). Deleted storage is never reused. -/
 def IRBufContext.reserve (bctx : IRBufContext) (size : UInt64) :
     Option (IRBufContext × UInt64) :=
-  match bctx.freeList.take size with
-  | some (address, freeList) =>
-    if h : address.toNat + size.toNat ≤ bctx.mem.size then
-      some ({ bctx with freeList, mem := bctx.mem.zero address size (by
-        simp only [IsIncluded, ExArray.range_lower, ExArray.range_upper]
-        omega) }, address)
-    else none
-  -- Reuse the Nat size read by `alloc`'s capacity check. Using `bctx.usize` here
-  -- emits a distinct FFI read *after* extension, keeping the old buffer alive and
-  -- forcing a full copy on each fresh allocation. The cached scalar needs no buffer.
-  | none => (bctx.alloc size).map (fun ctx => (ctx, bctx.size.toUInt64))
-
-@[simp]
-theorem IRBufContext.alloc_freeList {bctx bctx' : IRBufContext} {size : UInt64}
-    (h : bctx.alloc size = some bctx') : bctx'.freeList = bctx.freeList := by
-  unfold alloc at h
-  split at h
-  · cases h
-    rfl
-  · contradiction
+  -- Cache the scalar size, rather than retaining the old buffer across extension
+  -- for a later `usize` FFI read, which would force a full copy.
+  (bctx.alloc size).map (fun ctx => (ctx, bctx.usize))
 
 theorem IRBufContext.reserve_bounds {bctx bctx' : IRBufContext} {size address : UInt64}
     (h : bctx.reserve size = some (bctx', address)) :
     bctx.mem.size ≤ bctx'.mem.size ∧ address.toNat + size.toNat ≤ bctx'.mem.size := by
-  unfold reserve at h
-  split at h
-  · split at h
-    · cases h
-      simp_all
-    · contradiction
-  · simp only [Option.map_eq_some_iff] at h
-    obtain ⟨buf, ha, heq⟩ := h
-    cases heq
-    have := alloc_size ha
-    have hstart : bctx.mem.size.toUInt64.toNat = bctx.mem.size := by
-      simp only [Nat.toUInt64_eq, ExArray.ofNat_size_eq_usize, ExArray.usize_size_toNat]
-    simp only [size_def] at this
-    simp only [hstart, size_def]
-    omega
-
-theorem IRBufContext.reserve_free_valid {bctx bctx' : IRBufContext} {size address : UInt64}
-    (hv : bctx.freeList.Valid bctx.mem.size)
-    (h : bctx.reserve size = some (bctx', address)) :
-    bctx'.freeList.Valid bctx'.mem.size := by
-  unfold reserve at h
-  split at h
-  · rename_i a free ht
-    split at h
-    · cases h
-      simpa using hv.take ht
-    · contradiction
-  · simp only [Option.map_eq_some_iff] at h
-    obtain ⟨buf, ha, heq⟩ := h
-    cases heq
-    rw [alloc_freeList ha]
-    apply hv.mono
-    have := alloc_size ha
-    simp only [size_def] at this
-    omega
+  grind [reserve, Option.map_eq_some_iff]
 
 /-! ## Raw accessors for `ValueImpl` -/
 

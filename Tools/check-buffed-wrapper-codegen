@@ -8,7 +8,8 @@ root = pathlib.Path(__file__).resolve().parent.parent
 # Keep the migration complete even for the standalone benchmark declarations.
 rows = [line.split("\t") for line in (root / "Tools/buffed-declarations.tsv").read_text().splitlines()
         if line and not line.startswith("#")]
-assert len(rows) == 202, "historical buffed inventory changed unexpectedly"
+# The former releaseRange declaration was removed with memory reclamation.
+assert len(rows) == 201, "retained buffed inventory changed unexpectedly"
 for file, declaration, _, inline in rows:
     text = (root / file).read_text()
     pattern = (rf"\bbuffed\s+\(inline\s*:=\s*{inline}\)\s+def\s+"

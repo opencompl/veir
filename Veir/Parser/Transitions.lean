@@ -4,7 +4,7 @@ public import Veir.Parser.Liveness
 
 /-!
 Frames for recursive parser actions. Unlike allocation-only frames, these allow privately
-owned placeholders to be reclaimed. A caller may retain a permanent handle, but not borrow
+owned placeholders to be logically deleted. A caller may retain a permanent handle, but not borrow
 a placeholder across an action which can resolve its name. The distinction is erased.
 -/
 @[expose] public section

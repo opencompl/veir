@@ -43,10 +43,10 @@ jobs:
       - name: Run proof and native tests
         run: |
           lake test --iofail
-          lake build parser-tests allocator-tests ir-reuse-tests --iofail
+          lake build parser-tests allocator-tests ir-allocation-tests --iofail
           lake exe parser-tests
           lake exe allocator-tests
-          lake exe ir-reuse-tests
+          lake exe ir-allocation-tests
           uv run python Tools/check-orphan-modules
           uv run python Tools/check-buffed-wrapper-codegen
           uv run python Tools/check-parser-cli

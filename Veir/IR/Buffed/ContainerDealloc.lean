@@ -264,12 +264,7 @@ def Sim.BlockPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
        · have := henc.firstBlock; grind
        · have := henc.lastBlock; grind
        · have := henc.parent; grind
-     case attr_empty => exact ctx.sim.attr_empty
-     case free_valid => exact ctx.sim.free_valid
-     case free_disjoint =>
-       intro size address hm p hp
-       rw [TopLevelPtr.range_BlockPtr_dealloc ptr.spec ib.ib p hp]
-       exact ctx.sim.free_disjoint size address hm p (by grind)⟩
+     case attr_empty => exact ctx.sim.attr_empty⟩
 
 
 private theorem IRContext.isRepr_RegionPtr_dealloc
@@ -511,127 +506,20 @@ def Sim.RegionPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
        · have := henc.firstBlock; grind
        · have := henc.lastBlock; grind
        · have := henc.parent; grind
-     case attr_empty => exact ctx.sim.attr_empty
-     case free_valid => exact ctx.sim.free_valid
-     case free_disjoint =>
-       intro size address hm p hp
-       rw [TopLevelPtr.range_RegionPtr_dealloc ptr.spec ib.ib p hp]
-       exact ctx.sim.free_disjoint size address hm p (by grind)⟩
+     case attr_empty => exact ctx.sim.attr_empty⟩
 
 
 
-theorem Sim.BlockPtr.allocation_range (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
-    (ib : ptr.InBounds ctx) :
-    (ptr.impl.toNat : Int) = (ptr.spec.range ctx.spec).lower ∧
-    (ptr.impl.toNat : Int) + ((Buffed.BlockMPtr.computeBlockSize (Buffed.BlockMPtr.readNumArguments! ctx.buf ptr.impl)).toUInt64).toNat = (ptr.spec.range ctx.spec).upper := by
-  have heq := ib.sim.out
-  have hr := ctx.sim.repr.blocks ptr.spec ib.ib
-  have hc := (ctx.sim.encoding_block ptr.spec ib.ib).numArguments
-  have hn := ctx.sim.repr.blocks_indices ptr.spec ib.ib
-  have hcount : (Buffed.BlockMPtr.readNumArguments! ctx.buf ptr.impl).toNat ≤ Buffed.countCard := by grind
-  have hs := Buffed.BlockMPtr.computeBlockSize_toNat _ hcount
-  rw [Veir.BlockPtr.range_ideal ctx.sim.repr ib.ib]
-  simp only [Veir.BlockPtr.rangeInt, Buffed.Block.rangeInt, add_nat_range_def, Veir.BlockPtr.toFlat]
-  constructor <;> grind [Veir.BlockPtr.toM, Veir.BlockPtr.toFlat]
-
-/-- Release a detached, unreferenced block, including its entire reserved capacity. -/
+/-- Logically delete a detached, unreferenced block without reclaiming its bytes. -/
 buffed (inline := true)
 def Sim.BlockPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockPtr)
     (ib : ptr.InBounds ctx) (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds) : Sim.IRContext OpInfo :=
-  let address := ptr.impl
-  let size := (Buffed.BlockMPtr.computeBlockSize (Buffed.BlockMPtr.readNumArguments! ctx.buf ptr.impl)).toUInt64
-  have hr := Sim.BlockPtr.allocation_range ctx ptr ib
-  have hstart : (address.toNat : Int) = (ptr.spec.range ctx.spec).lower := hr.1
-  have hend : (address.toNat : Int) + size.toNat = (ptr.spec.range ctx.spec).upper := hr.2
-  have hin := ctx.sim.in_bounds (.block ptr.spec) ib.ib
-  have hpos : 0 < size.toNat := by
-    rw [Veir.BlockPtr.range_ideal ctx.sim.repr ib.ib] at hstart hend
-    simp only [Veir.BlockPtr.rangeInt, Buffed.Block.rangeInt, add_nat_range_def,
-      Veir.BlockPtr.toFlat] at hstart hend
-    grind
-  let ctx' := Sim.BlockPtr.forget ctx ptr ib fib
-  have hspec : ctx'.spec = ptr.spec.dealloc ctx.spec := by
-    simp only [ctx', forget.unfold, Sim.IRContext.spec, Erased.map_out, Erased.out_mk]
-  ctx'.releaseRange address size hpos (by
-    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range, Sim.RawIRContext.spec] at hin
-    change address.toNat + size.toNat ≤ ctx.buf.mem.size
-    simp only [Sim.IRContext.spec] at hstart hend
-    omega)
-    (by
-      intro s a hm
-      have hd := ctx.sim.free_disjoint s a hm (.block ptr.spec) ib.ib
-      simp only [TopLevelPtr.range, Sim.RawIRContext.spec] at hd
-      simp only [Sim.IRContext.spec] at hstart hend
-      omega)
-    (by
-      intro p hp
-      rw [hspec] at hp ⊢
-      have hold : p.InBounds ctx.spec := by
-        change p.InBounds (ptr.spec.dealloc ctx.spec) at hp
-        grind
-      have hne : p ≠ .block ptr.spec := by
-        intro heq
-        subst p
-        change ptr.spec.InBounds (ptr.spec.dealloc ctx.spec) at hp
-        simp at hp
-      have hd := ctx.sim.disjoint_allocs p (.block ptr.spec) hold ib.ib hne
-      change (p.range (ptr.spec.dealloc ctx.spec)).upper ≤ address.toNat ∨
-        (address.toNat : Int) + size.toNat ≤ (p.range (ptr.spec.dealloc ctx.spec)).lower
-      rw [TopLevelPtr.range_BlockPtr_dealloc ptr.spec ib.ib p hp]
-      change (p.range ctx.spec).upper ≤ (ptr.spec.range ctx.spec).lower ∨
-        (ptr.spec.range ctx.spec).upper ≤ (p.range ctx.spec).lower at hd
-      omega)
+  Sim.BlockPtr.forget ctx ptr ib fib
 
-theorem Sim.RegionPtr.allocation_range (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
-    (ib : ptr.InBounds ctx) :
-    (ptr.impl.toNat : Int) = (ptr.spec.range).lower ∧
-    (ptr.impl.toNat : Int) + ((24 : UInt64)).toNat = (ptr.spec.range).upper := by
-  have heq := ib.sim.out
-  have hr := ctx.sim.repr.regions ptr.spec ib.ib
-  simp only [Veir.RegionPtr.range, add_nat_range_def, Veir.RegionPtr.toFlat]
-  constructor <;> grind [Veir.RegionPtr.toM, Veir.RegionPtr.toFlat]
-
-/-- Release a detached, unreferenced region, including its entire reserved capacity. -/
+/-- Logically delete a detached, unreferenced region without reclaiming its bytes. -/
 buffed (inline := true)
 def Sim.RegionPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.RegionPtr)
     (ib : ptr.InBounds ctx) (fib : (ptr.spec.dealloc ctx.spec).FieldsInBounds) : Sim.IRContext OpInfo :=
-  let address := ptr.impl
-  let size := (24 : UInt64)
-  have hr := Sim.RegionPtr.allocation_range ctx ptr ib
-  have hstart : (address.toNat : Int) = (ptr.spec.range).lower := hr.1
-  have hend : (address.toNat : Int) + size.toNat = (ptr.spec.range).upper := hr.2
-  have hin := ctx.sim.in_bounds (.region ptr.spec) ib.ib
-  have hpos : 0 < size.toNat := by
-    decide
-  let ctx' := Sim.RegionPtr.forget ctx ptr ib fib
-  have hspec : ctx'.spec = ptr.spec.dealloc ctx.spec := by
-    simp only [ctx', forget.unfold, Sim.IRContext.spec, Erased.map_out, Erased.out_mk]
-  ctx'.releaseRange address size hpos (by
-    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range, Sim.RawIRContext.spec] at hin
-    change address.toNat + size.toNat ≤ ctx.buf.mem.size
-    omega)
-    (by
-      intro s a hm
-      have hd := ctx.sim.free_disjoint s a hm (.region ptr.spec) ib.ib
-      simp only [TopLevelPtr.range, Sim.RawIRContext.spec] at hd
-      omega)
-    (by
-      intro p hp
-      rw [hspec] at hp ⊢
-      have hold : p.InBounds ctx.spec := by
-        change p.InBounds (ptr.spec.dealloc ctx.spec) at hp
-        grind
-      have hne : p ≠ .region ptr.spec := by
-        intro heq
-        subst p
-        change ptr.spec.InBounds (ptr.spec.dealloc ctx.spec) at hp
-        simp at hp
-      have hd := ctx.sim.disjoint_allocs p (.region ptr.spec) hold ib.ib hne
-      change (p.range (ptr.spec.dealloc ctx.spec)).upper ≤ address.toNat ∨
-        (address.toNat : Int) + size.toNat ≤ (p.range (ptr.spec.dealloc ctx.spec)).lower
-      rw [TopLevelPtr.range_RegionPtr_dealloc ptr.spec ib.ib p hp]
-      change (p.range ctx.spec).upper ≤ (ptr.spec.range).lower ∨
-        (ptr.spec.range).upper ≤ (p.range ctx.spec).lower at hd
-      omega)
+  Sim.RegionPtr.forget ctx ptr ib fib
 
 end Veir

@@ -22,13 +22,6 @@ theorem Sim.RegionPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo)
     (hfirst : Buffed.RegionMPtr.readFirstBlock! ctxBuf ptrImpl = Buffed.BlockOPtr.none)
     (hlast : Buffed.RegionMPtr.readLastBlock! ctxBuf ptrImpl = Buffed.BlockOPtr.none)
     (hparent : Buffed.RegionMPtr.readParent! ctxBuf ptrImpl = Buffed.OperationOPtr.none)
-    (hfreeValid : ctxBuf.freeList.Valid ctxBuf.mem.size)
-    (hfreeOld : ∀ (s a : UInt64), a ∈ ctxBuf.freeList.bucket s →
-      ∀ (p : TopLevelPtr), p.InBounds ctx.spec →
-        (p.range ctx.spec).upper ≤ a.toNat ∨
-          (a.toNat : Int) + s.toNat ≤ (p.range ctx.spec).lower)
-    (hfreeNew : ∀ (s a : UInt64), a ∈ ctxBuf.freeList.bucket s →
-      a.toNat + s.toNat ≤ ptrImpl.toNat ∨ ptrImpl.toNat + 24 ≤ a.toNat)
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.RegionPtr}
     (hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, .mk ctxSpec⟩ := by
@@ -201,14 +194,5 @@ theorem Sim.RegionPtr.allocReserved_sim (ctx : Sim.IRContext OpInfo)
       · simpa [Sim.OptionOperationPtr.Sim_def, Sim.OptionOperationPtr.spec, hget, Region.empty, htoM, Veir.BlockPtr.toO, Veir.OperationPtr.toO] using hparent.symm
   · rw [hattr]
     exact ctx.sim.attr_empty
-  · exact hfreeValid
-  · intro size address hm p hp
-    rcases hmem p hp with hold | rfl
-    · rw [hrange p hold]
-      exact hfreeOld size address hm p hold
-    · have hd := hfreeNew size address hm
-      simp only [TopLevelPtr.range]
-      rw [hnewrange.1, hnewrange.2]
-      omega
 
 end Veir

@@ -343,117 +343,6 @@ theorem dumpOptionBlockOperand_eq (operand : Sim.OptionBlockOperandPtr) (ctx : S
 
 /-! ## Setters and getters -/
 
-/-- Return a dead byte range to the arena. The two disjointness premises rule out
-both dangling live allocations and double-freeing an already free range. -/
-@[inline]
-buffed (inline := true)
-def Sim.IRContext.releaseRangeSim (ctx : Sim.IRContext OpInfo) (address size : UInt64)
-    (hs : 0 < size.toNat) (hb : address.toNat + size.toNat ≤ ctx.buf.mem.size)
-    (hfree : ∀ s a, a ∈ ctx.buf.freeList.bucket s →
-      address.toNat + size.toNat ≤ a.toNat ∨ a.toNat + s.toNat ≤ address.toNat)
-    (hdead : ∀ p : TopLevelPtr, p.InBounds ctx.spec →
-      (p.range ctx.spec).upper ≤ address.toNat ∨
-        (address.toNat : Int) + size.toNat ≤ (p.range ctx.spec).lower) :
-    Sim.IRContext OpInfo :=
-  ⟨ctx.buf.release address size, ctx.spec', by
-    constructor
-    · exact ctx.sim.fieldsInBounds
-    · exact ctx.sim.repr
-    · exact ctx.sim.in_bounds
-    · exact ctx.sim.disjoint_allocs
-    · intro op ib
-      have hm := ctx.sim.encoding_op op ib
-      constructor
-      · exact ⟨hm.prev, hm.next, hm.parent, hm.opType, hm.attrs,
-          HasBuffedProperties.readPropertyAt_frame hm.props (Nat.le_refl _)
-            (fun _ _ _ _ _ => rfl) (fun _ _ h => h)⟩
-      · refine ⟨hm.numBlockOperands, ?_⟩
-        intro p hp heq
-        have h := hm.blockOperands p hp heq
-        exact ⟨by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.OptionBlockOperandPtr.Sim_def, Sim.OptionOpOperandPtr.Sim_def] using h.nextUse,
-          by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.BlockOperandPtrPtr.Sim_def, Sim.OpOperandPtrPtr.Sim_def] using h.back,
-          h.owner, by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.ValuePtr.Sim_def] using h.value⟩
-      · exact ⟨hm.numRegions, hm.regions⟩
-      · refine ⟨hm.numOperands, ?_⟩
-        intro p hp heq
-        have h := hm.operands p hp heq
-        exact ⟨by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.OptionBlockOperandPtr.Sim_def, Sim.OptionOpOperandPtr.Sim_def] using h.nextUse,
-          by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.BlockOperandPtrPtr.Sim_def, Sim.OpOperandPtrPtr.Sim_def] using h.back,
-          h.owner, by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.ValuePtr.Sim_def] using h.value⟩
-      · refine ⟨hm.numResults, ?_⟩
-        intro p hp heq
-        have h := hm.results p hp heq
-        exact ⟨h.kind, h.typee, by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.OptionOpOperandPtr.Sim_def] using h.firstUse, h.index, h.owner⟩
-    · intro p hp
-      have hm := ctx.sim.encoding_block p hp
-      constructor
-      · exact ⟨by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.OptionBlockOperandPtr.Sim_def] using hm.firstUse, hm.prev, hm.next, hm.parent, hm.firstOp, hm.lastOp⟩
-      · refine ⟨hm.numArguments, ?_⟩
-        intro p hp heq
-        have h := hm.arguments p hp heq
-        exact ⟨h.kind, h.type, by simpa only [Buffed.IRBufContext.release, Buffed.BlockOperandMPtr.readNextUse!, Buffed.BlockOperandMPtr.readBack!, Buffed.BlockOperandMPtr.readValue!, Buffed.OpOperandMPtr.readNextUse!, Buffed.OpOperandMPtr.readBack!, Buffed.OpOperandMPtr.readValue!, Buffed.OpResultMPtr.readFirstUse!, Buffed.BlockArgumentMPtr.readFirstUse!, Buffed.BlockMPtr.readFirstUse!, Sim.OptionOpOperandPtr.Sim_def] using h.firstUse, h.index, h.owner⟩
-    · intro p hp
-      have hm := ctx.sim.encoding_region p hp
-      exact ⟨hm.firstBlock, hm.lastBlock, hm.parent⟩
-    · exact ctx.sim.attr_empty
-    · exact ctx.sim.free_valid.release hs hb hfree
-    · intro s a hm p hp
-      change a ∈ (ctx.buf.freeList.release address size).bucket s at hm
-      rw [Buffed.FreeList.bucket_release] at hm
-      split at hm
-      · rename_i heq
-        subst s
-        rcases List.mem_cons.mp hm with rfl | hm
-        · exact hdead p hp
-        · exact ctx.sim.free_disjoint size a hm p hp
-      · exact ctx.sim.free_disjoint s a hm p hp⟩
-
-@[inline]
-def Buffed.OperationMPtr.allocationStart (ctx : Buffed.IRBufContext) (ptr : Buffed.OperationMPtr) : UInt64 :=
-  ptr + ptr.computeResultsOffset! ctx
-
-@[inline]
-def Buffed.OperationMPtr.allocationEnd (ctx : Buffed.IRBufContext) (ptr : Buffed.OperationMPtr) : UInt64 :=
-  (ptr + ptr.computeRegionsOffset! (OpInfo := OpInfo) ctx) +
-    Buffed.ptrSize * ptr.readNumRegions! ctx
-
-theorem Sim.OperationPtr.allocationStart_eq (ctx : Sim.IRContext OpInfo)
-    (ptr : Sim.OperationPtr) (ib : ptr.InBounds ctx) :
-    (Buffed.OperationMPtr.allocationStart ctx.buf ptr.impl).toNat =
-      (ptr.spec.range ctx.spec).lower := by
-  have hl := Sim.OperationPtr.range_linear (ctx := ctx) ptr.spec ib.ib
-  have hp := Veir.OperationPtr.toM_toNat ctx.sim.repr ptr.spec ib.ib
-  have heq := ib.sim.out
-  have hoff := Veir.OperationPtr.computeResultsOffset!_ideal ctx ptr ib.ib ib.sim
-    (by prove_setLinkBoundsOp ctx ptr)
-  have hb := ctx.buf.mem.fits_in_memory
-  rw [Veir.OperationPtr.range_ideal ctx.sim.repr ib.ib]
-  simp only [Buffed.OperationMPtr.allocationStart, Veir.OperationPtr.rangeInt,
-    Buffed.Operation.rangeInt, add_nat_range_def, Veir.OperationPtr.toFlat]
-  rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
-
-theorem Sim.OperationPtr.allocationEnd_eq (ctx : Sim.IRContext OpInfo)
-    (ptr : Sim.OperationPtr) (ib : ptr.InBounds ctx) :
-    (Buffed.OperationMPtr.allocationEnd (OpInfo := OpInfo) ctx.buf ptr.impl).toNat =
-      (ptr.spec.range ctx.spec).upper := by
-  have hl := Sim.OperationPtr.range_linear (ctx := ctx) ptr.spec ib.ib
-  have hp := Veir.OperationPtr.toM_toNat ctx.sim.repr ptr.spec ib.ib
-  have heq := ib.sim.out
-  have hoff := Veir.OperationPtr.computeRegionsOffset!_ideal ctx ptr ib.ib ib.sim
-    (by prove_setLinkBoundsOp ctx ptr)
-  have hc := (ctx.sim.encoding_op ptr.spec ib.ib).numRegions
-  have hcap := (ctx.sim.repr.operations_indices ptr.spec ib.ib).capRegions
-  have hb := ctx.buf.mem.fits_in_memory
-  rw [Veir.OperationPtr.range_ideal ctx.sim.repr ib.ib]
-  simp only [Buffed.OperationMPtr.allocationEnd, Veir.OperationPtr.rangeInt,
-    Buffed.Operation.rangeInt, add_nat_range_def, Veir.OperationPtr.toFlat]
-  have hadd : (ptr.impl + ptr.impl.computeRegionsOffset! (OpInfo := OpInfo) ctx.buf).toNat =
-      (ptr.spec.id : Int) + Buffed.Operation.Offsets.regionsInt ptr.spec ctx.spec := by
-    rw [UInt64.uint64_add_int64_toNat_lt] <;> grind
-  rw [UInt64.toNat_add, UInt64.toNat_mul]
-  simp only [Buffed.ptrSize, UInt64.toNat_ofNat] at *
-  grind
-
 private theorem IRContext.isRepr_OperationPtr_dealloc
     {ctx : IRContext OpInfo} (hctx : ctx.IsRepr)
     (op : OperationPtr) (hop : op.InBounds ctx) :
@@ -698,71 +587,15 @@ def Sim.OperationPtr.forgetSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Operation
        · exact hget ▸ henc.firstBlock
        · exact hget ▸ henc.lastBlock
        · exact hget ▸ henc.parent
-     case attr_empty => exact ctx.sim.attr_empty
-     case free_valid => exact ctx.sim.free_valid
-     case free_disjoint =>
-       intro size address hm p hp
-       try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
-       rw [TopLevelPtr.range_OperationPtr_dealloc ptr.spec ib.ib p hp]
-       exact ctx.sim.free_disjoint size address hm p (by grind)⟩
+     case attr_empty => exact ctx.sim.attr_empty⟩
 
-/-- Remove the operation from the spec and return its entire byte allocation to
-the exact-size pool. Existing pointers are unchanged. -/
+/-- Logically delete the operation. Its arena storage is retained and never reused. -/
 @[inline]
 buffed (inline := true)
 def Sim.OperationPtr.deallocSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
     (ib : ptr.InBounds ctx)
     (fib : (ptr.spec.dealloc ctx.spec ib.ib).FieldsInBounds := by grind) : Sim.IRContext OpInfo :=
-  let address := Buffed.OperationMPtr.allocationStart ctx.buf ptr.impl
-  let after := Buffed.OperationMPtr.allocationEnd (OpInfo := OpInfo) ctx.buf ptr.impl
-  let size := after - address
-  have hstart : (address.toNat : Int) = (ptr.spec.range ctx.spec).lower :=
-    Sim.OperationPtr.allocationStart_eq ctx ptr ib
-  have hend : (after.toNat : Int) = (ptr.spec.range ctx.spec).upper :=
-    Sim.OperationPtr.allocationEnd_eq ctx ptr ib
-  have hin := ctx.sim.in_bounds (.operation ptr.spec) (by grind)
-  have hpos : address.toNat < after.toNat := by
-    have hr : (ptr.spec.range ctx.spec).lower < (ptr.spec.range ctx.spec).upper := by
-      rw [Veir.OperationPtr.range_ideal ctx.sim.repr ib.ib]
-      simp only [Veir.OperationPtr.rangeInt, Buffed.Operation.rangeInt,
-        add_nat_range_def, Veir.OperationPtr.toFlat]
-      grind
-    omega
-  have hsize : size.toNat = after.toNat - address.toNat := by
-    apply UInt64.toNat_sub_of_le
-    exact UInt64.le_iff_toNat_le.mpr (by omega)
-  let ctx' := Sim.OperationPtr.forget ctx ptr ib fib
-  have hspec : ctx'.spec = ptr.spec.dealloc ctx.spec ib.ib := by
-    simp only [ctx', forget.unfold, Sim.IRContext.spec, Erased.out_mk]
-  ctx'.releaseRange address size (by omega) (by
-    simp only [IsIncludedIN, ExArray.range_upper, TopLevelPtr.range, Sim.RawIRContext.spec] at hin
-    change address.toNat + size.toNat ≤ ctx.buf.mem.size
-    simp only [Sim.IRContext.spec] at hstart hend
-    omega)
-    (by
-      intro s a hm
-      have hd := ctx.sim.free_disjoint s a hm (.operation ptr.spec) (by grind)
-      simp only [TopLevelPtr.range, Sim.RawIRContext.spec] at hd
-      simp only [Sim.IRContext.spec] at hstart hend
-      omega)
-    (by
-      intro p hp
-      rw [hspec] at hp ⊢
-      have hold : p.InBounds ctx.spec := by
-        change p.InBounds (ptr.spec.dealloc ctx.spec ib.ib) at hp
-        grind
-      have hne : p ≠ .operation ptr.spec := by
-        intro heq
-        subst p
-        change ptr.spec.InBounds (ptr.spec.dealloc ctx.spec ib.ib) at hp
-        simp [Veir.OperationPtr.inBounds_def, Veir.OperationPtr.dealloc] at hp
-      have hd := ctx.sim.disjoint_allocs p (.operation ptr.spec) hold ib.ib hne
-      change (p.range (ptr.spec.dealloc ctx.spec ib.ib)).upper ≤ address.toNat ∨
-        (address.toNat : Int) + size.toNat ≤ (p.range (ptr.spec.dealloc ctx.spec ib.ib)).lower
-      rw [TopLevelPtr.range_OperationPtr_dealloc ptr.spec ib.ib p hp]
-      change (p.range ctx.spec).upper ≤ (ptr.spec.range ctx.spec).lower ∨
-        (ptr.spec.range ctx.spec).upper ≤ (p.range ctx.spec).lower at hd
-      omega)
+  Sim.OperationPtr.forget ctx ptr ib fib
 
 @[inline]
 buffed (inline := true)
@@ -1029,7 +862,6 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
    have := ctx.sim.in_bounds (.operation ptr.spec) (by grind)
    have : ctx.buf.mem.size < 2^63 := by grind
    have hmem : ctxBuf.mem = ctx.buf.mem := by grind [Buffed.IRBufContext.insertAttrs]
-   have hfree : ctxBuf.freeList = ctx.buf.freeList := by grind [Buffed.IRBufContext.insertAttrs]
    have hattr_push : ctxBuf.attributes = ctx.buf.attributes.push (Attribute.dictionaryAttr attrs) := by
      grind [Buffed.IRBufContext.insertAttrs]
    have hidx : idx.toNat = ctx.buf.attributes.size := by
@@ -1304,13 +1136,7 @@ def Sim.OperationPtr.setAttributesSim (ctx : Sim.IRContext OpInfo) (ptr : Sim.Op
             _root_.Veir.BlockPtr.rangeInt, _root_.Veir.RegionPtr.rangeInt]
    · -- `insertAttrs` only pushes onto the attribute table and slot 0 is occupied, so the push leaves it unchanged.
      have := ctx.sim.attr_empty
-     grind [Buffed.OperationMPtr.writeAttrs, Buffed.IRBufContext.insertAttrs]
-   · simpa [Buffed.OperationMPtr.writeAttrs, hfree, hmem] using ctx.sim.free_valid
-   · simp only [Buffed.OperationMPtr.writeAttrs, hfree]
-     intro size address hm p hp
-     simp only [Sim.RawIRContext.spec] at *
-     have := ctx.sim.free_disjoint size address hm p (by grind)
-     grind [TopLevelPtr]⟩
+     grind [Buffed.OperationMPtr.writeAttrs, Buffed.IRBufContext.insertAttrs]⟩
 
 @[simp, grind →]
 theorem Sim.OperationPtr.setAttributes_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OperationPtr)
@@ -2536,18 +2362,6 @@ def Sim.BlockPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext) (numArgs : UInt64
   let ctx := ptr.writeLastOp ctx .none (by prove_allocBounds ctx₀)
   some (ctx, ptr)
 
-theorem Sim.BlockPtr.allocEmptyImpl_freeList {ctx₀ ctxBuf : Buffed.IRBufContext}
-    {ptr : UInt64} (numArgs : UInt64) (hnumArgs : numArgs.toNat ≤ Buffed.countCard)
-    (h : allocEmptyImpl ctx₀ numArgs hnumArgs = some (ctxBuf, ptr)) :
-    ctxBuf.freeList = ctx₀.freeList := by
-  simp only [allocEmptyImpl] at h
-  split at h
-  · contradiction
-  · rename_i buf halloc
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact Buffed.IRBufContext.alloc_freeList (bctx' := buf) halloc
-
 @[noinline]
 def Sim.BlockPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (capArguments : Nat) (address : UInt64) : Option (Veir.IRContext OpInfo × Veir.BlockPtr) :=
   BlockPtr.allocEmptyAtAddress ctx capArguments address.toNat
@@ -2568,7 +2382,6 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.BlockPtr}
     (hspec : Veir.BlockPtr.allocEmptyAtAddress ctx.spec numArgs.toNat ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, .mk ctxSpec⟩ := by
-  have hfree := Sim.BlockPtr.allocEmptyImpl_freeList numArgs hnumArgs heq
   simp only [Sim.BlockPtr.allocEmptyImpl] at heq
   split at heq
   · exact absurd heq (by simp)
@@ -3025,18 +2838,7 @@ theorem Sim.BlockPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo) (numArgs : UInt
     · -- attr_empty
       rw [hattr]
       exact ctx.sim.attr_empty
-    · rw [hfree]
-      exact ctx.sim.free_valid.mono hsizele
-    · intro size address hm p hp
-      try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
-      rw [hfree] at hm
-      rcases hmem p hp with hold | rfl
-      · rw [hrange p hold]
-        exact ctx.sim.free_disjoint size address hm p hold
-      · have hb := (ctx.sim.free_valid.bounds size address hm).2
-        right
-        simp only [TopLevelPtr.range, hnewlow]
-        exact_mod_cast hb
+
 
 
 @[inline]
@@ -3980,18 +3782,6 @@ def Sim.RegionPtr.allocEmptyImpl (ctx₀ : Buffed.IRBufContext) : Option (Buffed
   let ctx := ptr.writeLastBlock ctx .none (by prove_allocBounds ctx₀)
   some (ctx, ptr)
 
-theorem Sim.RegionPtr.allocEmptyImpl_freeList {ctx₀ ctxBuf : Buffed.IRBufContext}
-    {ptr : UInt64}
-    (h : allocEmptyImpl ctx₀ = some (ctxBuf, ptr)) :
-    ctxBuf.freeList = ctx₀.freeList := by
-  simp only [allocEmptyImpl] at h
-  split at h
-  · contradiction
-  · rename_i buf halloc
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact Buffed.IRBufContext.alloc_freeList (bctx' := buf) halloc
-
 def Sim.RegionPtr.allocEmptySpec (ctx : Veir.IRContext OpInfo) (addr : UInt64) : Option (Veir.IRContext OpInfo × Veir.RegionPtr) :=
   RegionPtr.allocEmptyAt ctx addr.toNat
 
@@ -4011,7 +3801,6 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
     {ctxSpec : Veir.IRContext OpInfo} {ptrSpec : Veir.RegionPtr}
     (hspec : Veir.RegionPtr.allocEmptyAt ctx.spec ptrImpl.toNat = some (ctxSpec, ptrSpec)) :
     Veir.Sim (OpInfo := OpInfo) ⟨ctxBuf, .mk ctxSpec⟩ := by
-  have hfree := Sim.RegionPtr.allocEmptyImpl_freeList heq
   simp only [Sim.RegionPtr.allocEmptyImpl] at heq
   split at heq
   · exact absurd heq (by simp)
@@ -4351,19 +4140,7 @@ theorem Sim.RegionPtr.allocEmpty_sim (ctx : Sim.IRContext OpInfo)
     · -- attr_empty
       rw [hattr]
       exact ctx.sim.attr_empty
-    · rw [hfree]
-      exact ctx.sim.free_valid.mono hsizele
-    · intro size address hm p hp
-      try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
-      rw [hfree] at hm
-      rcases hmem p hp with hold | rfl
-      · rw [hrange p hold]
-        exact ctx.sim.free_disjoint size address hm p hold
-      · have hb := (ctx.sim.free_valid.bounds size address hm).2
-        right
-        simp only [TopLevelPtr.range]
-        rw [(hnewrange ptrSpec rfl).1]
-        exact_mod_cast hb
+
 
 
 @[inline]
@@ -4449,20 +4226,6 @@ def Sim.OperationPtr.allocEmptyHeaderImpl (ctx₀ : Buffed.IRBufContext)
   let ctx := ptr.writePrev ctx .none (by prove_allocBoundsOp ctx₀)
   let ctx := ptr.writeOpType ctx opType (by prove_allocBoundsOp ctx₀)
   some (ctx, ptr)
-
-theorem Sim.OperationPtr.allocEmptyHeaderImpl_freeList {ctx₀ ctxBuf : Buffed.IRBufContext}
-    {numResults numOperands numBlockOperands numRegions propSize : UInt64} {opType : UInt32}
-    {hr ho hbo hreg hp} {ptr : UInt64}
-    (h : allocEmptyHeaderImpl ctx₀ numResults numOperands numBlockOperands numRegions propSize opType
-      hr ho hbo hreg hp = some (ctxBuf, ptr)) :
-    ctxBuf.freeList = ctx₀.freeList := by
-  simp only [allocEmptyHeaderImpl] at h
-  split at h
-  · contradiction
-  · rename_i buf halloc
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact Buffed.IRBufContext.alloc_freeList (bctx' := buf) halloc
 
 /-- The operation pointer produced by `allocEmptyHeaderImpl` lies at or past the end of the buffer: its address is the old buffer size plus the back-allocated results prefix. -/
 theorem Sim.OperationPtr.allocEmptyHeaderImpl_ptr_ge {ctx₀ : Buffed.IRBufContext}
@@ -4864,17 +4627,6 @@ theorem Sim.OperationPtr.allocEmptyImpl_eq {opCode : OpInfo}
       obtain ⟨hbuf, rfl⟩ := h
       exact ⟨ctxH, heq, _, _, hbuf.symm⟩
   · exact absurd h (by simp)
-
-theorem Sim.OperationPtr.allocEmptyImpl_freeList {opCode : OpInfo}
-    {ctx₀ ctxBuf : Buffed.IRBufContext}
-    {numResults numOperands numBlockOperands numRegions : UInt64} {opType : UInt32}
-    {prop : HasDialectOpInfo.propertiesOf opCode} {hr ho hbo hreg} {ptr : UInt64}
-    (h : allocEmptyImpl ctx₀ numResults numOperands numBlockOperands numRegions opType
-      prop hr ho hbo hreg = some (ctxBuf, ptr)) :
-    ctxBuf.freeList = ctx₀.freeList := by
-  obtain ⟨ctxH, hH, _, _, rfl⟩ := allocEmptyImpl_eq h
-  rw [HasBuffedProperties.preserves_freeList]
-  exact allocEmptyHeaderImpl_freeList hH
 
 /-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer. -/
 theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {opCode : OpInfo}
@@ -5278,7 +5030,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
     · intro blk hib
       try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
       grind [Veir.BlockPtr.LayoutPreserved, Veir.BlockPtr.get!_OperationPtr_allocEmptyAt]
-  have hfree := Sim.OperationPtr.allocEmptyImpl_freeList heqImpl
   have hrgOld : ∀ (q : TopLevelPtr), q.InBounds ctx.spec → q.range ctxSpec = q.range ctx.spec := by
     intro q hq
     try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
@@ -5506,22 +5257,6 @@ theorem Sim.OperationPtr.allocEmpty_sim {ctx : Sim.IRContext OpInfo} {opType : O
   · -- `attr_empty`
     exact hattrs ctx.sim.attr_empty
 
-  · rw [hfree]
-    apply ctx.sim.free_valid.mono
-    change ctx.buf.mem.size ≤ ctxBuf.mem.size
-    omega
-  · intro size address hm p hp
-    try simp only [Sim.RawIRContext.spec, Erased.out_mk] at *
-    rw [hfree] at hm
-    rcases (Veir.OperationPtr.allocEmptyAt_topLevelPtr_iff p heqSpec).mp hp with hold | rfl
-    · rw [hrgOld p hold]
-      exact ctx.sim.free_disjoint size address hm p hold
-    · have hb := (ctx.sim.free_valid.bounds size address hm).2
-      right
-      simp only [TopLevelPtr.range, Veir.OperationPtr.range_ideal hrepr' hnewIb,
-        Veir.OperationPtr.rangeInt, Buffed.Operation.rangeInt, add_nat_range_def,
-        Veir.OperationPtr.toFlat]
-      grind
 
 @[inline]
 def Sim.OperationPtr.allocEmpty (ctx : Sim.IRContext OpInfo) (opType : OpInfo)

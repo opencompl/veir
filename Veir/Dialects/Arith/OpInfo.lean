@@ -257,12 +257,6 @@ theorem ArithConstantProperties.readProperty_frame {addr : UInt64} {bctx bctx' :
     next v hm => rw [hattrs _ _ hm]; exact hp
     next => simp at hp
 
-@[simp]
-theorem ArithConstantProperties.writeProperty_freeList (p : ArithConstantProperties) (addr : UInt64)
-    (bctx : Buffed.IRBufContext) (h ha) : (p.writeProperty addr bctx h ha).freeList = bctx.freeList := by
-  unfold writeProperty
-  split <;> rfl
-
 @[inline]
 instance : HasBuffedProperties Arith where
   writePropertyAt op p addr bctx h hattrs :=
@@ -335,15 +329,6 @@ instance : HasBuffedProperties Arith where
             IcmpProperties.writeProperty_attributes,
             NnegProperties.writeProperty_attributes] using hsome
         | exact hsome
-  preserves_freeList {op p addr bctx h hattrs} := by
-    cases op <;> cases p <;> first
-      | exact ArithConstantProperties.writeProperty_freeList _ addr bctx h hattrs
-      | exact NswNuwProperties.writeProperty_freeList _ addr bctx h
-      | exact ExactProperties.writeProperty_freeList _ addr bctx h
-      | exact DisjointProperties.writeProperty_freeList _ addr bctx h
-      | exact IcmpProperties.writeProperty_freeList _ addr bctx h
-      | exact NnegProperties.writeProperty_freeList _ addr bctx h
-      | rfl
   preserves_size {op p addr bctx h hattrs} := by
     cases op <;> cases p <;> first
       | exact ArithConstantProperties.writeProperty_size _ addr bctx h hattrs
