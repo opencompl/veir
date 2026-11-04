@@ -13,8 +13,11 @@ clang: O0 uses clang's unoptimized output, and O2 runs LLVM's middle end first
 A version fails as vcc (compile error), link, crash, timeout, or mismatch; a
 failure of the O0 version does not stop the O2 version from being tried. A failure
 to build or run the clang reference is reported as reference. The working
-directory of a failed test is kept and its path is printed. The exit status is
-nonzero if any test failed.
+directory of a failed test is kept and its path is printed.
+
+A mismatch stops the whole run at once, killing the tests in progress, with exit
+status 2. All other failures are tallied, and the run ends with a table of them;
+the exit status is then 1 if any test failed and 0 otherwise.
 
 vcc always runs without VeIR's middle-end optimizations and generates code with
 VeIR's RISC-V backend, so -O levels, --llvm-O2, and --llvm-backend are rejected.
@@ -56,38 +59,65 @@ def load_vcc():
 CLANG = ["clang", *load_vcc().CLANG_TARGET_FLAGS, "-w"]
 VERBOSE = False
 DEFAULT_ITERATIONS = 100
-LOG_LOCK = threading.Lock()
 # Each worker thread records here the label of the test it is running.
 CURRENT_TEST = threading.local()
+# Guards all of the following, as well as printing and starting subprocesses.
+LOCK = threading.Lock()
+CHILDREN: set[subprocess.Popen] = set()
+COMPLETED = 0
+PASSED: Counter[str] = Counter()  # Tests by version; "all" counts fully passing tests.
+FAILURES: Counter[tuple[str, str, str]] = Counter()  # By (version, kind, error).
 # The vcc flags of each version under test.
 VERSIONS = {"O0": [], "O2": ["--llvm-O2"]}
 
 
 def log(message: str) -> None:
     """Print a message, labeled with the current test, without interleaving."""
-    with LOG_LOCK:
+    with LOCK:
         print(f"{CURRENT_TEST.label} {message}", flush=True)
 
 
 class TestFailure(Exception):
-    def __init__(self, kind: str, detail: str) -> None:
+    def __init__(self, kind: str, detail: str, error: str) -> None:
         super().__init__(detail)
         self.kind = kind
+        self.error = error  # A one-line description shared by similar failures.
+
+
+def error_line(stderr: str) -> str:
+    """Reduce compiler output to one line that doesn't vary between programs."""
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    errors = [line for line in lines if "error" in line.lower()]
+    line = next(iter(errors or reversed(lines)), "no error message")
+    line = re.sub(r"function @\S+: ", "", line)
+    return re.sub(r"\b\d+\b", "N", line)
 
 
 def run(cmd: list[str], cwd: Path, timeout: float | None = None) -> subprocess.CompletedProcess:
     """Run a command with no stdin and captured output, printing it first if verbose."""
     if VERBOSE:
         log(f"+ (cd {shlex.quote(str(cwd))} && {shlex.join(cmd)})")
-    return subprocess.run(cmd, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                          timeout=timeout)
+    with LOCK:
+        proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True)
+        CHILDREN.add(proc)
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        raise
+    finally:
+        with LOCK:
+            CHILDREN.discard(proc)
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
 def build(kind: str, cmd: list[str], cwd: Path) -> str:
     """Run a generator or compiler command, returning its stdout."""
     result = run(cmd, cwd)
     if result.returncode != 0:
-        raise TestFailure(kind, f"{' '.join(cmd)}\n{result.stderr}")
+        raise TestFailure(kind, f"{' '.join(cmd)}\n{result.stderr}", error_line(result.stderr))
     return result.stdout
 
 
@@ -97,11 +127,12 @@ def execute(kind: str, exe: str, cwd: Path, timeout: float) -> str:
         result = run([f"./{exe}"], cwd, timeout)
     except subprocess.TimeoutExpired:
         raise TestFailure("timeout" if kind == "crash" else kind,
-                          f"{exe} timed out after {timeout}s") from None
+                          f"{exe} timed out after {timeout}s", "timed out") from None
     if VERBOSE:
         log(f"{exe} output: {result.stdout.strip()}")
     if result.returncode != 0:
-        raise TestFailure(kind, f"{exe} exited with status {result.returncode}\n{result.stderr}")
+        raise TestFailure(kind, f"{exe} exited with status {result.returncode}\n{result.stderr}",
+                          f"exited with status {result.returncode}")
     return result.stdout
 
 
@@ -128,35 +159,74 @@ def run_version(tmp: Path, name: str, vcc_args: list[str], expected: str, timeou
     build("link", [*CLANG, "-fuse-ld=lld", obj, "driver.o", "-o", exe], tmp)
     actual = execute("crash", exe, tmp, timeout)
     if actual != expected:
-        raise TestFailure("mismatch", f"vcc: {actual.strip()}\nclang: {expected.strip()}")
+        raise TestFailure("mismatch", f"vcc:   {actual.strip()}\nclang: {expected.strip()}",
+                          "output differs from clang")
+
+
+def print_stats() -> None:
+    """Print a summary of the tests completed so far."""
+    print(f"\n{PASSED['all']}/{COMPLETED} tests passed "
+          f"({', '.join(f'{name}: {PASSED[name]}' for name in VERSIONS)})")
+    if FAILURES:
+        print(f"\n{'Count':>5}  {'Version':<7}  {'Kind':<9}  Error")
+        for (version, kind, error), count in FAILURES.most_common():
+            print(f"{count:>5}  {version:<7}  {kind:<9}  {error}")
+    sys.stdout.flush()
+
+
+def stop_on_mismatch(seed: str, name: str, failure: TestFailure, tmp: Path) -> None:
+    """Report a mismatch and exit at once, killing the tests in progress."""
+    # LOCK is never released, so no other test can print or start a subprocess.
+    LOCK.acquire()
+    for proc in CHILDREN:
+        proc.kill()
+    print_stats()
+    print(f"\nMISMATCH: the {name} version of seed {seed} printed the wrong output, stopping.\n"
+          f"{failure}\n"
+          f"Working directory: {tmp}\n"
+          f"To reproduce: {sys.argv[0]} --seed {seed}", flush=True)
+    os._exit(2)
 
 
 def run_iteration(i: int, iterations: int, args: argparse.Namespace,
-                  vcc_args: list[str]) -> Counter[str]:
-    """Run test number `i`, returning a count of its failures by kind."""
+                  vcc_args: list[str]) -> None:
+    """Run test number `i`, recording its results."""
+    global COMPLETED
     CURRENT_TEST.label = f"[{i}/{iterations}]"
     tmp = Path(tempfile.mkdtemp(prefix="yarpgen-vcc-"))
     seed = args.seed or "unknown"
-    failures: Counter[str] = Counter()
+    ok = True
+
+    def fail(version: str, e: TestFailure) -> None:
+        nonlocal ok
+        ok = False
+        with LOCK:
+            FAILURES[(version, e.kind, e.error)] += 1
+        log(f"seed {seed}: FAIL ({e.kind if version == '-' else f'{version} {e.kind}'})\n{e}")
+
     try:
         seed = generate(args.seed, tmp)
         expected = run_reference(tmp, args.timeout)
         for name, flags in VERSIONS.items():
             try:
                 run_version(tmp, name, [*flags, *vcc_args], expected, args.timeout)
+                with LOCK:
+                    PASSED[name] += 1
             except TestFailure as e:
-                failures[f"{name} {e.kind}"] += 1
-                log(f"seed {seed}: FAIL ({name} {e.kind})\n{e}")
+                if e.kind == "mismatch":
+                    stop_on_mismatch(seed, name, e, tmp)
+                fail(name, e)
     except TestFailure as e:
-        failures[e.kind] += 1
-        log(f"seed {seed}: FAIL ({e.kind})\n{e}")
-    if not failures:
+        fail("-", e)
+    if ok:
         log(f"seed {seed}: ok {expected.strip()}")
-    if args.save_temps or failures:
+    if args.save_temps or not ok:
         log(f"kept {tmp}")
     else:
         shutil.rmtree(tmp)
-    return failures
+    with LOCK:
+        COMPLETED += 1
+        PASSED["all"] += ok
 
 
 def main() -> int:
@@ -186,17 +256,14 @@ def main() -> int:
     # Threads are enough: all the real work happens in subprocesses.
     with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
         try:
-            results = list(pool.map(lambda i: run_iteration(i, iterations, args, extra),
-                                    range(1, iterations + 1)))
+            list(pool.map(lambda i: run_iteration(i, iterations, args, extra),
+                          range(1, iterations + 1)))
         except KeyboardInterrupt:
             pool.shutdown(wait=False, cancel_futures=True)
             raise
 
-    failures = sum(results, Counter())
-    passed = results.count(Counter())
-    summary = ", ".join(f"{count} {kind}" for kind, count in sorted(failures.items()))
-    print(f"{passed}/{iterations} passed" + (f" ({summary})" if failures else ""))
-    return 0 if passed == iterations else 1
+    print_stats()
+    return 0 if PASSED["all"] == iterations else 1
 
 
 if __name__ == "__main__":
