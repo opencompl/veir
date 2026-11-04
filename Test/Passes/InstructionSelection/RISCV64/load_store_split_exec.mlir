@@ -1,12 +1,5 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 
-// Loads and stores of i24, i40, i48 and i56 are split into power-of-two pieces.
-// Each width is stored at a misaligned offset of a buffer of 0xff bytes and read
-// back, and its zero extension, sign extension and the two words of the buffer
-// are hashed, so a wrong piece or a write outside the value changes the output.
-// There is no comparison with the source program, since `veir-interpret` cannot
-// store these widths; the expected output comes from a byte-level model.
-
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
     ^bb0():

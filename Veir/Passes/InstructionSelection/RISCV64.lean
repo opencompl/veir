@@ -950,12 +950,9 @@ def memIntrinsic : RewritePattern OpCode :=
   .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
     #[.fromLocalRewrite memIntrinsicInline_local]
 
-/-! # Loads and stores split into several accesses
-
-  An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
-  power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`. No piece touches
-  a byte outside the value. Alignment is ignored, as for every other load and store here: the
-  target is assumed to support misaligned accesses.
+/--
+An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
+power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`.
 -/
 
 /-- The `(offset, width)` pieces of a load or store of a value of `type`, if it needs splitting. -/
