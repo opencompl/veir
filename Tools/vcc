@@ -26,7 +26,18 @@ BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 VEIR_BACKEND_TOOLS = ("llc",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-fomit-frame-pointer"]
+# Use the Linux hard-float ABI and all extensions VeIR's instruction selector
+# can emit (see MIRPrinter.lean). Keep clang and both llc stages in sync.
+RISCV_TRIPLE = "riscv64-unknown-linux-gnu"
+RISCV_ABI = "lp64d"
+RISCV_BASE_EXTENSIONS = "mafdc"
+RISCV_EXTENSIONS = ("zicsr", "zifencei", "zba", "zbb", "zbs", "zbc", "zbkb", "zicond")
+RISCV_MARCH = "rv64i" + RISCV_BASE_EXTENSIONS + "_" + "_".join(RISCV_EXTENSIONS)
+RISCV_FEATURES = ",".join(f"+{ext}" for ext in (*RISCV_BASE_EXTENSIONS, *RISCV_EXTENSIONS))
+CLANG_TARGET_FLAGS = [f"--target={RISCV_TRIPLE}", f"-march={RISCV_MARCH}",
+                      f"-mabi={RISCV_ABI}", "-fomit-frame-pointer"]
+LLC_TARGET_FLAGS = (f"-mtriple={RISCV_TRIPLE}", f"-mattr={RISCV_FEATURES}",
+                    f"-target-abi={RISCV_ABI}")
 # On Linux clang finds the riscv64 cross sysroot by itself; elsewhere (macOS)
 # RISCV_SYSROOT names a copy of it.
 if "RISCV_SYSROOT" in os.environ:
@@ -127,7 +138,11 @@ def veir_backend_to_asm(mlir: bytes, src_stem: str, debug: bool = False) -> byte
         rv.write_bytes(run(["lake", "exec", "veir-opt", "--allow-unregistered-dialect", "-p=riscv",
                             str(pre)], cwd=REPO_ROOT, debug=debug))
         mir = tmp / (src_stem + ".mir")
-        mir.write_bytes(run(["lake", "exec", "veir2mir", str(rv)], cwd=REPO_ROOT, debug=debug))
+        mir_bytes = run(["lake", "exec", "veir2mir", str(rv)], cwd=REPO_ROOT, debug=debug)
+        # Function attributes override llc's -mattr. The standalone MIR printer
+        # uses an integer-only target; give vcc's MIR the full Linux target too.
+        mir.write_bytes(re.sub(rb'"target-features"="[^"]*"',
+                               f'"target-features"="{RISCV_FEATURES}"'.encode(), mir_bytes))
         unhandled = mir.read_bytes().count(b"UNHANDLED")
         if unhandled:
             where = f"see {mir}" if debug else "rerun with --debug to keep the MIR"
@@ -135,8 +150,8 @@ def veir_backend_to_asm(mlir: bytes, src_stem: str, debug: bool = False) -> byte
                      f"({where})")
         lowered = tmp / (src_stem + ".lowered.mir")
         asm = tmp / (src_stem + ".s")
-        run(regalloc_cmd("llc", str(mir), str(lowered)), debug=debug)
-        run(emit_asm_cmd("llc", str(lowered), str(asm)), debug=debug)
+        run(regalloc_cmd("llc", str(mir), str(lowered), target_flags=LLC_TARGET_FLAGS), debug=debug)
+        run(emit_asm_cmd("llc", str(lowered), str(asm), target_flags=LLC_TARGET_FLAGS), debug=debug)
         return asm.read_bytes()
 
 
