@@ -2,7 +2,7 @@ module
 
 import UnitTest.Buffed
 
-open Veir.Buffered UnitTest.Buffed
+open Veir UnitTest.Buffed
 
 -- Generated declarations and unfolding equations remain usable across modules,
 -- including equations whose source definition has match auxiliaries or recursion.

@@ -1,288 +1,44 @@
 module
 
 import Veir.ForLean
-public import Veir.Data.Float
-public import Lean.Elab.Command
 public import Std.Data.Iterators.Producers.Array
 
-meta import Veir.Meta.Deriving
-
-/-!
-  # Attributes
-
-  This file defines the `Attribute` data structure, which is an inductive type
-  that can represent any compile-time information that can be stored in the IR.
-  Attributes are used either as type annotations for SSA values, or as extra
-  information stored in operations.
-
-  The `TypeAttr` definition is a subtype of `Attribute` that carries the additional
-  invariant that the attribute is a valid type annotation.
-
-  `TypeAttr` corresponds to `mlir::Type`, and `Attribute`s that are not
-  `TypeAttr`s correspond to an `mlir::Attribute` (as attributes and types are
-  completely disjoint in MLIR). The reason for this lack of separation in VeIR is
-  that merging both concepts into a single `Attribute` type allows to define
-  functions that can work with both types and attributes without needing to define
-  separate functions for each case. For instance, `mlir::AttrTypeWalker` can be
-  defined for both `TypeAttr` and `Attribute` without needing to define separate
-  walkers for each case. Similarly, `mlir::TypeAttr` is not needed, as we can
-  store any `TypeAttr` as an `Attribute`.
--/
+/-! Attributes -/
 
 namespace Veir
 public section
 
-/--
-  We print `ByteArray`s as UTF-8 strings, as all the `ByteArray`s we are manipulating are
-  UTF-8 encoded strings.
--/
+/-- We print `ByteArray`s as UTF-8 strings, as all the `ByteArray`s we are manipulating are UTF-8 encoded strings. -/
 private local instance : Repr ByteArray where
   reprPrec ba _ := repr (String.fromUTF8! ba)
 
 /-! ## Attribute definitions -/
 
-inductive IntegerType.Signedness
-| signless
-| signed
-| unsigned
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  A `!builtin.integer` is an integer type with a given bitwidth.
--/
+/-- A `!builtin.integer` is an integer type with a given bitwidth. -/
 structure IntegerType where
   bitwidth : Nat
-  signedness : IntegerType.Signedness := .signless
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-- The signless integer type `i<bitwidth>`. -/
-def IntegerType.signless (bitwidth : Nat) : IntegerType :=
-  { bitwidth, signedness := .signless }
-
-/-- The signed integer type `si<bitwidth>`. -/
-def IntegerType.signed (bitwidth : Nat) : IntegerType :=
-  { bitwidth, signedness := .signed }
-
-/-- The unsigned integer type `ui<bitwidth>`. -/
-def IntegerType.unsigned (bitwidth : Nat) : IntegerType :=
-  { bitwidth, signedness := .unsigned }
-
-/--
-  A floating point type.
--/
+/-- A floating point type with a given bitwidth. -/
 structure FloatType where
-  format : Data.Float.FloatFormat
+  bitwidth : Nat
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-namespace FloatType
-
-abbrev mantissa (type : FloatType) : Nat := type.format.mantissa
-abbrev exponent (type : FloatType) : Nat := type.format.exponent
-abbrev bias (type : FloatType) : Nat := type.format.bias
-abbrev hasInf (type : FloatType) : Bool := type.format.hasInf
-abbrev hasNaN (type : FloatType) : Bool := type.format.hasNaN
-abbrev hasNegZero (type : FloatType) : Bool := type.format.hasNegZero
-abbrev canonicalName (type : FloatType) : String := type.format.canonicalName
-
-abbrev bitwidth (type : FloatType) : Nat := type.format.bitwidth
-
-/--
-Convert Veir's `FloatType` into Lean's floating type `Float.Model.Format`
-that represents IEEE-style floating point formats.
--/
-abbrev toFormat (type : FloatType)
-    (hm : 0 < type.format.mantissaWithoutLeadingBit := by grind)
-    (he : 2 ≤ type.exponent := by grind) : Float.Model.Format :=
-  type.format.toLeanFormat hm he
-
-def f16 : FloatType := { format := .f16 }
-def f32 : FloatType := { format := .f32 }
-def f64 : FloatType := { format := .f64 }
-def bf16 : FloatType := { format := .bf16 }
-def f80 : FloatType := { format := .f80 }
-def f128 : FloatType := { format := .f128 }
-def f8E5M2 : FloatType := { format := .f8E5M2 }
-def f8E4M3FN : FloatType := { format := .f8E4M3FN }
-def f8E4M3FNUZ : FloatType := { format := .f8E4M3FNUZ }
-
-end FloatType
-
-
-/--
-  A register type is an integer type with width 64;
-  Negative indices represent unbounded virtual registers;
-  non-negative indices `0–31` represent the 32 architectural registers.
--/
+/-- A register type is an integer type with width 64. -/
 structure RegisterType where
-  index: Option Int := none
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/-- The MLIR builtin `index` type. -/
-structure IndexType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-- The bitwidth of `index` values, matching MLIR's 64-bit index attributes. -/
-def IndexType.bitwidth : Nat := 64
-
-/--
-  An integer literal with an associated integer type.
--/
+/-- An integer literal with an associated integer type. -/
 structure IntegerAttr where
   value : Int
   type : IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-namespace IntegerAttr
-
-/--
-  The value MLIR stores for the bits of `value` at `type`: MLIR's `IntegerAttr`
-  holds an `APInt` of its type's width, which it reads back as unsigned for
-  unsigned types and for signless `i1` (so `true` is 1 and `200 : ui8` is 200),
-  and as signed otherwise (so `200 : i8` is -56).
--/
-def normalizeValue (type : IntegerType) (value : Int) : Int :=
-  if type.signedness = .unsigned ∨ type = IntegerType.signless 1 then
-    (BitVec.ofInt type.bitwidth value).toNat
-  else
-    (BitVec.ofInt type.bitwidth value).toInt
-
-/-- An integer attribute holding the bits of `value`, normalized as MLIR does. -/
-def ofInt (value : Int) (type : IntegerType) : IntegerAttr :=
-  ⟨normalizeValue type value, type⟩
-
-/--
-  Whether the value is already normalized for its type, as the parser guarantees
-  for every integer attribute outside `mod_arith`.
--/
-def isNormalized (attr : IntegerAttr) : Bool :=
-  attr.value = normalizeValue attr.type attr.value
-
-end IntegerAttr
-
-/--
-  Integer literal of the builtin `index` type. MLIR stores index attributes as
-  `IndexType.bitwidth`-bit integers, so the value cannot be out of range.
--/
-structure IndexAttr where
-  value : BitVec IndexType.bitwidth
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
- Floating point fastmath flags attribute.
--/
+/-- Floating point fastmath flags attribute. -/
 structure FastMathFlagsAttr where
   nnan : Bool
   ninf : Bool
   nsz : Bool
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  Arith integer overflow flags attribute.
--/
-structure ArithIntegerOverflowFlagsAttr where
-  nsw : Bool
-  nuw : Bool
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-
-/--
-  LLVM calling convention attribute, e.g. `#llvm.cconv<ccc>`.
--/
-structure CConvAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM linkage attribute, e.g. `#llvm.linkage<external>`.
--/
-structure LinkageAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM frame pointer kind attribute, e.g. `#llvm.framePointerKind<all>`.
--/
-structure FramePointerKindAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM unwind table kind attribute, e.g. `#llvm.uwtableKind<async>`.
--/
-structure UwtableKindAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM tail call kind attribute, e.g. `#llvm.tailcallkind<none>`.
--/
-structure TailCallKindAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM module flag attribute, e.g. `#llvm.mlir.module_flag<error, "wchar_size", 4 : i32>`.
--/
-structure ModuleFlagAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM constant range attribute, e.g. `#llvm.constant_range<i32, 0, 19>`: the
-  half-open range `[0, 19)` a value is known to lie in. LLVM lets a range wrap,
-  so the upper bound may read as negative.
-
-  The body is kept as a string until VeIR uses it.
--/
-structure ConstantRangeAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM TBAA tag attribute, e.g.
-  `#llvm.tbaa_tag<base_type = <id = "int", members = {<#llvm.tbaa_root<id = "x">, 0>}>,
-  access_type = <id = "int", members = {<#llvm.tbaa_root<id = "x">, 0>}>, offset = 0>`.
-
-  The body is kept as a string until we have a need to inspect it.
--/
-structure TbaaTagAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM memory effects attribute, e.g.
-  `#llvm.memory_effects<other = none, argMem = read, inaccessibleMem = none>`:
-  what a function may do to each class of memory location.
-
-  The body is kept as a string until VeIR reasons about the effects.
--/
-structure MemoryEffectsAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM loop annotation attribute, e.g.
-  `#llvm.loop_annotation<unroll = <disable = true>, mustProgress = true>`: the
-  `!llvm.loop` metadata a branch carries back to its loop header.
-
-  The body is kept as a string until VeIR acts on the hints.
--/
-structure LoopAnnotationAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  LLVM target features attribute, e.g. `#llvm.target_features<["+cmov", "+sse"]>`.
--/
-structure TargetFeaturesAttr where
-  value : String
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  DLTI data layout spec attribute, e.g. `#dlti.dl_spec<i64 = dense<64> : vector<2xi64>>`.
--/
-structure DlSpecAttr where
-  value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 structure RegisterAttr where
@@ -290,34 +46,39 @@ structure RegisterAttr where
   type : RegisterType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-A floating point attribute storing the bit pattern of a floating point value
-together with the float type it is a value of.
--/
+/-- A floating point attribute storing a Lean `Float` value with an associated float type. -/
 structure FloatAttr where
+  value : Float
   type : FloatType
-  value : Data.Float.FloatValue type.format
-deriving Inhabited, Repr, DecidableEq
+deriving Inhabited, Repr
+
+/-- Bitwise equality determines Lean's logical floating-point value. -/
+theorem floatEqOfToBitsEq {a b : Float} : a.toBits = b.toBits → a = b := by
+  rcases a with ⟨⟨a, ha⟩⟩
+  rcases b with ⟨⟨b, hb⟩⟩
+  intro h
+  change a = b at h
+  cases h
+  rfl
+
+instance : DecidableEq FloatAttr
+  | a, b =>
+    if hv : a.value.toBits = b.value.toBits then
+      if ht : a.type = b.type then
+        have hval : a.value = b.value := floatEqOfToBitsEq hv
+        isTrue (by
+          cases a
+          cases b
+          simp_all)
+      else
+        isFalse (by intro h; exact ht (congrArg FloatAttr.type h))
+    else
+      isFalse (by intro h; exact hv (congrArg (Float.toBits ∘ FloatAttr.value) h))
 
 instance : Hashable FloatAttr where
-  hash a := mixHash (hash a.value) (hash a.type)
+  hash a := mixHash (hash a.value.toBits) (hash a.type)
 
-/-- Extract exponent bits as a BitVec. -/
-def FloatAttr.exponent (attr : FloatAttr) : BitVec attr.type.exponent :=
-  attr.value.exponent
-
-/-- Extract mantissa bits as a BitVec. -/
-def FloatAttr.mantissa (attr : FloatAttr) : BitVec attr.type.mantissa :=
-  attr.value.mantissa
-
-/-- Extract sign bit (true for negative). -/
-def FloatAttr.sign (attr : FloatAttr) : Bool :=
-  attr.value.sign
-
-/--
-  An attribute containing a string.
-  The string is stored as a `ByteArray` as unicode is not supported.
--/
+/-- An attribute containing a string. -/
 structure StringAttr where
   value : ByteArray
 deriving Inhabited, DecidableEq, Hashable
@@ -325,175 +86,36 @@ deriving Inhabited, DecidableEq, Hashable
 instance : Repr StringAttr where
   reprPrec attr _ := "StringAttr.mk " ++ repr (String.fromUTF8! attr.value)
 
-/--
-  A unit attribute that carries no information, but the information that it exists.
--/
+/-- A unit attribute that carries no information, but the information that it exists. -/
 structure UnitAttr where
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  A source location.
-  This currently stores the raw string of the MLIR location syntax body.
--/
+/-- A source location. -/
 structure LocationAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  An array of integer attributes.
-  The values are stored as an array of integers, and an associated integer type.
-  Note that the integers are not necessarily in the range of the integer type.
--/
+/-- An array of integer attributes. -/
 structure DenseArrayAttr where
   elementType : IntegerType
   values : Array Int
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  An array of dense elements, e.g., `!llvm.array<4 x i32>`.
-  The values are stored as a string, and an associated type.
-  The string is expected to be a valid MLIR representation of the array elements.
--/
-structure DenseElementsAttr where
+/-- An attribute from an unknown dialect. -/
+structure UnregisteredAttr where
   value : String
-  type : String
+  isType : Bool
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`.
-  The value stores the raw text including the `@` prefix.
--/
+/-- A flat symbol reference attribute, e.g., `@foo` or `@"my.func"`. -/
 structure FlatSymbolRefAttr where
   value : String
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  A symbol reference with nested references, e.g. `@comdat::@selector`.
-  The root and each nested reference keep their raw text including the `@`.
--/
-structure SymbolRefAttr where
-  root : FlatSymbolRefAttr
-  nested : Array FlatSymbolRefAttr
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!mod_arith.int` type from HEIR's modarith dialect.
--/
+/-- The `!mod_arith.int` type from HEIR's modarith dialect. -/
 structure ModArithType where
-  modulus : IntegerAttr
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-- The bitwidth of the storage type of a `!mod_arith.int`. -/
-public def ModArithType.bitwidth (ty : ModArithType) : Nat :=
-  ty.modulus.type.bitwidth
-
-namespace SMT
-
-/--
-  An SMT sort type, i.e. `!smt.bool` or `!smt.bv<width>`. Sorts are the types of
-  the SMT dialect; they mirror MLIR's `!smt.bool` and `!smt.bv<width>`.
--/
-inductive SortType where
-| bool
-| bv (width : Nat)
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-- The width of a bit-vector sort, if this sort is one. -/
-def SortType.bvWidth? : SortType → Option Nat
-| .bool => none
-| .bv width => some width
-
-end SMT
-
-namespace PDL
-
-/--
-  The `!pdl.operation` type, a handle to an `mlir::Operation` within a pattern.
--/
-structure OperationType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!pdl.value` type, a handle to an `mlir::Value` within a pattern.
--/
-structure ValueType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!pdl.type` type, a handle to an `mlir::Type` within a pattern.
--/
-structure TypeType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!pdl.attribute` type, a handle to an `mlir::Attribute` within a pattern.
--/
-structure AttributeType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The element of a `!pdl.range<...>`. MLIR restricts it to the four handle
-  types, so a range never nests.
--/
-inductive RangeElement
-| attribute
-| operation
-| type
-| value
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!pdl.range<...>` type, a handle to a range of PDL entities.
--/
-structure RangeType where
-  element : RangeElement
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-end PDL
-
-/--
-  The `!felt.type` from LLZK's felt dialect.
-  An element of a finite field. The field is specified by an optional
-  name, e.g. `!felt.type<"bn254">`. When omitted, the field is left
-  unspecified and is filled in by the backend.
--/
-structure FeltType where
-  fieldName : Option ByteArray
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `#felt<const N> : !felt.type` attribute from LLZK's felt dialect
-  — a structured, typed field-element constant.
--/
-structure FeltConstAttr where
-  value : Int
-  fieldType : FeltType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-! ## ClangIR (`cir`) types and attributes -/
-
-/-- The `!cir.int<s, N>` / `!cir.int<u, N>` type from ClangIR. -/
-structure CirIntType where
-  isSigned : Bool
-  width : Nat
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-- The builtin integer type a `!cir.int` lowers to (signedness is dropped). -/
-def CirIntType.toIntegerType (type : CirIntType) : IntegerType := IntegerType.signless type.width
-
-/-- The `!cir.bool` type from ClangIR. -/
-structure CirBoolType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-- The `#cir.int<N> : !cir.int<s|u, W>` attribute from ClangIR. -/
-structure CirIntAttr where
-  value : Int
-  type : CirIntType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/-- The `#cir.bool<true|false> : !cir.bool` attribute from ClangIR. -/
-structure CirBoolAttr where
-  value : Bool
+  modulus : Int
+  modulusType : Option IntegerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace LLVM
@@ -501,36 +123,16 @@ namespace LLVM
 structure VoidType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-structure PointerType where
-  mkImpl ::
-  addressSpace : Nat := 0
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  Construct an LLVM pointer, defaulting to address space zero.
--/
-def PointerType.mk (addressSpace : Nat := 0) : PointerType :=
-  ⟨addressSpace⟩
-
-/--
- A byte type with a given bitwidth.
--/
-structure ByteType where
-  bitwidth : Nat
+structure PointerType
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 end LLVM
 
-/-!
-  # Cuda Tile types
--/
+/-! Cuda Tile types -/
 
 namespace CudaTile
 
-/--
-  An elemental pointer type represents a single location in global device memory.
-  Pointers are typed, i.e., they carry the type they point to.
--/
+/-- An elemental pointer type represents a single location in global device memory. -/
 
 structure PointerType where
   pointeeType : IntegerType
@@ -538,254 +140,68 @@ deriving Inhabited, Repr, DecidableEq, Hashable
 
 end CudaTile
 
-/-!
-  # IO types
--/
-
-namespace Io
-
-/--
-  `!io.address`: an opaque peer address for `io.send` and `io.recv`. Its
-  encoding is left to the lowering.
--/
-structure AddressType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-end Io
-
 namespace HW
 
-/--
-  The `ModulePort::Direction` type from CIRCT's hw dialect.
-  This represents the direction of a module port.
--/
+/-- The `ModulePort::Direction` type from CIRCT's hw dialect. -/
 inductive ModulePort.Direction
 | input
 | output
 | inout
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  The `ModulePort` type from CIRCT's hw dialect.
-  This represents a port to a module with a direction, type and name.
--/
+/-- The `ModulePort` type from CIRCT's hw dialect. -/
 structure ModulePort where
   name : String
   type : IntegerType
   dir : ModulePort.Direction
 deriving Inhabited, Repr, DecidableEq, Hashable
 
-/--
-  The `!hw.modty` type from CIRCT's hw dialect.
-  This represents a list of ports to a module.
--/
+/-- The `!hw.modty` type from CIRCT's hw dialect. -/
 structure ModuleType where
   ports : Array ModulePort
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 end HW
 
-namespace Seq
-
-/--
-  The `!seq.clock` type from CIRCT's seq dialect.
-  This represents a clock.
--/
-structure ClockType
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-/--
-  The `!seq.firmem` type from CIRCT's seq dialect.
-  This represents a FIRRTL-flavored memory of `depth` words, each `width` bits wide.
-  `maskWidth` is the write mask granularity, and is absent when the memory has no masking.
--/
-structure FirMemType where
-  depth : Nat
-  width : Nat
-  maskWidth : Option Nat
-deriving Inhabited, Repr, DecidableEq, Hashable
-
-end Seq
-
 mutual
 
-/--
-  A builtin fixed-size vector type.
-
-  The shape contains one entry per dimension, and `elementType` is expected to
-  be a valid vector element type. For example, `vector<2x4xi32>` is represented
-  by shape `#[2, 4]` and element type `i32`.
-
-  The element-type invariant is not proof-enforced in VeIR; MLIR enforces it
-  through `VectorElementTypeInterface`.
--/
-structure VectorType where
-  shape : Array Nat
-  elementType : Attribute
-
-/--
-  A builtin ranked tensor type with a static shape.
-
-  The shape contains one entry per dimension, and `elementType` is the type of
-  the tensor elements. For example, `tensor<2x4xf32>` is represented by shape
-  `#[2, 4]` and element type `f32`.
-
-  Dynamic dimensions (`?`), unranked tensors (`tensor<*xf32>`), and encodings
-  are not yet supported.
-
-  The element-type invariant (`TensorType.isValidElementType`) is not proof-enforced
-  in VeIR; the parser rejects invalid element types, as MLIR does.
--/
-structure TensorType where
-  shape : Array Nat
-  elementType : Attribute
-
-/--
-  The signature of a function, consisting of an array of input attributes
-  and an array of output attributes.
--/
+/-- The signature of a function, consisting of an array of input attributes and an array of output attributes. -/
 structure FunctionType where
   inputs : Array Attribute
   outputs : Array Attribute
   isVarArg : Bool := false
-deriving Inhabited
+deriving Inhabited, Repr, Hashable
 
-/--
-  The payload of an LLVM function type attribute.
-
-  This wrapper distinguishes `!llvm.func` types from builtin function types at
-  the Lean type level while reusing their common representation.
--/
-structure LLVMFunctionType where
-  functionType : FunctionType
-deriving Inhabited
-
-/--
-  The payload of a ClangIR function type `!cir.func<(inputs) -> result>`.
-  A function without results is spelled `!cir.func<(inputs)>`.
--/
-structure CirFuncType where
-  functionType : FunctionType
-deriving Inhabited
-
-/--
-  An attribute that holds a sequence of attributes.
--/
+/-- An attribute that holds a sequence of attributes. -/
 structure ArrayAttr where
   value : Array Attribute
-deriving Inhabited
+deriving Inhabited, Repr, Hashable
 
-/--
-  A dictionary attribute that maps byte array keys to attribute values.
--/
+/-- A dictionary attribute that maps byte array keys to attribute values. -/
 structure DictionaryAttr where
-  /--
-    Entries are encoded as an array to allow decidable equality and iteration, which is
-    not possible with either a `HashMap` or an `ExtHashMap`.
-    Entries are expected to be sorted by key and each key is unique, so that we can use a
-    binary search and have O(log(n)) lookup time. This invariant is not enforced proof-wise but
-    is expected to be maintained at all times.
-  -/
+  /-- Entries are encoded as an array to allow decidable equality and iteration, which is not possible with either a `HashMap` or an `ExtHashMap`. -/
   entries : Array (ByteArray × Attribute)
   /- TODO: figure out how to maintain a proof of sorted-ness and uniqueness. -/
-deriving Inhabited
+deriving Inhabited, Repr, Hashable
 
-/--
-  An attribute representing a fixed-sized array type
--/
+/-- An attribute representing a fixed-sized array type -/
 structure LLVM.ArrayType where
   size : Nat
   type : Attribute
+deriving Repr, Hashable
 
-/--
-  An LLVM struct type with a known body: either a literal struct
-  (`!llvm.struct<(i8, i32)>`) or an identified struct
-  (`!llvm.struct<"name", (i8, i32)>`). A packed struct has no padding between
-  its fields. Opaque structs and bare references to identified structs are not
-  modelled and stay unregistered.
--/
-structure LLVM.StructType where
-  name : Option ByteArray
-  packed : Bool
-  body : Array Attribute
-
-/--
-  The `!match.optional<...>` type, wrapping a PDL handle type whose value may
-  be null at match time.
-
-  Navigation in the `match` dialect that can fail returns one of these, and
-  `match.is_not_null` is the only way back to the bare handle. The wrapped type
-  is an arbitrary attribute rather than a fixed enumeration because MLIR places
-  no restriction on it beyond it being a type; the verifier narrows it.
--/
-structure Match.OptionalType where
-  innerType : Attribute
-
-/--
-  An attribute from an unknown dialect, kept as its source text.
-  It can be either a type attribute or a non-type attribute.
-
-  A non-type attribute may carry a trailing `: type`, as in
-  `#foo.bar<baz> : i32` or `#foo.bar : !foo.ty`. MLIR's generic parser accepts
-  this suffix on any dialect attribute and hands the type to the dialect, so it
-  is parsed structurally here and printed back after the body; this mirrors
-  `mlir::OpaqueAttr`. `type` is always `none` when `isType` is true, as types
-  never carry a trailing type.
--/
-structure UnregisteredAttr where
-  value : String
-  isType : Bool
-  type : Option Attribute := none
-deriving Inhabited
-
-/--
-  A data structure that represents compile-time information in the IR.
-  Attributes are used either as type annotations for SSA values, or
-  as extra information stored in operations.
--/
+/-- A data structure that represents compile-time information in the IR. -/
 inductive Attribute
 /-- Integer type -/
 | integerType (type : IntegerType)
 /-- Float type -/
 | floatType (type : FloatType)
-/-- Builtin fixed-size vector type -/
-| vectorType (type : VectorType)
-/-- Builtin ranked tensor type -/
-| tensorType (type : TensorType)
 /-- Integer attribute -/
 | integerAttr (attr : IntegerAttr)
-/-- Index attribute -/
-| indexAttr (attr : IndexAttr)
 /-- Float attribute -/
 | floatAttr (attr : FloatAttr)
 /-- Float fast math flags attribute -/
 | fastMathFlagsAttr (attr : FastMathFlagsAttr)
-/-- Arith integer overflow flags attribute -/
-| arithIntegerOverflowFlagsAttr (attr : ArithIntegerOverflowFlagsAttr)
-/-- LLVM calling convention attribute -/
-| cconvAttr (attr : CConvAttr)
-/-- LLVM linkage attribute -/
-| linkageAttr (attr : LinkageAttr)
-/-- LLVM frame pointer kind attribute -/
-| framePointerKindAttr (attr : FramePointerKindAttr)
-/-- LLVM unwind table kind attribute -/
-| uwtableKindAttr (attr : UwtableKindAttr)
-/-- LLVM tail call kind attribute -/
-| tailCallKindAttr (attr : TailCallKindAttr)
-/-- LLVM module flag attribute -/
-| moduleFlagAttr (attr : ModuleFlagAttr)
-/-- LLVM TBAA tag attribute -/
-| tbaaTagAttr (attr : TbaaTagAttr)
-/-- LLVM constant range attribute -/
-| constantRangeAttr (attr : ConstantRangeAttr)
-/-- LLVM memory effects attribute -/
-| memoryEffectsAttr (attr : MemoryEffectsAttr)
-/-- LLVM loop annotation attribute -/
-| loopAnnotationAttr (attr : LoopAnnotationAttr)
-/-- LLVM target features attribute -/
-| targetFeaturesAttr (attr : TargetFeaturesAttr)
-/-- DLTI data layout spec attribute -/
-| dlSpecAttr (attr : DlSpecAttr)
 /-- Register type -/
 | registerType (type : RegisterType)
 /-- Register attribute -/
@@ -800,8 +216,6 @@ inductive Attribute
 | arrayAttr (attr : ArrayAttr)
 /-- Dense array attribute -/
 | denseArrayAttr (attr : DenseArrayAttr)
-/-- Dense elements attribute -/
-| denseElementsAttr (attr : DenseElementsAttr)
 /-- Dictionary attribute -/
 | dictionaryAttr (attr : DictionaryAttr)
 /-- Function type -/
@@ -810,103 +224,30 @@ inductive Attribute
 | unregisteredAttr (attr : UnregisteredAttr)
 /-- A flat symbol reference, e.g., `@foo` or `@"my.func"`. -/
 | flatSymbolRefAttr (attr : FlatSymbolRefAttr)
-/-- A symbol reference with nested references, e.g., `@comdat::@selector`. -/
-| symbolRefAttr (attr : SymbolRefAttr)
 /-- HEIR modarith type -/
 | modArithType (type : ModArithType)
-/-- LLZK felt type -/
-| feltType (type : FeltType)
-/-- LLZK felt-const attribute (`#felt<const N> : !felt.type`) -/
-| feltConstAttr (attr : FeltConstAttr)
-/-- MLIR builtin index type -/
-| indexType (type : IndexType)
-/-- ClangIR integer type (`!cir.int<s|u, N>`) -/
-| cirIntType (type : CirIntType)
-/-- ClangIR boolean type (`!cir.bool`) -/
-| cirBoolType (type : CirBoolType)
-/-- ClangIR function type (`!cir.func<(..) -> T>`) -/
-| cirFuncType (type : CirFuncType)
-/-- ClangIR integer attribute (`#cir.int<N> : !cir.int<..>`) -/
-| cirIntAttr (attr : CirIntAttr)
-/-- ClangIR boolean attribute (`#cir.bool<b> : !cir.bool`) -/
-| cirBoolAttr (attr : CirBoolAttr)
 /-- LLVM void type -/
 | llvmVoidType (type : LLVM.VoidType)
-/-- LLVM byte type -/
-| byteType (type : LLVM.ByteType)
 /-- LLVM pointer type -/
 | llvmPointerType (type : LLVM.PointerType)
 /-- LLVM array type -/
 | llvmArrayType (type : LLVM.ArrayType)
-/-- LLVM struct type -/
-| llvmStructType (type : LLVM.StructType)
 /-- LLVM function type -/
-| llvmFunctionType (type : LLVMFunctionType)
+| llvmFunctionType (type : FunctionType)
 /-- Cuda Tile pointer type -/
 | cudaTilePointerType (type : CudaTile.PointerType)
-/-- IO address type -/
-| ioAddressType (type : Io.AddressType)
 /-- CIRCT hw module type -/
 | hwModuleType (type : HW.ModuleType)
-/-- PDL range handle type -/
-| pdlRangeType (type : PDL.RangeType)
-/-- PDL attribute handle type -/
-| pdlAttributeType (type : PDL.AttributeType)
-/-- PDL operation handle type -/
-| pdlOperationType (type : PDL.OperationType)
-/-- PDL value handle type -/
-| pdlValueType (type : PDL.ValueType)
-/-- PDL type handle type -/
-| pdlTypeType (type : PDL.TypeType)
-/-- Match optional handle type -/
-| matchOptionalType (type : Match.OptionalType)
-/-- CIRCT seq clock type -/
-| seqClockType (type : Seq.ClockType)
-/-- CIRCT seq FIRRTL-flavored memory type -/
-| seqFirMemType (type : Seq.FirMemType)
-/-- SMT sort type (`!smt.bool` or `!smt.bv<width>`) -/
-| smtSortType (type : SMT.SortType)
-deriving Inhabited
+deriving Inhabited, Repr, Hashable
 
 end
-
-/- Derive Repr and Hashable instances for the mutual group. -/
-derive_mutual_repr for
-  VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
-  ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  UnregisteredAttr, Attribute
-derive_mutual_hashable for
-  VectorType, TensorType, FunctionType, LLVMFunctionType, CirFuncType,
-  ArrayAttr, DictionaryAttr, LLVM.ArrayType, LLVM.StructType, Match.OptionalType,
-  UnregisteredAttr, Attribute
-
-instance : Inhabited VectorType where
-  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
-
-instance : Inhabited TensorType where
-  default := { shape := #[], elementType := .integerType (IntegerType.signless 0) }
-
-instance : Coe FunctionType LLVMFunctionType where
-  coe := .mk
-
-instance : Coe LLVMFunctionType FunctionType where
-  coe := LLVMFunctionType.functionType
 
 instance : Inhabited LLVM.ArrayType where
   default := { size := 0, type := .llvmPointerType .mk }
 
-instance : Inhabited LLVM.StructType where
-  default := { name := none, packed := false, body := #[] }
-
-instance : Inhabited Match.OptionalType where
-  default := { innerType := .pdlValueType .mk }
-
 def ArrayAttr.empty : ArrayAttr := { value := #[] }
 
-/--
-  Construct a `DictionaryAttr` from an array of key-value pairs.
-  TODO: ensure that entries are unique.
--/
+/-- Construct a `DictionaryAttr` from an array of key-value pairs. -/
 def DictionaryAttr.fromArray (entries : Array (ByteArray × Attribute)) : DictionaryAttr :=
   { entries := entries.insertionSort (fun entry1 entry2 => (compare entry1.1 entry2.1).isLT) }
 
@@ -920,22 +261,6 @@ theorem FunctionType.sizeOf_elems_outputs {ft : FunctionType} (hx : x ∈ ft.out
     sizeOf x < sizeOf ft := by
   grind [Array.sizeOf_lt_of_mem hx, cases FunctionType]
 
-theorem VectorType.sizeOf_elementType {t : VectorType} :
-    sizeOf t.elementType < sizeOf t := by
-  grind [cases VectorType]
-
-theorem TensorType.sizeOf_elementType {t : TensorType} :
-    sizeOf t.elementType < sizeOf t := by
-  grind [cases TensorType]
-
-theorem LLVMFunctionType.sizeOf_functionType {ft : LLVMFunctionType} :
-    sizeOf ft.functionType < sizeOf ft := by
-  grind [cases LLVMFunctionType]
-
-theorem CirFuncType.sizeOf_functionType {ft : CirFuncType} :
-    sizeOf ft.functionType < sizeOf ft := by
-  grind [cases CirFuncType]
-
 theorem ArrayAttr.sizeOf_elems_value {aa : ArrayAttr} (hx : x ∈ aa.value) :
     sizeOf x < sizeOf aa := by
   grind [Array.sizeOf_lt_of_mem hx, cases ArrayAttr]
@@ -948,729 +273,9 @@ theorem LLVM.ArrayType.sizeOf_elems_type {t : ArrayType} :
     sizeOf t.type < sizeOf t := by
   grind [cases ArrayType]
 
-theorem LLVM.StructType.sizeOf_elems_body {t : StructType} (hx : x ∈ t.body) :
-    sizeOf x < sizeOf t := by
-  grind [Array.sizeOf_lt_of_mem hx, cases StructType]
-
-theorem Match.OptionalType.sizeOf_innerType {t : Match.OptionalType} :
-    sizeOf t.innerType < sizeOf t := by
-  grind [cases Match.OptionalType]
-
-theorem UnregisteredAttr.sizeOf_type {a : UnregisteredAttr} (h : a.type = some t) :
-    sizeOf t < sizeOf a := by
-  grind [cases UnregisteredAttr]
-
-/-!
-  ## ToString implementation
-
-  `ToString` is used to convert attributes to their MLIR textual representation.
-  It is also the syntax used for printing attributes in the REPL and in error messages.
--/
-
-instance : ToString IntegerType where
-  toString type := match type.signedness with
-    | .signless => s!"i{type.bitwidth}"
-    | .signed => s!"si{type.bitwidth}"
-    | .unsigned => s!"ui{type.bitwidth}"
-
-instance : ToString FloatType where
-  toString type := type.canonicalName
-
-instance : ToString LLVM.ByteType where
-  toString type := s!"!llvm.byte<{type.bitwidth}>"
-
-instance : ToString FastMathFlagsAttr where
-  toString type := Id.run do
-    let mut array : List String := []
-    if type.nnan && type.ninf && type.nsz then array := array ++ ["fast"]
-    else
-      if type.nnan then array := array ++ ["nnan"]
-      if type.ninf then array := array ++ ["ninf"]
-      if type.nsz then array := array ++ ["nsz"]
-      if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
-    s!"#llvm.fastmath<{String.intercalate ", " array}>"
-
-def integerOverflowFlagsString (dialect : String) (nsw nuw : Bool) : String :=
-  let flags :=
-    if nsw && nuw then ["nsw", "nuw"]
-    else if nsw then ["nsw"]
-    else if nuw then ["nuw"]
-    else ["none"]
-  s!"#{dialect}.overflow<{String.intercalate ", " flags}>"
-
-instance : ToString ArithIntegerOverflowFlagsAttr where
-  toString attr := integerOverflowFlagsString "arith" attr.nsw attr.nuw
-
-instance : ToString CConvAttr where
-  toString attr := s!"#llvm.cconv<{attr.value}>"
-
-instance : ToString LinkageAttr where
-  toString attr := s!"#llvm.linkage<{attr.value}>"
-
-instance : ToString FramePointerKindAttr where
-  toString attr := s!"#llvm.framePointerKind<{attr.value}>"
-
-instance : ToString UwtableKindAttr where
-  toString attr := s!"#llvm.uwtableKind<{attr.value}>"
-
-instance : ToString TailCallKindAttr where
-  toString attr := s!"#llvm.tailcallkind<{attr.value}>"
-
-instance : ToString ModuleFlagAttr where
-  toString attr := s!"#llvm.mlir.module_flag<{attr.value}>"
-
-instance : ToString ConstantRangeAttr where
-  toString attr := s!"#llvm.constant_range<{attr.value}>"
-
-instance : ToString TbaaTagAttr where
-  toString attr := s!"#llvm.tbaa_tag<{attr.value}>"
-
-instance : ToString MemoryEffectsAttr where
-  toString attr := s!"#llvm.memory_effects<{attr.value}>"
-
-instance : ToString LoopAnnotationAttr where
-  toString attr := s!"#llvm.loop_annotation<{attr.value}>"
-
-instance : ToString TargetFeaturesAttr where
-  toString attr := s!"#llvm.target_features<{attr.value}>"
-
-instance : ToString DlSpecAttr where
-  toString attr := s!"#dlti.dl_spec<{attr.value}>"
-
-instance : ToString IntegerAttr where
-  toString attr :=
-    if attr.type = IntegerType.signless 1 then
-      if attr.value % 2 = 0 then "false" else "true"
-    else s!"{attr.value} : {attr.type}"
-
-instance : ToString IndexAttr where
-  toString attr := s!"{attr.value.toInt} : index"
-
-instance : ToString FloatAttr where
-  toString attr :=
-  -- Of the form 0x<bits>#<bitwidth>, e.g. 0xff#8
-  let str := s!"{attr.value}"
-  let front := (str.split '#').toArray.getD 0 ""
-  s!"{front} : {attr.type}"
-
-instance : ToString RegisterType where
-  toString type :=
-    match type.index with
-    -- unallocated
-    | none => s!"!riscv.reg"
-    -- RV64 architectural (x<?>) or virtual register (j<?>)
-    | some i => if i >= 0 then s!"!riscv.reg<x{i}>" else s!"!riscv.reg<j{-(i + 1)}>"
-
-instance : ToString RegisterAttr where
-  toString attr := s!"{attr.value} : !riscv.reg"
-
-def escapeStringLiteral (b : ByteArray) : String := Id.run do
-  let mut result := ""
-  for byte in b do
-    if byte == '\\'.toUInt8 then result := result ++ "\\\\"
-    else if byte == '"'.toUInt8 then result := result ++ "\\\""
-    else if byte == '\n'.toUInt8 then result := result ++ "\\n"
-    else if byte == '\t'.toUInt8 then result := result ++ "\\t"
-    else if byte >= 0x20 && byte < 0x7F then result := result.push (Char.ofNat byte.toNat)
-    else
-      /- LLVM convention: encode hex as \HH. -/
-      result := result.push '\\'
-      result := result.push (byte >>> 4).toHexDigit
-      result := result.push (byte &&& 0x0F).toHexDigit
-  return result
-
-instance : ToString StringAttr where
-  toString attr := s!"\"{escapeStringLiteral attr.value}\""
-
-instance : ToString UnitAttr where
-  toString _ := "unit"
-
-instance : ToString LocationAttr where
-  toString attr := s!"loc(" ++ attr.value ++ ")"
-
-instance : ToString DenseArrayAttr where
-  toString attr :=
-    let values := if attr.values.isEmpty then ""
-      else ": " ++ String.intercalate ", " (attr.values.toList.map ToString.toString)
-    s!"array<{attr.elementType}{values}>"
-
-instance : ToString DenseElementsAttr where
-  toString attr := s!"dense<{attr.value}> : {attr.type}"
-
-instance : ToString FlatSymbolRefAttr where
-  toString attr := attr.value
-
-instance : ToString SymbolRefAttr where
-  toString attr := attr.nested.foldl (fun acc n => acc ++ "::" ++ n.value) attr.root.value
-
-instance : ToString ModArithType where
-  toString type := s!"!mod_arith.int<{type.modulus}>"
-
-instance : ToString FeltType where
-  toString type := match type.fieldName with
-    | some name => s!"!felt.type<\"{escapeStringLiteral name}\">"
-    | none => "!felt.type"
-
-instance : ToString FeltConstAttr where
-  toString attr :=
-    match attr.fieldType.fieldName with
-    | some _ => s!"#felt<const {attr.value} : {attr.fieldType}>"
-    | none => s!"#felt<const {attr.value}>"
-
-instance : ToString CirIntType where
-  toString type := s!"!cir.int<{if type.isSigned then "s" else "u"}, {type.width}>"
-
-instance : ToString CirBoolType where
-  toString _ := "!cir.bool"
-
-instance : ToString CirIntAttr where
-  toString attr := s!"#cir.int<{attr.value}> : {attr.type}"
-
-instance : ToString CirBoolAttr where
-  toString attr := s!"#cir.bool<{attr.value}> : !cir.bool"
-
-instance : ToString PDL.RangeElement where
-  toString element :=
-    match element with
-    | .attribute => "attribute"
-    | .operation => "operation"
-    | .type => "type"
-    | .value => "value"
-
-instance : ToString PDL.RangeType where
-  toString type := s!"!pdl.range<{type.element}>"
-
-instance : ToString PDL.AttributeType where
-  toString _ := "!pdl.attribute"
-
-instance : ToString PDL.OperationType where
-  toString _ := "!pdl.operation"
-
-instance : ToString PDL.ValueType where
-  toString _ := "!pdl.value"
-
-instance : ToString PDL.TypeType where
-  toString _ := "!pdl.type"
-
-instance : ToString IndexType where
-  toString _ := "index"
-
-instance : ToString LLVM.VoidType where
-  toString _ := "!llvm.void"
-
-instance : ToString LLVM.PointerType where
-  toString type :=
-    if type.addressSpace == 0 then "!llvm.ptr"
-    else s!"!llvm.ptr<{type.addressSpace}>"
-
-instance : ToString CudaTile.PointerType where
-  toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
-
-instance : ToString Io.AddressType where
-  toString _ := "!io.address"
-
-instance : ToString HW.ModulePort.Direction where
-  toString
-  | .input => "input"
-  | .output => "output"
-  | .inout => "inout"
-
-instance : ToString HW.ModulePort where
-  toString attr := s!"{attr.dir} {attr.name} : {attr.type}"
-
-instance : ToString HW.ModuleType where
-  toString attr :=
-    let values := attr.ports.iter.map ToString.toString |>.intercalateString ", "
-    s!"!hw.modty<{values}>"
-
-instance : ToString Seq.ClockType where
-  toString _ :=
-    s!"!seq.clock"
-
-instance : ToString Seq.FirMemType where
-  toString type :=
-    let mask := match type.maskWidth with
-      | some maskWidth => s!", mask {maskWidth}"
-      | none => ""
-    s!"!seq.firmem<{type.depth} x {type.width}{mask}>"
-
-/-- Print a shaped type such as `vector<2x4xi32>` or `tensor<f32>`. -/
-def shapedTypeToString (keyword : String) (shape : Array Nat) (elementType : String) : String :=
-  let shape := String.intercalate "x" (shape.toList.map ToString.toString)
-  let shape := if shape.isEmpty then "" else shape ++ "x"
-  s!"{keyword}<{shape}{elementType}>"
-
-instance : ToString SMT.SortType where
-  toString type := match type with
-    | .bool => "!smt.bool"
-    | .bv width => s!"!smt.bv<{width}>"
+/-! DecidableEq instances -/
 
 mutual
-
-partial def VectorType.toString (type : VectorType) : String :=
-  shapedTypeToString "vector" type.shape (Attribute.toString type.elementType)
-
-partial def TensorType.toString (type : TensorType) : String :=
-  shapedTypeToString "tensor" type.shape (Attribute.toString type.elementType)
-
-partial def ArrayAttr.toString (attr : ArrayAttr) : String :=
-  let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
-  s!"[{elems}]"
-
-partial def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
-  let key := String.fromUTF8! entry.1
-  match entry.2 with
-  | .unitAttr _ => key
-  | _ => s!"\"{key}\" = {Attribute.toString entry.2}"
-
-partial def DictionaryAttr.toString (attr : DictionaryAttr) : String :=
-  let entries := attr.entries.toList.map DictionaryAttr.entryToString
-  s!"\{{String.intercalate ", " entries}}"
-
-partial def FunctionType.toLLVMString (type : FunctionType) : String :=
-  let paramStrs := type.inputs.toList.map Attribute.toString
-  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
-  let params := String.intercalate ", " paramStrs
-  let result := match _ : type.outputs.size with
-    | 1 =>
-      match type.outputs[0] with
-      | .llvmVoidType _ => "void"
-      | _ => Attribute.toString type.outputs[0]
-    | _ => "<invalid>"
-  s!"!llvm.func<{result} ({params})>"
-
-partial def LLVMFunctionType.toString (type : LLVMFunctionType) : String :=
-  type.functionType.toLLVMString
-
-/--
-  Print a function type in ClangIR spelling: `!cir.func<(inputs) -> result>`, or
-  `!cir.func<(inputs)>` when there are no results.
--/
-partial def FunctionType.toCirString (type : FunctionType) : String :=
-  let paramStrs := type.inputs.toList.map Attribute.toString
-  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
-  let params := String.intercalate ", " paramStrs
-  match _ : type.outputs.size with
-  | 0 => s!"!cir.func<({params})>"
-  | _ =>
-    let results := String.intercalate ", " (type.outputs.toList.map Attribute.toString)
-    s!"!cir.func<({params}) -> {results}>"
-
-partial def CirFuncType.toString (type : CirFuncType) : String :=
-  type.functionType.toCirString
-
-partial def FunctionType.toString (type : FunctionType) : String :=
-  let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
-  let outputs := match _ : type.outputs.size with
-  | 0 => "()"
-  | 1 =>
-    match _ : type.outputs[0] with
-    | .functionType _ => s!"({type.outputs[0].toString})"
-    | output => output.toString
-  | _ =>
-    s!"({String.intercalate ", " (type.outputs.toList.map Attribute.toString)})"
-  s!"({inputs}) -> {outputs}"
-
-partial def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
-  s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
-
-partial def LLVM.StructType.toString (type : LLVM.StructType) : String :=
-  let name := match type.name with
-    | some name => s!"\"{escapeStringLiteral name}\", "
-    | none => ""
-  let packed := if type.packed then "packed " else ""
-  let body := String.intercalate ", " (type.body.toList.map Attribute.toString)
-  s!"!llvm.struct<{name}{packed}({body})>"
-
-partial def Match.OptionalType.toString (type : Match.OptionalType) : String :=
-  s!"!match.optional<{Attribute.toString type.innerType}>"
-
-partial def UnregisteredAttr.toString (attr : UnregisteredAttr) : String :=
-  match _h : attr.type with
-  | none => attr.value
-  | some type => s!"{attr.value} : {Attribute.toString type}"
-
-/--
-  Convert an attribute to a string representation.
--/
-partial def Attribute.toString (attr : Attribute) : String :=
-  match attr with
-  | .integerType type => ToString.toString type
-  | .floatType type => ToString.toString type
-  | .vectorType type => type.toString
-  | .tensorType type => type.toString
-  | .byteType type => ToString.toString type
-  | .fastMathFlagsAttr attr => ToString.toString attr
-  | .arithIntegerOverflowFlagsAttr attr => ToString.toString attr
-  | .cconvAttr attr => ToString.toString attr
-  | .linkageAttr attr => ToString.toString attr
-  | .framePointerKindAttr attr => ToString.toString attr
-  | .uwtableKindAttr attr => ToString.toString attr
-  | .tailCallKindAttr attr => ToString.toString attr
-  | .moduleFlagAttr attr => ToString.toString attr
-  | .tbaaTagAttr attr => ToString.toString attr
-  | .constantRangeAttr attr => ToString.toString attr
-  | .memoryEffectsAttr attr => ToString.toString attr
-  | .loopAnnotationAttr attr => ToString.toString attr
-  | .targetFeaturesAttr attr => ToString.toString attr
-  | .dlSpecAttr attr => ToString.toString attr
-  | .integerAttr attr => ToString.toString attr
-  | .indexAttr attr => ToString.toString attr
-  | .floatAttr attr => ToString.toString attr
-  | .registerType type => ToString.toString type
-  | .registerAttr attr => ToString.toString attr
-  | .stringAttr attr => ToString.toString attr
-  | .unitAttr attr => ToString.toString attr
-  | .locationAttr attr => ToString.toString attr
-  | .arrayAttr attr => attr.toString
-  | .denseElementsAttr attr => ToString.toString attr
-  | .denseArrayAttr attr => ToString.toString attr
-  | .dictionaryAttr attr => attr.toString
-  | .unregisteredAttr attr => attr.toString
-  | .flatSymbolRefAttr attr => ToString.toString attr
-  | .symbolRefAttr attr => ToString.toString attr
-  | .functionType type => type.toString
-  | .modArithType type => ToString.toString type
-  | .feltType type => ToString.toString type
-  | .feltConstAttr attr => ToString.toString attr
-  | .indexType type => ToString.toString type
-  | .cirIntType type => ToString.toString type
-  | .cirBoolType type => ToString.toString type
-  | .cirFuncType type => type.toString
-  | .cirIntAttr attr => ToString.toString attr
-  | .cirBoolAttr attr => ToString.toString attr
-  | .llvmVoidType type => ToString.toString type
-  | .llvmPointerType type => ToString.toString type
-  | .llvmArrayType type => type.toString
-  | .llvmStructType type => type.toString
-  | .llvmFunctionType type => type.toString
-  | .cudaTilePointerType type => ToString.toString type
-  | .ioAddressType type => ToString.toString type
-  | .hwModuleType type => ToString.toString type
-  | .pdlRangeType type => ToString.toString type
-  | .pdlAttributeType type => ToString.toString type
-  | .pdlOperationType type => ToString.toString type
-  | .pdlValueType type => ToString.toString type
-  | .pdlTypeType type => ToString.toString type
-  | .matchOptionalType type => type.toString
-  | .seqClockType type => ToString.toString type
-  | .seqFirMemType type => ToString.toString type
-  | .smtSortType type => ToString.toString type
-
-end
-
-instance : ToString Attribute where
-  toString := Attribute.toString
-
-instance : ToString VectorType where
-  toString := VectorType.toString
-
-instance : ToString TensorType where
-  toString := TensorType.toString
-
-instance : ToString FunctionType where
-  toString := FunctionType.toString
-
-instance : ToString LLVMFunctionType where
-  toString := LLVMFunctionType.toString
-
-instance : ToString CirFuncType where
-  toString := CirFuncType.toString
-
-instance : ToString ArrayAttr where
-  toString := ArrayAttr.toString
-
-instance : ToString DictionaryAttr where
-  toString := DictionaryAttr.toString
-
-instance : ToString LLVM.ArrayType where
-  toString := LLVM.ArrayType.toString
-
-instance : ToString LLVM.StructType where
-  toString := LLVM.StructType.toString
-
-instance : ToString Match.OptionalType where
-  toString := Match.OptionalType.toString
-
-instance : ToString UnregisteredAttr where
-  toString := UnregisteredAttr.toString
-
-/-! ## Attribute Subtype Interface -/
-
-/--
-`IsAttr Attr` states that `Attr` is represented by a subset of `Attribute`.
-
-It defines an injection from the attribute-specific type to `Attribute` and a
-partial projection back to that type. Every attribute-specific type is also
-printable and inhabited.
--/
-class IsAttr (Attr : Type) extends ToString Attr, Inhabited Attr where
-  /-- The name of the attribute type. -/
-  name : String
-  /-- Embed an attribute-specific value into `Attribute`. -/
-  inject : Attr → Attribute
-  /-- Project an `Attribute` to the attribute-specific type, when possible. -/
-  project : Attribute → Option Attr
-  /-- The projection recognizes exactly the values produced by the injection. -/
-  project_eq_some_iff (attr : Attribute) (specificAttr : Attr) :
-    project attr = some specificAttr ↔ inject specificAttr = attr
-
-attribute [simp, grind unfold] IsAttr.inject
-
-/--
-Derive `project_eq_some_iff` from a projection that carries its correctness certificate.
-
-This is useful for efficiently deriving `IsAttr` instances for each attribute kind.
--/
-theorem IsAttr.projectSubtype_eq_some_iff_of_projectSubtype
-    (inject : Attr → Attribute)
-    (projectSubtype : (attr : Attribute) → Option { specificAttr : Attr // inject specificAttr = attr })
-    (projectSubtype_inject : (specificAttr : Attr) →
-      projectSubtype (inject specificAttr) = some ⟨specificAttr, rfl⟩)
-    (attr : Attribute) (specificAttr : Attr) :
-    (projectSubtype attr).map Subtype.val = some specificAttr ↔ inject specificAttr = attr := by
-  constructor
-  · grind [Option.map_eq_some_iff]
-  · intro h
-    subst attr
-    simp [projectSubtype_inject]
-
-namespace Attribute
-
-/--
-Try to cast an attribute to a concrete attribute type.
-
-This is equivalent to `mlir::dyn_cast<Attr>(attr)` in MLIR.
--/
-@[inline]
-def cast? (attr : Attribute) (Attr : Type) [IsAttr Attr] : Option Attr :=
-  IsAttr.project attr
-
-/-- Try to cast an attribute to a concrete attribute type, and throw an error if the cast fails. -/
-@[inline]
-def cast! (attr : Attribute) (Attr : Type) [IsAttr Attr] : Attr :=
-  match cast? attr Attr with
-  | some specificAttr => specificAttr
-  | none =>
-    panic! s!"Attribute.cast!: attribute {attr} is not of the expected type {IsAttr.name Attr}."
-
-/--
-Check if an attribute is of a specific type.
-
-This is equivalent to `mlir::isa<Attr>(attr)` in MLIR.
--/
-@[inline]
-def isa (attr : Attribute) (Attr : Type) [IsAttr Attr] : Bool :=
-  match attr.cast? Attr with
-  | some _ => true
-  | none => false
-
-/--
-Cast an attribute to a concrete attribute type, assuming it is of the expected type.
-
-This is equivalent to `mlir::cast<Attr>(attr)` in MLIR.
--/
-@[inline]
-def cast (attr : Attribute) (Attr : Type) [IsAttr Attr] (h : attr.isa Attr) : Attr :=
-  (attr.cast? Attr).get (by grind [isa, cast?])
-
-/-- Create an attribute from a concrete attribute type. -/
-@[inline]
-def of (Attr : Type) [IsAttr Attr] (specificAttr : Attr) : Attribute :=
-  IsAttr.inject specificAttr
-
-/-- Express `Attribute.of` in terms of the underlying `IsAttr.inject`. -/
-theorem of_def {Attr : Type} [IsAttr Attr] (specificAttr : Attr) :
-  of Attr specificAttr = IsAttr.inject specificAttr := by rfl
-
-/-- Coercion from attribute-specific type to `Attribute`. -/
-instance CoeHead (Attr : Type) [IsAttr Attr] : CoeHead Attr Attribute where
-  coe := Attribute.of Attr
-
-end Attribute
-
-namespace IsAttr
-
-variable {Attr : Type} [IsAttr Attr]
-
-@[simp, grind =]
-theorem cast?_of (specificAttr : Attr) :
-    (Attribute.of Attr specificAttr).cast? Attr = some specificAttr := by
-  simp [Attribute.of, Attribute.cast?, IsAttr.project_eq_some_iff]
-
-theorem of_injective : Function.Injective (Attribute.of Attr) := by
-  intro attr₁ attr₂ h
-  grind [congrArg (Attribute.cast? · Attr) h]
-
-@[simp]
-theorem cast?_eq_some_iff (attr : Attribute) (specificAttr : Attr) :
-    attr.cast? Attr = some specificAttr ↔ Attribute.of Attr specificAttr = attr := by
-  grind [IsAttr.project_eq_some_iff, Attribute.of, Attribute.cast?]
-
-grind_pattern cast?_eq_some_iff =>
-  attr.cast? Attr, Attribute.of Attr specificAttr
-
-@[simp, grind =]
-theorem isa_of (specificAttr : Attr) :
-    (Attribute.of Attr specificAttr).isa Attr := by
-  simp [Attribute.isa]
-
-@[simp, grind =]
-theorem cast!_of (specificAttr : Attr) :
-    (Attribute.of Attr specificAttr).cast! Attr = specificAttr := by
-  simp [Attribute.cast!]
-
-@[simp, grind =]
-theorem cast_of (specificAttr : Attr)
-    (h : (Attribute.of Attr specificAttr).isa Attr) :
-    (Attribute.of Attr specificAttr).cast Attr h = specificAttr := by
-  simp [Attribute.cast]
-
-@[simp, grind =]
-theorem of_cast (attr : Attribute) (h : attr.isa Attr) :
-    Attribute.of Attr (attr.cast Attr h) = attr := by
-  simp only [Attribute.cast, Attribute.of]
-  grind [Attribute.isa, Attribute.cast?, IsAttr.project_eq_some_iff]
-
-end IsAttr
-
-/--
-Generate an `IsAttr` instance for an `Attribute` constructor with one payload.
-
-For example, `attribute_instance IntegerType => Attribute.integerType` generates
-the inherited printing and inhabitation operations, the injection, and the
-constructor-discriminating partial projection.
--/
-syntax "attribute_instance " term " => " ident : command
-
-macro_rules
-  | `(attribute_instance $attrType:term => $ctor:ident) => do
-    let attrName := Lean.Syntax.mkStrLit (toString attrType)
-    `(@[expose] instance : IsAttr $attrType := by
-        let projectSubtype : (attr : Attribute) →
-            Option { specificAttr : $attrType // $ctor specificAttr = attr } :=
-          fun
-            | $ctor value => some ⟨value, rfl⟩
-            | _ => none
-        exact {
-          toString := ToString.toString
-          default := Inhabited.default
-          name := $attrName
-          inject := $ctor
-          project := fun attr => (projectSubtype attr).map Subtype.val
-          project_eq_some_iff := IsAttr.projectSubtype_eq_some_iff_of_projectSubtype
-            $ctor projectSubtype (fun _ => rfl)
-        })
-
-open Lean Elab Command Meta
-
-/--
-Generate an `IsAttr` instance for every single-payload constructor of an
-attribute inductive.
--/
-elab "#generate_attribute_instances" attrInductive:ident : command => do
-  let attributeName ← resolveGlobalConstNoOverload attrInductive
-  let env ← getEnv
-  let some (.inductInfo info) := env.find? attributeName
-    | throwError m!"Type {attributeName} is not defined or not an inductive."
-  for ctorName in info.ctors do
-    let some (.ctorInfo ctorInfo) := env.find? ctorName
-      | throwError m!"Constructor {ctorName} is not defined."
-    let .forallE _ (.const attrTypeName _) resultType _ := ctorInfo.type
-      | throwError m!"Constructor {ctorName} must have exactly one attribute payload."
-    unless resultType.isConstOf attributeName do
-      throwError m!"Constructor {ctorName} does not construct {attributeName}."
-    elabCommand <| ←
-      `(attribute_instance $(mkIdent attrTypeName) => $(mkIdent ctorName))
-
-instance : IsAttr Attribute where
-  toString := Attribute.toString
-  default := Inhabited.default
-  name := "Attribute"
-  inject := id
-  project := some
-  project_eq_some_iff _ _ := by grind
-
-#generate_attribute_instances Attribute
-
-
-/-!
-## Attribute constructor normalization
-
-This section defines simp lemmas rewriting attribute constructors to `Attribute.of`, the canonical
-form for generic attribute lemmas. For grind, the equalities work in both directions, as it
-otherwise breaks some proofs that match on the attribute constructors.
--/
-
-/-- Generate constructor-to-`Attribute.of` normalization for every attribute kind. -/
-elab "#generate_attribute_of_lemmas" attrInductive:ident : command => do
-  let attributeName ← resolveGlobalConstNoOverload attrInductive
-  let env ← getEnv
-  let some (.inductInfo info) := env.find? attributeName
-    | throwError m!"Type {attributeName} is not an inductive."
-  for ctorName in info.ctors do
-    let some (.ctorInfo ctorInfo) := env.find? ctorName
-      | throwError m!"Constructor {ctorName} is not defined."
-    let .forallE _ (.const attrTypeName _) resultType _ := ctorInfo.type
-      | throwError m!"Constructor {ctorName} must have exactly one attribute payload."
-    unless resultType.isConstOf attributeName do
-      throwError m!"Constructor {ctorName} does not construct {attributeName}."
-    let lemmaName := mkIdent (`_root_ ++ ctorName.appendAfter "_eq_of")
-    elabCommand <| ←
-      `(@[simp, grind _=_] theorem $lemmaName (attr : $(mkIdent attrTypeName)) :
-          $(mkIdent ctorName) attr = Attribute.of $(mkIdent attrTypeName) attr := by rfl)
-
-#generate_attribute_of_lemmas Attribute
-
-/-!
-## DecidableEq instances
-
-We implement `DecidableEq` in a linear fashion to avoid quadratic case splits by first doing a case
-analysis on the first attribute constructor, and then checking whether or not the second attribute
-has the same constructor (which is done in constant time with).
--/
-
-/--
-Implement decidable equality between an attribute of a known kind with an arbitrary attribute,
-given a decidable equality function for the specific attribute kind.
-
-This function does not do a linear case split on the attribute kind at runtime, and instead only
-checks whether the attribute constructor is the expected one.
-
-This function is mostly useful to define a `DecidableEq` instance for `Attribute` in linear time.
--/
-private def IsAttr.decEqAgainst [IsAttr Attr]
-    (specificAttr : Attr) (attr : Attribute)
-    (decEq : (other : Attr) → Decidable (specificAttr = other)) :
-    Decidable (Attribute.of Attr specificAttr = attr) :=
-  match hcast : attr.cast? Attr with
-  | some other =>
-    match decEq other with
-    | isTrue h => isTrue (by grind)
-    | isFalse h => isFalse (by grind)
-  | none => isFalse (by grind)
-
-mutual
-def VectorType.decEq (type1 type2 : VectorType) : Decidable (type1 = type2) :=
-  if hshape : type1.shape = type2.shape then
-    match Attribute.decEq type1.elementType type2.elementType with
-    | isTrue _ => isTrue (by grind [cases VectorType])
-    | isFalse _ => isFalse (by grind)
-  else
-    isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by exact VectorType.sizeOf_elementType
-
-def TensorType.decEq (type1 type2 : TensorType) : Decidable (type1 = type2) :=
-  if hshape : type1.shape = type2.shape then
-    match Attribute.decEq type1.elementType type2.elementType with
-    | isTrue _ => isTrue (by grind [cases TensorType])
-    | isFalse _ => isFalse (by grind)
-  else
-    isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by exact TensorType.sizeOf_elementType
-
 def FunctionType.decEq (type1 type2 : FunctionType) : Decidable (type1 = type2) :=
   let inputs1 := type1.inputs
   let outputs1 := type1.outputs
@@ -1693,20 +298,6 @@ decreasing_by
   · have := @FunctionType.sizeOf_elems_outputs
     grind
 
-def LLVMFunctionType.decEq (type1 type2 : LLVMFunctionType) : Decidable (type1 = type2) :=
-  match FunctionType.decEq type1.functionType type2.functionType with
-  | isTrue _ => isTrue (by grind [cases LLVMFunctionType])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by exact LLVMFunctionType.sizeOf_functionType
-
-def CirFuncType.decEq (type1 type2 : CirFuncType) : Decidable (type1 = type2) :=
-  match FunctionType.decEq type1.functionType type2.functionType with
-  | isTrue _ => isTrue (by grind [cases CirFuncType])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by exact CirFuncType.sizeOf_functionType
-
 def ArrayAttr.decEq (arr1 arr2 : ArrayAttr) : Decidable (arr1 = arr2) :=
   let value1 := arr1.value
   let value2 := arr2.value
@@ -1723,58 +314,15 @@ def LLVM.ArrayType.decEq (arr1 arr2 : LLVM.ArrayType) : Decidable (arr1 = arr2) 
   let size2 := arr2.size
   let type1 := arr1.type
   let type2 := arr2.type
-  match Nat.decEq size1 size2 with
+  match Int.instDecidableEq size1 size2 with
   | isTrue _ =>
     match Attribute.decEq type1 type2 with
     | isTrue _ => isTrue (by grind [cases LLVM.ArrayType])
     | isFalse _ => isFalse (by grind)
   | isFalse _ => isFalse (by grind)
-
 termination_by sizeOf arr1
 decreasing_by
   have := @LLVM.ArrayType.sizeOf_elems_type
-  grind
-
-def LLVM.StructType.decEq (type1 type2 : LLVM.StructType) : Decidable (type1 = type2) :=
-  let body1 := type1.body
-  let body2 := type2.body
-  if _ : type1.name = type2.name ∧ type1.packed = type2.packed then
-    match Array.instDecidabelEq' body1 body2 (fun x y _ _ => Attribute.decEq x y) with
-    | isTrue _ => isTrue (by grind [cases LLVM.StructType])
-    | isFalse _ => isFalse (by grind)
-  else
-    isFalse (by grind)
-termination_by sizeOf type1
-decreasing_by
-  have := @LLVM.StructType.sizeOf_elems_body
-  grind
-
-def Match.OptionalType.decEq (opt1 opt2 : Match.OptionalType) : Decidable (opt1 = opt2) :=
-  match Attribute.decEq opt1.innerType opt2.innerType with
-  | isTrue _ => isTrue (by grind [cases Match.OptionalType])
-  | isFalse _ => isFalse (by grind)
-termination_by sizeOf opt1
-decreasing_by
-  have := @Match.OptionalType.sizeOf_innerType
-  grind
-
-def UnregisteredAttr.decEq (attr1 attr2 : UnregisteredAttr) : Decidable (attr1 = attr2) :=
-  let type1 := attr1.type
-  let type2 := attr2.type
-  if _ : attr1.value = attr2.value ∧ attr1.isType = attr2.isType then
-    match h1 : type1, h2 : type2 with
-    | none, none => isTrue (by grind [cases UnregisteredAttr])
-    | some t1, some t2 =>
-      match Attribute.decEq t1 t2 with
-      | isTrue _ => isTrue (by grind [cases UnregisteredAttr])
-      | isFalse _ => isFalse (by grind)
-    | none, some _ => isFalse (by grind)
-    | some _, none => isFalse (by grind)
-  else
-    isFalse (by grind)
-termination_by sizeOf attr1
-decreasing_by
-  have := @UnregisteredAttr.sizeOf_type
   grind
 
 def DictionaryAttr.decEq (dict1 dict2 : DictionaryAttr) : Decidable (dict1 = dict2) :=
@@ -1793,347 +341,445 @@ termination_by sizeOf dict1
 decreasing_by
   have := @DictionaryAttr.sizeOf_elems_entries
   grind
-
-def Attribute.decEq (attr1 attr2 : @& Attribute) : Decidable (attr1 = attr2) := by
-  cases attr1
-  case integerType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case floatType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case vectorType x =>
-    exact IsAttr.decEqAgainst x attr2 (VectorType.decEq x)
-  case tensorType x =>
-    exact IsAttr.decEqAgainst x attr2 (TensorType.decEq x)
-  case integerAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case indexAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case floatAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case fastMathFlagsAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case arithIntegerOverflowFlagsAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case cconvAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case linkageAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case framePointerKindAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case uwtableKindAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case tailCallKindAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case moduleFlagAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case tbaaTagAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case constantRangeAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case memoryEffectsAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case loopAnnotationAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case targetFeaturesAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case dlSpecAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case registerType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case registerAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case stringAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case unitAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case locationAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case arrayAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (ArrayAttr.decEq x)
-  case denseArrayAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case denseElementsAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case dictionaryAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (DictionaryAttr.decEq x)
-  case functionType x =>
-    exact IsAttr.decEqAgainst x attr2 (FunctionType.decEq x)
-  case unregisteredAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (UnregisteredAttr.decEq x)
-  case flatSymbolRefAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case symbolRefAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case modArithType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case feltType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case feltConstAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case indexType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case cirIntType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case cirBoolType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case cirFuncType x =>
-    exact IsAttr.decEqAgainst x attr2 (CirFuncType.decEq x)
-  case cirIntAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case cirBoolAttr x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case llvmVoidType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case byteType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case llvmPointerType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case llvmArrayType x =>
-    exact IsAttr.decEqAgainst x attr2 (LLVM.ArrayType.decEq x)
-  case llvmStructType x =>
-    exact IsAttr.decEqAgainst x attr2 (LLVM.StructType.decEq x)
-  case llvmFunctionType x =>
-    exact IsAttr.decEqAgainst x attr2 (LLVMFunctionType.decEq x)
-  case cudaTilePointerType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case ioAddressType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case hwModuleType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case pdlRangeType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case pdlAttributeType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case pdlOperationType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case pdlValueType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case pdlTypeType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case matchOptionalType x =>
-    exact IsAttr.decEqAgainst x attr2 (Match.OptionalType.decEq x)
-  case seqClockType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case seqFirMemType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
-  case smtSortType x =>
-    exact IsAttr.decEqAgainst x attr2 (decEq x)
+def Attribute.decEq (attr1 attr2 : Attribute) : Decidable (attr1 = attr2) := by
+  cases h1 : attr1 <;> cases h2 : attr2
+  case integerType.integerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case floatType.floatType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case fastMathFlagsAttr.fastMathFlagsAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case unregisteredAttr.unregisteredAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case functionType.functionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case dictionaryAttr.dictionaryAttr attr1 attr2 =>
+    exact (match DictionaryAttr.decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case integerAttr.integerAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case floatAttr.floatAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case stringAttr.stringAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case unitAttr.unitAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case locationAttr.locationAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case arrayAttr.arrayAttr attr1 attr2 =>
+    exact (match ArrayAttr.decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case modArithType.modArithType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case registerType.registerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case registerAttr.registerAttr type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case llvmVoidType.llvmVoidType type1 type2 =>
+    exact (isTrue (by grind))
+  case llvmPointerType.llvmPointerType type1 type2 =>
+    exact (isTrue (by grind))
+  case llvmArrayType.llvmArrayType type1 type2 =>
+    exact (match LLVM.ArrayType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case llvmFunctionType.llvmFunctionType type1 type2 =>
+    exact (match FunctionType.decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case cudaTilePointerType.cudaTilePointerType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case denseArrayAttr.denseArrayAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case flatSymbolRefAttr.flatSymbolRefAttr attr1 attr2 =>
+    exact (match decEq attr1 attr2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  case hwModuleType.hwModuleType type1 type2 =>
+    exact (match decEq type1 type2 with
+      | isTrue hEq => isTrue (by grind)
+      | isFalse hEq => isFalse (by grind))
+  all_goals exact isFalse (by grind)
 termination_by sizeOf attr1
-decreasing_by
-  all_goals exact Nat.lt_add_of_pos_left (by decide)
 end
 
 instance : DecidableEq Attribute := Attribute.decEq
-instance : DecidableEq VectorType := VectorType.decEq
-instance : DecidableEq TensorType := TensorType.decEq
 instance : DecidableEq FunctionType := FunctionType.decEq
-instance : DecidableEq LLVMFunctionType := LLVMFunctionType.decEq
-instance : DecidableEq CirFuncType := CirFuncType.decEq
 instance : DecidableEq ArrayAttr := ArrayAttr.decEq
 instance : DecidableEq DictionaryAttr := DictionaryAttr.decEq
-instance : DecidableEq UnregisteredAttr := UnregisteredAttr.decEq
 
-/-!
-  ## TypeAttr definition
+/-! ToString implementation -/
 
-  `TypeAttr` is defined as a subtype of `Attribute` that carries the additional invariant
-  that the attribute is a valid type annotation (i.e., `isType` is true).
--/
+instance : ToString IntegerType where
+  toString type := s!"i{type.bitwidth}"
+
+instance : ToString FloatType where
+  toString type := s!"f{type.bitwidth}"
+
+instance : ToString FastMathFlagsAttr where
+  toString type := Id.run do
+    let mut array : List String := []
+    if type.nnan && type.ninf && type.nsz then array := array ++ ["fast"]
+    else
+      if type.nnan then array := array ++ ["nnan"]
+      if type.ninf then array := array ++ ["ninf"]
+      if type.nsz then array := array ++ ["nsz"]
+      if !type.nnan && !type.ninf && !type.nsz then array := array ++ ["none"]
+    s!"#llvm.fastmath<{String.intercalate ", " array}>"
+
+instance : ToString IntegerAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString FloatAttr where
+  toString attr := s!"{attr.value} : {attr.type}"
+
+instance : ToString RegisterType where
+  toString _ := s!"!reg"
+
+instance : ToString RegisterAttr where
+  toString attr := s!"{attr.value} : !reg"
+
+def escapeStringLiteral (s : String) : String := Id.run do
+  let mut result := ""
+  for c in s.toList do
+    if c == '\\' then result := result ++ "\\\\"
+    else if c == '"' then result := result ++ "\\\""
+    else if c == '\n' then result := result ++ "\\n"
+    else if c == '\t' then result := result ++ "\\t"
+    else result := result.push c
+  return result
+
+instance : ToString StringAttr where
+  toString attr := s!"\"{escapeStringLiteral (String.fromUTF8! attr.value)}\""
+
+instance : ToString UnitAttr where
+  toString _ := "unit"
+
+instance : ToString LocationAttr where
+  toString attr := s!"loc(" ++ attr.value ++ ")"
+
+instance : ToString DenseArrayAttr where
+  toString attr :=
+    let values := if attr.values.isEmpty then ""
+      else ": " ++ String.intercalate ", " (attr.values.toList.map ToString.toString)
+    s!"array<{attr.elementType}{values}>"
+
+instance : ToString UnregisteredAttr where
+  toString attr := attr.value
+
+instance : ToString FlatSymbolRefAttr where
+  toString attr := attr.value
+
+instance : ToString ModArithType where
+  toString type := s!"!mod_arith.int<{type.modulus}" ++
+    (match type.modulusType with
+    | some modulusType => s!" : {modulusType}"
+    | none => "") ++ ">"
+
+instance : ToString LLVM.VoidType where
+  toString _ := "!llvm.void"
+
+instance : ToString LLVM.PointerType where
+  toString _ := "!llvm.ptr"
+
+instance : ToString CudaTile.PointerType where
+  toString ptr := s!"!cuda_tile.ptr<{ptr.pointeeType}>"
+
+instance : ToString HW.ModulePort.Direction where
+  toString
+  | .input => "input"
+  | .output => "output"
+  | .inout => "inout"
+
+instance : ToString HW.ModulePort where
+  toString attr := s!"{attr.dir} {attr.name} : {attr.type}"
+
+instance : ToString HW.ModuleType where
+  toString attr :=
+    let values := attr.ports.iter.map ToString.toString |>.intercalateString ", "
+    s!"!hw.modty<{values}>"
+
+mutual
+
+def ArrayAttr.toString (attr : ArrayAttr) : String :=
+  let elems := String.intercalate ", " (attr.value.toList.map Attribute.toString)
+  s!"[{elems}]"
+termination_by sizeOf attr
+decreasing_by
+  apply ArrayAttr.sizeOf_elems_value
+  grind
+
+def DictionaryAttr.entryToString (entry : ByteArray × Attribute) : String :=
+  let key := String.fromUTF8! entry.1
+  match entry.2 with
+  | .unitAttr _ => key
+  | _ => s!"\"{key}\" = {Attribute.toString entry.2}"
+termination_by sizeOf entry
+decreasing_by grind
+
+def DictionaryAttr.toString (attr : DictionaryAttr) : String :=
+  let entries := attr.entries.toList.map DictionaryAttr.entryToString
+  s!"\{{String.intercalate ", " entries}}"
+termination_by sizeOf attr
+decreasing_by
+  rename_i entry _
+  have : entry ∈ attr.entries := by grind
+  grind [Array.sizeOf_lt_of_mem this, cases DictionaryAttr]
+
+def FunctionType.toLLVMString (type : FunctionType) : String :=
+  let paramStrs := type.inputs.toList.map Attribute.toString
+  let paramStrs := if type.isVarArg then paramStrs ++ ["..."] else paramStrs
+  let params := String.intercalate ", " paramStrs
+  let result := match _ : type.outputs.size with
+    | 1 =>
+      match type.outputs[0] with
+      | .llvmVoidType _ => "void"
+      | _ => Attribute.toString type.outputs[0]
+    | _ => "<invalid>"
+  s!"!llvm.func<{result} ({params})>"
+termination_by sizeOf type
+decreasing_by
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+
+def FunctionType.toString (type : FunctionType) : String :=
+  let inputs := String.intercalate ", " (type.inputs.toList.map Attribute.toString)
+  let outputs := match _ : type.outputs.size with
+  | 0 => "()"
+  | 1 =>
+    match _ : type.outputs[0] with
+    | .functionType _ => s!"({type.outputs[0].toString})"
+    | output => output.toString
+  | _ =>
+    s!"({String.intercalate ", " (type.outputs.toList.map Attribute.toString)})"
+  s!"({inputs}) -> {outputs}"
+termination_by sizeOf type
+decreasing_by
+  · apply FunctionType.sizeOf_elems_inputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+  · apply FunctionType.sizeOf_elems_outputs
+    grind
+
+def LLVM.ArrayType.toString (type : LLVM.ArrayType) : String :=
+  s!"!llvm.array<{type.size} x {Attribute.toString type.type}>"
+termination_by sizeOf type
+decreasing_by
+  apply LLVM.ArrayType.sizeOf_elems_type
+
+/-- Convert an attribute to a string representation. -/
+def Attribute.toString (attr : Attribute) : String :=
+  match attr with
+  | .integerType type => ToString.toString type
+  | .floatType type => ToString.toString type
+  | .fastMathFlagsAttr attr => ToString.toString attr
+  | .integerAttr attr => ToString.toString attr
+  | .floatAttr attr => ToString.toString attr
+  | .registerType type => ToString.toString type
+  | .registerAttr attr => ToString.toString attr
+  | .stringAttr attr => ToString.toString attr
+  | .unitAttr attr => ToString.toString attr
+  | .locationAttr attr => ToString.toString attr
+  | .arrayAttr attr => attr.toString
+  | .denseArrayAttr attr => ToString.toString attr
+  | .dictionaryAttr attr => attr.toString
+  | .unregisteredAttr attr => ToString.toString attr
+  | .flatSymbolRefAttr attr => ToString.toString attr
+  | .functionType type => type.toString
+  | .modArithType type => ToString.toString type
+  | .llvmVoidType type => ToString.toString type
+  | .llvmPointerType type => ToString.toString type
+  | .llvmArrayType type => type.toString
+  | .llvmFunctionType type => type.toLLVMString
+  | .cudaTilePointerType type => ToString.toString type
+  | .hwModuleType type => ToString.toString type
+termination_by sizeOf attr
+
+end
+
+instance : ToString Attribute where
+  toString := Attribute.toString
+
+instance : ToString FunctionType where
+  toString := FunctionType.toString
+
+instance : ToString ArrayAttr where
+  toString := ArrayAttr.toString
+
+instance : ToString DictionaryAttr where
+  toString := DictionaryAttr.toString
+
+instance : ToString LLVM.ArrayType where
+  toString := LLVM.ArrayType.toString
+
+/-! Coercion instances to Attribute -/
+instance : Coe IntegerType Attribute where
+  coe type := .integerType type
+
+instance : Coe FloatType Attribute where
+  coe type := .floatType type
+
+instance : Coe FastMathFlagsAttr Attribute where
+  coe flags := .fastMathFlagsAttr flags
+
+instance : Coe IntegerAttr Attribute where
+  coe attr := .integerAttr attr
+
+instance : Coe StringAttr Attribute where
+  coe attr := .stringAttr attr
+
+instance : Coe UnitAttr Attribute where
+  coe attr := .unitAttr attr
+
+instance : Coe LocationAttr Attribute where
+  coe attr := .locationAttr attr
+
+instance : Coe UnregisteredAttr Attribute where
+  coe attr := .unregisteredAttr attr
+
+instance : Coe FlatSymbolRefAttr Attribute where
+  coe attr := .flatSymbolRefAttr attr
+
+instance : Coe ArrayAttr Attribute where
+  coe attr := .arrayAttr attr
+
+instance : Coe FloatAttr Attribute where
+  coe attr := .floatAttr attr
+
+instance : Coe DenseArrayAttr Attribute where
+  coe attr := .denseArrayAttr attr
+
+instance : Coe DictionaryAttr Attribute where
+  coe attr := .dictionaryAttr attr
+
+instance : Coe FunctionType Attribute where
+  coe type := .functionType type
+
+instance : Coe ModArithType Attribute where
+  coe type := .modArithType type
+
+instance : Coe LLVM.VoidType Attribute where
+  coe type := .llvmVoidType type
+
+instance : Coe LLVM.PointerType Attribute where
+  coe type := .llvmPointerType type
+
+instance : Coe LLVM.ArrayType Attribute where
+  coe type := .llvmArrayType type
+
+instance : Coe CudaTile.PointerType Attribute where
+  coe type := .cudaTilePointerType type
+
+instance : Coe HW.ModuleType Attribute where
+  coe type := .hwModuleType type
+
+/-! TypeAttr definition -/
 
 namespace Attribute
 
-/--
-  Determine if an attribute can be used as a type annotation for SSA
-  values.
--/
+/-- Determine if an attribute can be used as a type annotation for SSA values. -/
 def isType (attr : Attribute) : Bool :=
   match attr with
   | .integerType _ => true
   | .floatType _ => true
-  | .vectorType _ => true
-  | .tensorType _ => true
-  | .byteType _ => true
   | .fastMathFlagsAttr _ => false
-  | .arithIntegerOverflowFlagsAttr _ => false
-  | .cconvAttr _ => false
-  | .linkageAttr _ => false
-  | .framePointerKindAttr _ => false
-  | .uwtableKindAttr _ => false
-  | .tailCallKindAttr _ => false
-  | .moduleFlagAttr _ => false
-  | .tbaaTagAttr _ => false
-  | .constantRangeAttr _ => false
-  | .memoryEffectsAttr _ => false
-  | .loopAnnotationAttr _ => false
-  | .targetFeaturesAttr _ => false
-  | .dlSpecAttr _ => false
   | .integerAttr _ => false
-  | .indexAttr _ => false
   | .floatAttr _ => false
   | .stringAttr _ => false
   | .unitAttr _ => false
   | .locationAttr _ => false
   | .arrayAttr _ => false
   | .denseArrayAttr _ => false
-  | .denseElementsAttr _ => false
   | .dictionaryAttr _ => false
   | .unregisteredAttr attr => attr.isType
   | .flatSymbolRefAttr _ => false
-  | .symbolRefAttr _ => false
   | .functionType _ => true
   | .modArithType _ => true
-  | .feltType _ => true
-  | .feltConstAttr _ => false
-  | .indexType _ => true
-  | .cirIntType _ => true
-  | .cirBoolType _ => true
-  | .cirFuncType _ => true
-  | .cirIntAttr _ => false
-  | .cirBoolAttr _ => false
   | .registerType _ => true
   | .registerAttr _ => false
   | .llvmVoidType _ => true
   | .llvmPointerType _ => true
   | .llvmArrayType _ => true
-  | .llvmStructType _ => true
   | .llvmFunctionType _ => true
   | .cudaTilePointerType _ => true
-  | .ioAddressType _ => true
   | .hwModuleType _ => true
-  | .pdlRangeType _ => true
-  | .pdlAttributeType _ => true
-  | .pdlOperationType _ => true
-  | .pdlValueType _ => true
-  | .pdlTypeType _ => true
-  | .matchOptionalType _ => true
-  | .seqClockType _ => true
-  | .seqFirMemType _ => true
-  | .smtSortType _ => true
-
-/--
-  Returns the size, in bits, that an LLVM type would use if stored to memory.
--/
-def bitwidthOfType (type : Attribute) : Option Nat :=
-  match type with
-  | .integerType { bitwidth, .. } | .byteType { bitwidth } => some bitwidth
-  | .floatType type => some type.bitwidth
-  | .vectorType { shape, elementType } => do
-      let elementBitwidth ← bitwidthOfType elementType
-      some (shape.foldl (· * ·) elementBitwidth)
-  | .llvmPointerType _ => some 64
-  | _ => none
 
 @[simp, grind =]
-theorem isType_integerType type : (Attribute.of IntegerType type).isType = true := by rfl
+theorem isType_integerType type : (integerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_floatType type : (Attribute.of FloatType type).isType = true := by rfl
+theorem isType_floatType type : (floatType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_vectorType type : (Attribute.of VectorType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_tensorType type : (Attribute.of TensorType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_byteType type : (Attribute.of LLVM.ByteType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_fastMathFlags flags : (Attribute.of FastMathFlagsAttr flags).isType = false := by rfl
-@[simp, grind =]
-theorem isType_cconv attr : (Attribute.of CConvAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_linkage attr : (Attribute.of LinkageAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_framePointerKind attr : (Attribute.of FramePointerKindAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_uwtableKind attr : (Attribute.of UwtableKindAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_tailCallKind attr : (Attribute.of TailCallKindAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_moduleFlag attr : (Attribute.of ModuleFlagAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_tbaaTag attr : (Attribute.of TbaaTagAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_constantRange attr : (Attribute.of ConstantRangeAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_memoryEffects attr : (Attribute.of MemoryEffectsAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_loopAnnotation attr : (Attribute.of LoopAnnotationAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_targetFeatures attr : (Attribute.of TargetFeaturesAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_dlSpec attr : (Attribute.of DlSpecAttr attr).isType = false := by rfl
+theorem isType_fastMathFlags flags : (fastMathFlagsAttr flags).isType = false := by rfl
 @[simp, grind =]
 theorem isType_unregistered unregistered :
-  (Attribute.of UnregisteredAttr unregistered).isType = unregistered.isType := by rfl
+  (unregisteredAttr unregistered).isType = unregistered.isType := by rfl
 @[simp, grind =]
-theorem isType_functionType type : (Attribute.of FunctionType type).isType = true := by rfl
+theorem isType_functionType type : (functionType type).isType = true := by rfl
+
+theorem isType_unitAttr attr : (unitAttr attr).isType = false := by rfl
 @[simp, grind =]
-theorem isType_modArithType type : (Attribute.of ModArithType type).isType = true := by rfl
+theorem isType_modArithType type : (modArithType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_feltType type : (Attribute.of FeltType type).isType = true := by rfl
+theorem isType_registerType type : (registerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_indexType type : (Attribute.of IndexType type).isType = true := by rfl
+theorem isType_llvmVoidType type : (llvmVoidType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirIntType type : (Attribute.of CirIntType type).isType = true := by rfl
+theorem isType_llvmPointerType type : (llvmPointerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirBoolType type : (Attribute.of CirBoolType type).isType = true := by rfl
+theorem isType_llvmArrayType type : (llvmArrayType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirFuncType type : (Attribute.of CirFuncType type).isType = true := by rfl
+theorem isType_llvmFunctionType type : (llvmFunctionType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirIntAttr attr : (Attribute.of CirIntAttr attr).isType = false := by rfl
+theorem isType_cudaTilePointerType type : (cudaTilePointerType type).isType = true := by rfl
 @[simp, grind =]
-theorem isType_cirBoolAttr attr : (Attribute.of CirBoolAttr attr).isType = false := by rfl
-@[simp, grind =]
-theorem isType_registerType type : (Attribute.of RegisterType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_llvmVoidType type : (Attribute.of LLVM.VoidType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_llvmPointerType type : (Attribute.of LLVM.PointerType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_llvmArrayType type : (Attribute.of LLVM.ArrayType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_llvmStructType type : (Attribute.of LLVM.StructType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_llvmFunctionType type : (Attribute.of LLVMFunctionType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_cudaTilePointerType type : (Attribute.of CudaTile.PointerType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_ioAddressType type : (Attribute.of Io.AddressType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_hwModuleType type : (Attribute.of HW.ModuleType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_pdlAttributeType type : (Attribute.of PDL.AttributeType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_pdlRangeType type : (Attribute.of PDL.RangeType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_pdlOperationType type : (Attribute.of PDL.OperationType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_pdlValueType type : (Attribute.of PDL.ValueType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_pdlTypeType type : (Attribute.of PDL.TypeType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_seqClockType type : (Attribute.of Seq.ClockType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_seqFirMemType type : (Attribute.of Seq.FirMemType type).isType = true := by rfl
-@[simp, grind =]
-theorem isType_smtSortType type : (Attribute.of SMT.SortType type).isType = true := by rfl
+theorem isType_hwModuleType type : (hwModuleType type).isType = true := by rfl
 
 end Attribute
 
-/-- Whether `type` may be a vector element type. Unlike MLIR, only tensors are rejected. -/
-def VectorType.isValidElementType (type : Attribute) : Bool :=
-  !(type matches .tensorType _)
-
-/-- Whether `type` may be a tensor element type. As in MLIR, tensors and functions are not. -/
-def TensorType.isValidElementType (type : Attribute) : Bool :=
-  !(type matches .tensorType _ | .functionType _)
-
-/--
-  An attribute that can be used as a type annotation for SSA values.
--/
+/-- An attribute that can be used as a type annotation for SSA values. -/
 @[expose]
 def TypeAttr := {attr // Attribute.isType attr}
 deriving Repr, Hashable, DecidableEq
 
 instance : Inhabited TypeAttr where
-  default := ⟨.integerType (IntegerType.signless 0), by rfl⟩
+  default := ⟨.integerType (IntegerType.mk 0), by rfl⟩
 
 instance : Coe TypeAttr Attribute where
   coe typeAttr := typeAttr.val
@@ -2146,224 +792,70 @@ theorem TypeAttr.inj {attr1 attr2 : TypeAttr} :
   unfold TypeAttr at *
   grind
 
-/--
-  Convert an attribute to a type attribute.
--/
-@[grind]
+/-- Convert an attribute to a type attribute. -/
 def Attribute.asType (attr : Attribute) (isType : attr.isType := by grind) : TypeAttr :=
   ⟨attr, isType⟩
 
-/-- `Attribute.asType` is the identity on the underlying attribute. Stated so that `simp` and
-`grind` can see through it without unfolding the semireducible `TypeAttr`. -/
-@[simp, grind =]
-theorem Attribute.asType_val {attr : Attribute} {isType : attr.isType} :
-    (attr.asType isType).val = attr := by
-  unfold Attribute.asType
-  rfl
+def Attribute.isDict (attr : Attribute) : Bool :=
+  match attr with
+  | .dictionaryAttr _ => true
+  | _ => false
 
-/--
-`IsTypeAttr Attr` states that `Attr` is an attribute-specific type that can also
-be converted to a `TypeAttr`.
--/
-class IsTypeAttr (Attr : Type) extends IsAttr Attr where
-  /-- Every attribute of that type is a valid VeIR type. -/
-  isType_inject (attr : Attr) : (@Attribute.of Attr toIsAttr attr).isType
-
-attribute [simp] IsTypeAttr.isType_inject
-
-namespace TypeAttr
-
-/--
-Try to cast a type attribute to a concrete attribute type.
-
-This is equivalent to `mlir::dyn_cast<Attr>(attr)` in MLIR.
--/
+/-- Coerce an attribute to a dictionary attribute if it is a dictionary attribute. -/
 @[inline]
-def cast? (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] : Option Attr :=
-  attr.val.cast? Attr
+def Attribute.asDict? (attr : Attribute) (isDict : attr.isDict := by grind) : Option DictionaryAttr :=
+  match _ : attr with
+  | .dictionaryAttr dict => some dict
+  | _ => none
 
-/-- Try to cast a type attribute to a concrete attribute type, and throw an error if the cast
-fails. -/
 @[inline]
-def cast! (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] [Inhabited Attr] : Attr :=
-  (cast? attr Attr).get!
-
-/--
-Check if a type attribute is of a specific type.
-
-This is equivalent to `mlir::isa<Attr>(attr)` in MLIR.
--/
-@[inline]
-def isa (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] : Bool :=
-  match attr.cast? Attr with
-  | some _ => true
-  | none => false
-
-/--
-Cast a type attribute to a concrete attribute type, assuming it is of the expected type.
-
-This is equivalent to `mlir::cast<Attr>(attr)` in MLIR.
--/
-@[inline]
-def cast (attr : TypeAttr) (Attr : Type) [IsTypeAttr Attr] [Inhabited Attr]
-    (h : attr.isa Attr) : Attr :=
-  (attr.cast? Attr).get (by grind [isa, cast?])
-
-/--
-Create a type attribute from a concrete attribute type.
-This is the canonical way to construct a `TypeAttr` from a concrete attribute type, and should be
-used in preference to `Attribute.asType` or `⟨attr, h⟩` when the concrete attribute type is known.
--/
-@[inline]
-def of (Attr : Type) [IsTypeAttr Attr] (specificAttr : Attr) : TypeAttr :=
-  ⟨.of Attr specificAttr, IsTypeAttr.isType_inject specificAttr⟩
-
-/-- Express `TypeAttr.of` in terms of the underlying `Attribute.of` and the type injection. -/
-theorem of_def {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr) :
-    TypeAttr.of Attr specificAttr =
-      ⟨Attribute.of Attr specificAttr, IsTypeAttr.isType_inject specificAttr⟩ := by rfl
-
-instance CoeHead (Attr : Type) [IsTypeAttr Attr] : CoeHead Attr TypeAttr where
-  coe := TypeAttr.of Attr
-
-/--
-Normalize conversion from `TypeAttr` to `Attribute` when the concrete attribute type is known.
--/
-@[simp, grind norm]
-theorem of_val {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr) :
-    (TypeAttr.of Attr specificAttr).val = Attribute.of Attr specificAttr := by rfl
-
-/-
-Normalize explicit subtype construction when the concrete attribute type is known.
-Grind also needs the reverse direction to expose the subtype constructor when matching on a
-`TypeAttr.of` value, enabling constructor injectivity and discrimination.
--/
-@[simp, grind _=_]
-theorem mk_of {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr)
-    (h : (Attribute.of Attr specificAttr).isType) :
-    (⟨.of Attr specificAttr, h⟩ : TypeAttr) = TypeAttr.of Attr specificAttr := by rfl
-
-end TypeAttr
-
-/-- Normalize conversion of an injected concrete attribute to the canonical constructor. -/
-@[simp, grind =]
-theorem Attribute.asType_of {Attr : Type} [IsTypeAttr Attr] (specificAttr : Attr)
-    {h : (Attribute.of Attr specificAttr).isType} :
-    (Attribute.of Attr specificAttr).asType h = TypeAttr.of Attr specificAttr := by
-  rfl
-
-namespace IsTypeAttr
-
-variable {Attr : Type} [IsTypeAttr Attr]
+def Attribute.asDict (attr : Attribute) (isDict : attr.isDict := by grind) : DictionaryAttr :=
+  let res := attr.asDict?
+  match _ : res with
+  | some dict => dict
+  | none => by cases attr <;> grind [isDict, asDict?]
 
 @[simp, grind =]
-theorem cast?_of (specificAttr : Attr) :
-    (TypeAttr.of Attr specificAttr).cast? Attr = some specificAttr := by
-  simp [TypeAttr.cast?]
-
-theorem of_injective : Function.Injective (TypeAttr.of Attr) := by
-  intro attr₁ attr₂ h
-  grind [congrArg (TypeAttr.cast? · Attr) h]
-
-@[simp]
-theorem cast?_eq_some_iff (attr : TypeAttr) (specificAttr : Attr) :
-    attr.cast? Attr = some specificAttr ↔ TypeAttr.of Attr specificAttr = attr := by
-  rw [TypeAttr.inj]
-  simp [TypeAttr.cast?, IsAttr.cast?_eq_some_iff]
-
-grind_pattern cast?_eq_some_iff =>
-  attr.cast? Attr, TypeAttr.of Attr specificAttr
+theorem Attribute.isDict_dictionaryAttr (dict : DictionaryAttr) :
+    (Attribute.dictionaryAttr dict).isDict := by
+  simp [Attribute.isDict]
 
 @[simp, grind =]
-theorem isa_of (specificAttr : Attr) :
-    (TypeAttr.of Attr specificAttr).isa Attr := by
-  simp [TypeAttr.isa]
+theorem Attribute.asDict_dictionaryAttr (dict : DictionaryAttr) (isDict) :
+    (Attribute.dictionaryAttr dict).asDict isDict = dict := by
+  simp [Attribute.asDict, Attribute.asDict?]
 
-@[simp, grind =]
-theorem cast!_of [Inhabited Attr] (specificAttr : Attr) :
-    (TypeAttr.of Attr specificAttr).cast! Attr = specificAttr := by
-  simp [TypeAttr.cast!]
+/-! Coercion instances to TypeAttr -/
 
-@[simp, grind =]
-theorem cast_of [Inhabited Attr] (specificAttr : Attr)
-    (h : (TypeAttr.of Attr specificAttr).isa Attr) :
-    (TypeAttr.of Attr specificAttr).cast Attr h = specificAttr := by
-  simp [TypeAttr.cast]
+instance : Coe IntegerType TypeAttr where
+  coe type := ⟨.integerType type, by rfl⟩
 
-@[simp, grind =]
-theorem of_cast [Inhabited Attr] (attr : TypeAttr) (h : attr.isa Attr) :
-    TypeAttr.of Attr (attr.cast Attr h) = attr := by
-  rw [TypeAttr.inj]
-  simpa only [TypeAttr.of_val, TypeAttr.cast, TypeAttr.cast?, Attribute.cast] using
-    IsAttr.of_cast attr.val h
+instance : Coe FloatType TypeAttr where
+  coe type := ⟨.floatType type, by rfl⟩
 
-end IsTypeAttr
+instance : Coe FunctionType TypeAttr where
+  coe type := ⟨.functionType type, by rfl⟩
 
-/-!
-## Concrete type attributes
+instance : Coe ModArithType TypeAttr where
+  coe type := ⟨.modArithType type, by rfl⟩
 
-Implement `IsTypeAttr` instances and simplification lemmas for concrete type attributes.
--/
+instance : Coe RegisterType TypeAttr where
+  coe type := ⟨.registerType type, by rfl⟩
 
-/-- Declare a concrete type attribute and its `asType` normalization lemma. -/
-syntax "type_attribute_instance " term " => " ident : command
+instance : Coe LLVM.VoidType TypeAttr where
+  coe type := ⟨.llvmVoidType type, by rfl⟩
 
-macro_rules
-  | `(type_attribute_instance $attrType:term => $ctor:ident) => do
-    let suffix := ctor.getId.getString!
-    let asTypeLemma := Lean.mkIdent (Lean.Name.str `Attribute ("asType_" ++ suffix))
-    `(@[expose] instance : IsTypeAttr $attrType where
-        isType_inject _ := by rfl
-      @[simp] theorem $asTypeLemma (type : $attrType) (h : ($ctor type).isType) :
-          ($ctor type).asType h = TypeAttr.of $attrType type := by
-        unfold Attribute.asType
-        rfl)
+instance : Coe LLVM.PointerType TypeAttr where
+  coe type := ⟨.llvmPointerType type, by rfl⟩
 
-type_attribute_instance IntegerType => Attribute.integerType
-type_attribute_instance FloatType => Attribute.floatType
-type_attribute_instance VectorType => Attribute.vectorType
-type_attribute_instance TensorType => Attribute.tensorType
-type_attribute_instance LLVM.ByteType => Attribute.byteType
-type_attribute_instance FunctionType => Attribute.functionType
-type_attribute_instance LLVMFunctionType => Attribute.llvmFunctionType
-type_attribute_instance ModArithType => Attribute.modArithType
-type_attribute_instance FeltType => Attribute.feltType
-type_attribute_instance IndexType => Attribute.indexType
-type_attribute_instance CirIntType => Attribute.cirIntType
-type_attribute_instance CirBoolType => Attribute.cirBoolType
-type_attribute_instance CirFuncType => Attribute.cirFuncType
-type_attribute_instance RegisterType => Attribute.registerType
-type_attribute_instance LLVM.VoidType => Attribute.llvmVoidType
-type_attribute_instance LLVM.PointerType => Attribute.llvmPointerType
-type_attribute_instance LLVM.ArrayType => Attribute.llvmArrayType
-type_attribute_instance LLVM.StructType => Attribute.llvmStructType
-type_attribute_instance CudaTile.PointerType => Attribute.cudaTilePointerType
-type_attribute_instance Io.AddressType => Attribute.ioAddressType
-type_attribute_instance HW.ModuleType => Attribute.hwModuleType
-type_attribute_instance PDL.RangeType => Attribute.pdlRangeType
-type_attribute_instance Match.OptionalType => Attribute.matchOptionalType
-type_attribute_instance PDL.AttributeType => Attribute.pdlAttributeType
-type_attribute_instance PDL.OperationType => Attribute.pdlOperationType
-type_attribute_instance PDL.ValueType => Attribute.pdlValueType
-type_attribute_instance PDL.TypeType => Attribute.pdlTypeType
-type_attribute_instance Seq.ClockType => Attribute.seqClockType
-type_attribute_instance Seq.FirMemType => Attribute.seqFirMemType
-type_attribute_instance SMT.SortType => Attribute.smtSortType
+instance : Coe LLVM.ArrayType TypeAttr where
+  coe type := ⟨.llvmArrayType type, by rfl⟩
 
-instance : CoeDep (Option Int → RegisterType) RegisterType.mk TypeAttr where
-  coe := TypeAttr.of RegisterType (.mk none)
+instance : Coe CudaTile.PointerType TypeAttr where
+  coe type := ⟨.cudaTilePointerType type, by rfl⟩
 
-instance : IsTypeAttr TypeAttr where
-  name := "TypeAttr"
-  inject := fun x => x.val
-  project := fun attr => if h: attr.isType then attr.asType else none
-  project_eq_some_iff _ _ := by
-    simp only [Option.dite_none_right_eq_some, Option.some.injEq, TypeAttr.inj]
-    grind
-  isType_inject _ := by grind [Attribute.of_def]
-
-@[simp, grind norm]
-theorem TypeAttr.of_typeAttr (type : TypeAttr) : TypeAttr.of TypeAttr type = type := by rfl
+instance : Coe HW.ModuleType TypeAttr where
+  coe type := ⟨.hwModuleType type, by rfl⟩
 
 end
 end Veir

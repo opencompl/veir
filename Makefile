@@ -21,10 +21,6 @@ tests: build ## run all tests
 	lake exe allocator-tests
 	lake exe ir-reuse-tests
 	uv run python Tools/check-buffed-wrapper-codegen
-	uv run lit Test/ -v
+	uv run python Tools/check-orphan-modules
+	uv run python Tools/check-parser-cli
 	cd ExArray && lake exe test
-
-.PHONY: sqlite
-sqlite: build ## test sqlite3 parsing (expected to fail until fully supported)
-	test -f /tmp/sqlite3.c || (curl -sfL https://sqlite.org/2026/sqlite-amalgamation-3530300.zip -o /tmp/sqlite.zip && unzip -oqj /tmp/sqlite.zip '*/sqlite3.c' -d /tmp && rm /tmp/sqlite.zip)
-	Tools/vcc --emit-mlir /tmp/sqlite3.c -o /dev/null

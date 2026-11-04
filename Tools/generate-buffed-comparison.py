@@ -68,6 +68,8 @@ def summarize(rows):
 
 
 def collect(args):
+    if args.baseline_veir is None:
+        raise SystemExit("Supply --baseline-veir /path/to/run-benchmarks from an external unbuffered checkout")
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     if (out / "data.json").exists() or (out / "runs.jsonl").exists():
@@ -75,7 +77,7 @@ def collect(args):
     if args.cpu not in __import__("os").sched_getaffinity(0):
         raise SystemExit(f"CPU {args.cpu} is not available")
     paths = {"buffered": ROOT / ".lake/build/bin/buffed-benchmark",
-             "veir": ROOT / ".lake/build/bin/run-benchmarks",
+             "veir": args.baseline_veir.resolve(),
              "mlir": args.evaluation.resolve() / "llvm-project/build/bin/test-buffed"}
     snapshots = Path(tempfile.mkdtemp(prefix="buffed-cross-backend-binaries-"))
     binaries = {}
@@ -93,6 +95,7 @@ def collect(args):
     data = dict(schema=1, collected_at=dt.datetime.now(dt.timezone.utc).isoformat(),
                 cases=[dict(id=c, label=l) for c, l in CASES], sizes=args.sizes, percent=100,
                 samples=args.samples, warmups=args.warmups, cpu=args.cpu, binaries=binaries,
+                baseline_origin="External unbuffered VeIR executable supplied with --baseline-veir; source/build provenance is not inferred from this buffered checkout.",
                 veir_parent=command_output(["git", "rev-parse", "HEAD"]),
                 veir_diff_sha256=hashlib.sha256(subprocess.check_output(["git", "diff", "--binary"], cwd=ROOT)).hexdigest(),
                 mlir_checkout=command_output(["git", "rev-parse", "HEAD"], llvm),
@@ -102,7 +105,7 @@ def collect(args):
                 cpu_model=next((line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines() if line.startswith("model name")), "unknown"),
                 lean_version=command_output(["lake", "env", "lean", "--version"]),
                 lean_build="Release, -O3 -DNDEBUG -flto=full; Tools/lean-clang",
-                source_hashes={str(p.relative_to(ROOT)): sha(p) for p in [ROOT / "BuffedBenchmark.lean", ROOT / "Veir/Benchmarks.lean", ROOT / "Exe/RunBenchmarks.lean"]},
+                source_hashes={str(p.relative_to(ROOT)): sha(p) for p in [ROOT / "BuffedBenchmark.lean", ROOT / "VeirParse.lean"]},
                 mlir_source_sha256=sha(llvm / "mlir/tools/test-buffed/test-buffed.cpp"),
                 rows=[])
     timing = {p: re.compile(rf"{p} time \(s\):\s*([0-9.+eE-]+)") for p in ("create", "rewrite")}
@@ -160,9 +163,9 @@ PAGE = r'''<!doctype html>
 </style></head><body><main>
 <div class="eyebrow">Native performance / raw-result generation</div>
 <h1>Buffered VeIR vs.<br>baseline VeIR &amp; MLIR</h1>
-<p class="subtitle">Fresh serial measurements of construction and rewriting. Buffered VeIR uses the new raw-result <code>buffed</code> generator; baseline VeIR is the current unbuffered backend, not the earlier direct-Erased buffered implementation.</p>
+<p class="subtitle">Fresh serial measurements of construction and rewriting. Buffered VeIR uses the new raw-result <code>buffed</code> generator; baseline VeIR is an unbuffered backend, not the earlier direct-Erased buffered implementation.</p>
 <div class="chips" id="chips"></div>
-<div class="notice">Cross-implementation comparison, not an isolated compiler experiment. Lean uses full LTO; the existing MLIR Release build has LTO off. Only 100% eligibility is shown. MLIR does not implement the sparse workloads in this harness.</div>
+<div class="notice">Cross-implementation comparison, not an isolated compiler experiment. Buffered VeIR uses full LTO; the existing MLIR Release build has LTO off. External VeIR build flags require separate verification. Only 100% eligibility is shown. MLIR does not implement the sparse workloads in this harness.</div>
 <div class="controls"><label>Phase <select id="phase"><option value="rewrite">Rewriting</option><option value="create">Construction</option></select></label><label>Table / ratios at n <select id="size"></select></label><label><input id="log" type="checkbox"> Log time axis</label></div>
 <div class="legend" id="legend"></div>
 <p class="note">Lines show medians; whiskers show the interquartile range (25th–75th percentile), not confidence intervals. Hover over a point for its timing, spread, and CV. The x axis is logarithmic in generator size n, not total IR operation count. Lower time is better.</p>
@@ -172,8 +175,8 @@ PAGE = r'''<!doctype html>
 <h2>Method &amp; provenance</h2>
 <details open><summary>What is—and is not—being compared</summary><ul>
 <li>The workload names and phase timers follow <code>../buffed-evaluation/run_benchmarks.py</code>. Its historical CSV was <strong>not</strong> mixed into this report: that runner uses 15 concurrent workers, unlike these fresh serial measurements.</li>
-<li>The evaluation checkout's <code>buffed/</code> VeIR submodule is empty. Baseline VeIR therefore uses this repository's <code>.lake/build/bin/run-benchmarks</code>, the merged, unbuffered VeIR backend. It is <strong>not</strong> a reproduction of the evaluation's historical ChainMail revision.</li>
-<li>Buffered and baseline VeIR use the current Lean build. MLIR uses the available <code>llvm-project/build/bin/test-buffed</code> executable in the evaluation checkout; it was not rebuilt for this run. Its recorded source checkout and CMake configuration are supplied below, along with the exact binary hash.</li>
+<li id="baselineOrigin"></li>
+<li>The buffered Lean build is recorded below. External baseline builds must be checked separately; supplying an executable does not establish matching build flags. MLIR uses the available <code>llvm-project/build/bin/test-buffed</code> executable in the evaluation checkout; it was not rebuilt for this run. Its recorded source checkout and CMake configuration are supplied below, along with the exact binary hash.</li>
 <li>All tools receive identical benchmark names, n, and 100% eligibility. Dense generators choose partially eligible operations in different orders, so 1%/10% workloads are deliberately omitted. Backend representations and scaffolding differ; the inputs are corresponding generated workloads, not byte-identical serialized IR.</li>
 <li>Sparse workloads compare the two VeIR backends only. No MLIR number is inferred or plotted as zero. Worklist rewrites are omitted because the buffered harness provides forward traversal only.</li>
 <li>Creation and rewrite times come from each executable's internal timers. Process initialization, final IR printing, and final teardown are not included. Binary processes run sequentially and finish before the next starts.</li>
@@ -190,6 +193,7 @@ PAGE = r'''<!doctype html>
 'use strict';
 const D=JSON.parse(document.getElementById('report-data').textContent);
 const colors=__COLORS__,labels=__LABELS__;
+document.getElementById('baselineOrigin').textContent=D.baseline_origin||"Historical two-backend checkout: baseline VeIR used its .lake/build/bin/run-benchmarks. The evaluation checkout's VeIR submodule was empty. This was not a reproduction of the evaluation's historical ChainMail revision.";
 const E=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const fmt=x=>x===0?'0':x>=100?x.toFixed(1):x>=1?x.toFixed(3):x.toPrecision(3);
 const lookup=new Map(D.summary.map(r=>[[r.case,r.n,r.tool,r.phase].join('|'),r]));
@@ -232,7 +236,7 @@ function render(){
  document.getElementById('table').innerHTML=D.cases.map(c=>{const b=get(c.id,n,'buffered',p),v=get(c.id,n,'veir',p),m=get(c.id,n,'mlir',p);return `<tr><td>${E(c.label)}</td><td>${cell(b)}</td><td>${cell(v)}</td><td>${cell(m)}</td><td>${ratio(v,b)}</td><td>${ratio(m,b)}</td></tr>`;}).join('');
 }
 for(const id of ['phase','size','log'])document.getElementById(id).addEventListener('change',render);
-document.getElementById('provenance').innerHTML=`<p>${E(D.lean_version)}<br>${E(D.lean_build)}</p><p>VeIR parent revision: <code>${E(D.veir_parent)}</code><br>Uncommitted diff SHA-256 at collection: <code>${E(D.veir_diff_sha256)}</code></p><p>MLIR checkout: <code>${E(D.mlir_checkout)}</code><br>Checkout status: ${E(D.mlir_checkout_status||'clean')}<br>MLIR CMake: <code>${E(JSON.stringify(D.mlir_build))}</code><br>MLIR compiler version: ${E(JSON.stringify(D.mlir_compiler_versions))}</p>`+Object.keys(D.binaries).map(t=>`<p><strong>${E(labels[t])}</strong><br><code>${E(D.binaries[t].path)}</code><br>SHA-256 <code>${D.binaries[t].sha256}</code></p>`).join('')+`<p><code>${E(D.machine)}</code></p>`;
+document.getElementById('provenance').innerHTML=`<p>${E(D.lean_version)}<br>${E(D.lean_build)}</p><p>Buffered checkout parent revision: <code>${E(D.veir_parent)}</code><br>Uncommitted diff SHA-256 at collection: <code>${E(D.veir_diff_sha256)}</code></p><p>MLIR checkout: <code>${E(D.mlir_checkout)}</code><br>Checkout status: ${E(D.mlir_checkout_status||'clean')}<br>MLIR CMake: <code>${E(JSON.stringify(D.mlir_build))}</code><br>MLIR compiler version: ${E(JSON.stringify(D.mlir_compiler_versions))}</p>`+Object.keys(D.binaries).map(t=>`<p><strong>${E(labels[t])}</strong><br><code>${E(D.binaries[t].path)}</code><br>SHA-256 <code>${D.binaries[t].sha256}</code></p>`).join('')+`<p><code>${E(D.machine)}</code></p>`;
 document.getElementById('footer').textContent=`Collected ${D.collected_at} · ${D.rows.filter(r=>!r.warmup).length} measured process runs · ${D.rows.filter(r=>r.warmup).length} discarded warmup runs. All raw samples are embedded.`;
 function download(name,text,type){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([text],{type}));a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 document.getElementById('downloadJson').onclick=()=>download('buffed-vs-veir-mlir.json',JSON.stringify(D,null,2),'application/json');
@@ -252,6 +256,7 @@ def render(data, out):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--baseline-veir", type=Path, help="External unbuffered run-benchmarks executable (required for collection)")
     parser.add_argument("--evaluation", type=Path, default=ROOT.parent / "buffed-evaluation")
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/buffed-vs-veir-mlir")
     parser.add_argument("--render", type=Path, help="Render existing data; do not run benchmarks")

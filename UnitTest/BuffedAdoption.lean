@@ -1,15 +1,15 @@
 module
 
-import all Veir.Buffered.IR.Buffed.Basic
-import all Veir.Buffered.IR.Buffed.ContainerDealloc
-import all Veir.Buffered.IR.Buffed.RecycledBlock
-import all Veir.Buffered.IR.Buffed.RecycledOperation
-import all Veir.Buffered.IR.Buffed.RecycledRegion
-import all Veir.Buffered.Rewriter.Basic
-import all Veir.Buffered.Rewriter.EraseContainers
-import all Veir.Buffered.Rewriter.InsertPoint
-import all Veir.Buffered.Rewriter.LinkedList.Basic
-import all Veir.Buffered.Printer
+import all Veir.IR.Buffed.Basic
+import all Veir.IR.Buffed.ContainerDealloc
+import all Veir.IR.Buffed.RecycledBlock
+import all Veir.IR.Buffed.RecycledOperation
+import all Veir.IR.Buffed.RecycledRegion
+import all Veir.Rewriter.Basic
+import all Veir.Rewriter.EraseContainers
+import all Veir.Rewriter.InsertPoint
+import all Veir.Rewriter.LinkedList.Basic
+import all Veir.Printer
 import Lean
 
 /-! Coverage of every historical `buffed` declaration. Benchmark definitions have
@@ -23,7 +23,7 @@ private meta def inventory : String := include_str "../Tools/buffed-declarations
 private meta partial def hasSimResult (type : Expr) : MetaM Bool := do
   let type ← whnf type
   let name := type.getAppFn.constName?.getD .anonymous
-  if name.getPrefix == `Veir.Buffered.Sim then return true
+  if name.getPrefix == `Veir.Sim then return true
   if name == ``Option || name == ``Subtype then
     return ← hasSimResult type.getAppArgs[0]!
   if name == ``Prod then
@@ -67,7 +67,7 @@ run_meta do
       args.foldlM (init := 0) fun n arg => do
         let type ← whnf (← inferType arg)
         let name := type.getAppFn.constName?.getD .anonymous
-        if name.getPrefix == `Veir.Buffered.Sim then
+        if name.getPrefix == `Veir.Sim then
           if let some info := getStructureInfo? env name then
             return n + info.fieldNames.size
         return n + 1

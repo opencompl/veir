@@ -27,9 +27,9 @@ jobs:
 
       # The cache action skips paths that do not exist, and still passes.
       - name: Create the build directories
-        run: mkdir -p .lake ExArray/.lake lean-ctrees/.lake
+        run: mkdir -p .lake ExArray/.lake
 
-      # The profile's cache volume, which `buildns` fills with a release build.
+      # Cache the buffered library's documentation build.
       - name: Set up caches
         uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
         with:
@@ -37,7 +37,6 @@ jobs:
             ~/.elan
             ${{ github.workspace }}/.lake
             ${{ github.workspace }}/ExArray/.lake
-            ${{ github.workspace }}/lean-ctrees/.lake
 
       # Only installs elan; docgen-action builds the docs itself. lean-action
       # saves its cache before docgen-action runs, so its own cache would be

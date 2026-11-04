@@ -85,6 +85,20 @@ def main():
     modules = source_modules(roots)
     reached = set()
     pending = [module for module, _ in roots]
+    prefixes = [module for module, _ in roots]
+    missing = set()
+    for name, path in modules.items():
+        for dependency in imports(path):
+            if any(dependency == p or dependency.startswith(p + ".") for p in prefixes):
+                if dependency not in modules:
+                    missing.add((name, dependency))
+    for root, _ in roots:
+        if root not in modules:
+            missing.add(("lakefile.toml", root))
+    if missing:
+        for name, dependency in sorted(missing):
+            print(f"error: {name} imports missing local module {dependency}")
+        return 1
 
     while pending:
         module = pending.pop()

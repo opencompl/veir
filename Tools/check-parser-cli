@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Native CLI smoke tests for the supported buffered parser (no MLIR/lit dependency)."""
+from pathlib import Path
+import subprocess
+
+root = Path(__file__).resolve().parent.parent
+binary = root / ".lake/build/bin/veir-parse"
+fixtures = root / "Test/Parser"
+
+
+def run(*args, text=None, ok=True):
+    p = subprocess.run([str(binary), *map(str, args)], input=text, text=True,
+                       capture_output=True, timeout=30)
+    assert (p.returncode == 0) == ok, (args, p.returncode, p.stdout, p.stderr)
+    return p
+
+
+printed = run(fixtures / "forward.mlir", "--print")
+assert "parse time (s):" in printed.stderr and '"builtin.module"' in printed.stdout
+roundtrip = run("--print", text=printed.stdout)
+assert roundtrip.stdout == printed.stdout, "printed generic IR does not round-trip"
+run(fixtures / "unresolved.mlir", ok=False)
+run(fixtures / "unregistered.mlir", ok=False)
+run(fixtures / "unregistered.mlir", "--allow-unregistered-dialect")
+lexed = run(fixtures / "forward.mlir", "--lex-only")
+assert "lex time (s):" in lexed.stderr
+repeated = run(fixtures / "forward.mlir", "--repeat=2")
+assert repeated.stderr.count("parse time (s):") == 2
+run("--not-a-flag", ok=False)
+run("--repeat=invalid", ok=False)
+print("Buffered parser CLI passed: files, stdin, round-trip, rejection, lexing, and repeats.")

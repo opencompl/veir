@@ -25,8 +25,6 @@
         elan
         gmp
         gnumake
-        (llvmPackages pkgs).llvm
-        (llvmPackages pkgs).mlir
         pkg-config
         uv
       ];
@@ -97,10 +95,6 @@
           default = makeApp pkgs null;
           build = makeApp pkgs "build";
           tests = makeApp pkgs "tests";
-          "veir-opt" = makeLeanApp pkgs "veir-opt";
-          "veir-interpret" = makeLeanApp pkgs "veir-interpret";
-          "veir2mir" = makeLeanApp pkgs "veir2mir";
-          "run-benchmarks" = makeLeanApp pkgs "run-benchmarks";
           "veir-parse" = makeLeanApp pkgs "veir-parse";
           "buffed-benchmark" = makeLeanApp pkgs "buffed-benchmark";
         });

@@ -1,10 +1,10 @@
-import Veir.Buffered.Prelude
-import Veir.Buffered.IR.Basic
-import Veir.Buffered.Rewriter.Basic
-import Veir.Buffered.GlobalOpInfo
-import Veir.Buffered.Printer
+import Veir.Prelude
+import Veir.IR.Basic
+import Veir.Rewriter.Basic
+import Veir.GlobalOpInfo
+import Veir.Printer
 
-open Veir.Buffered
+open Veir
 open Attribute
 set_option maxHeartbeats 100000000
 set_option maxRecDepth 4096
@@ -271,14 +271,14 @@ end Program
 
 namespace Custom
 
-def _root_.Veir.Buffered.ValuePtr.asOpResultPtr (ptr : ValuePtr) : OpResultPtr :=
+def _root_.Veir.ValuePtr.asOpResultPtr (ptr : ValuePtr) : OpResultPtr :=
   match ptr with
   | .opResult ptr => ptr
   | _ => default
 
 /-- Read an `arith.constant`'s value directly from its 8-byte property slot. -/
 @[inline]
-def _root_.Veir.Buffered.Sim.OperationPtr.getConstantValue! (ctx : Sim.IRContext OpCode) (ptr : Sim.OperationPtr) : IntegerAttr :=
+def _root_.Veir.Sim.OperationPtr.getConstantValue! (ctx : Sim.IRContext OpCode) (ptr : Sim.OperationPtr) : IntegerAttr :=
   (ArithConstantProperties.read (ptr.impl + Buffed.Operation.Offsets.properties) ctx.buf sorry).value
 
 /- Keep the three rewrite bodies inline (as the former `buffed` generator did).
@@ -295,7 +295,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   let lhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 0 sorry
   let lhsValue := lhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let lhsOpResultPtr : Sim.OpResultPtr := ⟨lhsValue.impl, lhsValue.spec'.map Veir.Buffered.ValuePtr.asOpResultPtr⟩
+  let lhsOpResultPtr : Sim.OpResultPtr := ⟨lhsValue.impl, lhsValue.spec'.map Veir.ValuePtr.asOpResultPtr⟩
   let lhsOpPtr := lhsOpResultPtr.getOwner ctx sorry
 
   if lhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
@@ -305,7 +305,7 @@ def addIConstantFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) 
   let rhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec'.map Veir.Buffered.ValuePtr.asOpResultPtr⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec'.map Veir.ValuePtr.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
@@ -360,7 +360,7 @@ def addIZeroFoldingSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Op
   let rhsValuePtr := op.getOperandPtrOf ctx (.arith .addi) 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec'.map Veir.Buffered.ValuePtr.asOpResultPtr⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec'.map Veir.ValuePtr.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then
@@ -432,7 +432,7 @@ def mulITwoReduceSim (ctx : Sim.IRContext OpCode) (op : Sim.OperationPtr) : Opti
   let rhsValuePtr := op.getOperandPtrOf ctx (.arith .muli) 1 sorry
   let rhsValue := rhsValuePtr.getValue ctx sorry
   -- Unsafe...
-  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec'.map Veir.Buffered.ValuePtr.asOpResultPtr⟩
+  let rhsOpResultPtr : Sim.OpResultPtr := ⟨rhsValue.impl, rhsValue.spec'.map Veir.ValuePtr.asOpResultPtr⟩
   let rhsOpPtr := rhsOpResultPtr.getOwner ctx sorry
 
   if rhsOpPtr.getOpTypeEncoded ctx sorry ≠ OpCode.encode (.arith .constant) then

@@ -80,19 +80,19 @@ for name in ("partialPointer", "partialNeverPointer"):
 
 # A real hot path: the result is now Option IRBufContext. Only the ordinary
 # Option allocation remains, not an enclosing Sim.IRContext allocation.
-rewriter = (root / ".lake/build/ir/Veir/Buffered/Rewriter/Basic.c").read_text()
+rewriter = (root / ".lake/build/ir/Veir/Rewriter/Basic.c").read_text()
 # Erased specification references disappear from the raw-result ABI as well.
 body = function("replaceValue_x3fInner___redArg", ["lean_object*", "uint64_t", "uint64_t", "uint64_t"],
-                text=rewriter, prefix="Veir_Buffered_Rewriter_", result="lean_object*")
+                text=rewriter, prefix="Veir_Rewriter_", result="lean_object*")
 assert "replaceValue_x3fSim" not in body, "replacement still calls the boxed source implementation"
 assert "goto _start;" in body or "replaceValue_x3fInner___redArg(" in body, "missing replacement recursion"
 assert "lean_alloc_ctor(0, 0, 8)" not in body, "replacement rebuilds pointer wrappers"
 assert "lean_alloc_ctor(0, 1, 0)" not in body, "replacement wraps its context result"
 
-linked = (root / ".lake/build/ir/Veir/Buffered/Rewriter/LinkedList/Basic.c").read_text()
+linked = (root / ".lake/build/ir/Veir/Rewriter/LinkedList/Basic.c").read_text()
 for pointer in ("OpOperandPtr", "BlockOperandPtr"):
     body = function("removeFromCurrentInner___redArg", ["lean_object*", "uint64_t"],
-                    text=linked, prefix=f"Veir_Buffered_Sim_{pointer}_", result="lean_object*")
+                    text=linked, prefix=f"Veir_Sim_{pointer}_", result="lean_object*")
     assert "lean_alloc_ctor(0, 1, 0)" not in body, f"{pointer} wraps its context result"
     assert not re.search(r"\b\w*removeFromCurrentSim(?:___at___\w+)?(?:___redArg)?\(", body), (
         f"{pointer} evaluates its source again"

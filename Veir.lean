@@ -1,43 +1,10 @@
-import CTree
-import Veir.Analysis
-import Veir.Data
-import Veir.IR.Basic
-import Veir.IR.Mutators
-import Veir.IR.Fields
-import Veir.IR.WellFormed
-import Veir.IRNesting
-import Veir.Rewriter.LinkedList.WellFormed
-import Veir.Rewriter.WellFormed
-import Veir.Rewriter.InlineBlock
-import Veir.Rewriter.WfRewriter
-import Veir.PatternRewriter.Semantics
-import Veir.GlobalOpInfo
-import Veir.Printer
-import Veir.PatternRewriter.Basic
-import Veir.PatternRewriter.Puddle
-import Veir.Interfaces.FoldInterfaces
-import Veir.Interfaces.ControlFlowInterfaces
-import Veir.Passes.ArithToLLVM.Proofs
-import Veir.Passes.Canonicalize.Proofs
-import Veir.Passes.RISCVCombines.Proofs
-import Veir.Benchmarks
-import Veir.Parser.Lexer
-import Veir.Interpreter
-import Veir.Dominance
-import Veir.Passes.InstructionSelection.Proofs
-import Veir.Passes.InstructionSelection.Proofs.I32
-import Veir.Passes.CastsReconciliation.Reconciliation
-import Veir.Passes.Legalization.Proofs
-import Veir.Buffered
-import Veir.Parser.Buffered
+module
 
--- FIXME: These modules are otherwise orphans and would not be compiled.
-import Veir.Analysis.DataFlow.SparseFact
-import Veir.Analysis.DataFlow.SparseForwardDataFlowAnalysis
-import Veir.Data.FP.EScientificBV
-import Veir.Data.FP.EScientificBV.Basic
-import Veir.Data.FP.EScientificBV.ToExtRat
-import Veir.Data.FP.ExtRat
-import Veir.Data.FP.FP
-import Veir.Interfaces
-import Veir.Dialects.LLVM.Interpreter
+public import Veir.Parser.MlirParser
+public import Veir.Parser.PrintIR
+public import Veir.Rewriter.WellFormed
+
+/-!
+The buffer-backed IR, verified rewriter, and static construction parser.
+See `Veir/README.md` for APIs, guarantees, and benchmark methodology.
+-/

@@ -1,10 +1,11 @@
 module
 
 public import Veir.IR.Fields
+import Veir.IR.Basic
 
 namespace Veir
 
-variable {OpInfo : Type} [IsOpCode OpInfo]
+variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : IRContext OpInfo}
 
 public section

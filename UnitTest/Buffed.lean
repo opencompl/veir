@@ -1,9 +1,9 @@
 module
 
-public import Veir.Buffered.IR.Buffed.ArgumentFlattening
+public import Veir.IR.Buffed.ArgumentFlattening
 public import Lean
 
-open Veir.Buffered
+open Veir
 open Lean Meta Compiler
 
 public section

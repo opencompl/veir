@@ -1,5 +1,5 @@
-import Veir.Buffered.Parser.MlirParser
-import Veir.Buffered.Parser.PrintIR
+import Veir.Parser.MlirParser
+import Veir.Parser.PrintIR
 
 /-!
 # `veir-parse`
@@ -12,7 +12,7 @@ veir-parse <file> [--allow-unregistered-dialect] [--print] [--lex-only] [--repea
 ```
 -/
 
-open Veir.Buffered Veir.Buffered.Parser
+open Veir Veir.Parser
 
 structure Args where
   filename : Option String := none

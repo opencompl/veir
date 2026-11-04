@@ -2,478 +2,400 @@ module
 
 public import Veir.IR.Simp
 public import Veir.IR.OpInfo
-public import Veir.Verifier.Basic
-public import Veir.Dialects.Arith.Properties
-public import Veir.Dialects.LLVM.Properties
-public import Veir.Dialects.LLVM.OpInfo
-public import Veir.ConstantMaterialization
-public import Veir.Interpreter.RuntimeValue.Basic
-public import Veir.Interpreter.Interp
-public import Veir.Data.LLVM.Int.Basic
-
-meta import Veir.Meta.OpCode
-
-open Veir.Data
+public import Veir.Properties
+public import Veir.IR.Buffed.RawAccessors
+public import Veir.Dialects.BuffedProperties
 
 namespace Veir
 
 public section
 
-@[opcodes]
-inductive Arith where
-| addi
-| addui_extended
-| andi
-| ceildivsi
-| ceildivui
-| cmpi
-| constant
-| divsi
-| divui
-| extsi
-| extui
-| floordivsi
-| maxsi
-| maxui
-| minsi
-| minui
-| muli
-| mulsi_extended
-| mului_extended
-| ori
-| remsi
-| remui
-| select
-| shli
-| shrsi
-| shrui
-| subi
-| subui_extended
-| trunci
-| xori
-deriving Inhabited, Repr, Hashable, DecidableEq
-
 @[expose, properties_of]
 def Arith.propertiesOf (op : Arith) : Type :=
 match op with
-| .constant => ArithConstantProperties
-| .addi => ArithIntegerOverflowFlagsProperties
-| .subi => ArithIntegerOverflowFlagsProperties
-| .muli => ArithIntegerOverflowFlagsProperties
+-- TODO: Temporarily removed this as properties aren't supported in buffed yet, so we encode properties with attributes
+| .subi => NswNuwProperties
 | .divsi => ExactProperties
 | .divui => ExactProperties
 | .cmpi => IcmpProperties
-| .shli => ArithIntegerOverflowFlagsProperties
+| .shli => NswNuwProperties
 | .shrsi => ExactProperties
 | .shrui => ExactProperties
 | .ori => DisjointProperties
-| .trunci => ArithIntegerOverflowFlagsProperties
+| .trunci => NswNuwProperties
 | .extui => NnegProperties
+| .constant => ArithConstantProperties
 | _ => Unit
 
-def Arith.fromAttrDict
-    (op : Arith) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String (Arith.propertiesOf op) := by
-  cases op
-  case constant => exact ArithConstantProperties.fromAttrDict attrDict
-  case addi | subi | muli | shli | trunci =>
-    exact ArithIntegerOverflowFlagsProperties.fromAttrDict attrDict
-  case divsi | divui | shrsi | shrui =>
-    exact ExactProperties.fromAttrDict attrDict
-  case cmpi => exact IcmpProperties.fromAttrDictFor "arith.cmpi" attrDict
-  case ori => exact DisjointProperties.fromAttrDict attrDict
-  case extui => exact NnegProperties.fromAttrDict attrDict
-  all_goals exact .ok ()
+@[expose, inline]
+def Arith.propertySize (op : Arith) : UInt64 :=
+match op with
+-- TODO: Temporarily removed this as properties aren't supported in buffed yet, so we encode properties with attributes
+| .subi => 1
+| .divsi => 1
+| .divui => 1
+| .cmpi => 1
+| .shli => 1
+| .shrsi => 1
+| .shrui => 1
+| .ori => 1
+| .trunci => 1
+| .extui => 1
+| .constant => 8
+| _ => 0
 
-def Arith.toAttrDict
-    (op : Arith) (props : Arith.propertiesOf op) :
-    Std.HashMap ByteArray Attribute :=
-  match op with
-  | .constant =>
-    let value : Attribute := match props with
-      | .int attr => .integerAttr attr
-      | .index attr => .indexAttr attr
-    (Std.HashMap.emptyWithCapacity 2).insert "value".toUTF8 value
-  | .addi | .subi | .muli | .shli | .trunci => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 1
-    if props.attr.nsw || props.attr.nuw then
-      dict := dict.insert
-        "overflowFlags".toUTF8
-        (Attribute.arithIntegerOverflowFlagsAttr props.attr)
-    dict
-  | .cmpi =>
-    let value := IntegerAttr.mk (Int.ofNat props.predicate.toNat) (IntegerType.signless 64)
-    (Std.HashMap.emptyWithCapacity 1).insert
-      "predicate".toUTF8 (Attribute.integerAttr value)
-  | .divsi | .divui | .shrsi | .shrui => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
-    if props.exact then
-      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .ori => Id.run do
-    let mut dict := Std.HashMap.emptyWithCapacity 2
-    if props.disjoint then
-      dict := dict.insert "isDisjoint".toUTF8 (Attribute.unitAttr UnitAttr.mk)
-    dict
-  | .extui => props.toAttrDict
-  | _ => Std.HashMap.emptyWithCapacity 0
-
-@[get_effects]
-def Arith.getEffects
-    (_op : Arith) (_props : Arith.propertiesOf _op) : MemoryEffects :=
-  .none
-
-def Arith.isCommutative : Arith → Bool
-  | .addi | .muli | .andi | .ori | .xori
-  | .maxsi | .maxui | .minsi | .minui
-  | .addui_extended | .mulsi_extended | .mului_extended => true
-  | _ => false
-
-def Arith.isConstantLike (op : Arith) : Bool :=
-  match op with
-  | .constant => true
-  | _ => false
-
-def Arith.hasSSADominance (_op : Arith) (_index : Nat) : Bool :=
-  true
-
-#generate_dialect Arith
-
-/-- Operations whose result is poison whenever any operand is poison. -/
-def Arith.propagatesPoison : Arith → Bool
-  | .addi | .andi | .ceildivsi | .ceildivui | .cmpi | .divsi | .divui
-  | .extsi | .extui | .floordivsi | .maxsi | .maxui | .minsi | .minui
-  | .muli | .ori | .remsi | .remui | .shli | .shrsi | .shrui | .subi
-  | .trunci | .xori | .addui_extended | .subui_extended
-  | .mulsi_extended | .mului_extended => true
-  | .constant | .select => false
-
-def Arith.tryFold (op : Arith) (_properties : Arith.propertiesOf op)
-    (_resultTypes : Array TypeAttr) (constantOperands : Array (Option RuntimeValue)) :
-    Option (Array FoldDecision) :=
-  match op, constantOperands.toList with
-  | .addi, [_, some (.int _ (.val bits))] =>
-    if bits = 0 then some #[.useOperand 0] else none
-  -- Adding zero cannot carry, so the overflow flag is a false `i1`.
-  | .addui_extended, [_, some (.int _ (.val bits))] =>
-    if bits = 0 then some #[.useOperand 0, .useConstant (.int 1 (.val 0#1))] else none
-  | _, _ => none
-
-instance : IsOpCode Arith where
-  fromName := Arith.fromName
-  name := Arith.name
+instance : HasDialectOpInfo Arith where
   propertiesOf := Arith.propertiesOf
-  fromAttrDict := Arith.fromAttrDict
-  toAttrDict := Arith.toAttrDict
+  propertySize op := op.propertySize
+  propertySize_small {op} := by cases op <;> simp [Arith.propertySize]
 
-/--
-Materialize integer results of folded arithmetic operations as `arith.constant`.
-Poison is materialized as `llvm.mlir.poison`.
--/
-def Arith.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpInfo Arith]
-    [HasDialect OpInfo Llvm] (_op : Arith) (value : RuntimeValue) (type : TypeAttr) :
-    Option (Materialized OpInfo) :=
-  match value, type.val with
-  | .int bw (.val value), .integerType intType =>
-    if bw = intType.bitwidth then
-      some (.of Arith.constant (ArithConstantProperties.int (IntegerAttr.ofInt value.toInt intType)))
-    else none
-  | .int bw .poison, .integerType intType =>
-    if bw = intType.bitwidth then some (.of Llvm.mlir__poison ()) else none
-  | _, _ => none
+/-- A constant is stored inline in its 8-byte property slot when the value fits in 48 bits (two's complement) and the bitwidth in 15 bits. -/
+abbrev ArithConstantProperties.IsInline (a : ArithConstantProperties) : Prop :=
+  -- Literals (= `-2^47`, `2^47`, `2^15`): a `2^k` spelling would be recomputed with
+  -- arbitrary-precision arithmetic every time the decidable instance runs.
+  -140737488355328 ≤ a.value.value ∧ a.value.value < 140737488355328 ∧ a.value.type.bitwidth < 32768
 
-/--
-Verify an `arith` extended operation with two same-typed integer operands and
-two results. The low result always matches the operand type; the high result
-is either an `i1` overflow flag (`addui_extended` / `subui_extended`) or
-another value of the operand type (`mulsi_extended` / `mului_extended`).
--/
-def OperationPtr.verifyArithExtendedOp {OpInfo : Type} [IsOpCode OpInfo]
-    (op : OperationPtr) (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) (secondResultIsI1 : Bool) : Except String PUnit := do
-  op.verifyPlainOpCounts ctx opIn 2 2
-  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
-    s!"{instrName}: Expected operand 0 to have integer type"
-  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
-    s!"{instrName}: Expected operand 1 to have integer type"
-  let operandType ← op.verifyOperandTypesMatch ctx 0 1
-    s!"{instrName}: Expected operands to have the same type"
-  op.verifyResultTypeMatches ctx operandType
-    s!"{instrName}: Expected result 0 type to match operand type"
-  let result1Type := (op.getResult 1).getType! ctx.raw
-  if secondResultIsI1 then
-    result1Type.verifyI1 s!"{instrName}: Expected i1 result 1"
-  else if result1Type.val ≠ operandType.val then
-    throw s!"{instrName}: Expected result 1 type to match operand type"
+/-- Store the constant's value in the 8-byte property slot:
+* small constants (`IsInline`) are stored inline with the MSB 0: bits 62–48 hold the bitwidth and bits 47–0 the two's-complement value;
+* otherwise the value is appended to the attribute table and the slot holds its index with the MSB set to 1. -/
+def ArithConstantProperties.writeProperty (a : ArithConstantProperties) (addr: UInt64) (bctx : Buffed.IRBufContext)
+    (h : addr.toNat + 8 ≤ bctx.mem.size) (_hattrs : bctx.attributes.size < 2^63) : Buffed.IRBufContext :=
+  if a.IsInline then
+    -- Scalar `UInt64` encode (mirroring `readProperty`): the bitwidth in bits 62–48, the value
+    -- (two's complement, via `Int64` wrapping) in bits 47–0.
+    let w : UInt64 := UInt64.ofNat a.value.type.bitwidth * ((1 : UInt64) <<< 48)
+      + (Int64.ofInt a.value.value).toUInt64 % ((1 : UInt64) <<< 48)
+    { bctx with mem := bctx.mem.blit64 addr w (by grind) }
+  else
+    let idx : UInt64 := UInt64.ofNat bctx.attributes.size + ((1 : UInt64) <<< 63)
+    { bctx with
+      mem := bctx.mem.blit64 addr idx (by grind)
+      attributes := bctx.attributes.push (.integerAttr a.value) }
 
-/--
-Verify the local invariants of an `arith` operation in any operation-info type
-containing the `arith` dialect.
--/
-@[expose]
-def Arith.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Arith]
-    (opType : Arith) (op : OperationPtr) (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
-  match opType with
-  | .addi | .andi | .ceildivsi | .ceildivui | .divsi | .divui | .floordivsi
-  | .maxsi | .maxui | .minsi | .minui | .muli | .ori | .remsi | .remui
-  | .shli | .shrsi | .shrui | .subi | .xori => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerBinop ctx opIn
-    pure ()
-  | .addui_extended | .subui_extended => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyArithExtendedOp ctx opIn true
-    pure ()
-  | .mulsi_extended | .mului_extended => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyArithExtendedOp ctx opIn false
-    pure ()
-  | .cmpi => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyICmp ctx opIn
-    pure ()
-  | .constant => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyPlainOpCounts ctx opIn 0 1
-    match op.getProperties! ctx.raw Arith.constant with
-    | .int value =>
-      if value.type ≠ ((op.getResult 0).getType! ctx.raw).val then
-        throw "Expected result type to be equal to the constant's type"
-      op.verifyNormalizedIntegerAttr ctx opIn value
-    | .index _ =>
-      if ((op.getResult 0).getType! ctx.raw).val ≠ Attribute.indexType IndexType.mk then
-        throw "Expected result type to be index"
-    pure ()
-  | .extui | .extsi => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyIntegerExtTypes ctx opIn
-    pure ()
-  | .select => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifySelectTypes ctx opIn
-    pure ()
-  | .trunci => do
-    op.checkIsNonNullIntegerType ctx opIn
-    op.verifyTruncTypes ctx opIn false
-    pure ()
+def ArithConstantProperties.readProperty (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 8 ≤ bctx.mem.size) : Option ArithConstantProperties :=
+  let w : UInt64 := bctx.mem.read64 addr (by grind)
+  -- Scalar `UInt64` arithmetic: the divisions by powers of two compile to shifts/masks, whereas
+  -- the `Nat` spelling of these constants would recompute `2^k` (arbitrary precision) per read.
+  if w < ((1 : UInt64) <<< 63) then
+    -- inline (MSB 0): bits 62–48 are the bitwidth, bits 47–0 the two's-complement value
+    let bw : UInt64 := w / ((1 : UInt64) <<< 48)
+    let raw : UInt64 := w % ((1 : UInt64) <<< 48)
+    let v : Int := if raw < ((1 : UInt64) <<< 47) then (raw.toNat : Int) else (raw.toNat : Int) - 281474976710656
+    some { value := IntegerAttr.mk v (IntegerType.mk bw.toNat) }
+  else
+    -- MSB 1: the remaining 63 bits index the attribute table
+    match bctx.attributes[(w - ((1 : UInt64) <<< 63)).toNat]? with
+    | some (Attribute.integerAttr v) => some { value := v }
+    | _ => none
 
-def Arith.interpretOp' (opType : Veir.Arith) (properties : propertiesOf opType)
-    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
-    : Interp ((Array RuntimeValue) × Option ControlFlowAction) :=
-  match opType with
-  | .constant => do
-    let some resType := resultTypes[0]? | none
-    match resType.val, properties with
-    | .integerType bw, .int attr =>
-      return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth attr.value))], none)
-    | .indexType _, .index attr =>
-      return (#[.int IndexType.bitwidth (.val attr.value)], none)
-    | _, _ => none
-  | .addi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.add lhs rhs properties.attr.nsw properties.attr.nuw)], none)
-  | .subi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.sub lhs rhs properties.attr.nsw properties.attr.nuw)], none)
-  | .muli => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.mul lhs rhs properties.attr.nsw properties.attr.nuw)], none)
-  | .divui => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
-    return (#[.int bw (LLVM.Int.udiv lhs rhs properties.exact)], none)
-  | .divsi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
-    return (#[.int bw (LLVM.Int.sdiv lhs rhs properties.exact)], none)
-  | .remui => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isUnsignedDivisionUB rhs then Interp.ub none
-    return (#[.int bw (LLVM.Int.urem lhs rhs)], none)
-  | .remsi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    if LLVM.Int.isSignedDivisionUB lhs rhs then Interp.ub none
-    return (#[.int bw (LLVM.Int.srem lhs rhs)], none)
-  | .shli => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.shl lhs rhs properties.attr.nsw properties.attr.nuw)], none)
-  | .shrsi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.ashr lhs rhs properties.exact)], none)
-  | .shrui => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.lshr lhs rhs properties.exact)], none)
-  | .andi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.and lhs rhs)], none)
-  | .ori => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.or lhs rhs properties.disjoint)], none)
-  | .xori => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.xor lhs rhs)], none)
-  | .trunci => do
-    let [.int w val] := operands.toList | none
-    let some resType := resultTypes[0]? | none
-    let .integerType resBw := resType.val | none
-    if h: resBw.bitwidth >= w then none else
-    return (#[.int resBw.bitwidth (LLVM.Int.trunc val resBw.bitwidth properties.attr.nsw properties.attr.nuw (by omega))], none)
-  | .extui => do
-    let [.int w val] := operands.toList | none
-    let some resType := resultTypes[0]? | none
-    let .integerType resBw := resType.val | none
-    if h: resBw.bitwidth <= w then none else
-    return (#[.int resBw.bitwidth (LLVM.Int.zext val resBw.bitwidth properties.nneg (by omega))], none)
-  | .extsi => do
-    let [.int w val] := operands.toList | none
-    let some resType := resultTypes[0]? | none
-    let .integerType resBw := resType.val | none
-    if h: resBw.bitwidth <= w then none else
-    return (#[.int resBw.bitwidth (LLVM.Int.sext val resBw.bitwidth (by omega))], none)
-  | .select => do
-    let [.int 1 cond, .int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simpa using h)
-    return (#[.int bw (LLVM.Int.select cond lhs rhs)], none)
-  | .cmpi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    -- `arith.cmpi` lowers to `llvm.icmp`; the arith and LLVM predicate encodings
-    -- coincide, so `properties.predicate` is used directly. Result is `i1`.
-    return (#[.int 1 (LLVM.Int.icmp lhs rhs properties.predicate)], none)
-  | .maxsi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.smax lhs rhs)], none)
-  | .minsi => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.smin lhs rhs)], none)
-  | .maxui => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.umax lhs rhs)], none)
-  | .minui => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    return (#[.int bw (LLVM.Int.umin lhs rhs)], none)
-  | .addui_extended => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    -- Two results: the `w`-bit sum, then the `i1` unsigned-overflow flag.
-    return (#[.int bw (LLVM.Int.add lhs rhs),
-              .int 1 (LLVM.Int.uaddOverflowFlag lhs rhs)], none)
-  | .subui_extended => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    -- Two results: the `w`-bit difference, then the `i1` borrow flag, which is
-    -- set exactly when `lhs <u rhs`.
-    return (#[.int bw (LLVM.Int.sub lhs rhs),
-              .int 1 (LLVM.Int.usubOverflowFlag lhs rhs)], none)
-  | .mulsi_extended => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    -- Two results: the low half (same as `muli`), then the signed high half.
-    return (#[.int bw (LLVM.Int.mul lhs rhs),
-              .int bw (LLVM.Int.smulHigh lhs rhs)], none)
-  | .mului_extended => do
-    let [.int bw lhs, .int bw' rhs] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let rhs := rhs.cast (by simp at h; exact h)
-    -- Two results: the low half (same as `muli`), then the unsigned high half.
-    return (#[.int bw (LLVM.Int.mul lhs rhs),
-              .int bw (LLVM.Int.umulHigh lhs rhs)], none)
-  | .ceildivui => do
-    let [.int bw a, .int bw' b] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let b := b.cast (by simp at h; exact h)
-    -- Lowering (arith ExpandOps): `a == 0 ? 0 : ((a - 1) udiv b) + 1`. The
-    -- `udiv` makes a zero (or poison) divisor undefined behaviour, exactly as
-    -- for `arith.divui`.
-    if LLVM.Int.isUnsignedDivisionUB b then Interp.ub none
-    let zero : LLVM.Int bw := .val 0
-    let one : LLVM.Int bw := .val 1
-    let isZero := LLVM.Int.icmp a zero .eq
-    let quotient := LLVM.Int.udiv (LLVM.Int.sub a one) b
-    let plusOne := LLVM.Int.add quotient one
-    return (#[.int bw (LLVM.Int.select isZero zero plusOne)], none)
-  | .ceildivsi => do
-    let [.int bw a, .int bw' b] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let b := b.cast (by simp at h; exact h)
-    -- Lowering (arith ExpandOps): `z = a sdiv b;`
-    -- `(a != z*b) && ((a<0) == (b<0)) ? z + 1 : z`. The intermediate `mul`/`add`
-    -- carry no overflow flags (they wrap).
-    let zero : LLVM.Int bw := .val 0
-    let one : LLVM.Int bw := .val 1
-    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
-    if LLVM.Int.isSignedDivisionUB a b then Interp.ub none
-    let z := LLVM.Int.sdiv a b
-    let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
-    let signEqual := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .eq
-    let cond := LLVM.Int.and notExact signEqual
-    return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z one) z)], none)
-  | .floordivsi => do
-    let [.int bw a, .int bw' b] := operands.toList | none
-    if h: bw' ≠ bw then none else
-    let b := b.cast (by simp at h; exact h)
-    -- Lowering (arith ExpandOps): `z = a sdiv b;`
-    -- `(a != z*b) && ((a<0) != (b<0)) ? z - 1 : z`. The intermediate `mul`/`add`
-    -- carry no overflow flags (they wrap).
-    let zero : LLVM.Int bw := .val 0
-    let negOne : LLVM.Int bw := .val (BitVec.allOnes bw)
-    -- UB gating mirrors `arith.divsi` (divide-by-zero, INT_MIN / -1).
-    if LLVM.Int.isSignedDivisionUB a b then Interp.ub none
-    let z := LLVM.Int.sdiv a b
-    let notExact := LLVM.Int.icmp a (LLVM.Int.mul z b) .ne
-    let signOpposite := LLVM.Int.icmp (LLVM.Int.icmp a zero .slt) (LLVM.Int.icmp b zero .slt) .ne
-    let cond := LLVM.Int.and notExact signOpposite
-    return (#[.int bw (LLVM.Int.select cond (LLVM.Int.add z negOne) z)], none)
+@[simp, grind =]
+theorem ArithConstantProperties.writeProperty_size (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs) :
+    (a.writeProperty addr bctx h hattrs).mem.size = bctx.mem.size := by
+  unfold writeProperty
+  split <;> simp
 
-instance : HasOpInfo Arith where
-  verifyLocalInvariants := Arith.verifyLocalInvariants
-  tryFold := Arith.tryFold
-  propagatesPoison := Arith.propagatesPoison
-  getEffects := Arith.getEffects
-  isConstantLike := Arith.isConstantLike
-  isCommutative := Arith.isCommutative
-  hasSSADominance := Arith.hasSSADominance
+/-- The write at most appends to the attribute table, so existing entries keep their index. -/
+theorem ArithConstantProperties.writeProperty_attributes (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs)
+    {i : Nat} {attr : Attribute} (hsome : bctx.attributes[i]? = some attr) :
+    (a.writeProperty addr bctx h hattrs).attributes[i]? = some attr := by
+  unfold writeProperty
+  split
+  · exact hsome
+  · grind
+
+/-- Infallible, allocation-light variant of `readProperty` for hot paths: an out-of-range spilled
+index or a non-integer table entry decodes to `default` instead of `none`. -/
+@[inline]
+def ArithConstantProperties.read (addr : UInt64) (bctx : Buffed.IRBufContext)
+    (h : addr.toNat + 8 ≤ bctx.mem.size) : ArithConstantProperties :=
+  let w : UInt64 := bctx.mem.read64 addr (by grind)
+  if w < (1 : UInt64) <<< 63 then
+    -- inline (MSB 0): bits 62–48 are the bitwidth, bits 47–0 the two's-complement value
+    let bw : UInt64 := w / ((1 : UInt64) <<< 48)
+    let raw : UInt64 := w % ((1 : UInt64) <<< 48)
+    let v : Int := if raw < (1 : UInt64) <<< 47 then (raw.toNat : Int) else (raw.toNat : Int) - 281474976710656
+    { value := IntegerAttr.mk v (IntegerType.mk bw.toNat) }
+  else
+    -- MSB 1: the remaining 63 bits index the attribute table
+    match bctx.attributes[(w - ((1 : UInt64) <<< 63)).toNat]! with
+    | Attribute.integerAttr v => { value := v }
+    | _ => default
+
+/-- `readProperty` returns the inline constant when the slot holds an inline encoding (MSB 0). -/
+theorem ArithConstantProperties.readProperty_inline (addr : UInt64) (bctx : Buffed.IRBufContext) (h) (bw : Nat) (v : Int)
+    (h1 : -(2^47) ≤ v) (h2 : v < 2^47) (h3 : bw < 2^15)
+    (hread : (bctx.mem.read64! addr).toNat = bw * 2^48 + (v % 2^48).toNat) :
+    ArithConstantProperties.readProperty addr bctx h = some { value := IntegerAttr.mk v (IntegerType.mk bw) } := by
+  have ht : (v % 2^48).toNat < 2^48 := by omega
+  have hbig : (((1 : UInt64) <<< 63)).toNat = 9223372036854775808 := rfl
+  have hc48 : (((1 : UInt64) <<< 48)).toNat = 281474976710656 := rfl
+  have hc47 : (((1 : UInt64) <<< 47)).toNat = 140737488355328 := rfl
+  unfold readProperty
+  simp only [ExArray.read64_eq_read64!]
+  have hlt : bctx.mem.read64! addr < ((1 : UInt64) <<< 63) := by
+    rw [UInt64.lt_iff_toNat_lt, hread, hbig]; omega
+  rw [if_pos hlt]
+  have hdiv : (bctx.mem.read64! addr / ((1 : UInt64) <<< 48)).toNat = bw := by
+    rw [UInt64.toNat_div, hread, hc48]; omega
+  have hmod : (bctx.mem.read64! addr % ((1 : UInt64) <<< 48)).toNat = (v % 2^48).toNat := by
+    rw [UInt64.toNat_mod, hread, hc48]; omega
+  simp only [Option.some.injEq, ArithConstantProperties.mk.injEq, IntegerAttr.mk.injEq,
+    hdiv, hmod]
+  refine ⟨?_, trivial⟩
+  by_cases hc : bctx.mem.read64! addr % ((1 : UInt64) <<< 48) < ((1 : UInt64) <<< 47)
+  · rw [if_pos hc]
+    rw [UInt64.lt_iff_toNat_lt, hmod, hc47] at hc
+    omega
+  · rw [if_neg hc]
+    rw [UInt64.lt_iff_toNat_lt, hmod, hc47] at hc
+    omega
+
+/-- `readProperty` looks up the attribute table when the slot holds a tagged index (MSB 1). -/
+theorem ArithConstantProperties.readProperty_spilled (addr : UInt64) (bctx : Buffed.IRBufContext) (h) {idx : Nat} {v : IntegerAttr}
+    (hidx : idx < 2^63)
+    (hread : (bctx.mem.read64! addr).toNat = 2^63 + idx)
+    (hattr : bctx.attributes[idx]? = some (Attribute.integerAttr v)) :
+    ArithConstantProperties.readProperty addr bctx h = some { value := v } := by
+  have hbig : (((1 : UInt64) <<< 63)).toNat = 9223372036854775808 := rfl
+  unfold readProperty
+  simp only [ExArray.read64_eq_read64!]
+  have hle : ((1 : UInt64) <<< 63) ≤ bctx.mem.read64! addr := by
+    rw [UInt64.le_iff_toNat_le, hread, hbig]; omega
+  have hsub : (bctx.mem.read64! addr - ((1 : UInt64) <<< 63)).toNat = idx := by
+    rw [UInt64.toNat_sub_of_le _ _ hle, hread, hbig]; omega
+  rw [if_neg (by rw [UInt64.lt_iff_toNat_lt, hread, hbig]; omega), hsub, hattr]
+
+theorem ArithConstantProperties.readProperty_writeProperty (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs h') :
+    ArithConstantProperties.readProperty addr (a.writeProperty addr bctx h hattrs) h' = some a := by
+  obtain ⟨⟨v, ⟨bw⟩⟩⟩ := a
+  unfold writeProperty
+  split
+  next hsm =>
+    have h1 : -(2^47) ≤ v := hsm.1
+    have h2 : v < 2^47 := hsm.2.1
+    have h3 : bw < 2^15 := hsm.2.2
+    refine ArithConstantProperties.readProperty_inline addr _ _ bw v h1 h2 h3 ?_
+    rw [ExArray.read64!_blit64_self]
+    have hbw : (UInt64.ofNat bw).toNat = bw :=
+      _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+    have hv : (Int64.ofInt v).toUInt64.toNat = (v % 18446744073709551616).toNat := by
+      show (Int64.ofInt v).toBitVec.toNat = _
+      rw [Int64.toBitVec_ofInt, BitVec.toNat_ofInt]
+      omega
+    have hc48 : (((1 : UInt64) <<< 48)).toNat = 281474976710656 := rfl
+    rw [UInt64.toNat_add, UInt64.toNat_mul, UInt64.toNat_mod, hbw, hv, hc48]
+    omega
+  next hsm =>
+    refine ArithConstantProperties.readProperty_spilled addr _ _ (idx := bctx.attributes.size) hattrs ?_ ?_
+    · rw [ExArray.read64!_blit64_self]
+      have hsz : (UInt64.ofNat bctx.attributes.size).toNat = bctx.attributes.size :=
+        _root_UInt64.toNat_UInt64_ofNat_of_lt (by simp only [UInt64.size]; omega)
+      have hbig : (((1 : UInt64) <<< 63)).toNat = 9223372036854775808 := rfl
+      rw [UInt64.toNat_add, hsz, hbig]
+      omega
+    · simp
+
+/-- On any slot that `readProperty` decodes successfully, the infallible `read` agrees. -/
+theorem ArithConstantProperties.read_eq_of_readProperty {addr : UInt64} {bctx : Buffed.IRBufContext} {h}
+    {p : ArithConstantProperties}
+    (heq : ArithConstantProperties.readProperty addr bctx h = some p) :
+    ArithConstantProperties.read addr bctx h = p := by
+  unfold readProperty at heq
+  unfold read
+  simp only [ExArray.read64_eq_read64!] at heq ⊢
+  split at heq
+  next hc =>
+    rw [if_pos hc]
+    exact Option.some.inj heq
+  next hc =>
+    rw [if_neg hc]
+    split at heq
+    next v hm =>
+      have hbang : bctx.attributes[(bctx.mem.read64! addr - ((1 : UInt64) <<< 63)).toNat]!
+          = Attribute.integerAttr v := by grind
+      rw [hbang]
+      exact Option.some.inj heq
+    next hm => exact absurd heq (by simp)
+
+/-- Read-after-write for the infallible `read`. -/
+theorem ArithConstantProperties.read_writeProperty (a : ArithConstantProperties) (addr : UInt64)
+    (bctx : Buffed.IRBufContext) (h hattrs h') :
+    ArithConstantProperties.read addr (a.writeProperty addr bctx h hattrs) h' = a :=
+  read_eq_of_readProperty (readProperty_writeProperty a addr bctx h hattrs h')
+
+/-- `readProperty` after `writeProperty`, with the bounds check of the instance's `readPropertyAt` still in place. -/
+theorem ArithConstantProperties.read_after_write_dite (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext)
+    (h : addr.toNat + 8 ≤ bctx.mem.size) (hattrs : bctx.attributes.size < 2^63) :
+    (if h' : addr.toNat + 8 ≤ (a.writeProperty addr bctx h hattrs).mem.size then
+       ArithConstantProperties.readProperty addr (a.writeProperty addr bctx h hattrs) h'
+     else none) = some a := by
+  rw [dif_pos (by simpa using h)]
+  exact readProperty_writeProperty a addr bctx h hattrs _
+
+theorem ArithConstantProperties.writeProperty_read_disjoint {w : Nat} (a : ArithConstantProperties) (addr n len : UInt64) (bctx : Buffed.IRBufContext) (h hattrs)
+    (hd : IsDisjoint (n.toNat...(n.toNat + len.toNat)) (addr.toNat...(addr.toNat + 8))) :
+    (a.writeProperty addr bctx h hattrs).mem.read! (w := w) n len = bctx.mem.read! n len := by
+  unfold writeProperty
+  split <;> exact ExArray.read!_blit64_disjoint _ _ _ _ _ (by simpa using hd)
+
+/-- A successful read survives on any buffer agreeing on the slot word whose attribute
+lookups extend those of `bctx` (the table may grow, so only success transfers). -/
+theorem ArithConstantProperties.readProperty_frame {addr : UInt64} {bctx bctx' : Buffed.IRBufContext} (h h')
+    {p : ArithConstantProperties}
+    (hp : ArithConstantProperties.readProperty addr bctx h = some p)
+    (hmem : bctx'.mem.read64! addr = bctx.mem.read64! addr)
+    (hattrs : ∀ (i : Nat) (a : Attribute), bctx.attributes[i]? = some a → bctx'.attributes[i]? = some a) :
+    ArithConstantProperties.readProperty addr bctx' h' = some p := by
+  unfold readProperty at hp ⊢
+  simp only [ExArray.read64_eq_read64!] at hp ⊢
+  rw [hmem]
+  split at hp
+  next hc => rw [if_pos hc]; exact hp
+  next hc =>
+    rw [if_neg hc]
+    split at hp
+    next v hm => rw [hattrs _ _ hm]; exact hp
+    next => simp at hp
+
+@[simp]
+theorem ArithConstantProperties.writeProperty_freeList (p : ArithConstantProperties) (addr : UInt64)
+    (bctx : Buffed.IRBufContext) (h ha) : (p.writeProperty addr bctx h ha).freeList = bctx.freeList := by
+  unfold writeProperty
+  split <;> rfl
+
+@[inline]
+instance : HasBuffedProperties Arith where
+  writePropertyAt op p addr bctx h hattrs :=
+    match op, p, h with
+    | .subi, p, h | .shli, p, h | .trunci, p, h => NswNuwProperties.writeProperty p addr bctx h
+    | .divsi, p, h | .divui, p, h | .shrsi, p, h | .shrui, p, h => ExactProperties.writeProperty p addr bctx h
+    | .ori, p, h => DisjointProperties.writeProperty p addr bctx h
+    | .cmpi, p, h => IcmpProperties.writeProperty p addr bctx h
+    | .extui, p, h => NnegProperties.writeProperty p addr bctx h
+    | .constant, p, h => ArithConstantProperties.writeProperty p addr bctx h hattrs
+    -- the remaining ops have `Unit` properties: nothing to store
+    | _, _, _ => bctx
+  readPropertyAt op addr bctx :=
+    match op with
+    | .subi | .shli | .trunci =>
+      if h : addr.toNat + 1 ≤ bctx.mem.size then
+        NswNuwProperties.readProperty addr bctx h
+      else
+        none
+    | .divsi | .divui | .shrsi | .shrui =>
+      if h : addr.toNat + 1 ≤ bctx.mem.size then
+        ExactProperties.readProperty addr bctx h
+      else
+        none
+    | .ori =>
+      if h : addr.toNat + 1 ≤ bctx.mem.size then
+        DisjointProperties.readProperty addr bctx h
+      else
+        none
+    | .cmpi =>
+      if h : addr.toNat + 1 ≤ bctx.mem.size then
+        IcmpProperties.readProperty addr bctx h
+      else
+        none
+    | .extui =>
+      if h : addr.toNat + 1 ≤ bctx.mem.size then
+        NnegProperties.readProperty addr bctx h
+      else
+        none
+    | .constant =>
+      if h : addr.toNat + 8 ≤ bctx.mem.size then
+        ArithConstantProperties.readProperty addr bctx h
+      else
+        none
+    -- the remaining ops have `Unit` properties: nothing to read
+    | .addi | .addui_extended | .andi | .ceildivsi | .ceildivui | .extsi
+    | .floordivsi | .maxsi | .maxui | .minsi | .minui | .muli | .mulsi_extended
+    | .mului_extended | .remsi | .remui | .select | .xori => some ()
+  read_after_write {op addr p bctx h hattrs} := by
+    cases op
+    case constant => exact ArithConstantProperties.read_after_write_dite p addr bctx h hattrs
+    case subi => exact NswNuwProperties.read_after_write_dite p addr bctx h
+    case shli => exact NswNuwProperties.read_after_write_dite p addr bctx h
+    case trunci => exact NswNuwProperties.read_after_write_dite p addr bctx h
+    case divsi => exact ExactProperties.read_after_write_dite p addr bctx h
+    case divui => exact ExactProperties.read_after_write_dite p addr bctx h
+    case shrsi => exact ExactProperties.read_after_write_dite p addr bctx h
+    case shrui => exact ExactProperties.read_after_write_dite p addr bctx h
+    case ori => exact DisjointProperties.read_after_write_dite p addr bctx h
+    case cmpi => exact IcmpProperties.read_after_write_dite p addr bctx h
+    case extui => exact NnegProperties.read_after_write_dite p addr bctx h
+    all_goals rfl
+  only_adds_attributes {a op p addr bctx h hattrs} i hsome := by
+    cases op <;> cases p <;>
+      first
+        | exact ArithConstantProperties.writeProperty_attributes _ addr bctx h hattrs hsome
+        | simpa only [NswNuwProperties.writeProperty_attributes,
+            ExactProperties.writeProperty_attributes,
+            DisjointProperties.writeProperty_attributes,
+            IcmpProperties.writeProperty_attributes,
+            NnegProperties.writeProperty_attributes] using hsome
+        | exact hsome
+  preserves_freeList {op p addr bctx h hattrs} := by
+    cases op <;> cases p <;> first
+      | exact ArithConstantProperties.writeProperty_freeList _ addr bctx h hattrs
+      | exact NswNuwProperties.writeProperty_freeList _ addr bctx h
+      | exact ExactProperties.writeProperty_freeList _ addr bctx h
+      | exact DisjointProperties.writeProperty_freeList _ addr bctx h
+      | exact IcmpProperties.writeProperty_freeList _ addr bctx h
+      | exact NnegProperties.writeProperty_freeList _ addr bctx h
+      | rfl
+  preserves_size {op p addr bctx h hattrs} := by
+    cases op <;> cases p <;> first
+      | exact ArithConstantProperties.writeProperty_size _ addr bctx h hattrs
+      | exact NswNuwProperties.writeProperty_size _ addr bctx h
+      | exact ExactProperties.writeProperty_size _ addr bctx h
+      | exact DisjointProperties.writeProperty_size _ addr bctx h
+      | exact IcmpProperties.writeProperty_size _ addr bctx h
+      | exact NnegProperties.writeProperty_size _ addr bctx h
+      | rfl
+  only_modifies_properties {op p addr bctx h hattrs w n len} hd := by
+    cases op
+    case constant => exact ArithConstantProperties.writeProperty_read_disjoint p addr n len bctx h hattrs hd
+    case subi => exact NswNuwProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case shli => exact NswNuwProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case trunci => exact NswNuwProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case divsi => exact ExactProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case divui => exact ExactProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case shrsi => exact ExactProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case shrui => exact ExactProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case ori => exact DisjointProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case cmpi => exact IcmpProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    case extui => exact NnegProperties.writeProperty_read_disjoint p addr n len bctx h hd
+    all_goals rfl
+  readPropertyAt_frame {op addr bctx bctx' p} hp hsz hmem hattrs := by
+    cases op
+    case constant =>
+      exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+        ArithConstantProperties.readProperty_frame h h' hr
+          (by rw [ExArray.read64!_eq_read!, ExArray.read64!_eq_read!, hmem 64 addr 8 (Nat.le_refl _) (Nat.le_refl _)])
+          hattrs
+    case subi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case shli => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case trunci => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NswNuwProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case divsi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case divui => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case shrsi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case shrui => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (ExactProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case ori => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (DisjointProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case cmpi => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (IcmpProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    case extui => exact Buffed.dite_read_frame hp hsz fun h h' hr =>
+      (NnegProperties.readProperty_frame h h' (hmem 8 addr 1 (Nat.le_refl _) (Nat.le_refl _))).trans hr
+    all_goals exact hp
+
 
 end
 

@@ -1,6 +1,6 @@
-import Veir.Buffered.IR.Buffed.RawAccessors
+import Veir.IR.Buffed.RawAccessors
 
-open Veir.Buffered.Buffed
+open Veir.Buffed
 
 private def check (condition : Bool) (message : String) : IO Unit :=
   unless condition do throw (IO.userError message)

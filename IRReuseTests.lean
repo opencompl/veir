@@ -1,15 +1,15 @@
 import ExArray.CompilerExtras
-import Veir.Buffered.IR.Buffed.RecycledOperation
-import Veir.Buffered.IR.Buffed.RecycledBlock
-import Veir.Buffered.IR.Buffed.RecycledRegion
-import Veir.Buffered.Rewriter.EraseContainers
-import Veir.Buffered.GlobalOpInfo
-import Veir.Buffered.IR.InBounds
+import Veir.IR.Buffed.RecycledOperation
+import Veir.IR.Buffed.RecycledBlock
+import Veir.IR.Buffed.RecycledRegion
+import Veir.Rewriter.EraseContainers
+import Veir.GlobalOpInfo
+import Veir.IR.InBounds
 
-open Veir.Buffered
+open Veir
 set_option maxHeartbeats 1000000
 
-private def NoObjects (ctx : Veir.Buffered.IRContext OpCode) : Prop :=
+private def NoObjects (ctx : Veir.IRContext OpCode) : Prop :=
   ∀ p : TopLevelPtr, ¬ p.InBounds ctx
 
 private structure EmptyArena where
@@ -17,13 +17,13 @@ private structure EmptyArena where
   empty : NoObjects ctx.spec
 
 private def initial : EmptyArena := ⟨default, by
-  change NoObjects (Erased.mk (default : Veir.Buffered.IRContext OpCode)).out
+  change NoObjects (Erased.mk (default : Veir.IRContext OpCode)).out
   rw [Erased.out_mk]
   intro p
   cases p <;> simp [TopLevelPtr.InBounds, OperationPtr.inBounds_def,
     BlockPtr.inBounds_def, RegionPtr.inBounds_def, IRContext.default_def]⟩
 
-private theorem fieldsOfEmpty {ctx : Veir.Buffered.IRContext OpCode} (h : NoObjects ctx) : ctx.FieldsInBounds := by
+private theorem fieldsOfEmpty {ctx : Veir.IRContext OpCode} (h : NoObjects ctx) : ctx.FieldsInBounds := by
   constructor
   · intro p hp; exact False.elim (h (.operation p) hp)
   · intro p hp; exact False.elim (h (.block p) hp)
