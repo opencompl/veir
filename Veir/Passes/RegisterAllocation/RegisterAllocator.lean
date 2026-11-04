@@ -1,6 +1,5 @@
 module
 
-public import Veir.IR.Attribute
 public import Veir.Passes.RegisterAllocation.RegisterStack
 public import Veir.Rewriter.WfRewriter
 public import Veir.GlobalOpInfo

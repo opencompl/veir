@@ -1,8 +1,8 @@
 module
 
 public import Veir.Pass
-public import Veir.Passes.RegisterAllocation.RegisterAllocator
-public import Veir.Passes.RegisterAllocation.Helper
+import Veir.Passes.RegisterAllocation.RegisterAllocator
+import Veir.Passes.RegisterAllocation.Helper
 
 namespace Veir
 
