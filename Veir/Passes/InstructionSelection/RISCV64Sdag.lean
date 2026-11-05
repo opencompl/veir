@@ -180,6 +180,16 @@ def sdivPow2GenLocal (shiftDst : Riscv) (hShift : Riscv.propertiesOf shiftDst = 
 def sdivPow2 := RewritePattern.fromLocalRewrite (sdivPow2GenLocal .srai rfl .srli rfl .add rfl .sub rfl 64)
 def sdivwPow2 := RewritePattern.fromLocalRewrite (sdivPow2GenLocal .sraiw rfl .srliw rfl .addw rfl .subw rfl 32)
 
+/-! ## `llvm.intr.assume`
+  An assume only adds UB, so dropping it is always a refinement.
+-/
+def dropAssumeLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if op.getOpType! ctx.raw ≠ .llvm .intr__assume then return (ctx, none)
+  some (ctx, some (#[], #[]))
+
+def dropAssume := RewritePattern.fromLocalRewrite dropAssumeLocal
+
 /-! # Pass implementation -/
 
 def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
@@ -188,7 +198,7 @@ def IselSDAG.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      mirror the priority LLVM gives the `exact`-flag fast path, though both sides
      already guard on `exact`, so the two pairs are in fact mutually exclusive. -/
   let pattern := RewritePattern.GreedyRewritePattern #[
-    udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
+    dropAssume, udivPow2, udivwPow2, sdivPow2Exact, sdivwPow2Exact, sdivPow2, sdivwPow2]
   match RewritePattern.applyToFunctions pattern ctx op with
   | none => throw "Error while applying SDAG patterns"
   | some ctx => pure ctx
