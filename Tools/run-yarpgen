@@ -26,6 +26,9 @@ With --save-temps, the working directories of passing tests are kept too. With
 printed after it finishes. VeIR's executables are built once at startup, so a
 rebuild during a run takes effect immediately, in the tests still to come.
 
+Each run of a VeIR executable is logged with the size of its input and the wall-clock
+time it took, including runs that fail.
+
 --yarpgen gives the yarpgen binary, which must be yarpgen v1: v2 has different options.
 """
 
@@ -153,10 +156,22 @@ def run_reference(tmp: Path, timeout: float) -> str:
     return execute("reference", "reference", tmp, timeout)
 
 
+def log_veir_stats(path: Path, name: str) -> None:
+    """Log the VeIR commands that vcc recorded in `path`, if it got as far as running any."""
+    if path.exists():
+        for line in path.read_text().splitlines():
+            size, seconds, command = line.split("\t")
+            log(f"{name} {command}: {size} bytes, {seconds}s")
+
+
 def run_version(tmp: Path, name: str, vcc_args: list[str], expected: str, timeout: float) -> None:
     """Build one version of the program in `tmp` and compare its output to `expected`."""
-    obj, exe = f"func-{name}.o", f"test-{name}"
-    build("vcc", [sys.executable, str(VCC), "--no-build", *vcc_args, "-c", "func.c", "-o", obj], tmp)
+    obj, exe, stats = f"func-{name}.o", f"test-{name}", f"veir-stats-{name}.tsv"
+    try:
+        build("vcc", [sys.executable, str(VCC), "--no-build", "--veir-stats", stats, *vcc_args,
+                      "-c", "func.c", "-o", obj], tmp)
+    finally:
+        log_veir_stats(tmp / stats, name)
     build("link", [*CLANG, "-fuse-ld=lld", obj, "driver.o", "-o", exe], tmp)
     actual = execute("crash", exe, tmp, timeout)
     if actual != expected:
