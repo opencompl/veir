@@ -66,18 +66,38 @@ def run(cmd: list[str], *, stdin: bytes | None = None, debug: bool = False) -> b
 
 
 def run_veir(cmd: list[str], *, debug: bool = False) -> bytes:
-    """Run a VeIR executable whose last argument is its input file, recording
-    the input's size and the time taken, even if the command fails."""
+    """Run a VeIR executable whose last argument is its input file. With --veir-stats,
+    record its name before it starts, so that a kill shows which command was running,
+    then the input's size and the resources used, even if the command fails."""
+    if debug:
+        print(f"+ vcc.run: {' '.join(cmd)}", file=sys.stderr)
+    name = " ".join([Path(cmd[0]).name, *(a for a in cmd[1:-1] if a.startswith("-p="))])
+    record_veir_stats(name)
     start = time.perf_counter()
-    try:
-        return run(cmd, debug=debug)
-    finally:
-        if VEIR_STATS is not None:
-            elapsed = time.perf_counter() - start
-            size = os.path.getsize(cmd[-1])
-            name = " ".join([Path(cmd[0]).name, *(a for a in cmd[1:-1] if a.startswith("-p="))])
-            with VEIR_STATS.open("a") as stats:
-                stats.write(f"{size}\t{elapsed:.3f}\t{name}\n")
+    # Files rather than pipes, as draining pipes would need Popen.communicate, which
+    # reaps the command itself and so loses the resource usage that os.wait4 reports.
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
+        _, status, usage = os.wait4(proc.pid, 0)
+        proc.returncode = os.waitstatus_to_exitcode(status)
+        elapsed = time.perf_counter() - start
+        cpu = usage.ru_utime + usage.ru_stime
+        # ru_maxrss is in bytes on macOS and in KiB on Linux. On Linux it can't be
+        # less than vcc's own resident size, which the command inherits until exec.
+        peak = usage.ru_maxrss * (1 if sys.platform == "darwin" else 1024)
+        record_veir_stats(f"{os.path.getsize(cmd[-1])}\t{elapsed:.3f}\t{cpu:.3f}\t{peak}\t{name}")
+        if proc.returncode != 0:
+            stderr.seek(0)
+            err = stderr.read().decode("utf-8", errors="replace")
+            sys.exit(f"vcc: {cmd[0]} failed:\n{err}")
+        stdout.seek(0)
+        return stdout.read()
+
+
+def record_veir_stats(line: str) -> None:
+    if VEIR_STATS is not None:
+        with VEIR_STATS.open("a") as stats:
+            stats.write(f"{line}\n")
 
 
 MISSING_SYSROOT_HINT = """
@@ -271,8 +291,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--veir-stats", type=Path, metavar="FILE",
-        help="append the input size in bytes, the seconds taken, and the name of each "
-             "command that runs a VeIR executable to FILE, separated by tabs",
+        help="for each run of a VeIR executable, append its name to FILE as it starts; "
+             "when it ends, append a line of its input size in bytes, wall-clock seconds, "
+             "CPU seconds, peak resident bytes, and name, separated by tabs",
     )
     parser.add_argument(
         "--debug", action="store_true",
