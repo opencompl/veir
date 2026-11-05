@@ -117,7 +117,7 @@ example (w : Nat) (y : BitVec 4) (hw : w ≤ 4) :
 /--
 error: `pbv_decide` found a potentially spurious counterexample.
   The following expressions were abstracted as opaque variables:
-    - BitVec.setWidth 4 1#(w + 0)
+    - 1#(w + 0) =
 -/
 #guard_msgs(error, substring := true) in
 example (w : Nat) (x : BitVec w) (hw : w ≤ 4) :
@@ -186,3 +186,17 @@ error: unsolved goals
 example {w s v : Nat} (x : BitVec w) (hw : w ≤ 4) (hv : v ≤ w) :
     x.extractLsb' s v = (x >>> s).setWidth v := by
   pbv_decide 4
+
+structure CexBVPair (w : Nat) where
+  fst : BitVec w
+  snd : BitVec w
+
+-- A `BitVec` that is not a variable is reported at its own width
+/--
+error: `pbv_decide` found a potentially spurious counterexample.
+  The following expressions were abstracted as opaque variables:
+    - a.fst = 0xf#4 (BitVec.setWidth 16 a.fst = 0xffff#16)
+-/
+#guard_msgs(error, substring := true) in
+example (p : Nat) (a : CexBVPair p) (hp : p ≤ 4) : a.fst + 1 = a.fst := by
+  pbv_decide 16
