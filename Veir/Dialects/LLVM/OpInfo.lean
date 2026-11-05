@@ -994,14 +994,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 0 1
     pure ()
   | .mlir__global => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "llvm.mlir.global: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "llvm.mlir.global: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "llvm.mlir.global: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "llvm.mlir.global: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let properties := op.getProperties! ctx.raw Llvm.mlir__global
     if let some alignment := properties.alignment then
       if alignment.type.bitwidth ≠ 64 then
@@ -1020,14 +1013,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw "expected zero value for 'common' linkage"
     pure ()
   | .mlir__alias => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "llvm.mlir.alias: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "llvm.mlir.alias: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "llvm.mlir.alias: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "llvm.mlir.alias: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let properties := op.getProperties! ctx.raw Llvm.mlir__alias
     let isStorageType : Attribute → Bool
       | .llvmVoidType _ => false
@@ -1036,15 +1022,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | _ => true
     if !properties.alias_type.val.isLLVMCompatibleType || !isStorageType properties.alias_type.val then
       throw "expects type to be a valid element type for an LLVM global alias"
-    let body := op.getRegion! ctx.raw 0
-    let some block := body.getFirstBlock! ctx.raw
-      | throw "initializer region must have exactly one block"
-    if body.getLastBlock! ctx.raw ≠ some block then
-      throw "initializer region must have exactly one block"
-    if let some lastOp := block.getLastOp! ctx.raw then
-      let lastType := lastOp.getOpType! ctx.raw
-      if toDialect? Llvm lastType ≠ some .return then
-        throw s!"expects regions to end with 'llvm.return', found '{String.fromUTF8! (IsOpCode.name lastType)}'"
+    let block ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "initializer region must have exactly one block"
+    block.verifyImplicitTerminator ctx Llvm.return
     let allowed := ["private", "internal", "linkonce", "weak", "linkonce_odr", "weak_odr",
       "external", "available_externally"]
     if !allowed.contains properties.linkage.value then
@@ -1303,19 +1283,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
         throw s!"Type mismatch: extracting from {containerType} should produce {elementType} \
           but this op returns {resultType}"
   | .comdat => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "llvm.comdat: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "llvm.comdat: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "llvm.comdat: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "llvm.comdat: Expected 0 successor(s)"
-    let body := op.getRegion! ctx.raw 0
-    let some block := body.getFirstBlock! ctx.raw
-      | throw "region should have exactly one block"
-    if body.getLastBlock! ctx.raw ≠ some block then
-      throw "region should have exactly one block"
+    op.verifyOpCounts ctx opIn 0 0 1 0
+    let block ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "region should have exactly one block"
     if block.getNumArguments! ctx.raw ≠ 0 then
       throw "region should have no arguments"
   | .comdat_selector => do
@@ -1381,14 +1351,7 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .func => do
     op.checkIsNonNullIntegerType ctx opIn
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "llvm.func: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "llvm.func: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "llvm.func: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "llvm.func: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
   | .fadd | .fsub | .fmul | .fdiv | .frem => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyFloatBinop ctx opIn

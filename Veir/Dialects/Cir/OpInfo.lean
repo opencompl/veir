@@ -69,7 +69,7 @@ def Cir.fromAttrDict
   | .cast => CirCastProperties.fromAttrDict attrDict
   | .brcond => CirBrCondProperties.fromAttrDict attrDict
   | .return | .mul | .div | .rem | .and | .or | .xor | .not | .min | .max
-  | .select | .br | .unreachable => Cir.noProperties attrDict
+  | .select | .br | .unreachable => expectNoProperties "cir" attrDict
 
 def Cir.toAttrDict
     (op : Cir) (props : Cir.propertiesOf op) :
@@ -338,14 +338,7 @@ def Cir.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "cir.func: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "cir.func: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
   | .return => do
     op.verifyTerminatorCounts ctx opIn 0
     op.verifyCirReturnTypes ctx opIn

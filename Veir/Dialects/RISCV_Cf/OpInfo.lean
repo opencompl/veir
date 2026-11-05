@@ -53,10 +53,7 @@ def Riscv_Cf.fromAttrDict
   case func => exact RISCVFuncProperties.fromAttrDict attrDict
   case call => exact RISCVCallProperties.fromAttrDict attrDict
   case «return» =>
-    exact if attrDict.size > 0 then
-        let plural := if attrDict.size = 1 then "property" else "properties"
-        .error s!"riscv_cf.return: expected no properties, but got {attrDict.size} {plural}"
-      else .ok ()
+    exact expectNoProperties "riscv_cf.return" attrDict
   case beq | bne | blt | bge | bltu | bgeu | beqz | bnez =>
     exact RISCVBrProperties.fromAttrDict attrDict
   all_goals exact .ok ()
@@ -280,14 +277,7 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "riscv_cf.func: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let ft := (op.getProperties! ctx.raw Riscv_Cf.func).function_type
     for ty in ft.inputs ++ ft.outputs do
       let .registerType _ := ty

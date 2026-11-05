@@ -127,14 +127,7 @@ def HW.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyNormalizedIntegerAttr ctx opIn value
     pure ()
   | .module => do
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "hw.module: Expected 0 operand(s)"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "hw.module: Expected 0 result(s)"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "hw.module: Expected 1 region(s)"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "hw.module: Expected 0 successor(s)"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     pure ()
   | .output => do
     op.verifyTerminatorCounts ctx opIn 0
