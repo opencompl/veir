@@ -83,8 +83,12 @@ def Linalg.verifyGeneric {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpInfo Li
   let instrName := "linalg.generic"
   let props := op.getProperties! ctx.raw Linalg.generic
   let operandTypes := op.getOperandTypes! ctx.raw
-  let segments ← op.verifyOperandSegmentSizes ctx opIn props.operandSegmentSizes 2
-  let numInputs := segments[0]!
+  let numInputs := props.numInputs
+  -- The encoding of `operandSegmentSizes` is checked when parsing it.
+  let numSegmentOperands := numInputs + props.numOutputs
+  if numSegmentOperands ≠ op.getNumOperands ctx.raw opIn then
+    throw s!"{instrName}: operandSegmentSizes describes {numSegmentOperands} operands, \
+      got {op.getNumOperands ctx.raw opIn}"
   -- This also checks that there is one indexing map per operand.
   let operands := operandTypes.map (Linalg.operandShapeAndElementType ·.val)
   props.verifyIndexingMaps (operands.map (·.1))

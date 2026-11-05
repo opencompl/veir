@@ -10,23 +10,21 @@ public section
 /--
   Properties of the `linalg.generic` operation.
 
-  The operands are split into inputs followed by outputs, as described by
-  `operandSegmentSizes`, with one indexing map per operand.
+  The operands are split into `numInputs` inputs followed by `numOutputs` outputs,
+  with one indexing map per operand. MLIR spells this split as the
+  `operandSegmentSizes` dense array `[numInputs, numOutputs]`, which is decoded when
+  parsing and rebuilt when printing, so that rewrites and proofs work with plain
+  numbers. The number of outputs is stored rather than derived from the operands, as
+  printing does not see them, and the verifier checks both against the operands.
 -/
 structure LinalgGenericProperties where
   indexingMaps : Array AffineMapAttr
   iteratorTypes : Array Linalg.IteratorType
-  operandSegmentSizes : DenseArrayAttr
+  numInputs : Nat
+  numOutputs : Nat
   doc : Option StringAttr := none
   libraryCall : Option StringAttr := none
 deriving Inhabited, Repr, Hashable, DecidableEq
-
-/--
-  The number of input operands of a `linalg.generic`. This is only meaningful once
-  `operandSegmentSizes` has been verified.
--/
-def LinalgGenericProperties.numInputs (props : LinalgGenericProperties) : Nat :=
-  (props.operandSegmentSizes.values[0]?.getD 0).toNat
 
 /-- The property names `linalg.generic` accepts, as spelled in MLIR. -/
 private def linalgGenericPropertyNames : List ByteArray :=
@@ -64,16 +62,25 @@ def LinalgGenericProperties.fromAttrDict (attrDict : Std.HashMap ByteArray Attri
     | .linalgIteratorTypeAttr iterator => pure iterator.value
     | attr => throw s!"linalg.generic: expected 'iterator_types' to contain iterator types, but got {attr}"
 
-  -- The sizes themselves are checked by the verifier, against the operands.
+  -- Only the encoding of the segment sizes is checked here; the verifier checks them
+  -- against the operands, as MLIR does.
   let some sizesAttr := attrDict["operandSegmentSizes".toUTF8]?
     | throw "linalg.generic: requires attribute 'operandSegmentSizes'"
-  let .denseArrayAttr operandSegmentSizes := sizesAttr
+  let .denseArrayAttr sizes := sizesAttr
     | throw s!"linalg.generic: expected 'operandSegmentSizes' to be a dense array attribute, but got {sizesAttr}"
+  if sizes.elementType ≠ .signless 32 then
+    throw "linalg.generic: Expected 'operandSegmentSizes' to be an i32 dense array attribute"
+  let #[numInputs, numOutputs] := sizes.values
+    | throw s!"linalg.generic: operandSegmentSizes expected 2 entries, got {sizes.values.size}"
+  if let some size := sizes.values.find? (· < 0) then
+    throw s!"linalg.generic: operandSegmentSizes contains negative size {size}"
 
   let doc ← linalgGenericStringProperty attrDict "doc"
   let libraryCall ← linalgGenericStringProperty attrDict "library_call"
 
-  return { indexingMaps, iteratorTypes, operandSegmentSizes, doc, libraryCall }
+  return {
+    indexingMaps, iteratorTypes, numInputs := numInputs.toNat,
+    numOutputs := numOutputs.toNat, doc, libraryCall }
 
 def LinalgGenericProperties.toAttrDict (props : LinalgGenericProperties) :
     Std.HashMap ByteArray Attribute := Id.run do
@@ -83,7 +90,7 @@ def LinalgGenericProperties.toAttrDict (props : LinalgGenericProperties) :
   dict := dict.insert "iterator_types".toUTF8
     (.arrayAttr ⟨props.iteratorTypes.map (.linalgIteratorTypeAttr ⟨·⟩)⟩)
   dict := dict.insert "operandSegmentSizes".toUTF8
-    (.denseArrayAttr props.operandSegmentSizes)
+    (.denseArrayAttr ⟨.signless 32, #[props.numInputs, props.numOutputs]⟩)
   if let some doc := props.doc then
     dict := dict.insert "doc".toUTF8 (.stringAttr doc)
   if let some libraryCall := props.libraryCall then
