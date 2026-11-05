@@ -26,9 +26,7 @@ theorem Buffed.dite_read_frame {P : Type} {sz : Nat} {addr : UInt64} {bctx bctx'
     (hsz : bctx.mem.size ≤ bctx'.mem.size)
     (htrans : ∀ h h', read bctx h = some p → read bctx' h' = some p) :
     (if h : addr.toNat + sz ≤ bctx'.mem.size then read bctx' h else none) = some p := by
-  split at hp
-  next hb => rw [dif_pos (by omega)]; exact htrans hb (by omega) hp
-  next => simp at hp
+  grind
 
 /-- Encode the two flags in the low bits of a single byte: bit 0 is `nsw`, bit 1 is `nuw` (the same layout as MLIR's `overflowFlags`). -/
 @[expose] def NswNuwProperties.writeProperty (a : NswNuwProperties) (addr: UInt64) (bctx : Buffed.IRBufContext) (h : addr.toNat + 1 ≤ bctx.mem.size) : Buffed.IRBufContext :=

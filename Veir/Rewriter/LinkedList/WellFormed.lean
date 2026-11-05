@@ -257,12 +257,8 @@ theorem Sim.ValuePtr.defUse_removeFromCurrent_other
     (hWF : value.DefUse ctx.spec array missingUses)
     (hWF' : value'.DefUse ctx.spec array' missingUses') :
     value.DefUse (use.removeFromCurrent ctx (by grind) ctxInBounds).spec array missingUses := by
-  have : value.InBounds ctx.spec := by grind
-  apply ValuePtr.DefUse.unchanged (ctx := ctx.spec) <;> try grind [ValuePtr.DefUse.useValue]
-  simp [ValuePtr.getFirstUse!_OpOperandPtr_removeFromCurrent]
-  intros h
-  have : (use.spec.get! ctx.spec).value = value' := by grind [ValuePtr.DefUse]
-  grind [ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
+  grind [ValuePtr.DefUse.useValue, ValuePtr.DefUse,
+    ValuePtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
 
 theorem Sim.BlockPtr.defUse_OpOperandPtr_removeFromCurrent
     {block : Veir.BlockPtr} {use : OpOperandPtr} {useInBounds}

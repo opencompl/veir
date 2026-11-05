@@ -1368,10 +1368,7 @@ theorem ValuePtr.getFirstUse!_detachOpIfAttached
     (hOp : operation.InBounds ctx) :
     value.getFirstUse! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec =
       value.getFirstUse! ctx.spec := by
-  simp only [Rewriter.detachOpIfAttached.unfold]
-  split
-  · apply ValuePtr.getFirstUse!_detachOp
-  · rfl
+  grind [Rewriter.detachOpIfAttached.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_detachOpIfAttached
@@ -1380,10 +1377,7 @@ theorem OperationPtr.getNumResults!_detachOpIfAttached
     (hOp : operation.InBounds ctx) :
     op'.getNumResults! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec =
       op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachOpIfAttached.unfold]
-  split
-  · apply OperationPtr.getNumResults!_detachOp
-  · rfl
+  grind [Rewriter.detachOpIfAttached.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_detachOperands_loop
@@ -1415,10 +1409,7 @@ theorem OperationPtr.getNumResults!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumResults! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumResults!_detachOperands_loop
+  grind [Rewriter.detachOperands.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumResults!_detachBlockOperands_loop
@@ -1449,10 +1440,7 @@ theorem OperationPtr.getNumResults!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumResults! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumResults! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumResults!_detachBlockOperands_loop
+  grind [Rewriter.detachBlockOperands.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_detachOperands_loop
@@ -1476,10 +1464,7 @@ theorem OperationPtr.getNumOperands!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumOperands! ctx.spec := by
-  simp only [Rewriter.detachOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumOperands!_detachOperands_loop
+  grind [Rewriter.detachOperands.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumOperands!_detachBlockOperands_loop
@@ -1502,10 +1487,7 @@ theorem OperationPtr.getNumOperands!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumOperands! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumOperands! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumOperands!_detachBlockOperands_loop
+  grind [Rewriter.detachBlockOperands.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumSuccessors!_detachBlockOperands_loop
@@ -1528,10 +1510,7 @@ theorem OperationPtr.getNumSuccessors!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumSuccessors! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumSuccessors! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumSuccessors!_detachBlockOperands_loop
+  grind [Rewriter.detachBlockOperands.unfold]
 
 @[simp]
 theorem OperationPtr.parent!_detachOpIfAttached_self
@@ -1623,10 +1602,7 @@ theorem OperationPtr.getNumRegions!_detachOperands
       operation.spec.getNumOperands! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumRegions!_detachOperands_loop
+  grind [Rewriter.detachOperands.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachBlockOperands_loop
@@ -1649,10 +1625,7 @@ theorem OperationPtr.getNumRegions!_detachBlockOperands
       operation.spec.getNumSuccessors! ctx.spec) :
     op'.getNumRegions! (Rewriter.detachBlockOperands ctx operation hCtx hOp hCap).spec =
       op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachBlockOperands.unfold]
-  split
-  · rfl
-  · apply OperationPtr.getNumRegions!_detachBlockOperands_loop
+  grind [Rewriter.detachBlockOperands.unfold]
 
 @[simp, grind =]
 theorem OperationPtr.getNumRegions!_detachOpIfAttached
@@ -1661,10 +1634,7 @@ theorem OperationPtr.getNumRegions!_detachOpIfAttached
     (hOp : operation.InBounds ctx) :
     op'.getNumRegions! (Rewriter.detachOpIfAttached ctx operation hCtx hOp).spec =
       op'.getNumRegions! ctx.spec := by
-  simp only [Rewriter.detachOpIfAttached.unfold]
-  split
-  · apply OperationPtr.getNumRegions!_detachOp
-  · rfl
+  grind [Rewriter.detachOpIfAttached.unfold]
 
 theorem Rewriter.eraseOpDeallocatedSpec_wellFormed
     (ctx : Sim.IRContext OpInfo) (op : Sim.OperationPtr)

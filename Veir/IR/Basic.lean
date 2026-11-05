@@ -438,9 +438,8 @@ theorem getOperands!.size_eq_getNumOperands! {op : OperationPtr} :
 @[simp, grind =]
 theorem getOperands!.getElem!_eq_getOperand! {op : OperationPtr} :
     (op.getOperands! ctx)[index]! = op.getOperand! ctx index := by
-  simp only [getOperands!, getOperand!]
-  simp only [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, Array.getElem?_map]
-  grind [OpOperand.default_value_eq]
+  grind [getOperands!, getOperand!, Array.getElem!_eq_getD,
+    Array.getD_eq_getD_getElem?, OpOperand.default_value_eq]
 
 @[simp, grind =]
 theorem getOperands!.getElem_eq_getOperand! {op : OperationPtr} {h} :
@@ -550,9 +549,8 @@ theorem getSuccessors!.size_eq_getNumSuccessors! {op : OperationPtr} :
 @[simp, grind =]
 theorem getSuccessors!.getElem!_eq_getSuccessor! {op : OperationPtr} :
     (op.getSuccessors! ctx)[index]! = op.getSuccessor! ctx index := by
-  simp only [getSuccessors!, getSuccessor!]
-  simp only [Array.getElem!_eq_getD, Array.getD_eq_getD_getElem?, Array.getElem?_map]
-  grind [BlockOperand.default_value_eq]
+  grind [getSuccessors!, getSuccessor!, Array.getElem!_eq_getD,
+    Array.getD_eq_getD_getElem?, BlockOperand.default_value_eq]
 
 @[simp, grind =]
 theorem getSuccessors!.getElem_eq_getSuccessor! {op : OperationPtr} {h} :
@@ -615,13 +613,7 @@ theorem getOpResults!_eq_getOpResults {op : OperationPtr} (hin : op.InBounds ctx
 theorem getOpResults!.mem_iff_exists_index {op : OperationPtr} :
     value ∈ op.getOpResults! ctx ↔
     ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
-  simp only [getOpResults!, Array.mem_map, getResult, getNumResults!]
-  constructor
-  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
-    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
-    exists i
-    grind
-  · grind
+  grind [getOpResults!, getResult, getNumResults!]
 
 theorem getOpResults!.mem_getResult {op : OperationPtr} :
     index < op.getNumResults! ctx →
@@ -663,13 +655,7 @@ theorem getResults!_eq_getResults {op : OperationPtr} (hin : op.InBounds ctx) :
 theorem getResults!.mem_iff_exists_index {op : OperationPtr} :
     value ∈ op.getResults! ctx ↔
     ∃ index, index < op.getNumResults! ctx ∧ op.getResult index = value := by
-  simp only [getResults!, Array.mem_map, getResult, getNumResults!]
-  constructor
-  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
-    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
-    exists i
-    grind
-  · grind
+  grind [getResults!, getResult, getNumResults!]
 
 theorem getResults!.mem_getResult {op : OperationPtr} :
     index < op.getNumResults! ctx →
@@ -1640,13 +1626,7 @@ theorem getArguments!_eq_getArguments {block : BlockPtr} (hin : block.InBounds c
 theorem getArguments!.mem_iff_exists_index {block : BlockPtr} :
     value ∈ block.getArguments! ctx ↔
     ∃ index, index < block.getNumArguments! ctx ∧ block.getArgument index = value := by
-  simp only [getArguments!, Array.mem_map, getArgument, getNumArguments!]
-  constructor
-  · rintro ⟨result, ⟨hresult, resultValue⟩⟩
-    have ⟨i, hi, hresult⟩ := Array.getElem_of_mem hresult
-    exists i
-    grind
-  · grind
+  grind [getArguments!, getArgument, getNumArguments!]
 
 theorem getArguments!.mem_getArgument_iff {op : BlockPtr} :
     (op.getArgument index : ValuePtr) ∈ op.getArguments! ctx ↔

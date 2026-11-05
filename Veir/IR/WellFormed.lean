@@ -127,9 +127,8 @@ theorem ValuePtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
     (hDefUse' : value'.DefUse ctx array' missingUses') :
     (firstUse.get! ctx).back = .valueFirstUse value' ↔
     value'.getFirstUse! ctx = some firstUse := by
-  constructor
-  · grind [ValuePtr.DefUse, ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
-  · grind [ValuePtr.DefUse, ValuePtr.DefUse_back_eq_of_getFirstUse]
+  grind [ValuePtr.DefUse, ValuePtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse,
+    ValuePtr.DefUse_back_eq_of_getFirstUse]
 
 theorem ValuePtr.DefUse_array_injective
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
@@ -143,9 +142,7 @@ theorem ValuePtr.DefUse_array_injective
 theorem ValuePtr.DefUse_array_toList_Nodup
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
     array.toList.Nodup := by
-  simp only [List.nodup_iff_pairwise_ne]
-  simp only [List.pairwise_iff_getElem]
-  grind [ValuePtr.DefUse_array_injective]
+  grind [List.pairwise_iff_getElem, ValuePtr.DefUse_array_injective]
 
 @[grind .]
 theorem ValuePtr.DefUse.array_mem_erase_self
@@ -159,9 +156,7 @@ theorem ValuePtr.DefUse.array_mem_erase_getElem_self
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
     ∀ (i : Nat) (iInBounds : i < array.size),
     array[i] ∉ array.erase array[i] := by
-  have := ValuePtr.DefUse_array_toList_Nodup hWF
-  rw [← Array.toArray_toList (xs := array)]
-  grind [List.Nodup.not_mem_erase]
+  grind
 
 theorem ValuePtr.DefUse_array_erase_array_index
     (hWF : ValuePtr.DefUse value ctx array hvalue) :
@@ -335,9 +330,7 @@ theorem BlockPtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse
     (hInArray : firstUse ∈ array)
     (heq : (firstUse.get! ctx).back = .blockFirstUse block) :
     (block.get! ctx).firstUse = some firstUse := by
-  have : (firstUse.get! ctx).value = block := by grind [BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse]
-  have ⟨i, iInBounds, hi⟩ := Array.getElem_of_mem hInArray
-  cases i <;> grind [Array.getElem?_of_mem]
+  grind [BlockPtr.DefUse.value!_eq_of_back!_eq_valueFirstUse, Array.getElem?_of_mem]
 
 theorem BlockPtr.DefUse_back_eq_of_getFirstUse
     {firstUse : BlockOperandPtr}
@@ -363,9 +356,8 @@ theorem BlockPtr.DefUse_getFirstUse!_eq_iff_back_eq_valueFirstUse
     (hDefUse' : block'.DefUse ctx array' missingUses') :
     (firstUse.get! ctx).back = .blockFirstUse block' ↔
     (block'.get! ctx).firstUse = some firstUse := by
-  constructor
-  · grind [BlockPtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse]
-  · grind [BlockPtr.DefUse_back_eq_of_getFirstUse]
+  grind [BlockPtr.DefUse.getFirstUse!_eq_of_back_eq_valueFirstUse,
+    BlockPtr.DefUse_back_eq_of_getFirstUse]
 
 theorem BlockPtr.DefUse_array_injective
     (hWF : BlockPtr.DefUse block ctx array missingUses) :
@@ -379,9 +371,7 @@ theorem BlockPtr.DefUse_array_injective
 theorem BlockPtr.DefUse_array_toList_Nodup
     (hWF : BlockPtr.DefUse block ctx array missingUses) :
     array.toList.Nodup := by
-  simp only [List.nodup_iff_pairwise_ne]
-  simp only [List.pairwise_iff_getElem]
-  grind [DefUse_array_injective]
+  grind [List.pairwise_iff_getElem, DefUse_array_injective]
 
 @[grind .]
 theorem BlockPtr.DefUse.array_mem_erase_self
@@ -395,9 +385,7 @@ theorem BlockPtr.DefUse.array_mem_erase_getElem_self
     (hWF : BlockPtr.DefUse value ctx array missingUses) :
     ∀ (i : Nat) (iInBounds : i < array.size),
     array[i] ∉ array.erase array[i] := by
-  have := DefUse_array_toList_Nodup hWF
-  rw [← Array.toArray_toList (xs := array)]
-  grind [List.Nodup.not_mem_erase]
+  grind
 
 theorem BlockPtr.DefUse_array_erase_array_index
     (hWF : BlockPtr.DefUse value ctx array hvalue) :
@@ -739,9 +727,7 @@ theorem BlockPtr.OpChain_array_injective
 theorem BlockPtr.OpChain_array_toList_Nodup
     (hWF : BlockPtr.OpChain block ctx array missingOps) :
     array.toList.Nodup := by
-  simp only [List.nodup_iff_pairwise_ne]
-  simp only [List.pairwise_iff_getElem]
-  grind [BlockPtr.OpChain_array_injective]
+  grind [List.pairwise_iff_getElem, BlockPtr.OpChain_array_injective]
 
 @[grind .]
 theorem BlockPtr.OpChain.array_mem_erase
@@ -1182,10 +1168,7 @@ theorem IRContext.WellFormed.firstOp!_eq_some_iff
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (block.get! ctx).firstOp = some op ↔
     ((op.get! ctx).parent = some block ∧ (op.get! ctx).prev = none) := by
-  constructor
-  · grind [IRContext.WellFormed, BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
-  · have ⟨array, harray⟩ := wf.opChain block (by grind)
-    grind [BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
+  grind [IRContext.WellFormed, BlockPtr.OpChain.prev!_eq_none_iff_firstOp!_eq_self]
 
 grind_pattern IRContext.WellFormed.firstOp!_eq_some_iff =>
   ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).firstOp, some op
@@ -1200,10 +1183,7 @@ theorem IRContext.WellFormed.lastOp!_eq_some_iff
     (wf : ctx.WellFormed missingUses missingSuccessorUses) :
     (block.get! ctx).lastOp = some op ↔
     ((op.get! ctx).parent = some block ∧ (op.get! ctx).next = none) := by
-  constructor
-  · grind [IRContext.WellFormed, BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
-  · have ⟨array, harray⟩ := wf.opChain block (by grind)
-    grind [BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
+  grind [IRContext.WellFormed, BlockPtr.OpChain.next!_eq_none_iff_lastOp!_eq_self]
 
 grind_pattern IRContext.WellFormed.lastOp!_eq_some_iff =>
   ctx.WellFormed missingUses missingSuccessorUses, (block.get! ctx).lastOp, some op
@@ -1242,11 +1222,7 @@ theorem RegionPtr.BlockChain.mem_of_mem_next!
     (hbl : bl.InBounds ctx)
     (hmem : nextBl ∈ array) :
     bl ∈ array := by
-  cases hparent : (bl.get! ctx).parent; grind
-  rename_i region'
-  have : region = region' := by grind [RegionPtr.BlockChain, Array.getElem_of_mem]
-  have ⟨array', harray'⟩ := ctxWF.blockChain region' (by grind)
-  grind
+  grind [RegionPtr.BlockChain, Array.getElem_of_mem]
 
 grind_pattern RegionPtr.BlockChain.mem_of_mem_next! =>
   ctx.WellFormed, region.BlockChain ctx array, (bl.get! ctx).next, some nextBl, nextBl ∈ array

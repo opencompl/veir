@@ -3712,12 +3712,7 @@ noncomputable def Sim.OpOperandPtrPtr.set! (ctx : Sim.IRContext OpInfo) (ptr : S
 @[eq_bang, grind _=_]
 theorem Sim.OpOperandPtrPtr.set_eq_set! (ctx : IRContext OpInfo) ptr value ib valueIb :
     set ctx ptr value ib valueIb = set! ctx ptr value := by
-  simp [set.unfold, set!]
-  split
-  · grind
-  · have : ctx.buf.mem.size < 2^63 := by grind
-    have := Sim.OpOperandPtrPtr.after_lt_ctx (ctx := ctx) ptr.spec (by grind)
-    grind [layout_grind]
+  grind [set.unfold, set!, layout_grind]
 
 @[simp, grind =]
 theorem Sim.OpOperandPtrPtr.set_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.OpOperandPtrPtr)
@@ -3755,12 +3750,7 @@ noncomputable def Sim.BlockOperandPtrPtr.set! (ctx : Sim.IRContext OpInfo) (ptr 
 @[eq_bang, grind _=_]
 theorem Sim.BlockOperandPtrPtr.set_eq_set! (ctx : IRContext OpInfo) ptr value ib valueIb :
     set ctx ptr value ib valueIb = set! ctx ptr value := by
-  simp [set.unfold, set!]
-  split
-  · grind
-  · have : ctx.buf.mem.size < 2^63 := by grind
-    have := Sim.BlockOperandPtrPtr.after_lt_ctx (ctx := ctx) ptr.spec (by grind)
-    grind [layout_grind]
+  grind [set.unfold, set!, layout_grind]
 
 @[simp, grind =]
 theorem Sim.BlockOperandPtrPtr.set_spec (ctx : Sim.IRContext OpInfo) (ptr : Sim.BlockOperandPtrPtr)
@@ -4618,15 +4608,7 @@ theorem Sim.OperationPtr.allocEmptyImpl_eq {opCode : OpInfo}
         (Nat.le_of_lt HasDialectOpInfo.propertySize_small) = some (ctxH, ptrImpl) ∧
       ∃ h₁ h₂, ctxBuf = HasBuffedProperties.writePropertyAt opCode prop
         (ptrImpl + Buffed.Operation.Offsets.properties) ctxH h₁ h₂ := by
-  simp only [allocEmptyImpl] at h
-  split at h
-  · split at h
-    · exact absurd h (by simp)
-    · rename_i ctxH ptr heq
-      simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨hbuf, rfl⟩ := h
-      exact ⟨ctxH, heq, _, _, hbuf.symm⟩
-  · exact absurd h (by simp)
+  grind [allocEmptyImpl, Option.some.injEq, Prod.mk.injEq]
 
 /-- The operation pointer produced by `allocEmptyImpl` lies at or past the end of the buffer. -/
 theorem Sim.OperationPtr.allocEmptyImpl_ptr_ge {opCode : OpInfo}
@@ -4915,26 +4897,7 @@ theorem IRContext.isRepr_OperationPtr_allocEmptyAt {ctx ctx' : IRContext OpInfo}
     (hc₁ : capResults ≤ Buffed.countCard) (hc₂ : capOperands ≤ Buffed.countCard)
     (hc₃ : capBlockOperands ≤ Buffed.countCard) (hc₄ : capRegions ≤ Buffed.countCard) :
     ctx'.IsRepr := by
-  constructor
-  · intro op hin
-    rcases (OperationPtr.allocEmptyAt_operationPtr_iff op heq).mp hin with h | rfl
-    · exact hrepr.operations op h
-    · grind [OperationPtr.IsRepr, OperationPtr.toFlat]
-  · intro op hin
-    by_cases hop : op = newOp
-    · subst hop
-      constructor <;> grind [Operation.empty]
-    · have := hrepr.operations_indices op (by grind)
-      constructor <;> grind
-  · intro blk hin
-    have := hrepr.blocks blk (by grind)
-    grind
-  · intro blk hin
-    have := hrepr.blocks_indices blk (by grind)
-    constructor <;> grind
-  · intro rg hin
-    have := hrepr.regions rg (by grind)
-    grind
+  grind [OperationPtr.IsRepr, OperationPtr.toFlat, Operation.empty]
 
 /-- Existing operations keep their byte range across `allocEmptyAt` (their capacities are unchanged). -/
 theorem OperationPtr.range_OperationPtr_allocEmptyAt {ctx ctx' : IRContext OpInfo}

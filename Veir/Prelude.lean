@@ -137,9 +137,7 @@ theorem Array.size_toUInt64_toNat (ar : Array α) (h : ar.size < UInt64.size) :
 
 theorem Array.size_le_toNat {ar : Array α} {x : UInt64}
     (hsz : ar.size < UInt64.size) (h : ar.size.toUInt64 ≤ x) : ar.size ≤ x.toNat := by
-  have := Array.size_toUInt64_toNat ar hsz
-  rw [← this]
-  grind [UInt64.le_iff_toNat_le]
+  grind
 
 /-- When an array's size fits in a `UInt32` (in particular under the `countCard` guards of the rewriter's `create*` entry points), `usize.toUInt64` round-trips back to `size`. -/
 theorem Array.usize_toUInt64_toNat (ar : Array α) (h : ar.size < UInt32.size) :

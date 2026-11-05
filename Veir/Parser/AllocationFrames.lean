@@ -31,11 +31,7 @@ theorem Rewriter.createBlock_new_inBounds
 theorem Rewriter.createRegion_inBounds_mono {ctx next : Parser.IR.RawContext} {p}
     (hc : createRegion ctx = some (next, p)) (q : Sim.GenericPtr) (hq : q.InBounds ctx) :
     q.InBounds next := by
-  simp only [createRegion.unfold] at hc
-  split at hc
-  · simp at hc
-  · simp at hc
-    grind
+  grind [createRegion.unfold]
 
 private theorem dealloc_operation {ctx : Parser.IR.RawContext} {op p : Sim.OperationPtr}
     {hi hd} (hp : p.InBounds ctx) (hne : p.spec ≠ op.spec) :

@@ -74,12 +74,7 @@ theorem Rewriter.replaceUse_veir_inBounds (ptr : Veir.GenericPtr)
     (ctxIn : ctx.spec.FieldsInBounds) :
     ptr.InBounds (Rewriter.replaceUse ctx use newValue useIn newIn ctxIn).spec ↔
       ptr.InBounds ctx.spec := by
-  simp only [Rewriter.replaceUse.unfold]
-  split
-  · rfl
-  · rw [Sim.OpOperandPtr.insertIntoCurrent_veir_inBounds,
-      Sim.OpOperandPtr.setValue_veir_inBounds,
-      Sim.OpOperandPtr.removeFromCurrent_veir_inBounds]
+  grind [Rewriter.replaceUse.unfold]
 
 theorem Rewriter.replaceUse_DefUse_newValue
     {oldValue : Veir.ValuePtr} {newValue : Sim.ValuePtr}
