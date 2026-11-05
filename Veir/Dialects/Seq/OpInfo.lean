@@ -166,9 +166,9 @@ private def Seq.verifyFirMemPort {OpInfo : Type} [IsOpCode OpInfo] (opName : Str
   if op.getNumResults ctx.raw opIn ≠ results then
     throw s!"{opName}: Expected {results} result(s)"
   if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{opName}: Expected 0 regions"
+    throw s!"{opName}: Expected 0 region(s)"
   if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-    throw s!"{opName}: Expected 0 successors"
+    throw s!"{opName}: Expected 0 successor(s)"
   let indices ← Seq.firMemPortOperands opName required sizes (op.getNumOperands ctx.raw opIn)
   let .seqFirMemType memType := ((op.getOperand! ctx.raw 0).getType! ctx.raw).val
     | throw s!"{opName}: expected the memory operand to be a '!seq.firmem'"

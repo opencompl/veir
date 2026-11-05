@@ -995,13 +995,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .mlir__global => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
+      throw "llvm.mlir.global: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
+      throw "llvm.mlir.global: Expected 0 result(s)"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+      throw "llvm.mlir.global: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+      throw "llvm.mlir.global: Expected 0 successor(s)"
     let properties := op.getProperties! ctx.raw Llvm.mlir__global
     if let some alignment := properties.alignment then
       if alignment.type.bitwidth ≠ 64 then
@@ -1021,13 +1021,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     pure ()
   | .mlir__alias => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
+      throw "llvm.mlir.alias: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
+      throw "llvm.mlir.alias: Expected 0 result(s)"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+      throw "llvm.mlir.alias: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+      throw "llvm.mlir.alias: Expected 0 successor(s)"
     let properties := op.getProperties! ctx.raw Llvm.mlir__alias
     let isStorageType : Attribute → Bool
       | .llvmVoidType _ => false
@@ -1304,13 +1304,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
           but this op returns {resultType}"
   | .comdat => do
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
+      throw "llvm.comdat: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
+      throw "llvm.comdat: Expected 0 result(s)"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+      throw "llvm.comdat: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+      throw "llvm.comdat: Expected 0 successor(s)"
     let body := op.getRegion! ctx.raw 0
     let some block := body.getFirstBlock! ctx.raw
       | throw "region should have exactly one block"
@@ -1382,13 +1382,13 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .func => do
     op.checkIsNonNullIntegerType ctx opIn
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
+      throw "llvm.func: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
+      throw "llvm.func: Expected 0 result(s)"
     if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+      throw "llvm.func: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
+      throw "llvm.func: Expected 0 successor(s)"
   | .fadd | .fsub | .fmul | .fdiv | .frem => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyFloatBinop ctx opIn

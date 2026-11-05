@@ -50,9 +50,9 @@ def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext O
     (opIn : op.InBounds ctx.raw) (successors : Nat) : Except String PUnit := do
   let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
   if op.getNumResults ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 results"
+    throw s!"{instrName}: Expected 0 result(s)"
   if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 regions"
+    throw s!"{instrName}: Expected 0 region(s)"
   if op.getNumSuccessors ctx.raw opIn ≠ successors then
     throw s!"{instrName}: Expected {successors} successor(s)"
 
@@ -246,9 +246,9 @@ def OperationPtr.verifyPlainOpCounts (op : OperationPtr)
   if op.getNumResults ctx.raw opIn ≠ results then
     throw s!"{instrName}: Expected {results} result(s)"
   if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 regions"
+    throw s!"{instrName}: Expected 0 region(s)"
   if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 successors"
+    throw s!"{instrName}: Expected 0 successor(s)"
 
 def OperationPtr.verifyOperandTypesMatch (op : OperationPtr)
     (ctx : WfIRContext OpInfo)

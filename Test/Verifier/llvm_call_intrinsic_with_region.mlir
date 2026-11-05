@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.call_intrinsic: Expected 0 regions
+// CHECK: llvm.call_intrinsic: Expected 0 region(s)

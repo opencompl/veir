@@ -53,8 +53,10 @@ def Riscv_Cf.fromAttrDict
   case func => exact RISCVFuncProperties.fromAttrDict attrDict
   case call => exact RISCVCallProperties.fromAttrDict attrDict
   case «return» =>
-    exact if attrDict.isEmpty then .ok ()
-      else .error "riscv_cf.return: expected no properties"
+    exact if attrDict.size > 0 then
+        let plural := if attrDict.size = 1 then "property" else "properties"
+        .error s!"riscv_cf.return: expected no properties, but got {attrDict.size} {plural}"
+      else .ok ()
   case beq | bne | blt | bge | bltu | bgeu | beqz | bnez =>
     exact RISCVBrProperties.fromAttrDict attrDict
   all_goals exact .ok ()
@@ -278,25 +280,19 @@ def Riscv_Cf.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw) : Except String PUnit := do
   match opType with
   | .func => do
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "riscv_cf.func: Expected 1 region"
     if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 operands"
+      throw "riscv_cf.func: Expected 0 operand(s)"
     if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 results"
+      throw "riscv_cf.func: Expected 0 result(s)"
+    if op.getNumRegions ctx.raw opIn ≠ 1 then
+      throw "riscv_cf.func: Expected 1 region(s)"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "riscv_cf.func: Expected 0 successors"
+      throw "riscv_cf.func: Expected 0 successor(s)"
     let ft := (op.getProperties! ctx.raw Riscv_Cf.func).function_type
     for ty in ft.inputs ++ ft.outputs do
       let .registerType _ := ty
         | throw "riscv_cf.func: Expected register types in function signature"
-    let body := op.getRegion! ctx.raw 0
-    if let some entry := body.getFirstBlock! ctx.raw then
-      if entry.getNumArguments! ctx.raw ≠ ft.inputs.size then
-        throw "riscv_cf.func: Entry block argument count does not match function signature"
-      for i in [0:ft.inputs.size] do
-        if ((entry.getArgument i).getType! ctx.raw).val ≠ ft.inputs[i]! then
-          throw s!"riscv_cf.func: Entry block argument {i} type does not match function signature"
+    -- The entry block arguments are checked by the `FunctionOpInterface` verifier.
   | .branch => do
     op.verifyUnconditionalBranch ctx opIn
     op.verifyRISCVRegisterTypes ctx opIn
