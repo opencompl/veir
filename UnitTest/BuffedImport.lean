@@ -24,9 +24,6 @@ example {α : Type u} (p : Sim.OperationPtr) (n : Nat) (x : α) :
     dependentRec p n x = dependentRecSim p n x := by rw [dependentRec.eq_sim]
 
 example (p : Sim.OperationPtr) (n : Nat) :
-    pointerResultInner p.impl p.spec' n = (pointerResultSim p n).impl :=
-  pointerResult.inner_eq_sim p n
-example (p : Sim.OperationPtr) (n : Nat) :
     partialPointer p n = partialPointerSim p n := partialPointer.eq_sim p n
 example (p : Sim.OperationPtr) : partialNeverPointer p 0 = some p := by
   rw [partialNeverPointer.unfold]
@@ -34,9 +31,6 @@ example (p : Sim.OperationPtr) : partialNeverPointer p 0 = some p := by
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 example (ctx : Sim.IRContext OpInfo) : keepContext ctx = ctx := by rw [keepContext.unfold]
-example (ctx : Sim.IRContext OpInfo) (n : Nat) :
-    contextResultInner ctx.buf ctx.spec' ctx.sim n = (contextResultSim ctx n).buf :=
-  contextResult.inner_eq_sim ctx n
 example (ctx : Sim.IRContext OpInfo) (p : Sim.OperationPtr) (n : Nat)
     (h : p.spec.id = n) (hc : ctx.spec = ctx.spec) {α : Type u} (x : α) :
     dependent ctx p n h hc x = (⟨p, h⟩, x) := by rw [dependent.unfold]

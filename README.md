@@ -9,10 +9,10 @@ and a parser/printer for generic MLIR syntax.
 
 - Packed buffer storage and simulated pointers with erased logical specifications.
 - Capacity, bounds, ownership/liveness, and well-formedness proofs for supported operations.
-- The `buffed` generator: raw inner arguments/results with checked public reconstruction.
+- The `buffed` compatibility command: preserved public proof APIs and forwarded inline policy.
 - A static, registry-free parser and printer; registered opcode definitions for the
   supported Arith, LLVM, Builtin, Func, and Test subsets.
-- Construction/rewrite benchmarks, allocator tests, parser tests, and code-generation audits.
+- Construction/rewrite benchmarks, allocator tests, parser tests, and compatibility audits.
 
 The unbuffered backend, pass pipeline, interpreter, instruction selection, register
 allocation, compiler drivers, and their tests are **not included**. Dialect definitions do

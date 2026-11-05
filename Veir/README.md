@@ -45,10 +45,20 @@ is **not** the newer merge target. Raw results are in `/tmp/veir-merge-performan
 The benchmark results below are historical, predate the return to the `Veir` namespace,
 and identify their baselines explicitly. No performance claim is made for this relocation.
 
-## Raw arguments and results with `buffed`
+## `buffed` compatibility command
 
-Import `Veir.IR.Buffed.Meta` (or the narrower `ArgumentFlattening` module)
-and write:
+`buffed` no longer flattens arguments or results and does not generate an `Inner`
+implementation. It retains the historical source/public naming convention and the
+`foo.eq_sim` and `foo.unfold` proof API, while forwarding `inline := true` (the default)
+or `inline := false` to the source and public definitions. `UnitTest.BuffedAdoption` checks the full
+retained inventory and `Tools/check-buffed-wrapper-codegen` verifies that no inner
+implementations return in generated code.
+
+### Historical argument/result flattening design
+
+The remainder of this subsection describes the removed generator and is retained only
+as historical context. Import `Veir.IR.Buffed.Meta` (or the narrower
+`ArgumentFlattening` module) and write:
 
 ```lean
 open Veir
