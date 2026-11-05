@@ -4,6 +4,7 @@ import UnitTest.Deriving
 import UnitTest.ParserError
 import UnitTest.Parser
 import UnitTest.AttrParser
+import UnitTest.Tensor
 import UnitTest.MlirParser
 import UnitTest.IR.Operation
 import UnitTest.Dialect
