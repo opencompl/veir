@@ -262,13 +262,7 @@ theorem Block.wellFormed_OperationPtr_dealloc
     (hregions : op.getNumRegions! ctx = 0)
     (inBoundsAfter : blockPtr.InBounds (OperationPtr.dealloc op ctx inBounds)) :
     BlockPtr.WellFormed (OperationPtr.dealloc op ctx inBounds) blockPtr inBoundsAfter := by
-  constructor
-  · grind [IRContext.fieldsInBounds_OperationPtr_dealloc]
-  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
-  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
-  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
-  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
-  · grind [IRContext.WellFormed, BlockPtr.WellFormed]
+  grind [IRContext.fieldsInBounds_OperationPtr_dealloc, IRContext.WellFormed, BlockPtr.WellFormed]
 
 theorem Region.wellFormed_OperationPtr_dealloc
     (wf : ctx.WellFormed (Std.ExtHashSet.fromOperands ctx op) (Std.ExtHashSet.fromSuccessors ctx op))

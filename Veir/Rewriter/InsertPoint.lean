@@ -190,12 +190,7 @@ def InsertPoint.nextSim (ip : InsertPoint) : Sim.OptionOperationPtr :=
 @[grind .]
 theorem InsertPoint.next_inBounds {ctx : Sim.IRContext OpInfo} {ipInBounds : InsertPoint.InBounds ip ctx.spec} :
     (ip.next).InBounds ctx := by
-  simp_all only [next.unfold, InsertPoint.InBounds]
-  split
-  · grind
-  · split at ipInBounds
-    · grind
-    · exact Sim.OptionOperationPtr.none_inBounds
+  grind [next.unfold, InsertPoint.InBounds]
 
 @[simp, grind =]
 theorem InsertPoint.next_before_eq :
@@ -209,9 +204,7 @@ theorem InsertPoint.next_atEnd_eq :
 @[grind =]
 theorem InsertPoint.next_eq_none_iff_eq_atEnd {ip : InsertPoint} :
     ip.next.spec = none ↔ ∃ block, ip = .atEnd block := by
-  cases ip <;>
-    grind [InsertPoint.next.unfold, Sim.OperationPtr.toO,
-      Sim.OptionOperationPtr.none]
+  grind [InsertPoint.next.unfold, Sim.OperationPtr.toO, Sim.OptionOperationPtr.none]
 
 @[grind =]
 theorem InsertPoint.next_eq_some_iff_eq_before {ip : InsertPoint} (hRepr : ip.IsRepr)
@@ -370,8 +363,6 @@ theorem InsertPoint.next_ne_firstOp
     (BlockPtr.get blockPtr ctx blockInBounds).firstOp = some firstOp →
     InsertPoint.prev! ip ctx ≠ none →
     (InsertPoint.next ip).toOption.map (·.spec) ≠ some firstOp := by -- TODO: better statement
-  intro hFirst hPrev
-  have ⟨array, harray⟩ := hWF.opChain blockPtr blockInBounds
   grind [InsertPoint.prev!_eq_none_iff_firstOp!_eq_next]
 
 theorem InsertPoint.idxIn_eq_size_operationList_iff_eq_atEnd

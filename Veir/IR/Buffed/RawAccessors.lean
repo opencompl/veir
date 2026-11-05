@@ -257,12 +257,7 @@ def IRBufContext.alloc (bctx : IRBufContext) (size : UInt64) : Option (IRBufCont
 @[grind ←]
 theorem IRBufContext.alloc_size {bctx bctx' : IRBufContext} {size : UInt64}
     (h : bctx.alloc size = some bctx') : bctx'.size = bctx.size + size.toNat := by
-  simp only [alloc] at h
-  split at h
-  · simp only [Option.some.injEq] at h
-    subst h
-    simp [size_def, ExArray.extend_size]
-  · exact absurd h (by simp)
+  grind [alloc, Option.some.injEq, size_def, ExArray.extend_size]
 
 /-- The next allocation pointer `bctx.usize` has `toNat` equal to the current buffer size. -/
 @[grind =]

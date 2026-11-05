@@ -1085,8 +1085,6 @@ section operation_sizes_and_offsets
 @[simp, grind =]
 theorem Buffed.Operation.Sizes.results_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (op : OperationPtr) (ib : op.InBounds ctx) :
     (Sizes.results op ctx).toNat = Sizes.resultsNat op ctx := by
-  have := repr.operations_indices op (by grind) |>.results
-  simp
   grind
 
 @[simp, grind =]
@@ -1097,22 +1095,16 @@ theorem Buffed.Operation.Sizes.properties_ideal {ctx : IRContext OpInfo} (op : O
 @[simp, grind =]
 theorem Buffed.Operation.Sizes.blockOperands_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (op : OperationPtr) (ib : op.InBounds ctx) :
     (Sizes.blockOperands op ctx).toNat = Sizes.blockOperandsNat op ctx := by
-  have := repr.operations_indices op (by grind) |>.results
-  simp
   grind
 
 @[simp, grind =]
 theorem Buffed.Operation.Sizes.regions_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (op : OperationPtr) (ib : op.InBounds ctx) :
     (Sizes.regions op ctx).toNat = Sizes.regionsNat op ctx := by
-  have := repr.operations_indices op (by grind) |>.results
-  simp
   grind
 
 @[simp, grind =]
 theorem Buffed.Operation.Sizes.operands_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (op : OperationPtr) (ib : op.InBounds ctx) :
     (Sizes.operands op ctx).toNat = Sizes.operandsNat op ctx := by
-  have := repr.operations_indices op (by grind) |>.results
-  simp
   grind
 
 @[simp, grind _=_]
@@ -1146,21 +1138,13 @@ theorem UInt64.uint64_add_int64_toNat_lt {a : UInt64} {b : Int64}
   (hnneg : 0 ≤ a.toNat + b.toInt)
   (h₁ : a.toNat < Int64.maxValue.toInt) :
     (a + b).toNat = (a.toNat + b.toInt).toNat := by
-  rw [UInt64.add_int64_r_def]
-  rw [Int64.toUInt64_add]
-  simp only [UInt64.toUInt64_toInt64]
-  rw [← UInt64.uint64_add_int64_toInt_lt]
-  · rfl
-  · grind
-  · grind
+  grind
 
 
 @[simp, grind =]
 theorem Buffed.Operation.Offsets.results_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (op : OperationPtr) (ib : op.InBounds ctx) :
     (Offsets.results op ctx).toInt = Offsets.resultsInt op ctx := by
-  have := repr.operations_indices op (by grind) |>.results
-  simp [UInt64.add_int64_l_def]
-  grind
+  grind [UInt64.add_int64_l_def]
 
 @[simp, grind =]
 theorem Buffed.Operation.Offsets.properties_ideal :
@@ -1205,8 +1189,6 @@ section block_sizes_and_offsets
 @[simp, grind =]
 theorem Buffed.Block.Sizes.arguments_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {bl : BlockPtr} (ib : bl.InBounds ctx) :
     (Sizes.arguments bl ctx).toNat = Sizes.argumentsNat bl ctx := by
-  have := repr.blocks_indices bl (by grind) |>.arguments
-  simp
   grind
 
 @[simp, grind _=_]
@@ -1222,8 +1204,6 @@ theorem Buffed.Block.Sizes.size_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRep
 @[simp, grind =]
 theorem Buffed.Block.Offsets.after_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (bl : BlockPtr) (ib : bl.InBounds ctx) :
     (Offsets.after bl ctx).toInt = Offsets.afterInt bl ctx := by
-  have := repr.blocks_indices bl (by grind) |>.arguments
-  unfold after afterInt
   grind
 
 end block_sizes_and_offsets
@@ -1378,16 +1358,12 @@ theorem OpResultPtr.toFlat_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (r
 @[layout_simp, layout_grind =]
 theorem OpOperandPtr.toFlat_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (oper : OpOperandPtr) (ib : oper.InBounds ctx) :
     oper.toFlat ctx = oper.toFlatNat ctx := by
-  have := repr.operations_indices oper.op (by grind) |>.operands
-  unfold toFlat toFlatNat
-  grind
+  grind [toFlat, toFlatNat]
 
 @[layout_simp, layout_grind =]
 theorem BlockOperandPtr.toFlat_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) (oper : BlockOperandPtr) (ib : oper.InBounds ctx) :
     oper.toFlat ctx = oper.toFlatNat ctx := by
-  have := repr.operations_indices oper.op (by grind) |>.blockOperands
-  unfold toFlat toFlatNat
-  rw [Buffed.Operation.Offsets.blockOperands_ideal] <;> grind
+  grind [toFlat, toFlatNat]
 
 @[layout_simp, grind .]
 theorem BlockArgumentPtr.toFlat_ideal (arg : BlockArgumentPtr) :
@@ -1431,16 +1407,12 @@ theorem OperationPtr.range_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {o
 @[layout_simp, grind =]
 theorem OpOperandPtr.range_ideal {ctx : IRContext OpInfo} (_repr : ctx.IsRepr) {op : OpOperandPtr} (_ib : op.InBounds ctx) :
     op.range ctx = op.rangeInt ctx := by
-  unfold range rangeInt
-  congr
-  grind [layout_grind]
+  grind [layout_grind, range, rangeInt]
 
 @[layout_simp, grind =]
 theorem OpResultPtr.range_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {op : OpResultPtr} (ib : op.InBounds ctx) :
     op.range ctx = op.rangeInt ctx := by
-  unfold range rangeInt
-  congr
-  grind [layout_grind]
+  grind [layout_grind, range, rangeInt]
 
 @[layout_simp, grind =]
 theorem BlockArgumentPtr.range_ideal {op : BlockArgumentPtr} :
@@ -1451,9 +1423,7 @@ theorem BlockArgumentPtr.range_ideal {op : BlockArgumentPtr} :
 @[layout_simp, grind =]
 theorem BlockOperandPtr.range_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {op : BlockOperandPtr} (ib : op.InBounds ctx) :
     op.range ctx = op.rangeInt ctx := by
-  unfold range rangeInt
-  congr
-  grind [layout_grind]
+  grind [layout_grind, range, rangeInt]
 
 @[layout_simp, grind =]
 theorem BlockPtr.range_ideal {ctx : IRContext OpInfo} (repr : ctx.IsRepr) {bl : BlockPtr} (ib : bl.InBounds ctx) :

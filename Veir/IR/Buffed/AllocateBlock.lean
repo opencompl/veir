@@ -30,12 +30,7 @@ theorem Sim.BlockPtr.allocFreshRaw_eq {ctx b' : Buffed.IRBufContext} {ptr : Buff
     {numArgs : UInt64} {hnumArgs}
     (h : allocFreshRaw ctx numArgs hnumArgs = some (b', ptr)) :
     ∃ b, ctx.reserve (Buffed.BlockMPtr.computeBlockSize numArgs).toUInt64 = some (b, ptr) ∧ ∃ hb, b' = Buffed.BlockMPtr.initialize b ptr numArgs hb := by
-  unfold allocFreshRaw at h
-  split at h
-  · contradiction
-  · rename_i b p hres
-    obtain ⟨rfl, rfl⟩ := Option.some.inj h
-    exact ⟨b, hres, _, rfl⟩
+  grind [allocFreshRaw]
 
 theorem Sim.BlockPtr.allocFresh_sim {ctx : Sim.IRContext OpInfo}
     {b' : Buffed.IRBufContext} {ptr : Buffed.BlockMPtr}

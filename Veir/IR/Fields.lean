@@ -76,8 +76,7 @@ section default
 
 @[grind .]
 theorem IRContext.default_FieldsInBounds : IRContext.FieldsInBounds (default : IRContext OpInfo) := by
-  simp only [default_def]
-  grind [IRContext.FieldsInBounds, OperationPtr.inBounds_def,
+  grind [default_def, IRContext.FieldsInBounds, OperationPtr.inBounds_def,
     BlockPtr.inBounds_def, RegionPtr.inBounds_def]
 
 end default
@@ -101,8 +100,6 @@ theorem OpResultPtr.firstUse!_inBounds :
     ctx.FieldsInBounds →
     res.InBounds ctx →
     (res.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
-  intros
-  have : res.op.InBounds ctx := by grind
   grind
 
 grind_pattern OpResultPtr.firstUse!_inBounds => (res.get! ctx).firstUse, ctx.FieldsInBounds
@@ -126,8 +123,6 @@ theorem BlockArgumentPtr.firstUse!_inBounds :
     ctx.FieldsInBounds →
     arg.InBounds ctx →
     (arg.get! ctx).firstUse.maybe OpOperandPtr.InBounds ctx := by
-  intros
-  have : arg.block.InBounds ctx := by grind
   grind
 
 grind_pattern BlockArgumentPtr.firstUse!_inBounds => (arg.get! ctx).firstUse, ctx.FieldsInBounds
@@ -136,8 +131,6 @@ theorem BlockArgumentPtr.owner!_inBounds :
     ctx.FieldsInBounds →
     arg.InBounds ctx →
     (arg.get! ctx).owner.InBounds ctx := by
-  intros
-  have : arg.block.InBounds ctx := by grind
   grind
 
 grind_pattern BlockArgumentPtr.owner!_inBounds => (arg.get! ctx).owner, ctx.FieldsInBounds
@@ -153,8 +146,6 @@ theorem OpOperandPtr.nextUse!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).nextUse.maybe OpOperandPtr.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern OpOperandPtr.nextUse!_inBounds => (operand.get! ctx).nextUse, ctx.FieldsInBounds
@@ -163,8 +154,6 @@ theorem OpOperandPtr.back!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).back.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern OpOperandPtr.back!_inBounds => (operand.get! ctx).back, ctx.FieldsInBounds
@@ -173,8 +162,6 @@ theorem OpOperandPtr.owner!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).owner.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern OpOperandPtr.owner!_inBounds => (operand.get! ctx).owner, ctx.FieldsInBounds
@@ -183,8 +170,6 @@ theorem OpOperandPtr.value!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).value.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern OpOperandPtr.value!_inBounds => (operand.get! ctx).value, ctx.FieldsInBounds
@@ -200,8 +185,6 @@ theorem BlockOperandPtr.nextUse!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).nextUse.maybe BlockOperandPtr.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern BlockOperandPtr.nextUse!_inBounds => (operand.get! ctx).nextUse, ctx.FieldsInBounds
@@ -210,8 +193,6 @@ theorem BlockOperandPtr.back!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).back.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern BlockOperandPtr.back!_inBounds => (operand.get! ctx).back, ctx.FieldsInBounds
@@ -220,8 +201,6 @@ theorem BlockOperandPtr.owner!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).owner.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern BlockOperandPtr.owner!_inBounds => (operand.get! ctx).owner, ctx.FieldsInBounds
@@ -230,8 +209,6 @@ theorem BlockOperandPtr.value!_inBounds :
     ctx.FieldsInBounds →
     operand.InBounds ctx →
     (operand.get! ctx).value.InBounds ctx := by
-  intros
-  have : operand.op.InBounds ctx := by grind
   grind
 
 grind_pattern BlockOperandPtr.value!_inBounds => (operand.get! ctx).value, ctx.FieldsInBounds
@@ -499,8 +476,6 @@ theorem BlockArgumentPtr.get_fieldsInBounds (ctx : IRContext OpInfo) (ptr : Bloc
     (ctxInBounds : ctx.FieldsInBounds)
     (ptrInBounds : ptr.InBounds ctx) :
     (ptr.get! ctx).FieldsInBounds ctx := by
-  have blockInBounds :=
-    BlockPtr.get_fieldsInBounds ctx ptr.block ctxInBounds (by grind)
   grind
 
 end get
@@ -554,15 +529,7 @@ theorem Block.fieldsInBounds_unchanged (block : BlockPtr) (ctx ctx' : IRContext 
     (hSameInBoundsRegion : ∀ region : RegionPtr, region.InBounds ctx → region.InBounds ctx')
     (hSameBlocks : ∀ block, block.InBounds ctx → BlockPtr.get! block ctx = BlockPtr.get! block ctx') :
     Block.FieldsInBounds block ctx' blockInBounds' := by
-  constructor
-  · grind
-  · grind
-  · grind
-  · grind
-  · grind
-  · grind
-  · intros
-    constructor <;> grind [BlockArgumentPtr.get!_eq_of_BlockPtr_get!_eq]
+  grind [BlockArgumentPtr.get!_eq_of_BlockPtr_get!_eq]
 
 theorem Region.fieldsInBounds_unchanged (region : RegionPtr) (ctx ctx' : IRContext OpInfo)
     (regionInBounds : region.InBounds ctx)

@@ -24,12 +24,7 @@ def Sim.RegionPtr.allocFreshRaw (ctx : Buffed.IRBufContext) :
 theorem Sim.RegionPtr.allocFreshRaw_eq {ctx b' : Buffed.IRBufContext} {ptr : Buffed.RegionMPtr}
     (h : allocFreshRaw ctx = some (b', ptr)) :
     ∃ b, ctx.reserve 24 = some (b, ptr) ∧ ∃ hb, b' = Buffed.RegionMPtr.initialize b ptr hb := by
-  unfold allocFreshRaw at h
-  split at h
-  · contradiction
-  · rename_i b p hres
-    obtain ⟨rfl, rfl⟩ := Option.some.inj h
-    exact ⟨b, hres, _, rfl⟩
+  grind [allocFreshRaw]
 
 theorem Sim.RegionPtr.allocFresh_sim {ctx : Sim.IRContext OpInfo}
     {b' : Buffed.IRBufContext} {ptr : Buffed.RegionMPtr}

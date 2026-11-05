@@ -33,9 +33,7 @@ variable [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] (bctx : IRBufContext)
 theorem uint64_add_int64_toNat {a : UInt64} {b : Int64}
     (hnneg : 0 ≤ b.toInt) (ha : (a.toNat : Int) < Int64.maxValue.toInt) :
     (a + b).toNat = a.toNat + b.toInt.toNat := by
-  have := UInt64.uint64_add_int64_toInt_lt (a := a) (b := b) (by omega) ha
-  simp only [UInt64.toInt] at this
-  omega
+  grind
 
 attribute [local grind =] uint64_add_int64_toNat
 

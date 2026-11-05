@@ -18,9 +18,7 @@ theorem forwardEntry_putPlaceholder {d : MlirParserData} {name index op loc n i 
     (d.putPlaceholder name index op loc).ForwardEntry n i p l ↔
       (n = name ∧ i = index ∧ p = op ∧ l = loc) ∨
       ((n ≠ name ∨ i ≠ index) ∧ d.ForwardEntry n i p l) := by
-  by_cases hn : name = n <;> by_cases hi : index = i <;>
-    cases hf : d.forwardValues[name]? <;>
-    simp_all [putPlaceholder, ForwardEntry, Std.HashMap.getElem?_insert] <;> grind only
+  grind [putPlaceholder, ForwardEntry]
 
 /-- Publishing a fresh placeholder cannot alias an existing owner or published SSA value. -/
 theorem Live.putPlaceholder {d : MlirParserData} {before after : IR.RawContext}

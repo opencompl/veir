@@ -758,10 +758,7 @@ theorem Rewriter.initBlockArguments_fieldsInBounds {blockPtr : Sim.BlockPtr}
     {ctx : Sim.IRContext OpInfo} {types index h₁ h₂ h₃ h₄}
     (heq : initBlockArguments blockPtr ctx types index h₁ h₂ h₃ h₄ = some newCtx) :
     ctx.spec.FieldsInBounds → newCtx.spec.FieldsInBounds := by
-  simp [initBlockArguments.unfold] at heq
-  revert heq
-  simp only [initBlockArgumentsLoop.eq_sim] at *
-  fun_induction initBlockArgumentsLoopSim <;> grind
+  grind
 
 /-- This theorem is a more general version of `initBlockArguments_inBounds` that is needed for the induction step in the proof of that theorem. -/
 theorem Rewriter.initBlockArguments_inBounds' (ptr : Veir.GenericPtr) {blockPtr : Sim.BlockPtr}
@@ -890,10 +887,7 @@ def Rewriter.createRegionSim (ctx: Sim.IRContext OpInfo) : Option (Sim.IRContext
 @[grind .]
 theorem Rewriter.createRegion_new_inBounds (h : createRegion ctx = some (ctx', reg)) :
     reg.InBounds ctx' := by
-  simp [createRegion.unfold] at h
-  split at h
-  · grind [Option.bind]
-  · grind
+  grind [createRegion.unfold, Option.bind]
 
 @[grind .]
 theorem Rewriter.createRegion_new_not_inBounds (h : createRegion ctx = some (ctx', reg)) :
@@ -1469,48 +1463,33 @@ theorem Rewriter.initOpOperands_fieldsInBounds {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap}
     (heq : initOpOperands opPtr ctx h₁ operands h₂ index hidx hcap = ctx') :
     ctx.spec.FieldsInBounds → ctx'.spec.FieldsInBounds := by
-  simp only [Rewriter.initOpOperands.unfold] at heq
-  split at heq
-  · grind
-  · exact Rewriter.initOpOperands.loop_fieldsInBounds heq
+  grind
 
 @[grind .]
 theorem Rewriter.initOpOperands_inBounds_mono (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx ctx' : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap}
     (heq : initOpOperands opPtr ctx h₁ operands h₂ index hidx hcap = ctx') :
     ptr.InBounds ctx → ptr.InBounds ctx' := by
-  simp only [Rewriter.initOpOperands.unfold] at heq
-  split at heq
-  · grind
-  · exact Rewriter.initOpOperands.loop_inBounds_mono ptr heq
+  grind [Rewriter.initOpOperands.unfold]
 
 @[grind .]
 theorem Rewriter.initOpOperands_inBounds_mono' (ptr : Sim.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap} :
     ptr.InBounds ctx → ptr.InBounds (initOpOperands opPtr ctx h₁ operands h₂ index hidx hcap) := by
-  simp only [Rewriter.initOpOperands.unfold]
-  split
-  · exact id
-  · exact Rewriter.initOpOperands.loop_inBounds_mono' ptr
+  grind
 
 @[grind .]
 theorem Rewriter.initOpOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {opPtr : Sim.OperationPtr}
     {ctx : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap} :
     ptr.InBounds ctx.spec → ptr.InBounds (initOpOperands opPtr ctx h₁ operands h₂ index hidx hcap).spec := by
-  simp only [Rewriter.initOpOperands.unfold]
-  split
-  · exact id
-  · exact Rewriter.initOpOperands.loop_inBounds_veir_mono ptr
+  grind [Rewriter.initOpOperands.unfold]
 
 @[grind .]
 theorem Rewriter.initOpOperands_preserves_numSuccessors! (ptr : Veir.OperationPtr)
     {ctx ctx' : Sim.IRContext OpInfo} {h₁ operands h₂ index hidx hcap}
     (heq : initOpOperands opPtr ctx h₁ operands h₂ index hidx hcap = ctx') :
     ptr.getNumSuccessors! ctx'.spec = ptr.getNumSuccessors! ctx.spec := by
-  simp only [Rewriter.initOpOperands.unfold] at heq
-  split at heq
-  · grind
-  · exact Rewriter.initOpOperands.loop_preserves_numSuccessors! ptr heq
+  grind [Rewriter.initOpOperands.unfold]
 
 /- Operand pushes never touch the block-operand capacity (cf. the `initOpResults` capacity-preservation lemmas above). -/
 theorem Rewriter.initOpOperands_preserves_capBlockOperands (ptr : Veir.OperationPtr) {opPtr : Sim.OperationPtr}

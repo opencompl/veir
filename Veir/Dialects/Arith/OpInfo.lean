@@ -98,10 +98,7 @@ theorem ArithConstantProperties.writeProperty_size (a : ArithConstantProperties)
 theorem ArithConstantProperties.writeProperty_attributes (a : ArithConstantProperties) (addr : UInt64) (bctx : Buffed.IRBufContext) (h hattrs)
     {i : Nat} {attr : Attribute} (hsome : bctx.attributes[i]? = some attr) :
     (a.writeProperty addr bctx h hattrs).attributes[i]? = some attr := by
-  unfold writeProperty
-  split
-  · exact hsome
-  · grind
+  grind [writeProperty]
 
 /-- Infallible, allocation-light variant of `readProperty` for hot paths: an out-of-range spilled
 index or a non-integer table entry decodes to `default` instead of `none`. -/

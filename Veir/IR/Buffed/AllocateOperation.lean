@@ -63,14 +63,7 @@ theorem Sim.OperationPtr.allocFreshRaw_eq
         (Buffed.Operation.propertySize op)) = some (b, address) ∧
       ptr = address + 40 * nr ∧
       ∃ hb ha, b' = Buffed.OperationMPtr.initializeOp b ptr nr no nb ng op props hb ha := by
-  unfold allocFreshRaw at h
-  split at h
-  · split at h
-    · contradiction
-    · rename_i b address hres
-      obtain ⟨rfl, rfl⟩ := Option.some.inj h
-      exact ⟨b, address, hres, rfl, _, _, rfl⟩
-  · contradiction
+  grind [allocFreshRaw]
 
 
 theorem Sim.OperationPtr.allocFresh_sim
