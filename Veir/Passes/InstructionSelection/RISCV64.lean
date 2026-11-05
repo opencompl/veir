@@ -950,6 +950,72 @@ def memIntrinsic : RewritePattern OpCode :=
   .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
     #[.fromLocalRewrite memIntrinsicInline_local]
 
+/-!
+An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
+power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`.
+-/
+
+/-- The `(offset, width)` pieces of a load or store of a value of `type`, if it needs splitting. -/
+def splitAccesses? (type : TypeAttr) : Option (Array (Nat × Nat)) := do
+  let .integerType t := type.val | none
+  guard (t.bitwidth % 8 = 0 ∧ t.bitwidth / 8 ∈ [3, 5, 6, 7])
+  return memAccesses (t.bitwidth / 8) 8
+
+/-- `riscv.lbu` / `riscv.lhu` / `riscv.lwu`, for a `width`-byte zero-extending load. -/
+def createZextLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
+    (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
+  match width with
+  | 1 => WfRewriter.createOp! ctx Riscv.lbu #[RegisterType.mk] #[addr] #[] #[] props none
+  | 2 => WfRewriter.createOp! ctx Riscv.lhu #[RegisterType.mk] #[addr] #[] #[] props none
+  | _ => WfRewriter.createOp! ctx Riscv.lwu #[RegisterType.mk] #[addr] #[] #[] props none
+
+/-- llvm.load -> zero-extending loads of the pieces, shifted into place and or-ed together. -/
+def splitLoad_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if op.getOpType! ctx.raw ≠ Llvm.load then return (ctx, none)
+  let some accesses := splitAccesses? ((op.getResult 0).getType! ctx.raw) | return (ctx, none)
+  let props : LoadProperties := op.getProperties! ctx.raw Llvm.load
+  let (ctx, addrCast) ← castToRegLocal ctx (op.getOperand! ctx.raw 0)
+  let addr := addrCast.getResult 0
+  let mut ctx := ctx
+  let mut ops := #[addrCast]
+  /- Replaced by the piece at offset 0, which comes first. -/
+  let mut result := addr
+  for (offset, width) in accesses do
+    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.volatile_
+    let (ctx', ld) ← createZextLoadLocal ctx width addr memProps
+    ctx := ctx'; ops := ops.push ld
+    if offset = 0 then
+      result := ld.getResult 0
+    else
+      let (ctx', shifted) ← createRISCVImmLocal ctx .slli rfl #[ld.getResult 0] (8 * offset)
+      let (ctx', merged) ← createRISCVUnitLocal ctx' .or rfl #[result, shifted.getResult 0]
+      ctx := ctx'; ops := ops ++ #[shifted, merged]; result := merged.getResult 0
+  let (ctx', castBack) ← replaceWithRegLocal ctx op result
+  return (ctx', some (ops.push castBack, #[castBack.getResult 0]))
+
+/-- llvm.store -> a store of each piece, shifted down to the low bits of a register. -/
+def splitStore_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if op.getOpType! ctx.raw ≠ Llvm.store then return (ctx, none)
+  let operands := op.getOperands! ctx.raw
+  let some accesses := splitAccesses? (operands[0]!.getType! ctx.raw) | return (ctx, none)
+  let props : StoreProperties := op.getProperties! ctx.raw Llvm.store
+  let (ctx, valCast) ← castToRegLocal ctx operands[0]!
+  let (ctx, addrCast) ← castToRegLocal ctx operands[1]!
+  let addr := addrCast.getResult 0
+  let mut ctx := ctx
+  let mut ops := #[valCast, addrCast]
+  for (offset, width) in accesses do
+    let mut piece := valCast.getResult 0
+    if offset ≠ 0 then
+      let (ctx', shifted) ← createRISCVImmLocal ctx .srli rfl #[piece] (8 * offset)
+      ctx := ctx'; ops := ops.push shifted; piece := shifted.getResult 0
+    let memProps := RISCVMemProperties.mk (BitVec.ofNat 64 offset) props.volatile_
+    let (ctx', st) ← createStoreLocal ctx width piece addr memProps
+    ctx := ctx'; ops := ops.push st
+  return (ctx, some (ops, #[]))
+
 /-! # gMIR Lowering Patterns
 
   The gMIR patterns only select operations that `riscv64LegalizerInfo` considers legal, since
@@ -1900,7 +1966,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Early loop: fold composed intrinsics and inspect constants before the per-op
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ load.map (·.run) ++
+    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
+    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++
     store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
