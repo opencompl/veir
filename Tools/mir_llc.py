@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import subprocess
 
-DEFAULT_TARGET_FLAGS = ("-mtriple=riscv64",)
+from riscv_target import LLC_TARGET_FLAGS
 
 # Register-allocation stage: MIR -> fully-lowered MIR. Rather than a canned
 # -O0/-O2 pipeline we drive an explicit minimal machine pipeline via -run-pass
@@ -40,38 +40,36 @@ LLVM23_PASS_NAMES = {
 
 
 @functools.lru_cache(maxsize=None)
-def pass_registered(llc: str, name: str, target_flags: tuple[str, ...]) -> bool:
+def pass_registered(llc: str, name: str) -> bool:
     """Whether this llc accepts `name` as a -run-pass argument."""
     result = subprocess.run(
-        [llc, *target_flags, "-x", "mir", f"-run-pass={name}",
+        [llc, *LLC_TARGET_FLAGS, "-x", "mir", f"-run-pass={name}",
          "-o", "/dev/null", "/dev/null"],
         stdin=subprocess.DEVNULL, capture_output=True, text=True)
     return "is not registered" not in result.stderr
 
 
-def pass_name(llc: str, name: str, target_flags: tuple[str, ...]) -> str:
+def pass_name(llc: str, name: str) -> str:
     """`name` (LLVM 24 spelling) as accepted by this llc."""
     old = LLVM23_PASS_NAMES.get(name)
-    if old is None or pass_registered(llc, name, target_flags):
+    if old is None or pass_registered(llc, name):
         return name
     return old
 
 
-def regalloc_cmd(llc: str, mir: str, lowered: str, *,
-                 target_flags: tuple[str, ...] = DEFAULT_TARGET_FLAGS) -> list[str]:
-    passes = ",".join(pass_name(llc, p, target_flags) for p in REGALLOC_PASSES.split(","))
-    return [llc, mir, *target_flags, "-x", "mir", f"-run-pass={passes}",
+def regalloc_cmd(llc: str, mir: str, lowered: str) -> list[str]:
+    passes = ",".join(pass_name(llc, p) for p in REGALLOC_PASSES.split(","))
+    return [llc, mir, *LLC_TARGET_FLAGS, "-x", "mir", f"-run-pass={passes}",
             "-o", lowered]
 
 
-def emit_asm_cmd(llc: str, lowered: str, asm: str, *,
-                 target_flags: tuple[str, ...] = DEFAULT_TARGET_FLAGS) -> list[str]:
+def emit_asm_cmd(llc: str, lowered: str, asm: str) -> list[str]:
     """Emission stage: fully-lowered MIR -> RISC-V assembly. Starting after the
     last regalloc-stage pass skips straight to the asm printer (the few
     remaining passes are no-ops here) without re-running regalloc or prologue
     insertion, which would corrupt the already-lowered MIR. Direct object
     emission isn't possible: pseudos like PseudoLLA are only expanded by the
     assembler."""
-    return [llc, lowered, *target_flags, "-x", "mir",
-            f"-start-after={pass_name(llc, 'riscv-expand-pseudo-pre-emit', target_flags)}",
+    return [llc, lowered, *LLC_TARGET_FLAGS, "-x", "mir",
+            f"-start-after={pass_name(llc, 'riscv-expand-pseudo-pre-emit')}",
             "-o", asm]
