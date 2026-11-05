@@ -336,7 +336,7 @@ theorem Sim.OperationPtr.setParentWithCheck_veir_inBounds (ptr : Veir.GenericPtr
   simp [setParentWithCheck.unfold] at heq ⊢
   grind
 
-buffed (inline := false)
+buffed (inline := true)
 def Sim.OperationPtr.linkBetweenWithParentSim (self: Sim.OperationPtr) (ctx: Sim.IRContext OpInfo)
     (prevOp: Sim.OptionOperationPtr) (nextOp: Sim.OptionOperationPtr) (parent: Sim.BlockPtr)
     (selfIn: self.InBounds ctx := by grind)

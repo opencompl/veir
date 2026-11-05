@@ -145,7 +145,7 @@ Veir/IR/Buffed/ContainerDealloc.lean	Sim.RegionPtr.forget	Veir.Sim.RegionPtr.for
 Veir/IR/Buffed/ContainerDealloc.lean	Sim.BlockPtr.dealloc	Veir.Sim.BlockPtr.dealloc	true
 Veir/IR/Buffed/ContainerDealloc.lean	Sim.RegionPtr.dealloc	Veir.Sim.RegionPtr.dealloc	true
 Veir/IR/Buffed/AllocateBlock.lean	Sim.BlockPtr.allocFresh	Veir.Sim.BlockPtr.allocFresh	false
-Veir/IR/Buffed/AllocateOperation.lean	Sim.OperationPtr.allocFresh	Veir.Sim.OperationPtr.allocFresh	false
+Veir/IR/Buffed/AllocateOperation.lean	Sim.OperationPtr.allocFresh	Veir.Sim.OperationPtr.allocFresh	true
 Veir/IR/Buffed/AllocateRegion.lean	Sim.RegionPtr.allocFresh	Veir.Sim.RegionPtr.allocFresh	false
 Veir/Printer.lean	printValue	Veir.Printer.printValue	true
 Veir/Printer.lean	printOpResults	Veir.Printer.printOpResults	true
@@ -193,7 +193,7 @@ Veir/Rewriter/LinkedList/Basic.lean	Sim.BlockOperandPtr.removeFromCurrent	Veir.S
 Veir/Rewriter/LinkedList/Basic.lean	Sim.BlockOperandPtr.insertIntoCurrent	Veir.Sim.BlockOperandPtr.insertIntoCurrent	true
 Veir/Rewriter/LinkedList/Basic.lean	Sim.OperationPtr.linkBetween	Veir.Sim.OperationPtr.linkBetween	true
 Veir/Rewriter/LinkedList/Basic.lean	Sim.OperationPtr.setParentWithCheck	Veir.Sim.OperationPtr.setParentWithCheck	true
-Veir/Rewriter/LinkedList/Basic.lean	Sim.OperationPtr.linkBetweenWithParent	Veir.Sim.OperationPtr.linkBetweenWithParent	false
+Veir/Rewriter/LinkedList/Basic.lean	Sim.OperationPtr.linkBetweenWithParent	Veir.Sim.OperationPtr.linkBetweenWithParent	true
 Veir/Rewriter/LinkedList/Basic.lean	Sim.BlockPtr.linkBetween	Veir.Sim.BlockPtr.linkBetween	true
 Veir/Rewriter/LinkedList/Basic.lean	Sim.BlockPtr.setParentWithCheck	Veir.Sim.BlockPtr.setParentWithCheck	true
 Veir/Rewriter/LinkedList/Basic.lean	Sim.BlockPtr.linkBetweenWithParent	Veir.Sim.BlockPtr.linkBetweenWithParent	true
