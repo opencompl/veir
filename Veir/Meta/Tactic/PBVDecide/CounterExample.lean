@@ -4,6 +4,7 @@ public meta import Lean
 public meta import Std
 public import Lean.Meta.Tactic.BVDecide.Main
 public meta import Veir.Meta.Tactic.PBVDecide.Basic
+public meta import Veir.Meta.Tactic.PBVDecide.Reify
 
 open Lean Elab Tactic Meta Std Tactic.BVDecide
 
@@ -95,6 +96,17 @@ meta def getBitVecCounterExamples (bvInfos : BitVecInfos) (widthCexs: WidthMaskC
   )
 
 /--
+If `e` is a leaf `t.setWidth o` of a `BitVec` of a translated width, the leaf `t`
+together with the value of the atom truncated to the width of `t`.
+-/
+meta def leafCounterExample? (translated : Translated) (widthCexs : WidthMaskCexs)
+    (e : Expr) (bv : BVExpr.PackedBitVec) : MetaM (Option MessageData) := do
+  let_expr BitVec.setWidth w _ t := e | return none
+  let (widthTm, _) ← ReifyM.run (Tm.reifyWidth w) { env := translated.env }
+  let some widthCex := widthCexs[widthTm]? | return none
+  return some m!"{t} = {bv.bv.setWidth widthCex.val}"
+
+/--
 Convert a `bv_decide` counterexample into a message, mapping concrete mask `BitVec`
 values to concrete width `Nat` values, and keeping track if any counterexamples
 belong to expressions which have been abstracted as opaque variables, or if any
@@ -109,10 +121,12 @@ meta def prettyPrintCounterExample (counterExample : CounterExample) (translated
 
   let opaqueVariables : Array MessageData ← counterExample.equations.filterMapM
     (fun (eq, bv) => counterExample.goal.withContext do
-      if !visitedExamples.contains eq then
-        return m!"{eq} = {bv.bv}"
-      else
+      if visitedExamples.contains eq then
         return none
+      -- Leaves are shown as values of their own width
+      if let some leaf ← leafCounterExample? translated widthCexs eq bv then
+        return m!"{leaf} ({eq} = {bv.bv})"
+      return m!"{eq} = {bv.bv}"
     )
 
   -- Widths that are neither variables, literals nor sums are atoms whose masks

@@ -44,26 +44,17 @@ match op with
 | .type => PDLTypeProperties
 | .types => PDLTypesProperties
 
-/-- Reject any property on an operation that carries none. -/
-private def noProperties (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
-    Except String Unit :=
-  if attrDict.size > 0 then
-    let plural := if attrDict.size = 1 then "property" else "properties"
-    .error s!"{opName}: expected no properties, but got {attrDict.size} {plural}"
-  else
-    .ok ()
-
 def PDL.fromAttrDict
     (op : PDL) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (PDL.propertiesOf op) :=
   match op with
   | .attribute => PDLAttributeProperties.fromAttrDict attrDict
-  | .erase => noProperties "pdl.erase" attrDict
-  | .operand => noProperties "pdl.operand" attrDict
-  | .operands => noProperties "pdl.operands" attrDict
+  | .erase => expectNoProperties "pdl.erase" attrDict
+  | .operand => expectNoProperties "pdl.operand" attrDict
+  | .operands => expectNoProperties "pdl.operands" attrDict
   | .operation => PDLOperationProperties.fromAttrDict attrDict
   | .pattern => PDLPatternProperties.fromAttrDict attrDict
-  | .range => noProperties "pdl.range" attrDict
+  | .range => expectNoProperties "pdl.range" attrDict
   | .replace => PDLReplaceProperties.fromAttrDict attrDict
   | .result => PDLResultProperties.fromAttrDict attrDict
   | .results => PDLResultsProperties.fromAttrDict attrDict
@@ -292,14 +283,7 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
       if pdlElementOrSelf ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ some .type then
         throw s!"Expected operand {i} to be of type '!pdl.type' or '!pdl.range<type>'"
   | .pattern =>
-    if op.getNumOperands ctx.raw opIn ≠ 0 then
-      throw "Expected 0 operands"
-    if op.getNumResults ctx.raw opIn ≠ 0 then
-      throw "Expected 0 results"
-    if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-      throw "Expected 0 successors"
-    if op.getNumRegions ctx.raw opIn ≠ 1 then
-      throw "Expected 1 region"
+    op.verifyOpCounts ctx opIn 0 0 1 0
     let props : PDL.propertiesOf .pattern :=
       HasDialect.toDialectProperties (OpInfo := OpInfo) PDL.pattern
         (op.getProperties! ctx.raw (ofDialect OpInfo PDL.pattern))
@@ -309,11 +293,8 @@ def PDL.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo] [HasDialect OpIn
     if props.benefit.value < 0 then
       throw s!"Expected 'benefit' to be non-negative, but got {props.benefit.value}"
     /- The matcher body is a single block terminated by a `pdl.rewrite`. -/
-    let body := op.getRegion! ctx.raw 0
-    let some bodyBlock := body.getFirstBlock! ctx.raw
-      | throw "Expected the body to contain exactly 1 block"
-    if body.getLastBlock! ctx.raw ≠ some bodyBlock then
-      throw "Expected the body to contain exactly 1 block"
+    let bodyBlock ← (op.getRegion! ctx.raw 0).getSingleBlock ctx
+      "Expected the body to contain exactly 1 block"
     let some terminator := bodyBlock.getLastOp! ctx.raw
       | throw "Expected the body to terminate with a `pdl.rewrite`"
     if toDialect? PDL (terminator.getOpType! ctx.raw) ≠ some PDL.rewrite then

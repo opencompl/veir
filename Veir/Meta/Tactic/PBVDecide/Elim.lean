@@ -199,13 +199,6 @@ width constrained by the mask of its width. `Unchecked` because `widthTm` is tru
 -/
 meta def introBitvecFVarUnchecked (g : MVarId) (bvFVarId : FVarId) (widthTm : WidthTm) :
       TranslateM MVarId := g.withContext do
-  -- Revert any hypothesis in the local context that depend on this bitvec var.
-  let g ← (← getLCtx).foldlM (init := g) fun g' ldecl => do
-    if ← localDeclDependsOn ldecl bvFVarId then
-      let (#[_hyp], g') ← g'.revert #[ldecl.fvarId]
-        | throwError m!"Reverting {ldecl.toExpr} should produce a single var."
-      return g'
-    return g'
   -- Revert to expose forall with the BitVec.
   let (#[oldVar], g) ← g.revert #[bvFVarId]
     | throwError m!"Reverting {g} should produce a var."
