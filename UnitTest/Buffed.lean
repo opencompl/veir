@@ -9,17 +9,16 @@ open Lean Meta Compiler
 public section
 namespace UnitTest.Buffed
 
-/-- The outer struct must not cross the noinline call boundary. -/
+/-- The noinline choice is forwarded without changing the function signature. -/
 buffed (inline := false) def addressSim (p : Sim.OperationPtr) : UInt64 := p.impl
 
 @[noinline]
 def rawCaller (raw : UInt64) : UInt64 :=
   address ⟨raw, .mk { id := raw.toNat }⟩
 
--- `unfold` reaches the original body, not a call to addressSim/Inner.
+-- `unfold` reaches the original body rather than stopping at the compatibility wrapper.
 example (p : Sim.OperationPtr) : address p = p.impl := by rw [address.unfold]
 example (p : Sim.OperationPtr) : address p = addressSim p := rfl
-example (p : Sim.OperationPtr) : addressInner p.impl p.spec' = p.impl := rfl
 
 buffed (inline := false) def keepPointerSim (p : Sim.OperationPtr) : Sim.OperationPtr := p
 
@@ -27,7 +26,6 @@ buffed (inline := false) def keepPointerSim (p : Sim.OperationPtr) : Sim.Operati
   (keepPointer ⟨raw, .mk { id := raw.toNat }⟩).impl
 
 example (p : Sim.OperationPtr) : keepPointer p = p := by rw [keepPointer.unfold]
-example (p : Sim.OperationPtr) : keepPointerInner p.impl p.spec' = p.impl := rfl
 
 buffed def identitySim {α : Type u} (x : α) : α := x
 example {α : Type u} (x : α) : identity x = x := by rw [identity.unfold]
@@ -47,13 +45,11 @@ buffed def certifiedSim (p : Sim.OperationPtr) : { _q : Sim.OperationPtr // (0 :
   ⟨p, privateProof⟩
 example (p : Sim.OperationPtr) : certified p = ⟨p, rfl⟩ := by rw [certified.unfold]
 
--- Arrays and public signatures stay unchanged; pointer result leaves become raw.
+-- Arrays, options, pointer arguments, and pointer results remain unchanged.
 buffed (inline := false) def containersSim
     (xs : Array Sim.OperationPtr) (x : Option Sim.OperationPtr) := (xs, x)
 example (xs : Array Sim.OperationPtr) (x : Option Sim.OperationPtr) :
     containers xs x = (xs, x) := by rw [containers.unfold]
-example (xs : Array Sim.OperationPtr) (x : Option Sim.OperationPtr) :
-    containersInner xs x = (xs, x.map (·.impl)) := rfl
 
 variable {OpInfo : Type} [HasOpInfo OpInfo] [SerializableOpInfo OpInfo] [HasBuffedOpCode OpInfo]
 
@@ -96,9 +92,8 @@ buffed def contextResultSim (ctx : Sim.IRContext OpInfo) (n : Nat) : Sim.IRConte
 
 buffed (inline := false) def rawContextSim (ctx : Sim.RawIRContext OpInfo) := ctx.buf
 
--- Recursive inners run the rewritten body and recurse on fields. Their checked
--- equivalence and unfolding equations still describe the original function.
--- Recursive inners must be noinline even with an explicit true flag or the default.
+-- Recursive definitions are forwarded unchanged; their equivalence and unfolding
+-- equations retain the existing proof interface.
 buffed (inline := true) def countSim (p : Sim.OperationPtr) (n : Nat) : UInt64 :=
   match n with
   | 0 => p.impl
@@ -111,7 +106,7 @@ termination_by n
 decreasing_by omega
 example (p : Sim.OperationPtr) : stride p 0 = p.impl := by rw [stride.unfold] <;> rfl
 
--- The pointer changes on each step; flattening only the outer entry is insufficient.
+-- Recursive calls, including changing pointer values, remain in the source definition.
 buffed (inline := false) def advanceSim (p : Sim.OperationPtr) (n : Nat) : UInt64 :=
   match n with
   | 0 => p.impl
@@ -134,8 +129,7 @@ buffed (inline := false) def contextRecSim (ctx : Sim.IRContext OpInfo) (n : Nat
   | 0 => ctx.buf.size.toUInt64
   | n + 1 => contextRecSim ctx n + 1
 
--- Fixed-point equality is proved by admissible reindexing, not termination or rfl.
--- `spec'` becomes a fixed inner parameter in the first example.
+-- Partial fixed points are forwarded without generating a second fixed point.
 buffed (inline := true) def partialWalkSim (p : Sim.OperationPtr) (n : Nat) : Option UInt64 :=
   if n = 0 then some p.impl else partialWalkSim p (n - 1)
 partial_fixpoint
@@ -218,8 +212,6 @@ example (p : Sim.BlockPtr) : implicit (p := p) = p.impl := by rw [implicit.unfol
 #guard_msgs in
 buffed def missingSuffix (n : Nat) := n
 
-/-- error: buffed: non-tail recursion with a projected result is not supported -/
-#guard_msgs in
 buffed def nonTailResultSim (p : Sim.OperationPtr) (n : Nat) : Sim.OperationPtr :=
   match n with
   | 0 => p
@@ -234,44 +226,31 @@ buffed def opaqueHelperSim (p : Sim.OperationPtr) := opaqueValue + p.impl
 
 run_meta do
   let env ← getEnv
-  for name in #[``addressSim, ``address, ``identitySim, ``identity, ``identityInner,
-      ``implicitInner, ``shadowInner, ``countSim, ``count, ``partialWalkSim, ``partialWalk] do
+  for name in #[``identitySim, ``identity, ``countSim, ``count,
+      ``partialWalkSim, ``partialWalk] do
     unless getInlineAttribute? env name == some .inline do
       throwError "missing inline attribute on {name}"
-  for name in #[``addressInner, ``dependentInner, ``contextInner, ``countInner,
-      ``strideInner, ``advanceInner, ``namedRecInner, ``dependentRecInner, ``contextRecInner,
-      ``partialWalkInner, ``partialAdvanceInner, ``partialNeverInner,
-      ``partialPointerInner, ``partialDoPointerInner, ``partialNeverPointerInner,
-      ``pointerResultInner, ``contextResultInner,
-      ``Qualified.walkInner, ``hiddenCountInner] do
+  for name in #[``address, ``keepPointer, ``dependent, ``context,
+      ``Qualified.walk, ``hiddenCount] do
     unless getInlineAttribute? env name == some .noinline do
       throwError "missing noinline attribute on {name}"
-  for (name, arity) in #[( ``addressInner, 2), (``contextInner, 7),
-      (``rawContextInner, 4), (``GenericPtrRoundtripInner, 2),
-      (``OptionGenericPtrRoundtripInner, 2)] do
-    forallTelescope (← getConstInfo name).type fun xs _ => do
-      unless xs.size == arity do throwError "unexpected arity for {name}: {xs.size}"
-  for name in #[``addressInner, ``address, ``countInner, ``count] do
+  for name in #[``address, ``count] do
     unless (← getConstInfoDefn name).all == [name] do
       throwError "generated definition has incorrect mutual-block metadata: {name}"
   forallTelescope (← getConstInfo ``address.unfold).type fun _ eq => do
     let some (_, _, rhs) := eq.eq? | throwError "expected unfolding equality"
-    if rhs.getUsedConstants.contains ``addressSim || rhs.getUsedConstants.contains ``addressInner then
-      throwError "unfolding stopped at a wrapper instead of the original body"
+    if rhs.getUsedConstants.contains ``addressSim then
+      throwError "unfolding stopped at the compatibility definition"
   for name in #[``address.unfold, ``dependent.unfold, ``context.unfold, ``count.unfold,
       ``certified.unfold, ``stride.eq_sim, ``advance.unfold, ``namedRec.unfold,
       ``dependentRec.unfold, ``contextRec.unfold, ``partialWalk.unfold, ``partialAdvance.unfold,
       ``partialWalk.eq_sim, ``partialAdvance.eq_sim, ``partialNever.eq_sim,
-      ``partialPointer.eq_sim, ``partialDoPointer.eq_sim,
-      ``partialNeverPointer.eq_sim, ``partialNeverPointer.inner_eq_sim,
+      ``partialPointer.eq_sim, ``partialDoPointer.eq_sim, ``partialNeverPointer.eq_sim,
       ``keepContext.eq_sim, ``keepPointer.eq_sim, ``pointerResult.eq_sim, ``contextResult.eq_sim,
       ``Qualified.walk.unfold, ``hiddenCount.unfold] do
     let axioms ← collectAxioms name
     unless axioms.all (#[``propext, ``Classical.choice, ``Quot.sound].contains ·) do
       throwError "unexpected axioms in {name}: {axioms}"
-  for suffix in ["Impl", "Spec"] do
-    if env.contains (.str `UnitTest.Buffed ("address" ++ suffix)) then
-      throwError "the generator produced an unwanted separate {suffix} declaration"
 
 def checkContext (ctx : Sim.IRContext OpInfo) : IO Unit := do
   unless rawContextCaller ctx.buf ctx.spec' ctx.sim == ctx.buf.size.toUInt64 do
