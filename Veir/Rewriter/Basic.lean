@@ -1655,6 +1655,7 @@ theorem Rewriter.initBlockOperands_inBounds_veir_mono (ptr : Veir.GenericPtr) {o
   simp only [Rewriter.initBlockOperands.eq_sim] at *
   fun_induction Rewriter.initBlockOperandsSim <;> grind
 
+
 set_option maxHeartbeats 4000000 in
 buffed (inline := true)
 def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
@@ -1669,7 +1670,8 @@ def Rewriter.createOpSim (ctx: Sim.IRContext OpInfo) (opType: OpInfo)
     (htypes : resultTypes.size < 2^32)
     (_hx : ctx.spec.FieldsInBounds := by grind) : Option (Sim.IRContext OpInfo × Sim.OperationPtr) := do
     -- Pass the sizes via `Array.sizeU64` (an opaque, `@[irreducible]` `size.toUInt64` alias) so `grind` treats them (and their `.toNat`) as atoms rather than e-matching the `init*` lemmas at each `UInt64.ofNat _`/`size % 2^64` size, which otherwise cross-multiplies into a step-budget blow-up in the `insertionPoint`/`hcap` obligations below.
-  if hsize : operands.size ≥ 2^32 ∨ blockOperands.size ≥ 2^32 ∨ regions.size ≥ 2^32 then none else
+  let bound := 4294967295
+  if hsize : operands.size ≥ bound ∨ blockOperands.size ≥ bound ∨ regions.size ≥ bound then none else
   rlet halloc : ⟨newOpPtr, ctx⟩ ← Sim.OperationPtr.allocFresh ctx opType properties
     resultTypes.sizeU64 operands.sizeU64 blockOperands.sizeU64 regions.sizeU64
     (by (try clear hoper hblockOperands hregions); grind [Array.sizeU64_toNat]) (by (try clear hoper hblockOperands hregions); grind [Array.sizeU64_toNat])
@@ -1880,8 +1882,7 @@ theorem Rewriter.createOp_new_not_inBounds (ptr : Sim.OperationPtr)
   simp only [createOp.unfold] at heq
   split at heq
   · contradiction
-  ·
-    split at heq
+  · split at heq
     · grind
     · rename_i newOpPtr ctx1 hAlloc
       split at heq

@@ -137,7 +137,7 @@ theorem Sim.OperationPtr.allocFreshRaw_fresh
 
 /-- Keep reservation control flow out of callers so their ghost specification
 arguments can be eliminated before the native allocator call. -/
-buffed (inline := false)
+buffed (inline := true)
 def Sim.OperationPtr.allocFreshSim (ctx : Sim.IRContext OpInfo) (op : OpInfo)
     (props : HasOpInfo.propertiesOf op) (nr no nb ng : UInt64)
     (hr : nr.toNat ≤ countCard) (ho : no.toNat ≤ countCard)

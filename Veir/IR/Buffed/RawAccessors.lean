@@ -272,6 +272,7 @@ theorem IRBufContext.usize_toNat (bctx : IRBufContext) :
 
 /-- Append a zeroed allocation. The returned address is its start (an operation's
 result array precedes its operation pointer). Deleted storage is never reused. -/
+@[inline]
 def IRBufContext.reserve (bctx : IRBufContext) (size : UInt64) :
     Option (IRBufContext × UInt64) :=
   -- Cache the scalar size, rather than retaining the old buffer across extension
