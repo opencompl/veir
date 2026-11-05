@@ -1324,7 +1324,7 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      ,
      ]
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  match RewritePattern.applyInContext pattern ctx with
+  match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
 

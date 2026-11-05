@@ -497,8 +497,8 @@ def addZeroLotsOfReuseTree (size pc: Nat) : Option (WfIRContext OpCode × Operat
 
 end Program
 
-def rewriteWorklist (program: WfIRContext OpCode) (_topOp : OperationPtr) (rewriter: RewritePattern OpCode) : Option (WfIRContext OpCode):=
-  RewritePattern.applyInContext rewriter program
+def rewriteWorklist (program: WfIRContext OpCode) (topOp : OperationPtr) (rewriter: RewritePattern OpCode) : Option (WfIRContext OpCode):=
+  RewritePattern.applyInContext rewriter program topOp
 
 def print (program: Option (WfIRContext OpCode × OperationPtr)) : IO Unit := do
   if let some (ctx, topOp) := program then
@@ -653,17 +653,17 @@ info: "builtin.module"() ({
 info: "builtin.module"() ({
   ^2():
     %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %34 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %33 = "arith.addi"(%34, %34) : (i32, i32) -> i32
-    %32 = "arith.addi"(%33, %33) : (i32, i32) -> i32
-    %31 = "arith.addi"(%32, %32) : (i32, i32) -> i32
-    %30 = "arith.addi"(%31, %31) : (i32, i32) -> i32
-    %29 = "arith.addi"(%30, %30) : (i32, i32) -> i32
-    %28 = "arith.addi"(%29, %29) : (i32, i32) -> i32
-    %27 = "arith.addi"(%28, %28) : (i32, i32) -> i32
-    %26 = "arith.addi"(%27, %27) : (i32, i32) -> i32
-    %25 = "arith.addi"(%26, %26) : (i32, i32) -> i32
-    "test.test"(%25) : (i32) -> ()
+    %25 = "arith.addi"(%3, %3) : (i32, i32) -> i32
+    %26 = "arith.addi"(%25, %25) : (i32, i32) -> i32
+    %27 = "arith.addi"(%26, %26) : (i32, i32) -> i32
+    %28 = "arith.addi"(%27, %27) : (i32, i32) -> i32
+    %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
+    %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
+    %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
+    %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
+    %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
+    %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
+    "test.test"(%34) : (i32) -> ()
 }) : () -> ()
 -/
 #guard_msgs in

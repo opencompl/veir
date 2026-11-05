@@ -3,10 +3,10 @@
 "builtin.module"() ({
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "foo"}> ({
     ^bb0(%a: !llvm.ptr):
-        // i24 loads are not supported (only i64/i32/i16/i8), so this stays un-lowered.
-        %val = "llvm.load"(%a) : (!llvm.ptr) -> i24
-        // CHECK: {{.*}} = "llvm.load"({{.*}}) <{"alignment" = 0 : i64}> : (!llvm.ptr) -> i24
-        "test.test"(%val) : (i24) -> ()
+        // i20 is not a whole number of bytes, so this load stays un-lowered.
+        %val = "llvm.load"(%a) : (!llvm.ptr) -> i20
+        // CHECK: {{.*}} = "llvm.load"({{.*}}) <{"alignment" = 0 : i64}> : (!llvm.ptr) -> i20
+        "test.test"(%val) : (i20) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

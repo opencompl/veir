@@ -80,7 +80,7 @@ def widenOperations (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
 def LegalizePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[.fromLocalRewrite widenOperations]) ctx with
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[.fromLocalRewrite widenOperations]) ctx op with
   | none => throw "Error while applying legalization"
   | some ctx => pure ctx
 

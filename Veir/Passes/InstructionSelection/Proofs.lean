@@ -1157,10 +1157,12 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   veir_bv_decide
 
-theorem freeze_refinement {a : LLVM.Int 64} :
+/-- Freezing any integer that fits in a register is refined by its register round trip. -/
+theorem freeze_refinement {w : Nat} (hw : w ≤ 64) {a : LLVM.Int w} :
     (Data.LLVM.Int.freeze a) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
-  veir_bv_decide
+      (RISCV.Reg.toInt (LLVM.Int.toReg a) w) := by
+  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, isRefinedBy, Id.run,
+    BitVec.setWidth_setWidth_of_le _ hw]
 
 /--
   Prove the correctness of the `gmirAnyextOfReg` lowering pattern, at every width: the high bits of
