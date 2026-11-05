@@ -98,6 +98,36 @@ def LinalgGenericProperties.toAttrDict (props : LinalgGenericProperties) :
   return dict
 
 /--
+  The size of every loop of a `linalg.generic` and the operand it is taken from, given
+  the static shapes of its operands in operand order, with `#[]` for a scalar operand.
+
+  The size of a loop is the first operand dimension it indexes as a plain dimension
+  `d<i>`, and it is `none` if no indexing map contains `d<i>`.
+-/
+def LinalgGenericProperties.loopSizes (props : LinalgGenericProperties)
+    (operandShapes : Array (Array Nat)) : Array (Option (Nat × Nat)) := Id.run do
+  let operands := props.indexingMaps.zip operandShapes
+  let mut bounds : Array (Option (Nat × Nat)) := .replicate props.iteratorTypes.size none
+  for h : k in [0:operands.size] do
+    let (map, shape) := operands[k]
+    for (result, size) in map.results.zip shape do
+      if let .dim i := result then
+        if bounds[i.val]? = some none then
+          bounds := bounds.set! i.val (some (size, k))
+  return bounds
+
+/--
+  The size of every loop of a `linalg.generic`, given the static shapes of its
+  operands as for `loopSizes`, or `none` if some loop appears in no indexing map.
+
+  The verifier rejects the latter, so a verified operation has loop bounds, and a
+  rewrite and its proof can both use this function.
+-/
+def LinalgGenericProperties.loopBounds (props : LinalgGenericProperties)
+    (operandShapes : Array (Array Nat)) : Option (List Nat) :=
+  (props.loopSizes operandShapes).toList.mapM (·.map (·.1))
+
+/--
   Verify the indexing maps of a `linalg.generic` against the static shapes of its
   operands, given in operand order, with `#[]` for a scalar operand.
 
@@ -121,14 +151,7 @@ def LinalgGenericProperties.verifyIndexingMaps (props : LinalgGenericProperties)
     if map.results.size ≠ shape.size then
       throw s!"expected operand #{k} rank ({shape.size}) to match the result rank of \
         indexing map #{k} ({map.results.size})"
-  -- The size of each loop and the operand it was taken from.
-  let mut bounds : Array (Option (Nat × Nat)) := .replicate numLoops none
-  for h : k in [0:operands.size] do
-    let (map, shape) := operands[k]
-    for (result, size) in map.results.zip shape do
-      if let .dim i := result then
-        if bounds[i.val]!.isNone then
-          bounds := bounds.set! i.val (some (size, k))
+  let bounds := props.loopSizes operandShapes
   for h : i in [0:bounds.size] do
     if bounds[i].isNone then
       throw s!"d{i} does not appear in any indexing map"
