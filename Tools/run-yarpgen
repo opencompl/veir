@@ -22,6 +22,10 @@ doesn't enforce RLIMIT_AS or RLIMIT_DATA, so a command that allocates quickly ca
 overshoot the limit. Both limits apply to vcc as a whole, not to each stage inside it; a
 kill of vcc is reported with the stage it reached.
 
+On macOS, test programs run under qemu-riscv64 in the Lima VM rv64, which must be running
+(see README.md). Their memory limit is an address space limit, which they see as failed
+allocations, so going over it is reported as a crash or reference failure, not as memory.
+
 A mismatch stops the whole run at once, killing the tests in progress, with exit
 status 2. All other failures are tallied, and the run ends with a table of them;
 the exit status is then 1 if any test failed and 0 otherwise.
@@ -69,12 +73,14 @@ def load_vcc():
 
 
 VCC_MODULE = load_vcc()
+riscv_target = VCC_MODULE.riscv_target
 CLANG = ["clang", *VCC_MODULE.CLANG_TARGET_FLAGS, "-w"]
 VERBOSE = False
 DEFAULT_ITERATIONS = 100
 TIMEOUT = 300.0  # Seconds that each command may run; set by --timeout.
 MEMORY_LIMIT_GIB = 4.0  # Resident memory that each command may use; set by --memory-limit.
 MEMORY_POLL_SECONDS = 0.25
+VM_TIMEOUT_MARGIN = 1.0  # Seconds that a test program outlives its kill, on macOS.
 # Each worker thread records here the label of the test it is running.
 CURRENT_TEST = threading.local()
 # Guards all of the following, as well as printing and starting subprocesses.
@@ -152,14 +158,16 @@ def limit_failure(kind: str, cmd: list[str], limit: str, problem: str) -> TestFa
                        f"{shlex.join(cmd)}\n{error}", error)
 
 
-def run(kind: str, cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
-    """Run a command under the limits, with no stdin and captured output, printing it
-    first if verbose. Being killed for exceeding a limit is a failure of the given kind."""
+def run(kind: str, cmd: list[str], cwd: Path,
+        stdin: str | Path = os.devnull) -> subprocess.CompletedProcess:
+    """Run a command under the limits, reading the file `stdin` and capturing its output,
+    printing it first if verbose. Being killed for exceeding a limit is a failure of the
+    given kind."""
     if VERBOSE:
         log(f"+ (cd {shlex.quote(str(cwd))} && {shlex.join(cmd)})")
-    with LOCK:
+    with LOCK, open(stdin, "rb") as input_file:
         # A session of its own gives the command a process group that we can kill.
-        proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        proc = subprocess.Popen(cmd, cwd=cwd, stdin=input_file, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, start_new_session=True)
         CHILDREN.add(proc)
     try:
@@ -187,7 +195,16 @@ def build(kind: str, cmd: list[str], cwd: Path) -> str:
 
 def execute(kind: str, exe: str, cwd: Path) -> str:
     """Run a test program, returning its stdout."""
-    result = run(kind, [f"./{exe}"], cwd)
+    if sys.platform == "darwin":
+        # Killing limactl leaves the program running in the VM, so the VM needs limits of
+        # its own. Its timeout is the later one, so that ours reports the failure, but
+        # SSH keeps our pipes open until it fires, so a timeout is reported that much late.
+        runner = f"ulimit -v {int(MEMORY_LIMIT_GIB * 2**20)}; {riscv_target.QEMU_RUNNER}"
+        result = run(kind, ["limactl", "shell", "--workdir", "/", riscv_target.RISCV_VM,
+                            "sh", "-c", runner, "sh", riscv_target.QEMU_CPU,
+                            f"{TIMEOUT + VM_TIMEOUT_MARGIN:g}"], cwd, stdin=cwd / exe)
+    else:
+        result = run(kind, [f"./{exe}"], cwd)
     if VERBOSE:
         log(f"{exe} output: {result.stdout.strip()}")
     if result.returncode != 0:

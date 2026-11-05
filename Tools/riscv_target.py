@@ -20,6 +20,12 @@ CLANG_TARGET_FLAGS = (f"--target={TRIPLE}", f"-march={MARCH}", f"-mabi={ABI}")
 LLC_TARGET_FLAGS = (f"-mtriple={TRIPLE}", f"-mattr={FEATURES}", f"-target-abi={ABI}")
 # QEMU's rv64 CPU already has everything in rv64gc.
 QEMU_CPU = "rv64," + ",".join(f"{ext}=true" for ext in VEIR_EXTENSIONS)
+# The Lima VM that runs QEMU on macOS, where qemu-riscv64 doesn't exist.
+RISCV_VM = "rv64"
+# Runs the ELF read from stdin, so that the VM needn't see the file; $1 is the -cpu
+# spec, $2 the timeout in seconds.
+QEMU_RUNNER = ('f=$(mktemp) && cat >"$f" && chmod +x "$f" && '
+               'timeout "$2" qemu-riscv64 -cpu "$1" "$f"; rc=$?; rm -f "$f"; exit $rc')
 
 
 def retarget_mir(mir: str) -> str:
