@@ -112,7 +112,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
       -- LLVM custom-legalizes `s32` into the `s64` operation and a `G_SEXT_INREG` of 32 bits, and
       -- selects `addw`/`subw` later (see `GMIR_RISCV`).
       .customFor [s32],
-      .minScalar (.type 0) 64,
+      .widenScalarToNextPow2 (.type 0),
+      .clampScalar (.type 0) 64 64,
     ]
     | .g_uadde | .g_usube => [
       .lower,
