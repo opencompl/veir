@@ -90,14 +90,6 @@ def CirConstValue.type : CirConstValue → Option Attribute
 
 /-! ## Helpers -/
 
-/-- Reject properties on operations whose schema carries none. -/
-def Cir.noProperties (attrDict : Std.HashMap ByteArray Attribute) : Except String Unit :=
-  if attrDict.size > 0 then
-    let plural := if attrDict.size = 1 then "property" else "properties"
-    .error s!"cir: expected no properties, but got {attrDict.size} {plural}"
-  else
-    .ok ()
-
 /-- Read a `kind = N : i32` enum property. -/
 private def getKind (opName : String) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String Nat := do

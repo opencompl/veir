@@ -24,10 +24,11 @@ namespace Veir
 Interprets an LLVM operation using CTrees.
 Fallback to the `Interp` based interpreter for operations that do not rely on non-determinism.
 -/
-def Llvm.interpretOpCTree (opType : Veir.Llvm) (properties : propertiesOf opType)
+def Llvm.interpretOpCTree {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) (layout : DataLayout := .riscv64)
-    : CTree (ErrorE ⊕ₑ UBE) FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
+    : CTree E FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
   match opType with
   | .freeze => do
     let [val] := operands.toList | fail

@@ -40,10 +40,25 @@ def GMIRConstantProperties.bits (props : GMIRConstantProperties) :
     BitVec props.value.type.bitwidth :=
   BitVec.ofInt _ props.value.value
 
+/-- `k` when `v` is the power of two `2^k`: `v &&& (v - 1)` clears the lowest set bit of `v`, and
+    is `0` only when that was the only one. -/
+def exactLog2? (v : Nat) : Option Nat :=
+  if v ≠ 0 ∧ v &&& (v - 1) = 0 then some v.log2 else none
+
 /-- `k` when the constant, read as a signed integer, is the positive power of two `2^k`. -/
 def GMIRConstantProperties.log2? (props : GMIRConstantProperties) : Option Nat :=
   let value := props.bits.toInt
-  if 0 < value ∧ value.toNat &&& (value.toNat - 1) = 0 then some value.toNat.log2 else none
+  if 0 < value then exactLog2? value.toNat else none
+
+/-- `k` when the constant, read as an unsigned integer, is `2^k`. -/
+def GMIRConstantProperties.ulog2? (props : GMIRConstantProperties) : Option Nat :=
+  exactLog2? props.bits.toNat
+
+/-- `(k, negative)` when the constant, read as a signed integer, is `2^k` (`negative = false`) or
+    `-2^k` (`negative = true`). -/
+def GMIRConstantProperties.slog2? (props : GMIRConstantProperties) : Option (Nat × Bool) :=
+  let value := props.bits.toInt
+  (exactLog2? value.natAbs).map (·, decide (value < 0))
 
 /--
 Properties of `gmir.g_sext_inreg`. `sz` is the number of low bits that are kept.

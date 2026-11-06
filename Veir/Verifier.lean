@@ -505,10 +505,9 @@ theorem OperationPtr.Verified.arith_constant {op : OperationPtr} {opInBounds} {a
     op.getNumRegions! ctx.raw = 0 ∧
     (op.getResult 0).getType! ctx.raw = .of IntegerType attr.type := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
-    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts,
-    ← getOpType!_eq_getOpType, opType, hProp, ne_eq,
-    bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure,
-    ite_not] at opVerify
+    OpCode.verifyLocalInvariants, Arith.verifyLocalInvariants, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, ← getOpType!_eq_getOpType, opType, hProp, ne_eq, bind, Except.bind,
+    throw, throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   simp only [TypeAttr.inj]
   grind
 
@@ -524,8 +523,8 @@ theorem OperationPtr.Verified.llvm_mlir__constant_resultType {op : OperationPtr}
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants,
     ← getOpType!_eq_getOpType, opType] at opVerify
   replace opVerify := Except.ok_of_bind_ok opVerify
-  simp only [verifyPlainOpCounts, hProp, ne_eq, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at opVerify
+  simp only [verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts, hProp, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at opVerify
   cases hty : ((op.getResult 0).getType! ctx.raw).val with
   | integerType intTy => exact ⟨intTy, by grind⟩
   | _ =>
@@ -552,9 +551,10 @@ def OperationPtr.IsVerifiedIcmp (op : OperationPtr) (ctx : WfIRContext OpCode) :
 private theorem OperationPtr.verifyLLVMICmp_eq_ok {ctx : WfIRContext OpCode} {op : OperationPtr}
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMICmp ctx opInBounds = .ok ()) :
     op.IsVerifiedIcmp ctx := by
-  simp only [IsVerifiedIcmp, verifyLLVMICmp, verifyPlainOpCounts, verifyOperandTypesMatch,
-    TypeAttr.verifyIntegerOrPointerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIcmp, verifyLLVMICmp, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyOperandTypesMatch, TypeAttr.verifyIntegerOrPointerType,
+    TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
+    Except.pure] at h ⊢
   split at h <;> (try split at h) <;> (try split at h) <;> (try split at h) <;> grind
 
 private theorem OperationPtr.verifyLLVMICmp_ok_of_Verified {op : OperationPtr} {opInBounds}
@@ -625,9 +625,9 @@ private theorem OperationPtr.verifyLLVMShift_eq_ok {ctx : WfIRContext OpCode} {o
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyLLVMShift ctx opInBounds = .ok ()) :
     op.IsVerifiedLLVMShift ctx := by
   simp only [IsVerifiedLLVMShift] at ⊢
-  simp [verifyLLVMShift, verifyPlainOpCounts, verifyResultTypeMatches,
-    TypeAttr.verifyIntegerType, TypeAttr.verifyIntegerOrByteType, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at h
+  simp [verifyLLVMShift, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+    verifyResultTypeMatches, TypeAttr.verifyIntegerType, TypeAttr.verifyIntegerOrByteType, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h
   grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
 
 private theorem OperationPtr.verifyLLVMShift_ok_of_Verified {op : OperationPtr} {opInBounds}
@@ -809,8 +809,8 @@ theorem OperationPtr.Verified.llvm_mlir__constant {op : OperationPtr} {opInBound
     op.getNumRegions! ctx.raw = 0 := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
     OpCode.verifyLocalInvariants, Llvm.verifyLocalInvariants, ← getOpType!_eq_getOpType, opType,
-    verifyPlainOpCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
-    Except.pure] at opVerify
+    verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts, ne_eq, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at opVerify
   grind
 
 theorem OperationPtr.Verified.llvm_intr__smax {op : OperationPtr} {opInBounds}
@@ -1094,8 +1094,8 @@ private theorem OperationPtr.verifyModArithBinOp_eq_ok {ctx : WfIRContext OpCode
     {opInBounds : op.InBounds ctx.raw} (h : op.verifyModArithBinOp ctx opInBounds = .ok ()) :
     op.IsVerifiedModArithBinop ctx := by
   simp only [IsVerifiedModArithBinop, TypeAttr.inj]
-  simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOperandTypesMatch,
-             verifyResultTypeMatches, TypeAttr.verifyModArithType,
+  simp only [verifyModArithBinOp, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+             verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyModArithType,
              Except_bind_ok_iff, exists_punit] at h
   obtain ⟨hPlainOpCounts, operandType, hOperandTypesMatch,
           hResultTypeMatches, modArithType, hModArithType, _⟩ := h
@@ -1156,7 +1156,8 @@ theorem OperationPtr.Verified.mod_arith_constant {op : OperationPtr} {opInBounds
     | ok _ => rfl
     | error e => rw [hb] at opVerify; simp [bind, Except.bind] at opVerify
   simp only [IsVerifiedModArithConstant, TypeAttr.inj]
-  simp only [verifyModArithConstantOp, verifyPlainOpCounts, TypeAttr.verifyModArithType,
+  simp only [verifyModArithConstantOp, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+            TypeAttr.verifyModArithType,
             Except_bind_ok_iff, exists_punit] at h
   obtain ⟨hPlainOpCounts, modArithType, hModArithType, hAttr⟩ := h
   simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
@@ -1195,8 +1196,8 @@ theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
     op.getNumSuccessors! ctx.raw = 0 ∧
     op.getNumRegions! ctx.raw = 1 := by
   simp only [Verified, verifyLocalInvariants, HasOpInfo.verifyLocalInvariants,
-    OpCode.verifyLocalInvariants, Func.verifyLocalInvariants,
-    ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
+    OpCode.verifyLocalInvariants, Func.verifyLocalInvariants, verifyOpCounts,
+    verifyNonOperandCounts, ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
     throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   grind
 

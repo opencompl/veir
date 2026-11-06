@@ -32,9 +32,10 @@ theorem OperationPtr.verifyIntegerBinop_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerBinop ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerBinop ctx := by
-  simp only [IsVerifiedIntegerBinop, verifyIntegerBinop, verifyPlainOpCounts,
-    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerBinop, verifyIntegerBinop, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
+    pure, Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   grind
 
@@ -69,9 +70,9 @@ theorem OperationPtr.verifySelectTypes_eq_ok
     (h : op.verifySelectTypes ctx opInBounds = .ok ()) :
     op.IsVerifiedSelect ctx := by
   simp only [IsVerifiedSelect] at ⊢
-  simp [verifySelectTypes, verifyPlainOpCounts, verifyOperandTypesMatch,
-    verifyResultTypeMatches, TypeAttr.verifyI1, bind, Except.bind, throw, throwThe,
-    MonadExceptOf.throw, pure, Except.pure] at h
+  simp [verifySelectTypes, verifyPlainOpCounts, verifyOpCounts, verifyNonOperandCounts,
+    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyI1, bind, Except.bind, throw,
+    throwThe, MonadExceptOf.throw, pure, Except.pure] at h
   grind [getNumOperands!_eq_getNumOperands, getNumResults!_eq_getNumResults]
 
 /--
@@ -94,9 +95,9 @@ theorem OperationPtr.verifyIntegerUnop_eq_ok
     {opInBounds : op.InBounds ctx.raw} {ty}
     (h : op.verifyIntegerUnop ctx opInBounds = .ok ty) :
     op.IsVerifiedIntegerUnop ctx := by
-  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts,
-    verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw,
-    throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerUnop, verifyIntegerUnop, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
+    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   split at h <;> grind
 
@@ -125,9 +126,10 @@ theorem OperationPtr.verifyIntegerTernop_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerTernop ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerTernop ctx := by
-  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts,
-    verifyOperandTypesMatch, verifyResultTypeMatches, TypeAttr.verifyIntegerType, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerTernop, verifyIntegerTernop, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, verifyOperandTypesMatch, verifyResultTypeMatches,
+    TypeAttr.verifyIntegerType, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
+    pure, Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   split at h <;> grind
 
@@ -153,8 +155,9 @@ theorem OperationPtr.verifyIntegerExtTypes_eq_ok
     {opInBounds : op.InBounds ctx.raw}
     (h : op.verifyIntegerExtTypes ctx opInBounds = .ok ()) :
     op.IsVerifiedIntegerExtop ctx := by
-  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, ne_eq, bind,
-    Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h ⊢
+  simp only [IsVerifiedIntegerExtop, verifyIntegerExtTypes, verifyPlainOpCounts, verifyOpCounts,
+    verifyNonOperandCounts, ne_eq, bind, Except.bind, throw, throwThe, MonadExceptOf.throw, pure,
+    Except.pure] at h ⊢
   simp only [TypeAttr.inj]
   split at h <;> grind
 

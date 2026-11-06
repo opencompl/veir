@@ -171,6 +171,11 @@ theorem CTree.choose_def {SubCIn : Type u} {SubC : SubCIn → Type u} [SubC -< C
     CTree.tau (Subeffect.mapEff SubC C i) (fun x => CTree.ret (Subeffect.mapCont SubC C i x)) :=
   by rfl
 
+theorem CTree.trigger_def {SubEIn : Type u} {SubE : SubEIn → Type u} [SubE -< E] (i : SubEIn) :
+    CTree.trigger (C := C) i =
+    CTree.vis (Subeffect.mapEff SubE E i) (fun x => CTree.ret (Subeffect.mapCont SubE E i x)) :=
+  by rfl
+
 @[simp, grind =]
 theorem CTree.fold_unfold (t : CTree E C R) :
   CTree.fold (CTree.unfold t) = t := by simp [CTree.fold, CTree.unfold]
@@ -373,6 +378,11 @@ theorem CTree.bind_tau {β} c k (t : β → CTree E C α) :
 instance : Monad (CTree E C) where
   pure := CTree.ret
   bind := CTree.bind
+
+@[simp, grind =]
+theorem bind_pure (value : α) (next : α → CTree E C β) :
+    CTree.bind (pure value) next = next value :=
+  CTree.bind_ret value next
 
 @[partial_fixpoint_monotone]
 theorem bind_mono {γ} [PartialOrder γ]
