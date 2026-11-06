@@ -119,9 +119,11 @@ deriving DecidableEq
 namespace HandleContext
 
 /-- The empty handle context. -/
+@[expose]
 def empty : HandleContext := ⟨[], []⟩
 
 /-- Look up the kind occupying an identifier. -/
+@[expose]
 def lookup (handles : HandleContext) (id : Nat) : Option (HandleType OpCode) :=
   let rec lookupBindings : List (Nat × HandleType OpCode) → Option (HandleType OpCode)
     | [] => none
@@ -140,6 +142,7 @@ def requireMany (ctx : HandleContext) (handles : List (Handle OpCode kind)) : Bo
   handles.all ctx.require
 
 /-- Record an output, requiring its identifier to be fresh in the context. -/
+@[expose]
 def insertFresh (ctx : HandleContext) (handle : Handle OpCode kind) : Option HandleContext :=
   match ctx.lookup handle.id with
   | none => some ⟨(handle.id, kind) :: ctx.bindings, ctx.unavailable⟩
@@ -152,6 +155,7 @@ def insertManyFresh (ctx : HandleContext) (handles : List (Handle OpCode kind))
   handles.foldlM insertFresh ctx
 
 /-- Mark an allocated handle as unavailable to creation and replacement inputs. -/
+@[expose]
 def forbid (ctx : HandleContext) (handle : Handle OpCode kind) : HandleContext :=
   ⟨ctx.bindings, handle.id :: ctx.unavailable⟩
 
@@ -697,6 +701,11 @@ This section defines tactics for proving the different obligations of `Pattern.V
 are intended to be used in the proof of `Pattern.Valid` for a specific Puddle pattern.
 -/
 
+/-- Avoid expanding the global default-properties dispatcher for conversion casts. -/
+public theorem conversion_cast_default_properties :
+    (default : propertiesOf (OpCode.builtin .unrealized_conversion_cast)) = () := by
+  rfl
+
 /-- Unfold and simplify the builders used to construct a concrete Puddle pattern. -/
 macro "unfoldPuddleBuilder" : tactic =>
   `(tactic| (
@@ -713,7 +722,11 @@ macro "unfoldPuddleBuilder" : tactic =>
       Nat.zero_add, Nat.reduceAdd, List.size_toArray, List.length_cons, List.length_nil,
       Array.size_map, Array.size_range, Nat.lt_add_one, getElem!_pos, Array.getElem_map,
       Array.getElem_range, Nat.add_zero, List.cons_append, List.nil_append,
-      List.reverse_cons, List.reverse_nil]))
+      List.reverse_cons, List.reverse_nil,
+      /- Normalize fixed builder branches before evaluating structural checks. -/
+      ↓reduceIte,
+      /- Resolve cast defaults before traversing their instance arguments. -/
+      ↓conversion_cast_default_properties]))
 
 /-- Prove a `Puddle.Supported` goal. -/
 macro "provePuddleSupported" : tactic =>
@@ -768,7 +781,7 @@ Lean 4.35's cbv simproc for `if True` has a bug that prevents it from being used
 This `cbv_eval` rule will prevent this `if True` from appearing in puddle proofs.
 -/
 @[scoped cbv_eval]
-theorem guard_eq_cond {condition : Prop} [Decidable condition] :
+public theorem guard_eq_cond {condition : Prop} [Decidable condition] :
     (guard condition : Option Unit) = cond (decide condition) (some ()) none := by
   cases ‹Decidable condition› <;> rfl
 
