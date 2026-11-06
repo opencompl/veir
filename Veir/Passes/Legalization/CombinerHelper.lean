@@ -787,18 +787,79 @@ def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
 
 /-! ### Power-of-two strength reductions -/
 
-/-- `udiv x, 2^k` → `lshr x, k`. -/
+/-- `udiv x, 2^k` → `lshr x, k`, with the divisor read as an unsigned integer. Unlike LLVM, which
+    keeps an `exact` division as an `exact` shift, the `exact` flag is dropped for simplicity, as in
+    `sdiv_exact_by_pow2_pattern`.
+    https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L6171-L6183 -/
 def udiv_by_pow2_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value type
-      let c ← matchConstant type (·.log2?.isSome)
+      let c ← matchConstant type (·.ulog2?.isSome)
       let _ ← MatchProg.root (.gmir .g_udiv) #[x, c.res[0]!] #[type]
       return (type, x, c.properties))
     (fun (type, x, c) => do
-      let k ← createConstantWith type c fun c => c.log2?.get!
+      let k ← createConstantWith type c fun c => c.ulog2?.get!
       CreateProg.operation (.gmir .g_lshr) #[x, k.res[0]!] #[type])
+    (fun op => op)
+
+/--
+`sdiv exact x, ±2^k` → `ashr x, k`, negated for `-2^k`: an exact division needs no rounding. Unlike
+LLVM, the `exact` flag is dropped for simplicity, as in `udiv_by_pow2_pattern`.
+https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L5997-L6018
+-/
+def sdiv_exact_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let c ← matchConstant type fun c => c.slog2?.any (·.2 == negative)
+      let _ ← MatchProg.root (.gmir .g_sdiv) #[x, c.res[0]!] #[type] (·.exact)
+      return (type, x, c.properties))
+    (fun (type, x, c) => do
+      let k ← createConstantWith type c fun c => c.slog2?.get!.1
+      let quotient ← CreateProg.operation (.gmir .g_ashr) #[x, k.res[0]!] #[type]
+      if negative then
+        let zero ← createConstant type 0
+        CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, quotient.res[0]!] #[type]
+      else
+        pure quotient)
+    (fun op => op)
+
+/--
+`sdiv x, ±2^k` (`k ≥ 1`, not `exact`) → `q`, negated for `-2^k`. A negative `x` is biased by
+`2^k - 1` so that the shift rounds toward zero:
+```
+sign   := ashr x, w - 1
+bias   := lshr sign, w - k
+q      := ashr (add x, bias), k
+```
+https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L6098-L6169
+-/
+def sdiv_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let x ← MatchProg.value type
+      let c ← matchConstant type fun c => c.slog2?.any fun (k, neg) => k ≠ 0 && neg == negative
+      let _ ← MatchProg.root (.gmir .g_sdiv) #[x, c.res[0]!] #[type] (!·.exact)
+      return (type, x, c.properties))
+    (fun (type, x, c) => do
+      let width (c : GMIRConstantProperties) : Int := c.value.type.bitwidth
+      let log2 (c : GMIRConstantProperties) : Int := c.slog2?.get!.1
+      let signAmount ← createConstantWith type c fun c => width c - 1
+      let sign ← CreateProg.operation (.gmir .g_ashr) #[x, signAmount.res[0]!] #[type]
+      let biasAmount ← createConstantWith type c fun c => width c - log2 c
+      let bias ← CreateProg.operation (.gmir .g_lshr) #[sign.res[0]!, biasAmount.res[0]!] #[type]
+      let biased ← CreateProg.operation (.gmir .g_add) #[x, bias.res[0]!] #[type]
+      let k ← createConstantWith type c log2
+      let quotient ← CreateProg.operation (.gmir .g_ashr) #[biased.res[0]!, k.res[0]!] #[type]
+      if negative then
+        let zero ← createConstant type 0
+        CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, quotient.res[0]!] #[type]
+      else
+        pure quotient)
     (fun op => op)
 
 /-- `x * 2^k` → `x << k`. Both overflow in the same cases, so the flags carry over. -/
@@ -975,6 +1036,12 @@ def combines : Array (CompiledPattern OpCode) :=
     APlusBMinusAPlusC_pattern true, APlusBMinusAPlusC_pattern false, AMinusZeroMinusB_pattern,
     AMinusBMinusA_pattern]
   patterns.map (·.compile)
+
+/-- The combines that run before RISC-V 64 legalization. -/
+def preLegalizerCombines : Array (CompiledPattern OpCode) :=
+  (#[udiv_by_pow2_pattern] ++
+    #[false, true].flatMap fun negative =>
+      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile)
 
 end
 
