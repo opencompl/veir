@@ -19,7 +19,7 @@ namespace Veir.RISCV
 
   The immediate-selection rewrites that used to live here (folding a materialized
   constant into the immediate form of a RISC-V op) are now performed during
-  instruction selection in `isel-sdag-riscv64`, matching the LLVM op directly —
+  instruction selection in `isel-riscv64`, matching the gMIR op directly —
   mirroring LLVM's `PatGprImm` TableGen patterns. What remains here are algebraic
   simplifications over already-selected RISC-V ops. New RISC-V combines can be
   added to the pattern list in `Combine.impl`.

@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,riscv > %t && veir-interpret %t | filecheck %s
 
-// Functional check for `udivPow2`: unsigned division by a constant power of two,
+// Functional check for `udiv_by_pow2_pattern`: unsigned division by a constant power of two,
 // including the `2^63` boundary (whose bit pattern is decoded as a negative `Int`
 // even though `udiv` treats it as unsigned -- see the regression case in
 // divpow2.mlir).
