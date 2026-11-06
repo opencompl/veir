@@ -370,6 +370,16 @@ def SemanticAssignment.bindValue (assignment : SemanticAssignment)
     (handle : Handle OpCode .value) (value : RuntimeValue) : SemanticAssignment :=
   assignment.bind handle.id (.value value)
 
+/-- Bind multiple runtime values to value handles. -/
+@[expose]
+def SemanticAssignment.bindValues (values : Array RuntimeValue)
+    (assignment : SemanticAssignment) (handles : List (Handle OpCode .value))
+    (index : Nat := 0) : SemanticAssignment :=
+  match handles with
+  | [] => assignment
+  | handle :: handles =>
+      bindValues values (assignment.bindValue handle values[index]!) handles (index + 1)
+
 /-- Binds a concrete type to a type handle. -/
 @[expose]
 def SemanticAssignment.bindType (assignment : SemanticAssignment)
@@ -564,19 +574,19 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
 
 /-- Generates matcher semantics for the given declarations, then call the continuation. -/
 @[expose]
-def MatchProg.modelsDecls (decls : List (MatchDecl OpCode)) (assignment : SemanticAssignment)
+def MatchProg.ModelsDecls (decls : List (MatchDecl OpCode)) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
   match decls with
   | [] => k assignment
   | decl :: decls =>
       decl.Models assignment fun assignment =>
-        MatchProg.modelsDecls decls assignment k
+        MatchProg.ModelsDecls decls assignment k
 
 /-- Generate matcher semantics in binding order, then call the continuation. -/
 @[expose]
 def MatchProg.Models (prog : MatchProg OpCode α)
     (k : SemanticAssignment → Prop) : Prop :=
-  MatchProg.modelsDecls prog.bindingDecls SemanticAssignment.empty k
+  MatchProg.ModelsDecls prog.bindingDecls SemanticAssignment.empty k
 
 /-!
 ### Creation semantics
@@ -603,7 +613,7 @@ Collect the constraints of a creation declaration on the given assignment,
 and call the continuation with the updated assignment.
 -/
 @[expose]
-def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignment)
+def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
   match decl with
   | .type value result =>
@@ -626,19 +636,19 @@ def CreateDecl.Models (decl : CreateDecl OpCode) (assignment : SemanticAssignmen
 
 /-- Generate creation semantics for the declaration list, then call the continuation. -/
 @[expose]
-def CreateProg.modelsDecls (decls : List (CreateDecl OpCode)) (assignment : SemanticAssignment)
+def CreateProg.semanticsDecls (decls : List (CreateDecl OpCode)) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
   match decls with
   | [] => k assignment
   | decl :: decls =>
-    decl.Models assignment fun assignment =>
-      CreateProg.modelsDecls decls assignment k
+    decl.semantics assignment fun assignment =>
+      CreateProg.semanticsDecls decls assignment k
 
 /-- Generate creation semantics in execution order, then call the continuation. -/
 @[expose]
-def CreateProg.Models (prog : CreateProg OpCode α) (assignment : SemanticAssignment)
+def CreateProg.semantics (prog : CreateProg OpCode α) (assignment : SemanticAssignment)
     (k : SemanticAssignment → Prop) : Prop :=
-  CreateProg.modelsDecls prog.decls assignment k
+  CreateProg.semanticsDecls prog.decls assignment k
 
 /--
 Check that the root results of the matcher assignment refine the replacement values
@@ -657,7 +667,7 @@ def Replacement.RefinesRoot (replacement : Replacement OpCode)
 @[expose]
 def Pattern.PreservesSemantics (rule : Pattern OpCode) : Prop :=
   rule.matcher.Models fun matched =>
-    rule.creation.Models matched fun final =>
+    rule.creation.semantics matched fun final =>
       rule.replacement.RefinesRoot rule.matcher.rootResults? matched final
 
 /-!
@@ -717,8 +727,8 @@ macro "provePuddleSupported" : tactic =>
 macro "simpPuddleSemantics" : tactic =>
   `(tactic| simp only [Pattern.PreservesSemantics, MatchProg.Models,
     MatchProg.bindingDecls, List.partition_eq_filter_filter, List.range_succ, List.reverse_cons,
-    MatchProg.modelsDecls, MatchDecl.Models,
-    CreateProg.Models, CreateProg.modelsDecls, CreateDecl.Models,
+    MatchProg.ModelsDecls, MatchDecl.Models,
+    CreateProg.semantics, CreateProg.semanticsDecls, CreateDecl.semantics,
     SemanticAssignment.getValues, SemanticAssignment.getTypes,
     SemanticAssignment.getValue, SemanticAssignment.getType,
     SemanticAssignment.getProperty,
