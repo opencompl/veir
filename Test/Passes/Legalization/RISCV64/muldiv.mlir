@@ -57,7 +57,7 @@
     // CHECK-NEXT: %[[SDIV_LHS:.*]] = "gmir.g_sext_inreg"({{.*}}) <{"sz" = 8 : i64}> : (i64) -> i64
     // CHECK-NEXT: "gmir.g_anyext"({{.*}}) : (i8) -> i64
     // CHECK-NEXT: %[[SDIV_RHS:.*]] = "gmir.g_sext_inreg"({{.*}}) <{"sz" = 8 : i64}> : (i64) -> i64
-    // CHECK-NEXT: %[[DIVW:.*]] = "gmir_riscv.g_divw"(%[[SDIV_LHS]], %[[SDIV_RHS]]) : (i64, i64) -> i64
+    // CHECK-NEXT: %[[DIVW:.*]] = "gmir_riscv.g_divw"(%[[SDIV_LHS]], %[[SDIV_RHS]]) <{isExact}> : (i64, i64) -> i64
     // CHECK-NEXT: "gmir.g_trunc"(%[[DIVW]]) : (i64) -> i8
     %srem = "gmir.g_srem"(%lhs, %rhs) : (i8, i8) -> i8
     // CHECK:      "gmir.g_anyext"({{.*}}) : (i8) -> i64

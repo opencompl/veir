@@ -33,20 +33,31 @@ inductive GMIR_RISCV where
 | g_ctzw
 deriving Inhabited, Repr, Hashable, DecidableEq
 
+/-- `g_divw` keeps the `exact` flag of the `g_sdiv` it is legalized from, as LLVM's `G_DIVW` keeps
+    the flags of its `MachineInstr`. -/
 @[expose, properties_of]
 def GMIR_RISCV.propertiesOf (op : GMIR_RISCV) : Type :=
 match op with
+| .g_divw => ExactProperties
 | _ => Unit
 
 def GMIR_RISCV.fromAttrDict
-    (op : GMIR_RISCV) (_attrDict : Std.HashMap ByteArray Attribute) :
+    (op : GMIR_RISCV) (attrDict : Std.HashMap ByteArray Attribute) :
     Except String (GMIR_RISCV.propertiesOf op) := by
-  cases op <;> exact .ok ()
+  cases op
+  case g_divw => exact ExactProperties.fromAttrDict attrDict
+  all_goals exact .ok ()
 
 def GMIR_RISCV.toAttrDict
-    (_op : GMIR_RISCV) (_props : GMIR_RISCV.propertiesOf _op) :
+    (op : GMIR_RISCV) (props : GMIR_RISCV.propertiesOf op) :
     Std.HashMap ByteArray Attribute :=
-  Std.HashMap.emptyWithCapacity 0
+  match op with
+  | .g_divw => Id.run do
+    let mut dict := Std.HashMap.emptyWithCapacity 1
+    if props.exact then
+      dict := dict.insert "isExact".toUTF8 (Attribute.unitAttr UnitAttr.mk)
+    dict
+  | _ => Std.HashMap.emptyWithCapacity 0
 
 @[get_effects]
 def GMIR_RISCV.getEffects
@@ -91,7 +102,7 @@ def GMIR_RISCV.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     s!"{instrName}: Expected i64 operands and result"
 
 /-- The gMIR operation that a word operation applies to the low 32 bits of its operands. -/
-def GMIR_RISCV.base : GMIR_RISCV → GMIR
+@[expose] def GMIR_RISCV.base : GMIR_RISCV → GMIR
   | .g_addw => .g_add
   | .g_subw => .g_sub
   | .g_mulw => .g_mul
@@ -104,7 +115,16 @@ def GMIR_RISCV.base : GMIR_RISCV → GMIR
   | .g_clzw => .g_ctlz
   | .g_ctzw => .g_cttz
 
-def GMIR_RISCV.interpretOp' (opType : Veir.GMIR_RISCV) (_properties : propertiesOf opType)
+/-- The properties of the gMIR operation that the word operation applies to the low 32 bits:
+    the `exact` flag of `g_divw`, and no flags otherwise. -/
+def GMIR_RISCV.baseProperties : (op : GMIR_RISCV) → GMIR_RISCV.propertiesOf op →
+    GMIR.propertiesOf op.base
+  | .g_divw, props => props
+  | .g_addw, _ | .g_subw, _ | .g_mulw, _ | .g_sllw, _ => (default : NswNuwProperties)
+  | .g_divuw, _ | .g_srlw, _ | .g_sraw, _ => (default : ExactProperties)
+  | .g_remuw, _ | .g_clzw, _ | .g_ctzw, _ => ()
+
+def GMIR_RISCV.interpretOp' (opType : Veir.GMIR_RISCV) (properties : propertiesOf opType)
     (_resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (_blockOperands : Array BlockPtr) (mem : MemoryState)
     : Interp ((Array RuntimeValue) × MemoryState × Option ControlFlowAction) := do
@@ -116,9 +136,7 @@ def GMIR_RISCV.interpretOp' (opType : Veir.GMIR_RISCV) (_properties : properties
         else low rhs
       pure #[.int 32 (low lhs), .int 32 rhs]
     | _ => none
-  -- The default properties have no flags.
-  let base := opType.base
-  let (results, mem, _) ← GMIR.interpretOp' base (@IsOpCode.propertiesDefault GMIR _ base).default
+  let (results, mem, _) ← GMIR.interpretOp' opType.base (opType.baseProperties properties)
       #[IntegerType.signless 32] operands #[] mem
   let [.int 32 result] := results.toList | none
   return (#[.int 64 (Data.LLVM.Int.sext result 64 (by decide))], mem, none)

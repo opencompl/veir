@@ -85,13 +85,10 @@
         "func.return"(%r) : (i64) -> ()
     }) : () -> ()
 
-    // i32 exact variant. `gmir_riscv.g_divw` has no `exact` flag, so this gets the general
-    // sequence, where LLVM selects a single `sraiw`.
+    // i32 exact variant: `gmir_riscv.g_divw` keeps the `exact` flag, so a single `sraiw`.
     // CHECK-LABEL: func.func @f7
-    // CHECK:       "riscv.sraiw"(%{{.*}}) <{"value" = 31 : i64}> : (!riscv.reg) -> !riscv.reg
-    // CHECK:       "riscv.srliw"(%{{.*}}) <{"value" = 29 : i64}> : (!riscv.reg) -> !riscv.reg
-    // CHECK:       "riscv.addw"
     // CHECK:       "riscv.sraiw"(%{{.*}}) <{"value" = 3 : i64}> : (!riscv.reg) -> !riscv.reg
+    // CHECK-NEXT:  "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i32
     "func.func"() <{function_type = (i32) -> i32, sym_name = "f7"}> ({
     ^bb(%a: i32):
         %c = "llvm.mlir.constant"() <{value = 8 : i32}> : () -> i32

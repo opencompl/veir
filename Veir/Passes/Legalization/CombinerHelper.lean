@@ -902,24 +902,25 @@ def sdiv_by_pow2_pattern (negative : Bool) (ops : DivByPow2Ops := .gmir)
 `sdiv exact x, ±2^k` → `ashr exact x, k`, followed by `sub 0, _` if the divisor is negative. This is
 the `exact` path of LLVM's `sdiv_by_const` (`buildSDivOrSRemUsingMul`), whose multiplication by the
 inverse of `±1` folds into nothing or a negation. LLVM tries it only when `sdiv_by_pow2`, which
-excludes `exact` divisions, does not apply, so it comes first here.
+excludes `exact` divisions, does not apply, so it comes first here. `isExact` reads the `exact` flag
+of the division, and `shiftProps` are the properties of the shift.
 -/
-def sdiv_exact_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
-  let log2 (c : GMIRConstantProperties) := c.slog2? c.value.type.bitwidth negative
+def sdiv_exact_by_pow2_pattern (negative : Bool) (ops : DivByPow2Ops)
+    (isExact : PropertyMatcher ops.sdiv) (shiftProps : propertiesOf ops.ashr) : Pattern OpCode :=
+  let log2 (c : GMIRConstantProperties) := c.slog2? (ops.widthOf c) negative
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType)
       let x ← MatchProg.value type
       let c ← matchConstant type fun c => (log2 c).isSome
-      let _ ← MatchProg.root (.gmir .g_sdiv) #[x, c.res[0]!] #[type] (·.exact)
+      let _ ← MatchProg.root ops.sdiv #[x, c.res[0]!] #[type] isExact
       return (type, x, c.properties))
     (fun (type, x, c) => do
       let k ← createConstantWith type c fun c => (log2 c).get!
-      let exact ← CreateProg.property (.gmir .g_ashr) ({ exact := true } : ExactProperties)
-      let q ← CreateProg.operation (.gmir .g_ashr) #[x, k.res[0]!] #[type] (.inr exact)
+      let q ← CreateProg.operation ops.ashr #[x, k.res[0]!] #[type] (.inl shiftProps)
       if negative then
         let zero ← createConstant type 0
-        CreateProg.operation (.gmir .g_sub) #[zero.res[0]!, q.res[0]!] #[type]
+        CreateProg.operation ops.sub #[zero.res[0]!, q.res[0]!] #[type]
       else
         pure q)
     (fun op => op)
@@ -951,8 +952,9 @@ def sdiv_by_neg_one_pattern : Pattern OpCode :=
 
 /-- The `gmir` division-by-power-of-two combines, in the order the combiner tries them. -/
 def intdivCombines : Array (Pattern OpCode) :=
-  #[sdiv_exact_by_pow2_pattern false, sdiv_exact_by_pow2_pattern true,
-    sdiv_by_pow2_pattern false .gmir (fun (p : ExactProperties) => !p.exact),
+  #[false, true].map (fun negative => sdiv_exact_by_pow2_pattern negative .gmir
+      (fun (p : ExactProperties) => p.exact) ({ exact := true } : ExactProperties)) ++
+  #[sdiv_by_pow2_pattern false .gmir (fun (p : ExactProperties) => !p.exact),
     sdiv_by_pow2_pattern true .gmir (fun (p : ExactProperties) => !p.exact),
     sdiv_by_one_pattern, sdiv_by_neg_one_pattern, udiv_by_pow2_pattern]
 

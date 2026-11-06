@@ -82,8 +82,18 @@
     // CHECK-NEXT: %[[WHI:.*]] = "gmir_riscv.g_srlw"(%[[X]], %[[C2]])
     %k = "gmir_riscv.g_divuw"(%x, %hi) : (i64, i64) -> i64
 
-    // CHECK-NEXT: "test.test"(%[[X]], %[[NEGX]], %[[MINQ]], %[[EXACT]], %[[SDIV6]], %[[UMIN]], %[[WU]], %[[WMIN]], %[[WNEG16]], %[[DIVW1]], %[[WHI]])
-    "test.test"(%a, %b, %c, %d, %e, %f, %g, %h, %i, %j, %k) : (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> ()
+    // `divw exact x, -16` -> `0 - (sraw x, 4)`, and `divw exact x, 1` -> `sraw x, 0`.
+    // CHECK-NEXT: %[[WC4:.*]] = "gmir.g_constant"() <{"value" = 4 : i64}>
+    // CHECK-NEXT: %[[WSHR:.*]] = "gmir_riscv.g_sraw"(%[[X]], %[[WC4]])
+    // CHECK-NEXT: %[[WZ3:.*]] = "gmir.g_constant"() <{"value" = 0 : i64}>
+    // CHECK-NEXT: %[[WEXACT:.*]] = "gmir_riscv.g_subw"(%[[WZ3]], %[[WSHR]])
+    %m = "gmir_riscv.g_divw"(%x, %cm16) <{isExact}> : (i64, i64) -> i64
+    // CHECK-NEXT: %[[WC0:.*]] = "gmir.g_constant"() <{"value" = 0 : i64}>
+    // CHECK-NEXT: %[[WEXACT1:.*]] = "gmir_riscv.g_sraw"(%[[X]], %[[WC0]])
+    %n = "gmir_riscv.g_divw"(%x, %c1) <{isExact}> : (i64, i64) -> i64
+
+    // CHECK-NEXT: "test.test"(%[[X]], %[[NEGX]], %[[MINQ]], %[[EXACT]], %[[SDIV6]], %[[UMIN]], %[[WU]], %[[WMIN]], %[[WNEG16]], %[[DIVW1]], %[[WHI]], %[[WEXACT]], %[[WEXACT1]])
+    "test.test"(%a, %b, %c, %d, %e, %f, %g, %h, %i, %j, %k, %m, %n) : (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> ()
     "llvm.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -79,6 +79,16 @@ theorem gmir_riscv_divw_refinement {x y : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+  Prove the correctness of the `gmir_riscv.g_divw` lowering pattern when the division carries the
+  `exact` flag, which `riscv.divw` drops.
+-/
+theorem gmir_riscv_divw_exact_refinement {x y : LLVM.Int 64} (exact : Bool) :
+    GMIR_RISCV.word (Data.LLVM.Int.sdiv · · exact) x y ⊒
+      RISCV.Reg.toInt (Data.RISCV.divw (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64 := by
+  unfold GMIR_RISCV.word
+  veir_bv_decide
+
+/--
   Prove the correctness of the `gmir_riscv.g_divuw` lowering pattern.
 -/
 theorem gmir_riscv_divuw_refinement {x y : LLVM.Int 64} :

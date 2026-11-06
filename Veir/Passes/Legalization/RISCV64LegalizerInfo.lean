@@ -20,20 +20,29 @@ namespace Veir
   Custom legalization of an `i32` binary operation into the word operation `wordOpcode` (LLVM's
   `RISCV::G_*`).
 -/
-def customLegalizeWordBinary (wordOpcode : GMIR_RISCV) : Puddle.Pattern OpCode :=
+def customLegalizeWordBinary (wordOpcode : GMIR_RISCV)
+    (copyProperties : Option (propertiesOf (OpCode.gmir wordOpcode.base) →
+      propertiesOf (OpCode.gmir_riscv wordOpcode)) := none) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let type ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 32)
       let lhs ← Puddle.MatchProg.value type
       let rhs ← Puddle.MatchProg.value type
-      let _ ← Puddle.MatchProg.root (.gmir wordOpcode.base) #[lhs, rhs] #[type]
-      return (type, lhs, rhs))
-    (fun (type, lhs, rhs) => do
+      let root ← Puddle.MatchProg.root (.gmir wordOpcode.base) #[lhs, rhs] #[type]
+      return (type, lhs, rhs, root.properties))
+    (fun (type, lhs, rhs, rootProps) => do
       let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
       let lhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[lhs] #[wideType]
       let rhs ← Puddle.CreateProg.operation (.gmir .g_anyext) #[rhs] #[wideType]
+      let wordProps : Puddle.PropertiesOrHandle (.gmir_riscv wordOpcode) ← match copyProperties with
+        | none => pure (.inl default)
+        | some copy => do
+          let props ← Puddle.CreateProg.applyNative
+              (Outputs := Puddle.Handle OpCode (.prop (.gmir_riscv wordOpcode))) rootProps
+              fun props => some (copy props)
+          pure (.inr props)
       let word ← Puddle.CreateProg.operation (.gmir_riscv wordOpcode)
-          #[lhs.res[0]!, rhs.res[0]!] #[wideType]
+          #[lhs.res[0]!, rhs.res[0]!] #[wideType] wordProps
       Puddle.CreateProg.operation (.gmir .g_trunc) #[word.res[0]!] #[type])
     (fun trunc => trunc)
 
@@ -264,7 +273,8 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_add => customLegalizeWordBinary .g_addw
     | .g_sub => customLegalizeWordBinary .g_subw
     | .g_mul => customLegalizeWordBinary .g_mulw
-    | .g_sdiv => customLegalizeWordBinary .g_divw
+    -- `g_divw` keeps the `exact` flag, which the division-by-power-of-two combine uses.
+    | .g_sdiv => customLegalizeWordBinary .g_divw (some fun (props : ExactProperties) => props)
     | .g_udiv => customLegalizeWordBinary .g_divuw
     | .g_urem => customLegalizeWordBinary .g_remuw
     | .g_shl => customLegalizeWordBinary .g_sllw

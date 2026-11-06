@@ -3,7 +3,7 @@
 
 // Edge cases of division by a constant power of two, lowered by the post-legalizer combines
 // (no constant folding runs first): `-1`, the minimum signed value, an unsigned `2^63`/`2^31`,
-// and `exact` at `i32` (which gets the general word sequence).
+// and `exact` at `i32` (a single `sraiw`, then a negation).
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i64, i64, i64, i64, i32, i32, i32, i32)}> ({

@@ -32,11 +32,16 @@ def DivByPow2Ops.riscvWord : DivByPow2Ops :=
     ashr := .gmir_riscv .g_sraw, lshr := .gmir_riscv .g_srlw, add := .gmir_riscv .g_addw,
     sub := .gmir_riscv .g_subw }
 
-/-- The division-by-power-of-two combines on the RISC-V word divisions. `g_divw` has no `exact`
-    flag, so `sdiv exact` at `i32` gets the general sequence. -/
+/-- The division-by-power-of-two combines on the RISC-V word divisions. `g_divw` keeps the `exact`
+    flag of the `i32` `g_sdiv`, so `sdiv exact` gets a single `g_sraw`. The word shifts have no
+    `exact` flag. -/
 def riscvWordIntdivCombines : Array (CompiledPattern OpCode) :=
-  #[sdiv_by_pow2_pattern false .riscvWord, sdiv_by_pow2_pattern true .riscvWord,
-    udiv_by_pow2_pattern .riscvWord].map (·.compile)
+  let isExact (p : ExactProperties) := p.exact
+  (#[false, true].map (fun negative =>
+      sdiv_exact_by_pow2_pattern negative .riscvWord isExact ()) ++
+    #[false, true].map (fun negative =>
+      sdiv_by_pow2_pattern negative .riscvWord fun (p : ExactProperties) => !p.exact) ++
+    #[udiv_by_pow2_pattern .riscvWord]).map (·.compile)
 
 public section
 

@@ -224,7 +224,9 @@ theorem mul_drop_flags (x y : LLVM.Int 32) (nsw nuw : Bool) :
   veir_bv_decide
 
 /--
-Prove that `g_divw` and `g_divuw` may drop the `exact` flag.
+Prove that `g_divuw` may drop the `exact` flag. `g_divw` keeps it, so its legalization is
+`word_legalization` with `g := (LLVM.Int.sdiv · · exact)`; `sdiv_drop_exact` is kept for dropping
+it later.
 -/
 theorem sdiv_drop_exact (x y : LLVM.Int 32) (exact : Bool) :
     LLVM.Int.sdiv x y exact ⊒ LLVM.Int.sdiv x y := by
