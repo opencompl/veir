@@ -51,6 +51,8 @@ private def legalizeInstrStep (info : LegalizerInfo) : LocalRewritePattern OpCod
     if isArtifact opcode && hasIllegalSource info ctx.raw op then return (ctx, none)
     let pattern? : Option (LocalRewritePattern OpCode) := match info.getAction ctx.raw op opcode with
       | .widenScalar typeIdx width => widenScalar? opcode typeIdx width
+      | .narrowScalar typeIdx width =>
+        (narrowScalar? opcode typeIdx width).map Puddle.Pattern.interpret
       | .lower => (lower? opcode).map Puddle.Pattern.interpret
       | .custom => (info.legalizeCustom opcode).map Puddle.Pattern.interpret
       | .legal | .unsupported => none
@@ -78,20 +80,21 @@ private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode :
   let types := opcode.getTypeGroupTypes! op ctx
   let reason := match action, types.find? fun type => (LLT.ofType? type).isNone with
     | .widenScalar (.type idx) _, _ => s!"widening type group {idx} is not implemented"
+    | .narrowScalar (.type idx) _, _ => s!"narrowing type group {idx} is not implemented"
     | .lower, _ => "the lowering is not implemented"
     | .custom, _ => "the custom legalization does not apply"
     | _, some type => s!"unsupported type {type}"
     | _, none => "no legalization rule matches"
   s!"unable to legalize {name}: {reason}"
 
-/-- Legalizes all GMIR operations of `ctx`. Fails if one of them remains illegal. -/
-def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
+/-- Legalizes all GMIR operations in the functions under `root`. Fails if one of them remains illegal. -/
+def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Except String (WfIRContext OpCode) := do
   -- As in LLVM, an artifact is combined before it is legalized.
   -- TODO: Use a proper worklist for artifacts.
   let pattern := RewritePattern.GreedyRewritePattern
     #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
-  let some ctx := RewritePattern.applyInContext pattern ctx
+  let some ctx := RewritePattern.applyToFunctions pattern ctx root
     | throw "error while applying legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the
   -- legality of every operation afterwards.

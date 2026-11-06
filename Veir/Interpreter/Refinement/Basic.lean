@@ -1,7 +1,9 @@
 module
 
 public import Veir.Interpreter.Basic
+public import Veir.Interpreter.CTreeInterpreter
 public import Veir.Dominance
+public import CTree.Sim
 
 
 public section
@@ -17,8 +19,9 @@ relate a program to a rewritten or lowered version of it). Refinement is defined
 * `FunctionOp.isRefinedBy` relates two function-like operations: interpreting the source
   with any arguments and memory is refined by interpreting the target.
   `OperationPtr.isRefinedByAsFunction` states the same for operation pointers.
-* `OperationPtr.isRefinedByAsModule` relates two modules: every top-level `func.func` of the source
+* `OperationPtr.isModuleRefinedBy` relates two modules: every top-level `func.func` of the source
   module must be refined, as a function, by a same-named top-level `func.func` of the target module.
+  `OperationPtr.isModuleRefinedByCTree` uses the CTree interpreter and simulation instead.
 
 Additionally, we define a refinement relation between two interpreter states given a mapping of
 variables in the source to variables in the target.
@@ -39,11 +42,6 @@ def RuntimeValue.isRefinedBy (source target : RuntimeValue) : Prop :=
   | .addr s, .addr t => s ⊒ t
   | .reg s, .reg t => s = t
   | .felt fieldType s, .felt fieldType' t => fieldType = fieldType' ∧ s = t
-  | .smt sort t, .smt sort' t' =>
-      if h : sort = sort' then
-        t = h ▸ t'
-      else
-        False
   | .float ty s, .float ty' t =>
       if h : ty = ty' then
         s = h ▸ t
@@ -194,6 +192,43 @@ def OperationPtr.isModuleRefinedBy (mod₁ : OperationPtr) (ctx₁ : WfIRContext
       ∃ (func₂ : OperationPtr) (func₂In : func₂.InBounds ctx₂.raw),
         func₂.IsTopLevelFuncWithName mod₂ ctx₂.raw name ∧
           func₁.isRefinedByAsFunction ctx₁ func₂ ctx₂ func₁In func₂In
+
+/--
+The function-like operation `op₁` (in `ctx₁`) is *refined by* `op₂` (in `ctx₂`) using the CTree
+interpreter. This does not hold if either operation is not function-like.
+
+For refining arguments, every target behavior must be simulated by a source behavior, with
+returned values refining pointwise. `CTree.Sim` takes the target tree first and the source tree
+second, so its return relation also reverses the arguments. The CTree function interpreter starts
+with empty memory and returns only the function's values.
+-/
+@[expose]
+def OperationPtr.isRefinedByAsFunctionCTree (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
+    (op₂ : OperationPtr) (ctx₂ : WfIRContext OpCode)
+    (op₁In : op₁.InBounds ctx₁.raw := by grind)
+    (op₂In : op₂.InBounds ctx₂.raw := by grind) : Prop :=
+  match FunctionOp.of? op₁ ctx₁.raw, FunctionOp.of? op₂ ctx₂.raw with
+  | some _, some _ =>
+    ∀ (valuesSource valuesTarget : Array RuntimeValue),
+      valuesSource ⊒ valuesTarget →
+      CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
+        (CTree.interpretFunction op₂ valuesTarget op₂In)
+        (CTree.interpretFunction op₁ valuesSource op₁In)
+  | _, _ => False
+
+/--
+CTree-based module refinement: every top-level `func.func` of `mod₁` is refined, using CTree
+simulation, by a same-named top-level `func.func` of `mod₂`. The target module may have extra
+top-level functions.
+-/
+@[expose]
+def OperationPtr.isModuleRefinedByCTree (mod₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
+    (mod₂ : OperationPtr) (ctx₂ : WfIRContext OpCode) : Prop :=
+  ∀ (func₁ : OperationPtr) (func₁In : func₁.InBounds ctx₁.raw) (name : StringAttr),
+    func₁.IsTopLevelFuncWithName mod₁ ctx₁.raw name →
+      ∃ (func₂ : OperationPtr) (func₂In : func₂.InBounds ctx₂.raw),
+        func₂.IsTopLevelFuncWithName mod₂ ctx₂.raw name ∧
+          func₁.isRefinedByAsFunctionCTree ctx₁ func₂ ctx₂ func₁In func₂In
 
 abbrev ValueMapping (ctx ctx' : WfIRContext OpInfo) : Type :=
   {v : ValuePtr // v.InBounds ctx.raw} → {v : ValuePtr // v.InBounds ctx'.raw}

@@ -21,10 +21,11 @@ open Veir.Data
 
 namespace Veir
 
-def GMIR.interpretOpCTree (opType : Veir.GMIR) (properties : propertiesOf opType)
+def GMIR.interpretOpCTree {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] (opType : Veir.GMIR) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState)
-    : CTree (ErrorE ⊕ₑ UBE) FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
+    : CTree E FreezeC (((Array RuntimeValue) × MemoryState × Option ControlFlowAction)) :=
   match opType with
   | .g_anyext => do
       let [.int w val] := operands.toList | fail

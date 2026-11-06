@@ -414,6 +414,73 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
       return #[trunc.res[0]!, ov.res[0]!])
     (fun results => results)
 
+/--
+Lowers `g_uadde` to a `g_add` of the operands, and a `g_add` of the carry-in to that sum, and
+`g_usube` to the same with `g_sub`, as LLVM's `LegalizerHelper::lower` does. The first operation
+carries when its result is less than either operand (for `g_add`) or greater than the left operand
+(for `g_sub`). The second one only carries when the carry-in is set, and the second result (for
+`g_add`) or the first result (for `g_sub`) is zero.
+-/
+def lowerAddSubE (isAdd : Bool) : Pattern OpCode :=
+  let (opcode, arithOpcode, predicate) :=
+    if isAdd then (GMIR.g_uadde, GMIR.g_add, Data.LLVM.IntPred.ult)
+    else (.g_usube, .g_sub, .ugt)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let flagType ← MatchProg.type (Attr := IntegerType)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let flagIn ← MatchProg.value flagType
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs, flagIn] #[type, flagType]
+      -- The `i1` carry-in is zero-extended to the type of the operands, so that type must be wider.
+      MatchProg.matchNative type fun type =>
+        match type.val with
+        | .integerType type => 1 < type.bitwidth
+        | _ => false
+      return (type, flagType, lhs, rhs, flagIn))
+    (fun (type, flagType, lhs, rhs, flagIn) => do
+      let tmp ← CreateProg.operation (.gmir arithOpcode) #[lhs, rhs] #[type]
+      let flag ← CreateProg.operation (.gmir .g_icmp) #[tmp.res[0]!, lhs] #[flagType]
+        (.inl { predicate })
+      let ext ← CreateProg.operation (.gmir .g_zext) #[flagIn] #[type]
+      let result ← CreateProg.operation (.gmir arithOpcode) #[tmp.res[0]!, ext.res[0]!] #[type]
+      let zero ← createConstant type 0
+      let zeroOperand := if isAdd then result.res[0]! else tmp.res[0]!
+      let isZero ← CreateProg.operation (.gmir .g_icmp) #[zeroOperand, zero.res[0]!] #[flagType]
+        (.inl { predicate := .eq })
+      let flag2 ← CreateProg.operation (.gmir .g_and) #[isZero.res[0]!, flagIn] #[flagType]
+      let flagOut ← CreateProg.operation (.gmir .g_or) #[flag.res[0]!, flag2.res[0]!] #[flagType]
+      return #[result.res[0]!, flagOut.res[0]!])
+    (fun results => results)
+
+/--
+Narrows a `2 * width`-bit `g_add` to a `g_uaddo` of the low halves and a `g_uadde` of the high
+halves, and `g_sub` to the same with `g_usubo` and `g_usube`, as LLVM's
+`LegalizerHelper::narrowScalarAddSub` does.
+-/
+def narrowAddSub (isAdd : Bool) (width : Nat) : Pattern OpCode :=
+  let (opcode, loOpcode, hiOpcode) :=
+    if isAdd then (GMIR.g_add, GMIR.g_uaddo, GMIR.g_uadde) else (.g_sub, .g_usubo, .g_usube)
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 2 * width)
+      let lhs ← MatchProg.value type
+      let rhs ← MatchProg.value type
+      let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
+      return (type, lhs, rhs))
+    (fun (type, lhs, rhs) => do
+      let halfType ← CreateProg.type (IntegerType.signless width)
+      let carryType ← CreateProg.type (IntegerType.signless 1)
+      let lhsHalves ← CreateProg.operation (.gmir .g_unmerge_values) #[lhs] #[halfType, halfType]
+      let rhsHalves ← CreateProg.operation (.gmir .g_unmerge_values) #[rhs] #[halfType, halfType]
+      let lo ← CreateProg.operation (.gmir loOpcode) #[lhsHalves.res[0]!, rhsHalves.res[0]!]
+        #[halfType, carryType]
+      let hi ← CreateProg.operation (.gmir hiOpcode)
+        #[lhsHalves.res[1]!, rhsHalves.res[1]!, lo.res[1]!] #[halfType, carryType]
+      CreateProg.operation (.gmir .g_merge_values) #[lo.res[0]!, hi.res[0]!] #[type])
+    (fun merge => merge)
+
 public section
 
 /--
@@ -518,6 +585,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_usubo => lowerUAddSubO false
   | .g_saddo => lowerSAddSubO true
   | .g_ssubo => lowerSAddSubO false
+  | .g_uadde => lowerAddSubE true
+  | .g_usube => lowerAddSubE false
   | _ => none
 
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
@@ -588,6 +657,12 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_usubo, .type 0, width => widenScalarAddSubOverflow .g_usubo width
   | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
   | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
+  | _, _, _ => none
+
+/-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
+def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
+  | .g_add, .type 0, width => narrowAddSub true width
+  | .g_sub, .type 0, width => narrowAddSub false width
   | _, _, _ => none
 
 end

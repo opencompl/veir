@@ -33,4 +33,3 @@ import UnitTest.DataFlowFramework.SparseConstantPropagation
 import UnitTest.MemoryLayout
 import UnitTest.DataLayout
 import UnitTest.RegisterAllocation
-import UnitTest.SMT

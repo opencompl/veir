@@ -114,10 +114,10 @@ structure ReifyState where
 meta def ReifyState.dependsOnBvs (self : ReifyState) (ldecl : LocalDecl) : MetaM Bool :=
   localDeclDependsOnPred ldecl (fun fvar => self.bvs.contains fvar)
 
-abbrev ReifyM := ReaderT PbvDecideContext <| StateRefT ReifyState MetaM
+abbrev ReifyM := StateRefT ReifyState MetaM
 
-@[inline] meta def ReifyM.run (ctx : PbvDecideContext) (x : ReifyM α) : MetaM (α × ReifyState) :=
-  ReaderT.run x ctx |>.run {}
+@[inline] meta def ReifyM.run (x : ReifyM α) (state : ReifyState := {}) : MetaM (α × ReifyState) :=
+  StateRefT'.run x state
 
 /-- The mask a width term was translated into, and the hypotheses about it. -/
 structure WidthInfo where

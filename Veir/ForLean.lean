@@ -498,6 +498,127 @@ theorem umulOverflow_comm {w : Nat} (x y : BitVec w) :
     x.umulOverflow y = y.umulOverflow x := by
   grind [BitVec.umulOverflow]
 
+/-- An unsigned add overflows exactly when its sum is less than the right operand. -/
+theorem uaddOverflow_eq_ult {w : Nat} (x y : BitVec w) :
+    x.uaddOverflow y = (x + y).ult y := by
+  simp only [uaddOverflow, ult_eq_decide, toNat_add, Nat.add_mod_eq_ite, toNat_mod_cancel]
+  split <;> simp only [ge_iff_le, decide_eq_decide] <;> omega
+
+/--
+An unsigned add overflows exactly when its sum is less than the left operand.
+
+As in LLVM, `g_uaddo` compares the sum with the right operand and `g_uadde` with the left one.
+Either works, because a sum that wraps around is less than both operands.
+-/
+theorem uaddOverflow_eq_ult_left {w : Nat} (x y : BitVec w) : x.uaddOverflow y = (x + y).ult x := by
+  rw [uaddOverflow_comm, uaddOverflow_eq_ult, BitVec.add_comm]
+
+/-- Every `BitVec 1` is a `Bool`. -/
+theorem exists_eq_ofBool (c : BitVec 1) : ∃ b, c = ofBool b :=
+  ⟨c.getLsbD 0, by simpa using c.setWidth_one⟩
+
+/-- `x + y + b` carries exactly when `x + y` carries, or adding `b` to it carries. -/
+theorem carry_eq_uaddOverflow_or {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Bool) :
+    carry w x y b = (x.uaddOverflow y || (x + y).uaddOverflow ((ofBool b).setWidth w)) := by
+  have := Nat.one_lt_two_pow (Nat.pos_iff_ne_zero.mp hw); have := Bool.toNat_le b
+  simp (disch := omega) only [carry_width, uaddOverflow, toNat_add, toNat_setWidth, toNat_ofBool,
+    Nat.mod_eq_of_lt, Nat.add_mod_eq_ite]
+  split <;> simp only [ge_iff_le, ← Bool.decide_or, decide_eq_decide] <;> omega
+
+/-- Adding a carry-in `b` overflows exactly when `b` is set and the result is zero. -/
+theorem uaddOverflow_setWidth_ofBool {w : Nat} (hw : 0 < w) (x : BitVec w) (b : Bool) :
+    x.uaddOverflow ((ofBool b).setWidth w) = (x + (ofBool b).setWidth w == 0#w && b) := by
+  cases b
+  · simp [uaddOverflow, x.isLt]
+  · simp only [uaddOverflow, Bool.beq_eq_decide_eq, ← toNat_inj, toNat_add, toNat_setWidth,
+      toNat_ofBool, Bool.toNat_true, Nat.one_mod_two_pow hw, Nat.add_mod_eq_ite, toNat_mod_cancel,
+      toNat_ofNat, Nat.zero_mod, Bool.and_true, decide_eq_decide]
+    split <;> omega
+
+/-- An unsigned sub `x - y` borrows exactly when the result is greater than `x`. -/
+theorem usubOverflow_eq_ult_sub {w : Nat} (x y : BitVec w) : x.usubOverflow y = x.ult (x - y) := by
+  have := y.isLt
+  simp only [usubOverflow, ult_eq_decide, decide_eq_decide]
+  by_cases h : y.toNat ≤ x.toNat
+  · rw [toNat_sub_of_le (le_def.mpr h)]; omega
+  · rw [toNat_sub_of_lt (lt_def.mpr (by omega))]; omega
+
+/--
+`x - y - b` borrows when `x < y + b`, compared in `w + 1` bits. This happens exactly when `x - y`
+borrows, or subtracting `b` from it borrows.
+-/
+theorem ult_setWidth_add_ofBool {w : Nat} (hw : 0 < w) (x y : BitVec w) (b : Bool) :
+    (x.setWidth (w + 1)).ult (y.setWidth (w + 1) + (ofBool b).setWidth (w + 1)) =
+      (x.usubOverflow y || (x - y).usubOverflow ((ofBool b).setWidth w)) := by
+  have := x.isLt; have := y.isLt; have := Bool.toNat_le b
+  have := Nat.one_lt_two_pow (Nat.pos_iff_ne_zero.mp hw)
+  simp (disch := omega) only [ult_eq_decide, usubOverflow, toNat_add, toNat_setWidth, toNat_ofBool,
+    Nat.pow_succ, Nat.mod_eq_of_lt]
+  by_cases h : y.toNat ≤ x.toNat
+  · rw [toNat_sub_of_le (le_def.mpr h)]; simp only [← Bool.decide_or, decide_eq_decide]; omega
+  · rw [toNat_sub_of_lt (lt_def.mpr (by omega))]; simp only [← Bool.decide_or, decide_eq_decide]; omega
+
+/-- Subtracting a borrow-in `b` from `x` borrows exactly when `b` is set and `x` is zero. -/
+theorem usubOverflow_setWidth_ofBool {w : Nat} (hw : 0 < w) (x : BitVec w) (b : Bool) :
+    x.usubOverflow ((ofBool b).setWidth w) = (x == 0#w && b) := by
+  cases b <;> simp [usubOverflow, Bool.beq_eq_decide_eq, ← toNat_inj, Nat.one_mod_two_pow hw]
+
+/--
+The carry into bit `start + i` of `x + y` is the carry into bit `i` of their bits from `start` on.
+-/
+theorem carry_add_eq_carry_extractLsb' {w start len i : Nat} (h : i ≤ len) (x y : BitVec w)
+    (c : Bool) :
+    carry (start + i) x y c =
+      carry i (x.extractLsb' start len) (y.extractLsb' start len) (carry start x y c) := by
+  induction i with
+  | zero => simp
+  | succ i ih =>
+    rw [← Nat.add_assoc, carry_succ, carry_succ, ih (by omega)]
+    simp [show i < len by omega]
+
+/-- The carry into bit `w` of a sum is the overflow of the sum of the low `w` bits. -/
+theorem carry_eq_uaddOverflow_setWidth {v w : Nat} (x y : BitVec v) :
+    carry w x y false = (x.setWidth w).uaddOverflow (y.setWidth w) := by
+  simp only [carry, uaddOverflow, toNat_setWidth, Bool.toNat_false, Nat.add_zero]
+
+/-- The bits of `x + y` from `start` on are the sum of those bits and of the carry into `start`. -/
+theorem extractLsb'_add_eq_add_carry {w start len : Nat} (h : start + len ≤ w) (x y : BitVec w) :
+    (x + y).extractLsb' start len =
+      x.extractLsb' start len + y.extractLsb' start len +
+        (ofBool (carry start x y false)).setWidth len := by
+  ext i hi
+  rw [getElem_add_add_bool hi, getElem_extractLsb', getLsbD_add (by omega),
+    carry_add_eq_carry_extractLsb' (Nat.le_of_lt hi)]
+  simp [getElem_extractLsb']
+
+/-- The high half of `x + y` adds the high halves and the carry of the low halves. -/
+theorem add_eq_append {w : Nat} (x y : BitVec (w + w)) :
+    x + y =
+      (x.extractLsb' w w + y.extractLsb' w w +
+        (ofBool ((x.setWidth w).uaddOverflow (y.setWidth w))).setWidth w) ++
+      (x.setWidth w + y.setWidth w) := by
+  rw [← extractLsb'_append_extractLsb' (x := x + y), extractLsb'_add_eq_add_carry (by omega),
+    carry_eq_uaddOverflow_setWidth, ← setWidth_eq_extractLsb' (by omega),
+    setWidth_add _ _ (by omega)]
+
+/-- Adding `y` back to `x - y` overflows exactly when `x - y` borrows. -/
+theorem uaddOverflow_sub_self {w : Nat} (x y : BitVec w) :
+    (x - y).uaddOverflow y = x.usubOverflow y := by
+  rw [uaddOverflow_eq_ult, BitVec.sub_add_cancel, usubOverflow_eq, ult_eq_decide_lt]
+
+/-- The high half of `x - y` subtracts the high halves and the borrow of the low halves. -/
+theorem sub_eq_append {w : Nat} (x y : BitVec (w + w)) :
+    x - y =
+      (x.extractLsb' w w - y.extractLsb' w w -
+        (ofBool ((x.setWidth w).usubOverflow (y.setWidth w))).setWidth w) ++
+      (x.setWidth w - y.setWidth w) := by
+  -- Adding `y` back to the right side gives `x`, so the low half carries where it borrowed.
+  rw [eq_comm, eq_sub_iff_add_eq, add_eq_append, extractLsb'_append_eq_left,
+    setWidth_append_eq_right, uaddOverflow_sub_self, sub_add_cancel]
+  -- The borrow and the high half of `y` are subtracted and added back.
+  rw [sub_sub, BitVec.add_assoc, sub_add_cancel, setWidth_eq_extractLsb' (by omega),
+    extractLsb'_append_extractLsb']
+
 @[veir_bv_normalize]
 theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
     x / 1#w₁ <<< k = x >>> k := by

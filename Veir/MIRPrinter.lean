@@ -3,6 +3,7 @@ module
 public import Veir.GlobalOpInfo
 public import Veir.Interfaces.FunctionInterfaces
 import Veir.IR.SymbolRef
+import Std.Data.TreeMap.Raw.Basic
 
 
 open Veir
@@ -848,65 +849,234 @@ private def denseIntegers? (attr : DenseElementsAttr) (type : Attribute) : Optio
   guard (values.all fun v => -(2 ^ (width - 1) : Int) ≤ v && v < (2 ^ width : Int))
   return values
 
-/-- Rebuild nested LLVM array constants, attaching the element type at each level. -/
-private partial def integerArrayInitializer? (type : Attribute) (values : Array Int)
-    (index : Nat := 0) : Option (String × Nat) := do
+/-- Aggregate updates stay structured until emission. A persistent map shares unchanged
+    fields between SSA values; the base supplies untouched zero/undef/poison elements. -/
+private inductive InitializerValue where
+  | atom (text : String)
+  | bytes (value : ByteArray)
+  | aggregate (base : InitializerValue) (fields : Std.TreeMap.Raw Nat InitializerValue)
+  deriving Inhabited
+
+private def initializerElementType? (type : Attribute) (index : Nat) : Option Attribute :=
   match type with
-  | .integerType _ => return (toString (← values[index]?), index + 1)
-  | .llvmArrayType t =>
-    let elemType ← llvmType? t.type
-    let mut index := index
-    let mut elements := #[]
-    for _ in 0...t.size do
-      let (value, next) ← integerArrayInitializer? t.type values index
-      elements := elements.push (elemType ++ " " ++ value)
-      index := next
-    return ("[" ++ String.intercalate ", " elements.toList ++ "]", index)
+  | .llvmArrayType t => if index < t.size then some t.type else none
+  | .llvmStructType t => t.body[index]?
   | _ => none
 
-/-- Recognize the complete `zero; return` initializer region. Aggregate zero
-    operations survive instruction selection, unlike scalar/pointer constants. -/
-private def isZeroInitializer (ctx : IRContext OpCode) (op : OperationPtr)
-    (type : Attribute) : Bool := Id.run do
-  let some block := (op.getRegion! ctx 0).getFirstBlock! ctx | return false
-  if (block.getNextBlock! ctx).isSome then return false
-  let ops := collectOps ctx (block.getFirstOp! ctx)
-  if ops.size != 2 then return false
-  let zero := ops[0]!
-  let ret := ops[1]!
-  return zero.getOpType! ctx == .llvm .mlir__zero &&
-    ((zero.getResultTypes! ctx)[0]?.map (·.val)) == some type &&
-    ret.getOpType! ctx == .llvm .return &&
-    ret.getOperands! ctx == #[.opResult (zero.getResult 0)]
+private partial def InitializerValue.element? (value : InitializerValue) (index : Nat) :
+    Option InitializerValue :=
+  match value with
+  | .atom text =>
+    if ["zeroinitializer", "undef", "poison"].contains text then some value else none
+  | .bytes data => do return .atom (toString (← data[index]?).toNat)
+  | .aggregate base fields => fields.get? index |>.orElse fun _ => base.element? index
 
-/-- Print an `llvm.mlir.global` as a stub IR global, so `llc` emits its data.
-    Integer, string and dense integer array values, and aggregate zero regions,
-    become initializers. With no initializer, the global is an external declaration.
-    Other region initializers, TLS and external weak globals remain unhandled. -/
-def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
+private partial def InitializerValue.render? (value : InitializerValue) (type : Attribute) :
+    Option String := do
+  match value with
+  | .atom text => return text
+  | .bytes data => return "c" ++ llvmQuoted data
+  | .aggregate .. =>
+    let (count, left, right) ← match type with
+      | .llvmArrayType t => some (t.size, "[", "]")
+      | .llvmStructType t =>
+        some (t.body.size, if t.packed then "<{ " else "{ ", if t.packed then " }>" else " }")
+      | _ => none
+    let mut elements := #[]
+    for i in 0...count do
+      let elemType ← initializerElementType? type i
+      let elem ← value.element? i
+      elements := elements.push ((← llvmType? elemType) ++ " " ++ (← elem.render? elemType))
+    return left ++ String.intercalate ", " elements.toList ++ right
+
+private structure InitializerConstant where
+  type : Attribute
+  value : InitializerValue
+
+private def InitializerConstant.typed (c : InitializerConstant) : Except String String := do
+  let some type := llvmType? c.type | throw s!"unsupported initializer type {c.type}"
+  let some value := c.value.render? c.type | throw "cannot print initializer constant"
+  return type ++ " " ++ value
+
+/-- Rebuild nested integer arrays once, keeping their elements available for aggregate ops. -/
+private partial def integerArrayInitializer? (type : Attribute) (values : Array Int)
+    (index : Nat := 0) : Option (InitializerValue × Nat) := do
+  match type with
+  | .integerType _ => return (.atom (toString (← values[index]?)), index + 1)
+  | .llvmArrayType t =>
+    let mut index := index
+    let mut fields := {}
+    for i in 0...t.size do
+      let (value, next) ← integerArrayInitializer? t.type values index
+      fields := fields.insert i value
+      index := next
+    return (.aggregate (.atom "undef") fields, index)
+  | _ => none
+
+/-- Attribute constants use the same representation in globals and initializer regions. -/
+private def attributeInitializer? (value type : Attribute) : Option InitializerValue := do
+  match value, type with
+  | .integerAttr a, .integerType t =>
+    guard (a.type == t)
+    return .atom (toString a.value)
+  | .stringAttr str, .llvmArrayType { type := .integerType { bitwidth := 8, .. }, size } =>
+    guard (str.value.size == size)
+    return .bytes str.value
+  | .denseElementsAttr attr, type =>
+    let values ← denseIntegers? attr type
+    if values.all (· == 0) then return .atom "zeroinitializer"
+    let (init, _) ← integerArrayInitializer? type values
+    return init
+  | _, _ => none
+
+/-- LLVM no longer has insertvalue/extractvalue constant expressions. Resolve their
+    index paths here, preserving all fields not overwritten by an insertion. -/
+private def InitializerConstant.extract (c : InitializerConstant) :
+    List Int → Except String InitializerConstant
+  | [] => pure c
+  | index :: rest => do
+    if index < 0 then throw s!"negative aggregate index {index}"
+    let some type := initializerElementType? c.type index.toNat
+      | throw s!"aggregate index {index} out of bounds for {c.type}"
+    let some value := c.value.element? index.toNat | throw "expected aggregate constant"
+    extract { type, value } rest
+
+private def InitializerConstant.insert (c replacement : InitializerConstant) :
+    List Int → Except String InitializerConstant
+  | [] => do
+    if c.type != replacement.type then throw "insertvalue element type mismatch"
+    return replacement
+  | index :: rest => do
+    let child ← c.extract [index]
+    let updated ← child.insert replacement rest
+    let (base, fields) := match c.value with
+      | .aggregate base fields => (base, fields)
+      | value => (value, {})
+    return { c with value := .aggregate base (fields.insert index.toNat updated.value) }
+
+/-- Emit LLVM constant expressions where they exist; only aggregate operations need
+    evaluation here. LLVM's parser and data emitter handle folding, layout and relocations. -/
+private def initializerOperation (ctx : IRContext OpCode) (op : OperationPtr)
+    (args : Array InitializerConstant) (resultType : Attribute) (symbols : Array String) :
+    Except String InitializerValue := do
+  match op.getOpType! ctx, args.toList with
+  | .llvm .mlir__constant, [] =>
+    let attrs := Llvm.toAttrDict .mlir__constant (op.getProperties! ctx Llvm.mlir__constant)
+    let some value := attributeInitializer? attrs["value".toUTF8]! resultType
+      | throw s!"unsupported initializer value for type {resultType}"
+    return value
+  | .llvm .mlir__zero, [] => return .atom "zeroinitializer"
+  | .llvm .mlir__undef, [] => return .atom "undef"
+  | .llvm .mlir__poison, [] => return .atom "poison"
+  | .llvm .mlir__addressof, [] =>
+    let .llvmPointerType _ := resultType | throw "expected pointer type"
+    let name := symbolName (op.getProperties! ctx Llvm.mlir__addressof).global_name
+    if !symbols.contains name then throw s!"unknown symbol {llvmSymbol name}"
+    return .atom (llvmSymbol name)
+  | .llvm .getelementptr, base :: _ =>
+    let props := op.getProperties! ctx Llvm.getelementptr
+    let some elemType := llvmType? props.elem_type.val
+      | throw s!"unsupported GEP element type {props.elem_type.val}"
+    let mut operands := #[← base.typed]
+    let mut next := 1
+    for index in props.rawConstantIndices.values do
+      if index == -2147483648 then
+        let some arg := args[next]? | throw "missing GEP index operand"
+        operands := operands.push (← arg.typed)
+        next := next + 1
+      else
+        operands := operands.push s!"i32 {index}"
+    if next != args.size then throw "unexpected GEP index operand"
+    let flags := props.noWrapFlags.value.toNat
+    if props.noWrapFlags.value < 0 || flags > 7 then throw "unsupported GEP flags"
+    let nowrap := (if flags &&& 1 != 0 then " inbounds"
+      else if flags &&& 2 != 0 then " nusw" else "") ++
+      (if flags &&& 4 != 0 then " nuw" else "")
+    return .atom s!"getelementptr{nowrap} ({elemType}, {String.intercalate ", " operands.toList})"
+  | .llvm .ptrtoint, [arg] | .llvm .inttoptr, [arg] | .llvm .bitcast, [arg]
+  | .llvm .trunc, [arg] =>
+    if op.getOpType! ctx == .llvm .trunc then
+      let flags := op.getProperties! ctx Llvm.trunc
+      if flags.nsw || flags.nuw then throw "trunc constant expressions cannot carry overflow flags"
+    let some type := llvmType? resultType | throw s!"unsupported cast type {resultType}"
+    let name := ((opName ctx op).drop 5).toString
+    return .atom s!"{name} ({← arg.typed} to {type})"
+  | .llvm .add, [lhs, rhs] | .llvm .sub, [lhs, rhs] | .llvm .xor, [lhs, rhs] =>
+    let flags := match op.getOpType! ctx with
+      | .llvm .add => some (op.getProperties! ctx Llvm.add)
+      | .llvm .sub => some (op.getProperties! ctx Llvm.sub)
+      | _ => none
+    let nowrap := match flags with
+      | some f => (if f.nuw then " nuw" else "") ++ (if f.nsw then " nsw" else "")
+      | none => ""
+    let name := ((opName ctx op).drop 5).toString
+    return .atom s!"{name}{nowrap} ({← lhs.typed}, {← rhs.typed})"
+  | .llvm .insertvalue, [container, value] =>
+    let position := (op.getProperties! ctx Llvm.insertvalue).position.values.toList
+    return (← container.insert value position).value
+  | .llvm .extractvalue, [container] =>
+    let position := (op.getProperties! ctx Llvm.extractvalue).position.values.toList
+    let result ← container.extract position
+    if result.type != resultType then throw "extractvalue result type mismatch"
+    return result.value
+  | _, _ => throw "unsupported initializer operation or operands"
+
+/-- Translate a single-block initializer to a constant. Symbol addresses refer to the
+    module inventory, never to the referenced global's initializer. -/
+private def regionInitializer (ctx : IRContext OpCode) (global : OperationPtr)
+    (type : Attribute) (symbols : Array String) : Except String (Option String) := do
+  let some block := (global.getRegion! ctx 0).getFirstBlock! ctx | return none
+  if (block.getNextBlock! ctx).isSome || block.getNumArguments! ctx != 0 then
+    throw "initializer must have one block with no arguments"
+  let mut values : Std.HashMap ValuePtr InitializerConstant := {}
+  for op in collectOps ctx (block.getFirstOp! ctx) do
+    let opcode := op.getOpType! ctx
+    if opcode == .llvm .return then
+      if (op.getNextOp! ctx).isSome || op.getNumOperands! ctx != 1 then
+        throw "initializer must end with llvm.return of one constant"
+      let some value := values[op.getOperand! ctx 0]?
+        | throw "llvm.return: expected an initializer constant"
+      if value.type != type then
+        throw s!"llvm.return: initializer type {value.type} does not match global type {type}"
+      let some text := value.value.render? type | throw "cannot print initializer constant"
+      return some text
+    if op.getNumResults! ctx != 1 then
+      throw s!"{opName ctx op}: expected one initializer result"
+    let resultType := ((op.getResultTypes! ctx)[0]!).val
+    if (llvmType? resultType).isNone then
+      throw s!"{opName ctx op}: unsupported initializer type {resultType}"
+    let args ← (op.getOperands! ctx).mapM fun operand =>
+      match values[operand]? with
+      | some value => pure value
+      | none => throw s!"{opName ctx op}: expected an initializer constant operand"
+    let value ← (initializerOperation ctx op args resultType symbols).mapError
+      (fun e => s!"{opName ctx op}: {e}")
+    values := values.insert (.opResult (op.getResult 0)) { type := resultType, value }
+  throw "initializer must end with llvm.return of one constant"
+
+/-- Print a global in the embedded IR module, leaving data emission to LLVM.
+    Unsupported initializers are errors, so definitions cannot silently disappear. -/
+def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) (symbols : Array String) :
+    IO Unit := do
   let props := op.getProperties! ctx Llvm.mlir__global
   let name := llvmSymbol (String.fromUTF8! props.sym_name.value)
   if props.isThreadLocal then
-    IO.println s!"  ; UNHANDLED thread-local global {name}"
-    return
+    throw (IO.userError s!"global {name}: thread-local globals are unsupported")
   if props.linkage.value == "extern_weak" then
-    IO.println s!"  ; UNHANDLED extern_weak global {name}"
-    return
+    throw (IO.userError s!"global {name}: extern_weak globals are unsupported")
   let some type := llvmType? props.global_type.val
-    | IO.println s!"  ; UNHANDLED global {name}"
-  let hasRegion := ((op.getRegion! ctx 0).getFirstBlock! ctx).isSome
-  let init? : Option String := match props.value, props.global_type.val with
-    | some (.integerAttr a), .integerType _ => some (toString a.value)
-    | some (.stringAttr str), .llvmArrayType { type := .integerType { bitwidth := 8, .. }, .. } =>
-      some ("c" ++ llvmQuoted str.value)
-    | some (.denseElementsAttr attr), type => do
-      let values ← denseIntegers? attr type
-      if values.all (· == 0) then return "zeroinitializer"
-      let (init, _) ← integerArrayInitializer? type values
-      return init
-    | none, type =>
-      if isZeroInitializer ctx op type then some "zeroinitializer" else none
-    | _, _ => none
+    | throw (IO.userError s!"global {name}: unsupported type {props.global_type.val}")
+  let init? ← match props.value with
+    | some value => do
+      let some init := attributeInitializer? value props.global_type.val
+        | throw (IO.userError s!"global {name}: unsupported initializer value for type {type}")
+      let some text := init.render? props.global_type.val
+        | throw (IO.userError s!"global {name}: cannot print initializer constant")
+      pure (some text)
+    | none =>
+      match regionInitializer ctx op props.global_type.val symbols with
+      | .ok init => pure init
+      | .error e => throw (IO.userError s!"global {name}: {e}")
   let kind := if props.constant then "constant" else "global"
   let align := match props.alignment with
     | some a => s!", align {a.value}"
@@ -916,11 +1086,7 @@ def printGlobal (ctx : IRContext OpCode) (op : OperationPtr) : IO Unit := do
     let linkage := if props.linkage.value == "external" then ""
       else props.linkage.value ++ " "
     IO.println s!"  {name} = {linkage}{kind} {type} {init}{align}"
-  | none =>
-    if props.value.isNone && !hasRegion then
-      IO.println s!"  {name} = external {kind} {type}{align}"
-    else
-      IO.println s!"  ; UNHANDLED global {name}"
+  | none => IO.println s!"  {name} = external {kind} {type}{align}"
 
 /-- Print a full MIR module for the given function-like and global ops: a stub
     IR module, then one MIR document per function with a body.  The stub defines
@@ -943,14 +1109,19 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
   let globals := globalOps.map fun op =>
     String.fromUTF8! (op.getProperties! ctx Llvm.mlir__global).sym_name.value
   let defined := funcs.map (·.1) ++ globals
-  let mut externs : Array String := #[]
+  -- Keep declarations even when their only use is in an initializer. As with
+  -- direct callees, these need only a stub signature: references are opaque pointers.
+  let mut externs := funcOps.filterMap fun op => do
+    let funcOp ← FunctionOp.of? op ctx
+    if funcOp.isExternal then some (String.fromUTF8! funcOp.getSymName.value) else none
+  let symbols := defined ++ externs
   for (_, blocks) in funcs do
     for c in (calls ctx blocks).filterMap (callee? ctx) ++ laSymbols ctx blocks do
       if !defined.contains c && !externs.contains c then
         externs := externs.push c
   IO.println "--- |"
   for op in globalOps do
-    printGlobal ctx op
+    printGlobal ctx op symbols
   for (name, blocks) in funcs do
     let params := String.intercalate ", "
       ((List.range (numArgs ctx blocks)).map (fun i => s!"i64 %a{i}"))

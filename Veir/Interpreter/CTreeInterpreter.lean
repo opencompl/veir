@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
+public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Dialects.LLVM.Interpreter
 public import Veir.Dialects.GMIR.Interpreter
 
@@ -22,15 +23,14 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (blockOperands : Array BlockPtr) (mem : MemoryState)
     (regions : Array RegionPtr := #[])
-    : RegionTree ctx MemoryState (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+    : CTree ((ErrorE ⊕ₑ UBE)) FreezeC (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
   match opType with
-  /- The LLVM dialect has a CTree-based interpreter. -/
   | .llvm opType =>
-    CTree.interp (fun e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
-      (Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem)
+    Llvm.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .gmir opType =>
-    CTree.interp (fun e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
-      (GMIR.interpretOpCTree opType properties resultTypes operands blockOperands mem)
+    GMIR.interpretOpCTree opType properties resultTypes operands blockOperands mem
+  | .builtin opType =>
+    Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
@@ -45,6 +45,7 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
   let opCTree := (interpretOp' opType (op.getProperties ctx.raw opType)
     (op.getResultTypes ctx.raw) operands (op.getSuccessors ctx.raw) state.memory
     (op.getRegions ctx.raw))
+  let opCTreeWithRegion : RegionTree _ _ _ := CTree.interp CTree.trigger opCTree
   /- Call the dialect-specific operation interpreter.
   While the user-defined interpreter calls region with a `MemoryState`, we here attach the
   `InterpreterState` as well. This prevents the user from using the `InterpreterState` directly. -/
@@ -54,7 +55,7 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
         ({ variables := state.variables, memory := memoryState } : InterpreterState ctx) inBounds
       return (state.memory, results)
     | .inr e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
-    opCTree
+    opCTreeWithRegion
   let some variables := state.variables.setResultValues? op resultValues inBounds
     | fail
   return (⟨variables, mem⟩, action)

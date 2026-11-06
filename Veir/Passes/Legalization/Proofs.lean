@@ -12,6 +12,7 @@ import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
 import all Veir.Dialects.GMIR.Semantics
+import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR_RISCV.Semantics
 
 public section
@@ -249,6 +250,137 @@ theorem ashr_wordShiftAmount (x y : LLVM.Int 32) (exact : Bool) :
     LLVM.Int.ashr x y exact ⊒ LLVM.Int.ashr x (GMIR_RISCV.wordShiftAmount y) := by
   unfold GMIR_RISCV.wordShiftAmount
   veir_bv_decide
+
+/--
+Prove the correctness of lowering `g_uaddo` to a `g_add`, at every width.
+
+The add carries exactly when its sum is less than an operand.
+-/
+theorem uaddo_lowering {w : Nat} (x y : LLVM.Int w) :
+    (LLVM.Int.add x y, LLVM.Int.uaddOverflowFlag x y) =
+      let sum := LLVM.Int.add x y
+      (sum, LLVM.Int.icmp sum y .ult) := by
+  cases x <;> cases y <;>
+    simp [LLVM.Int.uaddOverflowFlag, LLVM.Int.add, LLVM.Int.icmp, Id.run, IntPred.eval,
+      BitVec.uaddOverflow_eq_ult]
+
+/--
+Prove the correctness of lowering `g_uadde`, at every width wider than `i1`.
+
+The lowering adds the operands, then adds the carry-in. It carries if either add carries. The
+second add carries only if its sum is zero.
+-/
+private theorem uadde_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (c : LLVM.Int 1) :
+    uaddWithCarry x y c =
+      let tmp := LLVM.Int.add x y
+      let carry := LLVM.Int.icmp tmp x .ult
+      let sum := LLVM.Int.add tmp (LLVM.Int.zext c w false h)
+      let carry2 := LLVM.Int.and (LLVM.Int.icmp sum (LLVM.Int.constant w 0) .eq) c
+      (sum, LLVM.Int.or carry carry2) := by
+  cases x <;> cases y <;> cases c
+  case val.val.val x y c =>
+    obtain ⟨b, rfl⟩ := c.exists_eq_ofBool
+    -- It carries if either `g_add` carries.
+    simp [uaddWithCarry, LLVM.Int.add, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.and, LLVM.Int.or,
+      LLVM.Int.constant, Id.run, IntPred.eval, BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
+      BitVec.carry_eq_uaddOverflow_or (by omega : 0 < w), BitVec.uaddOverflow_eq_ult_left x y,
+      BitVec.uaddOverflow_setWidth_ofBool (by omega : 0 < w)]
+  -- The other seven cases have a poison operand, so both sides reduce to poison.
+  all_goals rfl
+
+/--
+Prove the correctness of lowering `g_usubo` to a `g_sub`, at every width.
+
+The sub borrows exactly when the left operand is less than the right one.
+-/
+theorem usubo_lowering {w : Nat} (x y : LLVM.Int w) :
+    (LLVM.Int.sub x y, LLVM.Int.usubOverflowFlag x y) =
+      (LLVM.Int.sub x y, LLVM.Int.icmp x y .ult) := by
+  cases x <;> cases y <;>
+    simp [LLVM.Int.usubOverflowFlag, LLVM.Int.icmp, Id.run, IntPred.eval,
+      BitVec.usubOverflow_eq, BitVec.ult_eq_decide, BitVec.lt_def]
+
+/--
+Prove the correctness of lowering `g_usube`, at every width wider than `i1`.
+
+The lowering subtracts the operands, then subtracts the borrow-in. It borrows if either sub borrows.
+The second sub borrows only if the first difference is zero.
+-/
+private theorem usube_lowering {w : Nat} (h : 1 < w) (x y : LLVM.Int w) (b : LLVM.Int 1) :
+    usubWithBorrow x y b =
+      let tmp := LLVM.Int.sub x y
+      let borrow := LLVM.Int.icmp tmp x .ugt
+      let diff := LLVM.Int.sub tmp (LLVM.Int.zext b w false h)
+      let borrow2 := LLVM.Int.and (LLVM.Int.icmp tmp (LLVM.Int.constant w 0) .eq) b
+      (diff, LLVM.Int.or borrow borrow2) := by
+  cases x <;> cases y <;> cases b
+  case val.val.val x y b =>
+    obtain ⟨b, rfl⟩ := b.exists_eq_ofBool
+    -- It borrows if either `g_sub` borrows.
+    simp [usubWithBorrow, LLVM.Int.sub, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.and, LLVM.Int.or,
+      LLVM.Int.constant, Id.run, IntPred.eval, BitVec.ofBool_or_ofBool, BitVec.ofBool_and_ofBool,
+      BitVec.ult_setWidth_add_ofBool (by omega : 0 < w), BitVec.usubOverflow_eq_ult_sub x y,
+      BitVec.usubOverflow_setWidth_ofBool (by omega : 0 < w)]
+  -- The other seven cases have a poison operand, so both sides reduce to poison.
+  all_goals rfl
+
+/-- Dropping the no-wrap flags of `g_add` can only remove poison. -/
+private theorem add_isRefinedBy_add {w : Nat} (x y : LLVM.Int w) (nsw nuw : Bool) :
+    LLVM.Int.add x y nsw nuw ⊒ LLVM.Int.add x y := by
+  grind
+
+/-- Dropping the no-wrap flags of `g_sub` can only remove poison. -/
+private theorem sub_isRefinedBy_sub {w : Nat} (x y : LLVM.Int w) (nsw nuw : Bool) :
+    LLVM.Int.sub x y nsw nuw ⊒ LLVM.Int.sub x y := by
+  grind
+
+/--
+Prove the correctness of narrowing `g_add` to a `g_uaddo` of the low halves of its operands, and a
+`g_uadde` of their high halves, at every width.
+-/
+private theorem add_narrowing {w : Nat} (x y : LLVM.Int (w + w)) (nsw nuw : Bool) :
+    LLVM.Int.add x y nsw nuw ⊒
+      let (xLo, xHi) := unmergeValues x
+      let (yLo, yHi) := unmergeValues y
+      let (hi, _) := uaddWithCarry xHi yHi (LLVM.Int.uaddOverflowFlag xLo yLo)
+      mergeValues (LLVM.Int.add xLo yLo) hi := by
+  -- Without its flags, the `g_add` is equal to its narrowing.
+  refine isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
+  cases x <;> cases y
+  case val.val x y =>
+    simp [LLVM.Int.add, LLVM.Int.uaddOverflowFlag, unmergeValues, uaddWithCarry, mergeValues,
+      Id.run, BitVec.add_eq_append]
+  -- A poison operand makes both sides poison.
+  all_goals exact poison_isRefinedBy _
+
+/--
+Prove the correctness of narrowing `g_sub` to a `g_usubo` of the low halves of its operands, and a
+`g_usube` of their high halves, at every width.
+-/
+private theorem sub_narrowing {w : Nat} (x y : LLVM.Int (w + w)) (nsw nuw : Bool) :
+    LLVM.Int.sub x y nsw nuw ⊒
+      let (xLo, xHi) := unmergeValues x
+      let (yLo, yHi) := unmergeValues y
+      let (hi, _) := usubWithBorrow xHi yHi (LLVM.Int.usubOverflowFlag xLo yLo)
+      mergeValues (LLVM.Int.sub xLo yLo) hi := by
+  -- Without its flags, the `g_sub` is equal to its narrowing.
+  refine isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
+  cases x <;> cases y
+  case val.val x y =>
+    simp [LLVM.Int.sub, LLVM.Int.usubOverflowFlag, unmergeValues, usubWithBorrow, mergeValues,
+      Id.run, BitVec.sub_eq_append]
+  -- A poison operand makes both sides poison.
+  all_goals exact poison_isRefinedBy _
+
+/--
+Prove the correctness of combining `g_unmerge_values (g_merge_values lo hi)` to `lo` and `hi`, at
+every width.
+-/
+private theorem unmerge_merge {w : Nat} (lo hi : LLVM.Int w) :
+    (unmergeValues (mergeValues lo hi)).1 ⊒ lo ∧ (unmergeValues (mergeValues lo hi)).2 ⊒ hi := by
+  cases lo <;> cases hi <;>
+    simp [mergeValues, unmergeValues, BitVec.setWidth_append_eq_right,
+      BitVec.extractLsb'_append_eq_left]
 
 end Veir.Data.LLVM
 

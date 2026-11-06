@@ -165,7 +165,7 @@ def CanonicalizePass.impl (options : PassOptions) (ctx : WfIRContext OpCode)
   if (options.get? "commutative-constant-rhs").getD true then
     patterns := patterns.push commutativeConstantRHS
   let pattern := RewritePattern.GreedyRewritePattern patterns
-  let some result := RewritePattern.applyInContext pattern ctx
+  let some result := RewritePattern.applyInContext pattern ctx op
     | throw "Error while applying canonicalization patterns"
   ctx := result
   if (options.get? "unique-constants").getD true then

@@ -1,4 +1,5 @@
 import Veir.Meta.Tactic.PBVDecide
+import Veir.Data.LLVM
 
 /-- Commutativity of addition -/
 example (w : Nat) (x y : BitVec w) (hw : w ≤ 4) :
@@ -628,3 +629,20 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
 example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
     x.smtSDiv y = bif x.msb then 1 else -1 := by
   pbv_decide 4
+
+namespace RefinementTest
+
+open Veir.Data
+
+/-- Add is refined by extension and truncation -/
+example {w t : Nat} (i i' : LLVM.Int w) (ext ext' : BitVec (t - w)) (nuw nsw : Bool) (bound : t ≤ 8) (h : w < t) :
+  LLVM.Int.add i i' nuw nsw ⊒
+    LLVM.Int.trunc (LLVM.Int.add
+      (LLVM.Int.ext i t ext (by grind))
+      (LLVM.Int.ext i' t ext' (by grind))
+      false false
+    ) w false false (by grind) := by
+  veir_bv_normalize
+  pbv_decide 8
+
+end RefinementTest

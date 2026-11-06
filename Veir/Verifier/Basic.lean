@@ -40,6 +40,22 @@ def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   | _ => false
 
 /--
+  Verify the result, region, and successor counts of an operation against fixed
+  expected values, leaving the operand count to the caller. The instruction name
+  is included in each error message.
+-/
+def OperationPtr.verifyNonOperandCounts (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) (results regions successors : Nat) :
+    Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  if op.getNumResults ctx.raw opIn ≠ results then
+    throw s!"{instrName}: Expected {results} result(s)"
+  if op.getNumRegions ctx.raw opIn ≠ regions then
+    throw s!"{instrName}: Expected {regions} region(s)"
+  if op.getNumSuccessors ctx.raw opIn ≠ successors then
+    throw s!"{instrName}: Expected {successors} successor(s)"
+
+/--
   Verify the result, region, and successor counts of a terminator: one that
   produces no results, has no regions, and transfers control to `successors`
   successor blocks. The operand count is left to the caller, since terminators
@@ -47,14 +63,8 @@ def Attribute.isKnownNonZero (attr : Attribute) : Bool :=
   included in each error message.
 -/
 def OperationPtr.verifyTerminatorCounts (op : OperationPtr) (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) (successors : Nat) : Except String PUnit := do
-  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  if op.getNumResults ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 results"
-  if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 regions"
-  if op.getNumSuccessors ctx.raw opIn ≠ successors then
-    throw s!"{instrName}: Expected {successors} successor(s)"
+    (opIn : op.InBounds ctx.raw) (successors : Nat) : Except String PUnit :=
+  op.verifyNonOperandCounts ctx opIn 0 0 successors
 
 /--
   Check that the operands forwarded to a successor block match the types of that
@@ -89,6 +99,31 @@ def OperationPtr.verifyUnconditionalBranch (op : OperationPtr)
   if op.getNumOperands ctx.raw opIn ≠ dest.getNumArguments! ctx.raw then
     throw s!"{instrName}: branch expected operand count {dest.getNumArguments! ctx.raw}, got {op.getNumOperands ctx.raw opIn}"
   op.verifyBranchSuccessorArgTypes ctx 0 dest s!"{instrName}: successor"
+
+/-- Return the only block of `region`, throwing `errMsg` unless it has exactly one. -/
+def RegionPtr.getSingleBlock (region : RegionPtr) (ctx : WfIRContext OpInfo)
+    (errMsg : String) : Except String BlockPtr := do
+  let some block := region.getFirstBlock! ctx.raw
+    | throw errMsg
+  if region.getLastBlock! ctx.raw ≠ some block then
+    throw errMsg
+  return block
+
+/--
+  Check that `block` ends with the operation `terminator`, as MLIR's
+  `SingleBlockImplicitTerminator` trait does. An empty block passes, since the
+  generic verifier already rejects a block without a terminator.
+-/
+def BlockPtr.verifyImplicitTerminator {Dialect : Type} [IsOpCode Dialect]
+    [HasDialect OpInfo Dialect] [DecidableEq Dialect] (block : BlockPtr)
+    (ctx : WfIRContext OpInfo) (terminator : Dialect) : Except String PUnit := do
+  let some last := block.getLastOp! ctx.raw
+    | return
+  let lastType := last.getOpType! ctx.raw
+  if toDialect? Dialect lastType ≠ some terminator then
+    throw s!"expects regions to end with \
+      '{String.fromUTF8! (IsOpCode.name (ofDialect OpInfo terminator))}', \
+      found '{String.fromUTF8! (IsOpCode.name lastType)}'"
 
 /--
   Validate an `operandSegmentSizes` property that splits an operation's operands
@@ -233,22 +268,27 @@ def TypeAttr.verifyTensorType
   | type => throw s!"{errMsg}, but found {type}"
 
 /--
+  Verify the operand, result, region, and successor counts of an operation
+  against fixed expected values. The instruction name is included in each error
+  message.
+-/
+def OperationPtr.verifyOpCounts (op : OperationPtr)
+    (ctx : WfIRContext OpInfo) (opIn : op.InBounds ctx.raw)
+    (operands results regions successors : Nat) : Except String PUnit := do
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  if op.getNumOperands ctx.raw opIn ≠ operands then
+    throw s!"{instrName}: Expected {operands} operand(s)"
+  op.verifyNonOperandCounts ctx opIn results regions successors
+
+/--
   Verify the operand and result counts of a "plain" operation: one that has no
   regions and no successors. The instruction name is included in each error
   message.
 -/
 def OperationPtr.verifyPlainOpCounts (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
-    (opIn : op.InBounds ctx.raw) (operands results : Nat) : Except String PUnit := do
-  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
-  if op.getNumOperands ctx.raw opIn ≠ operands then
-    throw s!"{instrName}: Expected {operands} operand(s)"
-  if op.getNumResults ctx.raw opIn ≠ results then
-    throw s!"{instrName}: Expected {results} result(s)"
-  if op.getNumRegions ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 regions"
-  if op.getNumSuccessors ctx.raw opIn ≠ 0 then
-    throw s!"{instrName}: Expected 0 successors"
+    (opIn : op.InBounds ctx.raw) (operands results : Nat) : Except String PUnit :=
+  op.verifyOpCounts ctx opIn operands results 0 0
 
 def OperationPtr.verifyOperandTypesMatch (op : OperationPtr)
     (ctx : WfIRContext OpInfo)
