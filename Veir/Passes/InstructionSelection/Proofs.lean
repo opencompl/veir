@@ -364,7 +364,13 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.udiv x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
-/-! ### `sdiv`/`udiv` by a constant power of two -/
+/-! ### `sdiv`/`udiv` by a constant power of two
+
+  End-to-end refinements of the instruction sequences that a division by a constant power of two
+  lowers to. The division is now rewritten by the post-legalizer combines (`intdivCombines` and
+  `riscvWordIntdivCombines`); the pattern names below are those of the removed
+  `isel-sdag-riscv64` pass, which emitted the same sequences.
+-/
 
 /--
   `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
@@ -1076,7 +1082,7 @@ theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
 /-! ### Immediate-selection folds
 
   Each lemma below states that the immediate-form RISC-V instruction selected by
-  `isel-riscv64` or `isel-sdag-riscv64` computes the same value as materializing the constant with
+  `isel-riscv64` computes the same value as materializing the constant with
   `li` and using the reg-reg form. Composed with the reg-reg lowering refinements
   above (and `constant_refinement`), this is the soundness obligation for selecting
   the immediate form directly from the LLVM op, mirroring LLVM's `PatGprImm` family.

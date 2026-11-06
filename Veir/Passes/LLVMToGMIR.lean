@@ -444,6 +444,18 @@ def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
 
 /-! ## Pass implementation -/
 
+/-! ## Discarded intrinsics -/
+
+/--
+  `llvm.intr.assume` is discarded, as in `IRTranslator::translateKnownIntrinsic`. An assume only
+  adds UB, so dropping it is a refinement.
+  https://github.com/llvm/llvm-project/blob/e0c1ec1653cd2a83dcc6f2bdeef1676d04226f31/llvm/lib/CodeGen/GlobalISel/IRTranslator.cpp#L3289-L3294
+-/
+def dropAssume (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  if op.getOpType! ctx.raw ≠ .llvm .intr__assume then return (ctx, none)
+  some (ctx, some (#[], #[]))
+
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern #[
@@ -455,7 +467,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
+    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch, .fromLocalRewrite dropAssume,
     lowerStaticAlloca.run,
     intToByteRoundTrip.run
   ]

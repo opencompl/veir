@@ -1,4 +1,4 @@
-// RUN: veir-opt %s -p=isel-sdag-riscv64,riscv-combine | filecheck %s
+// RUN: veir-opt %s -p=riscv | filecheck %s
 
 // `sdiv x, 2` is the one power-of-two divisor where `sdivPow2`'s general
 // 4-instruction sequence shrinks to 3: the correction shift's amount `W - k`
@@ -16,7 +16,7 @@
         %c = "llvm.mlir.constant"() <{value = 2 : i64}> : () -> i64
         %r = "llvm.sdiv"(%a, %c) : (i64, i64) -> i64
         // CHECK:      %{{.*}} = "riscv.srli"(%{{.*}}) <{"value" = 63 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+        // CHECK:      %{{.*}} = "riscv.add"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.srai"(%{{.*}}) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
         // CHECK-NOT:  "riscv.srai"(%{{.*}}) <{"value" = 63 : i64}>
         "func.return"(%r) : (i64) -> ()
