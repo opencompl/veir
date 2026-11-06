@@ -6,4 +6,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: riscv_cf.func: Entry block argument count does not match function signature
+// CHECK: riscv_cf.func: entry block must have 1 arguments to match function signature
