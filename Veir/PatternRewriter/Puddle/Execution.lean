@@ -403,6 +403,8 @@ match succeeds.
 def MatchProg.run (prog : MatchProg OpInfo α) (ctx : IRContext OpInfo)
     (root : OperationPtr) : Option (Assignment OpInfo) :=
   do
+    if let .operation opCode .. :: _ := prog.decls then
+      guard (root.getOpType! ctx = opCode)
     let assignment ← Assignment.bindOp
       (Assignment.empty OpInfo prog.numHandles) prog.rootHandle root
     MatchProg.runDecls prog.decls ctx assignment
