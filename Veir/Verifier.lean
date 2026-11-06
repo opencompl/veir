@@ -677,6 +677,7 @@ theorem OperationPtr.Verified.arith_addui_extended {ctx : WfIRContext OpCode} {o
     HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
     ← OperationPtr.getOpType!_eq_getOpType, opType, Arith.verifyLocalInvariants,
     OperationPtr.verifyArithExtendedOp, OperationPtr.verifyPlainOpCounts,
+    OperationPtr.verifyOpCounts, OperationPtr.verifyNonOperandCounts,
     OperationPtr.verifyOperandTypesMatch, OperationPtr.verifyResultTypeMatches,
     TypeAttr.verifyIntegerType, TypeAttr.verifyI1, ne_eq, bind, Except.bind, throw,
     throwThe, MonadExceptOf.throw, pure, Except.pure, ite_true] at opVerify
@@ -1176,7 +1177,8 @@ theorem OperationPtr.Verified.riscv_andi {ctx : WfIRContext OpCode} {op : Operat
     HasOpInfo.verifyLocalInvariants, OpCode.verifyLocalInvariants,
     ← OperationPtr.getOpType!_eq_getOpType, opType, Riscv.verifyLocalInvariants] at opVerify
   obtain ⟨_, hTypes, hCounts⟩ := Except.bind_eq_ok.mp opVerify
-  simp only [OperationPtr.verifyRISCVimm12, OperationPtr.verifyPlainOpCounts, ne_eq, bind,
+  simp only [OperationPtr.verifyRISCVimm12, OperationPtr.verifyPlainOpCounts,
+    OperationPtr.verifyOpCounts, OperationPtr.verifyNonOperandCounts, ne_eq, bind,
     Except.bind, throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at hCounts
   have hCounts : (op.getOperandTypes! ctx.raw).size = 1 ∧
       op.getNumResults ctx.raw opInBounds = 1 := by grind
