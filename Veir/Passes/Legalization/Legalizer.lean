@@ -84,14 +84,14 @@ private def illegalReason (ctx : IRContext OpCode) (op : OperationPtr) (opcode :
     | _, none => "no legalization rule matches"
   s!"unable to legalize {name}: {reason}"
 
-/-- Legalizes all GMIR operations of `ctx`. Fails if one of them remains illegal. -/
-def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) :
+/-- Legalizes all GMIR operations in the functions under `root`. Fails if one of them remains illegal. -/
+def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Except String (WfIRContext OpCode) := do
   -- As in LLVM, an artifact is combined before it is legalized.
   -- TODO: Use a proper worklist for artifacts.
   let pattern := RewritePattern.GreedyRewritePattern
     #[.fromLocalRewrite combineArtifactStep, .fromLocalRewrite info.legalizeInstrStep]
-  let some ctx := RewritePattern.applyInContext pattern ctx
+  let some ctx := RewritePattern.applyToFunctions pattern ctx root
     | throw "error while applying legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the
   -- legality of every operation afterwards.

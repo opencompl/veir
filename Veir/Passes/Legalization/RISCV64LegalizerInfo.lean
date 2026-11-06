@@ -126,10 +126,9 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
-    -- LLVM is also legal for `s32`, for floating point, and for `p0`, which `g_select` does not
-    -- accept yet.
+    -- LLVM is also legal for `s32` and for floating point.
     | .g_select => [
-      .legalForTypePairs [(s64, s64)],
+      .legalForTypePairs [(s64, s64), (p0, s64)],
       .minScalar (.type 0) 64,
       .minScalar (.type 1) 64,
     ]
@@ -284,7 +283,7 @@ def riscv64LegalizerInfo : LegalizerInfo where
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    run := fun _ ctx _ _ => riscv64LegalizerInfo.legalize ctx }
+    run := fun _ ctx op _ => riscv64LegalizerInfo.legalize ctx op }
 
 end
 
