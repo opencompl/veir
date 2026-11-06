@@ -4,6 +4,7 @@ public import CTree.Defs
 public import CTree.UB
 public import CTree.Iter
 public import CTree.Interp
+public import CTree.Sim
 
 public import Veir.Interpreter.Interp
 public import Veir.Interpreter.RuntimeValue
@@ -27,6 +28,27 @@ def ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} {R} [UBE -< E] : CTree E 
   let x ← CTree.trigger (SubE := UBE) UBEIn.mk
   by cases x
 
+/-- Undefined behavior does not run a subsequent computation. -/
+@[simp]
+theorem bind_ub {EIn CIn} {E : EIn → Type} {C : CIn → Type} [UBE -< E]
+    (next : α → CTree E C β) :
+    CTree.bind ub next = ub := by
+  simp only [ub, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+  congr 1
+  funext impossible
+  exact nomatch Subeffect.mapCont UBE E UBEIn.mk impossible
+
+/-- Explicit UB in the source permits any target behavior when the embedded event is UB. -/
+@[simp, grind .]
+theorem sim_ub {EIn CIn C'In} {E : EIn → Type} {C : CIn → Type}
+    {C' : C'In → Type} [HasUB EIn] [UBE -< E]
+    (relation : α → β → Prop) (target : CTree E C α)
+    (isUB : HasUB.isUB (Subeffect.mapEff UBE E UBEIn.mk) := by trivial) :
+    Sim relation target (ub : CTree E C' β) := by
+  simp only [ub, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+  apply Sim.ub
+  exact isUB
+
 /-! ## Error Effect -/
 
 /-- Effect materializing an ill-formed program -/
@@ -42,10 +64,34 @@ def ErrorE (e : ErrorEIn.{u}) :=
 instance : HasUB ErrorEIn where
   isUB := fun _ => True
 
+@[simp, grind .]
+theorem ErrorEIn.isUB (e : ErrorEIn) : HasUB.isUB e := trivial
+
 /-- Emit an effect materializing an ill-formed program -/
 def fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} {R} [ErrorE -< E] : CTree E C R := do
   let x ← CTree.trigger (SubE := ErrorE) ErrorEIn.mk
   by cases x
+
+/-- Interpreter failure does not run a subsequent computation. -/
+@[simp]
+theorem bind_fail {EIn CIn} {E : EIn → Type} {C : CIn → Type} [ErrorE -< E]
+    (next : α → CTree E C β) :
+    CTree.bind fail next = fail := by
+  simp only [fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+  congr 1
+  funext impossible
+  exact nomatch Subeffect.mapCont ErrorE E ErrorEIn.mk impossible
+
+/-- Interpreter failure in the source permits any target behavior when the embedded event is UB. -/
+@[simp, grind .]
+theorem sim_fail {EIn CIn C'In} {E : EIn → Type} {C : CIn → Type}
+    {C' : C'In → Type} [HasUB EIn] [ErrorE -< E]
+    (relation : α → β → Prop) (target : CTree E C α)
+    (isUB : HasUB.isUB (Subeffect.mapEff ErrorE E ErrorEIn.mk) := by trivial) :
+    Sim relation target (fail : CTree E C' β) := by
+  simp only [fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+  apply Sim.ub
+  exact isUB
 
 /-! ## Freeze Effect -/
 
@@ -95,6 +141,17 @@ instance [ErrorE -< E] [UBE -< E] : MonadLift Interp (CTree E C) where
     | .ub _ => ub
     | .fail _ => fail
     | .ok v => return v
+
+theorem sim_monadLift_bind_left {EIn CIn C'In} {E : EIn → Type}
+    {C : CIn → Type} {C' : C'In → Type} [HasUB EIn] [ErrorE -< E] [UBE -< E]
+    (relation : α → γ → Prop) (source : CTree E C' γ)
+    (outcome : Interp β) (next : β → CTree E C α) :
+    Sim relation (CTree.bind (monadLift outcome) next) source ↔
+    match outcome with
+    | .ok value => Sim relation (next value) source
+    | .ub _ => Sim relation (ub : CTree E C α) source
+    | .fail _ => Sim relation (fail : CTree E C α) source := by
+  cases outcome <;> simp [monadLift, MonadLift.monadLift]
 
 /-! ## Definition of Pure CTrees -/
 
