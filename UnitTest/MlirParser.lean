@@ -20,7 +20,13 @@ def testParseOp (s : String) : IO Unit :=
   | none => .error "internal error: failed to create IR context"
 
 /--
-  info: "arith.addi"() ({
+   error: unexpected trailing input after top-level operation
+-/
+#guard_msgs in
+#eval! testParseOp "\"builtin.module\"() ({}) : () -> ()\n\"builtin.module\"() ({}) : () -> ()"
+
+/--
+   info: "arith.addi"() ({
   ^4():
     "arith.muli"() : () -> ()
 }, {}) : () -> ()
