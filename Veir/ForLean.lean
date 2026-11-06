@@ -1025,7 +1025,7 @@ theorem toNat_ofInt_natCast_of_lt {w k : Nat} (hk : k < w) : (BitVec.ofInt w k).
   exact Nat.mod_eq_of_lt (Nat.lt_trans hk Nat.lt_two_pow_self)
 
 /-- `ofInt w k` of a natural number `k < w` is less than `w`. -/
-theorem ofInt_natCast_lt_ofNat_of_lt {w k : Nat} (hk : k < w) :
+theorem lt_ofInt_natCast_ofNat_of_lt {w k : Nat} (hk : k < w) :
     BitVec.ofInt w k < BitVec.ofNat w w := by
   rw [BitVec.lt_def, toNat_ofInt_natCast_of_lt hk, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt Nat.lt_two_pow_self]
