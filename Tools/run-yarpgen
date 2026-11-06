@@ -94,7 +94,9 @@ FAILURES: Counter[tuple[str, str, str]] = Counter()  # By (version, kind, error)
 # The vcc flags of each version under test.
 VERSIONS = {"O0": [], "O2": ["--llvm-O2"]}
 # The options that make each yarpgen write a C program to the directory that follows them.
-YARPGEN_OPTIONS = {"yarpgen1": ["--std=c11", "-d"], "yarpgen2": ["--std=c", "-o"]}
+# v2's arrays are otherwise too big to link: RISC-V's code models reach only 2 GiB of data.
+YARPGEN_OPTIONS = {"yarpgen1": ["--std=c11", "-d"],
+                   "yarpgen2": ["--std=c", "--max-array-dims=4", "-o"]}
 
 
 def log(message: str) -> None:
