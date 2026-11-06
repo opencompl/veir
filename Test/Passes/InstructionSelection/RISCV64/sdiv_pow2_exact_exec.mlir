@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s --print-op-generic -p=canonicalize,instcombine,canonicalize,cse,dce,riscv > %t && veir-interpret %t | filecheck %s
 
-// Functional check for `sdivPow2Exact` (positive and negative divisor): evenly
+// Functional check for `sdiv_exact_by_pow2_pattern` (positive and negative divisor): evenly
 // divisible signed division by a constant power of two, using the `exact` flag.
 // Since the division is exact, the plain arithmetic-shift fast path agrees with
 // full truncating division (no bias correction needed).

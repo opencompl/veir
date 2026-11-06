@@ -167,6 +167,63 @@ theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
 
+/-! ### Power-of-two division combines
+
+The combines are proved for every width `w`. The divisor is the constant `±2^k`, and the created
+shift amounts are the constants `k`, `w - 1` and `w - k`.
+-/
+
+/-- Prove the correctness of `udiv_by_pow2_pattern`, whatever the `exact` flag. -/
+theorem udiv_by_pow2 {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k < w) (exact : Bool) :
+    LLVM.Int.udiv x (LLVM.Int.val (BitVec.twoPow w k)) exact ⊒
+      LLVM.Int.lshr x (LLVM.Int.constant w k) := by
+  veir_bv_normalize
+  grind [BitVec.ofInt_natCast_lt_ofNat_of_lt, BitVec.toNat_ofInt_natCast_of_lt,
+    BitVec.udiv_twoPow_eq_of_lt]
+
+/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` for a positive divisor. -/
+theorem sdiv_exact_by_pow2_pos {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) :
+    LLVM.Int.sdiv x (LLVM.Int.val (BitVec.twoPow w k)) true ⊒
+      LLVM.Int.ashr x (LLVM.Int.constant w k) := by
+  veir_bv_normalize
+  grind [BitVec.twoPow_eq_one_shiftLeft_ofInt_natCast, BitVec.ofInt_natCast_lt_ofNat_of_lt,
+    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_one_shl_of_smod_eq_zero]
+
+/-- Prove the correctness of `sdiv_exact_by_pow2_pattern` for a negative divisor, including
+    `-2^(w-1)`. -/
+theorem sdiv_exact_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k < w) :
+    LLVM.Int.sdiv x (LLVM.Int.val (-BitVec.twoPow w k)) true ⊒
+      LLVM.Int.sub (LLVM.Int.constant w 0) (LLVM.Int.ashr x (LLVM.Int.constant w k)) := by
+  veir_bv_normalize
+  grind [BitVec.twoPow_eq_one_shiftLeft_ofInt_natCast, BitVec.ofInt_natCast_lt_ofNat_of_lt,
+    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_of_smod_eq_zero]
+
+/-- The quotient that `sdiv_by_pow2_pattern` builds for `sdiv x, 2^k`. -/
+def sdivPow2Shift {w : Nat} (x : LLVM.Int w) (k : Nat) : LLVM.Int w :=
+  LLVM.Int.ashr
+    (LLVM.Int.add x
+      (LLVM.Int.lshr (LLVM.Int.ashr x (LLVM.Int.constant w (w - 1 : Nat)))
+        (LLVM.Int.constant w (w - k : Nat))))
+    (LLVM.Int.constant w k)
+
+/-- Prove the correctness of `sdiv_by_pow2_pattern` for a positive divisor. -/
+theorem sdiv_by_pow2_pos {w : Nat} (x : LLVM.Int w) (k : Nat) (hk0 : 0 < k) (hk : k + 1 < w) :
+    LLVM.Int.sdiv x (LLVM.Int.val (BitVec.twoPow w k)) ⊒ sdivPow2Shift x k := by
+  simp only [sdivPow2Shift]
+  veir_bv_normalize
+  grind [BitVec.twoPow_eq_one_shiftLeft_ofInt_natCast, BitVec.ofInt_natCast_lt_ofNat_of_lt,
+    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_one_shl_eq_biased_sshiftRight]
+
+/-- Prove the correctness of `sdiv_by_pow2_pattern` for a negative divisor, including
+    `-2^(w-1)`. -/
+theorem sdiv_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk0 : 0 < k) (hk : k < w) :
+    LLVM.Int.sdiv x (LLVM.Int.val (-BitVec.twoPow w k)) ⊒
+      LLVM.Int.sub (LLVM.Int.constant w 0) (sdivPow2Shift x k) := by
+  simp only [sdivPow2Shift]
+  veir_bv_normalize
+  grind [BitVec.twoPow_eq_one_shiftLeft_ofInt_natCast, BitVec.ofInt_natCast_lt_ofNat_of_lt,
+    BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_eq_neg_biased_sshiftRight]
+
 /-! ### Word operations -/
 
 /-- `x` is its low bits after any extension. -/

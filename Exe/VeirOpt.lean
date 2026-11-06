@@ -10,7 +10,6 @@ import Veir.Passes.InstCombine
 import Veir.Passes.ApplyPatterns
 import Veir.Passes.CSE
 import Veir.Passes.InstructionSelection.RISCV64
-import Veir.Passes.InstructionSelection.RISCV64Sdag
 import Veir.Passes.InstructionSelection.RISCV64Branches
 import Veir.Passes.InstructionSelection.RISCV64Abi
 import Veir.Passes.DCE.dce
@@ -22,6 +21,7 @@ import Veir.Passes.ArithToLLVM
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization
 import Veir.Passes.Legalization.RISCV64LegalizerInfo
+import Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
 import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
 import Veir.Passes.CirToStd
 import Veir.Passes.LLVMToGMIR
@@ -41,7 +41,6 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      ApplyPatternsPass,
      CSEPass,
      IselRISCV64,
-     IselSDAG,
      IselBrRISCV64,
      IselAbiRISCV64,
      DCEPass,
@@ -54,6 +53,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
      CanonicalizePass,
      LegalizePass,
      LegalizeRISCV64Pass,
+     PreLegalizerCombinerRISCV64Pass,
      PostLegalizerCombinerRISCV64Pass,
      CirToStdPass,
      LLVMToGMIRPass ] : List (Pass OpCode)).foldl
@@ -73,7 +73,7 @@ def passGroups : Std.HashMap String String :=
     |>.insert "mod-arith-pow2-width"
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
-        "isel-sdag-riscv64,llvm-to-gmir,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,isel-abi-riscv64,reconcile-cast,riscv-combine,dce"
+        "llvm-to-gmir,prelegalizer-combiner-riscv64,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,isel-abi-riscv64,reconcile-cast,riscv-combine,dce"
     |>.insert "cir"
         "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 
