@@ -1032,7 +1032,7 @@ theorem ofInt_natCast_lt_ofNat_of_lt {w k : Nat} (hk : k < w) :
   exact hk
 
 /-- `2^k` is `1` shifted left by `ofInt w k`, for a natural number `k < w`. -/
-theorem twoPow_eq_one_shiftLeft_ofInt_natCast {w k : Nat} (hk : k < w) :
+theorem twoPow_eq_shiftLeft_one_ofInt_natCast {w k : Nat} (hk : k < w) :
     BitVec.twoPow w k = 1#w <<< BitVec.ofInt w k := by
   rw [BitVec.shiftLeft_eq', toNat_ofInt_natCast_of_lt hk, BitVec.twoPow_eq]
 
