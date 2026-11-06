@@ -128,7 +128,7 @@ public def coerceFunctionBoundaries (coercion : BoundaryCoercion) (ctx : WfIRCon
 def CoerceFunctionBoundariesPass.impl (coercion : BoundaryCoercion) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   let ctx ← coerceFunctionBoundaries coercion ctx
-  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx with
+  match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
   | none => throw "Error while applying DCE after function boundary coercion"
   | some ctx => pure ctx
 

@@ -3,6 +3,7 @@ module
 public meta import Lean
 public import Veir.Meta.Tactic.PBVDecide.PBVPushSimp
 public meta import Veir.Meta.Tactic.PBVDecide.Basic
+import Veir.Data.PBV.Push
 
 open Lean Meta
 
@@ -41,13 +42,22 @@ meta def addBvInfos (g : MVarId) (simp : SimpTheoremsArray) : TranslateM SimpThe
   return simp
 
 /--
-Add the hypotheses bounding each width by the blast width to the simp set.
+Create simp set with the hypotheses bounding each width by the blast width.
 -/
-meta def addWidthInfosSimpLemmas (g : MVarId) (simp : SimpTheoremsArray) : TranslateM SimpTheoremsArray := g.withContext do
+meta def addWidthBounds (simp : SimpTheoremsArray) : TranslateM SimpTheoremsArray := do
   let mut simp := simp
   for (_wexpr, widthInfo) in (← get).widthInfos do
     simp ← simp.addTheorem (.other widthInfo.hypWidthLeBoundNote.name)
         (mkFVar widthInfo.hypWidthLeBoundNote)
+  return simp
+
+/--
+Create simp set with the definitions relating the `BitVec` mask variable to the
+`maskOfWidth` definition.
+-/
+meta def addMaskOfWidthDefs (simp : SimpTheoremsArray) : TranslateM SimpTheoremsArray := do
+  let mut simp := simp
+  for (_wexpr, widthInfo) in (← get).widthInfos do
     simp ← simp.addTheorem (.other widthInfo.widthMaskHypFvar.name)
       (← mkEqSymm <| .fvar widthInfo.widthMaskHypFvar)
   return simp
@@ -70,13 +80,20 @@ public meta def liftToBlastWidth (g : MVarId) : TranslateM MVarId := g.withConte
   -- Lift equalities to the blast width. A single pass applies the `pbv_lift`
   -- theorems once: otherwise the lifted equality, now at the blast width, gets
   -- lifted again.
-  let eqThms ← addLiftThms g (← read).blastWidth <| ← addWidthInfosSimpLemmas g #[]
+  let eqThms ← addLiftThms g (← read).blastWidth <| ← addWidthBounds #[]
   let g ← applySimp g eqThms { decide := false, singlePass := true }
   -- Create simp set to push the `setWidth`s in
   let thms := ← addPushTheorems g (← read).blastWidth
            <| ← addBvInfos g
-           <| ← addWidthInfosSimpLemmas g #[]
-  -- Run simp
-  applySimp g thms
+           <| ← addMaskOfWidthDefs
+           <| ← addWidthBounds #[]
+  -- Run push simp
+  let g ← applySimp g thms
+  -- Mask any remaining setWidths
+  let mut thms := ← addWidthBounds #[]
+  thms ← thms.addTheorem (.decl ``Veir.Data.PBV.setWidth_toMask) (mkConst ``Veir.Data.PBV.setWidth_toMask)
+  let g ← applySimp g thms { singlePass := true }
+  -- Remove the `maskOfWidth`s introduced by `setWidth_toMask` from the goal
+  applySimp g (← addMaskOfWidthDefs #[]) { singlePass := true }
 
 end Veir.Meta.Tactic.PBVDecide

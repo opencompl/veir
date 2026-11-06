@@ -364,68 +364,6 @@ theorem udiv_refinement {x y : LLVM.Int 64} :
     (Data.LLVM.Int.udiv x y) ⊒ (RISCV.Reg.toInt (Data.RISCV.divu (LLVM.Int.toReg y) (LLVM.Int.toReg x)) 64) := by
   veir_bv_decide
 
-/-! ### `sdiv`/`udiv` by a constant power of two -/
-
-/--
-  `udiv x, 2^k` -> `riscv.srli x, k` (`udivPow2`). Mirrors `DAGCombiner::visitUDIVLike`'s
-  `fold (udiv x, (1 << c)) -> x >>u c` (via `BuildLogBase2`).
-  https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L5430-L5440
--/
-theorem udivPow2_refinement {x : LLVM.Int 64} (k : BitVec 6) :
-    (Data.LLVM.Int.udiv x (LLVM.Int.val ((1#64) <<< k))) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.srli k (LLVM.Int.toReg x)) 64) := by
-  veir_bv_decide
-
-/--
-  `sdiv exact x, 2^k` -> `riscv.srai x, k` (`sdivPow2Exact`, positive divisor).
-  Since `exact` makes the source poison whenever `x` isn't a multiple of `2^k`, this
-  only has to hold when the arithmetic right shift and the truncating division
-  agree, i.e. when there is no fractional part to round differently.
--/
-theorem sdivPow2Exact_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk : k < 63) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) true) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.srai k (LLVM.Int.toReg x)) 64) := by
-  veir_bv_decide
-
-/--
-  `sdiv exact x, -2^k` -> `riscv.sub 0, (riscv.srai x, k)` (`sdivPow2Exact`, negative
-  divisor). No upper bound on `k` is needed here: `-2^63` (`k = 63`) is itself a
-  valid `i64` divisor.
--/
-theorem sdivPow2Exact_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) true) ⊒
-      (RISCV.Reg.toInt (Data.RISCV.neg (Data.RISCV.srai k (LLVM.Int.toReg x))) 64) := by
-  veir_bv_decide
-
-/--
-  General (non-`exact`) `sdiv x, 2^k` -> the Hacker's-Delight bias/shift sequence
-  (`sdivPow2`, positive divisor): bias a negative dividend by `2^k - 1` before the
-  arithmetic shift, so truncation rounds toward zero. `k = 0` is excluded because the
-  correction shift `64 - k` would then need a full 64-bit shift, which has no legal
-  RISC-V immediate encoding (`sdiv x, ±1` never reaches instruction selection as
-  such: it is always simplified away first).
--/
-theorem sdivPow2_pos_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) (hk63 : k < 63) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val ((1#64) <<< k)) false) ⊒
-      (RISCV.Reg.toInt
-        (let sign := Data.RISCV.srai 63 (LLVM.Int.toReg x)
-         let corr := Data.RISCV.srli (64 - k) sign
-         let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
-         Data.RISCV.srai k biased) 64) := by
-  veir_bv_decide
-
-/--
-  Negative-divisor case of `sdivPow2_pos_refinement`: negate the biased-shift result.
--/
-theorem sdivPow2_neg_refinement {x : LLVM.Int 64} (k : BitVec 6) (hk0 : 0 < k) :
-    (Data.LLVM.Int.sdiv x (LLVM.Int.val (-((1#64) <<< k))) false) ⊒
-      (RISCV.Reg.toInt
-        (let sign := Data.RISCV.srai 63 (LLVM.Int.toReg x)
-         let corr := Data.RISCV.srli (64 - k) sign
-         let biased := Data.RISCV.add corr (LLVM.Int.toReg x)
-         Data.RISCV.neg (Data.RISCV.srai k biased)) 64) := by
-  veir_bv_decide
-
 /--
   Prove the correctness of the `udiv` lowering pattern.
 -/
@@ -1076,7 +1014,7 @@ theorem fold_sltu_li_to_sltiu_sound (rs1 : Reg) (imm : BitVec 12) :
 /-! ### Immediate-selection folds
 
   Each lemma below states that the immediate-form RISC-V instruction selected by
-  `isel-riscv64` or `isel-sdag-riscv64` computes the same value as materializing the constant with
+  `isel-riscv64` computes the same value as materializing the constant with
   `li` and using the reg-reg form. Composed with the reg-reg lowering refinements
   above (and `constant_refinement`), this is the soundness obligation for selecting
   the immediate form directly from the LLVM op, mirroring LLVM's `PatGprImm` family.
@@ -1157,10 +1095,12 @@ theorem fold_slliuw_sound (rs1 : Reg) (shamt : BitVec 6) :
     sll (li (shamt.setWidth 64)) (zextw rs1) = slliuw shamt rs1 := by
   veir_bv_decide
 
-theorem freeze_refinement {a : LLVM.Int 64} :
+/-- Freezing any integer that fits in a register is refined by its register round trip. -/
+theorem freeze_refinement {w : Nat} (hw : w ≤ 64) {a : LLVM.Int w} :
     (Data.LLVM.Int.freeze a) ⊒
-      (RISCV.Reg.toInt (LLVM.Int.toReg a) 64) := by
-  veir_bv_decide
+      (RISCV.Reg.toInt (LLVM.Int.toReg a) w) := by
+  cases a <;> simp [LLVM.Int.freeze, LLVM.Int.toReg, RISCV.Reg.toInt, isRefinedBy, Id.run,
+    BitVec.setWidth_setWidth_of_le _ hw]
 
 /--
   Prove the correctness of the `gmirAnyextOfReg` lowering pattern, at every width: the high bits of

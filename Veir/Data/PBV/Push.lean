@@ -97,8 +97,8 @@ namespace Veir.Data.PBV
 
 public section
 
-attribute [pbv_push] signBitOfMask_eq maskOfWidth_zero BitVec.setWidth_zero
-  BitVec.ofNat_eq_ofNat BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
+attribute [pbv_push] signBitOfMask_eq BitVec.setWidth_zero BitVec.ofNat_eq_ofNat
+  BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
   BitVec.extractLsb
 
 attribute [pbv_push low] BitVec.setWidth_eq
@@ -169,6 +169,11 @@ theorem setWidth_setWidth {o w u : Nat} (h : w ≤ o) (a : BitVec u) :
     (a.setWidth w).setWidth o = a.setWidth o &&& maskOfWidth o w := by
   refine setWidth_eq_and_maskOfWidth h ?_
   rw [BitVec.toNat_setWidth, BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h]
+
+theorem setWidth_toMask {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    a.setWidth o = a.setWidth o &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  rw [BitVec.toNat_setWidth, Nat.mod_mod_pow_of_le h, Nat.mod_eq_of_lt (a.isLt)]
 
 /-! ## Push `setWidth` into arithmetic -/
 
