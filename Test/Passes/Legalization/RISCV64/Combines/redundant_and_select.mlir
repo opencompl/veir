@@ -1,9 +1,5 @@
 // RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
 
-// `g_and (g_select c, t, f), C` is the `g_select` when the low bit of `C` is set and both arms are
-// a `g_icmp` or the constant 0 or 1, as LLVM's `redundant_and` finds with known bits. This is what
-// legalizing a `g_brcond` on `select i1 a, b, false` leaves behind.
-
 "builtin.module"() ({
   "func.func"() <{function_type = (i64, i64, i64, i64) -> (i64, i64, i64, i64), sym_name = "fold"}> ({
   ^bb0(%c: i64, %x: i64, %y: i64, %z: i64):

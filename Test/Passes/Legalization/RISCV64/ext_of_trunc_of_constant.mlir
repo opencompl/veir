@@ -1,9 +1,5 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
-// `g_sext (g_trunc c)` and `g_zext (g_trunc c)` of a `g_constant` `c` fold to `c` when the
-// truncation keeps its signed (unsigned) value, as LLVM's `tryCombineSExt` and `tryCombineZExt`
-// do with known bits.
-
 "builtin.module"() ({
   "func.func"() <{function_type = () -> (i64, i64, i64, i64, i64), sym_name = "fold"}> ({
     %c63 = "gmir.g_constant"() <{value = 63 : i64}> : () -> i64

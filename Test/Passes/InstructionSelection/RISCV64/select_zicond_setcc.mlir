@@ -1,9 +1,5 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
-// A zero-arm `g_select` on an equality `g_icmp` hands `czero.eqz`/`czero.nez` the difference of the
-// `g_icmp` operands directly, as LLVM's `CondOpsPat` (`RISCVInstrInfoZicond.td`) does with
-// `riscv_setne`/`riscv_seteq`: `(setcc x, 0)` is `x` and `(setcc x, y)` is `(xor x, y)`.
-
 "builtin.module"() ({
   // select (icmp ne x, 0), t, 0 -> czero.eqz t, x
   "func.func"() <{function_type = (i64, i64) -> i64, sym_name = "ne_zero_t"}> ({
