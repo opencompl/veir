@@ -105,10 +105,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
   | .llvmPointerType _ => some 64
   | _ => none
 
-/-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
-def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
-  BitVec.ofInt props.value.type.bitwidth props.value.value = 0
-
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
   byte types, and the result is strictly narrower than the operand.
@@ -1065,7 +1061,7 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
       let cond ← MatchProg.value condType
       let val ← MatchProg.value type
       let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+      MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
       let operands :=
         if zeroFalse then #[cond, val, zeroOp.res[0]!] else #[cond, zeroOp.res[0]!, val]
       let root ← MatchProg.root (.gmir .g_select) operands #[type]
@@ -1862,7 +1858,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       let lhs ← MatchProg.value opType
       let rhs ← if zeroRhs then do
           let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[opType]
-          MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+          MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
           pure zeroOp.res[0]!
         else
           MatchProg.value opType
