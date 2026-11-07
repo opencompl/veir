@@ -42,8 +42,8 @@ def right_identity_zero_add_pattern : Puddle.Pattern OpCode :=
       return x
   ) pure (fun x => x)
 
-def right_identity_zero_add : RewritePattern OpCode :=
-  right_identity_zero_add_pattern.compile.run
+def right_identity_zero_add : Puddle.CompiledPattern OpCode :=
+  right_identity_zero_add_pattern.compile
 
 /-- `srlDst (width - 1) (sraDst _ x) -> srlDst (width - 1) x`, where `(srlDst,
     sraDst)` is `(riscv.srli, riscv.srai)` at `width = 64` and `(riscv.srliw,
@@ -77,8 +77,8 @@ def srl_sra_signbitGen_pattern (srlDst : Riscv)
 
 def srl_sra_signbitGen (srlDst : Riscv)
     (hSrl : Riscv.propertiesOf srlDst = RISCVImmediateProperties) (sraDst : Riscv) (width : Nat) :
-    RewritePattern OpCode :=
-  (srl_sra_signbitGen_pattern srlDst hSrl sraDst width).compile.run
+    Puddle.CompiledPattern OpCode :=
+  (srl_sra_signbitGen_pattern srlDst hSrl sraDst width).compile
 
 def srl_sra_signbit := srl_sra_signbitGen .srli rfl .srai 64
 
@@ -117,8 +117,8 @@ def drop_slli_srli_boolGen_pattern (boolDst : Riscv) (arity : Nat) : Puddle.Patt
     pure
     (fun boolResult => boolResult)
 
-def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) : RewritePattern OpCode :=
-  (drop_slli_srli_boolGen_pattern boolDst arity).compile.run
+def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) : Puddle.CompiledPattern OpCode :=
+  (drop_slli_srli_boolGen_pattern boolDst arity).compile
 
 /-- Drop `riscv.andi 1 (riscv.srli 63 X)`: the `srli 63` already leaves only bit 0, which the mask
     keeps. Legalizing a `g_brcond` on an `i1` masks it with a `g_and` of 1, and a cast of that
@@ -140,8 +140,8 @@ def drop_andi_one_srli_pattern : Puddle.Pattern OpCode :=
     pure
     (fun srli => srli)
 
-def drop_andi_one_srli : RewritePattern OpCode :=
-  drop_andi_one_srli_pattern.compile.run
+def drop_andi_one_srli : Puddle.CompiledPattern OpCode :=
+  drop_andi_one_srli_pattern.compile
 
 /-- `riscv.slt` produces exactly 0 or 1. -/
 def drop_slli_srli_slt := drop_slli_srli_boolGen .slt 2
@@ -190,8 +190,8 @@ def drop_redundant_ext_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
     pure
     (fun inner => inner)
 
-def drop_redundant_ext (ext : Riscv) : RewritePattern OpCode :=
-  (drop_redundant_ext_pattern ext).compile.run
+def drop_redundant_ext (ext : Riscv) : Puddle.CompiledPattern OpCode :=
+  (drop_redundant_ext_pattern ext).compile
 
 /-- `riscv.zextw (riscv.zextw x) -> riscv.zextw x`. -/
 def zextw_zextw := drop_redundant_ext .zextw
@@ -225,8 +225,8 @@ def zextw_zextb_pattern : Puddle.Pattern OpCode :=
     pure
     (fun zextb => zextb)
 
-def zextw_zextb : RewritePattern OpCode :=
-  zextw_zextb_pattern.compile.run
+def zextw_zextb : Puddle.CompiledPattern OpCode :=
+  zextw_zextb_pattern.compile
 
 /-- `riscv.zextb (riscv.lbu addr) -> riscv.lbu addr`.  An `lbu` has already
     cleared bits 63:8, so the additional byte extension is redundant.
@@ -248,8 +248,8 @@ def zextb_lbu_pattern : Puddle.Pattern OpCode :=
     pure
     (fun lbu => lbu)
 
-def zextb_lbu : RewritePattern OpCode :=
-  zextb_lbu_pattern.compile.run
+def zextb_lbu : Puddle.CompiledPattern OpCode :=
+  zextb_lbu_pattern.compile
 
 /-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
 abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
@@ -316,8 +316,8 @@ def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
       simp only [IsSignExtendingOpW, Riscv.interpretOp', riscvLoad, sextwResults_reg_eq_self_iff,
         Interp.pure_eq, Interp.bind_ok, bind_assoc, map_bind,
         Interp.bind_eq_bind_iff] <;> veir_bv_decide) :
-    RewritePattern OpCode :=
-  (sextw_signExtendingOpW_pattern producer arity property signExtending).compile.run
+    Puddle.CompiledPattern OpCode :=
+  (sextw_signExtendingOpW_pattern producer arity property signExtending).compile
 
 /-- Loads. `lw`, `lh` and `lb` sign-extend the loaded word, half or byte, and
     `lhu` and `lbu` zero-extend a value of at most 16 bits.
@@ -426,8 +426,8 @@ def zextw_slliw_lbu_pattern (shamt : BitVec 64) : Puddle.Pattern OpCode :=
       return slli)
     (fun slli => slli)
 
-def zextw_slliw_lbu (shamt : BitVec 64) : RewritePattern OpCode :=
-  (zextw_slliw_lbu_pattern shamt).compile.run
+def zextw_slliw_lbu (shamt : BitVec 64) : Puddle.CompiledPattern OpCode :=
+  (zextw_slliw_lbu_pattern shamt).compile
 
 def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
   let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
@@ -504,8 +504,8 @@ def packh_high_bytes_pattern (commuted : Bool) :
 
     LLVM instruction-selection rewrite:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L636-L638 -/
-def packh_low_bytes : RewritePattern OpCode :=
-  (packh_low_bytes_pattern false).compile.run
+def packh_low_bytes : Puddle.CompiledPattern OpCode :=
+  (packh_low_bytes_pattern false).compile
 
 /-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`.
 
@@ -514,8 +514,8 @@ def packh_low_bytes : RewritePattern OpCode :=
 
     LLVM instruction-selection rewrite:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L636-L638 -/
-def packh_low_bytes_commuted : RewritePattern OpCode :=
-  (packh_low_bytes_pattern true).compile.run
+def packh_low_bytes_commuted : Puddle.CompiledPattern OpCode :=
+  (packh_low_bytes_pattern true).compile
 
 /-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
     slli (packh b2 b3), 16`.
@@ -526,8 +526,8 @@ def packh_low_bytes_commuted : RewritePattern OpCode :=
     LLVM instruction-selection rewrites for RV32 and RV64:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L656-L658
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L676-L681 -/
-def packh_high_bytes : RewritePattern OpCode :=
-  (packh_high_bytes_pattern false).compile.run
+def packh_high_bytes : Puddle.CompiledPattern OpCode :=
+  (packh_high_bytes_pattern false).compile
 
 /-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
     slli (packh b2 b3), 16`.
@@ -538,8 +538,8 @@ def packh_high_bytes : RewritePattern OpCode :=
     LLVM instruction-selection rewrites for RV32 and RV64:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L656-L658
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L676-L681 -/
-def packh_high_bytes_commuted : RewritePattern OpCode :=
-  (packh_high_bytes_pattern true).compile.run
+def packh_high_bytes_commuted : Puddle.CompiledPattern OpCode :=
+  (packh_high_bytes_pattern true).compile
 
 /-- `op`, with `arity` register operands, reads only bits 31:0 of each operand.
     Applying `riscv.zextw` to one of its operands has no effect. -/
@@ -594,9 +594,9 @@ def drop_ext_low_word (ext dst : Riscv) (arity : Nat)
       simp only [ReadsLowWord, Riscv.interpretOp', Interp.pure_eq, Interp.bind_ok,
         Interp.ok.injEq, Prod.mk.injEq, Array.mk.injEq, List.cons.injEq, RuntimeValue.reg.injEq] <;>
         veir_bv_decide) :
-    RewritePattern OpCode :=
-  RewritePattern.GreedyRewritePattern <| (Array.range arity).map fun index =>
-    (drop_ext_low_word_pattern ext dst arity index readsLowWord).compile.run
+    Puddle.CompiledPattern OpCode :=
+  ⟨RewritePattern.GreedyRewritePattern <| ((Array.range arity).map fun index =>
+    (drop_ext_low_word_pattern ext dst arity index readsLowWord).compile).map (·.run)⟩
 
 /-- `riscv.addw (riscv.zextw x), y -> riscv.addw x, y`, and symmetrically for
     the right operand. `addw` reads only the low 32 bits of each source.
@@ -800,13 +800,13 @@ def drop_ext_of_bitwise_pattern (ext dst : Riscv) (lhsGuarded rhsGuarded : Bool)
 
     With `oneOperandSuffices`, either guarded operand suffices, so the pattern for a guarded
     `lhs` is tried before the one for a guarded `rhs`; both forward the same inner result. -/
-def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool) : RewritePattern OpCode :=
+def drop_ext_of_bitwise (ext dst : Riscv) (oneOperandSuffices : Bool) : Puddle.CompiledPattern OpCode :=
   if oneOperandSuffices then
-    RewritePattern.GreedyRewritePattern #[
-      (drop_ext_of_bitwise_pattern ext dst true false).compile.run,
-      (drop_ext_of_bitwise_pattern ext dst false true).compile.run]
+    ⟨RewritePattern.GreedyRewritePattern <| #[
+      (drop_ext_of_bitwise_pattern ext dst true false).compile,
+      (drop_ext_of_bitwise_pattern ext dst false true).compile].map (·.run)⟩
   else
-    (drop_ext_of_bitwise_pattern ext dst true true).compile.run
+    (drop_ext_of_bitwise_pattern ext dst true true).compile
 
 /-- `riscv.zextw (riscv.and a b) -> riscv.and a b` when *at least one* of `a`, `b`
     is `riscv.zextw`-guarded: `and` forces a result bit to zero whenever either
@@ -888,8 +888,8 @@ def drop_ext_store_pattern (ext store : Riscv) : Puddle.Pattern OpCode :=
       return ())
     (fun () => ⟨#[]⟩)
 
-def drop_ext_store (ext store : Riscv) : RewritePattern OpCode :=
-  (drop_ext_store_pattern ext store).compile.run
+def drop_ext_store (ext store : Riscv) : Puddle.CompiledPattern OpCode :=
+  (drop_ext_store_pattern ext store).compile
 
 /-- `riscv.sw (riscv.zextw val), addr -> riscv.sw val, addr`. -/
 def drop_zextw_sw := drop_ext_store .zextw .sw
@@ -943,7 +943,7 @@ def li_zero_to_x0_pattern : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.rv64 .get_register) #[] #[x0Type])
     (fun x0Op => x0Op)
 
-def li_zero_to_x0 : RewritePattern OpCode := li_zero_to_x0_pattern.compile.run
+def li_zero_to_x0 : Puddle.CompiledPattern OpCode := li_zero_to_x0_pattern.compile
 
 /-- `riscv.<ext>` (`zextw`/`sextw`) of the hard-wired zero register `x0` is a
     no-op: `x0` reads as 0 in any source position (see `li_zero_to_x0`), and 0 is
@@ -963,7 +963,7 @@ def ext_x0_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
     pure
     (fun src => src)
 
-def ext_x0 (ext : Riscv) : RewritePattern OpCode := (ext_x0_pattern ext).compile.run
+def ext_x0 (ext : Riscv) : Puddle.CompiledPattern OpCode := (ext_x0_pattern ext).compile
 
 /-- `riscv.zextw x0 -> x0`. -/
 def zextw_x0 := ext_x0 .zextw
@@ -998,8 +998,8 @@ def ext_of_li_pattern (ext : Riscv) (redundant : RISCVImmediateProperties → Bo
     LLVM: DAGCombiner constant-folds bitwise `and`, eliminating the `zext.w`
     mask for a constant whose high 32 bits are already clear.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7507-L7519 -/
-def zextw_li_low32 : RewritePattern OpCode :=
-  (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)).compile.run
+def zextw_li_low32 : Puddle.CompiledPattern OpCode :=
+  (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)).compile
 
 /-- `riscv.sextw (riscv.li v) -> riscv.li v` when `-2^31 ≤ v < 2^31`: in that
     (signed 32-bit) range `li`'s materialized value (`BitVec.ofInt 64 v`) is
@@ -1011,9 +1011,9 @@ def zextw_li_low32 : RewritePattern OpCode :=
     LLVM: constant folding / known-bits on `sext.w` of an already-sign-extended
     32-bit constant.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
-def sextw_li_low32 : RewritePattern OpCode :=
+def sextw_li_low32 : Puddle.CompiledPattern OpCode :=
   (ext_of_li_pattern .sextw fun cst =>
-    !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)).compile.run
+    !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)).compile
 
 /-- Byte- and half-word mirrors of `zextw_li_low32`/`sextw_li_low32`: a `riscv.<ext>`
     of a `riscv.li v` is redundant when `v`'s materialized value already carries
@@ -1021,8 +1021,8 @@ def sextw_li_low32 : RewritePattern OpCode :=
     range below `2^width` (bits above `width` clear); for a sign-extension the
     *signed* range `[-2^(width-1), 2^(width-1))` (bits above `width` all equal the
     sign bit). `ext`/`width` picks the op and its bit width. -/
-def ext_li_range (ext : Riscv) (lo hi : Int) : RewritePattern OpCode :=
-  (ext_of_li_pattern ext fun cst => !decide (cst.value.toInt < lo ∨ cst.value.toInt ≥ hi)).compile.run
+def ext_li_range (ext : Riscv) (lo hi : Int) : Puddle.CompiledPattern OpCode :=
+  (ext_of_li_pattern ext fun cst => !decide (cst.value.toInt < lo ∨ cst.value.toInt ≥ hi)).compile
 
 /-- `riscv.zextb (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^8`. -/
 def zextb_li_low8 := ext_li_range .zextb 0 256
@@ -1072,11 +1072,11 @@ def funnel_shift_zero_pattern (fsh : Llvm) (keepRight : Bool) : Puddle.Pattern O
     pure
     (fun kept => kept)
 
-def funnel_shift_right_zero : RewritePattern OpCode :=
-  (funnel_shift_zero_pattern .intr__fshr true).compile.run
+def funnel_shift_right_zero : Puddle.CompiledPattern OpCode :=
+  (funnel_shift_zero_pattern .intr__fshr true).compile
 
-def funnel_shift_left_zero : RewritePattern OpCode :=
-  (funnel_shift_zero_pattern .intr__fshl false).compile.run
+def funnel_shift_left_zero : Puddle.CompiledPattern OpCode :=
+  (funnel_shift_zero_pattern .intr__fshl false).compile
 
 /-! ### funnel_shift_overshift :  fshl/fshr x, y, C → fshl/fshr x, y, (C % bw)   (C ≥ bw)
 
@@ -1109,11 +1109,11 @@ def funnel_shift_overshift_pattern (fsh : Llvm) : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.llvm fsh) #[x, y, newAmt.res[0]!] #[resultType])
     (fun op => op)
 
-def funnel_shift_overshift_l : RewritePattern OpCode :=
-  (funnel_shift_overshift_pattern .intr__fshl).compile.run
+def funnel_shift_overshift_l : Puddle.CompiledPattern OpCode :=
+  (funnel_shift_overshift_pattern .intr__fshl).compile
 
-def funnel_shift_overshift_r : RewritePattern OpCode :=
-  (funnel_shift_overshift_pattern .intr__fshr).compile.run
+def funnel_shift_overshift_r : Puddle.CompiledPattern OpCode :=
+  (funnel_shift_overshift_pattern .intr__fshr).compile
 
 /-! ### funnel_shift_or_shift_to_funnel_shift_{left,right}
 
@@ -1149,20 +1149,20 @@ def funnel_shift_or_shift_pattern (fsh shift : Llvm) (left fshFirst : Bool) :
     (fun kept => kept)
 
 /-- Tries the funnel shift as the first `or` operand, then as the second. -/
-def funnel_shift_or_shift_to_funnel_shift_left : RewritePattern OpCode :=
-  RewritePattern.GreedyRewritePattern #[
-    (funnel_shift_or_shift_pattern .intr__fshl .shl true true).compile.run,
-    (funnel_shift_or_shift_pattern .intr__fshl .shl true false).compile.run]
+def funnel_shift_or_shift_to_funnel_shift_left : Puddle.CompiledPattern OpCode :=
+  ⟨RewritePattern.GreedyRewritePattern <| #[
+    (funnel_shift_or_shift_pattern .intr__fshl .shl true true).compile,
+    (funnel_shift_or_shift_pattern .intr__fshl .shl true false).compile].map (·.run)⟩
 
 /-- Tries the funnel shift as the first `or` operand, then as the second. -/
-def funnel_shift_or_shift_to_funnel_shift_right : RewritePattern OpCode :=
-  RewritePattern.GreedyRewritePattern #[
-    (funnel_shift_or_shift_pattern .intr__fshr .lshr false true).compile.run,
-    (funnel_shift_or_shift_pattern .intr__fshr .lshr false false).compile.run]
+def funnel_shift_or_shift_to_funnel_shift_right : Puddle.CompiledPattern OpCode :=
+  ⟨RewritePattern.GreedyRewritePattern <| #[
+    (funnel_shift_or_shift_pattern .intr__fshr .lshr false true).compile,
+    (funnel_shift_or_shift_pattern .intr__fshr .lshr false false).compile].map (·.run)⟩
 
-def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
-  let patterns : Array (RewritePattern OpCode) :=
+/-- Keep the compiled patterns as closed data so their matchers and rewrite closures are
+initialized once and reused for every operation. -/
+private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
      , packh_high_bytes
@@ -1323,7 +1323,10 @@ def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds
      , funnel_shift_or_shift_to_funnel_shift_right
      ,
      ]
-  let pattern := RewritePattern.GreedyRewritePattern patterns
+
+def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  let pattern := RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))
   match RewritePattern.applyInContext pattern ctx op with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
