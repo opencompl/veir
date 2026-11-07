@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent))
+import riscv_target
 from mir_llc import emit_asm_cmd, regalloc_cmd
 from vsmith_generate import generate
 
@@ -45,16 +46,8 @@ RISCV_PASSES = "riscv"
 # PATH (Linux), otherwise inside the Lima VM RISCV_VM (macOS). It is piped in
 # over stdin, so the VM needn't see the workdir.
 MIR_TOOLS = ("llc", "clang")
-MIR_MARCH = "rv64im_zba_zbb_zbs_zbc_zbkb_zicond"
-MIR_ABI = "lp64"
-# Disable C so compressed instructions trap; A, F and D are left on.
-QEMU_CPU = "rv64,c=false,zba=true,zbb=true,zbs=true,zbc=true,zbkb=true,zicond=true"
-RISCV_VM = "rv64"
 QEMU_TIMEOUT = 30
 MIR_MISMATCH_EXIT = 99
-# Runs the ELF read from stdin; $1 is the -cpu spec, $2 the timeout in seconds.
-QEMU_RUNNER = ('f=$(mktemp) && cat >"$f" && chmod +x "$f" && '
-               'timeout "$2" qemu-riscv64 -cpu "$1" "$f"; rc=$?; rm -f "$f"; exit $rc')
 
 # _start calls main, compares a0 to the expected value, then exits via the
 # exit_group syscall with 0 (match) or MIR_MISMATCH_EXIT (mismatch).  {expected}
@@ -586,10 +579,10 @@ def resolve_qemu_runner() -> list[str] | None:
     """Command prefix that runs QEMU_RUNNER locally if qemu-riscv64 is in PATH,
     else in the Lima VM RISCV_VM; None if neither qemu-riscv64 nor limactl is."""
     if shutil.which("qemu-riscv64"):
-        return ["sh", "-c", QEMU_RUNNER, "sh"]
+        return ["sh", "-c", riscv_target.QEMU_RUNNER, "sh"]
     limactl = shutil.which("limactl")
     if limactl:
-        return [limactl, "shell", RISCV_VM, "sh", "-c", QEMU_RUNNER, "sh"]
+        return [limactl, "shell", riscv_target.RISCV_VM, "sh", "-c", riscv_target.QEMU_RUNNER, "sh"]
     return None
 
 
@@ -646,11 +639,9 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
             for f in artifacts:
                 f.unlink(missing_ok=True)
 
-    march = ["--target=riscv64-unknown-linux-gnu", f"-march={MIR_MARCH}", f"-mabi={MIR_ABI}"]
-
     # 1. veir2mir: riscv-dialect MLIR -> pre-RA MIR
     rc, out = _mir_run([str(veir2mir), str(opt)])
-    mir.write_text(out)
+    mir.write_text(riscv_target.retarget_mir(out))
     if rc != 0:
         return False, (f"veir2mir failed (exit {rc})\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
@@ -677,19 +668,19 @@ def mir_execution_check(repo: Path, opt: Path, after: str, keep: bool) -> tuple[
         normalize=(f"    slli a0, a0, {64 - width}\n    srli a0, a0, {64 - width}\n"
                    if width < 64 else "")))
     for label, src_path, obj in (("function", asm, func_o), ("driver", drv_s, drv_o)):
-        rc, out = _mir_run([tools["clang"], *march, "-c", str(src_path), "-o", str(obj)])
+        rc, out = _mir_run([tools["clang"], *riscv_target.CLANG_TARGET_FLAGS, "-c", str(src_path), "-o", str(obj)])
         if rc != 0:
             return False, (f"assembling MIR {label} failed\n"
                            f"optimized: {opt}\nmir: {mir}\n{out}")
-    rc, out = _mir_run([tools["clang"], *march, "-fuse-ld=lld", "-nostdlib", "-static",
-                        str(func_o), str(drv_o), "-o", str(elf)])
+    rc, out = _mir_run([tools["clang"], *riscv_target.CLANG_TARGET_FLAGS, "-fuse-ld=lld",
+                        "-nostdlib", "-static", str(func_o), str(drv_o), "-o", str(elf)])
     if rc != 0:
         return False, (f"linking MIR executable failed\n"
                        f"optimized: {opt}\nmir: {mir}\n{out}")
 
     # 4. execute under qemu-riscv64: exit 0 = return value agrees,
     # MIR_MISMATCH_EXIT = disagrees, 124 = timeout, anything else = crash
-    rc, out = _mir_run([*qemu, QEMU_CPU, str(QEMU_TIMEOUT)], stdin=elf)
+    rc, out = _mir_run([*qemu, riscv_target.QEMU_CPU, str(QEMU_TIMEOUT)], stdin=elf)
     if rc == 0:
         cleanup()
         return True, ""
@@ -1014,7 +1005,7 @@ def main(argv: list[str]) -> int:
     if mir_exec and (resolve_mir_tools() is None or resolve_qemu_runner() is None):
         missing = [name for name in MIR_TOOLS if shutil.which(name) is None]
         if resolve_qemu_runner() is None:
-            missing.append(f"qemu-riscv64 (or limactl with a Lima VM named {RISCV_VM})")
+            missing.append(f"qemu-riscv64 (or limactl with a Lima VM named {riscv_target.RISCV_VM})")
         raise SystemExit(
             f"--riscv MIR execution needs {', '.join(missing)} in PATH; "
             f"install them or pass --no-mir-exec"
@@ -1034,8 +1025,8 @@ def main(argv: list[str]) -> int:
     print(f"passes:  {args.passes}")
     print(f"workers: {args.workers}")
     if mir_exec:
-        where = "locally" if resolve_qemu_runner()[0] == "sh" else f"in Lima VM {RISCV_VM}"
-        print(f"mir-exec:    lower to MIR and execute under qemu-riscv64 {where} ({MIR_MARCH})")
+        where = "locally" if resolve_qemu_runner()[0] == "sh" else f"in Lima VM {riscv_target.RISCV_VM}"
+        print(f"mir-exec:    lower to MIR and execute under qemu-riscv64 {where} ({riscv_target.MARCH})")
     for interp in llvm_interps:
         print(f"{interp.name + ':':<12}{interp.bin}")
 

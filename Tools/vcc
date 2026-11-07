@@ -16,9 +16,11 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import riscv_target
 from mir_llc import emit_asm_cmd, regalloc_cmd
 
 
@@ -26,11 +28,14 @@ BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 VEIR_BACKEND_TOOLS = ("llc",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-fomit-frame-pointer"]
+BIN_DIR = REPO_ROOT / ".lake" / "build" / "bin"
+CLANG_TARGET_FLAGS = [*riscv_target.CLANG_TARGET_FLAGS, "-fomit-frame-pointer"]
 # On Linux clang finds the riscv64 cross sysroot by itself; elsewhere (macOS)
 # RISCV_SYSROOT names a copy of it.
 if "RISCV_SYSROOT" in os.environ:
     CLANG_TARGET_FLAGS.append(f"--sysroot={os.environ['RISCV_SYSROOT']}")
+# Where --veir-stats appends a line for each run of a VeIR executable.
+VEIR_STATS: Path | None = None
 
 def check_tools(tools: tuple[str, ...]) -> None:
     missing = [t for t in tools if shutil.which(t) is None]
@@ -38,16 +43,61 @@ def check_tools(tools: tuple[str, ...]) -> None:
         sys.exit(f"vcc: required tool(s) not found in PATH: {', '.join(missing)}")
 
 
-def run(cmd: list[str], *, stdin: bytes | None = None, cwd: Path | None = None, debug: bool = False) -> bytes:
+def build_veir_tools(tools: tuple[str, ...]) -> None:
+    """Bring VeIR's executables up to date, so that they can be run directly:
+    each run of Lake costs about a second of CPU time, even with nothing to do."""
+    # Lake reports build errors on stdout.
+    result = subprocess.run(["lake", "build", *tools], cwd=REPO_ROOT, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    if result.returncode != 0:
+        sys.exit(f"vcc: lake build failed:\n{result.stdout}")
+
+
+def run(cmd: list[str], *, stdin: bytes | None = None, debug: bool = False) -> bytes:
     if debug:
         print(f"+ vcc.run: {' '.join(cmd)}", file=sys.stderr)
-    result = subprocess.run(cmd, input=stdin, capture_output=True, cwd=cwd)
+    result = subprocess.run(cmd, input=stdin, capture_output=True)
     if result.returncode != 0:
         err = result.stderr.decode("utf-8", errors="replace")
         if cmd[0] == "clang" and not riscv_sysroot_found():
             err += MISSING_SYSROOT_HINT
         sys.exit(f"vcc: {cmd[0]} failed:\n{err}")
     return result.stdout
+
+
+def run_veir(cmd: list[str], *, debug: bool = False) -> bytes:
+    """Run a VeIR executable whose last argument is its input file. With --veir-stats,
+    record its name before it starts, so that a kill shows which command was running,
+    then the input's size and the resources used, even if the command fails."""
+    if debug:
+        print(f"+ vcc.run: {' '.join(cmd)}", file=sys.stderr)
+    name = " ".join([Path(cmd[0]).name, *(a for a in cmd[1:-1] if a.startswith("-p="))])
+    record_veir_stats(name)
+    start = time.perf_counter()
+    # Files rather than pipes, as draining pipes would need Popen.communicate, which
+    # reaps the command itself and so loses the resource usage that os.wait4 reports.
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
+        _, status, usage = os.wait4(proc.pid, 0)
+        proc.returncode = os.waitstatus_to_exitcode(status)
+        elapsed = time.perf_counter() - start
+        cpu = usage.ru_utime + usage.ru_stime
+        # ru_maxrss is in bytes on macOS and in KiB on Linux. On Linux it can't be
+        # less than vcc's own resident size, which the command inherits until exec.
+        peak = usage.ru_maxrss * (1 if sys.platform == "darwin" else 1024)
+        record_veir_stats(f"{os.path.getsize(cmd[-1])}\t{elapsed:.3f}\t{cpu:.3f}\t{peak}\t{name}")
+        if proc.returncode != 0:
+            stderr.seek(0)
+            err = stderr.read().decode("utf-8", errors="replace")
+            sys.exit(f"vcc: {cmd[0]} failed:\n{err}")
+        stdout.seek(0)
+        return stdout.read()
+
+
+def record_veir_stats(line: str) -> None:
+    if VEIR_STATS is not None:
+        with VEIR_STATS.open("a") as stats:
+            stats.write(f"{line}\n")
 
 
 MISSING_SYSROOT_HINT = """
@@ -89,16 +139,11 @@ def compile_to_mlir(src: Path, veir_optimize: bool, llvm_o2: bool, debug: bool =
         )
         pre = tmp / (src.stem + ".mlir")
         pre.write_bytes(mlir)
-        opt_cmd = ["lake", "exec", "veir-opt", "--allow-unregistered-dialect"]
+        opt_cmd = [str(BIN_DIR / "veir-opt"), "--allow-unregistered-dialect"]
         if veir_optimize:
             opt_cmd.append("-p=instcombine,dce,cse,dce")
         opt_cmd.append(str(pre))
-        mlir = run(
-            opt_cmd,
-            cwd=REPO_ROOT,
-            debug=debug
-        )
-        return mlir
+        return run_veir(opt_cmd, debug=debug)
 
 
 def translate_mlir_to_llvm(mlir: bytes, src_stem: str, debug: bool = False) -> bytes:
@@ -124,10 +169,11 @@ def veir_backend_to_asm(mlir: bytes, src_stem: str, debug: bool = False) -> byte
         pre = tmp / (src_stem + ".mlir")
         pre.write_bytes(mlir)
         rv = tmp / (src_stem + ".riscv.mlir")
-        rv.write_bytes(run(["lake", "exec", "veir-opt", "--allow-unregistered-dialect", "-p=riscv",
-                            str(pre)], cwd=REPO_ROOT, debug=debug))
+        rv.write_bytes(run_veir([str(BIN_DIR / "veir-opt"), "--allow-unregistered-dialect",
+                                 "-p=riscv", str(pre)], debug=debug))
         mir = tmp / (src_stem + ".mir")
-        mir.write_bytes(run(["lake", "exec", "veir2mir", str(rv)], cwd=REPO_ROOT, debug=debug))
+        mir_text = run_veir([str(BIN_DIR / "veir2mir"), str(rv)], debug=debug).decode()
+        mir.write_text(riscv_target.retarget_mir(mir_text))
         unhandled = mir.read_bytes().count(b"UNHANDLED")
         if unhandled:
             where = f"see {mir}" if debug else "rerun with --debug to keep the MIR"
@@ -240,6 +286,16 @@ def main() -> None:
     )
 
     parser.add_argument(
+        "--no-build", action="store_true",
+        help="use VeIR's executables as they are instead of running lake build first",
+    )
+    parser.add_argument(
+        "--veir-stats", type=Path, metavar="FILE",
+        help="for each run of a VeIR executable, append its name to FILE as it starts; "
+             "when it ends, append a line of its input size in bytes, wall-clock seconds, "
+             "CPU seconds, peak resident bytes, and name, separated by tabs",
+    )
+    parser.add_argument(
         "--debug", action="store_true",
         help="keep tmp files; print commands to stderr",
     )
@@ -247,12 +303,15 @@ def main() -> None:
     parser.epilog = "-O0 disables VeIR optimization; -O and other numeric -O levels run the same optimizer."
     parser.set_defaults(emit="executable", debug=False)
     args = parser.parse_args(normalize_args(sys.argv[1:]))
+    global VEIR_STATS
+    VEIR_STATS = args.veir_stats
 
     if not args.source.is_file():
         sys.exit(f"vcc: source file not found: {args.source}")
 
-    check_tools(BASE_TOOLS + VEIR_TOOLS
-                + (VEIR_BACKEND_TOOLS if not args.llvm_backend and args.emit not in ("mlir", "llvm") else ())
+    veir_backend = not args.llvm_backend and args.emit not in ("mlir", "llvm")
+    check_tools(BASE_TOOLS + (() if args.no_build else VEIR_TOOLS)
+                + (VEIR_BACKEND_TOOLS if veir_backend else ())
                 + (("ld.lld",) if args.emit == "executable" else ()))
     # Linking always needs the riscv64 C library, so fail before compiling
     # rather than after. Other outputs may not need a sysroot at all; run()
@@ -276,6 +335,9 @@ def main() -> None:
         dst = Path(args.source.stem + ".ll")
     else:
         dst = Path("a.out")
+
+    if not args.no_build:
+        build_veir_tools(("veir-opt", "veir2mir") if veir_backend else ("veir-opt",))
 
     mlir = compile_to_mlir(args.source, optimize_from_levels(args.opt_levels), args.llvm_o2, debug=args.debug)
     if args.emit == "mlir":
