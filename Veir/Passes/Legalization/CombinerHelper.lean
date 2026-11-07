@@ -1038,8 +1038,6 @@ def select_of_constants_pattern
 def GMIRConstantProperties.isOffsetOf (t f : GMIRConstantProperties) (delta : Int) : Bool :=
   t.bits == BitVec.ofInt _ (f.value.value + delta)
 
-def GMIRConstantProperties.isZero (c : GMIRConstantProperties) : Bool := c.bits == 0
-
 def GMIRConstantProperties.isOne (c : GMIRConstantProperties) : Bool := c.bits == 1
 
 def GMIRConstantProperties.isAllOnes (c : GMIRConstantProperties) : Bool := c.bits == -1
