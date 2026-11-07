@@ -47,19 +47,19 @@ private def transfer
     (irCtx : WfIRContext OpCode) : Array TestDomain :=
   Array.replicate (op.getNumResults! irCtx.raw) ⊥
 
-/-- Sparse test analysis configured with the type-sensitive entry-state hook. -/
+/-- Sparse test analysis configured with the type sensitive entry state hook. -/
 private def customEntryStateAnalysis : DataFlowAnalysis :=
   SparseForwardDataFlowAnalysis.new .test .test transfer (entryState := entryState)
 
-/-- Sparse test analysis using the framework's default top entry state. -/
-private def defaultEntryStateAnalysis : DataFlowAnalysis :=
-  SparseForwardDataFlowAnalysis.new .test .test transfer
+/-- Sparse test analysis configured with a constant top entry state. -/
+private def topEntryStateAnalysis : DataFlowAnalysis :=
+  SparseForwardDataFlowAnalysis.new .test .test transfer (entryState := fun _ _ => ⊤)
 
 /-- Read the test lattice element attached to an SSA value. -/
 private def getElement (value : ValuePtr) (dfCtx : DataFlowContext) : TestDomain :=
   SparseFact.getElement .test value dfCtx
 
-/-- Compare one named SSA value's state with the expected test-domain value. -/
+/-- Compare one named SSA value's state with the expected test domain value. -/
 private def checkValue
     (name : String)
     (expected : TestDomain)
@@ -85,10 +85,10 @@ private def checkNoFact
   | some _ => return #[s!"{name}: expected no stored fact for bottom"]
 
 /--
-Input shared by the custom and default entry-state checks. It exercises both places
-where entry-state facts participate in sparse propagation:
+Input shared by the type sensitive and constant top entry state checks. It exercises both places
+where entry state facts participate in sparse propagation:
 
-* `entryArg` and `forwardedArg` are entry-block arguments whose states cannot yet
+* `entryArg` and `forwardedArg` are entry block arguments whose states cannot yet
   come from call sites.
 * `fallbackArg` verifies that the state of `forwardedArg` propagates through a
   valid `cf.br` to a non-entry block argument.
@@ -104,7 +104,7 @@ private def testInput := r#""builtin.module"() ({
   }) : () -> ()
 }) : () -> ()"#
 
-/-- Verify that an analysis can override the default with a type-sensitive entry state. -/
+/-- Verify that an analysis can use a type sensitive entry state. -/
 private def testCustomEntryState : String :=
   runWithAnalyses testInput #[customEntryStateAnalysis] fun top dfCtx ctx =>
     match recoverNames top ctx testInput with
@@ -114,9 +114,9 @@ private def testCustomEntryState : String :=
         checkValue "fallbackArg" (.value 16) recovered dfCtx ++
         checkNoFact "implicitBottom" recovered dfCtx
 
-/-- Verify that omitting the entry-state hook conservatively assigns top. -/
-private def testDefaultEntryState : String :=
-  runWithAnalyses testInput #[defaultEntryStateAnalysis] fun top dfCtx ctx =>
+/-- Verify that a constant top entry state conservatively assigns top. -/
+private def testTopEntryState : String :=
+  runWithAnalyses testInput #[topEntryStateAnalysis] fun top dfCtx ctx =>
     match recoverNames top ctx testInput with
     | .error err => #[err]
     | .ok recovered =>
@@ -134,6 +134,6 @@ info: "ok"
 info: "ok"
 -/
 #guard_msgs in
-#eval! testDefaultEntryState
+#eval! testTopEntryState
 
 end EntryStateTest
