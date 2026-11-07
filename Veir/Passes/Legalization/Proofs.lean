@@ -120,6 +120,14 @@ private theorem trunc_ext_self {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : B
   grind
 
 /--
+Prove the correctness of widening a block argument (`widenBlockArguments`): whatever high bits the
+`g_anyext` on each branch chooses, the `g_trunc` at the start of the block recovers the value.
+-/
+theorem block_argument_widening (n m : Nat) (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
+    x ⊒ LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h :=
+  trunc_ext_self h x ext
+
+/--
 Prove the correctness of widening the values of `g_select` with `g_anyext`, at every width and
 whatever the high bits of the extended values are: the selected value is truncated back.
 -/
