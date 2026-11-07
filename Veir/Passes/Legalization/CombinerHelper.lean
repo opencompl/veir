@@ -1034,14 +1034,6 @@ def select_of_constants_pattern
     rewrite
     (fun op => op)
 
-/-- `T = F + delta`, at the width of the constants. -/
-def GMIRConstantProperties.isOffsetOf (t f : GMIRConstantProperties) (delta : Int) : Bool :=
-  t.bits == BitVec.ofInt _ (f.value.value + delta)
-
-def GMIRConstantProperties.isOne (c : GMIRConstantProperties) : Bool := c.bits == 1
-
-def GMIRConstantProperties.isAllOnes (c : GMIRConstantProperties) : Bool := c.bits == -1
-
 /-- `k` when the constant is `2^k`, read as an unsigned integer. -/
 def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_constant))) :
     CreateProg.Builder CreatedOpHandle :=
