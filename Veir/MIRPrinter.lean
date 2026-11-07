@@ -18,7 +18,7 @@ public section
   output of the `isel-*` pipeline) and emits textual MIR with virtual
   registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
-  The target is riscv64 Linux with the lp64d ABI on rv64gc, plus the extensions
+  The target is riscv64 Linux with the lp64d ABI on rv64g (no C), plus the extensions
   used by instruction selection. Keep it in sync with `Tools/riscv_target.py`.
 
   Anything that is not fully lowered is rejected with an error rather than
@@ -1134,7 +1134,7 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
     IO.println "  }"
   for name in externs do
     IO.println s!"  declare void {llvmSymbol name}()"
-  IO.println "  attributes #0 = { \"target-features\"=\"+m,+a,+f,+d,+c,+zicsr,+zifencei,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
+  IO.println "  attributes #0 = { \"target-features\"=\"+m,+a,+f,+d,+zicsr,+zifencei,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond,-c\" }"
   IO.println "  !llvm.module.flags = !{!0}"
   IO.println "  !0 = !{i32 1, !\"target-abi\", !\"lp64d\"}"
   IO.println "..."

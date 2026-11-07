@@ -28,7 +28,7 @@
 // CHECK-NOT:      declare void @leaf
 // CHECK:          declare void @external()
 // CHECK-NOT:      declare
-// CHECK:          attributes #0 = { "target-features"="+m,+a,+f,+d,+c,+zicsr,+zifencei,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond" }
+// CHECK:          attributes #0 = { "target-features"="+m,+a,+f,+d,+zicsr,+zifencei,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond,-c" }
 // CHECK-NEXT:     !llvm.module.flags = !{!0}
 // CHECK-NEXT:     !0 = !{i32 1, !"target-abi", !"lp64d"}
 
