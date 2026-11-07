@@ -75,7 +75,14 @@ structure CallOpInterface (Properties : Type) where
 structure SuccessorOperands where
   /-- The SSA values forwarded to the successor. -/
   forwardedOperands : Array ValuePtr
+  /-- The index of the first forwarded operand in the operands of the branch operation. -/
+  beginOperandIndex : Nat := 0
 deriving Inhabited, Repr, DecidableEq
+
+/-- The index of the branch operand forwarded to block argument `blockArgumentIndex`. -/
+def SuccessorOperands.getOperandIndex (operands : SuccessorOperands) (blockArgumentIndex : Nat) :
+    Nat :=
+  operands.beginOperandIndex + blockArgumentIndex
 
 instance : GetElem SuccessorOperands Nat ValuePtr
     (fun operands blockArgumentIndex => blockArgumentIndex < operands.forwardedOperands.size) where
