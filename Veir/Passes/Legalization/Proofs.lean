@@ -93,6 +93,35 @@ theorem trunc_trunc (w n m : Nat) (hn : n < m) (hm : m < w) (x : LLVM.Int w)
   veir_bv_normalize
   simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
 
+/--
+Prove `combineExtOfTruncOfConstant true` at every width: truncating a constant that fits in the
+narrow signed range and sign-extending it back refines to the original constant, whatever the
+`nsw` and `nuw` flags of the truncation.
+-/
+theorem sext_trunc_constant {w n : Nat} (h : n < w) (hn : 0 < n)
+    (c : BitVec w) (hlo : -2 ^ (n - 1) ≤ c.toInt) (hhi : c.toInt < 2 ^ (n - 1))
+    (nsw nuw : Bool) :
+    LLVM.Int.sext (LLVM.Int.trunc (.val c) n nsw nuw h) w h ⊒ .val c := by
+  veir_bv_normalize
+  intros
+  apply BitVec.eq_of_toInt_eq
+  rw [BitVec.toInt_signExtend_of_le (Nat.le_of_lt h),
+    ← BitVec.signExtend_eq_setWidth_of_le c (Nat.le_of_lt h)]
+  exact BitVec.toInt_ofInt_eq_self hn hlo hhi
+
+/--
+Prove `combineExtOfTruncOfConstant false` at every width: truncating a constant that fits in the
+narrow unsigned range and zero-extending it back refines to the original constant, whatever the
+truncation flags and the extension's `nneg` flag.
+-/
+theorem zext_trunc_constant {w n : Nat} (h : n < w)
+    (c : BitVec w) (hfit : c.toNat < 2 ^ n) (nsw nuw nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.trunc (.val c) n nsw nuw h) w nneg h ⊒ .val c := by
+  veir_bv_normalize
+  intros
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_setWidth_of_le (Nat.le_of_lt h), Nat.mod_eq_of_lt hfit]
+
 /-- Bit `i` of the mask `2 ^ n - 1` is set exactly when `i < n`. -/
 private theorem getElem_ofInt_two_pow_sub_one {m n i : Nat} (hi : i < m) :
     (BitVec.ofInt m (2 ^ n - 1))[i] = decide (i < n) := by
@@ -175,6 +204,41 @@ theorem and_icmp_one (m : Nat) (h : 1 < m) (c : LLVM.Int 1) :
   veir_bv_normalize
   simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_and]
   grind
+
+/--
+A widened `g_icmp` result is poison, zero or one: apply this to `LLVM.Int.icmp x y pred`.
+These are the nonconstant arms matched by `matchBoolArm`; the constant arms are zero or one
+directly.
+-/
+theorem zext_i1_eq_poison_or_zero_or_one {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
+    LLVM.Int.zext c w false h = .poison ∨
+    LLVM.Int.zext c w false h = .val 0#w ∨
+    LLVM.Int.zext c w false h = .val 1#w := by
+  cases c with
+  | poison => simp [LLVM.Int.zext, Id.run]
+  | val c =>
+    rcases BitVec.eq_zero_or_eq_one c with rfl | rfl <;>
+      simp [LLVM.Int.zext, Id.run,
+        BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1)]
+
+/--
+Prove all four `redundant_and_select_pattern` arm combinations at every width, for any mask with
+its low bit set. The hypotheses admit poison from a comparison, including on an unselected arm;
+`zext_i1_eq_poison_or_zero_or_one` supplies them for widened comparisons.
+-/
+theorem and_select_bool {w wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w)
+    (mask : BitVec w) (hmask : mask.toNat % 2 = 1)
+    (ht : t = .poison ∨ t = .val 0#w ∨ t = .val 1#w)
+    (hf : f = .poison ∨ f = .val 0#w ∨ f = .val 1#w) :
+    LLVM.Int.and (GMIR.selectNonzero c t f) (.val mask) = GMIR.selectNonzero c t f := by
+  have hone : 1#w &&& mask = 1#w := by
+    apply BitVec.eq_of_toNat_eq
+    cases w <;> simp_all
+  cases c with
+  | poison => simp [GMIR.selectNonzero, LLVM.Int.and, Id.run]
+  | val c =>
+    rcases ht with rfl | rfl | rfl <;> rcases hf with rfl | rfl | rfl <;>
+      by_cases hc : c = 0#wc <;> simp [GMIR.selectNonzero, LLVM.Int.and, Id.run, hone, hc]
 
 /-! ### Power-of-two division combines
 
