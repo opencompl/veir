@@ -106,7 +106,9 @@ private def p0 : LLT := .pointer 0
 public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
-  -- LLVM also makes `s32` legal, for `f32` phis. Here, narrower integers are widened to `s64`.
+  -- LLVM also makes `s32` legal, to place 32-bit floats in 32-bit float registers. An integer
+  -- `s32` is later placed in a 64-bit GPR by instruction selection, which leaves the upper bits
+  -- unspecified as `g_anyext` does.
   blockArgumentRules := [
     .legalFor [p0, s64],
     .clampScalar (.type 0) 64 64,
