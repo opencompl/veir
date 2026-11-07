@@ -240,6 +240,8 @@ end LegalizeRule
 structure LegalizerInfo where
   /-- The rules of each opcode, in the order they are tried. -/
   rules : (opcode : GMIR) → List (LegalizeRule (GMIR.propertiesOf opcode))
+  /-- The rules for block arguments, which take the place of LLVM's `G_PHI`. -/
+  blockArgumentRules : List (LegalizeRule Unit) := []
   /-- The pattern that legalizes an operation whose action is `custom`, if any. -/
   legalizeCustom : (opcode : GMIR) → Option (Puddle.Pattern OpCode) := fun _ => none
 
@@ -247,6 +249,11 @@ structure LegalizerInfo where
 def LegalizerInfo.getActionFor (info : LegalizerInfo) (opcode : GMIR)
     (query : LegalityQuery (GMIR.propertiesOf opcode)) : LegalizeAction :=
   (info.rules opcode).findSome? (· query) |>.getD .unsupported
+
+/-- The action of the first block-argument rule that applies to `query`. -/
+def LegalizerInfo.getBlockArgumentAction (info : LegalizerInfo) (query : LegalityQuery Unit) :
+    LegalizeAction :=
+  info.blockArgumentRules.findSome? (· query) |>.getD .unsupported
 
 /--
 Determine what action should be taken to legalize `op`, using the first rule of `opcode` that

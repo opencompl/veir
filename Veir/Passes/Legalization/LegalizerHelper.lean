@@ -4,6 +4,7 @@ public import Veir.PatternRewriter.Puddle.Definitions
 public import Veir.PatternRewriter.Basic
 public import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
+import Veir.Interfaces.ControlFlowInterfaces
 
 /-!
 # Legalization Actions
@@ -664,6 +665,48 @@ def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option 
   | .g_add, .type 0, width => narrowAddSub true width
   | .g_sub, .type 0, width => narrowAddSub false width
   | _, _, _ => none
+
+/-! ## Block arguments
+
+  The block arguments are the phis of our gMIR MLIR-dialect, so they are legalized with the target's
+  block-argument rules. A Puddle pattern cannot match a block argument and its predecessors,
+  so these are local rewrites. -/
+
+/-- The uses of `block` as a successor, one for each edge into it. -/
+private def incomingEdges (ctx : IRContext OpCode) (block : BlockPtr) : List BlockOperandPtr :=
+  Id.run do
+    let mut edges := []
+    let mut use? := block.getFirstUse! ctx
+    while let some use := use? do
+      edges := use :: edges
+      use? := use.getNextUse! ctx
+    return edges.reverse
+
+/--
+Widens argument `i` of `block` to `width` bits for each `(i, width)` in `args`, as LLVM does for
+`G_PHI`: each branch to `block` passes a `g_anyext`, and a `g_trunc` restores the original type.
+Returns `none` if a predecessor is not a branch.
+-/
+def widenBlockArguments (block : BlockPtr) (args : List (Nat × Nat))
+    (ctx : WfIRContext OpCode) : Option (WfIRContext OpCode) := do
+  let edges ← (incomingEdges ctx.raw block).mapM fun edge =>
+    return (edge.op, ← BranchOpInterface.getSuccessorOperands? edge.op edge.index ctx.raw)
+  -- The `g_trunc`s go first: a branch from the block back to itself passes a `g_anyext` of one.
+  let start := InsertPoint.atStart! block ctx.raw
+  let ctx ← args.foldlM (init := ctx) fun ctx (i, width) => do
+    let arg : BlockArgumentPtr := { block := block, index := i }
+    let type := (ValuePtr.blockArgument arg).getType! ctx.raw
+    let ctx := WfRewriter.setType! ctx arg (IntegerType.signless width)
+    let (ctx, trunc) ← WfRewriter.createOp! ctx GMIR.g_trunc #[type] #[] #[] #[]
+      (({ nsw := false, nuw := false } : NswNuwProperties) : propertiesOf GMIR.g_trunc) start
+    let ctx := WfRewriter.replaceValue! ctx arg (trunc.getResult 0)
+    return WfRewriter.pushOperand! ctx trunc arg
+  edges.foldlM (init := ctx) fun ctx (branch, operands) => args.foldlM (init := ctx)
+    fun ctx (i, width) => do
+      let operand : OpOperandPtr := { op := branch, index := operands.getOperandIndex i }
+      let (ctx, ext) ← WfRewriter.createOp! ctx GMIR.g_anyext #[IntegerType.signless width]
+        #[branch.getOperand! ctx.raw operand.index] #[] #[] () (InsertPoint.before branch)
+      return WfRewriter.replaceOperand! ctx operand (ext.getResult 0)
 
 end
 
