@@ -34,7 +34,9 @@
 // SRC:   Program output: #[0x00000008#32, 0x00000008#32, 0x00000008#32, 0x03#8, 0x02#8, 0x08#8, 0x08#8, 0x00000008#32, 0x00000008#32, 0x03#8, 0x02#8, 0x00e1f000#32, 0xf012#16, 0x00870f00#32, 0x28#8]
 // CHECK:    "riscv.clzw"
 // CHECK:    "riscv.ctzw"
-// CHECK:    "riscv.cpopw"
+// The `g_zext` of the constant operand folds away (see `combineExtOfTruncOfConstant`), so the
+// `ctpop` may select the 64-bit `cpop`, which counts the same bits.
+// CHECK:    "riscv.cpop
 // CHECK:    "riscv.clzw"
 // CHECK:    "riscv.ctzw"
 // CHECK:    "riscv.clzw"
