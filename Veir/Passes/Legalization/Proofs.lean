@@ -246,43 +246,13 @@ private theorem selectNonzero_refines {w : Nat} (c : LLVM.Int 1) (x y : LLVM.Int
 /-- The `i1` negation that `createNot` builds. -/
 def notI1 (c : LLVM.Int 1) : LLVM.Int 1 := LLVM.Int.xor c (LLVM.Int.constant 1 (-1))
 
-private theorem notI1_poison : notI1 .poison = .poison := by
-  simp [notI1, LLVM.Int.xor, Id.run]
-
-private theorem notI1_one : notI1 (.val 1#1) = .val 0#1 := by
-  simp [notI1, LLVM.Int.xor, LLVM.Int.constant, Id.run]
-
-private theorem notI1_zero : notI1 (.val 0#1) = .val 1#1 := by
-  simp [notI1, LLVM.Int.xor, LLVM.Int.constant, Id.run]
-
-private theorem setWidth_one {w : Nat} : BitVec.setWidth w 1#1 = 1#w := by
-  apply BitVec.eq_of_toNat_eq
-  simp
-
-private theorem ofInt_neg_one {w : Nat} : BitVec.ofInt w (-1) = BitVec.allOnes w := by
-  rw [BitVec.ofInt_neg, ← BitVec.neg_one_eq_allOnes]
-  simp
-
-private theorem signExtend_one {w : Nat} : BitVec.signExtend w 1#1 = BitVec.allOnes w := by
-  apply BitVec.eq_of_getElem_eq
-  intro i hi
-  simp [BitVec.getElem_signExtend, BitVec.msb]
-
-private theorem signExtend_zero {w : Nat} : BitVec.signExtend w 0#1 = 0#w := by
-  apply BitVec.eq_of_getElem_eq
-  intro i hi
-  simp [BitVec.getElem_signExtend, BitVec.msb]
-
-private theorem mod_two_pow_of_lt {k w : Nat} (hk : k < w) : k % 2 ^ w = k :=
-  Nat.mod_eq_of_lt (Nat.lt_trans hk Nat.lt_two_pow_self)
-
 /-- Closes one case of a `tryFoldSelectOfConstants` proof, where the condition is known. -/
 local macro "select_const_tac" : tactic =>
-  `(tactic| (simp_all [notI1_poison, notI1_one, notI1_zero, setWidth_one, signExtend_one,
-      signExtend_zero, ofInt_neg_one, mod_two_pow_of_lt, BitVec.twoPow_eq,
-      BitVec.add_comm, BitVec.sub_eq_add_neg, BitVec.neg_one_eq_allOnes,
-      LLVM.Int.zext, LLVM.Int.sext, LLVM.Int.add, LLVM.Int.shl, LLVM.Int.or, LLVM.Int.constant,
-      Id.run, isRefinedBy]))
+  `(tactic| (simp_all [notI1, Nat.not_le_of_gt, Nat.mod_eq_of_lt,
+      BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt, BitVec.signExtend, BitVec.ofInt_neg,
+      BitVec.twoPow_eq, BitVec.add_comm, BitVec.sub_eq_add_neg, BitVec.neg_one_eq_allOnes,
+      LLVM.Int.xor, LLVM.Int.zext, LLVM.Int.sext, LLVM.Int.add, LLVM.Int.shl, LLVM.Int.or,
+      LLVM.Int.constant, Id.run, isRefinedBy]))
 
 /-- Prove the correctness of combining `c ? 1 : 0` to `zext c`. -/
 theorem select_one_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
@@ -324,15 +294,15 @@ theorem select_pred {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
 theorem select_pow2_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
     GMIR.selectNonzero c (LLVM.Int.val (BitVec.twoPow w k)) (LLVM.Int.constant w 0) ⊒
       LLVM.Int.shl (LLVM.Int.zext c w false h) (LLVM.Int.constant w k) := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac <;>
-    simp [show ¬ w ≤ k by omega]
+  have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
 
 /-- Prove the correctness of combining `c ? 0 : 2^k` to `shl (zext (not c)), k`. -/
 theorem select_zero_pow2 {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
     GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.val (BitVec.twoPow w k)) ⊒
       LLVM.Int.shl (LLVM.Int.zext (notI1 c) w false h) (LLVM.Int.constant w k) := by
-  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac <;>
-    simp [show ¬ w ≤ k by omega]
+  have hkpow := Nat.lt_trans hk Nat.lt_two_pow_self
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
 
 /-- Prove the correctness of combining `c ? -1 : F` to `or (sext c), F`. -/
 theorem select_allOnes_const {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
@@ -369,16 +339,14 @@ theorem select_into_binop_swapped {w : Nat} (f g : LLVM.Int w → LLVM.Int w →
 
 /-- A shift by `0` is in range at any positive width. -/
 private theorem zero_shift_in_range {w : Nat} (hw : 0 < w) :
-    ¬ (w : BitVec w) ≤ BitVec.ofInt w 0 := by
-  simp [BitVec.natCast_eq_ofNat, BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self]
-  omega
+    ¬ (w : BitVec w) ≤ BitVec.ofInt w 0 :=
+  BitVec.not_le.mpr (BitVec.lt_ofInt_natCast_ofNat_of_lt hw)
 
 /-- Closes a side condition of `select_into_binop`. -/
 local macro "select_binop_tac" : tactic =>
   `(tactic| (cases ‹LLVM.Int _› <;> try cases ‹LLVM.Int _›) <;>
-    simp only [LLVM.Int.shl, LLVM.Int.lshr, LLVM.Int.ashr, LLVM.Int.sub, LLVM.Int.add, LLVM.Int.or,
-      LLVM.Int.xor, LLVM.Int.constant, Id.run, pure, isRefinedBy] <;>
-    (repeat' split) <;> grind)
+    grind [LLVM.Int.shl, LLVM.Int.lshr, LLVM.Int.ashr, LLVM.Int.sub, LLVM.Int.add, LLVM.Int.or,
+      LLVM.Int.xor, LLVM.Int.constant, Id.run, pure, isRefinedBy])
 
 /-- Closes a side condition of `select_into_binop` for a shift, given `0 < w`. -/
 local macro "select_shift_tac" hw:term : tactic =>
