@@ -17,7 +17,7 @@ namespace Veir
 
 public section
 
-variable {opcode : GMIR}
+variable {opcode : GMIR} {Properties : Type}
 
 /-!
 ## Legality queries
@@ -50,14 +50,15 @@ def LLT.ofType? (type : TypeAttr) : Option LLT :=
   | _ => none
 
 /--
-`LegalityQuery` bundles all the information that's needed to decide whether an `opcode` operation
-is legal or not. LLVM's query has the immediate operands, which VeIR keeps in the properties.
+`LegalityQuery` bundles all the information that's needed to decide whether an operation with
+`Properties` is legal or not. LLVM's query has the immediate operands, which VeIR keeps in the
+properties.
 -/
-structure LegalityQuery (opcode : GMIR) where
+structure LegalityQuery (Properties : Type) where
   /-- The type of each type group of the operation. -/
   types : Array LLT
   /-- The properties of the operation. -/
-  properties : GMIR.propertiesOf opcode
+  properties : Properties
 
 /--
 The type of each type group of `op`, indexed by the type group.
@@ -72,47 +73,47 @@ def GMIR.getTypeGroupTypes! (opCode : GMIR) (op : OperationPtr) (ctx : IRContext
   return types
 
 /--
-The legality query of an `opcode` operation whose type groups have `types` and whose properties are
+The legality query of an operation whose type groups have `types` and whose properties are
 `properties`. Returns `none` if one of the types has no low-level type.
 TODO: Support the byte type.
 -/
-def LegalityQuery.ofTypes? (types : Array TypeAttr) (properties : GMIR.propertiesOf opcode) :
-    Option (LegalityQuery opcode) := do
+def LegalityQuery.ofTypes? (types : Array TypeAttr) (properties : Properties) :
+    Option (LegalityQuery Properties) := do
   return { types := ← types.mapM LLT.ofType?, properties }
 
 /-- The legality query of `op`. Returns `none` if one of its types has no low-level type. -/
 def LegalityQuery.of? (ctx : IRContext OpCode) (op : OperationPtr) (opcode : GMIR) :
-    Option (LegalityQuery opcode) :=
+    Option (LegalityQuery (GMIR.propertiesOf opcode)) :=
   LegalityQuery.ofTypes? (opcode.getTypeGroupTypes! op ctx) (op.getProperties! ctx opcode)
 
 /-- The common LLT of type group `typeIdx`. -/
-def LegalityQuery.getLLT! (query : LegalityQuery opcode) (typeIdx : TypeGroup) : LLT :=
+def LegalityQuery.getLLT! (query : LegalityQuery Properties) (typeIdx : TypeGroup) : LLT :=
   let .type idx := typeIdx
   query.types[idx]!
 
 /-- A condition on a legality query. -/
-abbrev LegalityPredicate (opcode : GMIR) := LegalityQuery opcode → Bool
+abbrev LegalityPredicate (Properties : Type) := LegalityQuery Properties → Bool
 
 namespace LegalityPredicate
 
 /-- True if type group `typeIdx` is `type`. -/
-def typeIs (typeIdx : TypeGroup) (type : LLT) : LegalityPredicate opcode :=
+def typeIs (typeIdx : TypeGroup) (type : LLT) : LegalityPredicate Properties :=
   fun query => query.getLLT! typeIdx == type
 
 /-- True if type group `typeIdx` is a scalar narrower than `width` bits. -/
-def scalarNarrowerThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate opcode :=
+def scalarNarrowerThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate Properties :=
   fun query => match query.getLLT! typeIdx with
     | .scalar width' => width' < width
     | .pointer _ => false
 
 /-- True if type group `typeIdx` is a scalar wider than `width` bits. -/
-def scalarWiderThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate opcode :=
+def scalarWiderThan (typeIdx : TypeGroup) (width : Nat) : LegalityPredicate Properties :=
   fun query => match query.getLLT! typeIdx with
     | .scalar width' => width < width'
     | .pointer _ => false
 
 /-- True if all of `predicates` hold. -/
-def all (predicates : List (LegalityPredicate opcode)) : LegalityPredicate opcode :=
+def all (predicates : List (LegalityPredicate Properties)) : LegalityPredicate Properties :=
   fun query => predicates.all (· query)
 
 end LegalityPredicate
@@ -146,62 +147,62 @@ inductive LegalizeAction where
   | unsupported
 
 /-- A single legalization rule. Returns the action to take, or `none` if the rule does not apply. -/
-abbrev LegalizeRule (opcode : GMIR) := LegalityQuery opcode → Option LegalizeAction
+abbrev LegalizeRule (Properties : Type) := LegalityQuery Properties → Option LegalizeAction
 
 namespace LegalizeRule
 
 /-- The operation is legal if `predicate` is true. -/
-def legalIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
+def legalIf (predicate : LegalityPredicate Properties) : LegalizeRule Properties :=
   fun query => if predicate query then some .legal else none
 
 /-- The operation is legal when type group 0 is any type in `types`. -/
-def legalFor (types : List LLT) : LegalizeRule opcode :=
+def legalFor (types : List LLT) : LegalizeRule Properties :=
   legalIf fun query => types.contains (query.getLLT! (.type 0))
 
 /-- The operation is legal when type groups 0 and 1 are any type pair in `pairs`. -/
-def legalForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule opcode :=
+def legalForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule Properties :=
   legalIf fun query => pairs.contains (query.getLLT! (.type 0), query.getLLT! (.type 1))
 
 /-- The operation is always legal. -/
-def alwaysLegal : LegalizeRule opcode :=
+def alwaysLegal : LegalizeRule Properties :=
   legalIf fun _ => true
 
 /-- Lower the operation if `predicate` is true. -/
-def lowerIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
+def lowerIf (predicate : LegalityPredicate Properties) : LegalizeRule Properties :=
   fun query => if predicate query then some .lower else none
 
 /-- Always lower the operation. -/
-def lower : LegalizeRule opcode :=
+def lower : LegalizeRule Properties :=
   lowerIf fun _ => true
 
 /-- Use the target's `legalizeCustom` pattern if `predicate` is true. -/
-def customIf (predicate : LegalityPredicate opcode) : LegalizeRule opcode :=
+def customIf (predicate : LegalityPredicate Properties) : LegalizeRule Properties :=
   fun query => if predicate query then some .custom else none
 
 /-- Use the target's `legalizeCustom` pattern when type group 0 is any type in `types`. -/
-def customFor (types : List LLT) : LegalizeRule opcode :=
+def customFor (types : List LLT) : LegalizeRule Properties :=
   customIf fun query => types.contains (query.getLLT! (.type 0))
 
 /--
 Use the target's `legalizeCustom` pattern when type groups 0 and 1 are any type pair in `pairs`.
 -/
-def customForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule opcode :=
+def customForTypePairs (pairs : List (LLT × LLT)) : LegalizeRule Properties :=
   customIf fun query => pairs.contains (query.getLLT! (.type 0), query.getLLT! (.type 1))
 
 /-- Widen the scalar to the width selected by `mutation` if `predicate` is true. -/
-def widenScalarIf (predicate : LegalityPredicate opcode)
-    (mutation : LegalityQuery opcode → TypeGroup × Nat) : LegalizeRule opcode :=
+def widenScalarIf (predicate : LegalityPredicate Properties)
+    (mutation : LegalityQuery Properties → TypeGroup × Nat) : LegalizeRule Properties :=
   fun query => if predicate query then
     let (typeIdx, width) := mutation query
     some (.widenScalar typeIdx width)
   else none
 
 /-- Ensure the scalar of type group `typeIdx` is at least `width` bits wide. -/
-def minScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule opcode :=
+def minScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule Properties :=
   widenScalarIf (.scalarNarrowerThan typeIdx width) fun _ => (typeIdx, width)
 
 /-- Widen the scalar of type group `typeIdx` to the next power of two, if it is not one. -/
-def widenScalarToNextPow2 (typeIdx : TypeGroup) : LegalizeRule opcode :=
+def widenScalarToNextPow2 (typeIdx : TypeGroup) : LegalizeRule Properties :=
   fun query => match query.getLLT! typeIdx with
     | .scalar width =>
       if width.nextPowerOfTwo = width then none
@@ -212,25 +213,25 @@ def widenScalarToNextPow2 (typeIdx : TypeGroup) : LegalizeRule opcode :=
 Ensure the scalar of type group `typeIdx` is as wide as the scalar of type group `sameAs`.
 Unlike LLVM's `scalarSameSizeAs`, this only widens.
 -/
-def scalarSameSizeAs (typeIdx sameAs : TypeGroup) : LegalizeRule opcode :=
+def scalarSameSizeAs (typeIdx sameAs : TypeGroup) : LegalizeRule Properties :=
   fun query => match query.getLLT! sameAs with
     | .scalar width => minScalar typeIdx width query
     | .pointer _ => none
 
 /-- Narrow the scalar to the width selected by `mutation` if `predicate` is true. -/
-def narrowScalarIf (predicate : LegalityPredicate opcode)
-    (mutation : LegalityQuery opcode → TypeGroup × Nat) : LegalizeRule opcode :=
+def narrowScalarIf (predicate : LegalityPredicate Properties)
+    (mutation : LegalityQuery Properties → TypeGroup × Nat) : LegalizeRule Properties :=
   fun query => if predicate query then
     let (typeIdx, width) := mutation query
     some (.narrowScalar typeIdx width)
   else none
 
 /-- Ensure the scalar of type group `typeIdx` is at most `width` bits wide. -/
-def maxScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule opcode :=
+def maxScalar (typeIdx : TypeGroup) (width : Nat) : LegalizeRule Properties :=
   narrowScalarIf (.scalarWiderThan typeIdx width) fun _ => (typeIdx, width)
 
 /-- Ensure the scalar of type group `typeIdx` is between `minWidth` and `maxWidth` bits wide. -/
-def clampScalar (typeIdx : TypeGroup) (minWidth maxWidth : Nat) : LegalizeRule opcode :=
+def clampScalar (typeIdx : TypeGroup) (minWidth maxWidth : Nat) : LegalizeRule Properties :=
   fun query => (minScalar typeIdx minWidth query).or (maxScalar typeIdx maxWidth query)
 
 end LegalizeRule
@@ -238,13 +239,13 @@ end LegalizeRule
 /-- The legalization rules of a target. -/
 structure LegalizerInfo where
   /-- The rules of each opcode, in the order they are tried. -/
-  rules : (opcode : GMIR) → List (LegalizeRule opcode)
+  rules : (opcode : GMIR) → List (LegalizeRule (GMIR.propertiesOf opcode))
   /-- The pattern that legalizes an operation whose action is `custom`, if any. -/
   legalizeCustom : (opcode : GMIR) → Option (Puddle.Pattern OpCode) := fun _ => none
 
 /-- The action of the first rule of `opcode` that applies to `query`. -/
-def LegalizerInfo.getActionFor (info : LegalizerInfo) (query : LegalityQuery opcode) :
-    LegalizeAction :=
+def LegalizerInfo.getActionFor (info : LegalizerInfo) (opcode : GMIR)
+    (query : LegalityQuery (GMIR.propertiesOf opcode)) : LegalizeAction :=
   (info.rules opcode).findSome? (· query) |>.getD .unsupported
 
 /--
@@ -254,7 +255,7 @@ applies.
 def LegalizerInfo.getAction (info : LegalizerInfo) (ctx : IRContext OpCode) (op : OperationPtr)
     (opcode : GMIR) : LegalizeAction :=
   match LegalityQuery.of? ctx op opcode with
-  | some query => info.getActionFor query
+  | some query => info.getActionFor opcode query
   | none => .unsupported
 
 /--
@@ -265,7 +266,7 @@ def LegalizerInfo.isLegal (info : LegalizerInfo) (opcode : GMIR) (types : Array 
     (properties : GMIR.propertiesOf opcode) : Bool :=
   match LegalityQuery.ofTypes? types properties with
   | none => false
-  | some query => info.getActionFor query matches .legal
+  | some query => info.getActionFor opcode query matches .legal
 
 end
 
