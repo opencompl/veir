@@ -96,6 +96,50 @@ def redundant_and_pattern : Pattern OpCode :=
 
 def redundant_and : CompiledPattern OpCode := redundant_and_pattern.compile
 
+/-- An arm of a `g_select` that yields 0 or 1: a `g_icmp`, or a `g_constant` 0 or 1. -/
+inductive BoolArm where
+  | icmp
+  | constant
+
+/-- Matches a value of `type` that is 0 or 1 because it is the `arm` (see `BoolArm`). -/
+def matchBoolArm (type : Handle OpCode .type) : BoolArm → MatchProg.Builder (Handle OpCode .value)
+  | .icmp => do
+    let operandType ← MatchProg.type (Attr := TypeAttr)
+    let lhs ← MatchProg.value operandType
+    let rhs ← MatchProg.value operandType
+    let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
+    return icmp.res[0]!
+  | .constant => do
+    let constant ← matchConstant type fun c => c.isZero || c.isOne
+    return constant.res[0]!
+
+/--
+`g_and (g_select c, t, f), C` becomes the `g_select` when the low bit of `C` is set and both arms
+yield 0 or 1 (see `BoolArm`): the `g_select` then yields 0 or 1, so the mask keeps it. LLVM's
+`redundant_and` finds this with known bits, which for a `G_SELECT` are those both arms share; this
+is the case that legalizing a `g_brcond` on a short-circuit `select i1 a, b, false` leaves behind.
+
+https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L3497
+-/
+def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let c ← MatchProg.value condType
+      let t ← matchBoolArm type tArm
+      let f ← matchBoolArm type fArm
+      let select ← MatchProg.operation (.gmir .g_select) #[c, t, f] #[type]
+      let constant ← matchConstant type (·.value.value % 2 = 1)
+      let _ ← MatchProg.root (.gmir .g_and) #[select.res[0]!, constant.res[0]!] #[type]
+      return select.res[0]!)
+    pure (fun x => x)
+
+/-- The `redundant_and` combines of a `g_select` of booleans, one for each kind of arm. -/
+def redundant_and_select : Array (CompiledPattern OpCode) :=
+  #[(BoolArm.icmp, BoolArm.icmp), (.icmp, .constant), (.constant, .icmp), (.constant, .constant)].map
+    fun (t, f) => (redundant_and_select_pattern t f).compile
+
 /-! ### identity_combines -/
 
 /-- `x op 0` → `x`, for `op` ∈ {`g_sub`, `g_add`, `g_or`, `g_xor`, `g_shl`, `g_ashr`, `g_lshr`}. -/

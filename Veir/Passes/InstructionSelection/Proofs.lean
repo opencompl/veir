@@ -429,6 +429,25 @@ theorem gmir_select_czeronez_refinement {c f : LLVM.Int 64} :
   veir_bv_decide
 
 /--
+Prove all eight `gmirSelectZeroOfSetcc_pattern` cases, including poison inputs: `isNe` chooses
+`ne` or `eq`, `zeroFalse` chooses the zero arm, and `zeroRhs` omits the XOR for a zero RHS.
+The `g_icmp` result is zero-extended to its legal `i64` type before `g_select` reads it.
+-/
+theorem gmir_select_zero_of_setcc_refinement (zeroFalse isNe zeroRhs : Bool)
+    (x y v : LLVM.Int 64) :
+    GMIR.selectNonzero
+      (LLVM.Int.zext (LLVM.Int.icmp x (if zeroRhs then LLVM.Int.constant 64 0 else y)
+        (if isNe then .ne else .eq)) 64 false (by decide))
+      (if zeroFalse then v else LLVM.Int.constant 64 0)
+      (if zeroFalse then LLVM.Int.constant 64 0 else v) ⊒
+      RISCV.Reg.toInt
+        ((if zeroFalse == isNe then Data.RISCV.czeroeqz else Data.RISCV.czeronez)
+          (if zeroRhs then LLVM.Int.toReg x
+            else Data.RISCV.xor (LLVM.Int.toReg x) (LLVM.Int.toReg y))
+          (LLVM.Int.toReg v)) 64 := by
+  cases zeroFalse <;> cases isNe <;> cases zeroRhs <;> dsimp <;> veir_bv_decide
+
+/--
   Prove the correctness of the general `g_select c t f` ->
   `or (czero.eqz t c) (czero.nez f c)` lowering pattern.
 -/
