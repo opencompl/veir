@@ -7,7 +7,8 @@ import Veir.MIRPrinter
 
   Reads an MLIR program from a file or from standard input, whose functions
   have been lowered to the VeIR `riscv` / `riscv_cf` dialects, and prints LLVM
-  pre-register-allocation MIR for all of them.
+  pre-register-allocation MIR for all of them, targeting riscv64 Linux with
+  the lp64d ABI.
 
   A module that is not fully lowered is rejected: the tool prints an error and
   exits with status 1 without printing any MIR. Only functions, globals and

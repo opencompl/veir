@@ -206,7 +206,7 @@ def execute(kind: str, exe: str, cwd: Path) -> str:
         # SSH keeps our pipes open until it fires, so a timeout is reported that much late.
         runner = f"ulimit -v {int(MEMORY_LIMIT_GIB * 2**20)}; {riscv_target.QEMU_RUNNER}"
         result = run(kind, ["limactl", "shell", "--workdir", "/", riscv_target.RISCV_VM,
-                            "sh", "-c", runner, "sh", riscv_target.QEMU_CPU,
+                            "sh", "-c", runner, "sh", riscv_target.QEMU_LIBC_CPU,
                             f"{TIMEOUT + VM_TIMEOUT_MARGIN:g}"], cwd, stdin=cwd / exe)
     else:
         result = run(kind, [f"./{exe}"], cwd)

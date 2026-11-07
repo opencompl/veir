@@ -1026,7 +1026,7 @@ def main(argv: list[str]) -> int:
     print(f"workers: {args.workers}")
     if mir_exec:
         where = "locally" if resolve_qemu_runner()[0] == "sh" else f"in Lima VM {riscv_target.RISCV_VM}"
-        print(f"mir-exec:    lower to MIR and execute under qemu-riscv64 {where} ({riscv_target.MARCH})")
+        print(f"mir-exec:    lower to MIR and execute under qemu-riscv64 {where} ({riscv_target.MARCH}, {riscv_target.ABI})")
     for interp in llvm_interps:
         print(f"{interp.name + ':':<12}{interp.bin}")
 
