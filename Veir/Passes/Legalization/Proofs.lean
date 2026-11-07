@@ -346,6 +346,90 @@ theorem select_const_allOnes {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (t : BitVec 
       LLVM.Int.or (LLVM.Int.sext (notI1 c) w h) (LLVM.Int.val t) := by
   apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
 
+/-! ### `select_into_binop_pattern`
+
+The combines are proved for every width `w`, whatever the flags of the folded operation: `f` is the
+operation with its flags and `g` the one without them. `g` must be strict in its right operand, must
+refine `f`, and must leave `x` unchanged when the right operand is `0`.
+-/
+
+/-- Prove the correctness of combining `c ? (f x k) : x` to `g x (c ? k : 0)`. -/
+theorem select_into_binop {w : Nat} (f g : LLVM.Int w → LLVM.Int w → LLVM.Int w)
+    (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (hp : g x .poison = .poison) (hf : f x k ⊒ g x k) (h0 : x ⊒ g x (LLVM.Int.constant w 0)) :
+    GMIR.selectNonzero c (f x k) x ⊒ g x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) := by
+  apply selectNonzero_refines <;> rintro rfl <;> simpa [GMIR.selectNonzero, Id.run]
+
+/-- Prove the correctness of combining `c ? x : (f x k)` to `g x (c ? 0 : k)`. -/
+theorem select_into_binop_swapped {w : Nat} (f g : LLVM.Int w → LLVM.Int w → LLVM.Int w)
+    (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (hp : g x .poison = .poison) (hf : f x k ⊒ g x k) (h0 : x ⊒ g x (LLVM.Int.constant w 0)) :
+    GMIR.selectNonzero c x (f x k) ⊒ g x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) := by
+  apply selectNonzero_refines <;> rintro rfl <;> simpa [GMIR.selectNonzero, Id.run]
+
+/-- A shift by `0` is in range at any positive width. -/
+private theorem zero_shift_in_range {w : Nat} (hw : 0 < w) :
+    ¬ (w : BitVec w) ≤ BitVec.ofInt w 0 := by
+  simp [BitVec.natCast_eq_ofNat, BitVec.le_def, Nat.mod_eq_of_lt Nat.lt_two_pow_self]
+  omega
+
+/-- Closes a side condition of `select_into_binop`. -/
+local macro "select_binop_tac" : tactic =>
+  `(tactic| (cases ‹LLVM.Int _› <;> try cases ‹LLVM.Int _›) <;>
+    simp only [LLVM.Int.shl, LLVM.Int.lshr, LLVM.Int.ashr, LLVM.Int.sub, LLVM.Int.add, LLVM.Int.or,
+      LLVM.Int.xor, LLVM.Int.constant, Id.run, pure, isRefinedBy] <;>
+    (repeat' split) <;> grind)
+
+/-- Closes a side condition of `select_into_binop` for a shift, given `0 < w`. -/
+local macro "select_shift_tac" hw:term : tactic =>
+  `(tactic| (have hrange := zero_shift_in_range $hw; select_binop_tac))
+
+theorem select_into_shl {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (nsw nuw : Bool) :
+    GMIR.selectNonzero c (LLVM.Int.shl x k nsw nuw) x ⊒
+      LLVM.Int.shl x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop (LLVM.Int.shl · · nsw nuw) (LLVM.Int.shl · ·) c x k
+    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
+
+theorem select_into_lshr {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (exact : Bool) :
+    GMIR.selectNonzero c (LLVM.Int.lshr x k exact) x ⊒
+      LLVM.Int.lshr x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop (LLVM.Int.lshr · · exact) (LLVM.Int.lshr · ·) c x k
+    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
+
+theorem select_into_ashr {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (exact : Bool) :
+    GMIR.selectNonzero c (LLVM.Int.ashr x k exact) x ⊒
+      LLVM.Int.ashr x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop (LLVM.Int.ashr · · exact) (LLVM.Int.ashr · ·) c x k
+    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
+
+theorem select_into_sub {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (nsw nuw : Bool) :
+    GMIR.selectNonzero c (LLVM.Int.sub x k nsw nuw) x ⊒
+      LLVM.Int.sub x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop (LLVM.Int.sub · · nsw nuw) (LLVM.Int.sub · ·) c x k
+    (by select_binop_tac) (by select_binop_tac) (by select_binop_tac)
+
+theorem select_into_add {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (nsw nuw : Bool) :
+    GMIR.selectNonzero c (LLVM.Int.add x k nsw nuw) x ⊒
+      LLVM.Int.add x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop (LLVM.Int.add · · nsw nuw) (LLVM.Int.add · ·) c x k
+    (by select_binop_tac) (by select_binop_tac) (by select_binop_tac)
+
+theorem select_into_or {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (disjoint : Bool) :
+    GMIR.selectNonzero c (LLVM.Int.or x k disjoint) x ⊒
+      LLVM.Int.or x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop (LLVM.Int.or · · disjoint) (LLVM.Int.or · ·) c x k
+    (by select_binop_tac) (by select_binop_tac) (by select_binop_tac)
+
+theorem select_into_xor {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) :
+    GMIR.selectNonzero c (LLVM.Int.xor x k) x ⊒
+      LLVM.Int.xor x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
+  select_into_binop LLVM.Int.xor LLVM.Int.xor c x k
+    (by select_binop_tac) (by select_binop_tac)
+    (by cases x <;> simp [LLVM.Int.xor, LLVM.Int.constant, Id.run, isRefinedBy])
+
 /-! ### Word operations -/
 
 /-- `x` is its low bits after any extension. -/

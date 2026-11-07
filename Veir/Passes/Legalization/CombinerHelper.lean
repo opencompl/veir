@@ -1106,6 +1106,50 @@ def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
         CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]]
   patterns.map (·.compile)
 
+/-! ### Selects of a binary operation on the other arm
+
+`c ? (op x, K) : x` becomes `op x, (c ? K : 0)`, where `0` leaves `x` unchanged for every `op` here.
+The inner `g_select` has two constant arms, which `selectOfConstantsCombines` then usually turns
+into arithmetic on the condition. This is LLVM's `tryFoldSelectIntoOp`, from SelectionDAG, since
+GlobalISel has no such combine:
+https://github.com/llvm/llvm-project/blob/027da639d255a4990d0d83262a5f66c0628a1438/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L24055-L24105
+
+Unlike LLVM, these combines:
+- only fold a constant `K` on the right of `op`, which is where instcombine leaves it;
+- have no one-use check, which Puddle cannot express: when `op x, K` has other uses it stays, and
+  the select is replaced by arithmetic that is no longer than the `czero` sequence it avoids;
+- do not fold `g_umin`, `g_umax`, `g_rotl` or `g_rotr`.
+
+The flags of `op` are dropped: they constrain `x` and `K` only when `c` holds, and the new operation
+also runs when it does not.
+-/
+
+/-- `c ? (op x, K) : x` → `op x, (c ? K : 0)`, and with the arms of the `g_select` exchanged when
+    `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. -/
+def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value condType
+      let x ← MatchProg.value type
+      let k ← matchConstant type
+      let op ← MatchProg.operation (.gmir opcode) #[x, k.res[0]!] #[type]
+      let arms := if swapped then #[c, x, op.res[0]!] else #[c, op.res[0]!, x]
+      let _ ← MatchProg.root (.gmir .g_select) arms #[type]
+      return (type, c, x, k.res[0]!))
+    (fun (type, c, x, k) => do
+      let zero ← createConstant type 0
+      let arms := if swapped then #[c, zero.res[0]!, k] else #[c, k, zero.res[0]!]
+      let select ← CreateProg.operation (.gmir .g_select) arms #[type]
+      CreateProg.operation (.gmir opcode) #[x, select.res[0]!] #[type])
+    (fun op => op)
+
+/-- The combines of `select_into_binop_pattern`. -/
+def selectIntoBinopCombines : Array (CompiledPattern OpCode) :=
+  (#[GMIR.g_shl, .g_lshr, .g_ashr, .g_sub, .g_add, .g_or, .g_xor].flatMap fun opcode =>
+    #[false, true].map (select_into_binop_pattern opcode ·)).map (·.compile)
+
 /-! ### Combine list -/
 
 /-- The combines above, in the order the combiner tries them. -/
@@ -1158,7 +1202,7 @@ def preLegalizerCombines : Array (CompiledPattern OpCode) :=
   (#[udiv_by_pow2_pattern] ++
     #[false, true].flatMap fun negative =>
       #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile) ++
-  selectOfConstantsCombines
+  selectOfConstantsCombines ++ selectIntoBinopCombines
 
 end
 
