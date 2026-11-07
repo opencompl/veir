@@ -19,6 +19,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import riscv_target
 from mir_llc import emit_asm_cmd, regalloc_cmd
 
 
@@ -26,7 +27,7 @@ BASE_TOOLS = ("clang", "opt", "mlir-translate", "mlir-opt")
 VEIR_TOOLS = ("lake",)
 VEIR_BACKEND_TOOLS = ("llc",)
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CLANG_TARGET_FLAGS = ["--target=riscv64-linux-gnu", "-fomit-frame-pointer"]
+CLANG_TARGET_FLAGS = [*riscv_target.CLANG_TARGET_FLAGS, "-fomit-frame-pointer"]
 # On Linux clang finds the riscv64 cross sysroot by itself; elsewhere (macOS)
 # RISCV_SYSROOT names a copy of it.
 if "RISCV_SYSROOT" in os.environ:
