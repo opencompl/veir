@@ -493,7 +493,7 @@ def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
 The function-like operations nested under `op`, in program order. The search does not enter
 functions, since rewriting a function also covers anything nested in it.
 -/
-private partial def collectNestedFunctions (ctx : IRContext OpInfo) (op : OperationPtr)
+partial def collectNestedFunctions (ctx : IRContext OpInfo) (op : OperationPtr)
     (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
   let mut acc := acc
   for region in op.getRegions! ctx do
