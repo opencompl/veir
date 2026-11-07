@@ -225,6 +225,127 @@ theorem sdiv_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk0 : 0 < k) (hk 
   grind [BitVec.twoPow_eq_shiftLeft_one_ofInt_natCast, BitVec.lt_ofInt_natCast_ofNat_of_lt,
     BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_eq_neg_biased_sshiftRight]
 
+/-! ### `tryFoldSelectOfConstants`
+
+The combines are proved for every width `w` wider than the `i1` condition.
+-/
+
+/-- A property of `GMIR.selectNonzero` on an `i1` condition follows from its three cases. -/
+private theorem selectNonzero_refines {w : Nat} (c : LLVM.Int 1) (x y : LLVM.Int w)
+    (r : LLVM.Int w)
+    (hp : c = .poison → r = .poison)
+    (h1 : c = .val 1#1 → x ⊒ r) (h0 : c = .val 0#1 → y ⊒ r) :
+    GMIR.selectNonzero c x y ⊒ r := by
+  cases c with
+  | poison => simp [GMIR.selectNonzero, Id.run, hp, isRefinedBy]
+  | val c =>
+    rcases BitVec.eq_zero_or_eq_one c with rfl | rfl
+    · simpa [GMIR.selectNonzero, Id.run] using h0 rfl
+    · simpa [GMIR.selectNonzero, Id.run] using h1 rfl
+
+/-- The `i1` negation that `createNot` builds. -/
+def notI1 (c : LLVM.Int 1) : LLVM.Int 1 := LLVM.Int.xor c (LLVM.Int.constant 1 (-1))
+
+private theorem notI1_poison : notI1 .poison = .poison := by
+  simp [notI1, LLVM.Int.xor, Id.run]
+
+private theorem notI1_one : notI1 (.val 1#1) = .val 0#1 := by
+  simp [notI1, LLVM.Int.xor, LLVM.Int.constant, Id.run]
+
+private theorem notI1_zero : notI1 (.val 0#1) = .val 1#1 := by
+  simp [notI1, LLVM.Int.xor, LLVM.Int.constant, Id.run]
+
+private theorem setWidth_one {w : Nat} : BitVec.setWidth w 1#1 = 1#w := by
+  apply BitVec.eq_of_toNat_eq
+  simp
+
+private theorem ofInt_neg_one {w : Nat} : BitVec.ofInt w (-1) = BitVec.allOnes w := by
+  rw [BitVec.ofInt_neg, ← BitVec.neg_one_eq_allOnes]
+  simp
+
+private theorem signExtend_one {w : Nat} : BitVec.signExtend w 1#1 = BitVec.allOnes w := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp [BitVec.getElem_signExtend, BitVec.msb]
+
+private theorem signExtend_zero {w : Nat} : BitVec.signExtend w 0#1 = 0#w := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp [BitVec.getElem_signExtend, BitVec.msb]
+
+private theorem mod_two_pow_of_lt {k w : Nat} (hk : k < w) : k % 2 ^ w = k :=
+  Nat.mod_eq_of_lt (Nat.lt_trans hk Nat.lt_two_pow_self)
+
+/-- Closes one case of a `tryFoldSelectOfConstants` proof, where the condition is known. -/
+local macro "select_const_tac" : tactic =>
+  `(tactic| (simp_all [notI1_poison, notI1_one, notI1_zero, setWidth_one, signExtend_one,
+      signExtend_zero, ofInt_neg_one, mod_two_pow_of_lt, BitVec.twoPow_eq,
+      BitVec.add_comm, BitVec.sub_eq_add_neg, BitVec.neg_one_eq_allOnes,
+      LLVM.Int.zext, LLVM.Int.sext, LLVM.Int.add, LLVM.Int.shl, LLVM.Int.or, LLVM.Int.constant,
+      Id.run, isRefinedBy]))
+
+/-- Prove the correctness of combining `c ? 1 : 0` to `zext c`. -/
+theorem select_one_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
+    GMIR.selectNonzero c (LLVM.Int.constant w 1) (LLVM.Int.constant w 0) ⊒
+      LLVM.Int.zext c w false h := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? -1 : 0` to `sext c`. -/
+theorem select_allOnes_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
+    GMIR.selectNonzero c (LLVM.Int.constant w (-1)) (LLVM.Int.constant w 0) ⊒
+      LLVM.Int.sext c w h := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? 0 : 1` to `zext (not c)`. -/
+theorem select_zero_one {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
+    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.constant w 1) ⊒
+      LLVM.Int.zext (notI1 c) w false h := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? 0 : -1` to `sext (not c)`. -/
+theorem select_zero_allOnes {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
+    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.constant w (-1)) ⊒
+      LLVM.Int.sext (notI1 c) w h := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? F + 1 : F` to `add (zext c), F`. -/
+theorem select_succ {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
+    GMIR.selectNonzero c (LLVM.Int.val (f + 1)) (LLVM.Int.val f) ⊒
+      LLVM.Int.add (LLVM.Int.zext c w false h) (LLVM.Int.val f) := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? F - 1 : F` to `add (sext c), F`. -/
+theorem select_pred {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
+    GMIR.selectNonzero c (LLVM.Int.val (f - 1)) (LLVM.Int.val f) ⊒
+      LLVM.Int.add (LLVM.Int.sext c w h) (LLVM.Int.val f) := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? 2^k : 0` to `shl (zext c), k`. -/
+theorem select_pow2_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
+    GMIR.selectNonzero c (LLVM.Int.val (BitVec.twoPow w k)) (LLVM.Int.constant w 0) ⊒
+      LLVM.Int.shl (LLVM.Int.zext c w false h) (LLVM.Int.constant w k) := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac <;>
+    simp [show ¬ w ≤ k by omega]
+
+/-- Prove the correctness of combining `c ? 0 : 2^k` to `shl (zext (not c)), k`. -/
+theorem select_zero_pow2 {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (k : Nat) (hk : k < w) :
+    GMIR.selectNonzero c (LLVM.Int.constant w 0) (LLVM.Int.val (BitVec.twoPow w k)) ⊒
+      LLVM.Int.shl (LLVM.Int.zext (notI1 c) w false h) (LLVM.Int.constant w k) := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac <;>
+    simp [show ¬ w ≤ k by omega]
+
+/-- Prove the correctness of combining `c ? -1 : F` to `or (sext c), F`. -/
+theorem select_allOnes_const {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (f : BitVec w) :
+    GMIR.selectNonzero c (LLVM.Int.constant w (-1)) (LLVM.Int.val f) ⊒
+      LLVM.Int.or (LLVM.Int.sext c w h) (LLVM.Int.val f) := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
+/-- Prove the correctness of combining `c ? T : -1` to `or (sext (not c)), T`. -/
+theorem select_const_allOnes {w : Nat} (h : 1 < w) (c : LLVM.Int 1) (t : BitVec w) :
+    GMIR.selectNonzero c (LLVM.Int.val t) (LLVM.Int.constant w (-1)) ⊒
+      LLVM.Int.or (LLVM.Int.sext (notI1 c) w h) (LLVM.Int.val t) := by
+  apply selectNonzero_refines <;> rintro rfl <;> select_const_tac
+
 /-! ### Word operations -/
 
 /-- `x` is its low bits after any extension. -/

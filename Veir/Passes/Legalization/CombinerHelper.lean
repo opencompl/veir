@@ -910,8 +910,10 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
 /-! ### select_combines
 
 A `g_select` condition wider than `i1` is true when it is nonzero (see `GMIR.selectNonzero`). LLVM's
-`match_selects` and `select_not`, which read the condition as an `i1` boolean, are not ported: RV64
-legalizes `g_select` only with an `s64` condition, so they could never fire.
+`select_not`, which reads the condition as an `i1` boolean, is not ported: RV64 legalizes `g_select`
+only with an `s64` condition, so it could never fire after legalization. `match_selects` reads it
+the same way, so its `tryFoldSelectOfConstants` runs before legalization, in
+`selectOfConstantsCombines`; its `tryFoldBoolSelectToLogic` is not ported.
 -/
 
 /-- `c ? x : x` → `x`. -/
@@ -990,6 +992,120 @@ def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
   #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc]
   patterns.map (·.compile)
 
+/-! ### match_selects : `tryFoldSelectOfConstants`
+
+A `g_select` of two constants on an `i1` condition becomes arithmetic on the condition, as in LLVM's
+`CombinerHelper::tryFoldSelectOfConstants`, in the same order:
+https://github.com/llvm/llvm-project/blob/027da639d255a4990d0d83262a5f66c0628a1438/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L7212-L7358
+
+These combines only run before legalization: the legalizer widens the condition to `s64`. Unlike
+LLVM, whose `buildZExtOrTrunc` can make a copy, they skip `i1` values, which a `g_zext` of the
+condition could not produce, and values wider than 64 bits, whose extensions the RV64 legalizer does
+not lower.
+-/
+
+/-- The `g_xor` of the `i1` value `c` with all ones, as LLVM's `MachineIRBuilder::buildNot`. -/
+def createNot (type : Handle OpCode .type) (c : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle := do
+  let ones ← createConstant type (-1)
+  CreateProg.operation (.gmir .g_xor) #[c, ones.res[0]!] #[type]
+
+/-- What the select of constants rewrites read: the type of the values, the type of the condition,
+    the condition, the constant false value, and the properties of the true and false constants. -/
+abbrev SelectOfConstants :=
+  Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value ×
+    Handle OpCode (.prop (.gmir .g_constant)) × Handle OpCode (.prop (.gmir .g_constant))
+
+/-- `c ? T : F` → `rewrite`, for an `i1` condition `c` and constants `T` and `F` of a type of at
+    most 64 bits and wider than `i1`, when `pred T F` holds. -/
+def select_of_constants_pattern
+    (pred : GMIRConstantProperties → GMIRConstantProperties → Bool)
+    (rewrite : SelectOfConstants → CreateProg.Builder CreatedOpHandle) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) fun t => 1 < t.bitwidth && t.bitwidth ≤ 64
+      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value condType
+      let t ← matchConstant type
+      let f ← matchConstant type
+      let _ ← MatchProg.root (.gmir .g_select) #[c, t.res[0]!, f.res[0]!] #[type]
+      MatchProg.matchNative (t.properties, f.properties) fun (t, f) => pred t f
+      return (type, condType, c, f.res[0]!, t.properties, f.properties))
+    rewrite
+    (fun op => op)
+
+/-- `T = F + delta`, at the width of the constants. -/
+def GMIRConstantProperties.isOffsetOf (t f : GMIRConstantProperties) (delta : Int) : Bool :=
+  t.bits == BitVec.ofInt _ (f.value.value + delta)
+
+def GMIRConstantProperties.isZero (c : GMIRConstantProperties) : Bool := c.bits == 0
+
+def GMIRConstantProperties.isOne (c : GMIRConstantProperties) : Bool := c.bits == 1
+
+def GMIRConstantProperties.isAllOnes (c : GMIRConstantProperties) : Bool := c.bits == -1
+
+/-- `k` when the constant is `2^k`, read as an unsigned integer. -/
+def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_constant))) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type c fun c => c.ulog2?.get!
+
+/-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
+    `c ? 1 : 0` also has the form `c ? C : C - 1`, and the first match wins. -/
+def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
+  let patterns : Array (Pattern OpCode) := #[
+    -- `c ? 1 : 0` → `zext c`
+    select_of_constants_pattern (fun t f => t.isOne && f.isZero)
+      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type],
+    -- `c ? -1 : 0` → `sext c`
+    select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
+      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type],
+    -- `c ? 0 : 1` → `zext (not c)`
+    select_of_constants_pattern (fun t f => t.isZero && f.isOne)
+      fun (type, condType, c, _, _, _) => do
+        let notC ← createNot condType c
+        CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type],
+    -- `c ? 0 : -1` → `sext (not c)`
+    select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
+      fun (type, condType, c, _, _, _) => do
+        let notC ← createNot condType c
+        CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type],
+    -- `c ? C : C - 1` → `add (zext c), C - 1`
+    select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
+      fun (type, _, c, f, _, _) => do
+        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
+    -- `c ? C : C + 1` → `add (sext c), C + 1`
+    select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
+      fun (type, _, c, f, _, _) => do
+        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
+    -- `c ? 2^k : 0` → `shl (zext c), k`
+    select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
+      fun (type, _, c, _, t, _) => do
+        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+        let k ← createLog2 type t
+        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
+    -- `c ? 0 : 2^k` → `shl (zext (not c)), k`
+    select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
+      fun (type, condType, c, _, _, f) => do
+        let notC ← createNot condType c
+        let ext ← CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
+        let k ← createLog2 type f
+        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
+    -- `c ? -1 : C` → `or (sext c), C`
+    select_of_constants_pattern (fun t _ => t.isAllOnes)
+      fun (type, _, c, f, _, _) => do
+        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type],
+    -- `c ? C : -1` → `or (sext (not c)), C`
+    select_of_constants_pattern (fun _ f => f.isAllOnes)
+      fun (type, condType, c, _, t, _) => do
+        let notC ← createNot condType c
+        let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
+        let constant ← createConstantWith type t fun t => t.value.value
+        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]]
+  patterns.map (·.compile)
+
 /-! ### Combine list -/
 
 /-- The combines above, in the order the combiner tries them. -/
@@ -1041,7 +1157,8 @@ def combines : Array (CompiledPattern OpCode) :=
 def preLegalizerCombines : Array (CompiledPattern OpCode) :=
   (#[udiv_by_pow2_pattern] ++
     #[false, true].flatMap fun negative =>
-      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile)
+      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile) ++
+  selectOfConstantsCombines
 
 end
 
