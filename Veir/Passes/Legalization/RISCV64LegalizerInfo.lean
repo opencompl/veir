@@ -106,6 +106,11 @@ private def p0 : LLT := .pointer 0
 public section
 
 def riscv64LegalizerInfo : LegalizerInfo where
+  -- LLVM also makes `s32` legal, for `f32` phis. Here, narrower integers are widened to `s64`.
+  blockArgumentRules := [
+    .legalFor [p0, s64],
+    .clampScalar (.type 0) 64 64,
+  ]
   rules
     | .g_add | .g_sub => [
       .legalFor [s64],
