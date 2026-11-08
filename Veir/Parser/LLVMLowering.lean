@@ -187,11 +187,6 @@ info: "builtin.module"() ({
   match lowerModule resolvedDeMorganModule with
   | .error error => throw (IO.userError error)
   | .ok (ctx, root) => Printer.printModule ctx.raw root
-example : False := by
-  let x : Except LoweringError (WfIRContext OpCode × OperationPtr)  := lowerModule resolvedDeMorganModule
-
-  sorry
-
 
 -- root = op1, nextID = 25
 -- -- regions
