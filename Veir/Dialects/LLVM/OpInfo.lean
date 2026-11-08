@@ -626,20 +626,16 @@ def Llvm.callOpInterface? (op : Llvm) : Option (CallOpInterface (Llvm.properties
   | .call => some Llvm.callInterface
   | _ => none
 
+/--
+A switch forwards its operands as a segmented branch whose segments are its key, the operands of its
+default destination, and the operands of each case.
+-/
 private def Llvm.getSwitchSuccessorOperands?
     (props : LLVMSwitchProperties) (operands : Array ValuePtr)
     (successorIndex : Nat) : Option SuccessorOperands := do
-  let defaultCountRaw ← props.operandSegmentSizes.values[1]?
-  let defaultCount := defaultCountRaw.toNat
-  if successorIndex = 0 then
-    return { forwardedOperands := operands.extract 1 (1 + defaultCount) }
-  let caseIndex := successorIndex - 1
-  let caseCountRaw ← props.case_operand_segments.values[caseIndex]?
-  let caseCount := caseCountRaw.toNat
-  let caseStart := 1 + defaultCount +
-    (props.case_operand_segments.values.extract 0 caseIndex).foldl
-      (init := 0) fun acc value => acc + value.toNat
-  return { forwardedOperands := operands.extract caseStart (caseStart + caseCount) }
+  let defaultCount ← props.operandSegmentSizes.values[1]?
+  BranchOpInterface.getSegmentedSuccessorOperands? 1
+    (#[1, defaultCount] ++ props.case_operand_segments.values) operands successorIndex
 
 private def Llvm.getSwitchSuccessorIndexForOperands?
     (props : LLVMSwitchProperties) (operands : Array (Option RuntimeValue)) :

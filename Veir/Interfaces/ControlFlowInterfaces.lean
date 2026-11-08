@@ -40,6 +40,7 @@ def getSegmentedSuccessorOperands?
       (init := 0) fun acc value => acc + value.toNat
   some {
     forwardedOperands := operands.extract forwardedStart (forwardedStart + forwardedCount)
+    beginOperandIndex := forwardedStart
   }
 
 /--

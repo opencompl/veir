@@ -27,6 +27,23 @@ theorem right_identity_zero_add:
     (RISCV.add lhs (Data.RISCV.li (BitVec.ofInt 64 0))) = lhs := by
   veir_bv_decide
 
+/-- `add x (li c) -> addi x c`: the signed bounds from `liFitsSImm12` ensure
+    that truncating `c` to 12 bits and sign-extending recovers `c`.
+    This also holds for zero. `RISCV.add` takes operands in `(rs2, rs1)` order. -/
+theorem add_li_to_addi {x : Reg} {c : BitVec 64}
+    (hlo : -2048 ≤ c.toInt) (hhi : c.toInt ≤ 2047) :
+    RISCV.add (RISCV.li c) x = RISCV.addi (c.setWidth 12) x := by
+  -- Express the bounds as bitvector comparisons for the bitblaster.
+  have hlo' : (-2048#64).sle c := BitVec.sle_iff_toInt_le.mpr hlo
+  have hhi' : c.sle 2047#64 := BitVec.sle_iff_toInt_le.mpr hhi
+  veir_bv_decide
+
+/-- The other operand order matched by `add_li_to_addi_commuted`. -/
+theorem add_li_to_addi_commuted {x : Reg} {c : BitVec 64}
+    (hlo : -2048 ≤ c.toInt) (hhi : c.toInt ≤ 2047) :
+    RISCV.add x (RISCV.li c) = RISCV.addi (c.setWidth 12) x := by
+  simpa only [RISCV.add, BitVec.add_comm] using (add_li_to_addi (x := x) hlo hhi)
+
 /--
   Prove the correctness of the `srl_sra_signbit` combine, phrased directly on the
   already-selected RISC-V register ops the combine rewrites: `riscv.srli 63
@@ -124,6 +141,12 @@ theorem zextw_zextb {x : Reg} :
     zero-extended. -/
 theorem zextb_lbu {byte : Reg} :
     RISCV.zextb (RISCV.zextb byte) = RISCV.zextb byte := by
+  veir_bv_decide
+
+/-- `andi 255 (lbu byte) = lbu byte`: an unsigned byte load is already masked.
+    The combine reuses the existing load result. -/
+theorem andi_255_lbu {byte : Reg} :
+    RISCV.andi 255 (RISCV.zextb byte) = RISCV.zextb byte := by
   veir_bv_decide
 
 /-- The byte-packing pre-canonicalization is valid for each selected shift:

@@ -29,7 +29,8 @@ def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
       -- some of them match.
       let pattern := RewritePattern.GreedyRewritePattern <|
         (combines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
-        #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run, commutativeConstantRHS]
+        #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run] ++
+        redundant_and_select.map (·.run) ++ #[commutativeConstantRHS]
       match RewritePattern.applyToFunctions pattern ctx op with
       | none => throw "Error while applying the post-legalizer combines"
       | some ctx => pure ctx }
