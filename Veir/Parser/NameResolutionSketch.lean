@@ -88,6 +88,11 @@ structure ResolvedFunction where
   result : ResolvedValue
   deriving DecidableEq
 
+/-- A module retains function order; local identities are scoped to each function. -/
+structure ResolvedModule where
+  funcs : List ResolvedFunction
+  deriving DecidableEq
+
 /-- References must point to existing parameters or instructions. -/
 def ValidResolvedValue (numParams numInsts : Nat) : ResolvedValue → Prop
   | .ref (.param i) => i < numParams
@@ -252,6 +257,37 @@ theorem resolveFunction_iff (f : FuncDef) (r : ResolvedFunction) :
   ⟨resolveFunction_sound f r, resolveFunction_complete f r⟩
 
 
+/-- Resolve every function independently, failing if any function fails. -/
+def resolveModule (m : Module) : Option ResolvedModule :=
+  (m.funcs.mapM resolveFunction).map ResolvedModule.mk
+
+def ResolvesModule (m : Module) (r : ResolvedModule) : Prop :=
+  ResolvesList ResolvesFunction m.funcs r.funcs
+
+theorem resolvesList_mapM_iff (f : α → Option β) (R : α → β → Prop)
+    (h : ∀ a b, f a = some b ↔ R a b) (xs : List α) (ys : List β) :
+    xs.mapM f = some ys ↔ ResolvesList R xs ys := by
+  induction xs generalizing ys with
+  | nil => cases ys <;> simp [ResolvesList.nil]; grind [ResolvesList]
+  | cons x xs ih =>
+    cases ys <;> simp [List.mapM_cons, Option.bind_eq_some_iff]
+    all_goals grind [ResolvesList]
+
+theorem resolveModule_iff (m : Module) (r : ResolvedModule) :
+    resolveModule m = some r ↔ ResolvesModule m r := by
+  cases r
+  simpa [resolveModule, ResolvesModule, Option.map_eq_some_iff] using
+    resolvesList_mapM_iff resolveFunction ResolvesFunction resolveFunction_iff m.funcs _
+
+theorem resolveModule_sound (m : Module) (r : ResolvedModule) :
+    resolveModule m = some r → ResolvesModule m r :=
+  (resolveModule_iff m r).mp
+
+theorem resolveModule_complete (m : Module) (r : ResolvedModule) :
+    ResolvesModule m r → resolveModule m = some r :=
+  (resolveModule_iff m r).mpr
+
+
 theorem nat_toString_injective : Function.Injective (toString : Nat → String) := by
   intro i j h
   simpa [Nat.toString_eq_ofList_toDigits, Nat.ofDigitChars_ten_toDigits] using
@@ -384,6 +420,15 @@ def deMorganResult : ResolvedAST :=
 def resolvedDeMorganFunction (name : String) (op : BinOp) : ResolvedFunction :=
   ⟨⟨.int 32, name, [⟨.int 32, "p"⟩, ⟨.int 32, "q"⟩]⟩, "entry",
     [deMorganNot 0, deMorganNot 1, deMorganCombined op, deMorganResult], .ref (.inst 3)⟩
+
+def resolvedDeMorganModule : ResolvedModule :=
+  ⟨[resolvedDeMorganFunction "demorgan_or" .and,
+    resolvedDeMorganFunction "demorgan_and" .or]⟩
+
+example : resolveModule deMorganModule = some resolvedDeMorganModule := by native_decide
+
+example : ResolvesModule deMorganModule resolvedDeMorganModule :=
+  resolveModule_sound _ _ (by native_decide)
 
 example : resolveFunction (deMorganFunction "demorgan_or" "both_not" .and) =
     some (resolvedDeMorganFunction "demorgan_or" .and) := by native_decide
