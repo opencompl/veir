@@ -620,7 +620,7 @@ def ReadsLowWord (op : Riscv) (arity : Nat) : Prop :=
 
 /-- Bypass a unary producer at one operand of a consumer, preserving the consumer's
     result type and properties. The caller must establish that the consumer ignores
-    the producer's changes. Shared producers are left for existing DCE to handle. -/
+    the producer's changes. -/
 def drop_unary_operand_pattern (srcOp dst : Riscv) (arity index : Nat)
     (matchProperties : Riscv.propertiesOf srcOp → Bool := fun _ => true) :
     Puddle.Pattern OpCode :=
