@@ -96,6 +96,50 @@ def redundant_and_pattern : Pattern OpCode :=
 
 def redundant_and : CompiledPattern OpCode := redundant_and_pattern.compile
 
+/-- An arm of a `g_select` that yields 0 or 1: a `g_icmp`, or a `g_constant` 0 or 1. -/
+inductive BoolArm where
+  | icmp
+  | constant
+
+/-- Matches a value of `type` that is 0 or 1 because it is the `arm` (see `BoolArm`). -/
+def matchBoolArm (type : Handle OpCode .type) : BoolArm → MatchProg.Builder (Handle OpCode .value)
+  | .icmp => do
+    let operandType ← MatchProg.type (Attr := TypeAttr)
+    let lhs ← MatchProg.value operandType
+    let rhs ← MatchProg.value operandType
+    let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
+    return icmp.res[0]!
+  | .constant => do
+    let constant ← matchConstant type fun c => c.isZero || c.isOne
+    return constant.res[0]!
+
+/--
+`g_and (g_select c, t, f), C` becomes the `g_select` when the low bit of `C` is set and both arms
+yield 0 or 1 (see `BoolArm`): the `g_select` then yields 0 or 1, so the mask keeps it. LLVM's
+`redundant_and` finds this with known bits, which for a `G_SELECT` are those both arms share; this
+is the case that legalizing a `g_brcond` on a short-circuit `select i1 a, b, false` leaves behind.
+
+https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ece4/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L3497
+-/
+def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let c ← MatchProg.value condType
+      let t ← matchBoolArm type tArm
+      let f ← matchBoolArm type fArm
+      let select ← MatchProg.operation (.gmir .g_select) #[c, t, f] #[type]
+      let constant ← matchConstant type (·.value.value % 2 = 1)
+      let _ ← MatchProg.root (.gmir .g_and) #[select.res[0]!, constant.res[0]!] #[type]
+      return select.res[0]!)
+    pure (fun x => x)
+
+/-- The `redundant_and` combines of a `g_select` of booleans, one for each kind of arm. -/
+def redundant_and_select : Array (CompiledPattern OpCode) :=
+  #[(BoolArm.icmp, BoolArm.icmp), (.icmp, .constant), (.constant, .icmp), (.constant, .constant)].map
+    fun (t, f) => (redundant_and_select_pattern t f).compile
+
 /-! ### identity_combines -/
 
 /-- `x op 0` → `x`, for `op` ∈ {`g_sub`, `g_add`, `g_or`, `g_xor`, `g_shl`, `g_ashr`, `g_lshr`}. -/
@@ -910,8 +954,10 @@ def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : P
 /-! ### select_combines
 
 A `g_select` condition wider than `i1` is true when it is nonzero (see `GMIR.selectNonzero`). LLVM's
-`match_selects` and `select_not`, which read the condition as an `i1` boolean, are not ported: RV64
-legalizes `g_select` only with an `s64` condition, so they could never fire.
+`select_not`, which reads the condition as an `i1` boolean, is not ported: RV64 legalizes `g_select`
+only with an `s64` condition, so it could never fire after legalization. `match_selects` reads it
+the same way, so its `tryFoldSelectOfConstants` runs before legalization, in
+`selectOfConstantsCombines`; its `tryFoldBoolSelectToLogic` is not ported.
 -/
 
 /-- `c ? x : x` → `x`. -/
@@ -990,6 +1036,154 @@ def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
   #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc]
   patterns.map (·.compile)
 
+/-! ### match_selects : `tryFoldSelectOfConstants`
+
+A `g_select` of two constants on an `i1` condition becomes arithmetic on the condition, as in LLVM's
+`CombinerHelper::tryFoldSelectOfConstants`, in the same order:
+https://github.com/llvm/llvm-project/blob/027da639d255a4990d0d83262a5f66c0628a1438/llvm/lib/CodeGen/GlobalISel/CombinerHelper.cpp#L7212-L7358
+
+These combines only run before legalization: the legalizer widens the condition to `s64`. Unlike
+LLVM, whose `buildZExtOrTrunc` can make a copy, they skip `i1` values, which a `g_zext` of the
+condition could not produce, and values wider than 64 bits, whose extensions the RV64 legalizer does
+not lower.
+-/
+
+/-- The `g_xor` of the `i1` value `c` with all ones, as LLVM's `MachineIRBuilder::buildNot`. -/
+def createNot (type : Handle OpCode .type) (c : Handle OpCode .value) :
+    CreateProg.Builder CreatedOpHandle := do
+  let ones ← createConstant type (-1)
+  CreateProg.operation (.gmir .g_xor) #[c, ones.res[0]!] #[type]
+
+/-- What the select of constants rewrites read: the type of the values, the type of the condition,
+    the condition, the constant false value, and the properties of the true and false constants. -/
+abbrev SelectOfConstants :=
+  Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value ×
+    Handle OpCode (.prop (.gmir .g_constant)) × Handle OpCode (.prop (.gmir .g_constant))
+
+/-- `c ? T : F` → `rewrite`, for an `i1` condition `c` and constants `T` and `F` of a type of at
+    most 64 bits and wider than `i1`, when `pred T F` holds. -/
+def select_of_constants_pattern
+    (pred : GMIRConstantProperties → GMIRConstantProperties → Bool)
+    (rewrite : SelectOfConstants → CreateProg.Builder CreatedOpHandle) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) fun t => 1 < t.bitwidth && t.bitwidth ≤ 64
+      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value condType
+      let t ← matchConstant type
+      let f ← matchConstant type
+      let _ ← MatchProg.root (.gmir .g_select) #[c, t.res[0]!, f.res[0]!] #[type]
+      MatchProg.matchNative (t.properties, f.properties) fun (t, f) => pred t f
+      return (type, condType, c, f.res[0]!, t.properties, f.properties))
+    rewrite
+    (fun op => op)
+
+/-- `k` when the constant is `2^k`, read as an unsigned integer. -/
+def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_constant))) :
+    CreateProg.Builder CreatedOpHandle :=
+  createConstantWith type c fun c => c.ulog2?.get!
+
+/-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
+    `c ? 1 : 0` also has the form `c ? C : C - 1`, and the first match wins. -/
+def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
+  let patterns : Array (Pattern OpCode) := #[
+    -- `c ? 1 : 0` → `zext c`
+    select_of_constants_pattern (fun t f => t.isOne && f.isZero)
+      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type],
+    -- `c ? -1 : 0` → `sext c`
+    select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
+      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type],
+    -- `c ? 0 : 1` → `zext (not c)`
+    select_of_constants_pattern (fun t f => t.isZero && f.isOne)
+      fun (type, condType, c, _, _, _) => do
+        let notC ← createNot condType c
+        CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type],
+    -- `c ? 0 : -1` → `sext (not c)`
+    select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
+      fun (type, condType, c, _, _, _) => do
+        let notC ← createNot condType c
+        CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type],
+    -- `c ? C : C - 1` → `add (zext c), C - 1`
+    select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
+      fun (type, _, c, f, _, _) => do
+        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
+    -- `c ? C : C + 1` → `add (sext c), C + 1`
+    select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
+      fun (type, _, c, f, _, _) => do
+        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
+    -- `c ? 2^k : 0` → `shl (zext c), k`
+    select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
+      fun (type, _, c, _, t, _) => do
+        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+        let k ← createLog2 type t
+        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
+    -- `c ? 0 : 2^k` → `shl (zext (not c)), k`
+    select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
+      fun (type, condType, c, _, _, f) => do
+        let notC ← createNot condType c
+        let ext ← CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
+        let k ← createLog2 type f
+        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
+    -- `c ? -1 : C` → `or (sext c), C`
+    select_of_constants_pattern (fun t _ => t.isAllOnes)
+      fun (type, _, c, f, _, _) => do
+        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type],
+    -- `c ? C : -1` → `or (sext (not c)), C`
+    select_of_constants_pattern (fun _ f => f.isAllOnes)
+      fun (type, condType, c, _, t, _) => do
+        let notC ← createNot condType c
+        let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
+        let constant ← createConstantWith type t fun t => t.value.value
+        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]]
+  patterns.map (·.compile)
+
+/-! ### Selects of a binary operation on the other arm
+
+`c ? (op x, K) : x` becomes `op x, (c ? K : 0)`, where `0` leaves `x` unchanged for every `op` here.
+The inner `g_select` has two constant arms, which `selectOfConstantsCombines` then usually turns
+into arithmetic on the condition. This is LLVM's `tryFoldSelectIntoOp`, from SelectionDAG, since
+GlobalISel has no such combine:
+https://github.com/llvm/llvm-project/blob/027da639d255a4990d0d83262a5f66c0628a1438/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L24055-L24105
+
+Unlike LLVM, these combines:
+- only fold a constant `K` on the right of `op`, which is where instcombine leaves it;
+- have no one-use check, which Puddle cannot express: when `op x, K` has other uses it stays, and
+  the select is replaced by arithmetic that is no longer than the `czero` sequence it avoids;
+- do not fold `g_umin`, `g_umax`, `g_rotl` or `g_rotr`.
+
+The flags of `op` are dropped: they constrain `x` and `K` only when `c` holds, and the new operation
+also runs when it does not.
+-/
+
+/-- `c ? (op x, K) : x` → `op x, (c ? K : 0)`, and with the arms of the `g_select` exchanged when
+    `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. -/
+def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let c ← MatchProg.value condType
+      let x ← MatchProg.value type
+      let k ← matchConstant type
+      let op ← MatchProg.operation (.gmir opcode) #[x, k.res[0]!] #[type]
+      let arms := if swapped then #[c, x, op.res[0]!] else #[c, op.res[0]!, x]
+      let _ ← MatchProg.root (.gmir .g_select) arms #[type]
+      return (type, c, x, k.res[0]!))
+    (fun (type, c, x, k) => do
+      let zero ← createConstant type 0
+      let arms := if swapped then #[c, zero.res[0]!, k] else #[c, k, zero.res[0]!]
+      let select ← CreateProg.operation (.gmir .g_select) arms #[type]
+      CreateProg.operation (.gmir opcode) #[x, select.res[0]!] #[type])
+    (fun op => op)
+
+/-- The combines of `select_into_binop_pattern`. -/
+def selectIntoBinopCombines : Array (CompiledPattern OpCode) :=
+  (#[GMIR.g_shl, .g_lshr, .g_ashr, .g_sub, .g_add, .g_or, .g_xor].flatMap fun opcode =>
+    #[false, true].map (select_into_binop_pattern opcode ·)).map (·.compile)
+
 /-! ### Combine list -/
 
 /-- The combines above, in the order the combiner tries them. -/
@@ -1041,7 +1235,8 @@ def combines : Array (CompiledPattern OpCode) :=
 def preLegalizerCombines : Array (CompiledPattern OpCode) :=
   (#[udiv_by_pow2_pattern] ++
     #[false, true].flatMap fun negative =>
-      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile)
+      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile) ++
+  selectOfConstantsCombines ++ selectIntoBinopCombines
 
 end
 

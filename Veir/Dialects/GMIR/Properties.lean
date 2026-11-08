@@ -40,6 +40,19 @@ def GMIRConstantProperties.bits (props : GMIRConstantProperties) :
     BitVec props.value.type.bitwidth :=
   BitVec.ofInt _ props.value.value
 
+/-- Whether the constant is zero at the width of its type. -/
+def GMIRConstantProperties.isZero (props : GMIRConstantProperties) : Bool := props.bits == 0
+
+/-- Whether the constant is one at the width of its type. -/
+def GMIRConstantProperties.isOne (props : GMIRConstantProperties) : Bool := props.bits == 1
+
+/-- Whether every bit of the constant is set at the width of its type. -/
+def GMIRConstantProperties.isAllOnes (props : GMIRConstantProperties) : Bool := props.bits == -1
+
+/-- `t = f + delta`, at the width of `t`. -/
+def GMIRConstantProperties.isOffsetOf (t f : GMIRConstantProperties) (delta : Int) : Bool :=
+  t.bits == BitVec.ofInt _ (f.value.value + delta)
+
 /-- `k` when `v` is the power of two `2^k`: `v &&& (v - 1)` clears the lowest set bit of `v`, and
     is `0` only when that was the only one. -/
 def exactLog2? (v : Nat) : Option Nat :=

@@ -64,12 +64,12 @@
         %hi = "llvm.mlir.constant"() <{value = 2047 : i64}> : () -> i64
         %ghi = "llvm.getelementptr"(%p, %hi) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         %vhi = "llvm.load"(%ghi) : (!llvm.ptr) -> i8
-        // CHECK:      {{.*}} = "riscv.lb"({{.*}}) <{"value" = 2047 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.lbu"({{.*}}) <{"value" = 2047 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%vhi) : (i8) -> ()
         %lo = "llvm.mlir.constant"() <{value = -2048 : i64}> : () -> i64
         %glo = "llvm.getelementptr"(%p, %lo) <{elem_type = i8, rawConstantIndices = array<i32: -2147483648>}> : (!llvm.ptr, i64) -> !llvm.ptr
         %vlo = "llvm.load"(%glo) : (!llvm.ptr) -> i8
-        // CHECK:      {{.*}} = "riscv.lb"({{.*}}) <{"value" = -2048 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK:      {{.*}} = "riscv.lbu"({{.*}}) <{"value" = -2048 : i64}> : (!riscv.reg) -> !riscv.reg
         "test.test"(%vlo) : (i8) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
