@@ -500,19 +500,6 @@ namespace Veir.RISCV
 
 open Puddle
 
-/-- A pure register instruction's interpretation determines its sole result. -/
-private theorem interprets_reg_iff {op : OpCode} {props : propertiesOf op}
-    {ty : RegisterType} {args : Array RuntimeValue} {v : RuntimeValue} {result : Data.RISCV.Reg}
-    (h : ∀ mem, interpretOp' op props #[ty] args #[] mem =
-      .ok (#[.reg result], mem, none)) :
-    InterpretsTo op props #[ty] args #[v] ↔ v = .reg result := by
-  constructor
-  · intro hv
-    simpa [h] using (hv.2 .empty).symm
-  · rintro rfl
-    refine ⟨?_, h⟩
-    simp [RuntimeValue.ArrayConforms]
-
 /-- R2 preserves semantics and satisfies Puddle's structural obligations in
     both operand orders, for arbitrary register types and shared masks. -/
 theorem and_li_to_zextw_valid (liFirst : Bool) :
@@ -522,16 +509,14 @@ theorem and_li_to_zextw_valid (liFirst : Bool) :
     provePuddleValid
     simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
       forall_eq_apply_imp_iff]
-    rintro xty x cty ⟨mask⟩ v hmask hli rty props result hand
-    cases hmask
-    cases (interprets_reg_iff fun _ => rfl).mp hli
-    cases (interprets_reg_iff fun _ => rfl).mp hand
-    refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
-  · change RuntimeValue.reg (Data.RISCV.and (Data.RISCV.li 0xffffffff#64) x) ⊒ _
-    rw [Data.RISCV.and_li_to_zextw]
-    exact RuntimeValue.isRefinedBy_refl _
-  · change RuntimeValue.reg (Data.RISCV.and x (Data.RISCV.li 0xffffffff#64)) ⊒ _
-    rw [Data.RISCV.and_li_to_zextw_commuted]
-    exact RuntimeValue.isRefinedBy_refl _
+    rintro xType x maskType ⟨mask⟩ maskValue rfl hli resultType props result hand
+    -- These pure operations have the same results in every memory state.
+    cases hli.2 .empty
+    cases hand.2 .empty
+    refine ⟨.reg (Data.RISCV.zextw x), ⟨?_, fun _ => rfl⟩, ?_⟩
+    · simp [RuntimeValue.ArrayConforms]
+  -- Register refinement is equality, so the register lemmas close both cases.
+  · exact Data.RISCV.and_li_to_zextw
+  · exact Data.RISCV.and_li_to_zextw_commuted
 
 end Veir.RISCV
