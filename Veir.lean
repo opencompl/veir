@@ -28,6 +28,7 @@ import Veir.Dialects.Builtin.InterpreterLemmas
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.InstructionSelection.Proofs.I32
+import Veir.Passes.InstructionSelection.Proofs.RISCV64
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
 
