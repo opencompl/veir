@@ -61,27 +61,36 @@ def lowerValue (block : BlockPtr) (results : Array ValuePtr) (ty : LLType) :
         { value := .integer (IntegerAttr.ofInt value (.signless width)) } block
       return .opResult (op.getResult 0)
 
-def lowerFunction (moduleBlock : BlockPtr) (f : ResolvedFunction) : LowerM Unit := do
-  let inputs := f.header.params.toArray.map (lowerType ·.ty)
-  let output := lowerType f.header.retType
-  let (region, block) ← createBody inputs
-  let mut results := #[]
-  for inst in f.insts do
-    let .bin op ty lhs rhs := inst
-    let lhs ← lowerValue block results ty lhs
-    let rhs ← lowerValue block results ty rhs
-    let result ← match op with
+/-- Lower one instruction and return its defining operation. -/
+def lowerInst (block : BlockPtr) (results : Array ValuePtr) :
+    ResolvedAST → LowerM OperationPtr
+  | .bin op ty lhs rhs => do
+      let lhs ← lowerValue block results ty lhs
+      let rhs ← lowerValue block results ty rhs
+      match op with
       | .and => emit .and #[lowerType ty] #[lhs, rhs] #[] () block
       | .or => emit .or #[lowerType ty] #[lhs, rhs] #[] { disjoint := false } block
       | .xor => emit .xor #[lowerType ty] #[lhs, rhs] #[] () block
-    results := results.push (.opResult (result.getResult 0))
+
+/-- Lower instructions in order, accumulating the available instruction results. -/
+def lowerInsts (block : BlockPtr) (results : Array ValuePtr) :
+    List ResolvedAST → LowerM (Array ValuePtr)
+  | [] => pure results
+  | inst :: insts => do
+      let op ← lowerInst block results inst
+      lowerInsts block (results.push (.opResult (op.getResult 0))) insts
+
+def lowerFunction (moduleBlock : BlockPtr) (f : ResolvedFunction) : LowerM OperationPtr := do
+  let inputs := f.header.params.toArray.map (lowerType ·.ty)
+  let output := lowerType f.header.retType
+  let (region, block) ← createBody inputs
+  let results ← lowerInsts block #[] f.insts
   let value ← lowerValue block results f.header.retType f.result
   let _ ← emit .return #[] #[value] #[] () block
-  let _ ← emit .func #[] #[] #[region]
+  emit .func #[] #[] #[region]
     { sym_name := ⟨f.header.name.toUTF8⟩
       function_type := { inputs := inputs.map Subtype.val, outputs := #[output.val] }
       extra := .empty } moduleBlock
-  return ()
 
 /-- Prototype lowering of the resolved single-block integer fragment.
 Rejects unavailable references; full LLVM type and symbol verification is separate. -/
@@ -91,7 +100,8 @@ def lowerModule (m : ResolvedModule) :
     | throw "could not create module"
   let some block := (root.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
     | throw "module has no body block"
-  let ((), ctx') ← (m.funcs.forM (lowerFunction block)).run ctx
+  let ((), ctx') ← (m.funcs.forM (fun f => do
+    let _ ← lowerFunction block f)).run ctx
   return (ctx', root)
 
 /-! Declarative specification of the final graph. Each instruction has one defining op, kept in
@@ -150,6 +160,8 @@ def LowersFunction (f : ResolvedFunction) (op : OperationPtr) : Prop :=
 def LowersModule (m : ResolvedModule) (root : OperationPtr) : Prop :=
   ∃ (region : RegionPtr) (block : BlockPtr) (funcs : List OperationPtr),
     MatchesOp ctx root Builtin.module #[] #[] #[region] default ∧
+    region.BlockChain ctx.raw #[block] ∧
+    block.OpChain ctx.raw funcs.toArray ∧
     root.getParent! ctx.raw = none ∧ ctx.Dom (.operation root) ∧
     block.getArgumentTypes! ctx.raw = #[] ∧ ResolvesList (LowersFunction ctx) m.funcs funcs
 
@@ -212,5 +224,5 @@ info: "builtin.module"() ({
 -- op24: llvm.func          parent=blk2 prev=op13 next=·    regions=[14]
 
 #eval (lowerModule resolvedDeMorganModule).map (·.1.raw)
-
+theorem lowerModule_sound : lowerModule m = .ok (ctx, root) → LowersModule ctx m root := sorry
  end Veir.LLVMLowering
