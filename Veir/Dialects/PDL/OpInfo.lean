@@ -27,7 +27,7 @@ inductive PDL where
 | types
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def PDL.propertiesOf (op : PDL) : Type :=
 match op with
 | .attribute => PDLAttributeProperties
