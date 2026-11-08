@@ -28,7 +28,11 @@ import Veir.Interpreter
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.InstructionSelection.Proofs.I32
+<<<<<<< HEAD
 import Veir.Passes.InstructionSelection.Validity
+=======
+import Veir.Passes.InstructionSelection.Proofs.RISCV64
+>>>>>>> dfb31ab43 ()
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.CastsReconciliation.Validity
 import Veir.Passes.Legalization.Proofs
