@@ -251,6 +251,67 @@ def zextb_lbu_pattern : Puddle.Pattern OpCode :=
 def zextb_lbu : Puddle.CompiledPattern OpCode :=
   zextb_lbu_pattern.compile
 
+/-- `riscv.andi 255 (riscv.lbu addr) -> riscv.lbu addr`: the `andi` form of
+    `zextb_lbu`. Legalizing a `g_zext` of an `i8` load gives
+    `g_and (g_anyext load), 255`, which selects to this `andi`. As in `zextb_lbu`,
+    forwarding the existing load result keeps the load where it is.
+
+    LLVM: as for `zextb_lbu`, the mask is dropped by demanded/known bits, and
+    `zextloadi8` selects to `LBU`.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7872-L7897 -/
+def andi_255_lbu_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let addr ← Puddle.MatchProg.value addrType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let lbu ← Puddle.MatchProg.operation (.riscv .lbu) #[addr] #[resultType]
+      let _ ← Puddle.MatchProg.root (.riscv .andi) #[lbu.res[0]!] #[resultType]
+        (fun props => props.value = 255#64)
+      return lbu.res[0]!)
+    pure
+    (fun lbu => lbu)
+
+def andi_255_lbu : Puddle.CompiledPattern OpCode :=
+  andi_255_lbu_pattern.compile
+
+/-- `li c` whose value fits the signed 12-bit immediate of `addi`. `0` is left to
+    `right_identity_zero_add`. -/
+def liFitsSImm12 (props : RISCVImmediateProperties) : Bool :=
+  props.value != 0#64 && -2048 ≤ props.value.toInt && props.value.toInt ≤ 2047
+
+/-- `riscv.add x (riscv.li c) -> riscv.addi x c` (and `riscv.add (riscv.li c) x`
+    unless `liFirst` is false) when `c` fits a signed 12-bit immediate. `addi`
+    sign-extends its 12-bit immediate, which for such a `c` is `li c`'s
+    materialized value. The `getelementptr` lowering adds a constant index that
+    reached it as a `g_constant` with a register `add`, which this folds.
+
+    LLVM: `PatGprSimm12<add, ADDI>`.
+    https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1557 -/
+def add_li_to_addi_pattern (liFirst : Bool) : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let regType ← Puddle.MatchProg.type (Attr := RegisterType)
+        (fun ty => ty.index.isNone)
+      let x ← Puddle.MatchProg.value regType
+      let liType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let li ← Puddle.MatchProg.operation (.riscv .li) #[] #[liType] liFitsSImm12
+      let _ ← Puddle.MatchProg.root (.riscv .add)
+        (if liFirst then #[li.res[0]!, x] else #[x, li.res[0]!]) #[regType]
+      return (x, regType, li.properties))
+    (fun (x, regType, liProps) => do
+      let addiProps ← Puddle.CreateProg.applyNative
+          (Outputs := Puddle.Handle OpCode (.prop (.riscv .addi))) liProps
+          fun (props : RISCVImmediateProperties) => some props
+      Puddle.CreateProg.operation (.riscv .addi) #[x] #[regType] (.inr addiProps))
+    (fun op => op.res[0]!)
+
+def add_li_to_addi : Puddle.CompiledPattern OpCode :=
+  (add_li_to_addi_pattern false).compile
+
+def add_li_to_addi_commuted : Puddle.CompiledPattern OpCode :=
+  (add_li_to_addi_pattern true).compile
+
 /-- Apply `riscv.sextw` to the register results of an interpreted operation. -/
 abbrev sextwResults : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
     Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
@@ -1168,6 +1229,9 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , packh_high_bytes
      , packh_high_bytes_commuted
      , zextb_lbu
+     , andi_255_lbu
+     , add_li_to_addi
+     , add_li_to_addi_commuted
      , zextw_slliw_lbu 8
      , zextw_slliw_lbu 16
      , zextw_slliw_lbu 24

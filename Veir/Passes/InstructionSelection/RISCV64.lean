@@ -357,7 +357,7 @@ def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RI
   | none => CreateProg.applyNative access fun props => memProps (some 0) props
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8), for a
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8), for a
   `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
 -/
 def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
@@ -388,12 +388,15 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8).
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8).
   The patterns folding a constant `getelementptr` offset into the immediate come first.
+  The high bits of the register holding a loaded `i8` are unspecified, so either byte load
+  would do; like LLVM (`LdPat<extloadi8, LBU>`), take `lbu`, whose result `riscv-combine`
+  can then use for a zero-extension without a mask.
 -/
 def load : Array (Puddle.CompiledPattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerLoad mode 1 .lb, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
+    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
       lowerLoad mode 8 .ld].map (·.compile)
 
 /--
