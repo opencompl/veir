@@ -557,6 +557,7 @@ open Puddle
 local instance : LawfulMonad MatchProg.Builder := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_ <;> intros <;> rfl
 
+/-- A pure register instruction's interpretation determines its sole result. -/
 private theorem interprets_reg_iff {op : OpCode} {props : propertiesOf op}
     {ty : RegisterType} {args : Array RuntimeValue} {v : RuntimeValue} {result : Data.RISCV.Reg}
     (h : ∀ mem, interpretOp' op props #[ty] args #[] mem =
@@ -564,9 +565,7 @@ private theorem interprets_reg_iff {op : OpCode} {props : propertiesOf op}
     InterpretsTo op props #[ty] args #[v] ↔ v = .reg result := by
   constructor
   · intro hv
-    have heq := hv.2 .empty
-    rw [h] at heq
-    simpa using heq.symm
+    simpa [h] using (hv.2 .empty).symm
   · rintro rfl
     refine ⟨?_, h⟩
     simp [RuntimeValue.ArrayConforms]
@@ -583,79 +582,72 @@ local macro "normalizeShiftAmountPattern" : tactic => `(tactic| (
   simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
     forall_eq_apply_imp_iff]))
 
-local macro "proveShiftAmountMaskValid" sem:ident equality:ident : tactic => `(tactic| (
+local macro "proveShiftAmountMaskValid" equality:ident : tactic => `(tactic| (
   normalizeShiftAmountPattern
-  intro aty amount props v hmask hprod xty x rty sprops result hshift
-  rcases props with ⟨mask⟩
-  have hprodEq := (interprets_reg_iff (h := by intro mem; rfl)).mp hprod
-  cases hprodEq
-  have hshiftEq := (interprets_reg_iff (h := by intro mem; rfl)).mp hshift
-  cases hshiftEq
-  refine ⟨.reg ($sem amount x), ?_, ?_⟩
-  · exact (interprets_reg_iff (h := by intro mem; rfl)).mpr rfl
-  · simp only [RISCVImmediateProperties.immField]
-    rw [$equality hmask]
-    exact RuntimeValue.isRefinedBy_refl _))
+  rintro aty amount ⟨mask⟩ v hmask hprod xty x rty sprops result hshift
+  cases (interprets_reg_iff fun _ => rfl).mp hprod
+  cases (interprets_reg_iff fun _ => rfl).mp hshift
+  refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
+  simp only [RISCVImmediateProperties.immField]
+  rw [$equality hmask]
+  exact RuntimeValue.isRefinedBy_refl _))
 
-local macro "proveShiftAmountZextValid" sem:ident equality:ident : tactic => `(tactic| (
+local macro "proveShiftAmountZextValid" equality:ident : tactic => `(tactic| (
   normalizeShiftAmountPattern
   intro aty amount props v hprod xty x rty sprops result hshift
-  have hprodEq := (interprets_reg_iff (h := by intro mem; rfl)).mp hprod
-  cases hprodEq
-  have hshiftEq := (interprets_reg_iff (h := by intro mem; rfl)).mp hshift
-  cases hshiftEq
-  refine ⟨.reg ($sem amount x), ?_, ?_⟩
-  · exact (interprets_reg_iff (h := by intro mem; rfl)).mpr rfl
-  · rw [($equality)]
-    exact RuntimeValue.isRefinedBy_refl _))
+  cases (interprets_reg_iff fun _ => rfl).mp hprod
+  cases (interprets_reg_iff fun _ => rfl).mp hshift
+  refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
+  rw [($equality)]
+  exact RuntimeValue.isRefinedBy_refl _))
 
 theorem drop_sll_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sll 63) := by
-  proveShiftAmountMaskValid Data.RISCV.sll Data.RISCV.sll_amount_andi
+  proveShiftAmountMaskValid Data.RISCV.sll_amount_andi
 
 theorem drop_srl_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .srl 63) := by
-  proveShiftAmountMaskValid Data.RISCV.srl Data.RISCV.srl_amount_andi
+  proveShiftAmountMaskValid Data.RISCV.srl_amount_andi
 
 theorem drop_sra_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sra 63) := by
-  proveShiftAmountMaskValid Data.RISCV.sra Data.RISCV.sra_amount_andi
+  proveShiftAmountMaskValid Data.RISCV.sra_amount_andi
 
 theorem drop_sllw_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sllw 31) := by
-  proveShiftAmountMaskValid Data.RISCV.sllw Data.RISCV.sllw_amount_andi
+  proveShiftAmountMaskValid Data.RISCV.sllw_amount_andi
 
 theorem drop_srlw_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .srlw 31) := by
-  proveShiftAmountMaskValid Data.RISCV.srlw Data.RISCV.srlw_amount_andi
+  proveShiftAmountMaskValid Data.RISCV.srlw_amount_andi
 
 theorem drop_sraw_amount_mask_valid :
     Pattern.Valid (drop_shift_amount_mask_pattern .sraw 31) := by
-  proveShiftAmountMaskValid Data.RISCV.sraw Data.RISCV.sraw_amount_andi
+  proveShiftAmountMaskValid Data.RISCV.sraw_amount_andi
 
 theorem drop_sll_amount_zextw_valid :
     Pattern.Valid (drop_zextw_shift_amount_pattern .sll) := by
-  proveShiftAmountZextValid Data.RISCV.sll Data.RISCV.sll_amount_zextw
+  proveShiftAmountZextValid Data.RISCV.sll_amount_zextw
 
 theorem drop_srl_amount_zextw_valid :
     Pattern.Valid (drop_zextw_shift_amount_pattern .srl) := by
-  proveShiftAmountZextValid Data.RISCV.srl Data.RISCV.srl_amount_zextw
+  proveShiftAmountZextValid Data.RISCV.srl_amount_zextw
 
 theorem drop_sra_amount_zextw_valid :
     Pattern.Valid (drop_zextw_shift_amount_pattern .sra) := by
-  proveShiftAmountZextValid Data.RISCV.sra Data.RISCV.sra_amount_zextw
+  proveShiftAmountZextValid Data.RISCV.sra_amount_zextw
 
 -- The existing low-word family supplies the word-shift zero-extension cases.
 theorem drop_sllw_amount_zextw_valid (h : ReadsLowWord .sllw 2) :
     Pattern.Valid (drop_ext_low_word_pattern .zextw .sllw 2 1 h) := by
-  proveShiftAmountZextValid Data.RISCV.sllw Data.RISCV.sllw_amount_zextw
+  proveShiftAmountZextValid Data.RISCV.sllw_amount_zextw
 
 theorem drop_srlw_amount_zextw_valid (h : ReadsLowWord .srlw 2) :
     Pattern.Valid (drop_ext_low_word_pattern .zextw .srlw 2 1 h) := by
-  proveShiftAmountZextValid Data.RISCV.srlw Data.RISCV.srlw_amount_zextw
+  proveShiftAmountZextValid Data.RISCV.srlw_amount_zextw
 
 theorem drop_sraw_amount_zextw_valid (h : ReadsLowWord .sraw 2) :
     Pattern.Valid (drop_ext_low_word_pattern .zextw .sraw 2 1 h) := by
-  proveShiftAmountZextValid Data.RISCV.sraw Data.RISCV.sraw_amount_zextw
+  proveShiftAmountZextValid Data.RISCV.sraw_amount_zextw
 
 end Veir.RISCV
