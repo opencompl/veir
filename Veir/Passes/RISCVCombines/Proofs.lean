@@ -11,6 +11,10 @@ meta import Std.Tactic.BVDecide.Reflect
 
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
+import all Veir.Passes.RISCVCombines.Combine
+import all Veir.PatternRewriter.Puddle.Validity
+import all Veir.Dialects.RISCV.OpInfo
+import all Veir.GlobalOpInfo
 
 public section
 
@@ -43,6 +47,16 @@ theorem add_li_to_addi_commuted {x : Reg} {c : BitVec 64}
     (hlo : -2048 ≤ c.toInt) (hhi : c.toInt ≤ 2047) :
     RISCV.add x (RISCV.li c) = RISCV.addi (c.setWidth 12) x := by
   simpa only [RISCV.add, BitVec.add_comm] using (add_li_to_addi (x := x) hlo hhi)
+
+/-- Both sides retain bits 31:0 and clear bits 63:32. -/
+theorem and_li_to_zextw {x : Reg} :
+    RISCV.and (RISCV.li 0xffffffff#64) x = RISCV.zextw x := by
+  veir_bv_decide
+
+/-- The other operand order matched by `and_li_to_zextw_commuted`. -/
+theorem and_li_to_zextw_commuted {x : Reg} :
+    RISCV.and x (RISCV.li 0xffffffff#64) = RISCV.zextw x := by
+  simpa only [RISCV.and, BitVec.and_comm] using (and_li_to_zextw (x := x))
 
 /--
   Prove the correctness of the `srl_sra_signbit` combine, phrased directly on the
@@ -479,3 +493,45 @@ theorem sexth_li_low16 {x : BitVec 64} (h : (x.extractLsb 15 0).signExtend 64 = 
   veir_bv_decide
 
 end Veir.Data.RISCV
+
+end
+
+namespace Veir.RISCV
+
+open Puddle
+
+/-- A pure register instruction's interpretation determines its sole result. -/
+private theorem interprets_reg_iff {op : OpCode} {props : propertiesOf op}
+    {ty : RegisterType} {args : Array RuntimeValue} {v : RuntimeValue} {result : Data.RISCV.Reg}
+    (h : ∀ mem, interpretOp' op props #[ty] args #[] mem =
+      .ok (#[.reg result], mem, none)) :
+    InterpretsTo op props #[ty] args #[v] ↔ v = .reg result := by
+  constructor
+  · intro hv
+    simpa [h] using (hv.2 .empty).symm
+  · rintro rfl
+    refine ⟨?_, h⟩
+    simp [RuntimeValue.ArrayConforms]
+
+/-- R2 preserves semantics and satisfies Puddle's structural obligations in
+    both operand orders, for arbitrary register types and shared masks. -/
+theorem and_li_to_zextw_valid (liFirst : Bool) :
+    Pattern.Valid (and_li_to_zextw_pattern liFirst) := by
+  cases liFirst <;> simp only [and_li_to_zextw_pattern, Bool.false_eq_true, ↓reduceIte]
+  all_goals
+    provePuddleValid
+    simp only [RuntimeValue.Conforms.registerType, forall_exists_index,
+      forall_eq_apply_imp_iff]
+    rintro xty x cty ⟨mask⟩ v hmask hli rty props result hand
+    cases hmask
+    cases (interprets_reg_iff fun _ => rfl).mp hli
+    cases (interprets_reg_iff fun _ => rfl).mp hand
+    refine ⟨_, (interprets_reg_iff fun _ => rfl).mpr rfl, ?_⟩
+  · change RuntimeValue.reg (Data.RISCV.and (Data.RISCV.li 0xffffffff#64) x) ⊒ _
+    rw [Data.RISCV.and_li_to_zextw]
+    exact RuntimeValue.isRefinedBy_refl _
+  · change RuntimeValue.reg (Data.RISCV.and x (Data.RISCV.li 0xffffffff#64)) ⊒ _
+    rw [Data.RISCV.and_li_to_zextw_commuted]
+    exact RuntimeValue.isRefinedBy_refl _
+
+end Veir.RISCV
