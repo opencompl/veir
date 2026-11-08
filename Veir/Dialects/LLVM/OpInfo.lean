@@ -1772,8 +1772,8 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .addr (.val p) => return (#[.addr (.val p)], mem, none)
     | _ => none
   | .bitcast => do
-    let [val] := operands.toList | none
-    let [⟨type, _⟩] := resultTypes.toList | none
+    let val := operands[0]!
+    let type := resultTypes[0]!.val
     let result ← do match val, type with
       | .int bw1 val', .integerType ⟨bw2, _⟩ =>
           if bw1 ≠ bw2 then .fail none else .ok (val)

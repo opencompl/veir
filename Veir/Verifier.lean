@@ -1172,5 +1172,23 @@ theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
     throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   grind
 
+namespace IsFromVerifiedOp
+
+/-- Package an operation's local verification certificate. -/
+theorem of_verified {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {hin : op.InBounds ctx.raw} (h : op.Verified ctx hin) :
+    IsFromVerifiedOp (op.getOpType! ctx.raw) (op.getOperandTypes! ctx.raw)
+      (op.getResultTypes! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) :=
+  ⟨ctx, op, hin, h, rfl, rfl, rfl, rfl⟩
+
+/-- Every in-bounds operation of a verified context supplies a witness. -/
+theorem of_verified_context {ctx : WfIRContext OpCode} {root op : OperationPtr}
+    (h : ctx.Verified root) (hin : op.InBounds ctx.raw) :
+    IsFromVerifiedOp (op.getOpType! ctx.raw) (op.getOperandTypes! ctx.raw)
+      (op.getResultTypes! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) :=
+  of_verified (op.satisfyInvariants_of_IRContext_satisfyOpInvariants h hin)
+
+end IsFromVerifiedOp
+
 end
 end Veir
