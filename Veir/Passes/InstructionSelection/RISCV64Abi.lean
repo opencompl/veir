@@ -123,7 +123,8 @@ private def supportsFunctionAbi (ctx : IRContext OpCode) (op : OperationPtr) : B
   Extend `reg`, which holds a value of type `type` in its low bits, to the full
   register as `ext` requests. An `i32` is sign-extended, as the psABI requires, unless
   it is `zeroext`, which LLVM honors by zero-extending it.
-  The sequences match `llc -mtriple=riscv64 -mattr=+zba,+zbb`.
+  The integer sequences match `llc -mtriple=riscv64-unknown-linux-gnu
+  -mattr=+f,+d,+zba,+zbb -target-abi=lp64d`.
 -/
 def extendForAbi (ctx : WfIRContext OpCode) (ext : AbiExt) (type : TypeAttr) (reg : ValuePtr)
     : Option (WfIRContext OpCode × Array OperationPtr × ValuePtr) := do

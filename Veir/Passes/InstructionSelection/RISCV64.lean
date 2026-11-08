@@ -105,10 +105,6 @@ def icmpTypeWidth? (t : TypeAttr) : Option Nat :=
   | .llvmPointerType _ => some 64
   | _ => none
 
-/-- Whether a `gmir.g_constant` with properties `props` is the integer `0`. -/
-def isGMIRConstantZero (props : GMIRConstantProperties) : Bool :=
-  BitVec.ofInt props.value.type.bitwidth props.value.value = 0
-
 /--
   Whether `llvm.trunc` from `opType` to `resType` is lowered: both are integer types or both are
   byte types, and the result is strictly narrower than the operand.
@@ -361,7 +357,7 @@ def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RI
   | none => CreateProg.applyNative access fun props => memProps (some 0) props
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8), for a
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8), for a
   `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
 -/
 def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
@@ -392,12 +388,15 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
     (fun castBackOp => castBackOp)
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lb (i8).
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8).
   The patterns folding a constant `getelementptr` offset into the immediate come first.
+  The high bits of the register holding a loaded `i8` are unspecified, so either byte load
+  would do; like LLVM (`LdPat<extloadi8, LBU>`), take `lbu`, whose result `riscv-combine`
+  can then use for a zero-extension without a mask.
 -/
 def load : Array (Puddle.CompiledPattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerLoad mode 1 .lb, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
+    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
       lowerLoad mode 8 .ld].map (·.compile)
 
 /--
@@ -1065,7 +1064,7 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
       let cond ← MatchProg.value condType
       let val ← MatchProg.value type
       let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+      MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
       let operands :=
         if zeroFalse then #[cond, val, zeroOp.res[0]!] else #[cond, zeroOp.res[0]!, val]
       let root ← MatchProg.root (.gmir .g_select) operands #[type]
@@ -1087,6 +1086,79 @@ def gmirSelectZero_pattern (zeroFalse : Bool) : Pattern OpCode :=
             #[valCastOp.res[0]!, condCastOp.res[0]!] #[regType] czProps
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[czOp.res[0]!] #[type])
     (fun castBackOp => castBackOp)
+
+/--
+  A zero-arm `gmir.g_select` on an equality `gmir.g_icmp` tests the difference of its operands
+  directly, as `czero.eqz` and `czero.nez` test their condition against zero. This mirrors LLVM's
+  `CondOpsPat` (`RISCVInstrInfoZicond.td`), whose `riscv_setne`/`riscv_seteq` operands match
+  `(setcc x, 0)` as `x` and `(setcc x, y)` as `(xor x, y)`:
+  ```
+    (select (icmp ne x, y), t, 0) -> (czero.eqz t, (xor x, y))
+    (select (icmp eq x, y), t, 0) -> (czero.nez t, (xor x, y))
+    (select (icmp ne x, y), 0, f) -> (czero.nez f, (xor x, y))
+    (select (icmp eq x, y), 0, f) -> (czero.eqz f, (xor x, y))
+  ```
+  where `(xor x, 0)` is `x` when `zeroRhs` is set. They take priority over `gmirSelectZero`, which
+  would test the `0`/`1` result of the selected `g_icmp`.
+-/
+def gmirSelectZeroOfSetcc_pattern (zeroFalse : Bool) (pred : Data.LLVM.IntPred) (zeroRhs : Bool) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType)
+      let opType ← MatchProg.type (Attr := TypeAttr)
+      let lhs ← MatchProg.value opType
+      let rhs ← if zeroRhs then do
+          let rhsZeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[opType]
+          MatchProg.matchNative rhsZeroOp.properties GMIRConstantProperties.isZero
+          pure rhsZeroOp.res[0]!
+        else
+          MatchProg.value opType
+      let condType ← MatchProg.type (Attr := IntegerType)
+      let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[condType]
+          (fun props => props.predicate = pred)
+      matchLegal .g_icmp condType icmp.properties (type₁ := opType)
+      let val ← MatchProg.value type
+      let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
+      let operands :=
+        if zeroFalse then #[icmp.res[0]!, val, zeroOp.res[0]!]
+        else #[icmp.res[0]!, zeroOp.res[0]!, val]
+      let root ← MatchProg.root (.gmir .g_select) operands #[type]
+      matchLegal .g_select type root.properties (type₁ := condType)
+      return (type, lhs, rhs, val))
+    (fun (type, lhs, rhs, val) => do
+      let regType ← CreateProg.type (RegisterType.mk none)
+      let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[val] #[regType]
+      let lhsCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+          #[lhs] #[regType]
+      let diff ← if zeroRhs then pure lhsCastOp.res[0]! else do
+          let rhsCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
+              #[rhs] #[regType]
+          let xorProps ← CreateProg.property (.riscv .xor) ()
+          let xorOp ← CreateProg.operation (.riscv .xor)
+              #[lhsCastOp.res[0]!, rhsCastOp.res[0]!] #[regType] xorProps
+          pure xorOp.res[0]!
+      -- The result is zero when the `g_icmp` selects the zero arm: when `diff` is zero for
+      -- `ne` with a zero false arm or `eq` with a zero true arm (`czero.eqz`), and when it is
+      -- nonzero otherwise (`czero.nez`).
+      let czOp ← if zeroFalse == (pred == .ne) then do
+          let czProps ← CreateProg.property (.riscv .czeroeqz) ()
+          CreateProg.operation (.riscv .czeroeqz) #[valCastOp.res[0]!, diff] #[regType] czProps
+        else do
+          let czProps ← CreateProg.property (.riscv .czeronez) ()
+          CreateProg.operation (.riscv .czeronez) #[valCastOp.res[0]!, diff] #[regType] czProps
+      CreateProg.operation (.builtin .unrealized_conversion_cast) #[czOp.res[0]!] #[type])
+    (fun castBackOp => castBackOp)
+
+/-- The zero-arm `gmir.g_select` patterns on an equality `gmir.g_icmp` (see
+    `gmirSelectZeroOfSetcc_pattern`), the zero-`rhs` ones first. -/
+def gmirSelectZeroOfSetcc : Array (Puddle.CompiledPattern OpCode) :=
+  #[true, false].flatMap fun zeroRhs =>
+    #[true, false].flatMap fun zeroFalse =>
+      #[Data.LLVM.IntPred.ne, .eq].map fun pred =>
+        (gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs).compile
 
 /-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
 def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
@@ -1862,7 +1934,7 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
       let lhs ← MatchProg.value opType
       let rhs ← if zeroRhs then do
           let zeroOp ← MatchProg.operation (.gmir .g_constant) #[] #[opType]
-          MatchProg.matchNative zeroOp.properties isGMIRConstantZero
+          MatchProg.matchNative zeroOp.properties GMIRConstantProperties.isZero
           pure zeroOp.res[0]!
         else
           MatchProg.value opType
@@ -1968,7 +2040,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
     .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++
-    store.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
+    store.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,

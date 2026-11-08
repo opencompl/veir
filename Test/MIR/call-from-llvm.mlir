@@ -26,7 +26,7 @@
 // CHECK-NEXT:     ADJCALLSTACKDOWN 0, 0, implicit-def dead $x2, implicit $x2
 // CHECK-NEXT:     $x10 = COPY [[A]]
 // CHECK-NEXT:     $x11 = COPY [[BEXT]]
-// CHECK-NEXT:     PseudoCALL target-flags(riscv-call) @ext, csr_ilp32_lp64, implicit-def dead $x1, implicit $x10, implicit $x11, implicit-def $x2, implicit-def $x10
+// CHECK-NEXT:     PseudoCALL target-flags(riscv-call) @ext, csr_ilp32d_lp64d, implicit-def dead $x1, implicit $x10, implicit $x11, implicit-def $x2, implicit-def $x10
 // CHECK-NEXT:     ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2
 // CHECK-NEXT:     [[R:%v[0-9]+]]:gpr = COPY $x10
 // CHECK-NEXT:     [[S:%v[0-9]+]]:gpr = ADD [[R]], [[A]]

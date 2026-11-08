@@ -18,6 +18,9 @@ public section
   output of the `isel-*` pipeline) and emits textual MIR with virtual
   registers, suitable for `llc -run-pass=none` / `-start-before=...`.
 
+  The target is riscv64 Linux with the lp64d ABI on rv64g (no C), plus the extensions
+  used by instruction selection. Keep it in sync with `Tools/riscv_target.py`.
+
   Anything that is not fully lowered is rejected with an error rather than
   printed (see `checkFunction`): every function body must consist of `riscv`,
   `riscv_cf`, `rv64` and `riscv_stack` operations on `!riscv.reg` values, inside
@@ -422,7 +425,7 @@ def stackArgAlignSuffix (k : Nat) : String :=
 
 /-- Emit a `riscv_cf.call` the way LLVM's selector does: bracket the call with
     `ADJCALLSTACKDOWN`/`ADJCALLSTACKUP` (no stack arguments, so both are 0),
-    copy arguments into a0.., call with the lp64 callee-saved mask, and copy
+    copy arguments into a0.., call with the lp64d callee-saved mask, and copy
     results out of a0... Direct targets carry the call relocation flag needed
     by LLVM's object emitter. An indirect target goes through a `gprjalrnonx7`
     copy -- the register class `PseudoCALLIndirect` requires. -/
@@ -446,7 +449,7 @@ def emitCall (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr) : IO Unit
   let call := match callee with
     | some c => s!"PseudoCALL target-flags(riscv-call) {llvmSymbol c}"
     | none => s!"PseudoCALLIndirect {target}"
-  IO.println (s!"    {call}, csr_ilp32_lp64, implicit-def dead $x1" ++
+  IO.println (s!"    {call}, csr_ilp32d_lp64d, implicit-def dead $x1" ++
     String.join uses ++ ", implicit-def $x2" ++ String.join defs)
   IO.println "    ADJCALLSTACKUP 0, 0, implicit-def dead $x2, implicit $x2"
   for i in 0...nres do
@@ -1120,6 +1123,7 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
       if !defined.contains c && !externs.contains c then
         externs := externs.push c
   IO.println "--- |"
+  IO.println "  target triple = \"riscv64-unknown-linux-gnu\""
   for op in globalOps do
     printGlobal ctx op symbols
   for (name, blocks) in funcs do
@@ -1130,7 +1134,9 @@ def printMIR (ctx : IRContext OpCode) (funcOps globalOps : Array OperationPtr) :
     IO.println "  }"
   for name in externs do
     IO.println s!"  declare void {llvmSymbol name}()"
-  IO.println "  attributes #0 = { \"target-features\"=\"+m,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond\" }"
+  IO.println "  attributes #0 = { \"target-features\"=\"+m,+a,+f,+d,+zicsr,+zifencei,+zba,+zbb,+zbs,+zbc,+zbkb,+zicond,-c\" }"
+  IO.println "  !llvm.module.flags = !{!0}"
+  IO.println "  !0 = !{i32 1, !\"target-abi\", !\"lp64d\"}"
   IO.println "..."
   for (name, blocks) in funcs do
     try printFunction ctx name blocks
