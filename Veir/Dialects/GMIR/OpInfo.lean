@@ -991,20 +991,18 @@ def GMIR.tryFold (op : GMIR) (properties : GMIR.propertiesOf op)
     let outcome ← icmpOutcome? properties.predicate lhs rhs
     some #[.useConstant (.int type.bitwidth (.val (BitVec.ofNat _ outcome.toNat)))]
   -- Adding or subtracting zero, with no carry in, has no carry out.
-  | .g_uaddo, [lhs, rhs] => do
-    let .integerType carry := resultTypes[1]!.val | none
-    let noCarry := FoldDecision.useConstant (.int carry.bitwidth (.val 0))
+  | .g_uaddo, [lhs, rhs] =>
+    let noCarry := FoldDecision.useConstant (.int 1 (.val 0))
     if intZero rhs then some #[.useOperand 0, noCarry]
     else if intZero lhs then some #[.useOperand 1, noCarry]
     else none
-  -- The carry in, known to be zero, has the type of the carry out.
+  -- The carry in, known to be zero, is an `i1` like the carry out.
   | .g_uadde, [lhs, rhs, carry] =>
     if intZero rhs && intZero carry then some #[.useOperand 0, .useOperand 2]
     else if intZero lhs && intZero carry then some #[.useOperand 1, .useOperand 2]
     else none
-  | .g_usubo, [_, rhs] => do
-    let .integerType borrow := resultTypes[1]!.val | none
-    if intZero rhs then some #[.useOperand 0, .useConstant (.int borrow.bitwidth (.val 0))]
+  | .g_usubo, [_, rhs] =>
+    if intZero rhs then some #[.useOperand 0, .useConstant (.int 1 (.val 0))]
     else none
   | .g_usube, [_, rhs, borrow] =>
     if intZero rhs && intZero borrow then some #[.useOperand 0, .useOperand 2] else none

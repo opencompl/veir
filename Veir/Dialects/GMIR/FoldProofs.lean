@@ -176,6 +176,24 @@ meta def unifyIntTypes (g : MVarId) : MetaM (List MVarId) := g.withContext do
 open Lean Elab Tactic in
 elab "unify_int_types" : tactic => liftMetaTactic unifyIntTypes
 
+open Lean Elab Tactic Meta in
+/-- Substitute every width the interpreter checked, from each hypothesis `¬a ≠ b`. -/
+meta partial def substWidths (g : MVarId) : MetaM (List MVarId) := g.withContext do
+  for d in ← getLCtx do
+    unless d.isImplementationDetail do
+      let some p := (← instantiateMVars d.type).not? | continue
+      let some (_, a, b) := p.ne? | continue
+      unless (a.isFVar || b.isFVar) && a != b do continue
+      let eq ← mkAppM ``Decidable.of_not_not #[mkFVar d.fvarId]
+      let g ← g.assert `hWidth (← inferType eq) eq
+      let (h, g) ← g.intro1P
+      let (_, g) ← substCore g h (symm := true) <|> substCore g h
+      return ← substWidths g
+  return [g]
+
+open Lean Elab Tactic in
+elab "subst_widths" : tactic => liftMetaTactic substWidths
+
 /-- Substitute the integer operands that the interpreter matched. -/
 local macro "gmir_operands" : tactic => `(tactic| first
   | (have hs := ‹[_, _] = [_, _]›
@@ -198,7 +216,7 @@ local macro "gmir_simp" : tactic => `(tactic| simp_all [intZero, intOne, intAllO
     LLVM.Int.ssubSat, LLVM.Int.usubSat, LLVM.Int.smin, LLVM.Int.smax, LLVM.Int.umin,
     LLVM.Int.umax, LLVM.Int.icmp, LLVM.Int.zext, LLVM.Int.uaddOverflowFlag,
     LLVM.Int.usubOverflowFlag, LLVM.Int.isSignedDivisionUB, LLVM.Int.isUnsignedDivisionUB,
-    GMIRFold.of_integerType_inj, GMIRFold.ite_lt_of_le, GMIRFold.setWidth_one, GMIRFold.cast_poison, GMIRFold.cast_val, LLVM.IntPred.eval, ↓GMIRFold.shiftAmount_zero, shiftAmount, GMIRFold.ite_zero_allOnes, GMIRFold.carry_zero_right, GMIRFold.carry_zero_left, GMIRFold.allOnes_not_lt_width, Nat.forall_lt_succ_left', zextOrTrunc, uaddWithCarry, usubWithBorrow])
+    GMIRFold.of_integerType_inj, GMIRFold.ite_lt_of_le, GMIRFold.setWidth_one, GMIRFold.cast_poison, GMIRFold.cast_val, LLVM.IntPred.eval, ↓GMIRFold.shiftAmount_zero, shiftAmount, GMIRFold.ite_zero_allOnes, GMIRFold.carry_zero_right, GMIRFold.carry_zero_left, GMIRFold.allOnes_not_lt_width, Nat.forall_lt_succ_left', uaddWithCarry, usubWithBorrow])
 
 /--
 Prove one table entry, once the operands are substituted: take its chain of
@@ -233,7 +251,7 @@ local macro "gmir_arm" : tactic => `(tactic| (
     repeat' (split at hInterp)
     all_goals (try (simp at hInterp; done))
     all_goals gmir_operands
-    all_goals (try obtain rfl := Decidable.of_not_not ‹¬_ ≠ _›)
+    all_goals subst_widths
     all_goals (simp only [LLVM.Int.cast_self, Interp.pure_eq, Interp.ok.injEq] at hInterp)
     all_goals subst hInterp
     all_goals rcases hl with rfl | rfl
