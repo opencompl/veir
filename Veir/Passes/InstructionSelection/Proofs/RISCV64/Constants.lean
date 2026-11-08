@@ -1,6 +1,11 @@
 module
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
+import all Veir.Interpreter.Memory
+import all Veir.Data.LLVM.Ptr.Basic
+import all Veir.Data.Pointer.Basic
+import all Veir.Passes.Legalization.RISCV64LegalizerInfo
+import all Veir.Passes.Legalization.LegalizerInfo
 
 /-! Instruction-selection validity proofs: Constant materialization and freeze. -/
 
@@ -17,7 +22,7 @@ attribute [local ctree_semantics]
   Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
 
 @[simp, ctree_semantics]
-private theorem tt (P : propertiesOf (OpCode.gmir GMIR.g_constant) → Prop) :
+private theorem forall_gmirConstantProperties (P : propertiesOf (OpCode.gmir GMIR.g_constant) → Prop) :
     (∀ (property : propertiesOf (OpCode.gmir GMIR.g_constant)), P property) ↔
     (∀ (value : IntegerAttr), P { value := value }) := by
   constructor
@@ -36,34 +41,45 @@ theorem constant_pattern_valid :
   obtain ⟨propVal, rfl⟩ : exists value, property = { value := LLVMConstantValue.integer value } := by
     cases property; grind
   simp [ctree_semantics]
-  sorry
+  simp only [Data.RISCV.val_li]
+  ext i hi
+  simp [BitVec.getElem_signExtend, hi, Nat.lt_of_lt_of_le hi xBw]
 
 theorem poisonConstInt_pattern_valid :
     Puddle.CTree.Pattern.Valid (poisonConst_pattern IntegerType) := by
   unfold poisonConst_pattern
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  sorry
+  simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.mlir_poison]
 
 theorem poisonConstPtr_pattern_valid :
     Puddle.CTree.Pattern.Valid (poisonConst_pattern LLVM.PointerType) := by
   unfold poisonConst_pattern
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of]
-  sorry
+  simp [RuntimeValue.isRefinedBy]
 
 theorem zeroConstInt_pattern_valid :
     Puddle.CTree.Pattern.Valid (zeroConst_pattern IntegerType (·.bitwidth)) := by
   unfold zeroConst_pattern
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  sorry
+  simp [Data.RISCV.val_li]
+
+/-- Decoding zero need not preserve the null object's identity in an arbitrary memory. -/
+theorem zeroConstPtr_decode_counterexample :
+    ¬ (RuntimeValue.addr Data.LLVM.Ptr.null ⊒ RuntimeValue.addr
+      (({ bytes := {}, objects := #[⟨0, 0⟩, ⟨0, 0⟩] } : MemoryState).ptrFromInt
+        (.val (Data.RISCV.li 0#64).val))) := by
+  change ¬ ({ object := 0, address := 0 } : Data.Pointer) = ⟨1, 0⟩
+  simp
 
 theorem zeroConstPtr_pattern_valid :
     Puddle.CTree.Pattern.Valid (zeroConst_pattern LLVM.PointerType (fun _ => 64)) := by
   unfold zeroConst_pattern
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of]
+  -- False for the memory in `zeroConstPtr_decode_counterexample`.
   sorry
 
 theorem freeze_pattern_valid :
@@ -86,6 +102,15 @@ theorem gmirConstant_pattern_valid :
   simp only [matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  sorry
+  intro a value legal
+  simp only [Data.RISCV.val_li]
+  by_cases h : a.bitwidth = 64
+  · rcases a with ⟨width, signedness⟩
+    cases h
+    rfl
+  · cbv at legal
+    by_cases hw : a.bitwidth < 64 <;>
+      simp [h, hw, LegalizeRule.minScalar, LegalizeRule.widenScalarIf,
+        LegalityPredicate.scalarNarrowerThan, LegalityQuery.getLLT!] at legal
 
 end Veir

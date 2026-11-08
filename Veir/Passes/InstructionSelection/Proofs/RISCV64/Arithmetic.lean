@@ -24,7 +24,9 @@ theorem gmirAdd_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirSub_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSub_pattern := by
@@ -32,7 +34,9 @@ theorem gmirSub_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirAddi_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAddi_pattern := by
@@ -42,7 +46,11 @@ theorem gmirAddi_pattern_valid :
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
   rintro signedness a ⟨property⟩
   simp [ctree_semantics]
-  sorry
+  intro p legal lo hi x hx
+  cases a <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals rw [mkRISCVImm_signExtend_12 property.value lo hi]
+  all_goals veir_bv_decide
 
 theorem gmirRiscvAddiw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvAddiw_pattern := by
@@ -52,7 +60,12 @@ theorem gmirRiscvAddiw_pattern_valid :
   simp [ctree_semantics, ←Attribute.integerType_eq_of, GMIR_RISCV.base]
   rintro signedness a ⟨property⟩
   simp [ctree_semantics]
-  sorry
+  intro lo hi x hx
+  cases a <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals rw [mkRISCVImm_signExtend_12 property.value lo hi]
+  all_goals have bridge := BitVec.setWidth_ofInt_32_64 property.value
+  all_goals veir_bv_decide
 
 theorem gmirMul_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirMul_pattern := by
@@ -60,7 +73,10 @@ theorem gmirMul_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals simp_all only [BitVec.mul_comm, implies_true, not_false_eq_true, not_true_eq_false, false_implies]
 
 theorem gmirSdiv_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSdiv_pattern := by
@@ -68,7 +84,12 @@ theorem gmirSdiv_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal mem
+  by_cases h : a.isSignedDivisionUB b = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals first | solve | veir_bv_normalize; simp_all
+                  | veir_bv_decide
 
 theorem gmirUdiv_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUdiv_pattern := by
@@ -76,7 +97,12 @@ theorem gmirUdiv_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal mem
+  by_cases h : b.isUnsignedDivisionUB = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals first | solve | veir_bv_normalize; simp_all
+                  | veir_bv_decide
 
 theorem gmirSrem_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSrem_pattern := by
@@ -84,7 +110,12 @@ theorem gmirSrem_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal mem
+  by_cases h : a.isSignedDivisionUB b = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals first | solve | veir_bv_normalize; simp_all
+                  | veir_bv_decide
 
 theorem gmirUrem_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUrem_pattern := by
@@ -92,7 +123,12 @@ theorem gmirUrem_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal mem
+  by_cases h : b.isUnsignedDivisionUB = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals first | solve | veir_bv_normalize; simp_all
+                  | veir_bv_decide
 
 theorem gmirRiscvAddw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvAddw_pattern := by
@@ -100,7 +136,10 @@ theorem gmirRiscvAddw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  sorry
+  intro a b x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals first | solve | veir_bv_normalize; simp_all
+                  | veir_bv_decide
 
 theorem gmirRiscvSubw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvSubw_pattern := by
@@ -108,7 +147,10 @@ theorem gmirRiscvSubw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  sorry
+  intro a b x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals first | solve | veir_bv_normalize; simp_all
+                  | veir_bv_decide
 
 theorem gmirRiscvMulw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvMulw_pattern := by
@@ -116,7 +158,11 @@ theorem gmirRiscvMulw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  sorry
+  intro a b x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals simp -failIfUnchanged only [*]
+  all_goals veir_bv_decide
 
 theorem gmirRiscvDivw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvDivw_pattern := by
@@ -124,7 +170,13 @@ theorem gmirRiscvDivw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  sorry
+  intro a b mem
+  by_cases h : (a.trunc 32 false false (by veir_bv_decide)).isSignedDivisionUB (b.trunc 32 false false (by veir_bv_decide)) = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals simp -failIfUnchanged only [*]
+  all_goals veir_bv_decide
 
 theorem gmirRiscvDivuw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvDivuw_pattern := by
@@ -132,7 +184,13 @@ theorem gmirRiscvDivuw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  sorry
+  intro a b mem
+  by_cases h : (b.trunc 32 false false (by veir_bv_decide)).isUnsignedDivisionUB = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals simp -failIfUnchanged only [*]
+  all_goals veir_bv_decide
 
 theorem gmirRiscvRemuw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvRemuw_pattern := by
@@ -140,7 +198,13 @@ theorem gmirRiscvRemuw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  sorry
+  intro a b mem
+  by_cases h : (b.trunc 32 false false (by veir_bv_decide)).isUnsignedDivisionUB = true <;> simp [h, ctree_semantics]
+  intro x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_normalize
+  all_goals simp -failIfUnchanged only [*]
+  all_goals veir_bv_decide
 
 theorem gmirSmax_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSmax_pattern := by
@@ -148,7 +212,9 @@ theorem gmirSmax_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirSmin_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSmin_pattern := by
@@ -156,7 +222,9 @@ theorem gmirSmin_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirUmax_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUmax_pattern := by
@@ -164,7 +232,9 @@ theorem gmirUmax_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirUmin_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirUmin_pattern := by
@@ -172,6 +242,8 @@ theorem gmirUmin_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  sorry
+  intro s a b p legal x hx y hy
+  cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 end Veir
