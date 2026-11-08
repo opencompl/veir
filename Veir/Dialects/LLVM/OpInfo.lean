@@ -1225,6 +1225,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .load => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      "llvm.load: Expected operand 0 to have !llvm.ptr type"
     let properties := op.getProperties! ctx.raw Llvm.load
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.load' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
@@ -1236,6 +1238,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .store => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 2 0
+    ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyLlvmPointerType
+      "llvm.store: Expected operand 1 to have !llvm.ptr type"
     let properties := op.getProperties! ctx.raw Llvm.store
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.store' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
@@ -1319,6 +1323,10 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then
       throw "Expected 0 successors"
+    ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
+      "llvm.getelementptr: Expected operand 0 to have !llvm.ptr type"
+    (op.getResult 0).getType! ctx.raw |>.verifyLlvmPointerType
+      "llvm.getelementptr: Expected result to have !llvm.ptr type"
     Llvm.verifyGEPIndices props.elem_type props.rawConstantIndices
   | .call_intrinsic => do
     op.checkIsNonNullIntegerType ctx opIn
