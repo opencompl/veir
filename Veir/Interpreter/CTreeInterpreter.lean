@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
+public import Veir.Interfaces.CallInterfaces
 public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Dialects.LLVM.Interpreter
 public import Veir.Dialects.GMIR.Interpreter
@@ -35,12 +36,32 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
 
+/--
+Interpret a call-like operation given its runtime operands, by triggering a `CallE` effect on the
+object of its callee. Only direct calls are supported, whose callee the memory maps to an object.
+-/
+def interpretCall (op : OperationPtr) {ctx : WfIRContext OpCode} (callOp : CallOp ctx.raw op)
+    (operands : Array RuntimeValue) (state : InterpreterState ctx)
+    (inBounds : op.InBounds ctx.raw := by grind)
+    : RegionTree ctx (InterpreterState ctx) (InterpreterState ctx × Option ControlFlowAction) := do
+  let properties := op.getProperties! ctx.raw (op.getOpType! ctx.raw)
+  let some (.symbol callee) := callOp.callOpInterface.getCallableForCallee? properties operands
+    | fail
+  let some name := callee.getName? >>= String.fromUTF8? | fail
+  let some calleePtr := state.memory.pointerToGlobal ("@" ++ name) | fail
+  let arguments := callOp.callOpInterface.getArgOperands properties operands
+  let (memory, results) ← CTree.trigger (SubE := CallE) ⟨calleePtr, arguments, state.memory⟩
+  let some variables := state.variables.setResultValues? op results | fail
+  return (⟨variables, memory⟩, none)
+
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
     (state : InterpreterState ctx) (inBounds : op.InBounds ctx.raw := by grind)
     : RegionTree ctx (InterpreterState ctx) (InterpreterState ctx × Option ControlFlowAction) := do
   let some operands := state.variables.getOperandValues op
     | fail
+  if let some callOp := CallOp.of? op ctx.raw then
+    return ← interpretCall op callOp operands state
   let opType := op.getOpType ctx.raw inBounds
   let opCTree := (interpretOp' opType (op.getProperties ctx.raw opType)
     (op.getResultTypes ctx.raw) operands (op.getSuccessors ctx.raw) state.memory
@@ -54,7 +75,7 @@ def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
       let (state, results) ← runRegion region values
         ({ variables := state.variables, memory := memoryState } : InterpreterState ctx) inBounds
       return (state.memory, results)
-    | .inr e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e)
+    | .inr e => CTree.trigger (SubE := CallE ⊕ₑ (ExternalCallE ⊕ₑ (ErrorE ⊕ₑ UBE))) e)
     opCTreeWithRegion
   let some variables := state.variables.setResultValues? op resultValues inBounds
     | fail
@@ -106,24 +127,55 @@ def interpretCFG (region : RegionPtr) (values : Array RuntimeValue)
   CTree.iter (fun (next, state) => interpretCFG.iter next state)
     (.inl (⟨firstBlock, by grind⟩, values), state)
 
-/-- Interpret a region starting at its entry block with the given values. -/
+/--
+Interpret a region starting at its entry block with the given values, leaving function calls as
+effects.
+-/
 def interpretRegion (region : RegionPtr) (values : Array RuntimeValue)
     {ctx : WfIRContext OpCode} (state : InterpreterState ctx)
     (inBounds : region.InBounds ctx.raw := by grind)
-    : Tree (InterpreterState ctx × Array RuntimeValue) :=
+    : FunctionTree (InterpreterState ctx × Array RuntimeValue) :=
   CTree.mrec (E := RunRegionE ctx (InterpreterState ctx)) (fun ⟨region, values, state, inBounds⟩ =>
     interpretCFG region values state inBounds) ⟨region, values, state, inBounds⟩
 
-/-- Interpret a function body with the given runtime arguments and initial memory. -/
+/--
+Interpret a function body with the given runtime arguments and initial memory, leaving function
+calls as effects. Returns the final memory and the returned values.
+-/
 def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
     {ctx : WfIRContext OpCode} (opIn : op.InBounds ctx.raw := by grind)
-    : Tree (Array RuntimeValue) := do
+    : FunctionTree (MemoryState × Array RuntimeValue) := do
   let some funcOp := FunctionOp.of? op ctx.raw | fail
   if h : op.getNumRegions ctx.raw ≠ 1 then
     fail
   else
-    let (_, results) ← interpretRegion funcOp.getFunctionBody
+    let (state, results) ← interpretRegion funcOp.getFunctionBody
       values ⟨.empty ctx, mem⟩
-    return results
+    return (state.memory, results)
+
+/-- The function in `functions`, by object, whose object `callee` points to the start of, if any. -/
+def functionAt? (functions : Std.HashMap Nat OperationPtr) (memory : MemoryState)
+    (callee : Data.Pointer) : Option OperationPtr := do
+  let object ← memory.getObject? callee
+  guard (object.base = callee.address)
+  functions[callee.object]?
+
+/--
+Interpret the function calls of `tree`, where `functions` maps each function's object to the
+function. Calling a pointer that does not point to the start of one of these objects is undefined
+behavior. A call to a function without a body stays an `ExternalCallE` effect.
+-/
+def resolveCalls (functions : Std.HashMap Nat OperationPtr) {ctx : WfIRContext OpCode}
+    (tree : FunctionTree α) : ProgramTree α :=
+  CTree.interp_mrec (E := CallE) (fun ⟨callee, arguments, memory⟩ => do
+    let some funcPtr := functionAt? functions memory callee | ub
+    let some funcOp := FunctionOp.of? funcPtr ctx.raw | fail
+    if (funcOp.getFunctionBody!.getFirstBlock! ctx.raw).isNone then
+      let name := "@" ++ String.fromUTF8! funcOp.getSymName.value
+      CTree.trigger (SubE := ExternalCallE) ⟨name, arguments, memory⟩
+    else if h : funcPtr.InBounds ctx.raw then
+      interpretFunction (ctx := ctx) funcPtr arguments memory
+    else
+      fail) tree
 
 end Veir.CTree

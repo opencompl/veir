@@ -104,6 +104,36 @@ abbrev FreezeC (c : FreezeCIn.{u}) : Type :=
   match c with
   | .mk bw => BitVec bw
 
+/-! ## Function Call Effect -/
+
+/-- A function call effect (input type): the object of the callee, the arguments, and the memory. -/
+structure CallEIn where
+  callee : Data.Pointer
+  arguments : Array RuntimeValue
+  memory : MemoryState
+
+/-- A function call effect output type. A call returns its final memory and its returned values. -/
+abbrev CallE (_ : CallEIn) : Type :=
+  MemoryState × Array RuntimeValue
+
+/-- A call to a function without a body (input type): its symbol, the arguments, and the memory. -/
+structure ExternalCallEIn where
+  callee : String
+  arguments : Array RuntimeValue
+  memory : MemoryState
+
+/-- A call to a function without a body returns its final memory and its returned values. -/
+abbrev ExternalCallE (_ : ExternalCallEIn) : Type :=
+  MemoryState × Array RuntimeValue
+
+/-- Trees whose only calls are to functions without a body. -/
+abbrev ProgramTree (α : Type) :=
+  CTree (ExternalCallE ⊕ₑ (ErrorE ⊕ₑ UBE)) FreezeC α
+
+/-- Trees whose function calls have not yet been interpreted. -/
+abbrev FunctionTree (α : Type) :=
+  CTree (CallE ⊕ₑ (ExternalCallE ⊕ₑ (ErrorE ⊕ₑ UBE))) FreezeC α
+
 /-! ## Region Runner Effect -/
 
 /-- A region call effect (input type), including its arguments and the state visible to its body. -/
@@ -117,9 +147,9 @@ structure RunRegionEIn (ctx : WfIRContext OpCode) (σ : Type) where
 abbrev RunRegionE (ctx : WfIRContext OpCode) (σ : Type) (_ : RunRegionEIn ctx σ) : Type :=
   σ × Array RuntimeValue
 
-/-- Trees whose region calls have not yet been interpreted. -/
+/-- Trees whose region calls and function calls have not yet been interpreted. -/
 abbrev RegionTree (ctx : WfIRContext OpCode) (σ α : Type) :=
-  CTree (RunRegionE ctx σ ⊕ₑ (ErrorE ⊕ₑ UBE)) FreezeC α
+  CTree (RunRegionE ctx σ ⊕ₑ (CallE ⊕ₑ (ExternalCallE ⊕ₑ (ErrorE ⊕ₑ UBE)))) FreezeC α
 
 /-- Request region execution without choosing its recursive interpretation. -/
 def runRegion (region : RegionPtr) (values : Array RuntimeValue) (state : σ)

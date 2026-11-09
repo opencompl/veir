@@ -76,37 +76,41 @@ private def expectOk (what : String) : Interp α → IO α
   Give each global and function of the module an object, before any of them
   is initialized, so that an initializer can take the address of any symbol.
   A function gets an object of no bytes. Returns the globals still to be
-  initialized, with their objects.
+  initialized, with their objects, and the function of each function object.
 -/
 partial def allocateGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr)
-    (mem : MemoryState) (pending : Array (OperationPtr × Data.Pointer) := #[]) :
-    IO (MemoryState × Array (OperationPtr × Data.Pointer)) := do
-  let some op := op | return (mem, pending)
+    (mem : MemoryState) (pending : Array (OperationPtr × Data.Pointer) := #[])
+    (functions : Std.HashMap Nat OperationPtr := {}) :
+    IO (MemoryState × Array (OperationPtr × Data.Pointer) × Std.HashMap Nat OperationPtr) := do
+  let some op := op | return (mem, pending, functions)
   let raw : IRContext OpCode := ctx
-  let (mem, pending) ← match op.getOpType! raw with
+  let (mem, pending, functions) ← match op.getOpType! raw with
     | .llvm .mlir__global => do
       let props : LLVMGlobalProperties := op.getProperties! raw (OpCode.llvm .mlir__global)
       let name := "@" ++ String.fromUTF8! props.sym_name.value
       let some size := DataLayout.riscv64.getTypeAllocSize props.global_type.val
         | IO.eprintln s!"error: cannot size global {name}"; IO.Process.exit 1
       let (mem, ptr) ← expectOk name (mem.alloc size.toUInt64)
-      pure ({ mem with globals := mem.globals.insert name ptr.object }, pending.push (op, ptr))
+      pure ({ mem with globals := mem.globals.insert name ptr.object }, pending.push (op, ptr),
+        functions)
     | _ =>
       match FunctionOp.of? op raw with
       | some funcOp =>
         let name := "@" ++ String.fromUTF8! funcOp.getSymName.value
         let (mem, ptr) ← expectOk name (mem.alloc 0)
-        pure ({ mem with globals := mem.globals.insert name ptr.object }, pending)
-      | none => pure (mem, pending)
-  allocateGlobals ctx (op.getNextOp! raw) mem pending
+        pure ({ mem with globals := mem.globals.insert name ptr.object }, pending,
+          functions.insert ptr.object op)
+      | none => pure (mem, pending, functions)
+  allocateGlobals ctx (op.getNextOp! raw) mem pending functions
 
 /--
   Fill the object of a global with its `value`, or with what its initializer
   region returns. A global with neither stays poison. With `useCTree`, the
-  initializer region runs with the CTree-based interpreter.
+  initializer region runs with the CTree-based interpreter, calling `functions`.
 -/
-def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.Pointer)
-    (mem : MemoryState) (useCTree : Bool) : IO MemoryState := do
+def initializeGlobal (ctx : WfIRContext OpCode) (functions : Std.HashMap Nat OperationPtr)
+    (op : OperationPtr) (ptr : Data.Pointer) (mem : MemoryState) (useCTree : Bool) :
+    IO MemoryState := do
   let raw : IRContext OpCode := ctx
   let props : LLVMGlobalProperties := op.getProperties! raw (OpCode.llvm .mlir__global)
   let name := "@" ++ String.fromUTF8! props.sym_name.value
@@ -125,19 +129,24 @@ def initializeGlobal (ctx : WfIRContext OpCode) (op : OperationPtr) (ptr : Data.
       | none => pure mem
       | some _ => do
         let (state, results) ← expectOk name <|
-          if useCTree then (CTree.interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩).run
+          if useCTree then
+            CTree.resolveCalls (ctx := ctx) functions
+              (CTree.interpretRegion region #[] ⟨.empty ctx, mem⟩) |>.run
           else interpretRegion region #[] (ctx := ctx) ⟨.empty ctx, mem⟩
         let some value := results[0]? | pure state.memory
         expectOk name (state.memory.llvmStore ptr value)
 
 /--
   Give each global and function of the module an object before `main` runs,
-  in two passes: first every object, then every initial value.
+  in two passes: first every object, then every initial value. Returns the
+  memory and the function of each function object.
 -/
 def materializeGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr)
-    (mem : MemoryState) (useCTree : Bool) : IO MemoryState := do
-  let (mem, pending) ← allocateGlobals ctx op mem
-  pending.foldlM (fun mem (op, ptr) => initializeGlobal ctx op ptr mem useCTree) mem
+    (mem : MemoryState) (useCTree : Bool) : IO (MemoryState × Std.HashMap Nat OperationPtr) := do
+  let (mem, pending, functions) ← allocateGlobals ctx op mem
+  let mem ← pending.foldlM
+    (fun mem (op, ptr) => initializeGlobal ctx functions op ptr mem useCTree) mem
+  return (mem, functions)
 
 /--
   Arguments for the `veir-interpret` command-line tool, parsed from the CLI.
@@ -180,12 +189,14 @@ def main (args : List String) : IO Unit := do
     let mainFunc := FunctionOp.of mainOp.val rawCtx mainOp.property
     let firstOp := ((op.getRegion! rawCtx 0).getFirstBlock! rawCtx).bind
       fun b => b.getFirstOp! rawCtx
-    let mem ← materializeGlobals ctx firstOp MemoryState.empty useCTree
+    let (mem, functions) ← materializeGlobals ctx firstOp MemoryState.empty useCTree
     let result :=
       if useCTree then
-        (CTree.interpretFunction (ctx := ctx) mainOp.val #[] mem (by sorry)).run
+        CTree.resolveCalls (ctx := ctx) functions
+          (CTree.interpretFunction (ctx := ctx) mainOp.val #[] mem (by sorry)) |>.run
       else
-        bind (interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry)) (fun (_, r) => pure r)
+        interpretFunction (ctx := ctx) mainFunc #[] mem (by sorry)
+    let result := result.map (·.2)
     match result with
     | .ok results => IO.println s!"Program output: {results}"
     | .ub op? =>

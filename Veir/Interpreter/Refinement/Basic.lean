@@ -199,8 +199,9 @@ interpreter. This does not hold if either operation is not function-like.
 
 For refining arguments and any initial memory, every target behavior must be simulated by a
 source behavior, with returned values refining pointwise. `CTree.Sim` takes the target tree first
-and the source tree second, so its return relation also reverses the arguments. The CTree function
-interpreter returns only the function's values.
+and the source tree second, so its return relation also reverses the arguments. Only the returned
+values are compared, not the final memory. Function calls stay effects, which both functions must
+perform alike.
 -/
 @[expose]
 def OperationPtr.isRefinedByAsFunctionCTree (op₁ : OperationPtr) (ctx₁ : WfIRContext OpCode)
@@ -211,7 +212,7 @@ def OperationPtr.isRefinedByAsFunctionCTree (op₁ : OperationPtr) (ctx₁ : WfI
   | some _, some _ =>
     ∀ (valuesSource valuesTarget : Array RuntimeValue) (mem : MemoryState),
       valuesSource ⊒ valuesTarget →
-      CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source target)
+      CTree.Sim (fun target source => RuntimeValue.arrayIsRefinedBy source.2 target.2)
         (CTree.interpretFunction op₂ valuesTarget mem op₂In)
         (CTree.interpretFunction op₁ valuesSource mem op₁In)
   | _, _ => False

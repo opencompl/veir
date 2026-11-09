@@ -25,4 +25,11 @@ partial def Tree.run {R : Type} (t : Tree R)
   | .vis (.inl _) _ => .fail none
   | .vis (.inr _) _ => .ub none
 
+/-- Run a program tree. A call to a function without a body fails, as it cannot be interpreted. -/
+def ProgramTree.run {R : Type} (t : ProgramTree R)
+    (freezeHandler : ∀ c, FreezeC c := fun _ => 0) : Interp R :=
+  Tree.run (CTree.interp (fun
+    | .inl _ => fail
+    | .inr e => CTree.trigger (SubE := ErrorE ⊕ₑ UBE) e) t) freezeHandler
+
 end Veir
