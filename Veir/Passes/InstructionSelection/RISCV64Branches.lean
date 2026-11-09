@@ -288,8 +288,17 @@ public def isConvertible (ctx : WfIRContext OpCode) (block : BlockPtr) : Bool :=
     fitsRegister ((ValuePtr.blockArgument { block := block, index := i }).getType! ctx.raw)
 
 /--
+  Whether the branch `op` can be lowered: its targets can all be converted, and
+  every value it reads, its condition included, fits a register.
+-/
+public def branchFits (ctx : WfIRContext OpCode) (convertible : BlockPtr → Bool)
+    (op : OperationPtr) : Bool :=
+  (op.getSuccessors! ctx.raw).all convertible &&
+    (op.getOperands! ctx.raw).all fun operand => fitsRegister (operand.getType! ctx.raw)
+
+/--
   Remove from `convertible` the targets of every `g_br` and `g_brcond`
-  among `ops` that has a target outside of it. Such a branch is left alone and
+  among `ops` that `branchFits` does not accept. Such a branch is left alone and
   keeps passing values of their original types, so none of its targets may be
   converted. Removing a block can leave another branch alone, so this repeats
   until nothing changes, at most `fuel` times.
@@ -303,7 +312,7 @@ public def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List Operati
       let opType := op.getOpType! ctx
       let targets := (op.getSuccessors! ctx.raw).toList
       if (opType = OpCode.gmir .g_br || opType = OpCode.gmir .g_brcond) &&
-          !targets.all convertibleSet.contains then targets else []
+          !branchFits ctx convertibleSet.contains op then targets else []
     if dropped.any convertibleSet.contains then
       let droppedSet := Std.HashSet.ofList dropped
       dropTargetsOfUnlowered ctx ops fuel (convertible.filter (!droppedSet.contains ·))
@@ -313,7 +322,9 @@ public def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List Operati
 /--
   Replace the terminator `op` by its RISC-V counterpart if it is a `g_br`,
   a `g_brcond` or an `llvm.unreachable`, and leave any other operation
-  alone. A branch to a block that cannot be converted is left alone as well.
+  alone. A branch that `branchFits` does not accept is left alone as well: one
+  to a block that cannot be converted, or that reads a value that does not fit a
+  register, such as a condition wider than 64 bits.
   `compareOf` gives the compare-and-branch that replaces a `g_brcond`, if any.
 -/
 public def convertBranch (convertible : BlockPtr → Bool)
@@ -326,7 +337,7 @@ public def convertBranch (convertible : BlockPtr → Bool)
     | some (ctx, _) => pure (WfRewriter.eraseOp! ctx op)
   else if ¬ op.IsGmirBranch ctx.raw then
     pure ctx
-  else if !(op.getSuccessors! ctx.raw).all convertible then
+  else if !branchFits ctx convertible op then
     pure ctx
   else do
     let ip := InsertPoint.before op

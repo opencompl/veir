@@ -43,6 +43,18 @@ theorem fitsRegister_of_roundTrips {type : TypeAttr} (h : roundTrips type) :
   obtain ⟨attr, hattr⟩ := type
   cases attr <;> simp_all [roundTrips]
 
+/-- A type that fits a register and is no pointer round-trips through a register. -/
+theorem roundTrips_of_fitsRegister {type : TypeAttr} (h : fitsRegister type)
+    (hPointer : ∀ t, type.val ≠ .llvmPointerType t) : roundTrips type := by
+  have h' := fitsRegister_iff.mp h
+  obtain ⟨attr, hattr⟩ := type
+  cases attr <;> simp only [roundTrips] <;>
+    first
+      | exact h
+      | (exfalso
+         simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at h'
+         grind)
+
 /--
   The register that `builtin.unrealized_conversion_cast` turns an integer or a
   byte into.
