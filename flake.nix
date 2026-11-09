@@ -92,6 +92,7 @@
           default = makeApp pkgs null;
           build = makeApp pkgs "build";
           tests = makeApp pkgs "tests";
+          "bench-ctree" = makeApp pkgs "bench-ctree";
           "veir-opt" = makeLeanApp pkgs "veir-opt";
           "veir-interpret" = makeLeanApp pkgs "veir-interpret";
           "veir2mir" = makeLeanApp pkgs "veir2mir";

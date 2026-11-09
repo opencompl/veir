@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Compare the run time of `veir-interpret` with and without `--ctree`.
+
+Runs from any directory, after `lake build veir-interpret veir-opt`:
+    Tools/bench-ctree [--repeat N] [test.mlir ...]
+Without tests, it uses a few interpreter tests that take seconds with `--ctree`.
+"""
+
+import argparse
+import pathlib
+import statistics
+import subprocess
+import tempfile
+import time
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+INTERPRET = ROOT / ".lake/build/bin/veir-interpret"
+OPT = ROOT / ".lake/build/bin/veir-opt"
+
+DEFAULT_TESTS = [
+    "Test/Interpreter/LLVM/getelementptr_multi_index.mlir",
+    "Test/Interpreter/LLVM/memcpy.mlir",
+    "Test/Interpreter/LLVM/pointer_bytes_moved.mlir",
+    "Test/Interpreter/Cir/loop.mlir",
+    "Test/Interpreter/RISCV_programs/primes_O3.mlir",
+]
+
+
+def prepare(test: pathlib.Path, scratch: pathlib.Path) -> pathlib.Path:
+    """The file to interpret for `test`."""
+    if test.parent.name == "Cir":
+        # As in their RUN line, `cir` tests are lowered first.
+        lowered = scratch / test.name
+        with lowered.open("w") as out:
+            subprocess.run([OPT, test, "-p=cir"], stdout=out, check=True)
+        return lowered
+    if test.name == "primes_O3.mlir":
+        # The 10th prime takes far too long with `--ctree`; compute the 3rd one instead.
+        smaller = scratch / test.name
+        smaller.write_text(test.read_text().replace(
+            '<{"value" = 10 : i64}>', '<{"value" = 3 : i64}>'))
+        return smaller
+    return test
+
+
+def seconds(flags: list[str], path: pathlib.Path, repeat: int) -> float:
+    """The median wall time of `repeat` runs of `veir-interpret`."""
+    times = []
+    for _ in range(repeat):
+        start = time.perf_counter()
+        subprocess.run([INTERPRET, *flags, path], capture_output=True)
+        times.append(time.perf_counter() - start)
+    return statistics.median(times)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--repeat", type=int, default=1, help="runs per test and mode")
+    parser.add_argument("tests", nargs="*", type=pathlib.Path,
+                        default=[ROOT / test for test in DEFAULT_TESTS])
+    args = parser.parse_args()
+
+    print(f"{'test':<40} {'default':>9} {'--ctree':>9}")
+    with tempfile.TemporaryDirectory() as scratch:
+        for test in args.tests:
+            path = prepare(test.resolve(), pathlib.Path(scratch))
+            default = seconds([], path, args.repeat)
+            ctree = seconds(["--ctree"], path, args.repeat)
+            print(f"{test.name:<40} {default:>8.3f}s {ctree:>8.3f}s", flush=True)
+
+
+if __name__ == "__main__":
+    main()
