@@ -82,11 +82,28 @@ axiom bind {RR RR'} (t : CTree E C X) (u : CTree E C' X') (k : X → CTree E C Y
   (∀ x y, RR x y → Sim RR' (k x) (k' y)) →
   Sim RR' (bind t k) (bind u k')
 
+/-- A simulation remains valid when its relation on return values is weakened. -/
+theorem mono {RR RS : R → R' → Prop} {t : CTree E C R} {u : CTree E C' R'}
+    (h : Sim RR t u) (hrel : ∀ x y, RR x y → RS x y) : Sim RS t u := by
+  have hbind := bind t u CTree.ret CTree.ret h
+    (fun x y hxy => (ret RS x y).mpr (hrel x y hxy))
+  change Sim RS (t >>= Pure.pure) (u >>= Pure.pure) at hbind
+  simpa only [_root_.bind_pure] using hbind
+
 /-- Simulations compose by relating their return values through an intermediate outcome. -/
 axiom trans_rel {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
     {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃} :
     Sim RS t u → Sim RT u v →
     Sim (fun x z => ∃ y, RS x y ∧ RT y z) t v
+
+/-- Compose simulations when the two return relations imply the desired relation. -/
+theorem trans {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R₂ → R₃ → Prop}
+    {RU : R₁ → R₃ → Prop} {t : CTree E C R₁} {u : CTree E C' R₂} {v : CTree E D R₃}
+    (htu : Sim RS t u) (huv : Sim RT u v)
+    (hrel : ∀ x y z, RS x y → RT y z → RU x z) : Sim RU t v := by
+  apply (trans_rel htu huv).mono
+  rintro x z ⟨y, hxy, hyz⟩
+  exact hrel x y z hxy hyz
 
 axiom iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
     (body : I → CTree E C (I ⊕ X)) (body' : I' → CTree E C (I' ⊕ Y)) i i' :
