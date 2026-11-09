@@ -1,0 +1,215 @@
+module
+
+import all Veir.Passes.RISCVCombines.Validity.Common
+
+/-! CTree validity proofs for the RISC-V combines: `sextw` of a sign-extending producer. -/
+
+namespace Veir.RISCV.CTreeProofs
+
+open Puddle
+open _root_.CTree
+
+set_option linter.unusedSimpArgs false
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  Riscv.interpretOp' Rv64.interpretOp'
+
+attribute [local implicit_reducible] TypeAttr Veir._propertiesOf Riscv.propertiesOf
+
+theorem sextw_addw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .addw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_addiw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .addiw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_subw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .subw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_mulw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .mulw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_divw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .divw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_divuw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .divuw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_remw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .remw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_remuw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .remuw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sllw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sllw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_slliw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .slliw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_srlw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .srlw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_srliw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .srliw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sraw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sraw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sraiw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sraiw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_rolw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .rolw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_rorw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .rorw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_roriw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .roriw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_packw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .packw 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_lui_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .lui 0) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_cpop_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .cpop 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_cpopw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .cpopw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_clz_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .clz 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_clzw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .clzw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_ctz_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .ctz 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_ctzw_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .ctzw 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_slt_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .slt 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sltu_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sltu 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_slti_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .slti 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sltiu_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sltiu 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_bext_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .bext 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_bexti_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .bexti 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sextb_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sextb 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_sexth_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .sexth 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_zexth_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .zexth 1) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_packh_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .packh 2) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_srai_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .srai 1 (fun p => 32#6 ≤ p.immField 6)) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_srli_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .srli 1 (fun p => 32#6 < p.immField 6)) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_andi_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .andi 1 (fun p => !(p.immField 12).msb)) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+theorem sextw_ori_valid :
+    Puddle.CTree.Pattern.Valid (drop_sextw_of_producer_pattern .ori 1 (fun p => (p.immField 12).msb)) := by
+  unfold drop_sextw_of_producer_pattern
+  proveCombineValid
+
+end Veir.RISCV.CTreeProofs
