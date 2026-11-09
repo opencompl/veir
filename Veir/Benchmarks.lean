@@ -305,12 +305,15 @@ def mulITwoReduce (ctx: WfIRContext OpCode) (op: OperationPtr) : Option (WfIRCon
     ctx ← WfRewriter.eraseOp ctx rhsOp sorry sorry sorry
   return ctx
 
--- Rewrites the first instance of an opcode in the program with the given pattern,
--- within a program consisting of one region/block
+private def benchmarkEntryBlock (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) : Option BlockPtr := do
+  let moduleBlock ← (moduleOp.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
+  let func ← moduleBlock.getFirstOp! ctx.raw
+  (func.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
+
+-- Rewrite the first matching opcode in the benchmark function.
 def rewriteFirst (ctx: WfIRContext OpCode) (topOp : OperationPtr) (opcode: OpCode) (rewrite: Pattern)
     : Option (WfIRContext OpCode) := do
-  let region := topOp.getRegion! ctx.raw 0
-  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
+  let block ← benchmarkEntryBlock ctx topOp
   let mut op ← block.getFirstOp! ctx.raw
 
   while op.getOpType ctx sorry ≠ opcode do
@@ -322,8 +325,7 @@ def rewriteFirstAddI (ctx: WfIRContext OpCode) (topOp : OperationPtr) (rewrite: 
   rewriteFirst ctx topOp (.arith .addi) rewrite
 
 def rewriteForwards (ctx: WfIRContext OpCode) (topOp : OperationPtr) (rewrite: Pattern) : Option (WfIRContext OpCode) := do
-  let region := topOp.getRegion! ctx.raw 0
-  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
+  let block ← benchmarkEntryBlock ctx topOp
 
   let mut maybeOp := block.getFirstOp! ctx.raw
   let mut ctx := ctx
@@ -343,19 +345,25 @@ namespace Program
 
 def empty : Option (WfIRContext OpCode × OperationPtr × InsertPoint) := do
   let (ctx, topLevelOp) ← WfIRContext.create OpCode
-  let region := topLevelOp.getRegion! ctx.raw 0
-  let block := (region.getFirstBlock ctx.raw (by sorry)).get!
-  let insertPoint := InsertPoint.atEnd block
-  (ctx, topLevelOp, insertPoint)
+  let moduleBlock ← (topLevelOp.getRegion! ctx.raw 0).getFirstBlock! ctx.raw
+  let (ctx, body) := WfRewriter.createRegion! ctx
+  let (ctx, entry) := WfRewriter.createBlock! ctx #[] (some (.atEnd body))
+  let props : FuncFuncProperties := {
+    sym_name := ⟨"main".toUTF8⟩
+    function_type := { inputs := #[], outputs := #[.integerType (IntegerType.signless 32)] }
+    extra := .empty
+  }
+  let (ctx, _) ← WfRewriter.createOp! ctx Func.func #[] #[] #[] #[body] props (some (.atEnd moduleBlock))
+  return (ctx, topLevelOp, .atEnd entry)
 
 
 -- Create a program that looks like:
--- func @main() -> u64 {
---   %0 = arith.constant [root] : u64
---   %1 = arith.constant [inc] : u64
---   %2 = [opcode] %0, %1 : u64
---   %3 = arith.constant [inc] : u64
---   %4 = [opcode] %2, %3 : u64
+-- func @main() -> i32 {
+--   %0 = arith.constant [root] : i32
+--   %1 = arith.constant [inc] : i32
+--   %2 = [opcode] %0, %1 : i32
+--   %3 = arith.constant [inc] : i32
+--   %4 = [opcode] %2, %3 : i32
 --   ...
 def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (WfIRContext OpCode × OperationPtr) := do
   let root := i32Const root
@@ -372,7 +380,7 @@ def constFoldTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (
     (gctx, gacc) := (ctx, acc)
 
   let accRes := gacc.getResult 0
-  let (ctx, op) ← WfRewriter.createOp gctx Test.test #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry
+  let (ctx, op) ← WfRewriter.createOp gctx Func.return #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry
   (ctx, topOp)
 
 def addZeroTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
@@ -414,7 +422,7 @@ def constFoldTreeSparse (opcode : OpCode) (prop : propertiesOf opcode) (size pc 
             runningTotals := runningTotals.push (op.getResult 0)
             gctx := ctx
 
-    let (ctx, op) ← WfRewriter.createOp gctx Test.test #[] #[runningTotals.back!] #[] #[] () insertPoint sorry sorry sorry sorry
+    let (ctx, op) ← WfRewriter.createOp gctx Func.return #[] #[runningTotals.back!] #[] #[] () insertPoint sorry sorry sorry sorry
     return (ctx, topOp)
 
 def addZeroTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPtr) :=
@@ -427,11 +435,11 @@ def mulTwoTreeSparse (size pc : Nat) : Option (WfIRContext OpCode × OperationPt
   constFoldTreeSparse (.arith .muli) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 2
 
 -- Create a program that looks like:
--- func @main() -> u64 {
---   %0 = arith.constant [root] : u64
---   %reuse = arith.constant [inc]: u64
---   %2 = [opcode] %0, %reuse : u64
---   %3 = [opcode] %2, %reuse : u64
+-- func @main() -> i32 {
+--   %0 = arith.constant [root] : i32
+--   %reuse = arith.constant [inc]: i32
+--   %2 = [opcode] %0, %reuse : i32
+--   %3 = [opcode] %2, %reuse : i32
 --   ...
 def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (root inc: Int) : Option (WfIRContext OpCode × OperationPtr) := do
   let root := i32Const root
@@ -452,20 +460,20 @@ def constReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) 
   let (ctx, acc) := (gctx, gacc)
 
   let accRes := acc.getResult 0
-  let (ctx, op) ← WfRewriter.createOp ctx Test.test #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry
+  let (ctx, op) ← WfRewriter.createOp ctx Func.return #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry
   (ctx, topOp)
 
 def addZeroReuseTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
   constReuseTree (.arith .addi) (ArithIntegerOverflowFlagsProperties.mk { nsw := false, nuw := false }) size pc 42 0
 
 -- Create a program that looks like:
--- func @main() -> u64 {
---   %0 = arith.constant [lhs] : u64
---   %1 = arith.constant [rhs] : u64
---   %reuse = [opcode] %0, %1 : u64
---   %3 = [opcode] %reuse, %reuse : u64
---   %4 = [opcode] %3, %reuse : u64
---   %5 = [opcode] %4, %reuse : u64
+-- func @main() -> i32 {
+--   %0 = arith.constant [lhs] : i32
+--   %1 = arith.constant [rhs] : i32
+--   %reuse = [opcode] %0, %1 : i32
+--   %3 = [opcode] %reuse, %reuse : i32
+--   %4 = [opcode] %3, %reuse : i32
+--   %5 = [opcode] %4, %reuse : i32
 --   ...
 def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc: Nat) (lhs rhs: Int) : Option (WfIRContext OpCode × OperationPtr) := do
   let lhs := i32Const lhs
@@ -489,7 +497,7 @@ def constLotsOfReuseTree (opcode: OpCode) (prop : propertiesOf opcode) (size pc:
   let (ctx, acc) := (gctx, gacc)
 
   let accRes := acc.getResult 0
-  let (ctx, op) ← WfRewriter.createOp ctx Test.test #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry
+  let (ctx, op) ← WfRewriter.createOp ctx Func.return #[] #[accRes] #[] #[] () insertPoint sorry sorry sorry sorry
   (ctx, topOp)
 
 def addZeroLotsOfReuseTree (size pc: Nat) : Option (WfIRContext OpCode × OperationPtr) :=
@@ -565,8 +573,10 @@ def testBench (benchmark: String) (n: Nat) : IO Unit := do
 /--
 info: "builtin.module"() ({
   ^2():
-    %34 = "arith.constant"() <{"value" = 52 : i32}> : () -> i32
-    "test.test"(%34) : (i32) -> ()
+    func.func @main() -> i32 {
+      %37 = "arith.constant"() <{"value" = 52 : i32}> : () -> i32
+      "func.return"(%37) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -575,8 +585,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %10 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
-    "test.test"(%10) : (i32) -> ()
+    func.func @main() -> i32 {
+      %13 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+      "func.return"(%13) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -585,8 +597,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %34 = "arith.constant"() <{"value" = 52 : i32}> : () -> i32
-    "test.test"(%34) : (i32) -> ()
+    func.func @main() -> i32 {
+      %37 = "arith.constant"() <{"value" = 52 : i32}> : () -> i32
+      "func.return"(%37) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -595,14 +609,16 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
-    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
-    %6 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
-    %7 = "arith.addi"(%5, %4) : (i32, i32) -> i32
-    %8 = "arith.addi"(%3, %6) : (i32, i32) -> i32
-    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
-    "test.test"(%9) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %7 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+      %8 = "arith.addi"(%6, %7) : (i32, i32) -> i32
+      %9 = "arith.constant"() <{"value" = 1 : i32}> : () -> i32
+      %10 = "arith.addi"(%8, %7) : (i32, i32) -> i32
+      %11 = "arith.addi"(%6, %9) : (i32, i32) -> i32
+      %12 = "arith.addi"(%11, %7) : (i32, i32) -> i32
+      "func.return"(%12) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -611,9 +627,11 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %12 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
-    %14 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
-    "test.test"(%14) : (i32) -> ()
+    func.func @main() -> i32 {
+      %15 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+      %17 = "arith.constant"() <{"value" = 44 : i32}> : () -> i32
+      "func.return"(%17) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -622,8 +640,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%3) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%6) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -632,8 +652,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%3) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%6) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -642,8 +664,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%3) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%6) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -652,18 +676,20 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %25 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %26 = "arith.addi"(%25, %25) : (i32, i32) -> i32
-    %27 = "arith.addi"(%26, %26) : (i32, i32) -> i32
-    %28 = "arith.addi"(%27, %27) : (i32, i32) -> i32
-    %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
-    %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
-    %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
-    %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
-    %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
-    %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
-    "test.test"(%34) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %28 = "arith.addi"(%6, %6) : (i32, i32) -> i32
+      %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
+      %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
+      %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
+      %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
+      %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
+      %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
+      %35 = "arith.addi"(%34, %34) : (i32, i32) -> i32
+      %36 = "arith.addi"(%35, %35) : (i32, i32) -> i32
+      %37 = "arith.addi"(%36, %36) : (i32, i32) -> i32
+      "func.return"(%37) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -672,18 +698,20 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %25 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %26 = "arith.addi"(%25, %25) : (i32, i32) -> i32
-    %27 = "arith.addi"(%26, %26) : (i32, i32) -> i32
-    %28 = "arith.addi"(%27, %27) : (i32, i32) -> i32
-    %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
-    %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
-    %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
-    %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
-    %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
-    %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
-    "test.test"(%34) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %28 = "arith.addi"(%6, %6) : (i32, i32) -> i32
+      %29 = "arith.addi"(%28, %28) : (i32, i32) -> i32
+      %30 = "arith.addi"(%29, %29) : (i32, i32) -> i32
+      %31 = "arith.addi"(%30, %30) : (i32, i32) -> i32
+      %32 = "arith.addi"(%31, %31) : (i32, i32) -> i32
+      %33 = "arith.addi"(%32, %32) : (i32, i32) -> i32
+      %34 = "arith.addi"(%33, %33) : (i32, i32) -> i32
+      %35 = "arith.addi"(%34, %34) : (i32, i32) -> i32
+      %36 = "arith.addi"(%35, %35) : (i32, i32) -> i32
+      %37 = "arith.addi"(%36, %36) : (i32, i32) -> i32
+      "func.return"(%37) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -693,12 +721,14 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %11 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %12 = "arith.addi"(%11, %11) : (i32, i32) -> i32
-    %13 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %14 = "arith.addi"(%13, %13) : (i32, i32) -> i32
-    "test.test"(%14) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %14 = "arith.addi"(%6, %6) : (i32, i32) -> i32
+      %15 = "arith.addi"(%14, %14) : (i32, i32) -> i32
+      %16 = "arith.addi"(%6, %6) : (i32, i32) -> i32
+      %17 = "arith.addi"(%16, %16) : (i32, i32) -> i32
+      "func.return"(%17) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -707,14 +737,16 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
-    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
-    %6 = "arith.addi"(%5, %4) : (i32, i32) -> i32
-    %7 = "arith.addi"(%6, %4) : (i32, i32) -> i32
-    %8 = "arith.addi"(%7, %4) : (i32, i32) -> i32
-    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
-    "test.test"(%9) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %7 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+      %8 = "arith.addi"(%6, %7) : (i32, i32) -> i32
+      %9 = "arith.addi"(%8, %7) : (i32, i32) -> i32
+      %10 = "arith.addi"(%9, %7) : (i32, i32) -> i32
+      %11 = "arith.addi"(%10, %7) : (i32, i32) -> i32
+      %12 = "arith.addi"(%11, %7) : (i32, i32) -> i32
+      "func.return"(%12) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -723,8 +755,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%3) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%6) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -733,8 +767,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%3) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%6) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -743,13 +779,15 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
-    %6 = "arith.addi"(%3, %4) : (i32, i32) -> i32
-    %7 = "arith.addi"(%6, %4) : (i32, i32) -> i32
-    %8 = "arith.addi"(%7, %4) : (i32, i32) -> i32
-    %9 = "arith.addi"(%8, %4) : (i32, i32) -> i32
-    "test.test"(%9) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %7 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+      %9 = "arith.addi"(%6, %7) : (i32, i32) -> i32
+      %10 = "arith.addi"(%9, %7) : (i32, i32) -> i32
+      %11 = "arith.addi"(%10, %7) : (i32, i32) -> i32
+      %12 = "arith.addi"(%11, %7) : (i32, i32) -> i32
+      "func.return"(%12) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -758,15 +796,17 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %4 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
-    %5 = "arith.addi"(%3, %4) : (i32, i32) -> i32
-    %6 = "arith.addi"(%5, %5) : (i32, i32) -> i32
-    %7 = "arith.addi"(%6, %5) : (i32, i32) -> i32
-    %8 = "arith.addi"(%7, %5) : (i32, i32) -> i32
-    %9 = "arith.addi"(%8, %5) : (i32, i32) -> i32
-    %10 = "arith.addi"(%9, %5) : (i32, i32) -> i32
-    "test.test"(%10) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %7 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+      %8 = "arith.addi"(%6, %7) : (i32, i32) -> i32
+      %9 = "arith.addi"(%8, %8) : (i32, i32) -> i32
+      %10 = "arith.addi"(%9, %8) : (i32, i32) -> i32
+      %11 = "arith.addi"(%10, %8) : (i32, i32) -> i32
+      %12 = "arith.addi"(%11, %8) : (i32, i32) -> i32
+      %13 = "arith.addi"(%12, %8) : (i32, i32) -> i32
+      "func.return"(%13) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -775,13 +815,15 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^2():
-    %3 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %6 = "arith.addi"(%3, %3) : (i32, i32) -> i32
-    %7 = "arith.addi"(%6, %3) : (i32, i32) -> i32
-    %8 = "arith.addi"(%7, %3) : (i32, i32) -> i32
-    %9 = "arith.addi"(%8, %3) : (i32, i32) -> i32
-    %10 = "arith.addi"(%9, %3) : (i32, i32) -> i32
-    "test.test"(%10) : (i32) -> ()
+    func.func @main() -> i32 {
+      %6 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %9 = "arith.addi"(%6, %6) : (i32, i32) -> i32
+      %10 = "arith.addi"(%9, %6) : (i32, i32) -> i32
+      %11 = "arith.addi"(%10, %6) : (i32, i32) -> i32
+      %12 = "arith.addi"(%11, %6) : (i32, i32) -> i32
+      %13 = "arith.addi"(%12, %6) : (i32, i32) -> i32
+      "func.return"(%13) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in

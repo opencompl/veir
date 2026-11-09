@@ -3,6 +3,7 @@ module
 public import Veir.Rewriter.WfRewriter
 public import Veir.Interfaces.DeadCodeInterfaces
 public import Veir.Interfaces.FunctionInterfaces
+public import Veir.Interfaces.RegionKindInterfaces
 
 
 import all Veir.IR.Basic
@@ -289,37 +290,46 @@ def eraseOp! (rewriter: PatternRewriter OpInfo) (op: OperationPtr)
   else
     panic! "PatternRewriter.eraseOp! failed: operation is out of bounds"
 
-/--
-Seed the worklist with the operations nested under `op` (not `op` itself), pushing them in
-reverse post-order so that they are popped in post-order. (Erasing trivially dead operations
-here rather than pushing them -- a trick from InstCombine that allows removal of chains of dead
-operations -- is currently disabled.)
--/
-private partial def seedNestedReversePostOrder (ctx : IRContext OpInfo) (worklist : Worklist)
-    (op : OperationPtr) : Worklist := Id.run do
-  let mut worklist := worklist
-  let numRegions := op.getNumRegions! ctx
-  for i in 0...numRegions do
-    let mut block? := (op.getRegion! ctx (numRegions - 1 - i)).getLastBlock! ctx
-    while let some block := block? do
-      let mut child? := block.getLastOp! ctx
-      while let some child := child? do
-        let prev? := child.getPrevOp! ctx
-        /- Disabled for now: erasing dead ops during seeding needs proofs we aren't ready for.
-        if hdead : child.isTriviallyDead rewriter.ctx.raw then
-          rewriter := if hin : child.InBounds rewriter.ctx.raw then
-            { rewriter with
-              ctx := WfRewriter.eraseOp rewriter.ctx child hdead.1 hdead.2.1 hin
-              hasDoneAction := true }
-          else
-            panic! "PatternRewriter.seedNestedReversePostOrder: operation is out of bounds"
-        else
-        -/
-        worklist := worklist.pushNew child
-        worklist := seedNestedReversePostOrder ctx worklist child
-        child? := prev?
-      block? := block.getPrevBlock! ctx
-  worklist
+section
+variable {σ : Type} (ctx : IRContext OpInfo) (reverse : Bool) (visit : σ → OperationPtr → σ × Bool)
+
+mutual
+  /-- Visit each remaining region of the operation, in the requested direction. -/
+  @[specialize] private def walkRegions (op : OperationPtr) (remaining : Nat) (acc : σ) : Option σ := do
+    match remaining with
+    | 0 => return acc
+    | n + 1 =>
+      let region := op.getRegion! ctx (if reverse then n else op.getNumRegions! ctx - remaining)
+      let block := if reverse then region.getLastBlock! ctx else region.getFirstBlock! ctx
+      let acc ← walkBlocks block acc
+      walkRegions op n acc
+  partial_fixpoint
+
+  @[specialize] private def walkBlocks (block? : Option BlockPtr) (acc : σ) : Option σ := do
+    let some block := block? | return acc
+    let child := if reverse then block.getLastOp! ctx else block.getFirstOp! ctx
+    let acc ← walkOperations child acc
+    walkBlocks (if reverse then block.getPrevBlock! ctx else block.getNextBlock! ctx) acc
+  partial_fixpoint
+
+  @[specialize] private def walkOperations (op? : Option OperationPtr) (acc : σ) : Option σ := do
+    let some op := op? | return acc
+    let (acc, descend) := visit acc op
+    let acc ← if descend then walkRegions op (op.getNumRegions! ctx) acc else pure acc
+    walkOperations (if reverse then op.getPrevOp! ctx else op.getNextOp! ctx) acc
+  partial_fixpoint
+end
+end
+
+private def foldNestedOperations {σ : Type} (ctx : IRContext OpInfo) (root : OperationPtr)
+    (reverse : Bool) (visit : σ → OperationPtr → σ × Bool) (acc : σ) : σ :=
+  if root.InBounds ctx then
+    (walkRegions ctx reverse visit root (root.getNumRegions! ctx) acc).getD acc
+  else acc
+
+private def seedNestedReversePostOrder (ctx : IRContext OpInfo) (worklist : Worklist)
+    (op : OperationPtr) : Worklist :=
+  foldNestedOperations ctx op true (fun w child => (w.pushNew child, true)) worklist
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
@@ -455,14 +465,17 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
         failure
     return { rewriter with hasDoneAction := hasDoneAction }
 
-/-- Pop and process one operation. Either delete the operation if it is trivially dead, or
+/-- Pop and process one eligible operation. Either delete the operation if it is trivially dead, or
 apply the given pattern to it. -/
 def RewritePattern.worklistStep (pattern : RewritePattern OpInfo)
     (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
   let (opOpt, newWorklist) := rewriter.worklist.pop
-  let op := opOpt.get!
+  let some op := opOpt | failure
   let rewriter := { rewriter with worklist := newWorklist }
   if hin : op.InBounds rewriter.ctx.raw then
+    /- Only rewrite eligible operations, skip the rest. -/
+    if op.getNumRegions! rewriter.ctx.raw ≠ 0 then return rewriter
+    if !(op.getParentRegion! rewriter.ctx.raw).any (·.hasSSADominance rewriter.ctx) then return rewriter
     if hdead : op.isTriviallyDead rewriter.ctx.raw ∧ (op.getEffects rewriter.ctx.raw).allocates = false then
       return rewriter.eraseOp op hdead.1.1 hdead.1.2.1 hin
     else
@@ -478,7 +491,7 @@ def RewritePattern.runWorklist (pattern : RewritePattern OpInfo)
   pattern.runWorklist next
 partial_fixpoint
 
-/-- Apply the given rewrite pattern to all operations nested under `root` (possibly multiple times).
+/-- Apply the given rewrite pattern to eligible operations nested under `root` (possibly multiple times).
 Return the new context, and a boolean indicating whether any changes were made. If any pattern
 failed, return none. -/
 private def RewritePattern.applyOnceInContext
@@ -490,11 +503,11 @@ private def RewritePattern.applyOnceInContext
   pure (final.hasDoneAction, final.ctx)
 
 /--
-Apply the given rewrite pattern to the operations nested under `root`, visiting them in
+Apply the given rewrite pattern to eligible operations nested under `root`, visiting them in
 post-order. Rounds are repeated until one makes no change, or until `maxRounds` rounds have run.
 -/
 def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
-    (ctx: WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
     Option (WfIRContext OpInfo) := do
   let mut ctx := ctx
   for _ in 0...maxRounds do
@@ -508,22 +521,15 @@ def RewritePattern.applyInContext (pattern: RewritePattern OpInfo)
 The function-like operations nested under `op`, in program order. The search does not enter
 functions, since rewriting a function also covers anything nested in it.
 -/
-partial def collectNestedFunctions (ctx : IRContext OpInfo) (op : OperationPtr)
-    (acc : Array OperationPtr := #[]) : Array OperationPtr := Id.run do
-  let mut acc := acc
-  for region in op.getRegions! ctx do
-    let mut block? := region.getFirstBlock! ctx
-    while let some block := block? do
-      let mut child? := block.getFirstOp! ctx
-      while let some child := child? do
-        acc := if child.isFunctionLike ctx then acc.push child
-          else collectNestedFunctions ctx child acc
-        child? := child.getNextOp! ctx
-      block? := block.getNextBlock! ctx
-  acc
+def collectNestedFunctions (ctx : IRContext OpInfo) (op : OperationPtr)
+    (acc : Array OperationPtr := #[]) (includeDeclarations : Bool := true) : Array OperationPtr :=
+  PatternRewriter.foldNestedOperations ctx op false (fun acc child =>
+    if child.isFunctionLike ctx then
+      (if includeDeclarations || 0 < child.getNumRegions! ctx then acc.push child else acc, false)
+    else (acc, true)) acc
 
 /--
-Apply the given rewrite pattern to the body of each function nested under `root`, leaving
+Apply the given rewrite pattern to the body of each function nested under a detached `root`, leaving
 everything outside of functions alone. Code generation passes use this to lower functions but
 not global initializers, which stay LLVM operations until they are printed, much as LLVM's
 machine function passes never see the initializers that `AsmPrinter` emits.
@@ -531,7 +537,9 @@ machine function passes never see the initializers that `AsmPrinter` emits.
 def RewritePattern.applyToFunctions (pattern: RewritePattern OpInfo)
     (ctx: WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
     Option (WfIRContext OpInfo) := do
+  guard (root.InBounds ctx.raw)
+  if (root.getParent! ctx.raw).isSome then return ctx
   let mut ctx := ctx
-  for func in collectNestedFunctions ctx.raw root do
+  for func in collectNestedFunctions ctx.raw root (includeDeclarations := false) do
     ctx ← pattern.applyInContext ctx func maxRounds
   pure ctx

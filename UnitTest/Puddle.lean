@@ -245,17 +245,21 @@ private def parseBinaryProgram (source : String) : Option BinaryProgram := do
   return ⟨ctx, moduleOp⟩
 
 private def addZeroProgram := r#""builtin.module"() ({
-  %input = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
-  %zero = "arith.constant"() <{ value = 0 : i32 }> : () -> i32
-  %root = "arith.addi"(%input, %zero) : (i32, i32) -> i32
-  "test.test"(%root) : (i32) -> ()
+  "func.func"() <{sym_name = "f", function_type = () -> i32}> ({
+    %input = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
+    %zero = "arith.constant"() <{ value = 0 : i32 }> : () -> i32
+    %root = "arith.addi"(%input, %zero) : (i32, i32) -> i32
+    "func.return"(%root) : (i32) -> ()
+  }) : () -> ()
 }) : () -> ()"#
 
 private def mulTwoProgram := r#""builtin.module"() ({
-  %input = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
-  %two = "arith.constant"() <{ value = 2 : i32 }> : () -> i32
-  %root = "arith.muli"(%input, %two) : (i32, i32) -> i32
-  "test.test"(%root) : (i32) -> ()
+  "func.func"() <{sym_name = "f", function_type = () -> i32}> ({
+    %input = "arith.constant"() <{ value = 42 : i32 }> : () -> i32
+    %two = "arith.constant"() <{ value = 2 : i32 }> : () -> i32
+    %root = "arith.muli"(%input, %two) : (i32, i32) -> i32
+    "func.return"(%root) : (i32) -> ()
+  }) : () -> ()
 }) : () -> ()"#
 
 /-- Parse a program, apply a compiled Puddle pattern, and print the resulting module. -/
@@ -268,8 +272,10 @@ private def rewriteAndPrint (source : String) (rule : Pattern OpCode) : IO Unit 
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%5) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%7) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -278,9 +284,11 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %10 = "arith.addi"(%5, %5) : (i32, i32) -> i32
-    "test.test"(%10) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %13 = "arith.addi"(%7, %7) : (i32, i32) -> i32
+      "func.return"(%13) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -289,8 +297,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%5) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%7) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -299,8 +309,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%5) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%7) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -309,10 +321,12 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
-    %7 = "arith.addi"(%5, %6) : (i32, i32) -> i32
-    "test.test"(%7) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %8 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+      %9 = "arith.addi"(%7, %8) : (i32, i32) -> i32
+      "func.return"(%9) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -321,20 +335,10 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    "test.test"(%5) : (i32) -> ()
-}) : () -> ()
--/
-#guard_msgs in
-#eval! rewriteAndPrint addZeroProgram (parentOpGuard (.builtin .module))
-
-/--
-info: "builtin.module"() ({
-  ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %6 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
-    %7 = "arith.addi"(%5, %6) : (i32, i32) -> i32
-    "test.test"(%7) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      "func.return"(%7) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
@@ -343,10 +347,26 @@ info: "builtin.module"() ({
 /--
 info: "builtin.module"() ({
   ^4():
-    %5 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
-    %10 = "arith.constant"() <{"value" = 3 : i32}> : () -> i32
-    %11 = "arith.addi"(%5, %10) : (i32, i32) -> i32
-    "test.test"(%11) : (i32) -> ()
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %8 = "arith.constant"() <{"value" = 0 : i32}> : () -> i32
+      %9 = "arith.addi"(%7, %8) : (i32, i32) -> i32
+      "func.return"(%9) : (i32) -> ()
+    }
+}) : () -> ()
+-/
+#guard_msgs in
+#eval! rewriteAndPrint addZeroProgram (parentOpGuard (.builtin .module))
+
+/--
+info: "builtin.module"() ({
+  ^4():
+    func.func @f() -> i32 {
+      %7 = "arith.constant"() <{"value" = 42 : i32}> : () -> i32
+      %13 = "arith.constant"() <{"value" = 3 : i32}> : () -> i32
+      %14 = "arith.addi"(%7, %13) : (i32, i32) -> i32
+      "func.return"(%14) : (i32) -> ()
+    }
 }) : () -> ()
 -/
 #guard_msgs in
