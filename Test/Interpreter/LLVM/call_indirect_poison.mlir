@@ -1,4 +1,5 @@
 // RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: LLUBI
 
 // Calling a poison pointer is undefined behavior.
 "builtin.module"() ({

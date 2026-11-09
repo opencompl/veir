@@ -1,4 +1,5 @@
 // RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: LLUBI
 
 // Calling a pointer past the start of a function is undefined behavior.
 "builtin.module"() ({

@@ -1,4 +1,5 @@
 // RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: LLUBI
 
 // The callee writes through a pointer from `main`, which then reads the store.
 "builtin.module"() ({
