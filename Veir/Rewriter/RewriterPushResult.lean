@@ -1,6 +1,5 @@
 module
 
-public import ExArray.CompilerExtras
 public import Veir.IR
 public import Veir.Rewriter.LinkedList.Basic
 public import Veir.Rewriter.LinkedList.GetSet

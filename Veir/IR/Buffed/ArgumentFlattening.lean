@@ -4,6 +4,7 @@ public import Veir.IR.Buffed.SimDefs
 public import Veir.IR.Buffed.ArgumentFlatteningLemmas
 public import Veir.IR.Buffed.ResultView
 public import Lean
+public meta import Lean.Elab.PreDefinition.PartialFixpoint.Eqns
 import all Init.Internal.Order.Basic
 
 /-!

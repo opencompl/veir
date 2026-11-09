@@ -1,6 +1,5 @@
 module
 
-public import ExArray.CompilerExtras
 import Veir.Prelude
 public import Veir.Prelude
 public import Veir.IR

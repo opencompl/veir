@@ -1,6 +1,5 @@
 module
 
-public import ExArray.CompilerExtras
 
 public import Veir.IR.Buffed.Allocation
 public import Veir.IR.Buffed.InBounds

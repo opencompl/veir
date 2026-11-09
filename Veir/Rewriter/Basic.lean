@@ -5,7 +5,6 @@ public import Veir.IR.Buffed.AllocateRegion
 public import Veir.IR.Buffed.AllocateOperation
 public import Veir.Rewriter.EraseContainers
 
-public import ExArray.CompilerExtras
 public import Veir.IR
 public import Veir.Rewriter.InsertPoint
 public import Veir.Rewriter.LinkedList.Basic

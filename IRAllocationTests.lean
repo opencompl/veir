@@ -1,4 +1,3 @@
-import ExArray.CompilerExtras
 import Veir.IR.Buffed.AllocateOperation
 import Veir.IR.Buffed.AllocateBlock
 import Veir.IR.Buffed.AllocateRegion

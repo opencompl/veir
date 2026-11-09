@@ -1,6 +1,5 @@
 module
 
-public import ExArray.CompilerExtras
 
 public import Veir.IR.Buffed.ReservedBlock
 public import Veir.IR.Buffed.ContainerInitialization
