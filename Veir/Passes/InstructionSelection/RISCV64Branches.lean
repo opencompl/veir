@@ -14,8 +14,7 @@ namespace Veir
   that it can be reasoned about, and a thin `IO` wrapper around it.
 
   It works in two phases. First every `gmir.g_br` and `gmir.g_brcond` is replaced
-  by a RISC-V branch whose operands are cast to registers, and every
-  `llvm.unreachable` by `riscv_cf.unreachable`. A `g_brcond` on a `g_icmp`
+  by a RISC-V branch whose operands are cast to registers. A `g_brcond` on a `g_icmp`
   becomes a compare-and-branch such as `riscv_cf.blt`, as in LLVM's
   `RISCVInstructionSelector::selectBRCOND`, and any other one a `riscv_cf.bnez`.
   Then the arguments of every block that is branched to become registers, with
@@ -25,6 +24,8 @@ namespace Veir
   operands do not fit a register or when a target is also reached by a terminator
   the pass does not rewrite. In strict mode, the default, the pass then
   fails; with `strict=false` the branch survives alongside the lowered ones.
+
+  The pass does not lower `llvm.unreachable`, and fails on a module that has one.
 -/
 
 /-- Whether a value of type `type` fits into a register without losing information. -/
@@ -320,9 +321,8 @@ public def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List Operati
       convertible
 
 /--
-  Replace the terminator `op` by its RISC-V counterpart if it is a `g_br`,
-  a `g_brcond` or an `llvm.unreachable`, and leave any other operation
-  alone. A branch that `branchFits` does not accept is left alone as well: one
+  Replace the terminator `op` by its RISC-V counterpart if it is a `g_br` or
+  a `g_brcond`, and leave any other operation alone. A branch that `branchFits` does not accept is left alone as well: one
   to a block that cannot be converted, or that reads a value that does not fit a
   register, such as a condition wider than 64 bits.
   `compareOf` gives the compare-and-branch that replaces a `g_brcond`, if any.
@@ -330,12 +330,7 @@ public def dropTargetsOfUnlowered (ctx : WfIRContext OpCode) (ops : List Operati
 public def convertBranch (convertible : BlockPtr → Bool)
     (compareOf : OperationPtr → Option (CondBranch × Option ValuePtr × Option ValuePtr))
     (ctx : WfIRContext OpCode) (op : OperationPtr) : Except String (WfIRContext OpCode) :=
-  if op.getOpType! ctx = OpCode.llvm .unreachable then
-    match WfRewriter.createOp! ctx Riscv_Cf.unreachable #[] #[] #[] #[] ()
-        (InsertPoint.before op) with
-    | none => throw "isel-br-riscv64: cannot create riscv_cf.unreachable"
-    | some (ctx, _) => pure (WfRewriter.eraseOp! ctx op)
-  else if ¬ op.IsGmirBranch ctx.raw then
+  if ¬ op.IsGmirBranch ctx.raw then
     pure ctx
   else if !branchFits ctx convertible op then
     pure ctx
@@ -419,11 +414,14 @@ public def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext
 /-! # Pass implementation -/
 
 /--
-  The pass on a module, without IO: `convertModule`, and in strict mode the check
-  that no branch but a RISC-V one remains.
+  The pass on a module, without IO: the check that the module has no
+  `llvm.unreachable`, `convertModule`, and in strict mode the check that no
+  branch but a RISC-V one remains.
 -/
 public def ISelBrPass.run (strict : Bool) (ctx : WfIRContext OpCode) :
     Except String (WfIRContext OpCode) := do
+  if ctx.raw.operations.keys.any (·.getOpType! ctx.raw = OpCode.llvm .unreachable) then
+    throw "isel-br-riscv64: cannot lower llvm.unreachable"
   let ctx ← convertModule ctx
   -- In strict mode, no branch but a RISC-V one may remain.
   if strict then
