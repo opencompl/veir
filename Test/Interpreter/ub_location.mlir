@@ -14,3 +14,5 @@
 // CHECK-NEXT: ub_location.mlir:8:5: note: triggered here
 // CHECK-NEXT:     %r = "arith.divsi"(%a, %z) : (i8, i8) -> i8
 // CHECK-NEXT:     ^
+
+// TODO: also run with `--ctree` once it reports source locations.

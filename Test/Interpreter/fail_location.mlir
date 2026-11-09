@@ -12,3 +12,5 @@
 // CHECK:      fail_location.mlir:7:5: error: failed to interpret operation
 // CHECK-NEXT:     %r = "test.unknown"(%a) : (i8) -> i8
 // CHECK-NEXT:     ^
+
+// TODO: also run with `--ctree` once it reports source locations.

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Only the carry-in makes 255 + 0 wrap around in `i8`, so it carries, while 254 + 0 + 1 just fits.
 

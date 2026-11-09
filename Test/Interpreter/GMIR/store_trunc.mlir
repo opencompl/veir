@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A `g_store` with a `size` smaller than its value only writes the low `size`
 // bits.

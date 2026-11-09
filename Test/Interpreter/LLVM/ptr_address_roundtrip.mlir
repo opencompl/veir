@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // RUN: %if llubi-min-24 %{ LLUBI %} %else %{ LLUBI_CHECK %}
 
 // A pointer converted to its physical address and back denotes the same

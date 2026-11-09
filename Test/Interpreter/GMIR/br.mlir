@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `g_brcond` takes its first successor when its condition is nonzero, also for a condition wider
 // than `i1`, and `g_br` forwards its operands to its successor.

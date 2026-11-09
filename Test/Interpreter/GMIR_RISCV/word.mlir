@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // The word operations read only the low 32 bits of their operands and sign-extend the 32-bit
 // result. The word addition, subtraction and multiplication wrap. A word shift reads only the low

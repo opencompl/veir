@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // An access fails if it is out-of-bounds, even when there is an allocation
 // right after.

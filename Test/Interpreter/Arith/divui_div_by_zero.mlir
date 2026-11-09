@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Unsigned division with a concrete zero divisor is immediate UB.
 "builtin.module"() ({

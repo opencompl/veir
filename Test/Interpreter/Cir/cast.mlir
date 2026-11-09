@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret %t.mlir | filecheck %s
+// RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret --ctree %t.mlir | filecheck %s
 
 // 300 narrowed to s8 is 44, widened back to s32 is 44; int_to_bool then bool_to_int of 44 is 1; select on that picks 44 + 1 = 45; minus and not give -(45) and ~(-45) = 44.
 "builtin.module"() ({

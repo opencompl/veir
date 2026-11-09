@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// TODO: also run with `--ctree` once it supports globals.
 
 // `riscv.la` loads the address of a global; a store through it is seen by a
 // later load from the global.

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `remsi intMin, -1` is immediate UB (signed overflow in the implicit division).
 "builtin.module"() ({

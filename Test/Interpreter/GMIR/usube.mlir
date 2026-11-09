@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Only the borrow-in makes 0 - 0 wrap around in `i8`, so it borrows, while 1 - 0 - 1 just fits.
 

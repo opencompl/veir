@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `riscv.sb` stores the low byte 0xFF into a stack slot; `riscv.lb` sign-extends the
 // byte to a full 64-bit register.

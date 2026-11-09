@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `arith.addui_extended` returns the w-bit sum and an i1 unsigned-overflow flag.
 // 200 + 100 = 300 -> sum 0x2c, overflow 1.

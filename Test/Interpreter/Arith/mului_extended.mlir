@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `arith.mului_extended` returns the low and high halves of the 2w-bit unsigned
 // product. 254 * 3 = 762 = 0x02fa: low = 0xfa, high = 0x02. The low half

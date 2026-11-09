@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // gMIR has no byte type, so `g_load` loads an integer and freezes its poison
 // bits to 0, unless every bit is poison; then we keep the poison.

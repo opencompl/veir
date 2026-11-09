@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A `g_load` with a `size` smaller than its result only reads `size` bits.
 // This test confirms this behavior: We load 8 bits of 0x11223344 into an `i64`

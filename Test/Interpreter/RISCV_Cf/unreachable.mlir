@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Executing `riscv_cf.unreachable` is immediate undefined behaviour, as for
 // `llvm.unreachable`.

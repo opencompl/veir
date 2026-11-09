@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret %t.mlir | filecheck %s
+// RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret --ctree %t.mlir | filecheck %s
 
 // 200 + 100 wraps to 44 on u8; 255 / 2 = 127 unsigned; (44 | 127) & 0x0f = 15; 15 >> 1 = 7; 7 << 2 = 28.
 "builtin.module"() ({

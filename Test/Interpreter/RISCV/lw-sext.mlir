@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `riscv.sw` stores the low word 0x80000000 into a stack slot; `riscv.lw`
 // sign-extends the word to a full 64-bit register (the RV64 behavior), while

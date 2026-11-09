@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Unsigned division by a poison divisor is immediate UB.
 "builtin.module"() ({

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A `g_load` from an address that is not a multiple of its `alignment` is
 // undefined behavior.

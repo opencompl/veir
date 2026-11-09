@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `riscv.lbu` zero-extends the loaded byte, leaving the upper 56 bits clear.
 

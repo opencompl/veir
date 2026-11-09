@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `riscv.sh` stores the low halfword 0x8000 into a stack slot; `riscv.lh`
 // sign-extends the halfword to a full 64-bit register, while `riscv.lhu` would

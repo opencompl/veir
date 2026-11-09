@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // An `llvm.mlir.global` alongside `@main` is a legal top-level op; the
 // interpreter must skip past it when looking for the entry point.

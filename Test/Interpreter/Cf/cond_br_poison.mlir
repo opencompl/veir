@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Branching on a poison i1 in the cf dialect is undefined behaviour. The i1
 // poison is produced by `arith.addi nuw` on i1 (1 + 1 overflows unsigned).

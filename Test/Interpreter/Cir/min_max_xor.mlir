@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret %t.mlir | filecheck %s
+// RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret --ctree %t.mlir | filecheck %s
 
 // min(9, 4) = 4, max(4, 7) = 7, 7 xor 2 = 5.
 "builtin.module"() ({

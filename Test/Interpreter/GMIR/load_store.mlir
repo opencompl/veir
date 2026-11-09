@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A `g_store` with a `size` of the width of its value writes the whole value.
 // This test confirms this behavior: We store 42 as an `i32` and ensure that a

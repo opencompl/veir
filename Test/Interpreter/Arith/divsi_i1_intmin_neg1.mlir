@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // In i1, -1 is also intMin, so `divsi -1, -1` is immediate UB.
 "builtin.module"() ({

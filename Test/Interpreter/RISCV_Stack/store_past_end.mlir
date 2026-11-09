@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Machine code is bounds-checked like LLVM code: a store past the end of the
 // memory it allocated is UB rather than growing memory. The 8-byte alloca

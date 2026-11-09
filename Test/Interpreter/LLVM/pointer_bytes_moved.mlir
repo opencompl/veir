@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// TODO: also run with `--ctree` once it is fast enough.
 // NO_CROSS_CHECK: the `llvm.byte` type: alive-exec rejects it and llubi crashes on it.
 
 // A stored pointer moved byte by byte through `b8` registers, each byte

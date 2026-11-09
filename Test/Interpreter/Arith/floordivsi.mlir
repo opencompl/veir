@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Signed floor division (rounds toward -infinity).
 //  7 /  2 =  3 (0x03)      -7 /  2 = -4 (0xfc)

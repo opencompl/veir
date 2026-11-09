@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret %t.mlir | filecheck %s
+// TODO: also run with `--ctree` once it is fast enough.
 
 // sum of 1..10 through a flat loop = 55.
 "builtin.module"() ({

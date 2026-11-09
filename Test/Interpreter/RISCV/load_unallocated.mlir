@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A load from an address that no allocation covers is UB; memory does not
 // grow under machine-code accesses.

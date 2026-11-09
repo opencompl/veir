@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret %t.mlir | filecheck %s
+// RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret --ctree %t.mlir | filecheck %s
 
 // 3 < 5 is true, so the true branch returns 3 + 100 = 103.
 "builtin.module"() ({

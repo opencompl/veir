@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A zero divisor is immediate UB, matching arith.divsi.
 "builtin.module"() ({

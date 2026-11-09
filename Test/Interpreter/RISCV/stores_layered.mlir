@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // All four RISC-V stores target the same stack slot, issued widest-to-narrowest so
 // each narrower store overwrites only its low bytes and stays visible. Every

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `arith.mulsi_extended` returns the low and high halves of the 2w-bit signed
 // product. -2 * 3 = -6, represented in 16 bits as 0xfffa: low = 0xfa,

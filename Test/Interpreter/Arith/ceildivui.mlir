@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Unsigned ceiling division: ceildivui(a, b) = a == 0 ? 0 : ((a-1)/b) + 1.
 // 10 / 3 = 4, 12 / 5 = 3 (2.4 rounds up), 0 / 7 = 0, 8 / 2 = 4 (exact).

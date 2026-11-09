@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `divsi intMin, -1` is immediate UB (signed overflow of the quotient).
 "builtin.module"() ({

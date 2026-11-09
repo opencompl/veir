@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `arith.subui_extended` returns the w-bit difference and an i1 borrow flag,
 // which is set exactly when the subtraction underflows, i.e. lhs <u rhs.

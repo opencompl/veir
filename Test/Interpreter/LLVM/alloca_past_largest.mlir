@@ -22,3 +22,5 @@
 // CHECK-NEXT:     %buf = "llvm.alloca"(%n) <{elem_type = i8}> : (i64) -> !llvm.ptr
 // CHECK-NEXT:     ^
 // ALIVE_EXEC: Program output: #[0x07#8]
+
+// TODO: also run with `--ctree` once it supports globals.

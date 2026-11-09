@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret %t.mlir | filecheck %s
+// RUN: veir-opt %s -p=cir > %t.mlir && veir-interpret --ctree %t.mlir | filecheck %s
 
 // -7 / 2 = -3 and -7 rem 2 = -1, combined as div * 10 + rem = -31.
 "builtin.module"() ({

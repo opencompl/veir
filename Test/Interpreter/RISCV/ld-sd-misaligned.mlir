@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Initialize the 16 bytes of a stack slot so that each byte contains its offset,
 // using two doubleword stores (little-endian):

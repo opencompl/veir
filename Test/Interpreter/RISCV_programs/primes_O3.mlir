@@ -13,6 +13,7 @@
 //   a7 = constant 10
 //
 // RUN: veir-interpret %s | filecheck %s
+// TODO: also run with `--ctree` once it is fast enough.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> !riscv.reg}> ({

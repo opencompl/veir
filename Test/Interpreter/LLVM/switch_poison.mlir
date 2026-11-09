@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // RUN: LLUBI
 
 // Switching on a poison value is undefined behaviour, as branching on a poison

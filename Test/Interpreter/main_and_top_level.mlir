@@ -1,4 +1,5 @@
 // RUN: not veir-interpret %s 2>&1 | filecheck %s
+// RUN: not veir-interpret --ctree %s 2>&1 | filecheck %s
 
 "builtin.module"() ({
   %0 = "arith.constant"() <{ "value" = 7 : i32 }> : () -> i32

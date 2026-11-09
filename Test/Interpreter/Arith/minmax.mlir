@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Signed/unsigned min and max. Operands a = 5 (0x05), b = -3 (0xfd = 253).
 // maxsi = 5, minsi = -3, maxui = 253, minui = 5.

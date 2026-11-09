@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Store the byte values 124..131 at the 8 bytes of a stack slot using a single
 // `riscv.sd` (the little-endian doubleword 0x838281807f7e7d7c places 124 at the

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // RUN: ALIVE_EXEC
 
 // The largest alloca that fits: its guard byte is the last address, 2^64 - 1.

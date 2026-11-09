@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `g_divw` reads only the low 32 bits of its divisor, so a divisor with a zero low word is UB.
 

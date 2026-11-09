@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // NO_CROSS_CHECK: a cast to a RISC-V register, which is not LLVM.
 
 // A register has no poison, so a poison pointer may be cast to any register

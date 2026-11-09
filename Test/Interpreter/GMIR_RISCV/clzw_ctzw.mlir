@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `g_clzw` and `g_ctzw` count in the low 32 bits of their operand, so a zero low word counts 32,
 // whatever the high word.

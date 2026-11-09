@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // RUN: VEIR_ROUNDTRIP --check-prefix=ROUNDTRIP
 
 "builtin.module"() ({

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // An 8-byte store at offset 4 of an 8-byte alloca begins in bounds and runs
 // past the end, so it is UB.

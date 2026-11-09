@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A poison operand propagates to the result of each new op (both results, for
 // the multi-result ops). Poison is produced here via an nuw addi overflow.

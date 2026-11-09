@@ -1,6 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
 // RUN: LLUBI
 // RUN: ALIVE_EXEC_CHECK
+// TODO: also run with `--ctree` once it supports globals.
 
 // A global with an initializer region starts with the value the initializer
 // returns.

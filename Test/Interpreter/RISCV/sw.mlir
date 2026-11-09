@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // `riscv.sw` stores only the low 4 bytes of the register; the upper bytes of
 // the doubleword read back by `riscv.ld` remain zero.

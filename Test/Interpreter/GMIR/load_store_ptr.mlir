@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // A `g_load` of a pointer returns the pointer that a `g_store` wrote.
 // This test confirms this behavior: We store a pointer to an `i32`, load it

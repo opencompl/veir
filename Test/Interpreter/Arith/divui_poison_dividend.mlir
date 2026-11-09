@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 
 // Regression check: a poison dividend with a concrete safe (nonzero) divisor
 // propagates as poison — NOT immediate UB.
