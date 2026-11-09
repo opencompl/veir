@@ -618,6 +618,29 @@ def ReadsLowWord (op : Riscv) (arity : Nat) : Prop :=
         Riscv.interpretOp' op props resultTypes #[.reg rs1, .reg rs2] blockOperands mem
   | _ => False
 
+/-- Bypass a unary producer at one operand of a consumer, preserving the consumer's
+    result type and properties. The caller must establish that the consumer ignores
+    the producer's changes. -/
+def drop_unary_operand_pattern (srcOp dst : Riscv) (arity index : Nat)
+    (matchProperties : Riscv.propertiesOf srcOp → Bool := fun _ => true) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let srcType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let src ← Puddle.MatchProg.value srcType
+      let producer ← Puddle.MatchProg.operation (.riscv srcOp) #[src] #[srcType] matchProperties
+      let operands ← (Array.range arity).mapM fun i => do
+        if i = index then
+          return producer.res[0]!
+        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
+        Puddle.MatchProg.value operandType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let root ← Puddle.MatchProg.root (.riscv dst) operands #[resultType]
+      return (operands.set! index src, resultType, root.properties))
+    (fun (operands, resultType, properties) =>
+      Puddle.CreateProg.operation (.riscv dst) operands #[resultType] properties)
+    (fun op => op)
+
 /-- Drop `riscv.<ext>` operands (`ext` = `zextw`/`sextw`) feeding an op
     whose semantics use only operand bits 31:0. For these consumers the high 32
     bits of each source are ignored, and both extensions leave bits 31:0
@@ -633,22 +656,7 @@ def ReadsLowWord (op : Riscv) (arity : Nat) : Prop :=
     Currently, the rewrite does not use it. -/
 def drop_ext_low_word_pattern (ext dst : Riscv) (arity index : Nat)
     (_readsLowWord : ReadsLowWord dst arity) : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let srcType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let src ← Puddle.MatchProg.value srcType
-      let extended ← Puddle.MatchProg.operation (.riscv ext) #[src] #[srcType]
-      let operands ← (Array.range arity).mapM fun i => do
-        if i = index then
-          return extended.res[0]!
-        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
-        Puddle.MatchProg.value operandType
-      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let root ← Puddle.MatchProg.root (.riscv dst) operands #[resultType]
-      return (operands.set! index src, resultType, root.properties))
-    (fun (operands, resultType, properties) =>
-      Puddle.CreateProg.operation (.riscv dst) operands #[resultType] properties)
-    (fun op => op)
+  drop_unary_operand_pattern ext dst arity index
 
 def drop_ext_low_word (ext dst : Riscv) (arity : Nat)
     (readsLowWord : ReadsLowWord dst arity := by
@@ -658,6 +666,36 @@ def drop_ext_low_word (ext dst : Riscv) (arity : Nat)
     Puddle.CompiledPattern OpCode :=
   ⟨RewritePattern.GreedyRewritePattern <| ((Array.range arity).map fun index =>
     (drop_ext_low_word_pattern ext dst arity index readsLowWord).compile).map (·.run)⟩
+
+/-- Remove an `andi` from a register shift's amount when it preserves all the
+    amount bits: `lowMask = 63` for RV64 shifts and `31` for word shifts.
+    Only operand 1 is bypassed; masking the data operand is not redundant.
+
+    LLVM GlobalISel: `RISCVInstructionSelector::selectShiftMask` looks through
+    masks containing every bit of `ShiftWidth - 1`, and through `G_ZEXT`.
+    https://github.com/llvm/llvm-project/blob/99a148b807da7942d629fd8e807d12026fcb5e20/llvm/lib/Target/RISCV/GISel/RISCVInstructionSelector.cpp#L300-L337
+
+    The guard tests the low bits of the immediate property. Truncating it to
+    12 bits and sign-extending it for ANDI preserves those five or six bits. -/
+def drop_shift_amount_mask_pattern (dst : Riscv) (lowMask : BitVec 64) :
+    Puddle.Pattern OpCode :=
+  drop_unary_operand_pattern .andi dst 2 1
+    (fun props => props.value &&& lowMask == lowMask)
+
+def drop_shift_amount_mask (dst : Riscv) (lowMask : BitVec 64) :
+    Puddle.CompiledPattern OpCode :=
+  (drop_shift_amount_mask_pattern dst lowMask).compile
+
+/-- Full-width shifts ignore bits 63:6 of the amount, so `zextw` is redundant
+    there even though it is not redundant on the data operand. Word shifts
+    already use `drop_ext_low_word` for both operands; do not register a second
+    zero-extension rule for them. LLVM provenance is the same `selectShiftMask`
+    rule cited above. -/
+def drop_zextw_shift_amount_pattern (dst : Riscv) : Puddle.Pattern OpCode :=
+  drop_unary_operand_pattern .zextw dst 2 1
+
+def drop_zextw_shift_amount (dst : Riscv) : Puddle.CompiledPattern OpCode :=
+  (drop_zextw_shift_amount_pattern dst).compile
 
 /-- `riscv.addw (riscv.zextw x), y -> riscv.addw x, y`, and symmetrically for
     the right operand. `addw` reads only the low 32 bits of each source.
@@ -1249,6 +1287,15 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , drop_andi_one_srli
      , zextw_zextw
      , zextw_zextb
+     , drop_shift_amount_mask .sll 63
+     , drop_shift_amount_mask .srl 63
+     , drop_shift_amount_mask .sra 63
+     , drop_shift_amount_mask .sllw 31
+     , drop_shift_amount_mask .srlw 31
+     , drop_shift_amount_mask .sraw 31
+     , drop_zextw_shift_amount .sll
+     , drop_zextw_shift_amount .srl
+     , drop_zextw_shift_amount .sra
      , drop_zextw_addw
      , drop_zextw_addiw
      , drop_zextw_roriw
