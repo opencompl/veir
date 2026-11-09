@@ -1,0 +1,9 @@
+lake build
+Build completed successfully (670 jobs).
+uv run --no-project python Tools/bench-ctree
+test                                       default   --ctree
+getelementptr_multi_index.mlir              0.033s    0.154s
+memcpy.mlir                                 0.031s    0.218s
+pointer_bytes_moved.mlir                    0.031s    1.679s
+loop.mlir                                   0.027s    2.855s
+primes_O3.mlir                              0.030s    3.703s

@@ -124,21 +124,25 @@ def CTree.ret (r : R) : CTree E C R := CTree.fold (.ret r)
 An n-ary choice that generates τ transitions.
 This is the general case that covers both the hardcoded `tau1` choice and user-provided `tau` choices.
 -/
+@[macro_inline, expose]
 def CTree.tauG (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) : CTree E C R := CTree.fold (.tau i k)
 
 /--
 A custom n-ary choice that generates τ transitions
 -/
+@[macro_inline, expose]
 def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.tau (.inr i) k)
 
 /--
 A unary choice that generates a τ transition
 -/
+@[macro_inline, expose]
 def CTree.tau1 (t : CTree E C R) : CTree E C R := CTree.tauG (.inl .c1) λ _ => t
 
 /--
 A visible effect
 -/
+@[macro_inline, expose]
 def CTree.vis (i : EIn) (k : E i → CTree E C R) : CTree E C R := CTree.fold (.vis i k)
 
 /--
