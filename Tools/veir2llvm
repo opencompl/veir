@@ -516,7 +516,8 @@ def validate_function_args(blocks: list[Block], arg_types: list[str]) -> None:
             f"entry block has {len(entry.args)} args but function type has {len(arg_types)} args"
         )
     for idx, ((arg_name, block_type), func_type) in enumerate(zip(entry.args, arg_types)):
-        if block_type != func_type:
+        # Inside `!llvm.func<...>` MLIR drops the `!llvm.` prefix of a type.
+        if convert_type(block_type) != convert_type(func_type):
             raise Error(
                 f"entry block arg {idx} ({arg_name}) has type {block_type}, "
                 f"but function type has {func_type}"
@@ -799,6 +800,25 @@ def translate_nonterminator(
         aliases[result] = "null" if convert_type(typ) == "ptr" else "0"
         value_types[result] = typ
         return []
+
+    if name == "llvm.call":
+        # A direct call names its callee; an indirect one takes it as the first operand.
+        args = list(zip(op.operands, op.operand_types, strict=True))
+        callee = parse_attr_text(op.attr, "callee")
+        if callee == "@main":
+            raise Error("llvm.call of @main is not supported")
+        if callee is None:
+            if not args:
+                raise Error("llvm.call has no callee")
+            pointer, _ = args.pop(0)
+            callee = llvm_value(pointer, aliases)
+        arg_text = ", ".join(f"{convert_type(t)} {llvm_value(v, aliases)}" for v, t in args)
+        if not op.result_types:
+            return [f"  call void {callee}({arg_text})"]
+        result = require_result(op)
+        value_types[result] = op.result_types[0]
+        ret = convert_type(op.result_types[0])
+        return [f"  {llvm_ssa_name(result)} = call {ret} {callee}({arg_text})"]
 
     if name == "llvm.store":
         if op.result is not None or op.result_types:
