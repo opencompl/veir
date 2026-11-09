@@ -353,15 +353,10 @@ theorem BranchStep.of_frames {ctx ctx₁ ctx₂ ctx' : WfIRContext OpCode} {op n
     simp only [List.mem_append, List.mem_singleton, not_or]
     exact ⟨hRegNotOp, fun hEq => hNewNe hEq.symm⟩
 
-/--
-  What `convertBranch` leaves behind, for an operation that is not an
-  `llvm.unreachable`. The lowering replaces that one too, which this proof does
-  not cover; `convertModule_branchLowering` assumes the module has none.
--/
+/-- What `convertBranch` leaves behind. -/
 theorem convertBranch_ok {convertible : BlockPtr → Bool}
     {compareOf : OperationPtr → Option Compare} {ctx ctx' : WfIRContext OpCode} {op : OperationPtr}
     (opIn : op.InBounds ctx.raw)
-    (hNotUnreachable : op.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hCounts : op.IsGmirBranch ctx.raw →
       op.getNumResults! ctx.raw = 0 ∧ op.getNumRegions! ctx.raw = 0)
     (h : convertBranch convertible compareOf ctx op = .ok ctx') :
@@ -370,7 +365,6 @@ theorem convertBranch_ok {convertible : BlockPtr → Bool}
     (op.IsGmirBranch ctx.raw ∧ branchFits ctx convertible op = true ∧
       ∃ regOps newBranch, BranchStep ctx ctx' op (compareOf op) regOps newBranch) := by
   simp only [convertBranch, bind, Except.bind] at h
-  simp only [hNotUnreachable, ↓reduceIte] at h
   split at h
   next hBranch =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -674,7 +668,6 @@ theorem PhaseA.step {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List Operatio
     {compareOf regOp newBranch} {op : OperationPtr} {convertible : BlockPtr → Bool}
     (hInv : PhaseA ctx₀ ctx done compareOf regOp newBranch)
     (opIn₀ : op.InBounds ctx₀.raw) (hNotDone : op ∉ done)
-    (hNotUnreachable : op.getOpType! ctx₀.raw ≠ OpCode.llvm .unreachable)
     (hSuccessors : ¬ op.IsGmirBranch ctx₀.raw → op.getNumSuccessors! ctx₀.raw = 0)
     (hConvertible : op.IsGmirBranch ctx₀.raw → branchFits ctx₀ convertible op)
     (hCounts : op.IsGmirBranch ctx₀.raw →
@@ -684,7 +677,7 @@ theorem PhaseA.step {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List Operatio
   have hSame := hInv.ops op opIn₀ (fun h => hNotDone h.1)
   have hBranchIff : op.IsGmirBranch ctx.raw ↔ op.IsGmirBranch ctx₀.raw := by
     simp [OperationPtr.IsGmirBranch, hSame.opType]
-  rcases convertBranch_ok hSame.inBounds (by rw [hSame.opType]; exact hNotUnreachable)
+  rcases convertBranch_ok hSame.inBounds
       (fun hB => by
         have hC := hCounts (hBranchIff.mp hB)
         refine ⟨?_, by rw [hSame.numRegions]; exact hC.2⟩
@@ -705,7 +698,6 @@ theorem PhaseA.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List O
     (hInv : PhaseA ctx₀ ctx done compareOf regOp newBranch)
     (restIn : ∀ o ∈ rest, o.InBounds ctx₀.raw) (hNodup : rest.Nodup)
     (hDisjoint : ∀ o ∈ rest, o ∉ done)
-    (hNotUnreachable : ∀ o ∈ rest, o.getOpType! ctx₀.raw ≠ OpCode.llvm .unreachable)
     (hSuccessors : ∀ o ∈ rest, ¬ o.IsGmirBranch ctx₀.raw → o.getNumSuccessors! ctx₀.raw = 0)
     (hConvertible : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw → branchFits ctx₀ convertible o)
     (hCounts : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw →
@@ -725,7 +717,7 @@ theorem PhaseA.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List O
     next ctx₁ hStep =>
       obtain ⟨regOp₁, newBranch₁, hInv₁⟩ :=
         hInv.step (restIn op (by simp)) (hDisjoint op (by simp))
-          (hNotUnreachable op (by simp)) (hSuccessors op (by simp)) (hConvertible op (by simp))
+          (hSuccessors op (by simp)) (hConvertible op (by simp))
           (hCounts op (by simp)) hStep
       have hNodup' := List.nodup_cons.mp hNodup
       obtain ⟨done', regOp', newBranch', hInv', hMem⟩ := ih hInv₁
@@ -734,7 +726,7 @@ theorem PhaseA.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List O
           rcases List.mem_cons.mp hMem with rfl | hMem
           · exact hNodup'.1 ho
           · exact hDisjoint o (by simp [ho]) hMem)
-        (fun o ho => hNotUnreachable o (by simp [ho])) (fun o ho => hSuccessors o (by simp [ho]))
+        (fun o ho => hSuccessors o (by simp [ho]))
         (fun o ho => hConvertible o (by simp [ho])) (fun o ho => hCounts o (by simp [ho])) h
       exact ⟨done', regOp', newBranch', hInv', fun o => by
         rw [hMem o]; simp only [List.mem_cons]; grind⟩
@@ -748,7 +740,6 @@ theorem PhaseA.foldlM_lowered {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest 
     (hInv : PhaseA ctx₀ ctx done compareOf regOp newBranch)
     (restIn : ∀ o ∈ rest, o.InBounds ctx₀.raw) (hNodup : rest.Nodup)
     (hDisjoint : ∀ o ∈ rest, o ∉ done)
-    (hNotUnreachable : ∀ o ∈ rest, o.getOpType! ctx₀.raw ≠ OpCode.llvm .unreachable)
     (hCounts : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw →
       o.getNumResults! ctx₀.raw = 0 ∧ o.getNumRegions! ctx₀.raw = 0)
     (h : rest.foldlM (convertBranch convertible compareOf) ctx = .ok ctx') :
@@ -771,10 +762,8 @@ theorem PhaseA.foldlM_lowered {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest 
       have hBranchIff : op.IsGmirBranch ctx.raw ↔ op.IsGmirBranch ctx₀.raw := by
         simp [OperationPtr.IsGmirBranch, hSame.opType]
       have restIn' : ∀ o ∈ rest, o.InBounds ctx₀.raw := fun o ho => restIn o (by simp [ho])
-      have hNotUnreachable' := fun o ho => hNotUnreachable o (List.mem_cons_of_mem op ho)
       have hCounts' := fun o ho => hCounts o (List.mem_cons_of_mem op ho)
       rcases convertBranch_ok hSame.inBounds
-          (by rw [hSame.opType]; exact hNotUnreachable op (by simp))
           (fun hB => by
             have hC := hCounts op (by simp) (hBranchIff.mp hB)
             refine ⟨?_, by rw [hSame.numRegions]; exact hC.2⟩
@@ -783,11 +772,11 @@ theorem PhaseA.foldlM_lowered {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest 
             exact hC.1) hStep with
         ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨hBranch, hFits, regOps, newOp, hBranchStep⟩
       · obtain ⟨done', regOp', newBranch', hInv', hDone⟩ := ih hInv restIn' hNodup'.2
-          (fun o ho => hDisjoint o (by simp [ho])) hNotUnreachable' hCounts' h
+          (fun o ho => hDisjoint o (by simp [ho])) hCounts' h
         exact ⟨done', regOp', newBranch', hInv', fun o ho => (hDone o ho).imp id
           fun ⟨hMem, hF⟩ => ⟨List.mem_cons_of_mem op hMem, hF⟩⟩
       · obtain ⟨done', regOp', newBranch', hInv', hDone⟩ := ih hInv restIn' hNodup'.2
-          (fun o ho => hDisjoint o (by simp [ho])) hNotUnreachable' hCounts' h
+          (fun o ho => hDisjoint o (by simp [ho])) hCounts' h
         exact ⟨done', regOp', newBranch', hInv', fun o ho => (hDone o ho).imp id
           fun ⟨hMem, hF⟩ => ⟨List.mem_cons_of_mem op hMem, hF⟩⟩
       · have hInv₁ := hInv.step_branch opIn₀ hNotDone (hBranchIff.mp hBranch)
@@ -797,7 +786,7 @@ theorem PhaseA.foldlM_lowered {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest 
             rcases List.mem_cons.mp hMem with rfl | hMem
             · exact hNodup'.1 ho
             · exact hDisjoint o (by simp [ho]) hMem)
-          hNotUnreachable' hCounts' h
+          hCounts' h
         refine ⟨done', regOp', newBranch', hInv', fun o ho => ?_⟩
         rcases hDone o ho with hMem | ⟨hMem, hF⟩
         · rcases List.mem_cons.mp hMem with rfl | hMem
@@ -1737,8 +1726,6 @@ end assemble
 /-- A module that `convertModule` returns is the branch lowering of its input. -/
 theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
     (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hLowerable : BranchesLowerable ctx)
     (h : convertModule ctx = .ok ctx') :
     Nonempty (BranchLowering ctx ctx') := by
@@ -1766,7 +1753,6 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
     obtain ⟨doneOps, regOp, newBranch, hA, hDoneOps⟩ :=
       (PhaseA.init (regOp := fun _ _ => default) (newBranch := fun _ => default)).foldlM
         (fun o ho => (hKeys o).mp ho) hNodup (fun _ _ h => by simp at h)
-        (fun o ho => hNoUnreachable o ((hKeys o).mp ho))
         (fun o ho => hLowerable.successors o ((hKeys o).mp ho))
         (fun o ho hBranch => branchFits_of (hConvertible o ho hBranch) (hOperands o ho hBranch))
         (fun o ho hBranch =>
@@ -1802,17 +1788,13 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
     · simp at hNil
 
 /--
-  The RISC-V branch lowering refines a module that verifies, holds no
-  `llvm.unreachable`, and whose branches it lowers all of: every function of the
-  input is refined by the function of the same name in the module the pass
-  returns.
+  The RISC-V branch lowering refines a module that verifies and whose branches
+  it lowers all of: every function of the input is refined by the function of
+  the same name in the module the pass returns.
 
-  The lowering also replaces an `llvm.unreachable` by `riscv_cf.unreachable`,
-  which this proof does not cover: an operation that is neither left alone nor
-  lowered as a branch is a shape `PhaseA` does not describe. Nor does it cover a
-  module in which the pass leaves a branch alone, which `BranchesLowerable` rules
-  out. A pointer passed through a register comes back as the pointer to its
-  address, which is the same pointer.
+  The proof does not cover a module in which the pass leaves a branch alone,
+  which `BranchesLowerable` rules out. A pointer passed through a register comes
+  back as the pointer to its address, which is the same pointer.
 
   The operations the lowering leaves alone see refined operands, as a register
   holds no poison, so the module must consist of opcodes proved monotone
@@ -1822,13 +1804,11 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
 -/
 theorem convertModule_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
     (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hLowerable : BranchesLowerable ctx)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
     (h : convertModule ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
-  (convertModule_branchLowering hVerified hNoUnreachable hLowerable h).elim fun lowering =>
+  (convertModule_branchLowering hVerified hLowerable h).elim fun lowering =>
     lowering.isModuleRefinedBy
       (fun o oIn => OpCode.interpretOp'Monotone_of_monotoneProved (hMonotone o oIn)) module
 
@@ -1865,12 +1845,10 @@ theorem provedMonotoneOps_of_treeMonotoneProved {ctx : WfIRContext OpCode}
 -/
 theorem convertModule_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hLowerable : BranchesLowerable ctx)
     (h : convertModule ctx = .ok ctx')
     (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
-  (convertModule_branchLowering hVerified hNoUnreachable hLowerable h).elim fun lowering =>
+  (convertModule_branchLowering hVerified hLowerable h).elim fun lowering =>
     lowering.isModuleRefinedByCTree
       (lowering.keptOpsSim_of_treeMonotoneOps (treeMonotoneOps_of_verified hVerified)) module
 
@@ -1882,13 +1860,11 @@ theorem convertModule_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
 -/
 theorem convertModule_isModuleRefinedByCTree_of_treeMonotoneProved {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hLowerable : BranchesLowerable ctx)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
     (h : convertModule ctx = .ok ctx')
     (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
-  (convertModule_branchLowering hVerified hNoUnreachable hLowerable h).elim fun lowering =>
+  (convertModule_branchLowering hVerified hLowerable h).elim fun lowering =>
     lowering.isModuleRefinedByCTree
       (lowering.keptOpsSim_of_provedMonotoneOps (provedMonotoneOps_of_treeMonotoneProved hMonotone))
       module
@@ -1899,6 +1875,10 @@ theorem convertModule_isModuleRefinedByCTree_of_treeMonotoneProved {ctx ctx' : W
 theorem ISelBrPass.convertModule_eq_ok_of_run {strict : Bool} {ctx ctx' : WfIRContext OpCode}
     (h : ISelBrPass.run strict ctx = .ok ctx') : convertModule ctx = .ok ctx' := by
   unfold ISelBrPass.run at h
+  by_cases hU : (ctx.raw.operations.keys.any
+      (·.getOpType! ctx.raw = OpCode.llvm .unreachable)) = true
+  · simp [hU, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+  simp only [hU, Bool.false_eq_true, ↓reduceIte] at h
   rcases hc : convertModule ctx with e | c
   · simp [hc, bind, Except.bind] at h
   · simp only [hc, bind, Except.bind] at h
@@ -1911,24 +1891,20 @@ theorem ISelBrPass.convertModule_eq_ok_of_run {strict : Bool} {ctx ctx' : WfIRCo
 -/
 theorem ISelBrPass.run_isModuleRefinedBy {strict : Bool} {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hLowerable : BranchesLowerable ctx)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
     (h : ISelBrPass.run strict ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
-  convertModule_isModuleRefinedBy hVerified hNoUnreachable hLowerable hMonotone
+  convertModule_isModuleRefinedBy hVerified hLowerable hMonotone
     (ISelBrPass.convertModule_eq_ok_of_run h) module
 
 /-- The pass `isel-br-riscv64` refines a module it succeeds on in CTrees. -/
 theorem ISelBrPass.run_isModuleRefinedByCTree {strict : Bool} {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hLowerable : BranchesLowerable ctx)
     (h : ISelBrPass.run strict ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedByCTree ctx module ctx' :=
-  convertModule_isModuleRefinedByCTree hVerified hNoUnreachable hLowerable
+  convertModule_isModuleRefinedByCTree hVerified hLowerable
     (ISelBrPass.convertModule_eq_ok_of_run h) module
 
 /-- A check over a list that only goes on or fails, and succeeds, succeeds on each element. -/
@@ -1959,7 +1935,11 @@ theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
   have hc := ISelBrPass.convertModule_eq_ok_of_run h
   refine ⟨hc, ?_⟩
   unfold ISelBrPass.run at h
-  simp only [hc, bind, Except.bind, ↓reduceIte] at h
+  by_cases hU : (ctx.raw.operations.keys.any
+      (·.getOpType! ctx.raw = OpCode.llvm .unreachable)) = true
+  · simp [hU, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+  simp only [hU, Bool.false_eq_true, ↓reduceIte] at h
+  simp only [hc, bind, Except.bind] at h
   split at h
   · simp at h
   next u h₁ =>
@@ -1998,8 +1978,6 @@ theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
 -/
 theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
     (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
       o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
     (h : ISelBrPass.run true ctx = .ok ctx') : BranchesLowerable ctx := by
@@ -2018,7 +1996,6 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
     obtain ⟨done, regOp, newBranch, hA, hDone⟩ :=
       (PhaseA.init (regOp := fun _ _ => default) (newBranch := fun _ => default)).foldlM_lowered
         (fun o ho => (hKeys ctx o).mp ho) hNodup (fun _ _ h => by simp at h)
-        (fun o ho => hNoUnreachable o ((hKeys ctx o).mp ho))
         (fun o ho hBranch =>
           OperationPtr.Verified.gmir_branch
             (OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants hVerified
@@ -2088,15 +2065,13 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
 -/
 theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
       o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
     (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
-  ISelBrPass.run_isModuleRefinedBy hVerified hNoUnreachable
-    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch h)
+  ISelBrPass.run_isModuleRefinedBy hVerified
+    (ISelBrPass.branchesLowerable_of_run hVerified hNoRiscvBranch h)
     hMonotone h module
 
 /--
@@ -2106,15 +2081,13 @@ theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
 -/
 theorem ISelBrPass.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
-      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
       o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
     (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedByCTree ctx module ctx' :=
-  convertModule_isModuleRefinedByCTree_of_treeMonotoneProved hVerified hNoUnreachable
-    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch h)
+  convertModule_isModuleRefinedByCTree_of_treeMonotoneProved hVerified
+    (ISelBrPass.branchesLowerable_of_run hVerified hNoRiscvBranch h)
     hMonotone (ISelBrPass.convertModule_eq_ok_of_run h) module
 
 /-- The pass, with its IO, returns what `ISelBrPass.run` does. -/
