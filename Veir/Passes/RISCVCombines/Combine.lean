@@ -276,7 +276,7 @@ def andi_255_lbu : Puddle.CompiledPattern OpCode :=
 
 /-- `li c` whose value fits the signed 12-bit immediate of `addi`. `0` is left to
     `right_identity_zero_add`. -/
-def liFitsSImm12 (props : RISCVImmediateProperties) : Bool :=
+public def liFitsSImm12 (props : RISCVImmediateProperties) : Bool :=
   props.value != 0#64 && -2048 ≤ props.value.toInt && props.value.toInt ≤ 2047
 
 /-- `riscv.add x (riscv.li c) -> riscv.addi x c` (and `riscv.add (riscv.li c) x`

@@ -16,10 +16,11 @@ import all Veir.Data.Refinement
 import Veir.PatternRewriter.Puddle.Definitions
 import Veir.PatternRewriter.Puddle.Validity
 import Veir.PatternRewriter.Puddle.CTreeValidityTactics
-import Veir.Meta.Tactic.BVDecide
-meta import Veir.Meta.Tactic.BVDecide
+import Veir.Passes.RISCVCombines.Proofs
 
-/-! Shared imports and semantic lemmas for the CTree validity proofs of the RISC-V combines. -/
+/-! Shared imports, tactics and semantic lemmas for the CTree validity proofs of the RISC-V
+combines. Each proof normalizes the pattern's semantics down to a register equality and closes it
+with the combine's local correctness lemma from `Veir.Passes.RISCVCombines.Proofs`. -/
 
 namespace Veir.RISCV.CTreeProofs
 
@@ -71,43 +72,6 @@ elab "casesConformingValues" : tactic => do
   let goals ← getGoals
   setGoals (← goals.flatMapM fun goal => casesConformingValues goal)
 
-/-! ### Signed immediate guards
-
-Combine guards compare `value.toInt` with integer literals. `bv_decide` does not see these
-`Int` facts, so they are restated as signed bit-vector comparisons. The side conditions are
-closed by simp's numeral evaluation. -/
-
-section toInt
-
-variable {x : BitVec 64} {c : Int}
-
-@[simp]
-theorem le_toInt_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    c ≤ x.toInt ↔ (BitVec.ofInt 64 c).sle x := by
-  rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-@[simp]
-theorem toInt_le_iff_sle (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt ≤ c ↔ x.sle (BitVec.ofInt 64 c) := by
-  rw [BitVec.sle_iff_toInt_le, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-@[simp]
-theorem lt_toInt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    c < x.toInt ↔ (BitVec.ofInt 64 c).slt x := by
-  rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-@[simp]
-theorem toInt_lt_iff_slt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt < c ↔ x.slt (BitVec.ofInt 64 c) := by
-  rw [BitVec.slt_iff_toInt_lt, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-@[simp]
-theorem toInt_eq_iff_eq_ofInt (h₁ : -2 ^ 63 ≤ c) (h₂ : c < 2 ^ 63) :
-    x.toInt = c ↔ x = BitVec.ofInt 64 c := by
-  rw [← BitVec.toInt_inj, BitVec.toInt_ofInt_eq_self (by decide) h₁ h₂]
-
-end toInt
-
 /-- Unfold the operation semantics of a goal produced by `simpPuddleValid`. -/
 macro "simpCombineSemantics" : tactic => `(tactic|
   simp [ctree_semantics, Sim.bind_monadLift_right_iff])
@@ -118,45 +82,30 @@ an operation's result equation only appears once its operands are known register
 macro "normalizeCombineValid" : tactic => `(tactic| (
   intros
   casesConformingValues
-  iterate 4 (all_goals (try simp_all [RuntimeValue.isRefinedBy,
-    RISCVImmediateProperties.immField, liFitsSImm12]); all_goals (try subst_vars))))
+  iterate 4 (all_goals (try simp_all [RuntimeValue.isRefinedBy]); all_goals (try subst_vars))))
 
-/-- Close a normalized combine validity goal by deciding the remaining register equalities. -/
-macro "closeCombineValid" : tactic => `(tactic| (
-  normalizeCombineValid
-  all_goals veir_bv_decide))
-
-/-- Prove the validity of a combine pattern whose builders have been unfolded. -/
-macro "proveCombineValid" : tactic => `(tactic| (
+/-- Prove the validity of a combine pattern whose builders have been unfolded, closing each
+remaining register equality with the local correctness lemma `lemma` from
+`Veir.Passes.RISCVCombines.Proofs`. The lemma's conclusion must match the normalized goal; its
+hypotheses (the matcher's guards) are discharged from the matched properties. -/
+macro "proveCombineValid" "using" lemma:term : tactic => `(tactic| (
   simpPuddleValid
   simpCombineSemantics
-  closeCombineValid))
+  normalizeCombineValid
+  all_goals (apply $lemma <;> simp_all)))
+
+/-- Print the normalized goals of a combine validity proof. Used to state local lemmas. -/
+macro "probeCombineValid" : tactic => `(tactic| (
+  simpPuddleValid
+  simpCombineSemantics
+  normalizeCombineValid
+  trace_state
+  all_goals sorry))
 
 /-! ### Stores
 
-A store writes a little-endian prefix of its value register. The prefix only depends on the
-low bits of the register, which the extensions dropped by the store combines preserve. -/
-
-theorem toByteArrayLE_extract_four {a b : BitVec 64} (h : a.setWidth 32 = b.setWidth 32) :
-    ({ toBitVec := a } : UInt64).toByteArrayLE.extract 0 4 =
-      ({ toBitVec := b } : UInt64).toByteArrayLE.extract 0 4 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
-
-theorem toByteArrayLE_extract_two {a b : BitVec 64} (h : a.setWidth 16 = b.setWidth 16) :
-    ({ toBitVec := a } : UInt64).toByteArrayLE.extract 0 2 =
-      ({ toBitVec := b } : UInt64).toByteArrayLE.extract 0 2 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
-
-theorem toByteArrayLE_extract_one {a b : BitVec 64} (h : a.setWidth 8 = b.setWidth 8) :
-    ({ toBitVec := a } : UInt64).toByteArrayLE.extract 0 1 =
-      ({ toBitVec := b } : UInt64).toByteArrayLE.extract 0 1 := by
-  apply ByteArray.ext
-  simp [ByteArray.data_extract, UInt64.toByteArrayLE, ← UInt8.toBitVec_inj]
-  bv_decide
+A store writes a little-endian prefix of its value register. The local lemmas
+`Data.RISCV.drop_<ext>_<store>` show that the dropped extension does not change that prefix. -/
 
 /-- A root store and a created store that write the same bytes simulate each other.
 The statement keeps the source as a lifted `Interp` computation, so that it can be transported
@@ -195,17 +144,17 @@ theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target :
     CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
   simp [monadLift, MonadLift.monadLift]
 
-/-- Close a store-combine validity goal, normalized by `simp [ctree_semantics]`, given
-a lemma `bytes` showing that the dropped extension does not change the stored bytes. -/
+/-- Close a store-combine validity goal, normalized by `simp [ctree_semantics]`, given the local
+lemma `bytes` showing that the dropped extension does not change the stored bytes. -/
 macro "closeStoreValid" bytes:term : tactic => `(tactic| (
   normalizeCombineValid
   all_goals
     exact sim_store
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
-      _ _ _ _ _ _ _ ($bytes _)))
+      _ _ _ _ _ _ _ $bytes))
 
-/-- Prove the validity of a store combine whose builders have been unfolded, given a lemma
-`bytes` showing that the dropped extension does not change the stored bytes. -/
+/-- Prove the validity of a store combine whose builders have been unfolded, given the local
+lemma `bytes` showing that the dropped extension does not change the stored bytes. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
   simpPuddleValid
   simp [ctree_semantics]
