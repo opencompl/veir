@@ -535,3 +535,55 @@ def RewritePattern.applyToFunctions (pattern: RewritePattern OpInfo)
   for func in collectNestedFunctions ctx.raw root do
     ctx ← pattern.applyInContext ctx func maxRounds
   pure ctx
+
+/-- Pop one candidate, skipping ineligible operations before either mutation branch. -/
+def RewritePattern.worklistStepIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
+  let (opOpt, remaining) := rewriter.worklist.pop
+  let op := opOpt.get!
+  if op.InBounds rewriter.ctx.raw then
+    if eligible rewriter.ctx op then pattern.worklistStep rewriter
+    else pure { rewriter with worklist := remaining }
+  else failure
+
+/-- Process the worklist with a context-dependent eligibility filter. -/
+def RewritePattern.runWorklistIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
+  if rewriter.worklist.isEmpty then return rewriter
+  let next ← pattern.worklistStepIf eligible rewriter
+  pattern.runWorklistIf eligible next
+partial_fixpoint
+
+/-- One seeded, filtered worklist round. -/
+def RewritePattern.applyOnceInContextIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) :
+    Option (Bool × WfIRContext OpInfo) := do
+  let rewriter : PatternRewriter OpInfo :=
+    { ctx, hasDoneAction := false, worklist := PatternRewriter.seedNestedReversePostOrder ctx.raw .empty root }
+  let final ← pattern.runWorklistIf eligible rewriter
+  pure (final.hasDoneAction, final.ctx)
+
+/-- Bounded rounds, skipping unsupported candidates before rewriting and DCE. -/
+def RewritePattern.applyInContextIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
+    Option (WfIRContext OpInfo) := do
+  let mut ctx := ctx
+  for _ in 0...maxRounds do
+    let (changed, newCtx) ← pattern.applyOnceInContextIf eligible ctx root
+    ctx := newCtx
+    if !changed then break
+  pure ctx
+
+/-- Filtered rewriting of each nested function. -/
+def RewritePattern.applyToFunctionsIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
+    Option (WfIRContext OpInfo) := do
+  let mut ctx := ctx
+  for func in collectNestedFunctions ctx.raw root do
+    ctx ← pattern.applyInContextIf eligible ctx func maxRounds
+  pure ctx

@@ -532,11 +532,12 @@ theorem OperationPtr.Ancestor.eq_of_parentRegion_ancestor
 Whether `ancestor` is `descendant` or one of its enclosing regions. This is the
 executable counterpart of MLIR's `Region::isAncestor` query.
 -/
-partial def RegionPtr.isAncestorOf
+def RegionPtr.isAncestorOf
     (ancestor descendant : RegionPtr) (ctx : WfIRContext OpInfo) : Bool :=
-  ancestor = descendant ||
+  if ancestor = descendant then true else
     match (descendant.getParent! ctx.raw).bind (·.getParentRegion! ctx.raw) with
     | none => false
     | some parentRegion => ancestor.isAncestorOf parentRegion ctx
+partial_fixpoint
 
 end Veir
