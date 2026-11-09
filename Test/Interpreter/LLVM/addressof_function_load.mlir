@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // RUN: LLUBI
 // RUN: ALIVE_EXEC_CHECK
-// TODO: also run with `--ctree` once it supports globals.
 
 // A function's address cannot be read from: a load through it is UB.
 

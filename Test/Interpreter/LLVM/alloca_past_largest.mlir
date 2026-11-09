@@ -23,4 +23,4 @@
 // CHECK-NEXT:     ^
 // ALIVE_EXEC: Program output: #[0x07#8]
 
-// TODO: also run with `--ctree` once it supports globals.
+// TODO: also run with `--ctree` once it reports source locations.

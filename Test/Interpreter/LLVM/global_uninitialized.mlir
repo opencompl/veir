@@ -1,7 +1,7 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-interpret --ctree %s | filecheck %s
 // RUN: LLUBI
 // RUN: ALIVE_EXEC_CHECK
-// TODO: also run with `--ctree` once it supports globals.
 
 // A global with neither a value nor an initializer starts as poison.
 
