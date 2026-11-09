@@ -366,8 +366,8 @@ theorem convertBranch_ok {convertible : BlockPtr → Bool}
       op.getNumResults! ctx.raw = 0 ∧ op.getNumRegions! ctx.raw = 0)
     (h : convertBranch convertible compareOf ctx op = .ok ctx') :
     (¬ op.IsGmirBranch ctx.raw ∧ ctx' = ctx) ∨
-    (op.IsGmirBranch ctx.raw ∧ ¬ (op.getSuccessors! ctx.raw).all convertible ∧ ctx' = ctx) ∨
-    (op.IsGmirBranch ctx.raw ∧
+    (op.IsGmirBranch ctx.raw ∧ branchFits ctx convertible op = false ∧ ctx' = ctx) ∨
+    (op.IsGmirBranch ctx.raw ∧ branchFits ctx convertible op = true ∧
       ∃ regOps newBranch, BranchStep ctx ctx' op (compareOf op) regOps newBranch) := by
   simp only [convertBranch, bind, Except.bind] at h
   simp only [hNotUnreachable, ↓reduceIte] at h
@@ -380,9 +380,9 @@ theorem convertBranch_ok {convertible : BlockPtr → Bool}
     next hGate =>
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact .inr (.inl ⟨by simpa using hBranch, by simpa using hGate, h.symm⟩)
-    next =>
+    next hGate =>
       have hC := hCounts (by simpa using hBranch)
-      refine .inr (.inr ⟨by simpa using hBranch, ?_⟩)
+      refine .inr (.inr ⟨by simpa using hBranch, by simpa using hGate, ?_⟩)
       split at h
       next => simp at h
       next acc hFold =>
@@ -656,13 +656,27 @@ theorem PhaseA.step_branch {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List O
         exact List.replaceBy_of_not_mem hNotMem
       · simp [hLowered, hEq]
 
+/-- An operation that phase A has not touched can be lowered as it could be in the input. -/
+theorem PhaseA.branchFits_eq {ctx₀ ctx : WfIRContext OpCode} {done : List OperationPtr}
+    {compareOf regOp newBranch} {op : OperationPtr} {convertible : BlockPtr → Bool}
+    (hInv : PhaseA ctx₀ ctx done compareOf regOp newBranch) (opIn₀ : op.InBounds ctx₀.raw)
+    (hSame : OpSame id ctx₀.raw ctx.raw op) :
+    branchFits ctx convertible op = branchFits ctx₀ convertible op := by
+  simp only [branchFits, hSame.successors, hSame.operands, Array.map_id_fun, id_eq]
+  congr 1
+  rw [Bool.eq_iff_iff, Array.all_eq_true, Array.all_eq_true]
+  refine forall_congr' fun i => forall_congr' fun hi => ?_
+  have vIn := OperationPtr.getOperands!_inBounds ctx₀.wellFormed.inBounds opIn₀
+    (Array.getElem_mem hi)
+  rw [(hInv.types _ vIn).2]
+
 theorem PhaseA.step {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List OperationPtr}
     {compareOf regOp newBranch} {op : OperationPtr} {convertible : BlockPtr → Bool}
     (hInv : PhaseA ctx₀ ctx done compareOf regOp newBranch)
     (opIn₀ : op.InBounds ctx₀.raw) (hNotDone : op ∉ done)
     (hNotUnreachable : op.getOpType! ctx₀.raw ≠ OpCode.llvm .unreachable)
     (hSuccessors : ¬ op.IsGmirBranch ctx₀.raw → op.getNumSuccessors! ctx₀.raw = 0)
-    (hConvertible : op.IsGmirBranch ctx₀.raw → (op.getSuccessors! ctx₀.raw).all convertible)
+    (hConvertible : op.IsGmirBranch ctx₀.raw → branchFits ctx₀ convertible op)
     (hCounts : op.IsGmirBranch ctx₀.raw →
       op.getNumResults! ctx₀.raw = 0 ∧ op.getNumRegions! ctx₀.raw = 0)
     (h : convertBranch convertible compareOf ctx op = .ok ctx') :
@@ -677,10 +691,12 @@ theorem PhaseA.step {ctx₀ ctx ctx' : WfIRContext OpCode} {done : List Operatio
         rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!, hSame.resultTypes,
           OperationPtr.getResultTypes!.size_eq_getNumResults!]
         exact hC.1) h with
-    ⟨hBranch, rfl⟩ | ⟨hBranch, hGate, -⟩ | ⟨hBranch, regOps, newOp, hStep⟩
+    ⟨hBranch, rfl⟩ | ⟨hBranch, hGate, -⟩ | ⟨hBranch, -, regOps, newOp, hStep⟩
   · exact ⟨regOp, newBranch, hInv.step_other (by rwa [← hBranchIff])
       (hSuccessors (by rwa [← hBranchIff]))⟩
-  · exact absurd (hSame.successors ▸ hConvertible (hBranchIff.mp hBranch)) hGate
+  · have := hConvertible (hBranchIff.mp hBranch)
+    rw [← hInv.branchFits_eq opIn₀ hSame] at this
+    simp [this] at hGate
   · exact ⟨_, _, hInv.step_branch opIn₀ hNotDone (hBranchIff.mp hBranch)
       (hCounts (hBranchIff.mp hBranch)).1 hStep⟩
 
@@ -691,8 +707,7 @@ theorem PhaseA.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List O
     (hDisjoint : ∀ o ∈ rest, o ∉ done)
     (hNotUnreachable : ∀ o ∈ rest, o.getOpType! ctx₀.raw ≠ OpCode.llvm .unreachable)
     (hSuccessors : ∀ o ∈ rest, ¬ o.IsGmirBranch ctx₀.raw → o.getNumSuccessors! ctx₀.raw = 0)
-    (hConvertible : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw →
-      (o.getSuccessors! ctx₀.raw).all convertible)
+    (hConvertible : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw → branchFits ctx₀ convertible o)
     (hCounts : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw →
       o.getNumResults! ctx₀.raw = 0 ∧ o.getNumRegions! ctx₀.raw = 0)
     (h : rest.foldlM (convertBranch convertible compareOf) ctx = .ok ctx') :
@@ -723,6 +738,72 @@ theorem PhaseA.foldlM {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List O
         (fun o ho => hConvertible o (by simp [ho])) (fun o ho => hCounts o (by simp [ho])) h
       exact ⟨done', regOp', newBranch', hInv', fun o => by
         rw [hMem o]; simp only [List.mem_cons]; grind⟩
+
+/--
+  Phase A on any module: it lowers only branches that `branchFits` accepts, and
+  leaves every other operation as it was (`PhaseA.ops`).
+-/
+theorem PhaseA.foldlM_lowered {ctx₀ ctx ctx' : WfIRContext OpCode} {done rest : List OperationPtr}
+    {compareOf regOp newBranch} {convertible : BlockPtr → Bool}
+    (hInv : PhaseA ctx₀ ctx done compareOf regOp newBranch)
+    (restIn : ∀ o ∈ rest, o.InBounds ctx₀.raw) (hNodup : rest.Nodup)
+    (hDisjoint : ∀ o ∈ rest, o ∉ done)
+    (hNotUnreachable : ∀ o ∈ rest, o.getOpType! ctx₀.raw ≠ OpCode.llvm .unreachable)
+    (hCounts : ∀ o ∈ rest, o.IsGmirBranch ctx₀.raw →
+      o.getNumResults! ctx₀.raw = 0 ∧ o.getNumRegions! ctx₀.raw = 0)
+    (h : rest.foldlM (convertBranch convertible compareOf) ctx = .ok ctx') :
+    ∃ done' regOp' newBranch', PhaseA ctx₀ ctx' done' compareOf regOp' newBranch' ∧
+      ∀ o ∈ done', o ∈ done ∨ (o ∈ rest ∧ branchFits ctx₀ convertible o) := by
+  induction rest generalizing ctx done regOp newBranch with
+  | nil =>
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨done, regOp, newBranch, hInv, fun o ho => .inl ho⟩
+  | cons op rest ih =>
+    simp only [List.foldlM_cons, bind, Except.bind] at h
+    split at h
+    next => simp at h
+    next ctx₁ hStep =>
+      have opIn₀ := restIn op (by simp)
+      have hNotDone := hDisjoint op (by simp)
+      have hNodup' := List.nodup_cons.mp hNodup
+      have hSame := hInv.ops op opIn₀ (fun h => hNotDone h.1)
+      have hBranchIff : op.IsGmirBranch ctx.raw ↔ op.IsGmirBranch ctx₀.raw := by
+        simp [OperationPtr.IsGmirBranch, hSame.opType]
+      have restIn' : ∀ o ∈ rest, o.InBounds ctx₀.raw := fun o ho => restIn o (by simp [ho])
+      have hNotUnreachable' := fun o ho => hNotUnreachable o (List.mem_cons_of_mem op ho)
+      have hCounts' := fun o ho => hCounts o (List.mem_cons_of_mem op ho)
+      rcases convertBranch_ok hSame.inBounds
+          (by rw [hSame.opType]; exact hNotUnreachable op (by simp))
+          (fun hB => by
+            have hC := hCounts op (by simp) (hBranchIff.mp hB)
+            refine ⟨?_, by rw [hSame.numRegions]; exact hC.2⟩
+            rw [← OperationPtr.getResultTypes!.size_eq_getNumResults!, hSame.resultTypes,
+              OperationPtr.getResultTypes!.size_eq_getNumResults!]
+            exact hC.1) hStep with
+        ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨hBranch, hFits, regOps, newOp, hBranchStep⟩
+      · obtain ⟨done', regOp', newBranch', hInv', hDone⟩ := ih hInv restIn' hNodup'.2
+          (fun o ho => hDisjoint o (by simp [ho])) hNotUnreachable' hCounts' h
+        exact ⟨done', regOp', newBranch', hInv', fun o ho => (hDone o ho).imp id
+          fun ⟨hMem, hF⟩ => ⟨List.mem_cons_of_mem op hMem, hF⟩⟩
+      · obtain ⟨done', regOp', newBranch', hInv', hDone⟩ := ih hInv restIn' hNodup'.2
+          (fun o ho => hDisjoint o (by simp [ho])) hNotUnreachable' hCounts' h
+        exact ⟨done', regOp', newBranch', hInv', fun o ho => (hDone o ho).imp id
+          fun ⟨hMem, hF⟩ => ⟨List.mem_cons_of_mem op hMem, hF⟩⟩
+      · have hInv₁ := hInv.step_branch opIn₀ hNotDone (hBranchIff.mp hBranch)
+          (hCounts op (by simp) (hBranchIff.mp hBranch)).1 hBranchStep
+        obtain ⟨done', regOp', newBranch', hInv', hDone⟩ := ih hInv₁ restIn' hNodup'.2
+          (fun o ho hMem => by
+            rcases List.mem_cons.mp hMem with rfl | hMem
+            · exact hNodup'.1 ho
+            · exact hDisjoint o (by simp [ho]) hMem)
+          hNotUnreachable' hCounts' h
+        refine ⟨done', regOp', newBranch', hInv', fun o ho => ?_⟩
+        rcases hDone o ho with hMem | ⟨hMem, hF⟩
+        · rcases List.mem_cons.mp hMem with rfl | hMem
+          · exact .inr ⟨by simp, by rwa [← hInv.branchFits_eq opIn₀ hSame]⟩
+          · exact .inl hMem
+        · exact .inr ⟨List.mem_cons_of_mem _ hMem, hF⟩
 
 /-! ## Converting the arguments of a block -/
 
@@ -1256,6 +1337,21 @@ structure BranchesLowerable (ctx : WfIRContext OpCode) : Prop where
     i < block.getNumArguments! ctx.raw →
     roundTrips ((block.getArgument i : ValuePtr).getType! ctx.raw)
 
+/--
+  The gMIR branches of `ctx` pass no pointer: no operand of such a branch, and no
+  argument of a block it branches to, is a pointer. The pass passes a pointer
+  through a register too, which this proof does not cover: a register holds an
+  address, and the pointer cast back from it may belong to another object.
+-/
+structure BranchesPassNoPointer (ctx : WfIRContext OpCode) : Prop where
+  operands : ∀ (op : OperationPtr) (i : Nat), op.InBounds ctx.raw → op.IsGmirBranch ctx.raw →
+    i < op.getNumOperands! ctx.raw →
+      ∀ t, ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ .llvmPointerType t
+  arguments : ∀ (op : OperationPtr) (block : BlockPtr) (i : Nat), op.InBounds ctx.raw →
+    op.IsGmirBranch ctx.raw → block ∈ op.getSuccessors! ctx.raw →
+    i < block.getNumArguments! ctx.raw →
+      ∀ t, ((block.getArgument i : ValuePtr).getType! ctx.raw).val ≠ .llvmPointerType t
+
 namespace BranchesLowerable
 
 variable {ctx : WfIRContext OpCode} (hLowerable : BranchesLowerable ctx)
@@ -1302,11 +1398,26 @@ theorem mem_convertible (opIn : op.InBounds ctx.raw) (hBranch : op.IsGmirBranch 
 
 end BranchesLowerable
 
+/-- A branch whose targets are all in `convertible` and whose operands fit a register fits. -/
+theorem branchFits_of {ctx : WfIRContext OpCode} {convertible : List BlockPtr}
+    {op : OperationPtr}
+    (hTargets : ∀ block ∈ op.getSuccessors! ctx.raw, block ∈ convertible)
+    (hOperands : ∀ i, i < op.getNumOperands! ctx.raw →
+      fitsRegister ((op.getOperand! ctx.raw i).getType! ctx.raw)) :
+    branchFits ctx (Std.HashSet.ofList convertible).contains op = true := by
+  simp only [branchFits, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem]
+  refine ⟨fun block hMem => by simpa [Std.HashSet.contains_ofList] using hTargets block hMem,
+    fun operand hMem => ?_⟩
+  obtain ⟨i, hi, rfl⟩ := OperationPtr.getOperands!.mem_iff_exists_index.mp hMem
+  exact hOperands i hi
+
 /-- Nothing is dropped when the pass lowers every branch. -/
 theorem dropTargetsOfUnlowered_eq_self {ctx : WfIRContext OpCode} {ops : List OperationPtr}
     {convertible : List BlockPtr}
     (h : ∀ op ∈ ops, op.IsGmirBranch ctx.raw →
-      ∀ block ∈ op.getSuccessors! ctx.raw, block ∈ convertible) :
+      ∀ block ∈ op.getSuccessors! ctx.raw, block ∈ convertible)
+    (hOperands : ∀ op ∈ ops, op.IsGmirBranch ctx.raw → ∀ i, i < op.getNumOperands! ctx.raw →
+      fitsRegister ((op.getOperand! ctx.raw i).getType! ctx.raw)) :
     ∀ fuel, dropTargetsOfUnlowered ctx ops fuel convertible = convertible
   | 0 => rfl
   | fuel + 1 => by
@@ -1320,11 +1431,22 @@ theorem dropTargetsOfUnlowered_eq_self {ctx : WfIRContext OpCode} {ops : List Op
       next hCond =>
         simp only [Bool.and_eq_true, Bool.not_eq_true', Bool.or_eq_true,
           decide_eq_true_eq] at hCond
-        obtain ⟨hBranch, hAll⟩ := hCond
-        obtain ⟨b, hb, hNot⟩ := List.all_eq_false.mp hAll
-        exact hNot (by simpa using h op hOp hBranch b (by simpa using hb))
+        obtain ⟨hBranch, hFits⟩ := hCond
+        have := branchFits_of (h op hOp hBranch) (hOperands op hOp hBranch)
+        simp [this] at hFits
       next => simp at hTarget
     next => rfl
+
+/-- `dropTargetsOfUnlowered` only removes blocks. -/
+theorem dropTargetsOfUnlowered_sublist {ctx : WfIRContext OpCode} {ops : List OperationPtr} :
+    ∀ fuel (convertible : List BlockPtr),
+      (dropTargetsOfUnlowered ctx ops fuel convertible).Sublist convertible
+  | 0, _ => List.Sublist.refl _
+  | fuel + 1, convertible => by
+    simp only [dropTargetsOfUnlowered]
+    split
+    · exact (dropTargetsOfUnlowered_sublist fuel _).trans List.filter_sublist
+    · exact List.Sublist.refl _
 
 /-! ## The two phases give a branch lowering -/
 
@@ -1648,8 +1770,13 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
         fun block => !(Std.HashSet.ofList (blockedTargets ctx)).contains block &&
           isConvertible ctx block && block.hasPredecessor! ctx.raw :=
     fun op hOp hBranch _ hMem => hLowerable.mem_convertible ((hKeys op).mp hOp) hBranch hMem
+  have hOperands : ∀ op ∈ ctx.raw.operations.keys, op.IsGmirBranch ctx.raw →
+      ∀ i, i < op.getNumOperands! ctx.raw →
+        fitsRegister ((op.getOperand! ctx.raw i).getType! ctx.raw) :=
+    fun op hOp hBranch i hi =>
+      fitsRegister_of_roundTrips (hLowerable.operands op i ((hKeys op).mp hOp) hBranch hi)
   simp only [convertModule, bind, Except.bind,
-    dropTargetsOfUnlowered_eq_self hConvertible] at h
+    dropTargetsOfUnlowered_eq_self hConvertible hOperands] at h
   split at h
   next => simp at h
   next ctxA hLower =>
@@ -1658,8 +1785,7 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
         (fun o ho => (hKeys o).mp ho) hNodup (fun _ _ h => by simp at h)
         (fun o ho => hNoUnreachable o ((hKeys o).mp ho))
         (fun o ho => hLowerable.successors o ((hKeys o).mp ho))
-        (fun o ho hBranch => Array.all_eq_true_iff_forall_mem.mpr fun block hMem => by
-          simpa [Std.HashSet.contains_ofList] using hConvertible o ho hBranch block hMem)
+        (fun o ho hBranch => branchFits_of (hConvertible o ho hBranch) (hOperands o ho hBranch))
         (fun o ho hBranch =>
           OperationPtr.Verified.gmir_branch
             (OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants hVerified
@@ -1821,6 +1947,198 @@ theorem ISelBrPass.run_isModuleRefinedByCTree {strict : Bool} {ctx ctx' : WfIRCo
   convertModule_isModuleRefinedByCTree hVerified hNoUnreachable hLowerable
     (ISelBrPass.convertModule_eq_ok_of_run h) module
 
+/-- A check over a list that only goes on or fails, and succeeds, succeeds on each element. -/
+private theorem forIn_ok_of_yield {α ε : Type} {l : List α}
+    {f : α → PUnit → Except ε (ForInStep PUnit)}
+    (hYield : ∀ o s, f o PUnit.unit = .ok s → s = .yield PUnit.unit)
+    (h : forIn l PUnit.unit f = .ok PUnit.unit) : ∀ o ∈ l, ∃ s, f o PUnit.unit = .ok s := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+    simp only [List.forIn_cons, bind, Except.bind] at h
+    rcases hf : f a PUnit.unit with e | s
+    · simp [hf] at h
+    · obtain rfl := hYield a s hf
+      simp only [hf] at h
+      intro o ho
+      rcases List.mem_cons.mp ho with rfl | ho
+      · exact ⟨_, hf⟩
+      · exact ih h o ho
+
+/-- In strict mode, the pass succeeds only if no branch but a RISC-V one remains. -/
+theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
+    (h : ISelBrPass.run true ctx = .ok ctx') :
+    convertModule ctx = .ok ctx' ∧
+    (∀ o ∈ ctx'.raw.operations.keys, isLoweredBranch ctx' o = false →
+      o.getNumSuccessors! ctx'.raw = 0) ∧
+    (∀ o ∈ ctx'.raw.operations.keys, ¬ o.IsGmirBranch ctx'.raw) := by
+  have hc := ISelBrPass.convertModule_eq_ok_of_run h
+  refine ⟨hc, ?_⟩
+  unfold ISelBrPass.run at h
+  simp only [hc, bind, Except.bind, ↓reduceIte] at h
+  split at h
+  · simp at h
+  next u h₁ =>
+    split at h
+    · simp at h
+    next u₂ h₂ =>
+      cases u
+      cases u₂
+      have hYield : ∀ {b : Bool} {e : String} {s : ForInStep PUnit.{1}},
+          (if b = true then (match (throw e : Except String PUnit.{1}) with
+              | .error err => .error err
+              | .ok _ => pure (ForInStep.yield PUnit.unit))
+            else (pure (ForInStep.yield PUnit.unit) : Except String _)) = .ok s →
+          s = .yield PUnit.unit ∧ b = false := by
+        intro b e s hs
+        cases b
+        · simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hs
+          exact ⟨hs.symm, rfl⟩
+        · simp [throw, throwThe, MonadExceptOf.throw] at hs
+      refine ⟨fun o ho hNot => ?_, fun o ho hBranch => ?_⟩
+      · obtain ⟨s, hs⟩ := forIn_ok_of_yield (fun _ _ hs => (hYield hs).1) h₁ o ho
+        have := (hYield hs).2
+        simpa [hNot] using this
+      · obtain ⟨s, hs⟩ := forIn_ok_of_yield (fun _ _ hs => (hYield hs).1) h₂ o ho
+        have := (hYield hs).2
+        simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not] at this
+        rcases hBranch with h | h
+        · exact this.1 h
+        · exact this.2 h
+
+/--
+  Strict mode checks what the proof assumes of a module, but for pointers: if the
+  pass succeeds in strict mode on a module whose branches pass no pointer, every
+  branch of the module is one the pass lowers. A `riscv_cf` branch of the input,
+  which strict mode accepts as already lowered, is ruled out as well.
+-/
+theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
+    (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
+      o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
+    (hNoPointer : BranchesPassNoPointer ctx)
+    (h : ISelBrPass.run true ctx = .ok ctx') : BranchesLowerable ctx := by
+  obtain ⟨hc, hSuccessors', hNoBranch'⟩ := ISelBrPass.run_strict h
+  have hKeys : ∀ (c : WfIRContext OpCode) (o : OperationPtr),
+      o ∈ c.raw.operations.keys ↔ o.InBounds c.raw := fun c o => by
+    rw [Std.HashMap.mem_keys, OperationPtr.inBounds_def]
+  have hNodup : ctx.raw.operations.keys.Nodup := by
+    have := ctx.raw.operations.distinct_keys
+    simpa [List.Nodup] using this
+  simp only [convertModule, bind, Except.bind] at hc
+  generalize hL : dropTargetsOfUnlowered ctx _ _ _ = L at hc
+  split at hc
+  next => simp at hc
+  next ctxA hLower =>
+    obtain ⟨done, regOp, newBranch, hA, hDone⟩ :=
+      (PhaseA.init (regOp := fun _ _ => default) (newBranch := fun _ => default)).foldlM_lowered
+        (fun o ho => (hKeys ctx o).mp ho) hNodup (fun _ _ h => by simp at h)
+        (fun o ho => hNoUnreachable o ((hKeys ctx o).mp ho))
+        (fun o ho hBranch =>
+          OperationPtr.Verified.gmir_branch
+            (OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants hVerified
+              ((hKeys ctx o).mp ho)) hBranch)
+        hLower
+    have hSub : L.Sublist _ := hL ▸ dropTargetsOfUnlowered_sublist _ _
+    obtain ⟨blocks, doneArgs, argCast, hB, -⟩ :=
+      (PhaseBlocks.foldlM (blocks := []) (argCast := fun _ => default)
+        ⟨PhaseB.init, fun _ h => by simp at h, fun _ => by simp⟩
+        (fun block hBlock => hA.ctxSame.blockIn (BlockPtr.inBounds_def.mpr
+          (Std.HashMap.mem_keys.mp (List.mem_filter.mp (hSub.subset hBlock)).1)))
+        ((hSub.trans List.filter_sublist).nodup (by
+          simpa [List.Nodup] using ctx.raw.blocks.distinct_keys))
+        (fun _ _ => by simp) hc)
+    /- An operation that phase A leaves alone is in the result, with its opcode and successors. -/
+    have hSurvives : ∀ o, o.InBounds ctx.raw → ¬ (o ∈ done ∧ o.IsGmirBranch ctx.raw) →
+        o.InBounds ctx'.raw ∧ o.getOpType! ctx'.raw = o.getOpType! ctx.raw ∧
+          o.getSuccessors! ctx'.raw = o.getSuccessors! ctx.raw := by
+      intro o oIn hNot
+      have h₁ := hA.ops o oIn hNot
+      have h₂ := hB.phase.ops o h₁.inBounds
+      exact ⟨h₂.inBounds, h₂.opType.trans h₁.opType, h₂.successors.trans h₁.successors⟩
+    /- Strict mode leaves no gMIR branch, so every one was lowered, which it was only if it fit. -/
+    have hFits : ∀ o, o.InBounds ctx.raw → o.IsGmirBranch ctx.raw →
+        branchFits ctx (Std.HashSet.ofList L).contains o := by
+      intro o oIn hBranch
+      by_cases hMem : o ∈ done
+      · rcases hDone o hMem with h | ⟨-, hF⟩
+        · simp at h
+        · exact hF
+      · obtain ⟨oIn', hType, -⟩ := hSurvives o oIn (fun h => hMem h.1)
+        exact absurd (by simpa [OperationPtr.IsGmirBranch, hType] using hBranch)
+          (hNoBranch' o ((hKeys ctx' o).mpr oIn'))
+    refine ⟨fun o oIn hBranch => ?_, fun o i oIn hBranch hi => ?_,
+      fun o block i oIn hBranch hMem hi => ?_⟩
+    · by_cases hRiscv : ∃ c, o.getOpType! ctx.raw = .riscv_cf c
+      · obtain ⟨c, hc⟩ := hRiscv
+        exact hNoRiscvBranch o oIn c hc
+      · obtain ⟨oIn', hType, hSucc⟩ := hSurvives o oIn (fun h => hBranch h.2)
+        have hNotLowered : isLoweredBranch ctx' o = false := by
+          simp only [isLoweredBranch, hType]
+          simp only [OperationPtr.IsGmirBranch, not_or] at hBranch
+          split
+          · exact absurd ‹_› hBranch.1
+          · exact absurd ‹_› hBranch.2
+          · exact absurd ⟨_, ‹_›⟩ hRiscv
+          · rfl
+        have := hSuccessors' o ((hKeys ctx' o).mpr oIn') hNotLowered
+        rwa [← OperationPtr.getSuccessors!.size_eq_getNumSuccessors!, hSucc,
+          OperationPtr.getSuccessors!.size_eq_getNumSuccessors!] at this
+    · have hF := hFits o oIn hBranch
+      simp only [branchFits, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem] at hF
+      exact roundTrips_of_fitsRegister
+        (hF.2 _ (OperationPtr.getOperands!.mem_getOperand hi))
+        (hNoPointer.operands o i oIn hBranch hi)
+    · have hF := hFits o oIn hBranch
+      simp only [branchFits, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem,
+        Std.HashSet.contains_ofList] at hF
+      have hConv := (List.mem_filter.mp (hSub.subset (by simpa using hF.1 block hMem))).2
+      simp only [Bool.and_eq_true] at hConv
+      have hArgs := hConv.1.2
+      simp only [isConvertible, List.all_eq_true, List.mem_range] at hArgs
+      exact roundTrips_of_fitsRegister (by simpa [BlockPtr.getArgument_def] using hArgs i hi)
+        (hNoPointer.arguments o block i oIn hBranch hMem hi)
+
+/--
+  In strict mode, `isel-br-riscv64` refines a module it succeeds on without
+  assuming `BranchesLowerable`: strict mode checks it, but for pointers passed
+  through a branch and `riscv_cf` branches already in the input.
+-/
+theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
+      o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
+    (hNoPointer : BranchesPassNoPointer ctx)
+    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
+    (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
+    module.isModuleRefinedBy ctx module ctx' :=
+  ISelBrPass.run_isModuleRefinedBy hVerified hNoUnreachable
+    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch hNoPointer h)
+    hMonotone h module
+
+/--
+  In strict mode, `isel-br-riscv64` refines a module it succeeds on in CTrees,
+  without assuming anything about the interpreter if the opcodes of the module
+  are proved monotone in CTrees.
+-/
+theorem ISelBrPass.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
+      o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
+    (hNoPointer : BranchesPassNoPointer ctx)
+    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
+    (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
+    module.isModuleRefinedByCTree ctx module ctx' :=
+  convertModule_isModuleRefinedByCTree_of_treeMonotoneProved hVerified hNoUnreachable
+    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch hNoPointer h)
+    hMonotone (ISelBrPass.convertModule_eq_ok_of_run h) module
+
 /-- The pass, with its IO, returns what `ISelBrPass.run` does. -/
 theorem ISelBrPass.impl_eq_run (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) :
@@ -1954,3 +2272,33 @@ info: 'Veir.ISelBrPass.run_isModuleRefinedBy' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms Veir.ISelBrPass.run_isModuleRefinedBy
+
+/--
+info: 'Veir.ISelBrPass.run_strict_isModuleRefinedByCTree' depends on axioms: [propext,
+ CTree.Sim,
+ Classical.choice,
+ Quot.sound,
+ CTree.Sim.bind,
+ CTree.Sim.interp,
+ CTree.Sim.iter,
+ CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
+ CTree.Sim.ub,
+ Veir.compareBranch_holds._native.bv_decide.ax_1_15,
+ Veir.compareBranch_holds._native.bv_decide.ax_1_20,
+ Veir.compareBranch_holds._native.bv_decide.ax_1_25]
+-/
+#guard_msgs in
+#print axioms Veir.ISelBrPass.run_strict_isModuleRefinedByCTree
+
+/--
+info: 'Veir.ISelBrPass.run_strict_isModuleRefinedBy' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ Veir.compareBranch_holds._native.bv_decide.ax_1_15,
+ Veir.compareBranch_holds._native.bv_decide.ax_1_20,
+ Veir.compareBranch_holds._native.bv_decide.ax_1_25]
+-/
+#guard_msgs in
+#print axioms Veir.ISelBrPass.run_strict_isModuleRefinedBy
