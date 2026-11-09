@@ -28,10 +28,14 @@ import UnitTest.CallInterfaces
 import UnitTest.ControlFlowInterfaces
 import UnitTest.Puddle
 import UnitTest.CTreePuddle
+import UnitTest.LocalRewriteArity
 import UnitTest.BoundedBitblasting.BoundedBitblasting
 import UnitTest.BoundedBitblasting.Elab
 import UnitTest.BoundedBitblasting.CounterExamples
 import UnitTest.DataFlowFramework.SparseConstantPropagation
+import UnitTest.PuddleCheckedExecution
+import UnitTest.PuddleUnreachable
+import UnitTest.GreedyAllocation
 import UnitTest.MemoryLayout
 import UnitTest.DataLayout
 import UnitTest.RegisterAllocation

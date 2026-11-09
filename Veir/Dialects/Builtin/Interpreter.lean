@@ -9,12 +9,12 @@ open CTree
 
 namespace Veir
 
-/--
-Cast a byte to an integer and use a ctree effect to choose the bits that are poison.
--/
+/-- Cast a byte to an integer without fixing partially poisoned bits to zero.
+All-poison bytes retain integer poison; each partially poisoned bit is chosen independently. -/
 def Builtin.byteToIntCTree {EIn : Type} {E : EIn → Type} {width : Nat}
     (value : Data.LLVM.Byte width) : CTree E FreezeC (Data.LLVM.Int width) :=
   if value.poison = BitVec.allOnes width then pure .poison
+  else if value.poison = 0 then pure (.val value.val)
   else do
     let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
     pure (.val (value.val ||| (value.poison &&& bits)))

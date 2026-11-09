@@ -295,31 +295,26 @@ reverse post-order so that they are popped in post-order. (Erasing trivially dea
 here rather than pushing them -- a trick from InstCombine that allows removal of chains of dead
 operations -- is currently disabled.)
 -/
-private partial def seedNestedReversePostOrder (rewriter : PatternRewriter OpInfo)
-    (op : OperationPtr) : PatternRewriter OpInfo := Id.run do
-  let mut rewriter := rewriter
-  let numRegions := op.getNumRegions! rewriter.ctx.raw
+private partial def seedNestedWorklistReversePostOrder (ctx : WfIRContext OpInfo)
+    (worklist : Worklist) (op : OperationPtr) : Worklist := Id.run do
+  let mut worklist := worklist
+  let numRegions := op.getNumRegions! ctx.raw
   for i in 0...numRegions do
-    let mut block? := (op.getRegion! rewriter.ctx.raw (numRegions - 1 - i)).getLastBlock! rewriter.ctx.raw
+    let mut block? := (op.getRegion! ctx.raw (numRegions - 1 - i)).getLastBlock! ctx.raw
     while let some block := block? do
-      let mut child? := block.getLastOp! rewriter.ctx.raw
+      let mut child? := block.getLastOp! ctx.raw
       while let some child := child? do
-        let prev? := child.getPrevOp! rewriter.ctx.raw
-        /- Disabled for now: erasing dead ops during seeding needs proofs we aren't ready for.
-        if hdead : child.isTriviallyDead rewriter.ctx.raw then
-          rewriter := if hin : child.InBounds rewriter.ctx.raw then
-            { rewriter with
-              ctx := WfRewriter.eraseOp rewriter.ctx child hdead.1 hdead.2.1 hin
-              hasDoneAction := true }
-          else
-            panic! "PatternRewriter.seedNestedReversePostOrder: operation is out of bounds"
-        else
-        -/
-        rewriter := { rewriter with worklist := rewriter.worklist.pushNew child }
-        rewriter := rewriter.seedNestedReversePostOrder child
+        let prev? := child.getPrevOp! ctx.raw
+        worklist := worklist.pushNew child
+        worklist := seedNestedWorklistReversePostOrder ctx worklist child
         child? := prev?
-      block? := block.getPrevBlock! rewriter.ctx.raw
-  rewriter
+      block? := block.getPrevBlock! ctx.raw
+  worklist
+
+/-- Seeding changes only the worklist; the context and action flag are preserved by construction. -/
+def seedNestedReversePostOrder (rewriter : PatternRewriter OpInfo)
+    (op : OperationPtr) : PatternRewriter OpInfo :=
+  { rewriter with worklist := seedNestedWorklistReversePostOrder rewriter.ctx rewriter.worklist op }
 
 def replaceOp (rewriter: PatternRewriter OpInfo) (oldOp newOp: OperationPtr)
     (opNe : oldOp ≠ newOp := by grind)
@@ -415,6 +410,8 @@ abbrev LocalRewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
 
 def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : RewritePattern OpInfo :=
   fun rewriter op _opInBounds => do
+    -- Read the old results before the pattern consumes the context so it can update in place.
+    let oldResults := op.getResults! rewriter.ctx.raw
     match pattern rewriter.ctx op with
     -- error while applying pattern
     | none => none
@@ -422,6 +419,9 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, none) => return {rewriter with ctx := newCtx, hasDoneAction := false}
     -- match and rewrite
     | some (newCtx, some (newOps, newRes)) =>
+      guard (newRes.size = op.getNumResults! newCtx.raw)
+      -- Cyclic SSA in unreachable code can alias a replacement with an old root result.
+      guard (∀ value ∈ newRes, value ∉ oldResults)
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
         rewriter := rewriter.insertOp! newOp (InsertPoint.before op)
@@ -450,29 +450,42 @@ def RewritePattern.GreedyRewritePattern (patterns : Array (RewritePattern OpInfo
         failure
     return { rewriter with hasDoneAction := hasDoneAction }
 
+/-- Pop and process one operation. Automatic dead-code deletion retains allocating
+operations because allocation affects the concrete addresses of later objects. -/
+def RewritePattern.worklistStep (pattern : RewritePattern OpInfo)
+    (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
+  let (opOpt, newWorklist) := rewriter.worklist.pop
+  let op := opOpt.get!
+  let rewriter := { rewriter with worklist := newWorklist }
+  if hin : op.InBounds rewriter.ctx.raw then
+    if hdead : op.isTriviallyDead rewriter.ctx.raw ∧ (op.getEffects rewriter.ctx.raw).allocates = false then
+      return rewriter.eraseOp op hdead.1.1 hdead.1.2.1 hin
+    else
+      pattern rewriter op hin
+  else
+    failure
+
+/-- Process the current worklist. Successful executions have a finite unfolding,
+while nonterminating rewrite sequences retain the driver's partial behavior. -/
+def RewritePattern.runWorklist (pattern : RewritePattern OpInfo)
+    (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
+  if rewriter.worklist.isEmpty then return rewriter
+  let next ← pattern.worklistStep rewriter
+  pattern.runWorklist next
+partial_fixpoint
+
 /--
 - Apply the given rewrite pattern to all operations nested under `root` (possibly multiple times).
 - Return the new context, and a boolean indicating whether any changes were made.
 - If any pattern failed, return none.
 -/
-private partial def RewritePattern.applyOnceInContext
-    (pattern: RewritePattern OpInfo) (ctx: WfIRContext OpInfo) (root : OperationPtr) :
+private def RewritePattern.applyOnceInContext
+    (pattern : RewritePattern OpInfo) (ctx : WfIRContext OpInfo) (root : OperationPtr) :
     Option (Bool × WfIRContext OpInfo) := do
-  let mut rewriter : PatternRewriter OpInfo :=
-    PatternRewriter.seedNestedReversePostOrder { ctx, hasDoneAction := false, worklist := .empty } root
-  while !rewriter.worklist.isEmpty do
-    let (opOpt, newWorklist) := rewriter.worklist.pop
-    let op := opOpt.get!
-    rewriter := { rewriter with worklist := newWorklist }
-    if hin : op.InBounds rewriter.ctx.raw then
-      -- Erase trivially dead operations directly, as in MLIR's greedy driver.
-      if hdead : op.isTriviallyDead rewriter.ctx.raw then
-        rewriter := rewriter.eraseOp op hdead.1 hdead.2.1 hin
-      else
-        rewriter ← pattern rewriter op (by grind)
-    else
-      failure
-  pure (rewriter.hasDoneAction, rewriter.ctx)
+  let rewriter := PatternRewriter.seedNestedReversePostOrder
+    { ctx, hasDoneAction := false, worklist := .empty } root
+  let final ← pattern.runWorklist rewriter
+  pure (final.hasDoneAction, final.ctx)
 
 /--
 Apply the given rewrite pattern to the operations nested under `root`, visiting them in
@@ -519,4 +532,56 @@ def RewritePattern.applyToFunctions (pattern: RewritePattern OpInfo)
   let mut ctx := ctx
   for func in collectNestedFunctions ctx.raw root do
     ctx ← pattern.applyInContext ctx func maxRounds
+  pure ctx
+
+/-- Pop one candidate, skipping ineligible operations before either mutation branch. -/
+def RewritePattern.worklistStepIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
+  let (opOpt, remaining) := rewriter.worklist.pop
+  let op := opOpt.get!
+  if op.InBounds rewriter.ctx.raw then
+    if eligible rewriter.ctx op then pattern.worklistStep rewriter
+    else pure { rewriter with worklist := remaining }
+  else failure
+
+/-- Process the worklist with a context-dependent eligibility filter. -/
+def RewritePattern.runWorklistIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (rewriter : PatternRewriter OpInfo) : Option (PatternRewriter OpInfo) := do
+  if rewriter.worklist.isEmpty then return rewriter
+  let next ← pattern.worklistStepIf eligible rewriter
+  pattern.runWorklistIf eligible next
+partial_fixpoint
+
+/-- One seeded, filtered worklist round. -/
+def RewritePattern.applyOnceInContextIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) :
+    Option (Bool × WfIRContext OpInfo) := do
+  let rewriter := PatternRewriter.seedNestedReversePostOrder
+    { ctx, hasDoneAction := false, worklist := .empty } root
+  let final ← pattern.runWorklistIf eligible rewriter
+  pure (final.hasDoneAction, final.ctx)
+
+/-- Bounded rounds, skipping unsupported candidates before rewriting and DCE. -/
+def RewritePattern.applyInContextIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
+    Option (WfIRContext OpInfo) := do
+  let mut ctx := ctx
+  for _ in 0...maxRounds do
+    let (changed, newCtx) ← pattern.applyOnceInContextIf eligible ctx root
+    ctx := newCtx
+    if !changed then break
+  pure ctx
+
+/-- Filtered rewriting of each nested function. -/
+def RewritePattern.applyToFunctionsIf (pattern : RewritePattern OpInfo)
+    (eligible : WfIRContext OpInfo → OperationPtr → Bool)
+    (ctx : WfIRContext OpInfo) (root : OperationPtr) (maxRounds : Nat := 10) :
+    Option (WfIRContext OpInfo) := do
+  let mut ctx := ctx
+  for func in collectNestedFunctions ctx.raw root do
+    ctx ← pattern.applyInContextIf eligible ctx func maxRounds
   pure ctx

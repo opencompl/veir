@@ -331,7 +331,7 @@ program produces an assignment that refines the root operation's results.
 
 /-- The denotation of a value or metadata handle for a particular program execution. -/
 inductive SemanticBinding where
-| value (value : RuntimeValue) (type : TypeAttr)
+| value (value : RuntimeValue) (type : Option TypeAttr)
 | type (type : TypeAttr)
 | property (opCode : OpCode) (value : propertiesOf opCode)
 
@@ -369,23 +369,24 @@ theorem SemanticAssignment.bind_of_ne_eq (assignment : SemanticAssignment)
     assignment.bind id binding queried = assignment queried := by
   simp [SemanticAssignment.bind, hne]
 
-/-- Bind a runtime value together with its declared IR type. -/
+/-- Binds a runtime value to a value handle.
+Matcher entry points always supply the declared type; an untyped binding cannot
+be used as an operand of a matched operation. -/
 @[expose]
 def SemanticAssignment.bindValue (assignment : SemanticAssignment)
     (handle : Handle OpCode .value) (value : RuntimeValue)
-    (type : TypeAttr) : SemanticAssignment :=
+    (type : Option TypeAttr := none) : SemanticAssignment :=
   assignment.bind handle.id (.value value type)
 
-/-- Bind operation results with one declared type per handle, rejecting mismatched lengths. -/
+/-- Bind operation results together with their declared result types. -/
 @[expose]
 def SemanticAssignment.bindValues (values : Array RuntimeValue)
     (assignment : SemanticAssignment) (handles : List (Handle OpCode .value))
-    (types : List TypeAttr) (index : Nat := 0) : Option SemanticAssignment :=
-  match handles, types with
-  | [], [] => some assignment
-  | handle :: handles, type :: types =>
-      bindValues values (assignment.bindValue handle values[index]! type) handles types (index + 1)
-  | _, _ => none
+    (index : Nat := 0) (types : Array TypeAttr := #[]) : SemanticAssignment :=
+  match handles with
+  | [] => assignment
+  | handle :: handles =>
+      bindValues values (assignment.bindValue handle values[index]! types[index]?) handles (index + 1) types
 
 /-- Binds a concrete type to a type handle. -/
 @[expose]
@@ -412,10 +413,10 @@ def SemanticAssignment.getValue (assignment : SemanticAssignment)
 def SemanticAssignment.getValueType (assignment : SemanticAssignment)
     (handle : Handle OpCode .value) : Option TypeAttr :=
   match assignment handle.id with
-  | some (.value _ type) => some type
+  | some (.value _ type) => type
   | _ => none
 
-/-- Resolve the declared operand types; unbound or non-value handles reject the model. -/
+/-- Resolve the declared operand types; missing type metadata rejects the model. -/
 @[expose]
 def SemanticAssignment.getValueTypes (assignment : SemanticAssignment)
     (handles : List (Handle OpCode .value)) : Option (List TypeAttr) :=
@@ -548,18 +549,19 @@ proposition.
 
 /--
 Universally bind one runtime value for every handle, in handle order.
-Then, call the continuation with the list of values and the updated assignment.
+Attach the declared result types when supplied, then call the continuation with
+the list of values and the updated assignment. No runtime conformance or
+verification assumption is added by this binding operation.
 -/
 @[expose]
 def SemanticAssignment.ForallValues (assignment : SemanticAssignment)
-    (handles : List (Handle OpCode .value)) (types : List TypeAttr)
-    (k : List RuntimeValue → SemanticAssignment → Prop) : Prop :=
-  match handles, types with
-  | [], [] => k [] assignment
-  | handle :: handles, type :: types =>
-      ∀ value, SemanticAssignment.ForallValues (assignment.bindValue handle value type) handles types
-        (fun values assignment => k (value :: values) assignment)
-  | _, _ => False
+    (handles : List (Handle OpCode .value))
+    (k : List RuntimeValue → SemanticAssignment → Prop) (types : List TypeAttr := []) : Prop :=
+  match handles with
+  | [] => k [] assignment
+  | handle :: handles =>
+      ∀ value, SemanticAssignment.ForallValues (assignment.bindValue handle value types.head?) handles
+        (fun values assignment => k (value :: values) assignment) types.tail
 
 /--
 Collect the constraints of a matching declaration on the given assignment,
@@ -573,7 +575,7 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
     ∀ type, matcher type → k (assignment.bindType handle type)
   | .value typeHandle handle =>
     match assignment.getType typeHandle with
-    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value ty)
+    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value (some ty))
     | none => False
   | .operation opCode operandHandles resultTypeHandles propertyMatcher propertyHandle _
       resultHandles _ =>
@@ -581,7 +583,7 @@ def MatchDecl.Models (decl : MatchDecl OpCode) (assignment : SemanticAssignment)
       assignment.getValueTypes operandHandles.toList,
       assignment.getTypes resultTypeHandles.toList with
     | some operands, some operandTypes, some resultTypes =>
-      ∀ property, assignment.ForallValues resultHandles.toList resultTypes fun results assignment =>
+      ∀ property, assignment.ForallValues resultHandles.toList (types := resultTypes) fun results assignment =>
         propertyMatcher property = true →
         IsFromVerifiedOp opCode operandTypes.toArray resultTypes.toArray property →
         InterpretsTo opCode property resultTypes.toArray operands.toArray results.toArray →
@@ -624,14 +626,13 @@ proposition.
 /-- Existentially bind one runtime value for every handle, in handle order. -/
 @[expose]
 def SemanticAssignment.ExistsValues (assignment : SemanticAssignment)
-    (handles : List (Handle OpCode .value)) (types : List TypeAttr)
-    (k : List RuntimeValue → SemanticAssignment → Prop) : Prop :=
-  match handles, types with
-  | [], [] => k [] assignment
-  | handle :: handles, type :: types =>
-      ∃ value, SemanticAssignment.ExistsValues (assignment.bindValue handle value type) handles types
-        (fun values assignment => k (value :: values) assignment)
-  | _, _ => False
+    (handles : List (Handle OpCode .value))
+    (k : List RuntimeValue → SemanticAssignment → Prop) (types : List TypeAttr := []) : Prop :=
+  match handles with
+  | [] => k [] assignment
+  | handle :: handles =>
+      ∃ value, SemanticAssignment.ExistsValues (assignment.bindValue handle value types.head?) handles
+        (fun values assignment => k (value :: values) assignment) types.tail
 
 /--
 Collect the constraints of a creation declaration on the given assignment,
@@ -649,7 +650,7 @@ def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssign
     match assignment.getValues operandHandles.toList,
       assignment.getTypes resultTypeHandles.toList, assignment.getProperty propertyHandle with
     | some operands, some resultTypes, some actualProperty =>
-      assignment.ExistsValues resultHandles.toList resultTypes fun results assignment =>
+      assignment.ExistsValues resultHandles.toList (types := resultTypes) fun results assignment =>
         InterpretsTo opCode actualProperty resultTypes.toArray operands.toArray results.toArray ∧
           k assignment
     | _, _, _ => False
@@ -769,6 +770,7 @@ macro "simpPuddleSemantics" : tactic =>
     SemanticAssignment.getProperty,
     SemanticAssignment.bindProperty, SemanticAssignment.bindType,
     SemanticAssignment.bindValue, SemanticAssignment.bind,
+    List.head?_cons, List.head?_nil, List.tail_cons, List.tail_nil,
     SemanticAssignment.ForallValues, SemanticAssignment.ExistsValues,
     MetadataTuple.resolveSemantic, MetadataTuple.Shape.resolveSemantic,
     MetadataTuple.Atom.resolveSemantic, MetadataTuple.bindSemantic,

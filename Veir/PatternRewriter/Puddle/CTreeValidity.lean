@@ -52,14 +52,18 @@ remains in scope both in the updated assignment and in the final proposition.
 -/
 
 /--
-The predicate of possible outcomes of a pure operation. This definition only makes sense for
-operations that have `PureOrErr` semantics.
+An outcome obtainable in some historical memory state, leaving that memory unchanged.
+This overapproximates previously executed non-root matches without requiring their results to be
+independent of memory. Each matched operation may have its own historical witness, unrelated to
+the memory at the root or to other matches. Consequently, semantic validity must cover more
+assignments than an all-memory outcome constraint would require.
+This definition only makes sense for operations that have `PureOrErr` semantics.
 -/
 @[expose]
 def CanInterpretTo (opCode : OpCode) (property : propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (results : Interp (Array RuntimeValue)) : Prop :=
-  ∀ memory,
+  ∃ memory,
     PureOrErr.CanInterpretTo
       (Veir.CTree.interpretOp' opCode property resultTypes operands #[] memory)
       (results.map (·, memory, none))
@@ -77,7 +81,7 @@ def MatchDecl.Models (root : Handle OpCode .op) (decl : MatchDecl OpCode)
     ∀ type, matcher type → k (assignment.bindType handle type)
   | .value typeHandle handle =>
     match assignment.getType typeHandle with
-    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value ty)
+    | some ty => ∀ value, value.Conforms ty → k (assignment.bindValue handle value (some ty))
     | none => False
   | .operation opCode operandHandles resultTypeHandles propertyMatcher propertyHandle opHandle
       resultHandles _ =>
@@ -92,7 +96,7 @@ def MatchDecl.Models (root : Handle OpCode .op) (decl : MatchDecl OpCode)
         if opHandle = root then
           k (assignment.bindProperty propertyHandle property)
         else
-          assignment.ForallValues resultHandles.toList resultTypes fun results assignment =>
+          assignment.ForallValues resultHandles.toList (types := resultTypes) fun results assignment =>
             CanInterpretTo opCode property resultTypes.toArray operands.toArray (.ok results.toArray) →
             k (assignment.bindProperty propertyHandle property)
     | _, _, _ => False
@@ -116,8 +120,9 @@ def MatchProg.ModelsDecls (root : Handle OpCode .op) (decls : List (MatchDecl Op
 
 /--
 Generate matcher semantics in binding order for non-root operations, and call the continuation.
-Non-root operations bind successful outcomes: if they fail or trigger UB, execution never reaches
-the continuation.
+Non-root operations bind successful outcomes from any historical memory: if they fail or trigger
+UB, execution never reaches the continuation. Historical memories are existential witnesses in
+the matching constraints; validity must hold for every assignment satisfying those constraints.
 -/
 @[expose]
 def MatchProg.Models (prog : MatchProg OpCode α)
@@ -163,8 +168,8 @@ def CreateDecl.semantics (decl : CreateDecl OpCode) (assignment : SemanticAssign
     | some operands, some resultTypes, some actualProperty => do
       let (values, memory, _) ←
         Veir.CTree.interpretOp' opCode actualProperty resultTypes.toArray operands.toArray #[] memory
-      let some assignment :=
-        SemanticAssignment.bindValues values assignment resultHandles.toList resultTypes | fail
+      let assignment :=
+        SemanticAssignment.bindValues values assignment resultHandles.toList (types := resultTypes.toArray)
       next assignment memory
     | _, _, _ => fail
   | @CreateDecl.applyNative _ _ _ _ inputBundle outputBundle inputs rewrite outputs =>
