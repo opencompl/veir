@@ -2,6 +2,7 @@ module
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Dialects.GMIR.Semantics
+import all Veir.Dialects.GMIR.Properties
 
 /-! Instruction-selection validity proofs: Integer comparisons and conditional selects. -/
 
@@ -24,20 +25,58 @@ theorem gmirSelectZeroFalse_pattern_valid :
   dsimp only [gmirSelectZero_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  -- The matcher tests the constant attribute's width, while interpretation uses the result width.
-  -- See `zero_constant_width_counterexample` below: an i1 attribute containing 2 matches zero
-  -- but interprets as 2 at the legal i64 result type.
-  sorry
+  intro ty ct c a cp hconst p _verified zero legal
+  have hprop := IsFromVerifiedOp.gmir_constant_type (ty := ty) (props := cp) (by assumption)
+  obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types
+    (TypeAttr.of IntegerType ty) (TypeAttr.of IntegerType ct) p legal
+  have hct : ct = ⟨64, cs⟩ := IsTypeAttr.of_injective hc
+  subst ct
+  change Data.LLVM.Int 64 at c
+  rcases hd with ⟨ds, hd⟩ | ⟨ptr, _, hd⟩
+  · have hty : ty = ⟨64, ds⟩ := IsTypeAttr.of_injective hd
+    cases hty
+    change Data.LLVM.Int 64 at a
+    unfold GMIRConstantProperties.isZero GMIRConstantProperties.bits at zero
+    rw [hprop] at zero
+    change (BitVec.ofInt 64 cp.value.value == 0#64) = true at zero
+    simp only [beq_iff_eq] at zero
+    intro x hx y hy
+    cases c <;> cases a <;> simp_all [RuntimeValue.isRefinedBy]
+    all_goals veir_bv_normalize
+    all_goals simp -failIfUnchanged only [*]
+    all_goals veir_bv_decide
+  · have impossible := congrArg (fun t : TypeAttr => t.val) hd
+    change Attribute.integerType ty = Attribute.llvmPointerType ptr at impossible
+    cases impossible
 
 theorem gmirSelectZeroTrue_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirSelectZero_pattern false) := by
   dsimp only [gmirSelectZero_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  -- The matcher tests the constant attribute's width, while interpretation uses the result width.
-  -- See `zero_constant_width_counterexample` below: an i1 attribute containing 2 matches zero
-  -- but interprets as 2 at the legal i64 result type.
-  sorry
+  intro ty ct c a cp hconst p _verified zero legal
+  have hprop := IsFromVerifiedOp.gmir_constant_type (ty := ty) (props := cp) (by assumption)
+  obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types
+    (TypeAttr.of IntegerType ty) (TypeAttr.of IntegerType ct) p legal
+  have hct : ct = ⟨64, cs⟩ := IsTypeAttr.of_injective hc
+  subst ct
+  change Data.LLVM.Int 64 at c
+  rcases hd with ⟨ds, hd⟩ | ⟨ptr, _, hd⟩
+  · have hty : ty = ⟨64, ds⟩ := IsTypeAttr.of_injective hd
+    cases hty
+    change Data.LLVM.Int 64 at a
+    unfold GMIRConstantProperties.isZero GMIRConstantProperties.bits at zero
+    rw [hprop] at zero
+    change (BitVec.ofInt 64 cp.value.value == 0#64) = true at zero
+    simp only [beq_iff_eq] at zero
+    intro x hx y hy
+    cases c <;> cases a <;> simp_all [RuntimeValue.isRefinedBy]
+    all_goals veir_bv_normalize
+    all_goals simp -failIfUnchanged only [*]
+    all_goals veir_bv_decide
+  · have impossible := congrArg (fun t : TypeAttr => t.val) hd
+    change Attribute.integerType ty = Attribute.llvmPointerType ptr at impossible
+    cases impossible
 
 theorem gmirSelect_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirSelect_pattern := by
@@ -45,7 +84,7 @@ theorem gmirSelect_pattern_valid :
   simp only [matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro dst ct c t ht f hf p legal
+  intro dst ct c t ht f hf p _verified legal
   obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types dst (TypeAttr.of IntegerType ct) p legal
   have hct : ct = ⟨64, cs⟩ := by exact IsTypeAttr.of_injective hc
   subst ct
@@ -66,17 +105,29 @@ theorem gmirIcmp_eq_zero_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .eq true) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  -- The matcher tests the constant attribute's width, while interpretation uses the result width.
-  -- See `zero_constant_width_counterexample` below: an i1 attribute containing 2 matches zero
-  -- but interprets as 2 at the legal i64 result type.
-  sorry
+  intro src dst a ha cp hconst b hb p hp _verified zero legal
+  obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
+  · simp [ctree_semantics] at ha
+    rcases ha with ⟨a, rfl⟩
+    have hprop := IsFromVerifiedOp.gmir_constant_type
+      (ty := ⟨64, ss⟩) (props := cp) (by assumption)
+    unfold GMIRConstantProperties.isZero GMIRConstantProperties.bits at zero
+    rw [hprop] at zero
+    change (BitVec.ofInt 64 cp.value.value == 0#64) = true at zero
+    simp only [beq_iff_eq] at zero
+    simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+    subst b
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
+    intro x hx y hy
+    cases a <;> simp_all [RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals veir_bv_decide
+  · cases a <;> cases b <;> simp_all [ctree_semantics]
 
 theorem gmirIcmp_eq_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .eq false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -92,17 +143,29 @@ theorem gmirIcmp_ne_zero_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ne true) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  -- The matcher tests the constant attribute's width, while interpretation uses the result width.
-  -- See `zero_constant_width_counterexample` below: an i1 attribute containing 2 matches zero
-  -- but interprets as 2 at the legal i64 result type.
-  sorry
+  intro src dst a ha cp hconst b hb p hp _verified zero legal
+  obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
+  · simp [ctree_semantics] at ha
+    rcases ha with ⟨a, rfl⟩
+    have hprop := IsFromVerifiedOp.gmir_constant_type
+      (ty := ⟨64, ss⟩) (props := cp) (by assumption)
+    unfold GMIRConstantProperties.isZero GMIRConstantProperties.bits at zero
+    rw [hprop] at zero
+    change (BitVec.ofInt 64 cp.value.value == 0#64) = true at zero
+    simp only [beq_iff_eq] at zero
+    simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+    subst b
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
+    intro x hx y hy
+    cases a <;> simp_all [RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals veir_bv_decide
+  · cases a <;> cases b <;> simp_all [ctree_semantics]
 
 theorem gmirIcmp_ne_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ne false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -118,7 +181,7 @@ theorem gmirIcmp_slt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .slt false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -134,7 +197,7 @@ theorem gmirIcmp_sgt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sgt false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -150,7 +213,7 @@ theorem gmirIcmp_ult_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ult false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -166,7 +229,7 @@ theorem gmirIcmp_ugt_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ugt false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -182,7 +245,7 @@ theorem gmirIcmp_sge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sge false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -198,7 +261,7 @@ theorem gmirIcmp_sle_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .sle false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -214,7 +277,7 @@ theorem gmirIcmp_uge_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .uge false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -230,7 +293,7 @@ theorem gmirIcmp_ule_pattern_valid :
     Puddle.CTree.Pattern.Valid (gmirIcmp_pattern .ule false) := by
   dsimp only [gmirIcmp_pattern, matchLegal, icmpEmit, icmpEmitCmp]
   simpPuddleValid
-  intro src dst a ha b hb p hp legal
+  intro src dst a ha b hb p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, (⟨ss, rfl⟩ | ⟨ptr, _, rfl⟩)⟩ := isLegal_g_icmp_types dst src p legal
   · simp [ctree_semantics] at ha hb
     rcases ha with ⟨a, rfl⟩
@@ -265,7 +328,7 @@ theorem gmirSlti_slt_pattern_valid :
   dsimp only [gmirSlti_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss dst a ⟨c⟩ accepted p hp legal
+  rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   simp [ctree_semantics, ←Attribute.integerType_eq_of, hp, himm]
@@ -283,7 +346,7 @@ theorem gmirSlti_ult_pattern_valid :
   dsimp only [gmirSlti_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss dst a ⟨c⟩ accepted p hp legal
+  rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   simp [ctree_semantics, ←Attribute.integerType_eq_of, hp, himm]
@@ -301,7 +364,7 @@ theorem gmirSlti_sge_pattern_valid :
   dsimp only [gmirSlti_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss dst a ⟨c⟩ accepted p hp legal
+  rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   simp [ctree_semantics, ←Attribute.integerType_eq_of, hp, himm]
@@ -319,7 +382,7 @@ theorem gmirSlti_uge_pattern_valid :
   dsimp only [gmirSlti_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss dst a ⟨c⟩ accepted p hp legal
+  rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   simp [ctree_semantics, ←Attribute.integerType_eq_of, hp, himm]
@@ -337,7 +400,7 @@ theorem gmirSlti_sle_pattern_valid :
   dsimp only [gmirSlti_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss dst a ⟨c⟩ accepted p hp legal
+  rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   simp [ctree_semantics, ←Attribute.integerType_eq_of, hp, himm]
@@ -364,7 +427,7 @@ theorem gmirSlti_ule_pattern_valid :
   dsimp only [gmirSlti_pattern, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss dst a ⟨c⟩ accepted p hp legal
+  rintro ss dst a ⟨c⟩ accepted _verifiedConst p hp _verified legal
   obtain ⟨⟨ds, rfl⟩, _⟩ := isLegal_g_icmp_types dst (TypeAttr.of IntegerType ⟨64, ss⟩) p legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   simp [ctree_semantics, ←Attribute.integerType_eq_of, hp, himm]
@@ -383,27 +446,5 @@ theorem gmirSlti_ule_pattern_valid :
     simp only [if_neg hn, Option.some.injEq] at himm
     rw [←himm.1, BitVec.ofInt_add, BitVec.ofInt_toInt]
     veir_bv_decide
-
-/-- The four zero-constant peepholes admit a nonzero i64 constant with an i1 attribute. -/
-theorem zero_constant_width_counterexample :
-    isGMIRConstantZero ⟨⟨2, ⟨1, .signless⟩⟩⟩ = true ∧
-    (Data.LLVM.Int.val 2#64).icmp (.val 2#64) .eq = .val 1#1 ∧
-    (Data.RISCV.sltiu 1#12 ⟨2#64⟩).val = 0#64 ∧
-    (Data.LLVM.Int.val 2#64).icmp (.val 2#64) .ne = .val 0#1 ∧
-    (Data.RISCV.sltu ⟨2#64⟩ (Data.RISCV.li 0#64)).val = 1#64 ∧
-    GMIR.selectNonzero (.val 0#64) (.val 5#64) (.val 2#64) = .val 2#64 ∧
-    (Data.RISCV.czeroeqz ⟨0#64⟩ ⟨5#64⟩).val = 0#64 ∧
-    GMIR.selectNonzero (.val 1#64) (.val 2#64) (.val 5#64) = .val 2#64 ∧
-    (Data.RISCV.czeronez ⟨1#64⟩ ⟨5#64⟩).val = 0#64 := by
-  change ((0#1 == 0#1) = true) ∧
-    (Data.LLVM.Int.val 1#1 = .val 1#1) ∧
-    (Data.RISCV.sltiu 1#12 ⟨2#64⟩).val = 0#64 ∧
-    (Data.LLVM.Int.val 0#1 = .val 0#1) ∧
-    (Data.RISCV.sltu ⟨2#64⟩ (Data.RISCV.li 0#64)).val = 1#64 ∧
-    (Data.LLVM.Int.val 2#64 = .val 2#64) ∧
-    (Data.RISCV.czeroeqz ⟨0#64⟩ ⟨5#64⟩).val = 0#64 ∧
-    (Data.LLVM.Int.val 2#64 = .val 2#64) ∧
-    (Data.RISCV.czeronez ⟨1#64⟩ ⟨5#64⟩).val = 0#64
-  veir_bv_decide
 
 end Veir

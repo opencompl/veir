@@ -20,7 +20,7 @@ including every element of its generated pattern arrays. -/
 
 /-! ## Placeholder audit
 
-The 155 original placeholders have 101 proofs and 54 concrete semantic
+The 155 original placeholders have 121 proofs and 34 concrete semantic
 counterexamples. Counterexample witnesses are proved in the corresponding
 submodules; the false validity declarations retain annotated `sorry` bodies.
 Those declarations are not established validity results.
@@ -28,20 +28,24 @@ Those declarations are not established validity results.
 | File | Proved | Counterexamples |
 | --- | ---: | ---: |
 | Arithmetic | 19 | 0 |
-| BitManipulation | 19 | 2 |
+| BitManipulation | 21 | 0 |
 | Bitwise | 12 | 0 |
-| Casts | 12 | 7 |
-| Comparisons | 17 | 4 |
+| Casts | 16 | 3 |
+| Comparisons | 21 | 0 |
 | Constants | 5 | 1 |
 | Loads | 0 | 15 |
 | Memory | 0 | 3 |
-| Rotates | 4 | 10 |
+| Rotates | 14 | 0 |
 | Shifts | 13 | 0 |
 | Stores | 0 | 12 |
 
-The counterexamples expose missing operand/result typing constraints, values
-wider than a register, inconsistent constant-attribute widths, pointer-object
-identity loss without memory invariants, and unimplemented intrinsic-call
-semantics. They concern the current unrestricted pattern-validity statements;
-some witnesses use inputs that a separate IR verifier would reject.
+Matched operations now carry `IsFromVerifiedOp` premises. These discharge twenty
+obligations previously blocked by operand/result type mismatches or inconsistent
+constant-attribute types. Earlier unverified semantic witnesses retained in the
+submodules do not refute these verified-source validity statements.
+
+The remaining counterexamples involve values wider than a register,
+pointer-object identity loss without runtime memory invariants, and
+unimplemented intrinsic-call semantics. IR verification alone does not exclude
+those cases.
 -/

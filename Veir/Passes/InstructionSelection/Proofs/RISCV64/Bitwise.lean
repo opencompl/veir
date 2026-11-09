@@ -24,7 +24,7 @@ theorem gmirAnd_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a b p legal x hx y hy
+  intro s a b p _verified legal x hx y hy
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
@@ -34,7 +34,7 @@ theorem gmirOr_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a b p legal x hx y hy
+  intro s a b p _verified legal x hx y hy
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
@@ -44,7 +44,7 @@ theorem gmirXor_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a b p legal x hx y hy
+  intro s a b p _verified legal x hx y hy
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
 
@@ -54,7 +54,7 @@ theorem gmirAndi_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a ⟨c⟩ p legal range
+  rintro s a ⟨c⟩ _verifiedConst p _verified legal range
   simp only [Bool.and_eq_true, decide_eq_true_eq] at range
   simp [ctree_semantics]
   intro x hx
@@ -69,7 +69,7 @@ theorem gmirOri_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a ⟨c⟩ p legal range
+  rintro s a ⟨c⟩ _verifiedConst p _verified legal range
   simp only [Bool.and_eq_true, decide_eq_true_eq] at range
   simp [ctree_semantics]
   intro x hx
@@ -84,7 +84,7 @@ theorem gmirXori_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a ⟨c⟩ p legal range
+  rintro s a ⟨c⟩ _verifiedConst p _verified legal range
   simp only [Bool.and_eq_true, decide_eq_true_eq] at range
   simp [ctree_semantics]
   intro x hx
@@ -98,7 +98,7 @@ theorem gmirAndn_rhs_valid :
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a b ⟨c⟩ ones p legal x hx y hy
+  rintro s a b ⟨c⟩ ones _verifiedConst xp _verifiedXor p _verified legal x hx y hy
   simp only [decide_eq_true_eq] at ones
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
@@ -108,7 +108,7 @@ theorem gmirOrn_rhs_valid :
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a b ⟨c⟩ ones p legal x hx y hy
+  rintro s a b ⟨c⟩ ones _verifiedConst xp _verifiedXor p _verified legal x hx y hy
   simp only [decide_eq_true_eq] at ones
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
@@ -118,7 +118,7 @@ theorem gmirXnor_rhs_valid :
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a b ⟨c⟩ ones p legal x hx y hy
+  rintro s a b ⟨c⟩ ones _verifiedConst xp _verifiedXor p _verified legal x hx y hy
   simp only [decide_eq_true_eq] at ones
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
@@ -128,7 +128,7 @@ theorem gmirAndn_lhs_valid :
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a b ⟨c⟩ ones p legal x hx y hy
+  rintro s a b ⟨c⟩ ones _verifiedConst xp _verifiedXor p _verified legal x hx y hy
   simp only [decide_eq_true_eq] at ones
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
@@ -138,7 +138,7 @@ theorem gmirOrn_lhs_valid :
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a b ⟨c⟩ ones p legal x hx y hy
+  rintro s a b ⟨c⟩ ones _verifiedConst xp _verifiedXor p _verified legal x hx y hy
   simp only [decide_eq_true_eq] at ones
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide
@@ -148,7 +148,7 @@ theorem gmirXnor_lhs_valid :
   dsimp only [gmirBinopNot_pattern, matchConstant64, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro s a b ⟨c⟩ ones p legal x hx y hy
+  rintro s a b ⟨c⟩ ones _verifiedConst xp _verifiedXor p _verified legal x hx y hy
   simp only [decide_eq_true_eq] at ones
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_decide

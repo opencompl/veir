@@ -37,7 +37,7 @@ theorem constant_pattern_valid :
   unfold constant_pattern
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro x xBw property hProperty
+  intro x xBw property hProperty _hVerified
   obtain ⟨propVal, rfl⟩ : exists value, property = { value := LLVMConstantValue.integer value } := by
     cases property; grind
   simp [ctree_semantics]
@@ -90,10 +90,10 @@ theorem freeze_pattern_valid :
   simp [ctree_semantics]
   rintro x x₂ (v | _)
   · simp
-    intro xBw rfl
+    intro _ _hVerified xBw rfl
     grind
   · simp [ctree_semantics, Functor.map]
-    intro xBw rfl
+    intro _ _hVerified xBw rfl
     simp
 
 theorem gmirConstant_pattern_valid :
@@ -102,7 +102,7 @@ theorem gmirConstant_pattern_valid :
   simp only [matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro a value legal
+  intro a value _hVerified legal
   simp only [Data.RISCV.val_li]
   by_cases h : a.bitwidth = 64
   · rcases a with ⟨width, signedness⟩

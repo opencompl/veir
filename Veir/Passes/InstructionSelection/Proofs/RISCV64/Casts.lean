@@ -78,7 +78,7 @@ theorem truncInt_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro a b x p hlt hle mem
+  intro a b x p _hverified hlt hle mem
   simp only [dite_eq_right (Nat.not_le.mpr hlt)]
   intro r hr
   simp [ctree_semantics, RuntimeValue.isRefinedBy]
@@ -92,7 +92,7 @@ theorem truncByte_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro a b x hlt hle mem
+  intro a b x props _hverified hlt hle mem
   simp only [ite_eq_right (Nat.not_le.mpr hlt)]
   intro r bits hr
   simp [ctree_semantics, RuntimeValue.isRefinedBy]
@@ -108,7 +108,7 @@ theorem bitcastIntInt_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro ⟨w, s⟩ ⟨v, t⟩ a hw hv
+  intro ⟨w, s⟩ ⟨v, t⟩ a props _hverified hw hv
   dsimp at *
   rcases hw with rfl | rfl | rfl | rfl <;>
     rcases hv with rfl | rfl | rfl | rfl <;>
@@ -128,7 +128,7 @@ theorem bitcastIntByte_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro ⟨w, s⟩ ⟨v⟩ a hw hv
+  intro ⟨w, s⟩ ⟨v⟩ a props _hverified hw hv
   dsimp at *
   rcases hw with rfl | rfl | rfl | rfl <;>
     rcases hv with rfl | rfl | rfl | rfl <;>
@@ -151,7 +151,7 @@ theorem bitcastByteInt_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro ⟨w⟩ ⟨v, t⟩ a hw hv
+  intro ⟨w⟩ ⟨v, t⟩ a props _hverified hw hv
   dsimp at *
   rcases hw with rfl | rfl | rfl | rfl <;>
     rcases hv with rfl | rfl | rfl | rfl <;>
@@ -166,7 +166,7 @@ theorem bitcastByteByte_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro ⟨w⟩ ⟨v⟩ a hw hv
+  intro ⟨w⟩ ⟨v⟩ a props _hverified hw hv
   dsimp at *
   rcases hw with rfl | rfl | rfl | rfl <;>
     rcases hv with rfl | rfl | rfl | rfl <;>
@@ -189,7 +189,7 @@ theorem bitcastPtrByte_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro ⟨w⟩ a hw
+  intro ptr ⟨w⟩ a props _hverified hw
   rcases hw with rfl | rfl | rfl | rfl <;>
     simp [ctree_semantics, RuntimeValue.isRefinedBy] <;>
     intros <;> cases a <;> simp_all [Data.LLVM.Ptr.toInt, Data.LLVM.Ptr.toByte]
@@ -236,7 +236,7 @@ theorem gmirAnyextOfReg_pattern_valid :
   unfold gmirAnyextOfReg_pattern
   simpPuddleValid
   simp [ctree_semantics]
-  intro reg src value hcast dst p hlegal mem
+  intro regType reg src castprops _hcastVerified value hcast dst p _hanyVerified hlegal mem
   cases value <;> simp [ctree_semantics]
   rcases src with ⟨sa, hs⟩
   cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast
@@ -245,7 +245,7 @@ theorem gmirAnyextOfReg_pattern_valid :
   rcases hcast with ⟨rfl, h⟩
   cases h
   rcases dst with ⟨da, hd⟩
-  cases da <;> simp [ctree_semantics]
+  cases da <;> simp -failIfUnchanged [ctree_semantics]
   split
   · simp [ctree_semantics]
   · simp [ctree_semantics, RISCV.Reg.toInt, Data.LLVM.Int.ext, Id.run]
@@ -264,7 +264,7 @@ theorem sext16_pattern_valid :
   simp only [lowerExt, lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro sign ⟨width, sign'⟩ a p hwidth hlegal
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_sext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
       first
@@ -280,7 +280,7 @@ theorem sext32_pattern_valid :
   simp only [lowerExt, lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro sign ⟨width, sign'⟩ a p hwidth hlegal
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_sext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
       first
@@ -295,24 +295,57 @@ theorem sextInReg8_valid :
   dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  -- False: see the concrete semantic witness `sextInReg_width_counterexample` below.
-  sorry
+  intro src sign value hc props hsz hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  rcases props with ⟨sz⟩
+  have hs : sz = 8#64 := BitVec.eq_of_toNat_eq hsz
+  subst sz
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, hsz, RuntimeValue.isRefinedBy]
+  intro r hr
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
 
 theorem sextInReg16_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 16 .sexth ()) := by
   dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  -- False: see the concrete semantic witness `sextInReg16_width_counterexample` below.
-  sorry
+  intro src sign value hc props hsz hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  rcases props with ⟨sz⟩
+  have hs : sz = 16#64 := BitVec.eq_of_toNat_eq hsz
+  subst sz
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, hsz, RuntimeValue.isRefinedBy]
+  intro r hr
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
 
 theorem sextInReg32_valid :
     Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 32 .sextw ()) := by
   dsimp only [sextInRegExt_pattern, matchSextInReg, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  -- False: see the concrete semantic witness `sextInReg32_width_counterexample` below.
-  sorry
+  intro src sign value hc props hsz hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  rcases props with ⟨sz⟩
+  have hs : sz = 32#64 := BitVec.eq_of_toNat_eq hsz
+  subst sz
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics, hsz, RuntimeValue.isRefinedBy]
+  intro r hr
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run] <;> veir_bv_decide
+
+private theorem sext_low_shift (x : BitVec 64) (w : Nat) (hpos : 0 < w) (hle : w ≤ 64) :
+    (x.setWidth w).signExtend 64 = (x <<< (64 - w)).sshiftRight (64 - w) := by
+  ext i
+  simp [BitVec.getElem_signExtend, BitVec.getElem_sshiftRight, BitVec.getElem_shiftLeft]
+  grind
 
 theorem sextInRegShift_pattern_valid :
     Puddle.CTree.Pattern.Valid sextInRegShift_pattern := by
@@ -320,8 +353,31 @@ theorem sextInRegShift_pattern_valid :
   simp only [matchSextInReg, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  -- False: see the concrete semantic witness `sextInRegShift_width_counterexample` below.
-  sorry
+  intro src sign value hc props h8 h16 h32 hv hlegal mem
+  have ht := hv.gmir_sext_inreg_type_eq
+  subst src
+  have hb := hv.gmir_sext_inreg_size_bounds
+  simp at hc
+  rcases hc with ⟨x, rfl⟩
+  simp [ctree_semantics]
+  have hlo : (1#64).sle props.sz = true := BitVec.sle_iff_toInt_le.mpr hb.1
+  have hhi : props.sz.slt (64#64) = true := BitVec.slt_iff_toInt_lt.mpr hb.2
+  have hbits : (0#64).ult props.sz = true ∧ props.sz.ult (64#64) = true := by veir_bv_decide
+  have hpos : 0 < props.sz.toNat := BitVec.ult_iff_toNat_lt.mp hbits.1
+  have hlt : props.sz.toNat < 64 := BitVec.ult_iff_toNat_lt.mp hbits.2
+  simp [ctree_semantics, RuntimeValue.isRefinedBy, Nat.not_le.mpr hlt]
+  intro r hr
+  have himm : (mkRISCVImm (64 - ↑props.sz.toNat)).immField 6 = (64#64 - props.sz).setWidth 6 := by
+    simp only [mkRISCVImm, RISCVImmediateProperties.immField, Int.sub_eq_add_neg,
+      BitVec.ofInt_add, BitVec.ofInt_neg, BitVec.ofInt_natCast, BitVec.ofNat_toNat]
+    veir_bv_decide
+  have hamount : ((64#64 - props.sz).setWidth 6).toNat = 64 - props.sz.toNat := by
+    rw [BitVec.toNat_setWidth, BitVec.toNat_sub_of_le (BitVec.le_def.mpr (Nat.le_of_lt hlt))]
+    exact Nat.mod_eq_of_lt (Nat.sub_lt (by veir_bv_decide) hpos)
+  cases x <;> simp_all [Data.LLVM.Int.trunc, Data.LLVM.Int.sext, Id.run, isRefinedBy]
+  all_goals rw [sext_low_shift _ _ hpos (Nat.le_of_lt hlt)]
+  all_goals simp [Data.RISCV.srai, Data.RISCV.slli, hamount, hr]
+
 
 theorem zext16_pattern_valid :
     Puddle.CTree.Pattern.Valid zext16_pattern := by
@@ -329,7 +385,7 @@ theorem zext16_pattern_valid :
   simp only [lowerExt, lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro sign ⟨width, sign'⟩ a p hwidth hlegal
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_zext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
       first
@@ -345,7 +401,7 @@ theorem zext32_pattern_valid :
   simp only [lowerExt, lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro sign ⟨width, sign'⟩ a p hwidth hlegal
+  intro sign ⟨width, sign'⟩ a p _hverified hwidth hlegal
   have hw : width = 32 ∨ width = 64 := by
     rcases isLegal_ext_result .g_zext (by simp) _ _ _ hlegal with ⟨t, h⟩ | ⟨t, h⟩ <;>
       first
@@ -371,7 +427,7 @@ theorem gmirAnyext_wide_counterexample (msb : BitVec 1) :
   simp [RuntimeValue.isRefinedBy]
   veir_bv_decide
 
-/-- The sext-in-register matcher admits an operand width different from its result width. -/
+/-- A raw width-mismatched operation fails refinement; verification excludes it. -/
 theorem sextInReg_width_counterexample :
     ¬ (RuntimeValue.int 128
       (((Data.LLVM.Int.val (1#128)).trunc 8 false false (by veir_bv_decide)).sext 128 (by veir_bv_decide)) ⊒

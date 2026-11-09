@@ -58,7 +58,7 @@ theorem gmirBseti_pattern_valid :
   simp only [gmirSingleBit_pattern, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss a ⟨c⟩ accepted p legal
+  rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
   simp only [Bool.false_eq_true, ite_false, ite_true] at mask
@@ -73,7 +73,7 @@ theorem gmirBinvi_pattern_valid :
   simp only [gmirSingleBit_pattern, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss a ⟨c⟩ accepted p legal
+  rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
   simp only [Bool.false_eq_true, ite_false, ite_true] at mask
@@ -88,7 +88,7 @@ theorem gmirBclri_pattern_valid :
   simp only [gmirSingleBit_pattern, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  rintro ss a ⟨c⟩ accepted p legal
+  rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
   simp only [Bool.false_eq_true, ite_false, ite_true] at mask
@@ -103,7 +103,8 @@ theorem gmirOrcb_0_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p q h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift q verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs
   simp [hc, hs, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -118,7 +119,9 @@ theorem gmirOrcb_1_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -133,7 +136,9 @@ theorem gmirOrcb_2_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -148,7 +153,9 @@ theorem gmirOrcb_3_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -163,7 +170,9 @@ theorem gmirOrcb_4_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -178,7 +187,9 @@ theorem gmirOrcb_5_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -193,7 +204,9 @@ theorem gmirOrcb_6_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -208,7 +221,9 @@ theorem gmirOrcb_7_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c,ct⟩⟩ hc ⟨⟨sh,sht⟩⟩ hs p ⟨⟨shr,shrt⟩⟩ hshr q r h m
+  rintro s a ⟨⟨c,ct⟩⟩ hc verifiedMask _ verifiedAnd
+    ⟨⟨sh,sht⟩⟩ hs verifiedShiftAmount p verifiedShift
+    ⟨⟨shr,shrt⟩⟩ hshr verifiedRightAmount q verifiedRightShift r verifiedRoot h m
   simp only [decide_eq_true_eq] at hc hs hshr
   simp [hc, hs, hshr, ctree_semantics]
   cases a <;> simp_all -failIfUnchanged
@@ -224,7 +239,8 @@ theorem gmirBexti_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s a ⟨⟨c, ct⟩⟩ hc p ⟨⟨one, onety⟩⟩ hone q h
+  rintro s a ⟨⟨c, ct⟩⟩ hc verifiedShiftAmount p verifiedShift
+    ⟨⟨one, onety⟩⟩ hone verifiedOne q verifiedRoot h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hc hone
   have hlo : (0#64).sle (BitVec.ofInt 64 c) := by
     simpa [BitVec.sle_iff_toInt_le] using hc.1
@@ -244,18 +260,36 @@ theorem gmirRiscvClzw_pattern_valid :
   unfold gmirRiscvClzw_pattern
   simp only [lowerUnary]
   simpPuddleValid
-  simp [ctree_semantics]
-  -- The result type is unconstrained; see `wordCount_width_counterexample`.
-  sorry
+  simp [ctree_semantics, GMIR_RISCV.base]
+  intro sign ty a p verified memory
+  obtain ⟨s, _, hr⟩ := verified.gmir_riscv_clzw_types
+  have ht : ty = ⟨64, s⟩ := IsTypeAttr.of_injective (by
+    simpa using congrArg (fun ts : Array TypeAttr => ts[0]!) hr)
+  subst ty
+  clear verified hr
+  cases a <;> simp [←Attribute.integerType_eq_of, ctree_semantics, IntegerType.signless,
+    resizeCount, Data.LLVM.Int.trunc, Data.LLVM.Int.ctlz, Data.LLVM.Int.sext, Id.run]
+  all_goals intros
+  all_goals simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirRiscvCtzw_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirRiscvCtzw_pattern := by
   unfold gmirRiscvCtzw_pattern
   simp only [lowerUnary]
   simpPuddleValid
-  simp [ctree_semantics]
-  -- The result type is unconstrained; see `wordCount_width_counterexample`.
-  sorry
+  simp [ctree_semantics, GMIR_RISCV.base]
+  intro sign ty a p verified memory
+  obtain ⟨s, _, hr⟩ := verified.gmir_riscv_ctzw_types
+  have ht : ty = ⟨64, s⟩ := IsTypeAttr.of_injective (by
+    simpa using congrArg (fun ts : Array TypeAttr => ts[0]!) hr)
+  subst ty
+  clear verified hr
+  cases a <;> simp [←Attribute.integerType_eq_of, ctree_semantics, IntegerType.signless,
+    resizeCount, Data.LLVM.Int.trunc, Data.LLVM.Int.cttz, Data.LLVM.Int.sext, Id.run]
+  all_goals intros
+  all_goals simp_all [RuntimeValue.isRefinedBy]
+  all_goals veir_bv_decide
 
 theorem gmirCtlz_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirCtlz_pattern := by
@@ -263,7 +297,7 @@ theorem gmirCtlz_pattern_valid :
   simp only [lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s ty a p hlegal hwidth v hv
+  intro s ty a p verifiedRoot hlegal hwidth v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, isRefinedBy, Data.LLVM.Int.ctlz, Data.RISCV.val_clz]
   all_goals simp_all -failIfUnchanged [Id.run]
 
@@ -273,7 +307,7 @@ theorem gmirCttz_pattern_valid :
   simp only [lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s ty a p hlegal hwidth v hv
+  intro s ty a p verifiedRoot hlegal hwidth v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, isRefinedBy, Data.LLVM.Int.cttz, Data.RISCV.val_ctz]
   all_goals simp_all -failIfUnchanged [Id.run]
 
@@ -283,7 +317,7 @@ theorem gmirCtpop_pattern_valid :
   simp only [lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s ty a p hlegal hwidth v hv
+  intro s ty a p verifiedRoot hlegal hwidth v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy, resizeCount, isRefinedBy, Data.LLVM.Int.ctpop, Data.RISCV.val_cpop]
   all_goals simp_all -failIfUnchanged [Id.run]
 
@@ -294,7 +328,7 @@ theorem gmirCpopw_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   simp [←Attribute.integerType_eq_of]
-  intro s t a p q h v hv
+  intro s t a p verifiedExtend q verifiedRoot h v hv
   cases a with
   | poison =>
       simp [RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.zext,
@@ -312,7 +346,7 @@ theorem gmirBswap_pattern_valid :
   simp only [lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ty a p legal v hv
+  intro sign ty a p verifiedRoot legal v hv
   have width : ty.bitwidth = 64 := by
     by_cases h : ty.bitwidth = 64
     · exact h
@@ -331,7 +365,7 @@ theorem gmirBrev8_pattern_valid :
   simp only [lowerUnary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro ty a p legal v hv
+  intro sign ty a p verifiedRoot legal v hv
   have width : ty.bitwidth = 64 := by
     by_cases h : ty.bitwidth = 64
     · exact h
@@ -350,12 +384,12 @@ theorem gmirBitreverse_pattern_valid :
   simp only [matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a p h v hv
+  intro s a p verifiedRoot h v hv
   cases a <;> simp_all [RuntimeValue.isRefinedBy] <;> veir_bv_decide
 
 set_option maxRecDepth 4096 in
-/-- The word-count interpreter always returns i64, even when the matcher chose i8. -/
-theorem wordCount_width_counterexample (memory : MemoryState) :
+/-- Without a verification premise, the interpreter admits mismatched result types. -/
+theorem wordCount_unverified_width_example (memory : MemoryState) :
     GMIR_RISCV.interpretOp' .g_clzw () #[TypeAttr.of IntegerType ⟨8, .signless⟩]
       #[.int 64 (.val 0)] #[] memory = Interp.ok (#[.int 64 (.val 32)], memory, none) ∧
     GMIR_RISCV.interpretOp' .g_ctzw () #[TypeAttr.of IntegerType ⟨8, .signless⟩]

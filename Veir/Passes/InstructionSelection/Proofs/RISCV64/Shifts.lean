@@ -25,7 +25,7 @@ theorem gmirShl_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a b p h v hv w hw
+  intro s a b p _hverified h v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
@@ -35,7 +35,7 @@ theorem gmirLshr_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a b p h v hv w hw
+  intro s a b p _hverified h v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
@@ -45,7 +45,7 @@ theorem gmirAshr_pattern_valid :
   simp only [lowerBinary, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a b p h v hv w hw
+  intro s a b p _hverified h v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy, shiftAmount] <;>
     (try split) <;> simp_all -failIfUnchanged <;> veir_bv_decide
 
@@ -55,7 +55,7 @@ theorem gmirSlli_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ value heval p hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -74,7 +74,7 @@ theorem gmirSrli_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ value heval p hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -93,7 +93,7 @@ theorem gmirSrai_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ value heval p hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -112,7 +112,7 @@ theorem gmirRiscvSlliw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ value heval hrange mem
+  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -131,7 +131,7 @@ theorem gmirRiscvSrliw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ value heval hrange mem
+  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -150,7 +150,7 @@ theorem gmirRiscvSraiw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ value heval hrange mem
+  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -169,7 +169,7 @@ theorem gmirSlliuw_pattern_valid :
   simp only [matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s t a p value heval ⟨c⟩ hrange other hc q hlegal mem
+  intro s t a p _hzext value heval ⟨c⟩ hrange _hconstant other hc q _hverified hlegal mem
   simp only [←Attribute.integerType_eq_of] at heval hc
   simp at heval hc
   subst value
@@ -188,7 +188,7 @@ theorem gmirRiscvSllw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro a b v hv w hw
+  intro sign a b props _hverified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
@@ -199,7 +199,7 @@ theorem gmirRiscvSrlw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro a b v hv w hw
+  intro sign a b props _hverified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
@@ -210,7 +210,7 @@ theorem gmirRiscvSraw_pattern_valid :
   simp only [lowerBinary]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro a b v hv w hw
+  intro sign a b props _hverified v hv w hw
   cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp only [GMIR_RISCV.wordShiftAmount, Data.LLVM.Int.trunc, Data.LLVM.Int.and, shiftAmount, Id.run, reduceIte, Bool.false_eq_true, Bool.false_and]
   all_goals (repeat' split) <;> simp_all -failIfUnchanged only [BitVec.ofNat_toNat] <;> veir_bv_decide
