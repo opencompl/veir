@@ -89,3 +89,48 @@ private def testConstantNormalization : Bool := Id.run do
   return true
 
 #guard testConstantNormalization
+
+/-- A use in a detached region cannot reference a result inside the verified module. -/
+private def outsideUserRejected : Except String Bool := do
+  let (ctx, moduleOp) := WfIRContext.create! OpCode
+  let body := ((moduleOp.getRegion! ctx.raw 0).getFirstBlock! ctx.raw).get!
+  let ty : TypeAttr := IntegerType.signless 32
+  let (ctx, region) := WfRewriter.createRegion! ctx
+  let (ctx, entry) := WfRewriter.createBlock! ctx #[ty] (some (.atEnd region))
+  let (ctx, _) := (WfRewriter.createOp! ctx Test.test #[] #[] #[] #[region] () (some (.atEnd body))).get!
+  let arg : ValuePtr := .blockArgument (entry.getArgument 0)
+  let (ctx, sum) := (WfRewriter.createOp! ctx Arith.addi #[ty] #[arg, arg] #[] #[] default
+    (some (.atEnd entry))).get!
+  ctx.verify moduleOp
+  let (ctx, outside) := WfRewriter.createRegion! ctx
+  let (ctx, block) := WfRewriter.createBlock! ctx #[] (some (.atEnd outside))
+  let (ctx, _) := (WfRewriter.createOp! ctx Arith.addi #[ty] #[sum.getResult 0, arg] #[] #[] default
+    (some (.atEnd block))).get!
+  return ctx.verify moduleOp == .error "arith.addi: operand crosses the boundary of the verified module"
+
+#guard outsideUserRejected = .ok true
+
+/-- Definitions in a second tree cannot be operands of an operation in the module. -/
+private def crossModuleOperandsRejected : Except String Bool := do
+  let (ctx, moduleOp) := WfIRContext.create! OpCode
+  let body := ((moduleOp.getRegion! ctx.raw 0).getFirstBlock! ctx.raw).get!
+  let ty : TypeAttr := IntegerType.signless 32
+  let (ctx, region) := WfRewriter.createRegion! ctx
+  let (ctx, block) := WfRewriter.createBlock! ctx #[ty] (some (.atEnd region))
+  let (ctx, otherModule) := (WfRewriter.createOp! ctx Builtin.module #[] #[] #[] #[region]
+    (default : ModuleProperties) none).get!
+  let (ctx, producer) := (WfRewriter.createOp! ctx Test.test #[ty] #[] #[] #[] ()
+    (some (.atEnd block))).get!
+  let (ctx, _) := (WfRewriter.createOp! ctx Test.test #[] #[producer.getResult 0] #[] #[] ()
+    (some (.atEnd block))).get!
+  ctx.verify moduleOp
+  for value in #[ValuePtr.opResult (producer.getResult 0), .blockArgument (block.getArgument 0)] do
+    let (invalid, _) := (WfRewriter.createOp! ctx Test.test #[] #[value] #[] #[] ()
+      (some (.atEnd body))).get!
+    if (invalid.verify moduleOp).isOk then return false
+    let (externalUse, _) := (WfRewriter.createOp! ctx Test.test #[] #[value] #[] #[] () none).get!
+    if externalUse.verify otherModule != .error "test.test: operand crosses the boundary of the verified module" then
+      return false
+  return true
+
+#guard crossModuleOperandsRejected = .ok true
