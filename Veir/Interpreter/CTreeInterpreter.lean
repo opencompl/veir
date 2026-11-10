@@ -10,7 +10,8 @@ public section
 
 open CTree
 
-namespace Veir.CTree
+namespace Veir
+namespace CTree
 
 set_option linter.unusedVariables false in
 /--
@@ -34,6 +35,18 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
+
+end CTree
+
+/-- CTree counterpart of `OperationPtr.interpret`, with the operation's IR metadata fixed. -/
+def OperationPtr.interpretCTree {ctx : WfIRContext OpCode} (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw) (operands : Array RuntimeValue) (memory : MemoryState) :
+    Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+  let code := op.getOpType ctx.raw opIn
+  CTree.interpretOp' code (op.getProperties ctx.raw code) (op.getResultTypes ctx.raw)
+    operands (op.getSuccessors ctx.raw) memory (op.getRegions ctx.raw)
+
+namespace CTree
 
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
@@ -126,4 +139,5 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) (mem : M
       values ⟨.empty ctx, mem⟩
     return results
 
-end Veir.CTree
+end CTree
+end Veir
