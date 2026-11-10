@@ -13,6 +13,7 @@ import all Veir.Passes.Legalization.Validity.Custom
 import all Veir.Passes.Legalization.Validity.Lower
 import all Veir.Passes.Legalization.Validity.Artifact
 import all Veir.Passes.Legalization.Validity.Combine
+import all Veir.Passes.Legalization.Validity.CombineConstant
 import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
@@ -36,6 +37,7 @@ closed by the rule's local correctness lemma, mostly in `Veir.Passes.Legalizatio
   not Puddle patterns.
 * Rules with status `.unproven .widthDependent` are wrong at a width that verified IR rules out,
   such as `i0`, or from width `2^64`, which `Pattern.Valid` does not assume.
+* Every gMIR combine is proven (`combinePatterns_valid` and `preLegalizerPatterns_valid`).
 -/
 
 namespace Veir.Legalization.CTreeProofs
@@ -113,6 +115,41 @@ theorem preLegalizerPatterns_status : ∀ pattern ∈ preLegalizerPatterns, Stat
 theorem sub_to_add_redundant_and_status (info : LegalizerInfo) :
     Status Unproven (sub_to_add_pattern info) ∧ Status Unproven redundant_and_pattern := by
   simp only [legalization_status, and_self]
+
+/-! ### Every gMIR combine is valid
+
+Every Puddle pattern of `RISCV64PostLegalizerCombiner` and `RISCV64PreLegalizerCombiner` has a
+proof of `Puddle.CTree.Pattern.Valid`. The other rewrites of these passes, `dropAssume` and
+`commutativeConstantRHS`, are local rewrites. -/
+
+set_option maxHeartbeats 4000000 in
+set_option maxRecDepth 10000 in
+/-- Every post-legalizer combine is valid. -/
+theorem combinePatterns_valid :
+    ∀ pattern ∈ combinePatterns, Puddle.CTree.Pattern.Valid pattern := by
+  simp [combinePatterns, combine_valid]
+
+/-- Every select combine is valid, whatever the legalizer info. -/
+theorem selectPatterns_valid (info : LegalizerInfo) :
+    ∀ pattern ∈ selectPatterns info, Puddle.CTree.Pattern.Valid pattern := by
+  simp [selectPatterns, combine_valid]
+
+/-- Every `redundant_and` combine of a select is valid. -/
+theorem redundantAndSelectPatterns_valid :
+    ∀ pattern ∈ redundantAndSelectPatterns, Puddle.CTree.Pattern.Valid pattern := by
+  simp [redundantAndSelectPatterns, combine_valid]
+
+/-- `sub_to_add` and `redundant_and` are valid, whatever the legalizer info. -/
+theorem sub_to_add_redundant_and_valid (info : LegalizerInfo) :
+    Puddle.CTree.Pattern.Valid (sub_to_add_pattern info) ∧
+      Puddle.CTree.Pattern.Valid redundant_and_pattern := by
+  simp only [combine_valid, and_self]
+
+set_option maxRecDepth 10000 in
+/-- Every pre-legalizer combine is valid. -/
+theorem preLegalizerPatterns_valid :
+    ∀ pattern ∈ preLegalizerPatterns, Puddle.CTree.Pattern.Valid pattern := by
+  simp [preLegalizerPatterns, selectOfConstantsPatterns, selectIntoBinopPatterns, combine_valid]
 
 end
 

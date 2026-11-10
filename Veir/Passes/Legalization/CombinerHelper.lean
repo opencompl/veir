@@ -33,11 +33,15 @@ public section
 
 /-! ### Helpers -/
 
-/-- Match a `g_constant` of `type` whose properties satisfy `pred`. -/
+/-- Match a `g_constant` of `type` whose properties satisfy `pred`. The constant's attribute has
+`type`, as the verifier requires, so `pred` reads the constant at the width of its result. -/
 def matchConstant (type : Handle OpCode .type)
     (pred : GMIRConstantProperties → Bool := fun _ => true) :
-    MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
-  MatchProg.operation (.gmir .g_constant) #[] #[type] pred
+    MatchProg.Builder (OpHandle (.gmir .g_constant)) := do
+  let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type] pred
+  MatchProg.matchNative (type, constant.properties) fun (type, props) =>
+    .integerType props.value.type == type.val
+  return constant
 
 /-! ### sub_to_add : (sub x, C) → (add x, -C) -/
 
@@ -835,7 +839,8 @@ def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
     (fun op => op)
 
 /-- Match the funnel shift `fsh x, y, amt` whose amount `amt` is a `g_constant`, returning `x`, `y`,
-    the amount's type and properties, and the result type. -/
+    the amount's type and properties, and the result type. The result has the type of `x`, as in
+    LLVM: the funnel shift takes its amount modulo that width. -/
 def matchFunnelShiftConstAmt (fsh : GMIR) :
     MatchProg.Builder (Handle OpCode .value × Handle OpCode .value ×
       Handle OpCode .type × Handle OpCode (.prop (.gmir .g_constant)) ×
@@ -846,9 +851,8 @@ def matchFunnelShiftConstAmt (fsh : GMIR) :
   let y ← MatchProg.value yType
   let amtType ← MatchProg.type (Attr := TypeAttr)
   let amt ← matchConstant amtType
-  let resultType ← MatchProg.type (Attr := TypeAttr)
-  let _ ← MatchProg.root (.gmir fsh) #[x, y, amt.res[0]!] #[resultType]
-  return (x, y, amtType, amt.properties, resultType)
+  let _ ← MatchProg.root (.gmir fsh) #[x, y, amt.res[0]!] #[xType]
+  return (x, y, amtType, amt.properties, xType)
 
 /-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
 
@@ -1205,60 +1209,90 @@ def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_
     CreateProg.Builder CreatedOpHandle :=
   createConstantWith type c fun c => c.ulog2?.get!
 
+/-- `c ? 1 : 0` → `zext c` -/
+def select_one_zero_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isOne && f.isZero)
+    fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type]
+
+/-- `c ? -1 : 0` → `sext c` -/
+def select_allOnes_zero_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
+    fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type]
+
+/-- `c ? 0 : 1` → `zext (not c)` -/
+def select_zero_one_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isZero && f.isOne)
+    fun (type, condType, c, _, _, _) => do
+      let notC ← createNot condType c
+      CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
+
+/-- `c ? 0 : -1` → `sext (not c)` -/
+def select_zero_allOnes_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
+    fun (type, condType, c, _, _, _) => do
+      let notC ← createNot condType c
+      CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
+
+/-- `c ? C : C - 1` → `add (zext c), C - 1` -/
+def select_succ_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
+    fun (type, _, c, f, _, _) => do
+      let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+      CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type]
+
+/-- `c ? C : C + 1` → `add (sext c), C + 1` -/
+def select_pred_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
+    fun (type, _, c, f, _, _) => do
+      let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+      CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type]
+
+/-- `c ? 2^k : 0` → `shl (zext c), k` -/
+def select_pow2_zero_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
+    fun (type, _, c, _, t, _) => do
+      let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+      let k ← createLog2 type t
+      CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type]
+
+/-- `c ? 0 : 2^k` → `shl (zext (not c)), k` -/
+def select_zero_pow2_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
+    fun (type, condType, c, _, _, f) => do
+      let notC ← createNot condType c
+      let ext ← CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
+      let k ← createLog2 type f
+      CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type]
+
+/-- `c ? -1 : C` → `or (sext c), C` -/
+def select_allOnes_const_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t _ => t.isAllOnes)
+    fun (type, _, c, f, _, _) => do
+      let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+      CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type]
+
+/-- `c ? C : -1` → `or (sext (not c)), C` -/
+def select_const_allOnes_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun _ f => f.isAllOnes)
+    fun (type, condType, c, _, t, _) => do
+      let notC ← createNot condType c
+      let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
+      let constant ← createConstantWith type t fun t => t.value.value
+      CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]
+
 /-- The patterns of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
     `c ? 1 : 0` also has the form `c ? C : C - 1`, and the first match wins. -/
 def selectOfConstantsPatterns : Array (Pattern OpCode) := #[
-    -- `c ? 1 : 0` → `zext c`
-    select_of_constants_pattern (fun t f => t.isOne && f.isZero)
-      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type],
-    -- `c ? -1 : 0` → `sext c`
-    select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
-      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type],
-    -- `c ? 0 : 1` → `zext (not c)`
-    select_of_constants_pattern (fun t f => t.isZero && f.isOne)
-      fun (type, condType, c, _, _, _) => do
-        let notC ← createNot condType c
-        CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type],
-    -- `c ? 0 : -1` → `sext (not c)`
-    select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
-      fun (type, condType, c, _, _, _) => do
-        let notC ← createNot condType c
-        CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type],
-    -- `c ? C : C - 1` → `add (zext c), C - 1`
-    select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
-      fun (type, _, c, f, _, _) => do
-        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
-        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
-    -- `c ? C : C + 1` → `add (sext c), C + 1`
-    select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
-      fun (type, _, c, f, _, _) => do
-        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
-        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
-    -- `c ? 2^k : 0` → `shl (zext c), k`
-    select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
-      fun (type, _, c, _, t, _) => do
-        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
-        let k ← createLog2 type t
-        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
-    -- `c ? 0 : 2^k` → `shl (zext (not c)), k`
-    select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
-      fun (type, condType, c, _, _, f) => do
-        let notC ← createNot condType c
-        let ext ← CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
-        let k ← createLog2 type f
-        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
-    -- `c ? -1 : C` → `or (sext c), C`
-    select_of_constants_pattern (fun t _ => t.isAllOnes)
-      fun (type, _, c, f, _, _) => do
-        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
-        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type],
-    -- `c ? C : -1` → `or (sext (not c)), C`
-    select_of_constants_pattern (fun _ f => f.isAllOnes)
-      fun (type, condType, c, _, t, _) => do
-        let notC ← createNot condType c
-        let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
-        let constant ← createConstantWith type t fun t => t.value.value
-        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]]
+  select_one_zero_pattern,
+  select_allOnes_zero_pattern,
+  select_zero_one_pattern,
+  select_zero_allOnes_pattern,
+  select_succ_pattern,
+  select_pred_pattern,
+  select_pow2_zero_pattern,
+  select_zero_pow2_pattern,
+  select_allOnes_const_pattern,
+  select_const_allOnes_pattern]
 
 /-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. -/
 def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
@@ -1283,11 +1317,12 @@ also runs when it does not.
 -/
 
 /-- `c ? (op x, K) : x` → `op x, (c ? K : 0)`, and with the arms of the `g_select` exchanged when
-    `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. -/
+    `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. The values are not `i0`, where a
+    shift by the created `0` is out of range. -/
 def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
       let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let c ← MatchProg.value condType
       let x ← MatchProg.value type

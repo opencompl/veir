@@ -163,6 +163,27 @@ elab "casesPointers" : tactic => do
   setGoals (← goals.flatMapM fun goal => casesPointers goal)
 
 open Lean Meta in
+/-- Case-split, recursively, each local whose type reduces (with default transparency, which
+unfolds `propertiesOf`) to one of the structures `names`, e.g. the properties of a matched
+operation, so that their fields are variables. -/
+meta partial def casesLocalsOf (names : Array Name) (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    for decl in ← getLCtx do
+      if decl.isImplementationDetail then continue
+      let type ← whnf (← instantiateMVars decl.type)
+      unless names.any type.getAppFn.isConstOf do continue
+      let subgoals ← goal.cases decl.fvarId
+      return (← subgoals.toList.mapM fun subgoal => casesLocalsOf names subgoal.mvarId).flatten
+    return [goal]
+
+open Lean Elab Tactic in
+/-- Case-split every local whose type is one of the given structures. -/
+elab "casesLocalsOf" ids:(ppSpace ident)+ : tactic => do
+  let names ← ids.mapM fun id => realizeGlobalConstNoOverloadWithInfo id
+  let goals ← getGoals
+  setGoals (← goals.flatMapM fun goal => casesLocalsOf names goal)
+
+open Lean Meta in
 /-- Case-split, recursively, each local existential and conjunction, e.g. the choice of high bits
 by which a matched `g_anyext` produced its result, or a width equation of a type check. -/
 meta partial def casesExistsAnd (goal : MVarId) : MetaM (List MVarId) :=
