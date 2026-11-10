@@ -53,7 +53,25 @@ theorem MemoryByte.isRefinedBy_refl (b : MemoryByte) : b ⊒ b := by
 @[simp, grind .]
 theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
     m ⊒ m :=
-  ⟨rfl, fun _ => MemoryByte.isRefinedBy_refl _⟩
+  ⟨⟨rfl, fun _ => MemoryByte.isRefinedBy_refl _⟩, rfl⟩
+
+/-- Refinement preserves memory-object identities and layout. -/
+theorem MemoryState.isRefinedBy.objects_eq {source target : MemoryState}
+    (refines : source ⊒ target) : source.objects = target.objects := refines.1.1
+
+/-- Refinement preserves the symbol-to-object table. -/
+theorem MemoryState.isRefinedBy.globals_eq {source target : MemoryState}
+    (refines : source ⊒ target) : source.globals = target.globals := refines.2
+
+/-- Each stored byte becomes at least as defined. -/
+theorem MemoryState.isRefinedBy.byte_refines {source target : MemoryState}
+    (refines : source ⊒ target) (address : UInt64) : source.byte address ⊒ target.byte address :=
+  refines.1.2 address
+
+/-- Exact memory agreement is a special case of memory refinement. -/
+theorem MemoryState.isRefinedBy_of_eq {source target : MemoryState} (same : source = target) : source ⊒ target := by
+  subst target
+  exact MemoryState.isRefinedBy_refl source
 
 @[simp, grind .]
 theorem FunctionResult.isRefinedBy_refl (r : MemoryState × Array RuntimeValue) : r ⊒ r := by
@@ -75,6 +93,20 @@ theorem InterpreterState.isRefinedBy_refl
     {ctx : WfIRContext OpInfo} {state : InterpreterState ctx} :
     state.isRefinedBy state id := by
   grind [InterpreterState.isRefinedBy, VariableState.isRefinedBy]
+
+@[simp, grind .]
+theorem VariableState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} (state : VariableState ctx) (point : RefinementPoint)
+    (pointIn : point.InBounds ctx.raw) :
+    state.isRefinedByAt state id point point pointIn pointIn := by
+  grind [VariableState.isRefinedByAt]
+
+@[simp, grind .]
+theorem InterpreterState.isRefinedByAt_refl
+    {ctx : WfIRContext OpInfo} (state : InterpreterState ctx) (point : RefinementPoint)
+    (pointIn : point.InBounds ctx.raw) :
+    state.isRefinedByAt state id point point pointIn pointIn :=
+  ⟨MemoryState.isRefinedBy_refl _, VariableState.isRefinedByAt_refl _ _ pointIn⟩
 
 @[simp, grind .]
 theorem ControlFlowAction.isRefinedBy_refl (cf : ControlFlowAction) : cf ⊒ cf := by
@@ -115,7 +147,8 @@ theorem MemoryByte.isRefinedBy_trans {b1 b2 b3 : MemoryByte}
 
 theorem MemoryState.isRefinedBy_trans {m1 m2 m3 : MemoryState}
     (h12 : m1 ⊒ m2) (h23 : m2 ⊒ m3) : m1 ⊒ m3 :=
-  ⟨h12.1.trans h23.1, fun addr => MemoryByte.isRefinedBy_trans (h12.2 addr) (h23.2 addr)⟩
+  ⟨⟨h12.1.1.trans h23.1.1, fun addr => MemoryByte.isRefinedBy_trans (h12.1.2 addr) (h23.1.2 addr)⟩,
+    h12.2.trans h23.2⟩
 
 theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
     (h12 : a ⊒ b) (h23 : b ⊒ c) : a ⊒ c := by
@@ -123,7 +156,30 @@ theorem RuntimeValue.arrayIsRefinedBy_trans {a b c : Array RuntimeValue}
 
 theorem FunctionResult.isRefinedBy_trans {r₁ r₂ r₃ : MemoryState × Array RuntimeValue}
     (h12 : r₁ ⊒ r₂) (h23 : r₂ ⊒ r₃) : r₁ ⊒ r₃ := by
-  grind [FunctionResult.isRefinedBy, RuntimeValue.arrayIsRefinedBy_trans]
+  exact ⟨MemoryState.isRefinedBy_trans h12.1 h23.1, RuntimeValue.arrayIsRefinedBy_trans h12.2 h23.2⟩
+
+theorem ControlFlowAction.isRefinedBy_trans {a b c : ControlFlowAction}
+    (ab : a ⊒ b) (bc : b ⊒ c) : a ⊒ c := by
+  cases a <;> cases b <;> cases c <;>
+    simp only [ControlFlowAction.isRefinedBy] at ab bc ⊢ <;>
+    grind [RuntimeValue.arrayIsRefinedBy_trans]
+
+theorem ControlFlowAction.optionIsRefinedBy_trans {a b c : Option ControlFlowAction}
+    (ab : ControlFlowAction.optionIsRefinedBy a b)
+    (bc : ControlFlowAction.optionIsRefinedBy b c) :
+    ControlFlowAction.optionIsRefinedBy a c := by
+  cases a <;> cases b <;> cases c <;>
+    simp_all only [ControlFlowAction.optionIsRefinedBy] <;>
+    grind [ControlFlowAction.isRefinedBy_trans]
+
+/-- Operation-result refinement composes through values, memory, and control flow. -/
+theorem OperationResult.isRefinedBy_trans
+    {a b c : Array RuntimeValue × MemoryState × Option ControlFlowAction}
+    (ab : OperationResult.isRefinedBy a b) (bc : OperationResult.isRefinedBy b c) :
+    OperationResult.isRefinedBy a c :=
+  ⟨RuntimeValue.arrayIsRefinedBy_trans ab.1 bc.1,
+    MemoryState.isRefinedBy_trans ab.2.1 bc.2.1,
+    ControlFlowAction.optionIsRefinedBy_trans ab.2.2 bc.2.2⟩
 
 theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
     (hR : ∀ a b c, R a b → R b c → R a c)

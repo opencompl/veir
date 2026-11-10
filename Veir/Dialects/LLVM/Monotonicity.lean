@@ -25,9 +25,10 @@ instance : InterpretOp'Monotone (.llvm .load) where
         obtain rfl : operands = #[.addr (.val ptr)] := List.eq_toArray_iff.mpr hOps
         obtain ⟨w, rfl, hRef⟩ := RuntimeValue.singleton_isRefinedBy_iff.mp h
         rcases RuntimeValue.addr_val_isRefinedBy_iff.mp hRef with rfl | rfl
-        · exact Interp.isRefinedBy_refl_operationResult _
+        · exact Interp.isRefinedBy_refl_operationResult_sameMemory _
         simp only [Data.Pointer.checkAlignment_wildcard]
-        refine Interp.isRefinedBy_trans_eq (Interp.isRefinedBy_refl_operationResult _) ?_
+        refine Interp.isRefinedBy_trans_eq
+          (Interp.isRefinedBy_refl_operationResult_sameMemory _) ?_
         split
         · exact Interp.isRefinedBy_eq_bind_right _ fun _ =>
             Interp.isRefinedBy_eq_bind_left
