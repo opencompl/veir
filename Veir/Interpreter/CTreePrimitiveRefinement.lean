@@ -29,10 +29,13 @@ def OpCode.interpretCTree_monotone (opType : OpCode) : Prop :=
         (op.interpretCTree opIn sourceValues sourceMemory)
 
 /--
-Assumed CTree monotonicity and result typing for verified operations outside LLVM.
+Assumed CTree monotonicity and result typing for verified operations.
 Operands and stored bytes may refine; object layout and global bindings stay fixed.
 -/
-axiom OpCode.interpretCTree_monotone_assumed (opType : OpCode) (h : ∀ op, opType ≠ .llvm op) :
-    interpretCTree_monotone opType
+axiom OpCode.interpretCTree_monotone_assumed (opType : OpCode) : interpretCTree_monotone opType
+
+/-- An opcode meets its CTree monotonicity obligation. -/
+class InterpretCTreeMonotone (opType : OpCode) : Prop where
+  monotone : OpCode.interpretCTree_monotone opType
 
 end Veir

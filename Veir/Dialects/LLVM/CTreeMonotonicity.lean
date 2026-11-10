@@ -225,6 +225,23 @@ theorem OpCode.interpretCTree_monotone_llvm (op : Llvm) :
     OperationPtr.getSuccessors!_eq_getSuccessors oIn]
   exact hok
 
+/--
+info: 'Veir.OpCode.interpretCTree_monotone_llvm' depends on axioms: [propext,
+ Sim,
+ Classical.choice,
+ Quot.sound,
+ interpretOp'_results_conform,
+ Sim.ret,
+ Sim.tau_l,
+ Sim.tau_r,
+ Sim.ub]
+-/
+#guard_msgs in
+#print axioms OpCode.interpretCTree_monotone_llvm
+
+instance (op : Llvm) : InterpretCTreeMonotone (.llvm op) :=
+  ⟨OpCode.interpretCTree_monotone_llvm op⟩
+
 end Veir
 
 end
