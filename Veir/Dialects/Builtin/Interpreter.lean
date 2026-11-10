@@ -9,6 +9,16 @@ open CTree
 
 namespace Veir
 
+/--
+Cast a byte to an integer and use a ctree effect to choose the bits that are poison.
+-/
+def Builtin.byteToIntCTree {EIn : Type} {E : EIn → Type} {width : Nat}
+    (value : Data.LLVM.Byte width) : CTree E FreezeC (Data.LLVM.Int width) :=
+  if value.poison = BitVec.allOnes width then pure .poison
+  else do
+    let bits : FreezeC (.mk width) ← CTree.choose (FreezeCIn.mk width)
+    pure (.val (value.val ||| (value.poison &&& bits)))
+
 /-- Interpret a builtin operation using CTrees. -/
 def Builtin.interpretOpCTree {EIn : Type} {E : EIn → Type}
     [ErrorE -< E] [UBE -< E] (opType : Veir.Builtin) (properties : propertiesOf opType)
@@ -47,7 +57,7 @@ def Builtin.interpretOpCTree {EIn : Type} {E : EIn → Type}
       return (#[.addr (mem.ptrFromInt (.val value.val))], mem, none)
     | .integerType resWidth, [.byte width value] =>
       if resWidth.bitwidth ≠ width then fail
-      return (#[.int width (LLVM.Byte.toFrozenInt value)], mem, none)
+      return (#[.int width (← Builtin.byteToIntCTree value)], mem, none)
     | .byteType resWidth, [.int width value] =>
       if resWidth.bitwidth ≠ width then fail
       return (#[.byte width (Data.LLVM.Byte.fromInt value)], mem, none)
