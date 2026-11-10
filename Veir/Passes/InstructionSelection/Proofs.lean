@@ -1132,3 +1132,13 @@ theorem anyext_of_reg_refinement (n m : Nat) (h : n < m) (r : Reg) :
     veir_bv_normalize
     simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
     grind⟩
+
+/--
+  A `g_load` of `n` bits `v` into an `i64` is refined by any register whose low `n` bits are `v`,
+  such as the result of `lbu`, `lh` or `lw` (see `gmirLoad_pattern`).
+-/
+theorem gmir_load_refinement {n : Nat} (h : n < 64) (v : BitVec n) (r : Reg)
+    (hlow : r.val.setWidth n = v) :
+    ∃ ext : BitVec (64 - n), LLVM.Int.ext (.val v) 64 ext h ⊒ RISCV.Reg.toInt r 64 := by
+  have hv : RISCV.Reg.toInt r n = .val v := by simp [RISCV.Reg.toInt, ← hlow]
+  simpa [hv] using anyext_of_reg_refinement n 64 h r

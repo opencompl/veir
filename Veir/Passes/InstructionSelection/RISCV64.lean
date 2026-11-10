@@ -282,18 +282,6 @@ inductive AddrMode where
   | gepIndex
   | gepConst
 
-/-- The width in bytes of a load or store of a value of `type`, for the integers
-  and pointers whose data-layout size fits one `l*`/`s*` instruction. An integer
-  must fill its bytes exactly, since `getTypeSize` rounds an odd width up. -/
-def memAccessWidth? (type : TypeAttr) : Option Nat := do
-  match type.val with
-  | .integerType t => guard (t.bitwidth % 8 = 0)
-  | .llvmPointerType _ => pure ()
-  | _ => none
-  let width ← DataLayout.riscv64.getTypeSize type.val
-  guard (width ∈ [1, 2, 4, 8])
-  return width
-
 /-- `riscv.lb` / `riscv.lh` / `riscv.lw` / `riscv.ld`, for a `width`-byte load. -/
 def createLoadLocal (ctx : WfIRContext OpCode) (width : Nat) (addr : ValuePtr)
     (props : RISCVMemProperties) : Option (WfIRContext OpCode × OperationPtr) :=
@@ -357,10 +345,12 @@ def addrMemProps (riscvOp : Riscv) (h : propertiesOf (OpCode.riscv riscvOp) = RI
   | none => CreateProg.applyNative access fun props => memProps (some 0) props
 
 /--
-  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8), for a
-  `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
+  Lower the load `accessOp` to `riscvOp` if `guard` accepts its result type, address type and
+  properties. The address is split as `mode` says (see `AddrMode`).
 -/
-def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+def lowerLoadOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop accessOp) →
+      MatchProg.Builder Unit) (mode : AddrMode) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
   Pattern.Builder
@@ -368,24 +358,32 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
       let (addr, gep?) ← matchAddr mode base
-      /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the loaded value type) -/
       let resType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => memAccessWidth? t = some width)
-      let root ← MatchProg.root (.llvm .load) #[addr] #[resType]
+      let root ← MatchProg.root accessOp #[addr] #[resType]
+      guard resType baseType root.properties
       return (resType, base, gep?, root.properties))
     (fun (resType, base, gep?, loadProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
       /- cast base (!llvm.ptr) -> register -/
       let baseCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[base] #[regType]
-      let memProps ←
-        addrMemProps riscvOp h (accessOp := .llvm .load) (·.volatile_) gep? loadProps
+      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile gep? loadProps
       let ldOp ← CreateProg.operation (.riscv riscvOp)
           #[baseCastOp.res[0]!] #[regType] memProps
       let castBackOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[ldOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
+
+/--
+  llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8), for a
+  `width`-byte load with `riscvOp`, its address split as `mode` says (see `AddrMode`).
+-/
+def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  lowerLoadOf (.llvm .load) (·.volatile_) (mode := mode) (riscvOp := riscvOp) (h := h)
+    fun resType _ _ => MatchProg.matchNative resType fun type => memAccessWidth? type = some width
 
 /--
   llvm.load -> riscv.ld (i64, ptr) / riscv.lw (i32) / riscv.lh (i16) / riscv.lbu (i8).
@@ -1036,6 +1034,28 @@ def matchLegal (opcode : GMIR) (type : Handle OpCode .type)
   | some type₁ =>
     MatchProg.matchNative (type, type₁, properties) fun (type, type₁, properties) =>
       riscv64LegalizerInfo.isLegal opcode #[type, type₁] properties
+
+/--
+  gmir.g_load -> riscv.ld / riscv.lw / riscv.lh / riscv.lbu, for a legal `width`-byte load.
+  Its high bits are unspecified, so a sign- or zero-extending load refines it
+  (see `gmir_load_refinement`).
+-/
+def gmirLoad_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  lowerLoadOf (.gmir .g_load) (·.volatile_) (mode := mode) (riscvOp := riscvOp) (h := h)
+    fun resType addrType mmo => do
+      matchLegal .g_load resType mmo (type₁ := addrType)
+      MatchProg.matchNative mmo fun mmo => mmo.size.toNat = 8 * width
+
+/--
+  The `gmirLoad_pattern`s. A widened `g_load` is an any-extending load, which LLVM selects as `lbu`,
+  `lh` and `lw` (`LdPat<extloadi8, LBU>`, `LdPat<extloadi16, LH>`, `LdPat<extloadi32, LW, i64>`).
+-/
+def gmirLoad : Array (Puddle.CompiledPattern OpCode) :=
+  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
+    #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
+      gmirLoad_pattern mode 8 .ld].map (·.compile)
 
 /-! ## Zicond branchless `g_select` lowering
 
@@ -2039,7 +2059,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
      lowerings consume them. -/
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
-    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++
+    .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
     store.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
@@ -2057,7 +2077,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
-    load.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
+    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     poisonConst.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,

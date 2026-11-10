@@ -577,8 +577,8 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
       | return (#[← mem.llvmLoad addr type], mem, none)
     let size := properties.size.toNat
     let val ← mem.intLoad addr size
-    /- TODO: The high bits of a wider result are undefined and should have the same semantic
-       like `g_anyext`. Support nondeterminisim once CTrees have landed. -/
+    /- The high bits of a wider result are unspecified, as for `g_anyext` (see
+       `GMIR.interpretOpCTree`); this (non-CTree) interpreter sets them to 0. -/
     if h : size < w then return (#[.int w (val.zext w (_h := h))], mem, none)
     if h : size = w then return (#[.int w (val.cast h)], mem, none)
     none
