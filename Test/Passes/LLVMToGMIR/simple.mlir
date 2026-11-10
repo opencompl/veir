@@ -62,9 +62,10 @@
 // CHECK: "gmir.g_lshr"(%{{.*}}, %{{.*}}) <{isExact}> : (i16, i16) -> i16
 // CHECK: "gmir.g_ashr"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
 // Byte operations become gMIR operations on integers of the same width, between casts. The amount
-// of a byte shift is already an integer, so only the shifted value is cast.
+// of a byte shift is already an integer, so only the shifted value is cast. LLVM ignores the
+// `nsw`/`nuw` flags of a byte `trunc`, so its `g_trunc` has none.
 // CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<16>) -> i16
-// CHECK: "gmir.g_trunc"(%{{.*}}) <{"overflowFlags" = 1 : i32}> : (i16) -> i8
+// CHECK: "gmir.g_trunc"(%{{.*}}) : (i16) -> i8
 // CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (i8) -> !llvm.byte<8>
 // CHECK: "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<16>) -> i16
 // CHECK: "gmir.g_shl"(%{{.*}}, %{{.*}}) : (i16, i16) -> i16
