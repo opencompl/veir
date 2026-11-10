@@ -16,6 +16,6 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[ptr(0, 0)]
+// CHECK: Program output: #[ptr(0)]
 // ALIVE_EXEC: Program output: #[ptr]
 // LLUBI: Program output: #[ptr]

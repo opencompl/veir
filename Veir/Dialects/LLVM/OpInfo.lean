@@ -1746,7 +1746,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
       let .int _ idx := idx | none
       let .val idx := idx | return (#[.addr .poison], mem, none)
       addr := addr + idx.toInt * stride
-    return (#[.addr (.val ⟨ptr.object, UInt64.ofInt addr⟩)], mem, none)
+    return (#[.addr (.val ⟨UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
     match val with
