@@ -114,6 +114,11 @@ def fromInt {w : Nat} (x : Int w) : Byte w :=
   else
     ⟨x.getValue, 0, by simp⟩
 
+/-- The byte of poison is all poison. -/
+@[simp]
+theorem fromInt_poison {w : Nat} : fromInt (.poison : Int w) = allPoison := by
+  simp [fromInt, allPoison]
+
 def toUInt64 (x : Byte 64) : UInt64 :=
   if x.poison = 0 then
     UInt64.ofBitVec x.val
