@@ -351,14 +351,14 @@ def MemoryState.memset (mem : MemoryState) (p : Pointer) (val : RuntimeValue) (l
 /--
   `llvm.intr.memcpy`: copy `len` bytes, poison bits included, from `src` to `dst`,
   one `b8` load and store at a time in increasing order. Either `dst` and `src`
-  are the same pointer, or the `len` bytes at `dst` and at `src` do not overlap;
+  have the same address, or the `len` bytes at `dst` and at `src` do not overlap;
   any other overlap is UB.
 -/
 def MemoryState.memcpy (mem : MemoryState) (dst src : Pointer) (len : Nat)
     : Interp MemoryState := do
   let d := dst.address.toNat
   let s := src.address.toNat
-  if dst.object = src.object ∧ d ≠ s ∧ d < s + len ∧ s < d + len then Interp.ub none
+  if d ≠ s ∧ d < s + len ∧ s < d + len then Interp.ub none
   let mut mem := mem
   for i in [0:len] do
     mem ← mem.llvmStore (dst.addBytes i) (← mem.llvmLoad (src.addBytes i) byte8Type)
