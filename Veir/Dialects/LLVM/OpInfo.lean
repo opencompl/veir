@@ -1324,6 +1324,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw s!"Expected {1 + dynamicCount} operands"
     if op.getNumResults ctx.raw opIn ≠ 1 then
       throw "Expected 1 result"
+    ((op.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "Expected the result to have !llvm.ptr type"
     if op.getNumRegions ctx.raw opIn ≠ 0 then
       throw "Expected 0 regions"
     if op.getNumSuccessors ctx.raw opIn ≠ 0 then

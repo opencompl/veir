@@ -744,14 +744,42 @@ theorem InterpretOp'ContextuallyMonotone.of_frame {opType : OpCode}
       ⟨hValues, hMem, hAction⟩
 
 /--
-A successful operation interpretation returns result values that conform to the declared
-`resultTypes` when the operation verifies.
+The results of an opcode conform to their types: a verified operation of the opcode whose operands
+conform to their types, and whose interpretation succeeds, returns values that conform to its
+result types.
 -/
-axiom interpretOp'_results_conform {ctx : WfIRContext OpCode}
-    {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
-    (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
-    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act)) :
-    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
+def OpCode.resultsConform (opType : OpCode) : Prop :=
+  ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
+    op.getOpType ctx.raw opIn = opType →
+    op.Verified ctx opIn →
+    ∀ (operands vals : Array RuntimeValue) (mem mem' : MemoryState)
+      (act : Option ControlFlowAction),
+      RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
+      op.interpret ctx.raw operands mem = .ok (vals, mem', act) →
+      RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
+
+/-- Unfold `OpCode.resultsConform`. -/
+theorem OpCode.resultsConform_def {opType : OpCode} :
+    opType.resultsConform ↔
+      ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
+        op.getOpType ctx.raw opIn = opType →
+        op.Verified ctx opIn →
+        ∀ (operands vals : Array RuntimeValue) (mem mem' : MemoryState)
+          (act : Option ControlFlowAction),
+          RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
+          op.interpret ctx.raw operands mem = .ok (vals, mem', act) →
+          RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) :=
+  Iff.rfl
+
+/-- Assumed for an opcode that has no proof yet. -/
+axiom OpCode.resultsConform_assumed (opType : OpCode) : opType.resultsConform
+
+/--
+The results of an opcode conform to their types, as a class so that a dialect can discharge it for
+its own opcodes without this file knowing about the dialect.
+-/
+class ResultsConform (opType : OpCode) : Prop where
+  conform : opType.resultsConform
 
 /--
 A branch control-flow action returned by interpreting an operation always targets one of the
