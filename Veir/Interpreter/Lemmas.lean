@@ -666,6 +666,13 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
     (mem : MemoryState) :
   (op.interpret ctx.raw operands mem).isFail = false
 
+/-- Reflexivity including the legacy deterministic memory-equality guarantee. -/
+theorem Interp.isRefinedBy_refl_operationResult_sameMemory
+    (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Interp.isRefinedBy (fun source target =>
+      OperationResult.isRefinedBy source target ∧ source.2.1 = target.2.1) x x := by
+  cases x <;> simp [Interp.isRefinedBy]
+
 /--
 Monotonicity of `interpretOp'` in its operands, as a class so that a dialect can discharge it for
 its own opcodes without this file knowing about the dialect.
@@ -675,7 +682,8 @@ class InterpretOp'Monotone (opType : OpCode) : Prop where
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) :
     operands ⊒ operands' →
-    Interp.isRefinedBy OperationResult.isRefinedBy
+    Interp.isRefinedBy (fun source target =>
+      OperationResult.isRefinedBy source target ∧ source.2.1 = target.2.1)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem)
 
@@ -687,7 +695,8 @@ theorem interpretOp'_monotone
     (resultTypes : Array TypeAttr)
     (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState) :
     operands ⊒ operands' →
-    Interp.isRefinedBy OperationResult.isRefinedBy
+    Interp.isRefinedBy (fun source target =>
+      OperationResult.isRefinedBy source target ∧ source.2.1 = target.2.1)
       (interpretOp' opType properties resultTypes operands blockOperands mem)
       (interpretOp' opType properties resultTypes operands' blockOperands mem) :=
   inst.monotone properties resultTypes operands operands' blockOperands mem
