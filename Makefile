@@ -16,6 +16,11 @@ tests: build ## run all tests
 	uv run lit Test/ -v
 	cd ExArray && lake exe test
 
+.PHONY: ctree-tests
+ctree-tests: build ## also interpret the LLVM tests with the CTree interpreter (slow)
+	uv sync
+	uv run lit Test/ -v -Dctree=1
+
 .PHONY: sqlite
 sqlite: build ## test sqlite3 parsing (expected to fail until fully supported)
 	test -f /tmp/sqlite3.c || (curl -sfL https://sqlite.org/2026/sqlite-amalgamation-3530300.zip -o /tmp/sqlite.zip && unzip -oqj /tmp/sqlite.zip '*/sqlite3.c' -d /tmp && rm /tmp/sqlite.zip)

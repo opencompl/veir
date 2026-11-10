@@ -1,4 +1,5 @@
 // RUN: not veir-interpret %s 2>&1 | filecheck %s
+// RUN: CTREE_FAIL_CHECK
 // RUN: ALIVE_EXEC_CHECK
 
 // One byte more than `alloca_largest.mlir`: the object does not fit, which is
@@ -6,6 +7,9 @@
 
 // alive-exec does not model running out of memory and reads the byte back.
 // llubi allocates the object for real and crashes, so it is not cross-checked.
+// The CTree interpreter fails as well, but its error effect carries no
+// operation, so it reports the failure of the module rather than of the
+// `llvm.alloca`.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> i8}> ({
@@ -18,7 +22,8 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK:      alloca_past_largest.mlir:14:5: error: failed to interpret operation
+// CHECK:      alloca_past_largest.mlir:18:5: error: failed to interpret operation
 // CHECK-NEXT:     %buf = "llvm.alloca"(%n) <{elem_type = i8}> : (i64) -> !llvm.ptr
 // CHECK-NEXT:     ^
+// CTREE: error: failed to interpret module
 // ALIVE_EXEC: Program output: #[0x07#8]

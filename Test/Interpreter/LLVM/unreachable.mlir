@@ -1,5 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
-// RUN: veir-interpret --ctree %s | filecheck %s
+// RUN: CTREE
 // RUN: LLUBI
 // RUN: ALIVE_EXEC
 

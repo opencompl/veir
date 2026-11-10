@@ -23,7 +23,7 @@ jobs:
       - name: Check that every Lean module is built
         run: ./Tools/check-orphan-modules
 
-      - name: Check that every LLVM interpreter test is cross-checked
+      - name: Check that every LLVM interpreter test is cross-checked and run on CTrees
         run: ./Tools/check-interpreter-cross-checks
 
   build:

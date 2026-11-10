@@ -2,6 +2,8 @@
 // XFAIL: *
 // RUN: ALIVE_EXEC
 
+// NO_CTREE: a negative test of the ALIVE_EXEC substitution, which does not interpret the program itself
+
 // A negative test of the cross-check itself: the function returns 7 and the
 // CHECK line below asks for 8, so the alive-exec run must fail rather than
 // pass vacuously. Were the ALIVE_EXEC substitution broken, this test would
