@@ -7,6 +7,7 @@ import all Veir.Dialects.RISCV.Properties
 import all Veir.FoldDecision
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Interpreter.Refinement.Basic
+import Veir.Interpreter.Refinement.Lemmas
 import Veir.Data.RISCV.Reg.Lemmas
 
 /-!

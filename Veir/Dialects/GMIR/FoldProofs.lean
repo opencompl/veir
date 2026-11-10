@@ -8,6 +8,7 @@ import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
 import all Veir.IR.Attribute
 import all Veir.Interpreter.Refinement.Basic
+import Veir.Interpreter.Refinement.Lemmas
 import all Veir.Interpreter.RuntimeValue.Conforms
 import all Veir.Interpreter.RuntimeValue.Basic
 meta import Lean.Elab.Tactic
