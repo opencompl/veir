@@ -136,39 +136,6 @@ theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
   rcases v₃ with _ | (v₃ | _) <;>
   grind
 
-/-- Any outcome is refined by itself. -/
-theorem Interp.isRefinedBy_eq_refl {α : Type} (x : Interp α) : Interp.isRefinedBy Eq x x := by
-  cases x <;> simp [Interp.isRefinedBy]
-
-/-- A computation that succeeds with the same result, bound to a continuation. -/
-theorem Interp.isRefinedBy_eq_bind_left {α β : Type} {x y : Interp α}
-    (h : Interp.isRefinedBy Eq x y) (f : α → Interp β) :
-    Interp.isRefinedBy Eq (x >>= f) (y >>= f) := by
-  cases x <;> cases y <;> simp [Interp.isRefinedBy] at h ⊢
-  subst h
-  exact Interp.isRefinedBy_eq_refl _
-
-/-- A computation bound to continuations that succeed with the same results. -/
-theorem Interp.isRefinedBy_eq_bind_right {α β : Type} (x : Interp α) {f g : α → Interp β}
-    (h : ∀ a, Interp.isRefinedBy Eq (f a) (g a)) :
-    Interp.isRefinedBy Eq (x >>= f) (x >>= g) := by
-  cases x with
-  | ok a => exact h a
-  | _ => simp [Interp.isRefinedBy]
-
-/-- A computation that succeeds wherever another does, with the same result. -/
-theorem Interp.isRefinedBy_eq_of_ok {α : Type} {x y : Interp α}
-    (h : ∀ a, x = .ok a → y = .ok a) : Interp.isRefinedBy Eq x y := by
-  cases x with
-  | ok a => rw [h a rfl]; exact Interp.isRefinedBy_eq_refl _
-  | _ => simp [Interp.isRefinedBy]
-
-/-- A refinement followed by a computation that succeeds with the same result. -/
-theorem Interp.isRefinedBy_trans_eq {α β : Type} {R : α → β → Prop} {s : Interp α}
-    {t t' : Interp β} (h : Interp.isRefinedBy R s t) (h' : Interp.isRefinedBy Eq t t') :
-    Interp.isRefinedBy R s t' := by
-  cases s <;> cases t <;> cases t' <;> simp_all [Interp.isRefinedBy]
-
 theorem FunctionOp.isRefinedBy_trans
     (h12 : isRefinedBy func₁ func₂ op₁In op₂In)
     (h23 : isRefinedBy func₂ func₃ op₂In op₃In) :
