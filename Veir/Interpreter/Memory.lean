@@ -301,15 +301,14 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | _ => none
 
 /--
-  Loads a `w`-bit integer from `p`, poison only if every bit is (see `LLVM.Byte.toFrozenInt`).
+  Loads a `w`-bit integer from `p`. It is poison if any bit is, as an integer `llvmLoad`, so
+  translating `llvm.load` to `g_load` is exact, and splitting a `g_load` is a refinement.
   Yields UB if the access is out of bounds or `p` is null.
-
-  TODO: With CTrees, freeze the poison bits nondeterministically.
 -/
-def MemoryState.frozenLoad (mem : MemoryState) (p : Pointer) (w : Nat)
+def MemoryState.intLoad (mem : MemoryState) (p : Pointer) (w : Nat)
     : Interp (Data.LLVM.Int w) := do
   if p = .null then Interp.ub none else
-  return LLVM.Byte.toFrozenInt (← mem.loadByte p w)
+  return (← mem.loadByte p w).toInt
 
 /-- The type `b8`, which keeps the poison bits of a byte loaded from memory. -/
 def byte8Type : TypeAttr := TypeAttr.of LLVM.ByteType ⟨8⟩
