@@ -38,6 +38,12 @@ def createConstant (type : Handle OpCode .type) (value : Int) :
 
 end
 
+/-- The type groups of `opcode` that may hold pointers: the values of a `g_select`, the operands of a
+`g_icmp` and the address of a `g_load`. -/
+def mayHoldPointer : GMIR → TypeGroup → Bool
+  | .g_select, .type 0 | .g_icmp, .type 1 | .g_load, .type 1 => true
+  | _, _ => false
+
 /--
 Widens type group `typeIdx` of `opcode` to `width` bits. Its operands are extended with `extOpcode`
 and its results are truncated back, as in LLVM's `LegalizerHelper::widenScalar`.
@@ -46,11 +52,14 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
     (updateProps : propertiesOf (OpCode.gmir opcode) → propertiesOf (OpCode.gmir opcode) := id) :
     Pattern OpCode :=
   let info := opcode.genericOpInfo
-  let matchType (group : TypeGroup) : MatchProg.Builder (Handle OpCode .type) :=
-    if group = typeIdx then MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-    else MatchProg.type (Attr := TypeAttr)
   Pattern.Builder
     (do
+      let groupType ← MatchProg.type (Attr := IntegerType)
+        (fun t => 0 < t.bitwidth && t.bitwidth < width)
+      let matchType (group : TypeGroup) : MatchProg.Builder (Handle OpCode .type) :=
+        if group = typeIdx then pure groupType
+        else if mayHoldPointer opcode group then MatchProg.type (Attr := TypeAttr)
+        else MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ width)
       let operands ← info.inOperandList.mapM fun group => do MatchProg.value (← matchType group)
       let resultTypes ← info.outOperandList.mapM matchType
       let root ← MatchProg.root (.gmir opcode) operands resultTypes
@@ -85,7 +94,7 @@ def clearDisjointProperties (props : DisjointProperties) : DisjointProperties :=
 def widenConstant (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => 0 < t.bitwidth && t.bitwidth < width)
       let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
       return (type, root))
     (fun (type, root) => do
@@ -121,7 +130,7 @@ ensure by widening it first.
 -/
 def widenCtlzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_ctlz (· < width) (· = width))
+    (matchUnary .g_ctlz (fun w => 0 < w && w < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_zext) #[src] #[resType]
       let ctlz ← CreateProg.operation (.gmir .g_ctlz) #[ext.res[0]!] #[resType]
@@ -139,7 +148,7 @@ must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_cttz (· < width) (· = width))
+    (matchUnary .g_cttz (fun w => 0 < w && w < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
@@ -154,7 +163,7 @@ bits, so it is shifted back down before it is truncated, as in LLVM's `Legalizer
 def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => 0 < t.bitwidth && t.bitwidth < width)
       let src ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[src] #[type]
       return (type, src))
@@ -395,8 +404,8 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
     | _ => (.g_sub, .g_zext)
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let ovType ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => 0 < t.bitwidth && t.bitwidth < width)
+      let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
