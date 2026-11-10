@@ -4,7 +4,7 @@
 // RUN: ALIVE_EXEC_CHECK
 
 // A pointer past the end of `%p` that lies in `%q` stores to `%q`: we do not
-// yet model provenance, so an access may reach any object that holds its bytes.
+// yet model provenance, so an access may access data in any object.
 //
 // llubi and alive-exec report undefined behaviour instead, as the store is out
 // of the bounds of `%p`, whose provenance `%past` carries.
