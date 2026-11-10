@@ -473,6 +473,7 @@ def zextw_slliw_lbu_pattern (shamt : BitVec 64) : Puddle.Pattern OpCode :=
 def zextw_slliw_lbu (shamt : BitVec 64) : CombineRule :=
   [(zextw_slliw_lbu_pattern shamt)]
 
+@[riscv_pattern]
 def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
   let addrType ← Puddle.MatchProg.type (Attr := RegisterType)
   let addr ← Puddle.MatchProg.value addrType

@@ -324,68 +324,94 @@ theorem sexth_li_low16 {c : BitVec 64} (h : (!decide (c.toInt < -32768 ∨ c.toI
 
 /-! ## Byte-load and byte-packing combines.
 
-    The register-level model below represents the byte fetched from memory by
-    an arbitrary `Reg`: `lbu` produces its `zextb` form. These combines reuse
-    existing load results without moving or recreating memory accesses; the
-    equalities here establish the value transformations. -/
+    A load returns the bytes it read, extended to a register: `lbu` the byte `x`
+    zero-extended, `⟨x.setWidth 64⟩`. These combines reuse the load results without
+    moving or recreating memory accesses; the equalities here establish the value
+    transformations. The immediates are those of the matched (`p`, `q`) and created
+    (`r`) operations, fixed by the matchers' guards. -/
 
-/-- `zextb (lbu byte) = lbu byte`: an unsigned byte load is already
-    zero-extended. -/
-theorem zextb_lbu {byte : Reg} :
-    RISCV.zextb (RISCV.zextb byte) = RISCV.zextb byte := by
+/-- `zextb (lbu x) = lbu x`: an unsigned byte load is already zero-extended. -/
+theorem zextb_lbu {x : BitVec 8} :
+    RISCV.zextb ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
   veir_bv_decide
 
-/-- `andi 255 (lbu byte) = lbu byte`: an unsigned byte load is already masked.
-    The combine reuses the existing load result. -/
-theorem andi_255_lbu {byte : Reg} :
-    RISCV.andi 255 (RISCV.zextb byte) = RISCV.zextb byte := by
-  veir_bv_decide
+/-- `andi 255 (lbu x) = lbu x`: an unsigned byte load is already masked. -/
+theorem andi_255_lbu {x : BitVec 8} {p : RISCVImmediateProperties} (hp : p.value = 255#64) :
+    RISCV.andi (p.immField 12) ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
+  guarded_bv_decide
 
 /-- The byte-packing pre-canonicalization is valid for each selected shift:
     a word shift of a zero-extended byte, followed by `zextw`, is the same as
     the corresponding full-width shift. -/
-theorem zextw_slliw_lbu_8 {byte : Reg} :
-    RISCV.zextw (RISCV.slliw 8 (RISCV.zextb byte)) = RISCV.slli 8 (RISCV.zextb byte) := by
-  veir_bv_decide
+theorem zextw_slliw_lbu_8 {x : BitVec 8} {p q : RISCVImmediateProperties}
+    (hp : p.value = 8#64) (hq : q.value = 8#64) :
+    RISCV.zextw (RISCV.slliw (p.immField 5) ⟨x.setWidth 64⟩) =
+      RISCV.slli (q.immField 6) ⟨x.setWidth 64⟩ := by
+  guarded_bv_decide
 
-theorem zextw_slliw_lbu_16 {byte : Reg} :
-    RISCV.zextw (RISCV.slliw 16 (RISCV.zextb byte)) = RISCV.slli 16 (RISCV.zextb byte) := by
-  veir_bv_decide
+theorem zextw_slliw_lbu_16 {x : BitVec 8} {p q : RISCVImmediateProperties}
+    (hp : p.value = 16#64) (hq : q.value = 16#64) :
+    RISCV.zextw (RISCV.slliw (p.immField 5) ⟨x.setWidth 64⟩) =
+      RISCV.slli (q.immField 6) ⟨x.setWidth 64⟩ := by
+  guarded_bv_decide
 
-theorem zextw_slliw_lbu_24 {byte : Reg} :
-    RISCV.zextw (RISCV.slliw 24 (RISCV.zextb byte)) = RISCV.slli 24 (RISCV.zextb byte) := by
-  veir_bv_decide
+theorem zextw_slliw_lbu_24 {x : BitVec 8} {p q : RISCVImmediateProperties}
+    (hp : p.value = 24#64) (hq : q.value = 24#64) :
+    RISCV.zextw (RISCV.slliw (p.immField 5) ⟨x.setWidth 64⟩) =
+      RISCV.slli (q.immField 6) ⟨x.setWidth 64⟩ := by
+  guarded_bv_decide
 
 /-- `or (lbu lo) (slli (lbu hi), 8) -> packh lo hi`.
 
     `RISCV.or` takes its operands as `(rs2, rs1)`, so the register-level
     expression lists the shifted `hi` before `lo`. -/
-theorem packh_low_bytes {lo hi : Reg} :
-    RISCV.or (RISCV.slli 8 (RISCV.zextb hi)) (RISCV.zextb lo) =
-      RISCV.packh (RISCV.zextb hi) (RISCV.zextb lo) := by
-  veir_bv_decide
+theorem packh_low_bytes {lo hi : BitVec 8} {p : RISCVImmediateProperties} (hp : p.value = 8#64) :
+    RISCV.or (RISCV.slli (p.immField 6) ⟨hi.setWidth 64⟩) ⟨lo.setWidth 64⟩ =
+      RISCV.packh ⟨hi.setWidth 64⟩ ⟨lo.setWidth 64⟩ := by
+  guarded_bv_decide
 
 /-- `or (slli (lbu hi), 8) (lbu lo) -> packh lo hi`. -/
-theorem packh_low_bytes_commuted {lo hi : Reg} :
-    RISCV.or (RISCV.zextb lo) (RISCV.slli 8 (RISCV.zextb hi)) =
-      RISCV.packh (RISCV.zextb hi) (RISCV.zextb lo) := by
-  veir_bv_decide
+theorem packh_low_bytes_commuted {lo hi : BitVec 8} {p : RISCVImmediateProperties}
+    (hp : p.value = 8#64) :
+    RISCV.or ⟨lo.setWidth 64⟩ (RISCV.slli (p.immField 6) ⟨hi.setWidth 64⟩) =
+      RISCV.packh ⟨hi.setWidth 64⟩ ⟨lo.setWidth 64⟩ := by
+  guarded_bv_decide
 
-/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) ->
-    slli (packh b2 b3), 16`.
+/-- `or (slli (lbu b2), 16) (slli (lbu b3), 24) -> slli (packh b2 b3), 16`.
 
     `RISCV.or` takes its operands as `(rs2, rs1)`, so the register-level
     expression lists the `b3` shift before the `b2` shift. -/
-theorem packh_high_bytes {b2 b3 : Reg} :
-    RISCV.or (RISCV.slli 24 (RISCV.zextb b3)) (RISCV.slli 16 (RISCV.zextb b2)) =
-      RISCV.slli 16 (RISCV.packh (RISCV.zextb b3) (RISCV.zextb b2)) := by
+theorem packh_high_bytes {b2 b3 : BitVec 8} {p q r : RISCVImmediateProperties}
+    (hp : p.value = 24#64) (hq : q.value = 16#64) (hr : r.value = 16#64) :
+    RISCV.or (RISCV.slli (p.immField 6) ⟨b3.setWidth 64⟩) (RISCV.slli (q.immField 6) ⟨b2.setWidth 64⟩) =
+      RISCV.slli (r.immField 6) (RISCV.packh ⟨b3.setWidth 64⟩ ⟨b2.setWidth 64⟩) := by
+  guarded_bv_decide
+
+/-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) -> slli (packh b2 b3), 16`. -/
+theorem packh_high_bytes_commuted {b2 b3 : BitVec 8} {p q r : RISCVImmediateProperties}
+    (hp : p.value = 16#64) (hq : q.value = 24#64) (hr : r.value = 16#64) :
+    RISCV.or (RISCV.slli (p.immField 6) ⟨b2.setWidth 64⟩) (RISCV.slli (q.immField 6) ⟨b3.setWidth 64⟩) =
+      RISCV.slli (r.immField 6) (RISCV.packh ⟨b3.setWidth 64⟩ ⟨b2.setWidth 64⟩) := by
+  guarded_bv_decide
+
+/-! ## `sextw` of a load
+
+    A signed load sign-extends its value to the register and an unsigned one zero-extends it, so
+    the value is already a sign-extended word. -/
+
+theorem sextw_lw {x : BitVec 32} : RISCV.sextw ⟨x.signExtend 64⟩ = ⟨x.signExtend 64⟩ := by
   veir_bv_decide
 
-/-- `or (slli (lbu b3), 24) (slli (lbu b2), 16) ->
-    slli (packh b2 b3), 16`. -/
-theorem packh_high_bytes_commuted {b2 b3 : Reg} :
-    RISCV.or (RISCV.slli 16 (RISCV.zextb b2)) (RISCV.slli 24 (RISCV.zextb b3)) =
-      RISCV.slli 16 (RISCV.packh (RISCV.zextb b3) (RISCV.zextb b2)) := by
+theorem sextw_lh {x : BitVec 16} : RISCV.sextw ⟨x.signExtend 64⟩ = ⟨x.signExtend 64⟩ := by
+  veir_bv_decide
+
+theorem sextw_lb {x : BitVec 8} : RISCV.sextw ⟨x.signExtend 64⟩ = ⟨x.signExtend 64⟩ := by
+  veir_bv_decide
+
+theorem sextw_lhu {x : BitVec 16} : RISCV.sextw ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
+  veir_bv_decide
+
+theorem sextw_lbu {x : BitVec 8} : RISCV.sextw ⟨x.setWidth 64⟩ = ⟨x.setWidth 64⟩ := by
   veir_bv_decide
 
 /-! ## Extensions of bitwise operations
@@ -540,12 +566,11 @@ theorem drop_sextw_sb {rs1 : Reg} :
       (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 1 :=
   toByteArrayLE_extract_one (by veir_bv_decide)
 
-/-! ## Extensions of `x0` (not CTree-certified, see `Veir.Passes.RISCVCombines.Validity`)
+/-! ## Extensions of `x0`
 
 `riscv.<ext> x0 -> x0` (`ext_x0_pattern`). The normalized validity goal is `<ext> r = r` for the
-register `r` read from `x0`. That `r` is zero is a fact of the interpreter, not of the `Reg`
-algebra, so each lemma takes it as a hypothesis; the semantic model does not provide it yet (see
-`X0ReadsZero` in `Veir.Passes.RISCVCombines.Validity.Remaining`). -/
+register `r` read from `x0`. That `r` is zero is a fact of the semantics (`RuntimeValue.Conforms`
+of the `x0` register type), not of the `Reg` algebra, so each lemma takes it as a hypothesis. -/
 
 theorem zextw_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zextw r = r := by
   subst h
@@ -715,7 +740,7 @@ theorem sextw_zexth {rs1 : Reg} :
 /-- `sextw_lbu`: an unsigned byte load is already a sign-extended word. -/
 theorem sextw_zextb {rs1 : Reg} :
     RISCV.sextw (RISCV.zextb rs1) = RISCV.zextb rs1 := by
-  sorry
+  veir_bv_decide
 
 theorem sextw_packh {rs1 rs2 : Reg} :
     RISCV.sextw (RISCV.packh rs2 rs1) = RISCV.packh rs2 rs1 := by

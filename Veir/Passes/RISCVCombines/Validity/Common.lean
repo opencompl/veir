@@ -73,6 +73,25 @@ elab "casesConformingValues" : tactic => do
   let goals ← getGoals
   setGoals (← goals.flatMapM fun goal => casesConformingValues goal)
 
+open Lean Meta in
+/-- Split, recursively, each local conjunction and existential, such as the result and memory
+equations of a matched operation (see `Puddle.CTree.CanInterpretTo`) or the bytes a load read. -/
+meta partial def casesAnds (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    for decl in ← getLCtx do
+      if decl.isImplementationDetail then continue
+      let type ← instantiateMVars decl.type
+      unless type.isAppOfArity ``And 2 || type.isAppOfArity ``Exists 2 do continue
+      let subgoals ← goal.cases decl.fvarId
+      return (← subgoals.toList.mapM fun subgoal => casesAnds subgoal.mvarId).flatten
+    return [goal]
+
+open Lean Elab Tactic in
+/-- Split every local conjunction and existential. -/
+elab "casesAnds" : tactic => do
+  let goals ← getGoals
+  setGoals (← goals.flatMapM fun goal => casesAnds goal)
+
 /-- Unfold the operation semantics of a goal produced by `simpPuddleValid`. -/
 macro "simpCombineSemantics" : tactic => `(tactic|
   simp [ctree_semantics, Sim.bind_monadLift_right_iff])
@@ -83,7 +102,10 @@ an operation's result equation only appears once its operands are known register
 macro "normalizeCombineValid" : tactic => `(tactic| (
   intros
   casesConformingValues
-  iterate 4 (all_goals (try simp_all [RuntimeValue.isRefinedBy]); all_goals (try subst_vars))))
+  iterate 4 (
+    all_goals (try simp_all [RuntimeValue.isRefinedBy])
+    all_goals (try casesAnds)
+    all_goals (try subst_vars))))
 
 /-- Prove the validity of a combine pattern, closing each
 remaining register equality with the local correctness lemma `lemma` from
