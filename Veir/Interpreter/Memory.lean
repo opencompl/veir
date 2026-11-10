@@ -199,6 +199,16 @@ def MemoryState.ptrFromInt (mem : MemoryState) : Data.LLVM.Int 64 → Ptr
   | .val v => .val (mem.decode (UInt64.ofBitVec v))
   | .poison => .poison
 
+/--
+  Store the `w` bits of `val` in `w / 8` bytes at `p`, with the bits set in `poison` poison.
+  Yields UB if the access is out of bounds.
+-/
+def MemoryState.storeBits {w : Nat} (mem : MemoryState) (p : Pointer) (val poison : BitVec w)
+    : Interp MemoryState :=
+  let bytes (v : BitVec w) : ByteArray :=
+    ⟨Array.ofFn fun (i : Fin (w / 8)) => UInt8.ofBitVec (v.extractLsb' (8 * i) 8)⟩
+  mem.store p (bytes val) (bytes poison) (by simp [bytes, ByteArray.size])
+
 /-- Store the 64 bits of `v`, poison bits included, at `p`. -/
 def MemoryState.storeByte64 (mem : MemoryState) (p : Pointer) (v : Data.LLVM.Byte 64)
     : Interp MemoryState :=
@@ -212,15 +222,16 @@ def MemoryState.llvmStore (mem : MemoryState) (p : Pointer) (val : RuntimeValue)
     : Interp MemoryState :=
   if p = .null then Interp.ub none else
   match val with
-  | .int 8 (.val v) => mem.store p (ByteArray.empty.push (UInt8.ofBitVec v))
-  | .int 16 (.val v) => mem.store p (UInt16.ofBitVec v).toByteArrayLE
-  | .int 32 (.val v) => mem.store p (UInt32.ofBitVec v).toByteArrayLE
-  | .int 64 (.val v) => mem.store p (UInt64.ofBitVec v).toByteArrayLE
+  | .int n v =>
+      -- An integer takes the fewest whole bytes that hold it; the bits past it are poison.
+      let w := 8 * ((n + 7) / 8)
+      match v with
+      | .val v => mem.storeBits p (v.setWidth w) (BitVec.allOnes w <<< n)
+      | .poison => mem.empoison p (w / 8)
   | .byte 8 v =>
       mem.store p (ByteArray.empty.push (UInt8.ofBitVec v.val))
         (ByteArray.empty.push (UInt8.ofBitVec v.poison)) (by simp)
   | .byte 64 v => mem.storeByte64 p v
-  | .int n .poison => mem.empoison p (n / 8)
   | .addr q => mem.storeByte64 p q.toByte
   | _ => none
 
@@ -297,6 +308,11 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
       let ba ← mem.load p 8
       if ← mem.hasPoison p 8 then return .int 64 .poison
       return .int 64 (.val (BitVec.ofNat 64 ba.toUInt64LE!.toNat))
+  | Attribute.integerType { bitwidth := n, .. } =>
+      -- The bits past the `n` bits of the value, up to the next whole byte, are ignored.
+      let b ← mem.loadByte p (8 * ((n + 7) / 8))
+      if b.poison.truncate n ≠ 0 then return .int n .poison
+      return .int n (.val (b.val.truncate n))
   | Attribute.byteType { bitwidth := 8 } =>
       return .byte 8 (← mem.loadByte p 8)
   | Attribute.byteType { bitwidth := 64 } =>
@@ -318,8 +334,9 @@ theorem MemoryState.llvmLoad_wildcard_of_ok {mem : MemoryState} {p : Pointer} {t
   · simp [hnull]
   simp only [hnull, Pointer.wildcard_ne_null, ↓reduceIte]
   split <;> (try simp only [MemoryState.load, MemoryState.loadPoison, MemoryState.hasPoison,
-    MemoryState.loadByte, Nat.reduceMod, Nat.reduceDiv, ne_eq, not_true_eq_false, ↓reduceIte,
-    bind_assoc, pure_bind, Interp.bind_bind_self, Pointer.wildcard_address]) <;>
+    MemoryState.loadByte, Nat.reduceMod, Nat.reduceDiv, Nat.mul_mod_right, ne_eq,
+    not_true_eq_false, ↓reduceIte, bind_assoc, pure_bind, Interp.bind_bind_self,
+    Pointer.wildcard_address]) <;>
     first
       | exact MemoryState.bind_checkAccess_wildcard_of_ok
       | exact id
