@@ -25,8 +25,7 @@ namespace Veir.RISCV
   added to the pattern list in `Combine.impl`.
 
   The generic GlobalISel combines run on gMIR in `postlegalizer-combiner-riscv64` (see
-  `Veir.Passes.Legalization.CombinerHelper`). The funnel-shift combines here still match the
-  LLVM dialect, because gMIR has no `g_fshl` or `g_fshr` yet.
+  `Veir.Passes.Legalization.CombinerHelper`).
 -/
 
 /-- riscv.add x 0 -> x -/
@@ -1135,130 +1134,6 @@ def sextb_li_low8 := ext_li_range .sextb (-128) 128
 /-- `riscv.sexth (riscv.li v) -> riscv.li v` when `-2^15 ≤ v < 2^15`. -/
 def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 
-/-- The value of an integer `llvm.mlir.constant` with properties `props` and result type `type`,
-    read as a signed integer at the type's width, as `matchConstantIntVal` reads it. -/
-def llvmConstantIntVal? (props : LLVMConstantProperties) (type : TypeAttr) : Option Int := do
-  let .integer attr := props.value | none
-  let .integerType t := type.val | none
-  return (BitVec.ofInt t.bitwidth attr.value).toInt
-
-/-- Match the funnel shift `fsh x, y, amt` whose amount `amt` is an `llvm.mlir.constant`, returning
-    `x`, `y`, the amount's type and properties, and the result type. -/
-def matchFunnelShiftConstAmt (fsh : Llvm) :
-    Puddle.MatchProg.Builder (Puddle.Handle OpCode .value × Puddle.Handle OpCode .value ×
-      Puddle.Handle OpCode .type × Puddle.Handle OpCode (.prop (.llvm .mlir__constant)) ×
-      Puddle.Handle OpCode .type) := do
-  let xType ← Puddle.MatchProg.type (Attr := TypeAttr)
-  let x ← Puddle.MatchProg.value xType
-  let yType ← Puddle.MatchProg.type (Attr := TypeAttr)
-  let y ← Puddle.MatchProg.value yType
-  let amtType ← Puddle.MatchProg.type (Attr := TypeAttr)
-  let amt ← Puddle.MatchProg.operation (.llvm .mlir__constant) #[] #[amtType]
-  let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
-  let _ ← Puddle.MatchProg.root (.llvm fsh) #[x, y, amt.res[0]!] #[resultType]
-  return (x, y, amtType, amt.properties, resultType)
-
-/-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
-
-/-- `fsh x, y, 0` -> `y` if `keepRight`, and `x` otherwise. -/
-def funnel_shift_zero_pattern (fsh : Llvm) (keepRight : Bool) : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let (x, y, amtType, amtProps, _) ← matchFunnelShiftConstAmt fsh
-      Puddle.MatchProg.matchNative (amtProps, amtType)
-        fun (props, type) => llvmConstantIntVal? props type = some 0
-      return if keepRight then y else x)
-    pure
-    (fun kept => kept)
-
-def funnel_shift_right_zero : Puddle.CompiledPattern OpCode :=
-  (funnel_shift_zero_pattern .intr__fshr true).compile
-
-def funnel_shift_left_zero : Puddle.CompiledPattern OpCode :=
-  (funnel_shift_zero_pattern .intr__fshl false).compile
-
-/-! ### funnel_shift_overshift :  fshl/fshr x, y, C → fshl/fshr x, y, (C % bw)   (C ≥ bw)
-
-  A funnel shift amount is taken modulo the bit-width, so an over-large constant
-  amount is reduced to its residue. -/
-
-/-- The properties of the amount `C % bw` that replaces the constant amount `C` of type `type`
-    (with `bw` its width), if `C ≥ bw`. -/
-def overshiftAmount? (props : LLVMConstantProperties) (type : TypeAttr) :
-    Option LLVMConstantProperties := do
-  let c ← llvmConstantIntVal? props type
-  let .integerType aty := type.val | none
-  let bw : Int := (aty.bitwidth : Int)
-  if c < bw then none
-  return LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt (c % bw) aty))
-
-def funnel_shift_overshift_pattern (fsh : Llvm) : Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let (x, y, amtType, amtProps, resultType) ← matchFunnelShiftConstAmt fsh
-      Puddle.MatchProg.matchNative (amtProps, amtType)
-        fun (props, type) => (overshiftAmount? props type).isSome
-      return (x, y, amtType, amtProps, resultType))
-    (fun (x, y, amtType, amtProps, resultType) => do
-      let newAmtProps ← Puddle.CreateProg.applyNative
-          (Outputs := Puddle.Handle OpCode (.prop (.llvm .mlir__constant))) (amtProps, amtType)
-          fun (props, type) => overshiftAmount? props type
-      let newAmt ← Puddle.CreateProg.operation (.llvm .mlir__constant) #[] #[amtType]
-          (.inr newAmtProps)
-      Puddle.CreateProg.operation (.llvm fsh) #[x, y, newAmt.res[0]!] #[resultType])
-    (fun op => op)
-
-def funnel_shift_overshift_l : Puddle.CompiledPattern OpCode :=
-  (funnel_shift_overshift_pattern .intr__fshl).compile
-
-def funnel_shift_overshift_r : Puddle.CompiledPattern OpCode :=
-  (funnel_shift_overshift_pattern .intr__fshr).compile
-
-/-! ### funnel_shift_or_shift_to_funnel_shift_{left,right}
-
-  `(fshl x, z, y) | (shl x, y) → fshl x, z, y` and the mirror
-  `(fshr z, x, y) | (lshr x, y) → fshr z, x, y`. The plain shift is subsumed by
-  the funnel shift that already produces the wanted bits, so the OR collapses to
-  the existing funnel-shift value. G_OR is commutative: both operand orders are
-  handled. -/
-
-/-- `or (fsh …) (shift x, y)` (or `or (shift x, y) (fsh …)` unless `fshFirst`) -> `fsh …`, where
-    `fsh` is `fshl x, z, y` if `left` and `fshr z, x, y` otherwise. -/
-def funnel_shift_or_shift_pattern (fsh shift : Llvm) (left fshFirst : Bool) :
-    Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let xType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let x ← Puddle.MatchProg.value xType
-      let yType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let y ← Puddle.MatchProg.value yType
-      let zType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let z ← Puddle.MatchProg.value zType
-      let fshType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let fshOp ← Puddle.MatchProg.operation (.llvm fsh)
-        (if left then #[x, z, y] else #[z, x, y]) #[fshType]
-      let shiftType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let shiftOp ← Puddle.MatchProg.operation (.llvm shift) #[x, y] #[shiftType]
-      let orType ← Puddle.MatchProg.type (Attr := TypeAttr)
-      let _ ← Puddle.MatchProg.root (.llvm .or)
-        (if fshFirst then #[fshOp.res[0]!, shiftOp.res[0]!] else #[shiftOp.res[0]!, fshOp.res[0]!])
-        #[orType]
-      return fshOp.res[0]!)
-    pure
-    (fun kept => kept)
-
-/-- Tries the funnel shift as the first `or` operand, then as the second. -/
-def funnel_shift_or_shift_to_funnel_shift_left : Puddle.CompiledPattern OpCode :=
-  ⟨RewritePattern.GreedyRewritePattern <| #[
-    (funnel_shift_or_shift_pattern .intr__fshl .shl true true).compile,
-    (funnel_shift_or_shift_pattern .intr__fshl .shl true false).compile].map (·.run)⟩
-
-/-- Tries the funnel shift as the first `or` operand, then as the second. -/
-def funnel_shift_or_shift_to_funnel_shift_right : Puddle.CompiledPattern OpCode :=
-  ⟨RewritePattern.GreedyRewritePattern <| #[
-    (funnel_shift_or_shift_pattern .intr__fshr .lshr false true).compile,
-    (funnel_shift_or_shift_pattern .intr__fshr .lshr false false).compile].map (·.run)⟩
-
 /-- Keep the compiled patterns as closed data so their matchers and rewrite closures are
 initialized once and reused for every operation. -/
 private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
@@ -1426,12 +1301,6 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , sextb_li_low8
      , sexth_li_low16
      , li_zero_to_x0
-     , funnel_shift_right_zero
-     , funnel_shift_left_zero
-     , funnel_shift_overshift_l
-     , funnel_shift_overshift_r
-     , funnel_shift_or_shift_to_funnel_shift_left
-     , funnel_shift_or_shift_to_funnel_shift_right
      ,
      ]
 
