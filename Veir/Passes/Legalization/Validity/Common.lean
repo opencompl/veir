@@ -34,6 +34,10 @@ opcode metadata to `simp` with local attributes (see `Validity/Basic.lean`). Eac
 `Veir.Passes.Legalization.Validity`. -/
 register_simp_attr legalization_status
 
+/-- The `Pattern.Valid` proof of each gMIR combine, looked up by the theorems of
+`Veir.Passes.Legalization.Validity` that every combine of the combiner passes is valid. -/
+register_simp_attr combine_valid
+
 namespace Veir.Legalization.CTreeProofs
 
 open Puddle
