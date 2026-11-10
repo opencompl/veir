@@ -90,13 +90,14 @@ partial def allocateGlobals (ctx : WfIRContext OpCode) (op : Option OperationPtr
       let some size := DataLayout.riscv64.getTypeAllocSize props.global_type.val
         | IO.eprintln s!"error: cannot size global {name}"; IO.Process.exit 1
       let (mem, ptr) ← expectOk name (mem.alloc size.toUInt64)
-      pure ({ mem with globals := mem.globals.insert name ptr.object }, pending.push (op, ptr))
+      pure ({ mem with globals := mem.globals.insert name (ptr.object.getD 0) },
+        pending.push (op, ptr))
     | _ =>
       match FunctionOp.of? op raw with
       | some funcOp =>
         let name := "@" ++ String.fromUTF8! funcOp.getSymName.value
         let (mem, ptr) ← expectOk name (mem.alloc 0)
-        pure ({ mem with globals := mem.globals.insert name ptr.object }, pending)
+        pure ({ mem with globals := mem.globals.insert name (ptr.object.getD 0) }, pending)
       | none => pure (mem, pending)
   allocateGlobals ctx (op.getNextOp! raw) mem pending
 
