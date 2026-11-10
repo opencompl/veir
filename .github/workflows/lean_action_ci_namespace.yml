@@ -58,7 +58,6 @@ jobs:
 
       # `lit` and `filecheck` come from the image, so there is nothing to
       # install and no virtualenv to activate.
-      # `-Dctree=1` -- also enable the ctree tests (which take a bit of time),
-      # which only this workflow does, as it has the cores to spare.
+      # `-Dctree=1` -- also enable the ctree tests (which take a bit of time)
       - name: Run filecheck tests
         run: lit Test/ -v -Dctree=1
