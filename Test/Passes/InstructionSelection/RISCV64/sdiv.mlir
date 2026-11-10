@@ -7,12 +7,11 @@
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.div"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        // CHECK-NEXT: %[[R:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        // The flags are dropped when selecting, so `cse` merges both.
+        // CHECK-NEXT: "test.test"(%[[R]]) : (i64) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (i64) -> ()
         %sdiv_exact = "llvm.sdiv"(%a, %b) <{isExact}> : (i64, i64) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.div"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
 
         "test.test"(%sdiv) : (i64) -> ()
         "test.test"(%sdiv_exact) : (i64) -> ()

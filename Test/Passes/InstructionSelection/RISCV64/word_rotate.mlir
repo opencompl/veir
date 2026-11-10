@@ -33,7 +33,11 @@
         %c = "llvm.mlir.constant"() <{value = 0 : i32}> : () -> i32
         %l = "llvm.intr.fshl"(%a, %a, %c) : (i32, i32, i32) -> i32
         %r = "llvm.intr.fshr"(%a, %a, %c) : (i32, i32, i32) -> i32
-        // CHECK-COUNT-2: %{{.*}} = "riscv.roriw"(%{{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+        // Both select to the same `roriw`, which `cse` merges.
+        // CHECK: %[[R:.*]] = "riscv.roriw"(%{{.*}}) <{"value" = 0 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT: %[[C:.*]] = "builtin.unrealized_conversion_cast"(%[[R]]) : (!riscv.reg) -> i32
+        // CHECK-NEXT: "test.test"(%[[C]]) : (i32) -> ()
+        // CHECK-NEXT: "test.test"(%[[C]]) : (i32) -> ()
         "test.test"(%l) : (i32) -> ()
         "test.test"(%r) : (i32) -> ()
         "func.return"() : () -> ()

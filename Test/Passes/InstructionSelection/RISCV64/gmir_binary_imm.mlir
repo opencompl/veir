@@ -11,13 +11,13 @@
         %c2048 = "gmir.g_constant"() <{value = 2048 : i64}> : () -> i64
         %c63 = "gmir.g_constant"() <{value = 63 : i64}> : () -> i64
         %c64 = "gmir.g_constant"() <{value = 64 : i64}> : () -> i64
-        // CHECK:      "riscv.addi"(%{{.*}}) <{"value" = 5 : i64}>
+        // CHECK:      %[[ADD:.*]] = "riscv.addi"(%{{.*}}) <{"value" = 5 : i64}>
+        // CHECK-NEXT: %[[ADDC:.*]] = "builtin.unrealized_conversion_cast"(%[[ADD]])
         %add = "gmir.g_add"(%x, %c5) : (i64, i64) -> i64
         // The post-legalizer combiner turns `x - 5` into `x + -5`.
         // CHECK:      "riscv.addi"(%{{.*}}) <{"value" = -5 : i64}>
         %sub = "gmir.g_sub"(%x, %c5) : (i64, i64) -> i64
-        // The post-legalizer combiner moves the constant to the rhs.
-        // CHECK:      "riscv.addi"(%{{.*}}) <{"value" = 5 : i64}>
+        // The post-legalizer combiner moves the constant to the rhs; `cse` merges it with `%add`.
         %add_lhs = "gmir.g_add"(%c5, %x) : (i64, i64) -> i64
         // CHECK:      "riscv.andi"(%{{.*}}) <{"value" = -2048 : i64}>
         %and = "gmir.g_and"(%x, %c_neg2048) : (i64, i64) -> i64
@@ -40,6 +40,7 @@
         // CHECK:      "riscv.sub"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         %sub_lhs = "gmir.g_sub"(%c5, %x) : (i64, i64) -> i64
         "test.test"(%add, %sub, %add_lhs, %and, %or, %xor, %shl, %lshr, %ashr, %add_2048, %shl_64, %sub_lhs) : (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> ()
+        // CHECK: "test.test"(%[[ADDC]], %{{.*}}, %[[ADDC]],
         "llvm.return"() : () -> ()
     }) : () -> ()
 }) : () -> ()

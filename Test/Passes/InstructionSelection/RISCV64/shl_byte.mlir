@@ -9,28 +9,15 @@
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !llvm.byte<64>
+        // CHECK-NEXT: %[[R:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !llvm.byte<64>
+        // The flags are dropped when selecting, so `cse` merges all four.
+        // CHECK-NEXT: "test.test"(%[[R]]) : (!llvm.byte<64>) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (!llvm.byte<64>) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (!llvm.byte<64>) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (!llvm.byte<64>) -> ()
         %shl_nsw = "llvm.shl"(%a, %b) <{"overflowFlags" = 1 : i32}> : (!llvm.byte<64>, i64) -> !llvm.byte<64>
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<64>) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !llvm.byte<64>
         %shl_nuw = "llvm.shl"(%a, %b) <{"overflowFlags" = 2 : i32}> : (!llvm.byte<64>, i64) -> !llvm.byte<64>
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<64>) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !llvm.byte<64>
         %shl_nuw_nsw = "llvm.shl"(%a, %b) <{"overflowFlags" = 3 : i32}> : (!llvm.byte<64>, i64) -> !llvm.byte<64>
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!llvm.byte<64>) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.sll"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !llvm.byte<64>
         "test.test"(%shl) : (!llvm.byte<64>) -> ()
         "test.test"(%shl_nsw) : (!llvm.byte<64>) -> ()
         "test.test"(%shl_nuw) : (!llvm.byte<64>) -> ()

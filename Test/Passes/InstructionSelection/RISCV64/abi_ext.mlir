@@ -108,8 +108,8 @@
   // CHECK-NEXT: "riscv_cf.call"(%[[CS]]) <{"callee" = @ret_sext_i8}>
   // CHECK-NOT: riscv.sext
   // CHECK: "riscv_cf.call"(%{{.*}}) <{"callee" = @ret_any_i8}>
-  // CHECK: %[[CS2:.*]] = "riscv.sextb"(%{{.*}})
-  // CHECK-NEXT: "riscv_cf.call"(%[[CS2]]) <{"callee" = @take_sext_i8}>
+  // `cse` reuses the sign extension of `%c` passed to `ret_sext_i8`.
+  // CHECK-NEXT: "riscv_cf.call"(%[[CS]]) <{"callee" = @take_sext_i8}>
   // CHECK-NEXT: %[[SZ:.*]] = "riscv.zexth"(%{{.*}})
   // CHECK-NEXT: "riscv_cf.call"(%[[SZ]]) <{"callee" = @take_zext_i16}>
   // CHECK: %[[IZ:.*]] = "riscv.zextw"(%{{.*}})

@@ -32,11 +32,10 @@
     %loaded = "llvm.load"(%field) : (!llvm.ptr) -> i64
     // CHECK-LABEL: func.func @constant_field(
     // CHECK-SAME: %[[CP:.*]]: !llvm.ptr, %[[V:.*]]: i64)
-    // CHECK-NEXT: %[[STORE_BASE:.*]] = "builtin.unrealized_conversion_cast"(%[[CP]]) : (!llvm.ptr) -> !riscv.reg
+    // CHECK-NEXT: %[[BASE_REG:.*]] = "builtin.unrealized_conversion_cast"(%[[CP]]) : (!llvm.ptr) -> !riscv.reg
     // CHECK-NEXT: %[[VR:.*]] = "builtin.unrealized_conversion_cast"(%[[V]]) : (i64) -> !riscv.reg
-    // CHECK-NEXT: "riscv.sd"(%[[VR]], %[[STORE_BASE]]) <{"value" = 128 : i64}>
-    // CHECK-NEXT: %[[LOAD_BASE:.*]] = "builtin.unrealized_conversion_cast"(%[[CP]]) : (!llvm.ptr) -> !riscv.reg
-    // CHECK-NEXT: %[[LOADED:.*]] = "riscv.ld"(%[[LOAD_BASE]]) <{"value" = 128 : i64}>
+    // CHECK-NEXT: "riscv.sd"(%[[VR]], %[[BASE_REG]]) <{"value" = 128 : i64}>
+    // CHECK-NEXT: %[[LOADED:.*]] = "riscv.ld"(%[[BASE_REG]]) <{"value" = 128 : i64}>
     // CHECK-NEXT: %[[VALUE:.*]] = "builtin.unrealized_conversion_cast"(%[[LOADED]]) : (!riscv.reg) -> i64
     // CHECK-NEXT: "test.test"(%[[VALUE]])
     "test.test"(%loaded) : (i64) -> ()

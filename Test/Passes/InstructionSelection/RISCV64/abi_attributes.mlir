@@ -56,12 +56,11 @@
   // CHECK: "llvm.call"(%{{.*}}, %{{.*}}) <{"arg_attrs" = [{}, {"llvm.byval" = i64}], "callee" = @byval_arg}> : (i64, !llvm.ptr) -> ()
   // CHECK-NEXT: %[[NCALL:.*]] = "llvm.call"(%{{.*}}, %{{.*}}) <{"arg_attrs" = [{llvm.nest}, {}], "callee" = @nest_arg}> : (!llvm.ptr, i64) -> i64
   // CHECK-NEXT: %{{.*}} = "llvm.call"(%{{.*}}, %{{.*}}, %[[NCALL]]) <{"arg_attrs" = [{llvm.nest}, {}]}> : (!llvm.ptr, !llvm.ptr, i64) -> i64
+  // The three calls pass the same sign-extended `%b`, which `cse` computes once.
   // CHECK-NEXT: %[[SX:.*]] = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%[[SX]]) <{"callee" = @signext_arg}> : (!riscv.reg) -> !riscv.reg
-  // CHECK-NEXT: %[[ZX:.*]] = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
-  // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%[[ZX]]) <{"callee" = @zeroext_result}> : (!riscv.reg) -> !riscv.reg
-  // CHECK-NEXT: %[[ISX:.*]] = "riscv.sextw"(%{{.*}}) : (!riscv.reg) -> !riscv.reg
-  // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%{{.*}}, %[[ISX]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
+  // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%[[SX]]) <{"callee" = @zeroext_result}> : (!riscv.reg) -> !riscv.reg
+  // CHECK-NEXT: %{{.*}} = "riscv_cf.call"(%{{.*}}, %[[SX]]) : (!riscv.reg, !riscv.reg) -> !riscv.reg
   // CHECK: "riscv_cf.call"(%{{.*}}) <{"callee" = @ordinary}> : (!riscv.reg) -> !riscv.reg
   // CHECK-NEXT: "riscv_cf.return"() : () -> ()
 

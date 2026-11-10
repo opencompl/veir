@@ -7,22 +7,15 @@
         // CHECK:      %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
         // CHECK-NEXT: %{{.*}} = "riscv.mul"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        // CHECK-NEXT: %[[R:.*]] = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
+        // The flags are dropped when selecting, so `cse` merges all four.
+        // CHECK-NEXT: "test.test"(%[[R]]) : (i64) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (i64) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (i64) -> ()
+        // CHECK-NEXT: "test.test"(%[[R]]) : (i64) -> ()
         %mul_nsw = "llvm.mul"(%a, %b) <{"overflowFlags" = 1 : i32}> : (i64, i64) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.mul"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
         %mul_nuw = "llvm.mul"(%a, %b) <{"overflowFlags" = 2 : i32}> : (i64, i64) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.mul"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
         %mul_nuw_nsw = "llvm.mul"(%a, %b) <{"overflowFlags" = 3 : i32}> : (i64, i64) -> i64
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (i64) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "riscv.mul"(%{{.*}}, %{{.*}}) : (!riscv.reg, !riscv.reg) -> !riscv.reg
-        // CHECK-NEXT: %{{.*}} = "builtin.unrealized_conversion_cast"(%{{.*}}) : (!riscv.reg) -> i64
     
         "test.test"(%mul) : (i64) -> ()
         "test.test"(%mul_nsw) : (i64) -> ()
