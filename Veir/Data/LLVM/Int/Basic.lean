@@ -829,6 +829,12 @@ def ext {w₁ : Nat} (x : Int w₁) (w₂ : Nat) (msb : BitVec (w₂-w₁)) (_h 
   let val v := x | poison
   (val (msb ++ v)).cast (by grind)
 
+/-- Extending poison gives poison. -/
+@[simp]
+theorem poison_ext {w₁ w₂ : Nat} {msb : BitVec (w₂-w₁)} {h : w₁ < w₂} :
+    (poison : Int w₁).ext w₂ msb h = poison := by
+  rfl
+
 /--
 The `icmp` instruction takes three operands.
 The first operand is the condition code indicating the kind of comparison to perform.

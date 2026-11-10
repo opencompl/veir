@@ -1430,6 +1430,45 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | _, _ => none
 
+/-- `llvm.bitcast` of `val` to `type`, which reinterprets its bits. -/
+def Llvm.bitcastValue (mem : MemoryState) (val : RuntimeValue) (type : Attribute) :
+    Interp RuntimeValue :=
+  match val, type with
+  | .int bw1 _, .integerType ⟨bw2, _⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok (val)
+  | .int bw1 val', .byteType ⟨bw2⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
+  | .byte bw1 _, .byteType ⟨bw2⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok (val)
+  | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
+  | .byte bw val', .llvmPointerType _ =>
+      if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
+  | .addr _, .llvmPointerType _ => .ok (val)
+  | .addr val', .byteType ⟨bw⟩ =>
+      if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
+  | _, _ => none
+
+/--
+  The operand of `llvm.getelementptr` at `position` among its dynamic indices, or the default
+  value if there is none, as `GEPIndex.decode` reads it.
+-/
+def Llvm.gepOperand (operands : Array RuntimeValue) : Option Nat → RuntimeValue
+  | some i => (operands.extract 1)[i]!
+  | none => default
+
+/--
+  A dynamic index of `llvm.getelementptr`, at its position, with its stride: its signed value,
+  sign-extended to the pointer width, or `none` if it is poison. An index that is not an
+  integer cannot be read.
+-/
+def Llvm.gepIndex (operands : Array RuntimeValue) (entry : Option Nat × Nat) :
+    Option (Option Int × Nat) :=
+  match Llvm.gepOperand operands entry.1 with
+  | .int _ (.val idx) => some (some idx.toInt, entry.2)
+  | .int _ .poison => some (none, entry.2)
+  | _ => none
+
 @[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -1750,16 +1789,17 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     return (#[], mem, none)
   | .getelementptr => do
     let .addr ptr :: _ := operands.toList | none
-    /- Decompose the address into a constant offset and scaled dynamic indices. -/
-    let indices := GEPIndex.decode properties.rawConstantIndices.values (operands.extract 1)
-    let (offset, dynamic) ← layout.gepOffsets properties.elem_type.val indices
+    /- Decompose the address into a constant offset and scaled dynamic indices. The layout needs
+       only where the dynamic indices are among the operands, not their values. -/
+    let positions := GEPIndex.decode properties.rawConstantIndices.values
+      ((Array.range (operands.size - 1)).map some)
+    let (offset, dynamic) ← layout.gepOffsets properties.elem_type.val positions
+    /- Every dynamic index is an integer, even if the result is poison. -/
+    let some indices := dynamic.mapM (Llvm.gepIndex operands) | none
     let .val ptr := ptr | return (#[.addr .poison], mem, none)
-    let mut addr := (ptr.address.toNat : Int) + offset
-    for (idx, stride) in dynamic do
-      /- An index is signed, and sign-extended to the pointer width. -/
-      let .int _ idx := idx | none
-      let .val idx := idx | return (#[.addr .poison], mem, none)
-      addr := addr + idx.toInt * stride
+    let some scaled := indices.mapM (fun (idx, stride) => idx.map (· * (stride : Int)))
+      | return (#[.addr .poison], mem, none)
+    let addr := (ptr.address.toNat : Int) + offset + scaled.foldl (· + ·) 0
     return (#[.addr (.val ⟨UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
@@ -1774,21 +1814,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .bitcast => do
     let [val] := operands.toList | none
     let [⟨type, _⟩] := resultTypes.toList | none
-    let result ← do match val, type with
-      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok (val)
-      | .int bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
-      | .byte bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok (val)
-      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
-      | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
-      | .addr val', .llvmPointerType _ => .ok (val)
-      | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
-      | _, _ => none
+    let result ← Llvm.bitcastValue mem val type
     return (#[result], mem, none)
   | .inttoptr => do
     let [.int bw val] := operands.toList | none

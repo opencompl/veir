@@ -3,6 +3,7 @@ module
 public import Veir.Interpreter.Refinement.Basic
 
 import all Veir.Interpreter.Refinement.Basic
+import all Veir.Data.LLVM.Byte.Basic
 import Veir.Data.LLVM.Ptr.Lemmas
 
 public section
@@ -54,6 +55,16 @@ theorem MemoryByte.isRefinedBy_refl (b : MemoryByte) : b ⊒ b := by
 theorem MemoryState.isRefinedBy_refl (m : MemoryState) :
     m ⊒ m :=
   ⟨⟨rfl, fun _ => MemoryByte.isRefinedBy_refl _⟩, rfl⟩
+
+theorem OperationResult.isRefinedBy_def
+    {source target : Array RuntimeValue × MemoryState × Option ControlFlowAction} :
+    OperationResult.isRefinedBy source target ↔
+      source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
+        ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2 := Iff.rfl
+
+theorem MemoryState.isRefinedBy_def {source target : MemoryState} :
+    source ⊒ target ↔ (source.objects = target.objects ∧
+      ∀ addr, source.byte addr ⊒ target.byte addr) ∧ source.globals = target.globals := Iff.rfl
 
 /-- Refinement preserves memory-object identities and layout. -/
 theorem MemoryState.isRefinedBy.objects_eq {source target : MemoryState}
@@ -235,6 +246,11 @@ theorem RuntimeValue.byte_of_isRefinedBy {bw : Nat} {v : Data.LLVM.Byte bw} {tv 
     ∃ t : Data.LLVM.Byte bw, tv = RuntimeValue.byte bw t ∧ v ⊒ t := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
+/-- Two bytes of a width refine as runtime values as they refine as bytes. -/
+theorem RuntimeValue.byte_isRefinedBy_byte {bw : Nat} {b b' : Data.LLVM.Byte bw} :
+    RuntimeValue.byte bw b ⊒ RuntimeValue.byte bw b' ↔ b ⊒ b' := by
+  simp [RuntimeValue.isRefinedBy, Data.LLVM.Byte.cast]
+
 /-- A runtime value `tv` that refines a float runtime value `v` is equal to it. -/
 theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.FloatValue ty.format}
     {tv : RuntimeValue}
@@ -266,6 +282,46 @@ theorem RuntimeValue.singleton_isRefinedBy_iff {v : RuntimeValue} {b : Array Run
     #[v] ⊒ b ↔ ∃ w, b = #[w] ∧ v ⊒ w := by
   cases b; grind [arrayIsRefinedBy, List.length_eq_one_iff]
 
+theorem RuntimeValue.cons_isRefinedBy_iff {x : RuntimeValue} {xs b : List RuntimeValue} :
+    (x :: xs).toArray ⊒ b.toArray ↔ ∃ y ys, b = y :: ys ∧ x ⊒ y ∧ xs.toArray ⊒ ys.toArray := by
+  cases b with
+  | nil => simp [arrayIsRefinedBy]
+  | cons y ys =>
+    rw [arrayIsRefinedBy_cons]
+    exact ⟨fun h => ⟨y, ys, rfl, h⟩, by rintro ⟨_, _, he, h⟩; cases he; exact h⟩
+
+theorem RuntimeValue.nil_isRefinedBy_iff {b : List RuntimeValue} :
+    ([] : List RuntimeValue).toArray ⊒ b.toArray ↔ b = [] := by
+  cases b <;> simp [arrayIsRefinedBy]
+
+/-- An integer is refined by an integer of its width that is the same, unless it is poison. -/
+theorem RuntimeValue.int_isRefinedBy_iff {w : Nat} {x : Data.LLVM.Int w} {t : RuntimeValue} :
+    .int w x ⊒ t ↔
+      ∃ x', t = .int w x' ∧ (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  constructor
+  · intro h
+    obtain ⟨x', rfl, hx⟩ := int_of_isRefinedBy h
+    refine ⟨x', rfl, ?_⟩
+    rw [_root_.isRefinedBy_eq] at hx
+    cases x <;> cases x' <;> simp_all
+  · rintro ⟨x', rfl, rfl | ⟨_, rfl, rfl⟩⟩
+    · simp [RuntimeValue.isRefinedBy]
+    · exact isRefinedBy_refl _
+
+/-- A pointer is refined only by itself, unless it is poison. -/
+theorem RuntimeValue.addr_isRefinedBy_iff {x : Ptr} {t : RuntimeValue} :
+    .addr x ⊒ t ↔ ∃ x', t = .addr x' ∧
+      (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  cases t <;> simp [RuntimeValue.isRefinedBy] <;> rename_i y <;>
+    cases x <;> cases y <;> simp [eq_comm]
+
+theorem RuntimeValue.toList_triple_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x y z : RuntimeValue} (ha : a.toList = [x, y, z]) :
+    ∃ x' y' z', b.toList = [x', y', z'] ∧ x ⊒ x' ∧ y ⊒ y' ∧ z ⊒ z' := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff] at h
+  grind
+
 /--
 A register runtime value can only be refined by itself, so operand arrays that consist purely of
 registers are refined only by themselves.
@@ -282,6 +338,98 @@ theorem RuntimeValue.Conforms.of_isRefinedBy {source target : RuntimeValue}
   cases source <;> cases target <;> simp only [RuntimeValue.isRefinedBy] at hRefined <;>
     cases attr <;>
     simp_all only [RuntimeValue.Conforms, Ptr.isRefinedBy, dite_false_right, true_and] <;> grind
+
+/-- A refinement of an array of values conforms to the types the array conforms to. -/
+theorem RuntimeValue.ArrayConforms.of_isRefinedBy
+    {source target : Array RuntimeValue} {types : Array TypeAttr}
+    (hConforms : RuntimeValue.ArrayConforms source types)
+    (hRefined : source ⊒ target) : RuntimeValue.ArrayConforms target types := by
+  refine ⟨by grind [RuntimeValue.arrayIsRefinedBy, RuntimeValue.ArrayConforms], fun i hi => ?_⟩
+  have hi' : i < source.size := by grind [RuntimeValue.arrayIsRefinedBy]
+  exact (hConforms.2 i hi').of_isRefinedBy (hRefined.2 i hi')
+
+/-! ## Operand lists
+
+A refinement of an array of integers or pointers keeps its shape, and replaces only poison: every
+other value it refines to itself. The lemmas below say so for the operand lists an interpreter
+matches on, so that a proof of monotonicity can substitute the operands of the target.
+-/
+
+/-- The operands that refine one operand are one operand. -/
+theorem RuntimeValue.toList_single_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x : RuntimeValue} (ha : a.toList = [x]) : ∃ y, b.toList = [y] ∧ x ⊒ y := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff] at h
+  grind
+
+/-- The operands that refine two operands are two operands. -/
+theorem RuntimeValue.toList_pair_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x y : RuntimeValue} (ha : a.toList = [x, y]) :
+    ∃ x' y', b.toList = [x', y'] ∧ x ⊒ x' ∧ y ⊒ y' := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff] at h
+  grind
+
+theorem RuntimeValue.toList_int1_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x : Data.LLVM.Int w} (ha : a.toList = [.int w x]) :
+    ∃ x', b.toList = [.int w x'] ∧ (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff, int_isRefinedBy_iff] at h
+  grind [cases Data.LLVM.Int]
+
+theorem RuntimeValue.toList_int2_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x : Data.LLVM.Int w} {y : Data.LLVM.Int v} (ha : a.toList = [.int w x, .int v y]) :
+    ∃ x' y', b.toList = [.int w x', .int v y'] ∧
+      (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) ∧
+      (y = .poison ∨ ∃ c, y = .val c ∧ y' = .val c) := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff, int_isRefinedBy_iff] at h
+  grind [cases Data.LLVM.Int]
+
+theorem RuntimeValue.toList_int3_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x : Data.LLVM.Int w} {y : Data.LLVM.Int v} {z : Data.LLVM.Int u}
+    (ha : a.toList = [.int w x, .int v y, .int u z]) :
+    ∃ x' y' z', b.toList = [.int w x', .int v y', .int u z'] ∧
+      (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) ∧
+      (y = .poison ∨ ∃ c, y = .val c ∧ y' = .val c) ∧
+      (z = .poison ∨ ∃ c, z = .val c ∧ z' = .val c) := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff, int_isRefinedBy_iff] at h
+  grind [cases Data.LLVM.Int]
+
+theorem RuntimeValue.toList_addr1_of_isRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {x : Ptr} (ha : a.toList = [.addr x]) :
+    ∃ x', b.toList = [.addr x'] ∧
+      (x = .poison ∨ ∃ c, x = .val c ∧ x' = .val c) := by
+  rw [← Array.toArray_toList (xs := a), ← Array.toArray_toList (xs := b), ha] at h
+  simp only [cons_isRefinedBy_iff, nil_isRefinedBy_iff, addr_isRefinedBy_iff] at h
+  grind [cases Ptr]
+
+/-- A refinement of an array refines each of its slices. -/
+theorem RuntimeValue.arrayIsRefinedBy_extract {a b : Array RuntimeValue} (h : a ⊒ b)
+    (i j : Nat) : a.extract i j ⊒ b.extract i j := by
+  obtain ⟨hs, hi⟩ := h
+  refine ⟨by simp [hs], fun k hk => ?_⟩
+  simp only [Array.size_extract] at hk
+  have := hi (i + k) (by omega)
+  rw [getElem!_pos a (i + k) (by omega), getElem!_pos b (i + k) (by omega)] at this
+  rw [getElem!_pos _ k (by simp; omega), getElem!_pos _ k (by simp; omega)]
+  simpa [Array.getElem_extract] using this
+
+/-- A refinement of an array refines each of its suffixes. -/
+theorem RuntimeValue.arrayIsRefinedBy_extract_size {a b : Array RuntimeValue} (h : a ⊒ b)
+    (i : Nat) : a.extract i a.size ⊒ b.extract i b.size := by
+  rw [← h.1]; exact arrayIsRefinedBy_extract h i a.size
+
+theorem RuntimeValue.getElem?_of_arrayIsRefinedBy {a b : Array RuntimeValue} (h : a ⊒ b)
+    {i : Nat} {v : RuntimeValue} (ha : a[i]? = some v) :
+    ∃ v', b[i]? = some v' ∧ v ⊒ v' := by
+  obtain ⟨hs, hi⟩ := h
+  have hlt : i < a.size := by grind
+  refine ⟨b[i]'(hs ▸ hlt), by simp, ?_⟩
+  have := hi i hlt
+  simp only [getElem!_pos, hlt, show i < b.size from hs ▸ hlt] at this
+  grind
 
 /-! ## Interp refinements -/
 
@@ -304,6 +452,70 @@ theorem Interp.isRefinedBy_ok_target_iff :
     ∃ targetRes, target = .ok targetRes ∧ R sourceRes targetRes := by
   simp only [Interp.isRefinedBy]
   rcases target with _ | (_ | _) <;> grind
+
+/-! ## Binds and loops -/
+
+/-- Binding refined computations to continuations that preserve refinement. -/
+theorem Interp.isRefinedBy_bind {α α' β β' : Type} {R : α → α' → Prop}
+    {S : β → β' → Prop}
+    {x : Interp α} {y : Interp α'} {f : α → Interp β} {g : α' → Interp β'}
+    (hxy : Interp.isRefinedBy R x y) (hfg : ∀ a b, R a b → Interp.isRefinedBy S (f a) (g b)) :
+    Interp.isRefinedBy S (x >>= f) (y >>= g) := by
+  cases x <;> cases y <;> simp_all [Interp.isRefinedBy]
+
+/-- Binding the same computation to continuations that refine. -/
+theorem Interp.isRefinedBy_bind_same {α β β' : Type} {R : β → β' → Prop} {x : Interp α}
+    {f : α → Interp β} {g : α → Interp β'} (h : ∀ a, Interp.isRefinedBy R (f a) (g a)) :
+    Interp.isRefinedBy R (x >>= f) (x >>= g) := by
+  cases x <;> simp [h]
+
+/-- Steps of two loops that do the same and whose states are related by `R`. -/
+def ForInStep.Rel {β β' : Type} (R : β → β' → Prop) :
+    ForInStep β → ForInStep β' → Prop
+  | .yield b, .yield b' => R b b'
+  | .done b, .done b' => R b b'
+  | _, _ => False
+
+@[simp]
+theorem ForInStep.rel_yield {β β' : Type} {R : β → β' → Prop} {b : β} {b' : β'} :
+    ForInStep.Rel R (.yield b) (.yield b') ↔ R b b' := Iff.rfl
+
+@[simp]
+theorem ForInStep.rel_done {β β' : Type} {R : β → β' → Prop} {b : β} {b' : β'} :
+    ForInStep.Rel R (.done b) (.done b') ↔ R b b' := Iff.rfl
+
+@[simp]
+theorem ForInStep.not_rel_yield_done {β β' : Type} {R : β → β' → Prop} {b : β} {b' : β'} :
+    ¬ ForInStep.Rel R (.yield b) (.done b') := id
+
+@[simp]
+theorem ForInStep.not_rel_done_yield {β β' : Type} {R : β → β' → Prop} {b : β} {b' : β'} :
+    ¬ ForInStep.Rel R (.done b) (.yield b') := id
+
+/-- Two loops over the same list whose steps keep their states related. -/
+theorem Interp.forIn_list_isRefinedBy {α β β' : Type} (l : List α) (R : β → β' → Prop)
+    (f : α → β → Interp (ForInStep β)) (g : α → β' → Interp (ForInStep β'))
+    (hfg : ∀ a b b', R b b' → Interp.isRefinedBy (ForInStep.Rel R) (f a b) (g a b'))
+    (init : β) (init' : β') (h : R init init') :
+    Interp.isRefinedBy R (forIn l init f) (forIn l init' g) := by
+  induction l generalizing init init' with
+  | nil => simpa using h
+  | cons a l ih =>
+    simp only [List.forIn_cons]
+    refine Interp.isRefinedBy_bind (hfg a init init' h) ?_
+    rintro (b | b) (b' | b') hb <;> simp only [ForInStep.Rel] at hb
+    · simpa using hb
+    · exact ih _ _ hb
+
+/-- Two loops over the same range whose steps keep their states related. -/
+theorem Interp.forIn_range_isRefinedBy {β β' : Type} (r : Std.Legacy.Range)
+    (R : β → β' → Prop)
+    (f : Nat → β → Interp (ForInStep β)) (g : Nat → β' → Interp (ForInStep β'))
+    (hfg : ∀ a b b', R b b' → Interp.isRefinedBy (ForInStep.Rel R) (f a b) (g a b'))
+    (init : β) (init' : β') (h : R init init') :
+    Interp.isRefinedBy R (forIn r init f) (forIn r init' g) := by
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+  exact Interp.forIn_list_isRefinedBy _ R _ _ (fun a b b' hb => hfg a b b' hb) init init' h
 
 /-! ## ValueMapping -/
 
