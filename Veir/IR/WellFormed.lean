@@ -1699,7 +1699,7 @@ def WfIRContext.markLinear (ctx : WfIRContext OpInfo) : WfIRContext OpInfo :=
     by simpa using wellFormed⟩
 
 @[simp, grind =]
-theorem WfIRContext.markLinear_raw (ctx : WfIRContext OpInfo) : ctx.markLinear.raw = ctx.raw := by
+theorem WfIRContext.markLinear_eq (ctx : WfIRContext OpInfo) : ctx.markLinear = ctx := by
   simp [WfIRContext.markLinear]
 
 end Veir
