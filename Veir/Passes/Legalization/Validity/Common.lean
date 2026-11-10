@@ -1,6 +1,7 @@
 module
 
 public import Veir.IR.Simp
+public import Veir.IR.Attribute
 import all Veir.PatternRewriter.Puddle.CTreeProofs
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
@@ -48,12 +49,25 @@ inductive Unproven where
   out. The gMIR interpreter computes the result at the operands' width, but the rewrite produces
   one of the matched result type, so the rewrite is only correct on well-typed matches. -/
   | needsTypedMatch
-  /-- The rule is only correct at some target widths, e.g. `g_bswap`, which is only defined at
-  widths 16, 32 and 64. -/
+  /-- The rule is wrong at some widths: `g_bswap` is only defined at widths 16, 32 and 64, and
+  other rules are wrong at the degenerate width 0, or from width `2^64`. -/
   | widthDependent
+  /-- The rewrite drops a matched `g_anyext` and extends its operand again. The matched operation's
+  high bits are fixed once it has run, and may reach its other uses, while the new `g_anyext`
+  chooses them afresh, so the rewrite can produce values the source cannot. It is correct when the
+  matched operation has no other use, which `Pattern.Valid` does not see. -/
+  | rechoosesMatchedChoice
   /-- The local correctness lemma at every width is not proven yet. -/
   | notYetProven
   deriving Repr, DecidableEq
+
+/-- A `g_constant` created at an integer type reads back the value it is created with. -/
+theorem ofInt_ofInt_value (v : Int) (w : Nat) (s : IntegerType.Signedness) :
+    BitVec.ofInt w (IntegerAttr.ofInt v ⟨w, s⟩).value = BitVec.ofInt w v := by
+  simp only [IntegerAttr.ofInt, IntegerAttr.normalizeValue]
+  split
+  · rw [BitVec.ofInt_natCast, BitVec.ofNat_toNat, BitVec.setWidth_eq]
+  · rw [BitVec.ofInt_toInt]
 
 end
 
@@ -76,10 +90,12 @@ macro "normalizeLegalValid" : tactic => `(tactic| (
   all_goals (try dsimp only at *)
   all_goals (try subst_vars)
   iterate 8 (
-    /- Introduce the high bits chosen by the extensions resolved so far. -/
+    /- Introduce the high bits chosen by the extensions resolved so far, and those chosen by the
+    extensions among the matched operations. -/
     all_goals intros
+    all_goals (try casesExistsAnd)
     all_goals (try simp_all [RuntimeValue.isRefinedBy, le_eq_false_of_lt, lt_eq_false_of_le, Attribute.of,
-      IntegerType.signless, Data.LLVM.trunc_ext, Data.LLVM.trunc_sext,
+      IntegerType.signless, Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, ofInt_ofInt_value,
       PureOrErr.CanInterpretTo.tau_iff, PureOrErr.CanInterpretTo.tauG_iff,
       _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.tau_def, Sim.tau_l, Sim.bind_monadLift_right_iff,
       -Attribute.integerType_eq_of])

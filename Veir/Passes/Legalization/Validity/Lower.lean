@@ -92,6 +92,71 @@ private theorem usube_lowering {w : Nat} (h : 1 < w) (x y : Data.LLVM.Int w) (b 
 private theorem IntegerAttr.ofInt_zero_value (t : IntegerType) : (IntegerAttr.ofInt 0 t).value = 0 := by
   simp [IntegerAttr.ofInt, IntegerAttr.normalizeValue]
 
+/-- `lowerShlSat true`: `sshl.sat a b = a != (a << b) >>s b ? (a <s 0 ? INT_MIN : INT_MAX) : a << b`. -/
+private theorem sshlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLVM.Int v) :
+    x.sshlSat (shiftAmount w a) ⊒
+      GMIR.selectNonzero (x.icmp ((x.shl (shiftAmount w a)).ashr (shiftAmount w a)) .ne)
+        (GMIR.selectNonzero (x.icmp (.val 0#w) .slt) (.val (BitVec.ofInt w (-2 ^ (w - 1))))
+          (.val (BitVec.ofInt w (2 ^ (w - 1) - 1))))
+        (x.shl (shiftAmount w a)) := by
+  cases x <;> cases a <;> simp [shiftAmount, Data.LLVM.Int.sshlSat, Data.LLVM.Int.shl, Data.LLVM.Int.ashr,
+    Data.LLVM.Int.icmp, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure, Data.LLVM.IntPred.eval]
+  rename_i x a
+  generalize (if a.toNat < w then BitVec.setWidth w a else BitVec.allOnes w) = s
+  -- An amount of at least the width makes the source poison.
+  by_cases hpo : BitVec.ofNat w w ≤ s
+  · simp only [ite_eq_left hpo]
+  simp only [ite_eq_right hpo]
+  by_cases hov : (x <<< s.toNat).sshiftRight s.toNat = x
+  · simp [hov]
+  · have : (x != (x <<< s.toNat).sshiftRight s.toNat) = true := by
+      simp only [bne_iff_ne, ne_eq]
+      exact fun h => hov h.symm
+    simp only [hov, this, not_false_eq_true, ite_true, BitVec.ofBool_true, BitVec.slt_zero_eq_msb]
+    cases x.msb <;> simp [BitVec.intMin_eq_neg_two_pow, Data.LLVM.intMax_eq_ofInt]
+
+/-- `lowerShlSat false`: `ushl.sat a b = a != (a << b) >>u b ? UINT_MAX : a << b`. -/
+private theorem ushlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLVM.Int v) :
+    x.ushlSat (shiftAmount w a) ⊒
+      GMIR.selectNonzero (x.icmp ((x.shl (shiftAmount w a)).lshr (shiftAmount w a)) .ne)
+        (.val (BitVec.ofInt w (-1))) (x.shl (shiftAmount w a)) := by
+  cases x <;> cases a <;> simp [shiftAmount, Data.LLVM.Int.ushlSat, Data.LLVM.Int.shl, Data.LLVM.Int.lshr,
+    Data.LLVM.Int.icmp, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure, Data.LLVM.IntPred.eval]
+  rename_i x a
+  generalize (if a.toNat < w then BitVec.setWidth w a else BitVec.allOnes w) = s
+  by_cases hpo : BitVec.ofNat w w ≤ s
+  · simp only [ite_eq_left hpo]
+  simp only [ite_eq_right hpo]
+  by_cases hov : x <<< s.toNat >>> s.toNat = x
+  · simp [hov]
+  · have : (x != x <<< s.toNat >>> s.toNat) = true := by
+      simp only [bne_iff_ne, ne_eq]
+      exact fun h => hov h.symm
+    simp [hov, this, Data.LLVM.ofInt_neg_one]
+
+theorem lower_zext_valid : Puddle.CTree.Pattern.Valid lowerZext := by
+  proveLegalValid using Data.LLVM.zext_and_anyext
+
+theorem lower_uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_uaddsat false true) := by
+  proveLegalValid using Data.LLVM.uaddSat_minmax
+
+theorem lower_usubsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_usubsat false false) := by
+  proveLegalValid using Data.LLVM.usubSat_minmax
+
+theorem lower_saddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_saddsat true true) := by
+  proveLegalValid using Data.LLVM.saddSat_minmax
+
+theorem lower_ssubsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_ssubsat true false) := by
+  proveLegalValid using Data.LLVM.ssubSat_minmax
+
+theorem lower_sshlsat_valid : Puddle.CTree.Pattern.Valid (lowerShlSat true) := by
+  proveLegalValid using sshlSat_lowering
+
+theorem lower_ushlsat_valid : Puddle.CTree.Pattern.Valid (lowerShlSat false) := by
+  proveLegalValid using ushlSat_lowering
+
 theorem lower_ctlz_zero_poison_valid :
     Puddle.CTree.Pattern.Valid (lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz) := by
   proveLegalValid using ctlz_zero_poison
@@ -116,7 +181,7 @@ theorem lower_sext_status :
 @[legalization_status]
 theorem lower_zext_status :
     Status Unproven (lowerZext) :=
-  .unproven .notYetProven
+  .proven lower_zext_valid
 
 @[legalization_status]
 theorem lower_fshl_status :
@@ -141,32 +206,32 @@ theorem lower_cttz_zero_poison_status :
 @[legalization_status]
 theorem lower_uaddsat_status :
     Status Unproven (lowerAddSubSatToMinMax .g_uaddsat false true) :=
-  .unproven .notYetProven
+  .proven lower_uaddsat_valid
 
 @[legalization_status]
 theorem lower_usubsat_status :
     Status Unproven (lowerAddSubSatToMinMax .g_usubsat false false) :=
-  .unproven .notYetProven
+  .proven lower_usubsat_valid
 
 @[legalization_status]
 theorem lower_saddsat_status :
     Status Unproven (lowerAddSubSatToMinMax .g_saddsat true true) :=
-  .unproven .notYetProven
+  .proven lower_saddsat_valid
 
 @[legalization_status]
 theorem lower_ssubsat_status :
     Status Unproven (lowerAddSubSatToMinMax .g_ssubsat true false) :=
-  .unproven .notYetProven
+  .proven lower_ssubsat_valid
 
 @[legalization_status]
 theorem lower_sshlsat_status :
     Status Unproven (lowerShlSat true) :=
-  .unproven .notYetProven
+  .proven lower_sshlsat_valid
 
 @[legalization_status]
 theorem lower_ushlsat_status :
     Status Unproven (lowerShlSat false) :=
-  .unproven .notYetProven
+  .proven lower_ushlsat_valid
 
 @[legalization_status]
 theorem lower_uaddo_status :
