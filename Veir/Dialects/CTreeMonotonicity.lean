@@ -1,6 +1,7 @@
 module
 
 public import Veir.Dialects.LLVM.CTreeMonotonicity
+public import Veir.Dialects.GMIR.CTreeMonotonicity
 
 public section
 
@@ -36,7 +37,8 @@ info: 'Veir.OpCode.interpretCTree_monotone_of_opCode' depends on axioms: [propex
  CTree.Sim.tau_l,
  CTree.Sim.tau_r,
  CTree.Sim.ub,
- Veir.OpCode.interpretCTree_monotone_assumed]
+ Veir.OpCode.interpretCTree_monotone_assumed,
+ Veir.OpCode.resultsConform_assumed]
 -/
 #guard_msgs in
 #print axioms Veir.OpCode.interpretCTree_monotone_of_opCode

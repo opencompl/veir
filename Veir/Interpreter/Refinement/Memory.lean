@@ -9,6 +9,7 @@ import all Veir.Data.LLVM.Ptr.Basic
 import Veir.Data.LLVM.Ptr.Lemmas
 import all Std.Data.ByteSlice
 import Veir.Data.Casting
+import Veir.Data.LLVM.Byte.Refinement
 
 public section
 
@@ -630,6 +631,21 @@ theorem MemoryState.llvmStore_isRefinedBy_of_refines {mem mem' : MemoryState} (h
     Interp.isRefinedBy MemoryState.isRefinedBy (mem.llvmStore p v) (mem'.llvmStore p' v') := by
   rw [Pointer.isRefinedBy_iff.mp hp]
   exact MemoryState.llvmStore_isRefinedBy h p hv
+
+/--
+An integer load through a refined pointer from refined memory gives a refined integer: the source
+is poison if any loaded bit is, and otherwise loads the bits of the target.
+-/
+theorem MemoryState.intLoad_isRefinedBy_of_refines {mem mem' : MemoryState} (h : mem ⊒ mem')
+    {p p' : Pointer} (hp : p ⊒ p') (w : Nat) :
+    Interp.isRefinedBy (fun (x x' : LLVM.Int w) => _root_.isRefinedBy x x')
+      (mem.intLoad p w) (mem'.intLoad p' w) := by
+  rw [Pointer.isRefinedBy_iff.mp hp]
+  unfold MemoryState.intLoad
+  split
+  · simp
+  · exact Interp.isRefinedBy_bind (MemoryState.loadByte_isRefinedBy h p w) fun _ _ hb =>
+      Interp.isRefinedBy_ok_target_iff.mpr ⟨_, rfl, LLVM.Byte.toInt_isRefinedBy hb⟩
 
 end Veir
 
