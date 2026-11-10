@@ -118,15 +118,6 @@ macro "proveCombineValid" "using" lemma:term : tactic => `(tactic| (
   normalizeCombineValid
   all_goals (apply $lemma <;> simp_all)))
 
-/-- Print the normalized goals of a combine validity proof. Used to state local lemmas. -/
-macro "probeCombineValid" : tactic => `(tactic| (
-  simp only [riscv_pattern]
-  simpPuddleValid
-  simpCombineSemantics
-  normalizeCombineValid
-  trace_state
-  all_goals sorry))
-
 /-! ### Stores
 
 A store writes a little-endian prefix of its value register. The local lemmas
