@@ -19,42 +19,34 @@ attribute [local implicit_reducible] TypeAttr Veir._propertiesOf Riscv.propertie
 
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_zextw_sw
 
 theorem drop_sextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sw) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_sextw_sw
 
 theorem drop_zexth_sh_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zexth .sh) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_zexth_sh
 
 theorem drop_sexth_sh_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sexth .sh) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_sexth_sh
 
 theorem drop_zextb_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextb .sb) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_zextb_sb
 
 theorem drop_sextb_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextb .sb) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_sextb_sb
 
 theorem drop_zextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sb) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_zextw_sb
 
 theorem drop_sextw_sb_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .sextw .sb) := by
-  unfold drop_ext_store_pattern
   proveStoreValid Data.RISCV.drop_sextw_sb
 
 end Veir.RISCV.CTreeProofs
