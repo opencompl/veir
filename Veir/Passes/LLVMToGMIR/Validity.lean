@@ -5,6 +5,7 @@ public import Veir.PatternRewriter.Puddle.CTreeProofs
 public import Veir.Passes.LLVMToGMIR
 import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.LLVMToGMIR
+import Veir.Passes.LLVMToGMIR.Remaining
 import all Veir.Passes.Legalization.LegalizerInfo
 import all Veir.Interpreter.RuntimeValue.Conforms
 import all Veir.Passes.CastsReconciliation.Reconciliation
