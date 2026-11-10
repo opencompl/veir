@@ -1,6 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// A `g_load` is poison if every bit it loads is poison, as in fresh memory.
+// A `g_load` from fresh memory is poison, as every bit it loads is poison.
 // This test confirms this behavior: We load an `i32` from a new allocation and
 // ensure that the result is poison.
 
