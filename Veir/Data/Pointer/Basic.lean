@@ -5,65 +5,32 @@ namespace Veir.Data
 public section
 
 /--
-  A pointer into interpreter memory: the object it may access and its
-  address. Its offset into the object is the address less the object's base.
-  A pointer without an object (`none`) may access any object that holds the bytes.
+  A pointer into interpreter memory: its address. We do not model provenance, so a pointer may
+  access any object that holds the bytes.
 -/
 structure Pointer where
-  object : Option Nat
   address : UInt64
 deriving Inhabited, Repr, DecidableEq, Hashable
 
 namespace Pointer
 
 /-- The null pointer. -/
-def null : Pointer := ⟨some 0, 0⟩
+def null : Pointer := ⟨0⟩
 
 /-- The pointer `i` bytes past `p`. -/
 def addBytes (p : Pointer) (i : Nat) : Pointer :=
-  ⟨p.object, p.address + i.toUInt64⟩
+  ⟨p.address + i.toUInt64⟩
 
-/-- The pointer at `p`'s address that has no provenance. -/
-def wildcard (p : Pointer) : Pointer := ⟨none, p.address⟩
-
-@[simp, grind =]
-theorem wildcard_wildcard (p : Pointer) : p.wildcard.wildcard = p.wildcard := by
-  simp [wildcard]
-
-@[simp, grind =]
-theorem wildcard_address (p : Pointer) : p.wildcard.address = p.address := by
-  simp [wildcard]
-
-@[simp, grind =]
-theorem wildcard_object (p : Pointer) : p.wildcard.object = none := by
-  simp [wildcard]
-
-theorem mk_none_eq_wildcard (o : Option Nat) (a : UInt64) :
-    (⟨none, a⟩ : Pointer) = (⟨o, a⟩ : Pointer).wildcard := by
-  simp [wildcard]
-
-theorem wildcard_eq_iff {p q : Pointer} :
-    p.wildcard = q ↔ q.object = none ∧ q.address = p.address := by
-  rcases q with ⟨o, a⟩
-  simp [wildcard, eq_comm]
-
-/-- A pointer without provenance is not null. -/
-@[simp, grind .]
-theorem wildcard_ne_null (p : Pointer) : p.wildcard ≠ null := by
-  simp [wildcard, null]
-
-/-- `p'` refines `p`: it is `p`, or the pointer at `p`'s address without provenance. -/
-def isRefinedBy (p p' : Pointer) : Prop := p' = p ∨ p' = p.wildcard
+/-- `p'` refines `p` if it is `p`. -/
+def isRefinedBy (p p' : Pointer) : Prop := p' = p
 
 @[inherit_doc] infix:50 " ⊒ " => Pointer.isRefinedBy
 
 @[simp, grind =]
-theorem isRefinedBy_iff {p p' : Pointer} : p ⊒ p' ↔ p' = p ∨ p' = p.wildcard := Iff.rfl
+theorem isRefinedBy_iff {p p' : Pointer} : p ⊒ p' ↔ p' = p := Iff.rfl
 
 instance : ToString Pointer where
-  toString p := match p.object with
-    | some object => s!"ptr({object}, {p.address})"
-    | none => s!"ptr(*, {p.address})"
+  toString p := s!"ptr({p.address})"
 
 end Pointer
 
