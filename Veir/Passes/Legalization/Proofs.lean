@@ -174,7 +174,7 @@ theorem zext_and_anyext (n m : Nat) (h : n < m) (x : LLVM.Int n) (nneg : Bool)
     LLVM.Int.zext x m nneg h ⊒
       LLVM.Int.and (LLVM.Int.ext x m ext h) (LLVM.Int.constant m (2 ^ n - 1)) := by
   veir_bv_normalize
-  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append, getElem_ofInt_two_pow_sub_one]
+  simp [BitVec.eq_of_getElem_eq_iff, BitVec.getElem_append]
   grind
 
 /-- `x` is refined by its low bits after any extension. -/

@@ -38,6 +38,12 @@ def createConstant (type : Handle OpCode .type) (value : Int) :
 
 end
 
+/-- The type groups of `opcode` that may hold pointers: the values of a `g_select`, the operands of a
+`g_icmp` and the address of a `g_load`. -/
+def mayHoldPointer : GMIR → TypeGroup → Bool
+  | .g_select, .type 0 | .g_icmp, .type 1 | .g_load, .type 1 => true
+  | _, _ => false
+
 /--
 Widens type group `typeIdx` of `opcode` to `width` bits. Its operands are extended with `extOpcode`
 and its results are truncated back, as in LLVM's `LegalizerHelper::widenScalar`.
@@ -50,7 +56,9 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
     -- The verifier rejects `i0`, at which `g_icmp` yields an `i1` that is not its result type.
     if group = typeIdx then
       MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
-    else MatchProg.type (Attr := TypeAttr)
+    -- The other groups are integers no wider than the target, except those that may hold pointers.
+    else if mayHoldPointer opcode group then MatchProg.type (Attr := TypeAttr)
+    else MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ width)
   Pattern.Builder
     (do
       /- One type per type group, as in LLVM's type indices: a match whose operands and results of
@@ -136,7 +144,7 @@ ensure by widening it first.
 -/
 def widenCtlzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_ctlz (· < width) (· = width))
+    (matchUnary .g_ctlz (fun w => 0 < w && w < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_zext) #[src] #[resType]
       let ctlz ← CreateProg.operation (.gmir .g_ctlz) #[ext.res[0]!] #[resType]
@@ -154,7 +162,7 @@ must already be `width` bits wide, which the rules ensure by widening it first.
 -/
 def widenCttzSrc (width : Nat) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_cttz (· < width) (· = width))
+    (matchUnary .g_cttz (fun w => 0 < w && w < width) (· = width))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let topBit ← widthConstant srcType resType (2 ^ ·)
@@ -413,7 +421,7 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
     | _ => (.g_sub, .g_zext)
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      let type ← MatchProg.type (Attr := IntegerType) (fun t => 0 < t.bitwidth && t.bitwidth < width)
       -- The overflow flag is an `i1`, as the verifier requires; it is recomputed with `g_icmp`.
       let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let lhs ← MatchProg.value type
