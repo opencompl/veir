@@ -1,11 +1,14 @@
 // RUN: veir-interpret %s | filecheck %s
-// RUN: LLUBI
-// RUN: ALIVE_EXEC
+// RUN: LLUBI_CHECK
+// RUN: ALIVE_EXEC_CHECK
 
-// A pointer read back from memory is decoded at load time into the object
-// covering its address. `%past` points at an address no object covers, so
-// the store through the reload is out of bounds, even though `%q` is
-// allocated at that address in between.
+// A pointer read back from memory has no provenance: it reaches whichever
+// object its address lies in at each access. `%past` points at an address no
+// object covers when it is stored, but `%q` is allocated at that address
+// before the store through the reload, which writes to `%q`.
+//
+// llubi and alive-exec report undefined behaviour instead. For them the
+// reload keeps the provenance of `%p`, so the store is out of its bounds.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
@@ -23,4 +26,6 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Undefined behavior
+// CHECK: Program output: #[0x0000000000000001#64]
+// LLUBI: Undefined behavior
+// ALIVE_EXEC: Undefined behavior

@@ -73,38 +73,23 @@ def MemoryByte.isRefinedBy (source target : MemoryByte) : Prop :=
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryByte.isRefinedBy
 
-/-- Refinement of memory states: the same objects, each refined bytewise. -/
+/-- Refinement of memory states: the same objects and global symbols, with each byte refined. -/
 @[expose]
 def MemoryState.isRefinedBy (source target : MemoryState) : Prop :=
-  source.objects = target.objects ∧ ∀ addr, source.byte addr ⊒ target.byte addr
+  (source.objects = target.objects ∧ ∀ addr, source.byte addr ⊒ target.byte addr) ∧
+    source.globals = target.globals
 
 @[inherit_doc] infix:50 " ⊒ " => MemoryState.isRefinedBy
 
 /--
-A function interpretation `source` is refined by `target`. This asserts that the final memories
-are equal, and the returned values refine pointwise.
+A function interpretation `source` is refined by `target` when its final memory refines
+and the returned values refine pointwise.
 -/
 @[expose]
 def FunctionResult.isRefinedBy (source target : MemoryState × Array RuntimeValue) : Prop :=
-  source.1 = target.1 ∧ source.2 ⊒ target.2
+  source.1 ⊒ target.1 ∧ source.2 ⊒ target.2
 
 @[inherit_doc] infix:50 " ⊒ " => FunctionResult.isRefinedBy
-
-/--
-An interpretation result `source` is refined by `target` given a refinement relation `R`
-on the underlying values. This asserts:
-* every well-defined outcome `.ok a` of `source` must be matched by an outcome
-  `.ok b` of `target` with `R a b`;
-* when `source` is undefined behaviour (`.ub`) or failed interpretation (`.fail`), `target`
-  is unconstrained
--/
-@[expose]
-def Interp.isRefinedBy (R : α → β → Prop) (source : Interp α) (target : Interp β) : Prop :=
-  match source, target with
-  | .ok a, .ok b => R a b
-  | .ub _, _ => True
-  | .fail _, _ => True
-  | _, _ => False
 
 /--
 Refinement between two control flow actions: same constructor, equal successor block `dest`, and
@@ -130,12 +115,12 @@ def ControlFlowAction.optionIsRefinedBy : Option ControlFlowAction → Option Co
 
 /--
 The result of interpreting a single operation. `source` is refined by `target`
-when values refine pointwise, memories are equal, and actions refine.
+when values refine pointwise, memories refine, and actions refine.
 -/
 @[expose]
 def OperationResult.isRefinedBy (source target :
     Array RuntimeValue × MemoryState × Option ControlFlowAction) : Prop :=
-  source.1 ⊒ target.1 ∧ source.2.1 = target.2.1 ∧
+  source.1 ⊒ target.1 ∧ source.2.1 ⊒ target.2.1 ∧
     ControlFlowAction.optionIsRefinedBy source.2.2 target.2.2
 
 /--
@@ -282,14 +267,14 @@ def VariableState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
 
 /--
 An interpreter state `state` is refined by `state'` through the value mapping
-`mapping`: they have the same memory, and the variable state of `state` is refined by the variable
+`mapping`: its memory refines, and the variable state of `state` is refined by the variable
 state of `state'` through `mapping`.
 -/
 @[expose]
 def InterpreterState.isRefinedBy {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') : Prop :=
-  state.memory = state'.memory ∧
+  state.memory ⊒ state'.memory ∧
   state.variables.isRefinedBy state'.variables mapping
 
 /-!
@@ -378,13 +363,13 @@ def VariableState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
 
 /--
 A refinement relation for interpreter states in two different locations.
-This asserts that memory is equal, and that the variable states are refined at the given points.
+This asserts that memory refines, and that the variable states are refined at the given points.
 -/
 def InterpreterState.isRefinedByAt {ctx ctx' : WfIRContext OpInfo}
     (state : InterpreterState ctx) (state' : InterpreterState ctx')
     (mapping : ValueMapping ctx ctx') (s : RefinementPoint) (s' : RefinementPoint)
     (_sIn : s.InBounds ctx.raw := by grind) (_s'In : s'.InBounds ctx'.raw := by grind) : Prop :=
-  state.memory = state'.memory ∧
+  state.memory ⊒ state'.memory ∧
   state.variables.isRefinedByAt state'.variables mapping s s'
 
 end Veir

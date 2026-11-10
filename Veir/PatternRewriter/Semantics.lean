@@ -170,6 +170,7 @@ def LocalRewritePattern.mapping
 Preservation of semantics for a local rewrite pattern.
 If the pattern matches an operation and return new operations and values, then interpreting
 the matched operation in a state is refined by interpreting the new operations in a refined state.
+The resulting memory and replacement values refine their source counterparts.
 -/
 def LocalRewritePattern.PreservesSemantics
   (pattern : LocalRewritePattern OpCode)
@@ -186,7 +187,7 @@ def LocalRewritePattern.PreservesSemantics
   state.isRefinedByAt state' (LocalRewritePattern.mapping hpattern) (.at (.before op)) (.at (.before op)) →
   ∃ newState',
     interpretOpList newOps.toList state' (by grind [ReturnOps]) = some (newState', cf) ∧
-    newState.memory = newState'.memory ∧
+    MemoryState.isRefinedBy newState.memory newState'.memory ∧
     ∃ targetValues,
       newValues.mapM (newState'.variables.getVar? ·) = some targetValues ∧
       sourceValues ⊒ targetValues
