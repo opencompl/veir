@@ -540,40 +540,35 @@ theorem drop_sextw_sb {rs1 : Reg} :
       (UInt64.ofBitVec rs1.val).toByteArrayLE.extract 0 1 :=
   toByteArrayLE_extract_one (by veir_bv_decide)
 
-/-! ## Extensions of `x0` (not CTree-certified, see `Veir.Passes.RISCVCombines.Validity`) -/
+/-! ## Extensions of `x0` (not CTree-certified, see `Veir.Passes.RISCVCombines.Validity`)
 
-/--
-  Prove the correctness of the `zextw_x0` combine: zero-extending the value 0
-  (which is what the hard-wired zero register `x0` reads as -- an interpreter
-  fact, not a `Reg`-algebra one, so it isn't itself part of this theorem) is a
-  no-op.
--/
-theorem zextw_x0 :
-    RISCV.zextw (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+`riscv.<ext> x0 -> x0` (`ext_x0_pattern`). The normalized validity goal is `<ext> r = r` for the
+register `r` read from `x0`. That `r` is zero is a fact of the interpreter, not of the `Reg`
+algebra, so each lemma takes it as a hypothesis; the semantic model does not provide it yet (see
+`X0ReadsZero` in `Veir.Passes.RISCVCombines.Validity.Remaining`). -/
+
+theorem zextw_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zextw r = r := by
+  subst h
   veir_bv_decide
 
-/-- Sext mirror of `zextw_x0`: sign-extending the value 0 (what `x0` reads as) is
-    a no-op. -/
-theorem sextw_x0 :
-    RISCV.sextw (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+theorem sextw_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.sextw r = r := by
+  subst h
   veir_bv_decide
 
-/-- Byte/half mirrors of `zextw_x0`/`sextw_x0`: extending the value 0 (what `x0`
-    reads as) is a no-op at any width. -/
-theorem zextb_x0 :
-    RISCV.zextb (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+theorem zextb_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zextb r = r := by
+  subst h
   veir_bv_decide
 
-theorem zexth_x0 :
-    RISCV.zexth (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+theorem zexth_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.zexth r = r := by
+  subst h
   veir_bv_decide
 
-theorem sextb_x0 :
-    RISCV.sextb (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+theorem sextb_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.sextb r = r := by
+  subst h
   veir_bv_decide
 
-theorem sexth_x0 :
-    RISCV.sexth (Data.RISCV.li (BitVec.ofInt 64 0)) = Data.RISCV.li (BitVec.ofInt 64 0) := by
+theorem sexth_x0 {r : Reg} (h : r = ⟨0#64⟩) : RISCV.sexth r = r := by
+  subst h
   veir_bv_decide
 
 /-! ## `sextw` of a sign-extending producer
@@ -716,6 +711,11 @@ theorem sextw_sexth {rs1 : Reg} :
 theorem sextw_zexth {rs1 : Reg} :
     RISCV.sextw (RISCV.zexth rs1) = RISCV.zexth rs1 := by
   veir_bv_decide
+
+/-- `sextw_lbu`: an unsigned byte load is already a sign-extended word. -/
+theorem sextw_zextb {rs1 : Reg} :
+    RISCV.sextw (RISCV.zextb rs1) = RISCV.zextb rs1 := by
+  sorry
 
 theorem sextw_packh {rs1 rs2 : Reg} :
     RISCV.sextw (RISCV.packh rs2 rs1) = RISCV.packh rs2 rs1 := by
@@ -995,6 +995,7 @@ theorem drop_sextw_cpopw {rs1 : Reg} :
 theorem drop_sextw_zextw {rs1 : Reg} :
     RISCV.zextw (RISCV.sextw rs1) = RISCV.zextw rs1 := by
   veir_bv_decide
+
 
 end Veir.Data.RISCV
 

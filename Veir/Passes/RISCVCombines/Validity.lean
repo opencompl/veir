@@ -8,6 +8,7 @@ import all Veir.Passes.RISCVCombines.Validity.Bitwise
 import all Veir.Passes.RISCVCombines.Validity.SignExtending
 import all Veir.Passes.RISCVCombines.Validity.LowWord
 import all Veir.Passes.RISCVCombines.Validity.Store
+import Veir.Passes.RISCVCombines.Validity.Remaining
 
 /-!
 # CTree validity of the RISC-V combines
