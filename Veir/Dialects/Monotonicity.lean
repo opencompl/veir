@@ -2,6 +2,7 @@ module
 
 public import Veir.Dialects.LLVM.Monotonicity
 public import Veir.Dialects.RISCV.Monotonicity
+public import Veir.Dialects.LLVM.CTreeMonotonicity
 public import Veir.Interpreter.CTreePrimitiveRefinement
 
 public section
@@ -42,6 +43,10 @@ info: 'Veir.OpCode.interpretCTree_monotone_of_opCode' depends on axioms: [propex
  CTree.Sim,
  Classical.choice,
  Quot.sound,
+ CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
+ CTree.Sim.ub,
  Veir.OpCode.interpretCTree_monotone_assumed]
 -/
 #guard_msgs in
