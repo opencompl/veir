@@ -311,4 +311,10 @@ theorem combinePatternList_valid (pattern : Pattern OpCode) (h : pattern ∈ com
 
 end
 
+set_option maxRecDepth 100000 in
+/-- Every pattern of `combinePatternList` is certified with a proof, none as unproven, so adding
+an unproven combine fails here. Checked by the kernel rather than with `#guard`: evaluating the
+certificates would run the Puddle pattern builders, which the interpreter cannot. -/
+theorem combineCertificates_unprovenPatterns : combineCertificates.unprovenPatterns = [] := rfl
+
 end Veir.RISCV.CTreeProofs
