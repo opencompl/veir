@@ -3,6 +3,7 @@ module
 public import Veir.Interpreter.Refinement.Basic
 
 import all Veir.Interpreter.Refinement.Basic
+import Veir.Data.LLVM.Ptr.Lemmas
 
 public section
 
@@ -135,6 +136,39 @@ theorem Interp.isRefinedBy_trans {α : Type} {R : α → α → Prop}
   rcases v₃ with _ | (v₃ | _) <;>
   grind
 
+/-- Any outcome is refined by itself. -/
+theorem Interp.isRefinedBy_eq_refl {α : Type} (x : Interp α) : Interp.isRefinedBy Eq x x := by
+  cases x <;> simp [Interp.isRefinedBy]
+
+/-- A computation that succeeds with the same result, bound to a continuation. -/
+theorem Interp.isRefinedBy_eq_bind_left {α β : Type} {x y : Interp α}
+    (h : Interp.isRefinedBy Eq x y) (f : α → Interp β) :
+    Interp.isRefinedBy Eq (x >>= f) (y >>= f) := by
+  cases x <;> cases y <;> simp [Interp.isRefinedBy] at h ⊢
+  subst h
+  exact Interp.isRefinedBy_eq_refl _
+
+/-- A computation bound to continuations that succeed with the same results. -/
+theorem Interp.isRefinedBy_eq_bind_right {α β : Type} (x : Interp α) {f g : α → Interp β}
+    (h : ∀ a, Interp.isRefinedBy Eq (f a) (g a)) :
+    Interp.isRefinedBy Eq (x >>= f) (x >>= g) := by
+  cases x with
+  | ok a => exact h a
+  | _ => simp [Interp.isRefinedBy]
+
+/-- A computation that succeeds wherever another does, with the same result. -/
+theorem Interp.isRefinedBy_eq_of_ok {α : Type} {x y : Interp α}
+    (h : ∀ a, x = .ok a → y = .ok a) : Interp.isRefinedBy Eq x y := by
+  cases x with
+  | ok a => rw [h a rfl]; exact Interp.isRefinedBy_eq_refl _
+  | _ => simp [Interp.isRefinedBy]
+
+/-- A refinement followed by a computation that succeeds with the same result. -/
+theorem Interp.isRefinedBy_trans_eq {α β : Type} {R : α → β → Prop} {s : Interp α}
+    {t t' : Interp β} (h : Interp.isRefinedBy R s t) (h' : Interp.isRefinedBy Eq t t') :
+    Interp.isRefinedBy R s t' := by
+  cases s <;> cases t <;> cases t' <;> simp_all [Interp.isRefinedBy]
+
 theorem FunctionOp.isRefinedBy_trans
     (h12 : isRefinedBy func₁ func₂ op₁In op₂In)
     (h23 : isRefinedBy func₂ func₃ op₂In op₃In) :
@@ -185,11 +219,15 @@ theorem RuntimeValue.float_of_isRefinedBy {ty : FloatType} {v : Data.Float.Float
     tv = RuntimeValue.float ty v := by
   cases tv <;> grind [RuntimeValue.isRefinedBy]
 
-/-- A non-poison pointer value is refined only by itself. -/
-@[simp]
+/--
+A non-poison pointer value is refined only by itself and by the pointer at its address that has
+no provenance.
+-/
 theorem RuntimeValue.addr_val_isRefinedBy_iff {p : Data.Pointer} {tv : RuntimeValue} :
-    RuntimeValue.addr (.val p) ⊒ tv ↔ tv = RuntimeValue.addr (.val p) := by
-  cases tv <;> grind [RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy, cases Data.LLVM.Ptr]
+    RuntimeValue.addr (.val p) ⊒ tv ↔
+      tv = RuntimeValue.addr (.val p) ∨ tv = RuntimeValue.addr (.val p.wildcard) := by
+  cases tv <;> simp only [RuntimeValue.isRefinedBy, reduceCtorEq, or_self, RuntimeValue.addr.injEq]
+  exact Data.LLVM.Ptr.val_isRefinedBy_iff
 
 /-- A non-poison integer value is refined only by itself. -/
 @[simp]
@@ -305,7 +343,9 @@ open Veir.Data.LLVM
     match p, q with
     | .poison, q => some (.addr q)
     | p, .poison => some (.addr p)
-    | .val a, .val b => if a = b then some (.addr (.val a)) else none
+    | .val a, .val b =>
+      if a = b then some (.addr (.val a))
+      else if a.address = b.address then some (.addr (.val a.wildcard)) else none
   | c, d => if c = d then some c else none
 
 /-- `RuntimeValue.glb?` is a lower bound: what it returns refines both values. -/
@@ -330,8 +370,9 @@ theorem RuntimeValue.glb?_isRefinedBy {c d m : RuntimeValue} (h : c.glb? d = som
       exact ⟨⟨rfl, by simpa using hx⟩, ⟨rfl, by simpa using hy⟩⟩
     · cases h
   case addr.addr p q =>
-    split at h <;> (try split at h) <;> cases h <;>
-      simp_all [RuntimeValue.isRefinedBy] <;> split <;> simp_all
+    split at h <;> (try split at h) <;> (try split at h) <;> cases h <;>
+      simp_all [RuntimeValue.isRefinedBy] <;> (try split) <;>
+      simp_all [Data.Pointer.wildcard_eq_iff, eq_comm]
   all_goals
     split at h
     · next he =>
@@ -360,6 +401,10 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
     exact ⟨.byte _ m, by simp [RuntimeValue.glb?, hm], rfl, by simpa using hme⟩
   case addr.addr.addr p q r =>
     cases p <;> cases q <;> cases r <;> simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy]
+    rename_i a b c
+    rcases Data.LLVM.Ptr.common_refinement hc hd with ⟨rfl, h⟩ | ⟨hab, hAddr, rfl⟩
+    · simpa using h
+    · simp [hab, hAddr]
   case reg.reg.reg =>
     subst hc; subst hd; exact ⟨_, by simp [RuntimeValue.glb?], RuntimeValue.isRefinedBy_refl _⟩
   case felt.felt.felt =>
@@ -383,7 +428,7 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Byte.cast_self] at h₁ h₂
     rw [Byte.isRefinedBy_antisymm h₁ h₂]
-  case addr.addr p q => cases p <;> cases q <;> simp_all
+  case addr.addr p q => rw [Data.LLVM.Ptr.isRefinedBy_antisymm h₁ h₂]
   case reg.reg => rw [h₁]
   case felt.felt => obtain ⟨rfl, rfl⟩ := h₁; rfl
   case float.float =>

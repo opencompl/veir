@@ -112,6 +112,11 @@ instance : LawfulMonad Interp :=
     (pure_bind := fun _ _ => rfl)
     (bind_assoc := fun x _ _ => by cases x <;> rfl)
 
+/-- Running a computation twice runs it once: `Interp` has no state. -/
+theorem Interp.bind_bind_self {α β : Type} (x : Interp α) (k : α → α → Interp β) :
+    (x >>= fun a => x >>= fun b => k a b) = x >>= fun a => k a a := by
+  cases x <;> rfl
+
 theorem Interp.bind_eq_bind_iff {α β : Type} {x : Interp α} {f g : α → Interp β} :
     (x >>= f) = (x >>= g) ↔ ∀ a, x = .ok a → f a = g a := by
   cases x <;> simp [Interp.bind_def]

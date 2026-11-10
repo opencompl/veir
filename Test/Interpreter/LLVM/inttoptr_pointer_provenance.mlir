@@ -1,16 +1,11 @@
 // RUN: veir-interpret %s | filecheck %s
-// RUN: LLUBI_CHECK
-// RUN: ALIVE_EXEC_CHECK
+// RUN: LLUBI
+// RUN: ALIVE_EXEC
 
 // The walk of `bitcast_pointer_provenance.mlir` through `llvm.ptrtoint` and
-// `llvm.inttoptr` instead of a bitcast. The pointer that comes back is pinned
-// to the object its address lies in, which is `%q`, so walking sixteen bytes
-// back leaves that object and the load is undefined behaviour.
-//
-// llubi and alive-exec both read 42 instead. For them an integer carries an
-// address and nothing else, so the pointer it is cast back to reaches
-// whichever object the address lies in at each access, and the walk returns
-// to `%p`.
+// `llvm.inttoptr` instead of a bitcast. As an integer only carries an address,
+// the pointer it is cast back to has no provenance: it reaches whichever object
+// its address lies in at each access, and the walk back to `%p` reads 42.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
@@ -30,6 +25,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Undefined behavior
-// ALIVE_EXEC: Program output: #[0x000000000000002a#64]
-// LLUBI: Program output: #[0x000000000000002a#64]
+// CHECK: Program output: #[0x000000000000002a#64]
