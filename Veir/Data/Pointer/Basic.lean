@@ -26,15 +26,15 @@ def addBytes (p : Pointer) (i : Nat) : Pointer :=
 /-- The pointer at `p`'s address that has no provenance. -/
 def wildcard (p : Pointer) : Pointer := ⟨none, p.address⟩
 
-@[simp]
+@[simp, grind =]
 theorem wildcard_wildcard (p : Pointer) : p.wildcard.wildcard = p.wildcard := by
   simp [wildcard]
 
-@[simp]
+@[simp, grind =]
 theorem wildcard_address (p : Pointer) : p.wildcard.address = p.address := by
   simp [wildcard]
 
-@[simp]
+@[simp, grind =]
 theorem wildcard_object (p : Pointer) : p.wildcard.object = none := by
   simp [wildcard]
 
@@ -48,9 +48,17 @@ theorem wildcard_eq_iff {p q : Pointer} :
   simp [wildcard, eq_comm]
 
 /-- A pointer without provenance is not null. -/
-@[simp]
+@[simp, grind .]
 theorem wildcard_ne_null (p : Pointer) : p.wildcard ≠ null := by
   simp [wildcard, null]
+
+/-- `p'` refines `p`: it is `p`, or the pointer at `p`'s address without provenance. -/
+def isRefinedBy (p p' : Pointer) : Prop := p' = p ∨ p' = p.wildcard
+
+@[inherit_doc] infix:50 " ⊒ " => Pointer.isRefinedBy
+
+@[simp, grind =]
+theorem isRefinedBy_iff {p p' : Pointer} : p ⊒ p' ↔ p' = p ∨ p' = p.wildcard := Iff.rfl
 
 instance : ToString Pointer where
   toString p := match p.object with

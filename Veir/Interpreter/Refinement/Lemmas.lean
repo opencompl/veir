@@ -402,7 +402,8 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
   case addr.addr.addr p q r =>
     cases p <;> cases q <;> cases r <;> simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy]
     rename_i a b c
-    rcases Data.LLVM.Ptr.common_refinement hc hd with ⟨rfl, h⟩ | ⟨hab, hAddr, rfl⟩
+    rcases Data.LLVM.Ptr.common_refinement (Data.Pointer.isRefinedBy_iff.mpr hc)
+      (Data.Pointer.isRefinedBy_iff.mpr hd) with ⟨rfl, h⟩ | ⟨hab, hAddr, rfl⟩
     · simpa using h
     · simp [hab, hAddr]
   case reg.reg.reg =>

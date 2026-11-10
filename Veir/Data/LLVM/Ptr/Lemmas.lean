@@ -32,9 +32,9 @@ theorem isRefinedBy_antisymm {p q : Ptr} (h₁ : p ⊒ q) (h₂ : q ⊒ p) : p =
 A common refinement of two pointers: they are the same, or they are at the same address and the
 refinement is the pointer there without provenance.
 -/
-theorem common_refinement {a b c : Pointer} (hc : c = a ∨ c = a.wildcard)
-    (hd : c = b ∨ c = b.wildcard) :
-    (a = b ∧ (c = a ∨ c = a.wildcard)) ∨ (a ≠ b ∧ a.address = b.address ∧ c = a.wildcard) := by
+theorem common_refinement {a b c : Pointer} (hc : a ⊒ c) (hd : b ⊒ c) :
+    (a = b ∧ a ⊒ c) ∨ (a ≠ b ∧ a.address = b.address ∧ c = a.wildcard) := by
+  rw [Pointer.isRefinedBy_iff] at hc hd ⊢
   have ha : c.address = a.address := by rcases hc with rfl | rfl <;> simp
   have hb : c.address = b.address := by rcases hd with rfl | rfl <;> simp
   by_cases hab : a = b

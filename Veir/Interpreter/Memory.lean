@@ -180,7 +180,7 @@ def Data.Pointer.checkAlignment (p : Pointer) (alignment : Nat) : Interp Unit :=
   if alignment = 0 ∨ p.address.toNat % alignment = 0 then return () else Interp.ub none
 
 /-- The alignment of a pointer is that of its address. -/
-@[simp]
+@[simp, grind =]
 theorem Data.Pointer.checkAlignment_wildcard (p : Data.Pointer) (alignment : Nat) :
     p.wildcard.checkAlignment alignment = p.checkAlignment alignment := by
   simp only [Data.Pointer.checkAlignment, Data.Pointer.wildcard_address]
