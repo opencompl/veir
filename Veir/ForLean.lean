@@ -677,6 +677,24 @@ theorem sub_eq_append {w : Nat} (x y : BitVec (w + w)) :
   rw [sub_sub, BitVec.add_assoc, sub_add_cancel, setWidth_eq_extractLsb' (by omega),
     extractLsb'_append_extractLsb']
 
+/-- Powers of two written as `Int` constants are `twoPow`s, which `pbv_decide` can push. -/
+@[veir_bv_normalize]
+theorem ofInt_two_pow (n k : Nat) : BitVec.ofInt n ((2 : Int) ^ k) = BitVec.twoPow n k := by
+  rw [show (2 : Int) ^ k = ((2 ^ k : Nat) : Int) by simp, BitVec.ofInt_natCast]
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_twoPow]
+
+@[veir_bv_normalize]
+theorem ofInt_two_pow_sub_one (n k : Nat) :
+    BitVec.ofInt n ((2 : Int) ^ k - 1) = BitVec.twoPow n k - 1#n := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, ofInt_two_pow, BitVec.ofInt_neg, BitVec.sub_eq_add_neg]
+  rfl
+
+@[veir_bv_normalize]
+theorem ofInt_neg_two_pow (n k : Nat) :
+    BitVec.ofInt n (-(2 : Int) ^ k) = -BitVec.twoPow n k := by
+  rw [BitVec.ofInt_neg, ofInt_two_pow]
+
 @[veir_bv_normalize]
 theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :
     x / 1#w₁ <<< k = x >>> k := by

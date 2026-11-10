@@ -630,6 +630,136 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
     x.smtSDiv y = bif x.msb then 1 else -1 := by
   pbv_decide 4
 
+/-- Popcounts of a conjunction and disjunction sum to the popcounts of the operands -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    (x &&& y).cpop + (x ||| y).cpop = x.cpop + y.cpop := by
+  pbv_decide 4
+
+/-- Popcount commutes with zero extension -/
+example {w v : Nat} (x : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.zeroExtend v).cpop = x.cpop.zeroExtend v := by
+  pbv_decide 4
+
+/-- Popcounts of a value and its complement sum to the popcount of all ones -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.cpop + (~~~x).cpop = (BitVec.allOnes w).cpop := by
+  pbv_decide 4
+
+/-- Reversing twice is the identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.reverse.reverse = x := by
+  pbv_decide 8
+
+/-- Reverse distributes over conjunction -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+    (x &&& y).reverse = x.reverse &&& y.reverse := by
+  pbv_decide 8
+
+/-- Reverse commutes with complement -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (~~~x).reverse = ~~~x.reverse := by
+  pbv_decide 8
+
+/-- Reverse preserves the popcount -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.reverse.cpop = x.cpop := by
+  pbv_decide 8
+
+/-- Reverse of an append swaps and reverses the operands -/
+example {w v : Nat} (x : BitVec w) (y : BitVec v) (hw : w ≤ 4) (hv : v ≤ 4) :
+    (x ++ y).reverse = (y.reverse ++ x.reverse).cast (Nat.add_comm v w) := by
+  pbv_decide 8
+
+/-- Reversing a zero extension moves the bits to the top -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x.zeroExtend 8).reverse = x.reverse.zeroExtend 8 <<< (8#8 - BitVec.ofNat 8 w) := by
+  pbv_decide 8
+
+/-- Trailing zeros are the leading zeros of the reverse -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.ctz = x.reverse.clz := by
+  pbv_decide 8
+
+/-- Leading zeros are the trailing zeros of the reverse -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.clz = x.reverse.ctz := by
+  pbv_decide 8
+
+/-- Leading zeros are at most the width -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.clz ≤ BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Trailing zeros of a nonzero value are below the width -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hx : x ≠ 0#w) :
+    x.ctz < BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Leading zeros of zero are the width -/
+example {w : Nat} (hw : w ≤ 8) :
+    (0#w).clz = BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Trailing zeros of zero are the width -/
+example {w : Nat} (hw : w ≤ 8) :
+    (0#w).ctz = BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- The lowest bit is set iff there are no trailing zeros -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hw0 : 0 < w) :
+    (x.ctz == 0#w) = ((x &&& 1#w) != 0#w) := by
+  pbv_decide 8
+
+/-- Isolating the lowest set bit keeps the trailing zeros -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x &&& -x).ctz = x.ctz := by
+  pbv_decide 8
+
+/-- Zero extension keeps the trailing zeros of a nonzero value -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hx : x ≠ 0#w) :
+    (x.zeroExtend 8).ctz = x.ctz.zeroExtend 8 := by
+  pbv_decide 8
+
+/-- Zero extension from `w` to `v` bits adds `v - w` leading zeros -/
+example {w v : Nat} (x : BitVec w) (hv : v ≤ 8) (hwv : w ≤ v) :
+    (x.zeroExtend v).clz + BitVec.ofNat v w = x.clz.zeroExtend v + BitVec.ofNat v v := by
+  pbv_decide 8
+
+/-- Unsigned addition overflows iff the sum wraps below an operand -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.uaddOverflow y = (x + y).ult x := by
+  pbv_decide 4
+
+/-- Unsigned subtraction overflows iff the subtrahend is larger -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.usubOverflow y = x.ult y := by
+  pbv_decide 4
+
+/-- Signed addition overflow is symmetric -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.saddOverflow y = y.saddOverflow x := by
+  pbv_decide 4
+
+/-- Signed subtraction overflows only when the operands' signs differ -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) (h : x.msb = y.msb) :
+    x.ssubOverflow y = false := by
+  pbv_decide 4
+
+/-- The difference of two widths adds back up to the larger one -/
+example {w t : Nat} (hwt : w ≤ t) (ht : t ≤ 8) :
+    BitVec.ofNat t (t - w) + BitVec.ofNat t w = BitVec.ofNat t t := by
+  pbv_decide 8
+
+/-- The difference of two widths is zero when the subtrahend is larger -/
+example {w t : Nat} (hwt : t ≤ w) (hw : w ≤ 8) :
+    BitVec.ofNat w (t - w) = 0#w := by
+  pbv_decide 8
+
+/-- Xor with all ones is complement -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x ^^^ BitVec.allOnes w = ~~~x := by
+  pbv_decide 4
+
 namespace RefinementTest
 
 open Veir.Data
@@ -645,4 +775,122 @@ example {w t : Nat} (i i' : LLVM.Int w) (ext ext' : BitVec (t - w)) (nuw nsw : B
   veir_bv_normalize
   pbv_decide 8
 
+/-- The overflow flag of an LLVM addition is symmetric -/
+example {w : Nat} (x y : LLVM.Int w) (hw : w ≤ 4) :
+    LLVM.Int.uaddOverflowFlag x y ⊒ LLVM.Int.uaddOverflowFlag y x := by
+  veir_bv_normalize
+  pbv_decide 4
+
+/-- `2 ^ w` wraps to zero at width `w` -/
+example {w : Nat} (x : LLVM.Int w) (hw : w ≤ 4) :
+    LLVM.Int.add x (LLVM.Int.constant w (2 ^ w)) ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 4
+
+/-- `2 ^ w - 1` is all ones at width `w` -/
+example {w : Nat} (hw : w ≤ 4) :
+    LLVM.Int.constant w (2 ^ w - 1) ⊒ LLVM.Int.constant w (-1) := by
+  veir_bv_normalize
+  pbv_decide 4
+
+/-- `-2 ^ (w - 1)` is the signed minimum, which is its own negation -/
+example {w : Nat} (hw : w ≤ 4) :
+    LLVM.Int.constant w (-2 ^ (w - 1)) ⊒ LLVM.Int.constant w (2 ^ (w - 1)) := by
+  veir_bv_normalize
+  pbv_decide 4
+
 end RefinementTest
+
+/-! ### Operations unfolded into supported ones -/
+
+/-- Negation overflows only on the signed minimum, which is its own negation -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : x.negOverflow → -x = x := by
+  pbv_decide 4
+
+/-- The signed minimum overflows on negation -/
+example {w : Nat} (hw : w ≤ 4) (h : 0 < w) : (BitVec.intMin w).negOverflow := by
+  pbv_decide 4
+
+/-- Signed division overflows only when the dividend overflows on negation -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) : x.sdivOverflow y → x.negOverflow := by
+  pbv_decide 4
+
+/-- Signed division overflows only for a divisor of `-1` -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) : x.sdivOverflow y → y = BitVec.allOnes w := by
+  pbv_decide 4
+
+/-- Dividing by one never overflows -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (h : 1 < w) : x.sdivOverflow 1 = false := by
+  pbv_decide 4
+
+/-- Absolute value is idempotent -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : x.abs.abs = x.abs := by
+  pbv_decide 4
+
+/-- Absolute value ignores negation -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : (-x).abs = x.abs := by
+  pbv_decide 4
+
+/-- Filling with `true` gives all ones -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : x &&& BitVec.fill w true = x := by
+  pbv_decide 4
+
+/-- The lowest bit of `concat` is the new bit -/
+example {w : Nat} (x : BitVec w) (b : Bool) (hw : w ≤ 4) : (x.concat b).getLsbD 0 = b := by
+  pbv_decide 8
+
+/-- Shifting out the new bit of `concat` gives the zero-extension -/
+example {w : Nat} (x : BitVec w) (b : Bool) (hw : w ≤ 4) :
+    (x.concat b) >>> 1 = x.setWidth (w + 1) := by
+  pbv_decide 8
+
+/-- The top bit of `cons` is the new bit -/
+example {w : Nat} (x : BitVec w) (b : Bool) (hw : w ≤ 4) : (BitVec.cons b x).msb = b := by
+  pbv_decide 8
+
+/-- Truncating `cons` drops the new bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : (BitVec.cons false x).setWidth w = x := by
+  pbv_decide 8
+
+/-- Bits of a xor are the xor of the bits -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    (x ^^^ y).getLsbD 2 = (x.getLsbD 2 ^^ y.getLsbD 2) := by
+  pbv_decide 4
+
+/-- The bit at the width is out of bounds -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : x.getLsbD w = false := by
+  pbv_decide 4
+
+/-- The first bit from the top is the sign bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : x.getMsbD 0 = x.msb := by
+  pbv_decide 4
+
+/-- Bits from the top and from the bottom agree -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (h : 1 < w) : x.getMsbD 1 = x.getLsbD (w - 2) := by
+  pbv_decide 4
+
+/-- Indexing the complement complements the bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (h : 0 < w) : (~~~x)[0] = !x[0] := by
+  pbv_decide 4
+
+/-- Shifting the sign bit down to the lowest bit -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (h : 0 < w) : (x >>> (w - 1))[0] = x.msb := by
+  pbv_decide 4
+
+/-- Rotating left then right is the identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) : (x.rotateLeft 13).rotateRight 13 = x := by
+  pbv_decide 8
+
+/-- Rotating by the width is the identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) : x.rotateLeft w = x := by
+  pbv_decide 4
+
+/-- Rotating left by one moves the second-highest bit to the top -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) (h : 1 < w) :
+    (x.rotateLeft 1).msb = x.getLsbD (w - 2) := by
+  pbv_decide 4
+
+/-- Rotating right by one, as shifts -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.rotateRight 1 = (x >>> 1) ||| (x <<< (w - 1)) := by
+  pbv_decide 4
