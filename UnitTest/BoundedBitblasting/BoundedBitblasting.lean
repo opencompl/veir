@@ -630,6 +630,26 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4 ) (h : y = 0) :
     x.smtSDiv y = bif x.msb then 1 else -1 := by
   pbv_decide 4
 
+/-- Popcounts of a conjunction and disjunction sum to the popcounts of the operands -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    (x &&& y).cpop + (x ||| y).cpop = x.cpop + y.cpop := by
+  pbv_decide 4
+
+/-- Popcount commutes with zero extension -/
+example {w v : Nat} (x : BitVec w) (hwv : w ≤ v) (hv : v ≤ 4) :
+    (x.zeroExtend v).cpop = x.cpop.zeroExtend v := by
+  pbv_decide 4
+
+/-- Popcounts of a value and its complement sum to the popcount of all ones -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x.cpop + (~~~x).cpop = (BitVec.allOnes w).cpop := by
+  pbv_decide 4
+
+/-- Xor with all ones is complement -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
+    x ^^^ BitVec.allOnes w = ~~~x := by
+  pbv_decide 4
+
 namespace RefinementTest
 
 open Veir.Data

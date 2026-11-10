@@ -275,11 +275,11 @@ theorem smod_eq_bif_umod (o : Nat) {w : Nat} (h : w ≤ o) (a b : BitVec w) :
 /-- ## Push `setWidth` into `BitVec` ops -/
 
 @[pbv_push]
-theorem setWidth_shiftLeft {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
+theorem setWidth_shiftLeft {o w v : Nat} (hw : w ≤ o) (hv : v ≤ o) (a : BitVec w) (b : BitVec v) :
     (a <<< b).setWidth o = (a.setWidth o <<< b.setWidth o) &&& maskOfWidth o w := by
-  refine setWidth_eq_and_maskOfWidth h ?_
-  simp only [BitVec.shiftLeft_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le (x := b) h),
-    BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.mod_mul_mod, Nat.mod_mod_pow_of_le h]
+  refine setWidth_eq_and_maskOfWidth hw ?_
+  simp only [BitVec.shiftLeft_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le (x := b) hv),
+    BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.mod_mul_mod, Nat.mod_mod_pow_of_le hw]
 
 @[pbv_push]
 theorem setWidth_shiftLeft' {o w : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
@@ -291,11 +291,12 @@ theorem setWidth_shiftLeft' {o w : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
     BitVec.shiftLeft_eq', BitVec.toNat_ofNatClamp]
 
 @[pbv_push]
-theorem setWidth_ushiftRight {o w : Nat} (h : w ≤ o) (a b : BitVec w) :
+theorem setWidth_ushiftRight {o w v : Nat} (hw : w ≤ o) (hv : v ≤ o) (a : BitVec w) (b : BitVec v) :
     (a >>> b).setWidth o = (a.setWidth o >>> b.setWidth o) &&& maskOfWidth o w := by
-  refine setWidth_eq_and_maskOfWidth h ?_
-  simp only [BitVec.ushiftRight_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h),
-    BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.div_mod_eq_div a.isLt]
+  refine setWidth_eq_and_maskOfWidth hw ?_
+  simp only [BitVec.ushiftRight_eq', BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le hw),
+    BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.div_mod_eq_div a.isLt,
+    Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le hv)]
 
 @[pbv_push]
 theorem setWidth_ushiftRight' {o w : Nat} (h : w ≤ o) (a : BitVec w) (b : Nat) :
@@ -421,6 +422,14 @@ theorem setWidth_not {o w : Nat} (h : w ≤ o) (a : BitVec w) :
   simp only [BitVec.toNat_not, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (BitVec.toNat_lt_twoPow_of_le h), Nat.sub_sub]
   rw [Nat.two_pow_sub_mod_of_le h (by grind), Nat.mod_eq_of_lt (by grind)]
 
+@[pbv_push]
+theorem setWidth_cpop {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    (a.cpop).setWidth o = (a.setWidth o).cpop &&& maskOfWidth o w := by
+  refine setWidth_eq_and_maskOfWidth h ?_
+  rw [BitVec.toNat_cpop_setWidth_eq_of_le h, BitVec.toNat_cpop, Nat.mod_eq_of_lt]
+  apply Nat.lt_of_le_of_lt (by apply BitVec.cpopNatRec_le w)
+  simp only [Nat.zero_add, Nat.lt_two_pow_self]
+
 /-! ### Other ops in terms of `maskOfWidth` -/
 
 /-- `a.msb` can be implemented by masking the sign bit,
@@ -476,6 +485,11 @@ theorem setWidth_ofInt {o w : Nat} {i : Int} (h : w ≤ o) :
   rw [Int.natCast_emod, Int.toNat_of_nonneg (Int.emod_nonneg _ (by omega)),
     Int.toNat_of_nonneg (Int.emod_nonneg _ (by omega)), Int.emod_emod_of_dvd _ hdvd]
 
+@[pbv_push]
+theorem setWidth_allOnes {o w : Nat} (h : w ≤ o) :
+    (BitVec.allOnes w).setWidth o = maskOfWidth o w := by
+  exact Eq.symm (maskOfWidth_eq_allOnes h)
+
 /-- Push a variable `Nat` which corresponds to a mask into a `cpop` of the mask. -/
 @[pbv_push]
 theorem ofNat_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :
@@ -494,3 +508,14 @@ theorem ofNatClamp_eq_cpop_of_maskOfWidth {o w : Nat} {m : BitVec o} (h : w ≤ 
     exact Nat.lt_pow_self (by grind)
   · apply Nat.lt_trans (Nat.lt_pow_self (a := 2) (by decide)) ?_
     exact Nat.pow_lt_pow_right (a := 2) (by decide) (by lia)
+
+@[pbv_push]
+theorem ofNat_nat_sub_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o) (hm : m = maskOfWidth o w) :
+    BitVec.ofNat o (w - n) = (m >>> n).cpop := by
+  have hshift : m >>> n = maskOfWidth o (w - n) := by
+    subst hm
+    ext i hi
+    simp only [BitVec.getElem_ushiftRight, getLsbD_maskOfWidth, getElem_maskOfWidth]
+    grind
+  rw [hshift]
+  exact (cpop_eq_width_of_maskOfWidth (by omega) rfl).symm

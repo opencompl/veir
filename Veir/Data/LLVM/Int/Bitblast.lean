@@ -945,3 +945,9 @@ theorem neg_twoPow_sub_eq_intMin {w : Nat} :
 theorem twoPow_sub_one_eq_intMin {w : Nat} :
     LLVM.Int.constant w (2 ^ (w - 1) - 1) = LLVM.Int.constant w ((BitVec.intMax w).toInt) := by
   simp [veir_bv_normalize]
+
+@[veir_bv_normalize]
+theorem ofInt_two_pow_eq_setWidth_allones {v w : Nat} :
+    BitVec.ofInt v (2^w - 1) = (BitVec.allOnes w).setWidth v := by
+  apply BitVec.eq_of_toInt_eq
+  simp [Int.ofNat_sub (by grind : 1 ≤ 2^w)]
