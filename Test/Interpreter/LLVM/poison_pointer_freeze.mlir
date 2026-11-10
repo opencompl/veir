@@ -5,8 +5,7 @@
 
 // Freezing a poison pointer yields some pointer; the interpreter picks null.
 // llubi and alive-exec pick some pointer as well; which one is theirs to choose.
-// In the future, we would like to use ctrees to enable a non-determistic choice,
-// at least in our model.
+// In CTrees, freeze may yield any pointer. The default runner chooses null.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<!llvm.ptr ()>}> ({

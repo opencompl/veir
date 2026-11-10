@@ -95,14 +95,18 @@ theorem sim_fail {EIn CIn C'In} {E : EIn → Type} {C : CIn → Type}
 
 /-! ## Freeze Effect -/
 
-/-- Choice of a bitvector of a given bitwidth (input type) -/
-structure FreezeCIn : Type u where
-  bw : Nat
+/-- Choice of a value that freezing poison may give (input type) -/
+inductive FreezeCIn : Type u where
+  /-- A bitvector of the given bitwidth. -/
+  | mk (bw : Nat)
+  /-- A pointer, to any object. -/
+  | pointer
 
-/-- Choice of a bitvector of a given bitwidth (output type) -/
+/-- Choice of a value that freezing poison may give (output type) -/
 abbrev FreezeC (c : FreezeCIn.{u}) : Type :=
   match c with
   | .mk bw => BitVec bw
+  | .pointer => Data.Pointer
 
 /-! ## Region Runner Effect -/
 
