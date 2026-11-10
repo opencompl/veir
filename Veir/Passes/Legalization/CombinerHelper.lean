@@ -14,8 +14,9 @@ depend on the legality of operations take the `LegalizerInfo` of the target. LLV
 `commute_constant_to_rhs` is the canonicalizer's `commutativeConstantRHS`.
 
 Besides LLVM's `RISCVPostLegalizerCombiner` combines, this file has combines from LLVM's
-`all_combines`, which LLVM runs before legalization. Here they run after legalization, so they only
-match legal operations, and the operations they create only use the types of the values they match.
+`all_combines`, which LLVM runs before legalization. Here most of them run after legalization, so
+they only match legal operations, and the operations they create only use the types of the values
+they match.
 
 TODO: Add the other combines of LLVM's `RISCVPostLegalizerCombiner` (`combines_for_extload` and
 `shift_immed_chain`), and the rest of `redundant_and`.
@@ -829,6 +830,121 @@ def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
     (fun (type, x, y) => CreateProg.operation (.gmir opposite) #[x, y] #[type])
     (fun op => op)
 
+/-- Match the funnel shift `fsh x, y, amt` whose amount `amt` is a `g_constant`, returning `x`, `y`,
+    the amount's type and properties, and the result type. -/
+def matchFunnelShiftConstAmt (fsh : GMIR) :
+    MatchProg.Builder (Handle OpCode .value × Handle OpCode .value ×
+      Handle OpCode .type × Handle OpCode (.prop (.gmir .g_constant)) ×
+      Handle OpCode .type) := do
+  let xType ← MatchProg.type (Attr := TypeAttr)
+  let x ← MatchProg.value xType
+  let yType ← MatchProg.type (Attr := TypeAttr)
+  let y ← MatchProg.value yType
+  let amtType ← MatchProg.type (Attr := TypeAttr)
+  let amt ← matchConstant amtType
+  let resultType ← MatchProg.type (Attr := TypeAttr)
+  let _ ← MatchProg.root (.gmir fsh) #[x, y, amt.res[0]!] #[resultType]
+  return (x, y, amtType, amt.properties, resultType)
+
+/-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
+
+/-- `fsh x, y, 0` -> `y` if `keepRight`, and `x` otherwise. -/
+def funnel_shift_zero_pattern (fsh : GMIR) (keepRight : Bool) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let (x, y, _, amtProps, _) ← matchFunnelShiftConstAmt fsh
+      MatchProg.matchNative amtProps fun props => props.bits = 0
+      return if keepRight then y else x)
+    pure
+    (fun kept => kept)
+
+def funnel_shift_right_zero : CompiledPattern OpCode :=
+  (funnel_shift_zero_pattern .g_fshr true).compile
+
+def funnel_shift_left_zero : CompiledPattern OpCode :=
+  (funnel_shift_zero_pattern .g_fshl false).compile
+
+/-! ### funnel_shift_overshift :  fshl/fshr x, y, C → fshl/fshr x, y, (C % bw)   (C ≥ bw)
+
+  A funnel shift amount is taken modulo the bit-width, so an over-large constant
+  amount is reduced to its residue. -/
+
+/-- The properties of the amount `C % bw` that replaces the unsigned constant amount `C` of a funnel
+    shift of type `type` (with `bw` its width), if `C ≥ bw`. -/
+def overshiftAmount? (props : GMIRConstantProperties) (type : TypeAttr) :
+    Option GMIRConstantProperties := do
+  let c := props.bits.toNat
+  let .integerType aty := type.val | none
+  let bw := aty.bitwidth
+  if c < bw then none
+  return { value := .ofInt (c % bw : Nat) props.value.type }
+
+def funnel_shift_overshift_pattern (fsh : GMIR) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let (x, y, amtType, amtProps, resultType) ← matchFunnelShiftConstAmt fsh
+      MatchProg.matchNative (amtProps, resultType)
+        fun (props, type) => (overshiftAmount? props type).isSome
+      return (x, y, amtType, amtProps, resultType))
+    (fun (x, y, amtType, amtProps, resultType) => do
+      let newAmtProps ← CreateProg.applyNative
+          (Outputs := Handle OpCode (.prop (.gmir .g_constant))) (amtProps, resultType)
+          fun (props, type) => overshiftAmount? props type
+      let newAmt ← CreateProg.operation (.gmir .g_constant) #[] #[amtType] newAmtProps
+      CreateProg.operation (.gmir fsh) #[x, y, newAmt.res[0]!] #[resultType])
+    (fun op => op)
+
+def funnel_shift_overshift_l : CompiledPattern OpCode :=
+  (funnel_shift_overshift_pattern .g_fshl).compile
+
+def funnel_shift_overshift_r : CompiledPattern OpCode :=
+  (funnel_shift_overshift_pattern .g_fshr).compile
+
+/-! ### funnel_shift_or_shift_to_funnel_shift_{left,right}
+
+  `(fshl x, z, y) | (shl x, y) → fshl x, z, y` and the mirror
+  `(fshr z, x, y) | (lshr x, y) → fshr z, x, y`. The plain shift is subsumed by
+  the funnel shift that already produces the wanted bits, so the OR collapses to
+  the existing funnel-shift value. G_OR is commutative: both operand orders are
+  handled. -/
+
+/-- `or (fsh …) (shift x, y)` (or `or (shift x, y) (fsh …)` unless `fshFirst`) -> `fsh …`, where
+    `fsh` is `fshl x, z, y` if `left` and `fshr z, x, y` otherwise. -/
+def funnel_shift_or_shift_pattern (fsh shift : GMIR) (left fshFirst : Bool) :
+    Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let xType ← MatchProg.type (Attr := TypeAttr)
+      let x ← MatchProg.value xType
+      let yType ← MatchProg.type (Attr := TypeAttr)
+      let y ← MatchProg.value yType
+      let zType ← MatchProg.type (Attr := TypeAttr)
+      let z ← MatchProg.value zType
+      let fshType ← MatchProg.type (Attr := TypeAttr)
+      let fshOp ← MatchProg.operation (.gmir fsh)
+        (if left then #[x, z, y] else #[z, x, y]) #[fshType]
+      let shiftType ← MatchProg.type (Attr := TypeAttr)
+      let shiftOp ← MatchProg.operation (.gmir shift) #[x, y] #[shiftType]
+      let orType ← MatchProg.type (Attr := TypeAttr)
+      let _ ← MatchProg.root (.gmir .g_or)
+        (if fshFirst then #[fshOp.res[0]!, shiftOp.res[0]!] else #[shiftOp.res[0]!, fshOp.res[0]!])
+        #[orType]
+      return fshOp.res[0]!)
+    pure
+    (fun kept => kept)
+
+/-- Tries the funnel shift as the first `or` operand, then as the second. -/
+def funnel_shift_or_shift_to_funnel_shift_left : CompiledPattern OpCode :=
+  ⟨RewritePattern.GreedyRewritePattern <| #[
+    (funnel_shift_or_shift_pattern .g_fshl .g_shl true true).compile,
+    (funnel_shift_or_shift_pattern .g_fshl .g_shl true false).compile].map (·.run)⟩
+
+/-- Tries the funnel shift as the first `or` operand, then as the second. -/
+def funnel_shift_or_shift_to_funnel_shift_right : CompiledPattern OpCode :=
+  ⟨RewritePattern.GreedyRewritePattern <| #[
+    (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true).compile,
+    (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false).compile].map (·.run)⟩
+
 /-! ### Power-of-two strength reductions -/
 
 /-- `udiv x, 2^k` → `lshr x, k`, with the divisor read as an unsigned integer. Unlike LLVM, which
@@ -1236,7 +1352,10 @@ def preLegalizerCombines : Array (CompiledPattern OpCode) :=
   (#[udiv_by_pow2_pattern] ++
     #[false, true].flatMap fun negative =>
       #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile) ++
-  selectOfConstantsCombines ++ selectIntoBinopCombines
+  selectOfConstantsCombines ++ selectIntoBinopCombines ++
+  #[funnel_shift_right_zero, funnel_shift_left_zero, funnel_shift_overshift_l,
+    funnel_shift_overshift_r, funnel_shift_or_shift_to_funnel_shift_left,
+    funnel_shift_or_shift_to_funnel_shift_right]
 
 end
 

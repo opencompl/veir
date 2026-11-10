@@ -87,38 +87,26 @@ def MemoryState.nextBase (mem : MemoryState) : Nat :=
 /--
   The object that `p` points into, or `none` if `p` indexes no object.
 
-  No pointer should trigger the `none` case: every pointer the interpreter builds
-  names an object contained in the state (currently only object 0) which `empty`
+  No pointer with an object should trigger the `none` case: every such pointer the interpreter
+  builds names an object contained in the state (currently only object 0) which `empty`
   creates and no operation ever removes. However, this is not enforced, so a
   bug may break this invariant.
 -/
 def MemoryState.getObject? (mem : MemoryState) (p : Pointer) : Option MemoryObject :=
-  mem.objects[p.object]?
+  p.object.bind (mem.objects[·]?)
 
 /--
-  The index of the last object whose base is at most `addr`. Object 0 starts
-  at address 0, so some object always qualifies.
+  The pointer that the physical address `addr` denotes: one without an object, which may access
+  any object that holds the bytes (see `checkAccess`).
 -/
-def MemoryState.objectOfAddress (mem : MemoryState) (addr : UInt64) : Nat :=
-  let baseOf (i : Nat) : UInt64 := (mem.objects[i]?.map (·.base)).getD 0
-  (List.range mem.objects.size).foldl (init := 0) fun best i =>
-    if baseOf i ≤ addr ∧ baseOf best ≤ baseOf i then i else best
-
-/--
-  The pointer that the physical address `addr` denotes. Every address is mapped
-  to a pointer object, as we just look for the closest object from below that a
-  given address may belong to. If no other object matches, addresses are mapped
-  to the null object. Yet, addresses outside of an object's boundaries may be
-  out-of-bounds and will be rejected in `checkAccess`.
--/
-def MemoryState.decode (mem : MemoryState) (addr : UInt64) : Pointer :=
-  ⟨mem.objectOfAddress addr, addr⟩
+def MemoryState.decode (_mem : MemoryState) (addr : UInt64) : Pointer :=
+  ⟨none, addr⟩
 
 /-- The pointer to the start of the object of the global `symbol`, if the memory has it. -/
 def MemoryState.pointerToGlobal (mem : MemoryState) (symbol : String) : Option Pointer := do
   let i ← mem.globals[symbol]?
   let obj ← mem.objects[i]?
-  return ⟨i, obj.base⟩
+  return ⟨some i, obj.base⟩
 
 /--
   The size of an `alloca` in bytes as a 64-bit value. An `alloca` has no way
@@ -141,21 +129,48 @@ def MemoryState.alloc (mem : MemoryState) (size : UInt64) : Interp (MemoryState 
   if base + size.toNat + 1 > 2 ^ 64 then Interp.fail none else
   let index := mem.objects.size
   return ({ mem with objects := mem.objects.push ⟨base.toUInt64, size.toNat⟩ },
-    ⟨index, base.toUInt64⟩)
+    ⟨some index, base.toUInt64⟩)
 
 /--
   Check if an access of `size` bytes at `p` is allowed.
 -/
 def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : Interp Unit := do
-  let some obj := mem.getObject? p | Interp.fail none
-
   -- An access of zero bytes is allowed at any offset, in bounds or not.
   if size = 0 then return ()
+
+  -- A pointer without provenance may access any object that holds the bytes.
+  if p.object.isNone then
+    if mem.objects.any (·.holds p.address size.toNat) then return ()
+    Interp.ub none
+
+  let some obj := mem.getObject? p | Interp.fail none
 
   -- The `size` bytes must lie inside the object.
   if obj.holds p.address size.toNat then return ()
 
   Interp.ub none
+
+/-- An access that succeeds through a pointer succeeds through its wildcard. -/
+theorem MemoryState.checkAccess_wildcard_of_ok {mem : MemoryState} {p : Pointer} {size : UInt64}
+    (h : mem.checkAccess p size = .ok ()) : mem.checkAccess p.wildcard size = .ok () := by
+  rcases p with ⟨_ | o, a⟩
+  · rwa [← Pointer.mk_none_eq_wildcard]
+  · rw [← Pointer.mk_none_eq_wildcard]
+    -- The object of the pointer is one that holds the bytes.
+    rcases hobj : mem.objects[o]? with _ | obj
+    · by_cases h0 : size = 0 <;> simp_all [MemoryState.checkAccess, MemoryState.getObject?]
+    · have : obj.holds a size.toNat → mem.objects.any (·.holds a size.toNat) := fun h =>
+        Array.any_eq_true'.mpr ⟨obj, Array.mem_of_getElem? hobj, h⟩
+      by_cases h0 : size = 0 <;> by_cases hholds : obj.holds a size.toNat <;>
+        simp_all [MemoryState.checkAccess, MemoryState.getObject?]
+
+/-- A computation after an access check that succeeds through a pointer, and its wildcard. -/
+theorem MemoryState.bind_checkAccess_wildcard_of_ok {α : Type} {mem : MemoryState} {p : Pointer}
+    {size : UInt64} {k : Unit → Interp α} {v : α} (h : (mem.checkAccess p size >>= k) = .ok v) :
+    (mem.checkAccess p.wildcard size >>= k) = .ok v := by
+  cases hc : mem.checkAccess p size with
+  | ok u => cases u; rw [hc] at h; rwa [checkAccess_wildcard_of_ok hc]
+  | _ => simp [hc] at h
 
 /--
   Check that `p` is aligned to `alignment` bytes.
@@ -163,6 +178,12 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
 -/
 def Data.Pointer.checkAlignment (p : Pointer) (alignment : Nat) : Interp Unit :=
   if alignment = 0 ∨ p.address.toNat % alignment = 0 then return () else Interp.ub none
+
+/-- The alignment of a pointer is that of its address. -/
+@[simp, grind =]
+theorem Data.Pointer.checkAlignment_wildcard (p : Data.Pointer) (alignment : Nat) :
+    p.wildcard.checkAlignment alignment = p.checkAlignment alignment := by
+  simp only [Data.Pointer.checkAlignment, Data.Pointer.wildcard_address]
 
 /--
   Store raw bytes to the given address in memory,
@@ -301,15 +322,33 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | _ => none
 
 /--
-  Loads a `w`-bit integer from `p`, poison only if every bit is (see `LLVM.Byte.toFrozenInt`).
-  Yields UB if the access is out of bounds or `p` is null.
-
-  TODO: With CTrees, freeze the poison bits nondeterministically.
+  A load that succeeds through a pointer loads the same through its wildcard: it reads the
+  pointer only through one access check and its address.
 -/
-def MemoryState.frozenLoad (mem : MemoryState) (p : Pointer) (w : Nat)
+theorem MemoryState.llvmLoad_wildcard_of_ok {mem : MemoryState} {p : Pointer} {type : TypeAttr}
+    {v : RuntimeValue} (h : mem.llvmLoad p type = .ok v) :
+    mem.llvmLoad p.wildcard type = .ok v := by
+  revert h
+  unfold MemoryState.llvmLoad
+  by_cases hnull : p = .null
+  · simp [hnull]
+  simp only [hnull, Pointer.wildcard_ne_null, ↓reduceIte]
+  split <;> (try simp only [MemoryState.load, MemoryState.loadPoison, MemoryState.hasPoison,
+    MemoryState.loadByte, Nat.reduceMod, Nat.reduceDiv, ne_eq, not_true_eq_false, ↓reduceIte,
+    bind_assoc, pure_bind, Interp.bind_bind_self, Pointer.wildcard_address]) <;>
+    first
+      | exact MemoryState.bind_checkAccess_wildcard_of_ok
+      | exact id
+
+/--
+  Loads a `w`-bit integer from `p`. It is poison if any bit is, as an integer `llvmLoad`, so
+  translating `llvm.load` to `g_load` is exact, and splitting a `g_load` is a refinement.
+  Yields UB if the access is out of bounds or `p` is null.
+-/
+def MemoryState.intLoad (mem : MemoryState) (p : Pointer) (w : Nat)
     : Interp (Data.LLVM.Int w) := do
   if p = .null then Interp.ub none else
-  return LLVM.Byte.toFrozenInt (← mem.loadByte p w)
+  return (← mem.loadByte p w).toInt
 
 /-- The type `b8`, which keeps the poison bits of a byte loaded from memory. -/
 def byte8Type : TypeAttr := TypeAttr.of LLVM.ByteType ⟨8⟩

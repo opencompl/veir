@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 """Every interpreter test of the LLVM dialect cross-checks its result against
-llubi and alive-exec, or says why it cannot.
+llubi and alive-exec, and interprets its program with the CTree interpreter as
+well, or says why it cannot.
 
-A test under `Test/Interpreter/LLVM` passes this check when it has a
+A test under `Test/Interpreter/LLVM` is cross-checked when it has a
 `// RUN: LLUBI`, `// RUN: ALIVE_EXEC`, one of their `_CHECK` forms, or runs
 `%llubi-interpret` itself; or when it opts out with a line
 
     // NO_CROSS_CHECK: <why neither tool can read this test>
 
-so that a test without a reference semantics is a deliberate choice, with the
-reason on record, rather than an oversight.
+It pins the CTree interpreter when it has a `// RUN: CTREE` line or one of
+its `_CHECK` forms; or when it opts out with a line
+
+    // NO_CTREE: <why the CTree interpreter cannot run this test>
+
+so that a test without a reference semantics, or one that only ever runs
+through the `Interp` interpreter, is a deliberate choice with the reason on
+record, rather than an oversight.
 """
 
 import pathlib
@@ -21,23 +28,33 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 TESTS = REPO / "Test" / "Interpreter" / "LLVM"
 CROSS_CHECK = re.compile(r"^// RUN:.*(?:\b(?:LLUBI|ALIVE_EXEC)(?:_CHECK)?\b|%llubi-interpret)")
 OPT_OUT = re.compile(r"^// NO_CROSS_CHECK:\s*(.*\S)?\s*$")
+CTREE = re.compile(r"^// RUN:.*\bCTREE(?:_CHECK|_FAIL_CHECK)?\b")
+CTREE_OPT_OUT = re.compile(r"^// NO_CTREE:\s*(.*\S)?\s*$")
+
+
+def check(lines, run, opt_out, opt_out_name, run_name, relative, problems):
+    """Report a test that neither has a `run_name` line nor opts out of one."""
+    runs_it = any(run.match(line) for line in lines)
+    opt_outs = [opt_out.match(line) for line in lines if opt_out.match(line)]
+    for m in opt_outs:
+        if not m.group(1):
+            problems.append(f"{relative}: {opt_out_name} gives no reason")
+    if runs_it and opt_outs:
+        problems.append(f"{relative}: both {run_name} and {opt_out_name}")
+    if not runs_it and not opt_outs:
+        problems.append(f"{relative}: no {run_name} line, "
+                        f"and no `{opt_out_name}: <reason>`")
 
 
 def main():
     problems = []
     for path in sorted(TESTS.glob("*.mlir")):
         lines = path.read_text().splitlines()
-        checked = any(CROSS_CHECK.match(line) for line in lines)
-        opt_outs = [OPT_OUT.match(line) for line in lines if OPT_OUT.match(line)]
         relative = path.relative_to(REPO)
-        for m in opt_outs:
-            if not m.group(1):
-                problems.append(f"{relative}: NO_CROSS_CHECK gives no reason")
-        if checked and opt_outs:
-            problems.append(f"{relative}: both cross-checks and NO_CROSS_CHECK")
-        if not checked and not opt_outs:
-            problems.append(f"{relative}: no `RUN: LLUBI` or `RUN: ALIVE_EXEC` line, "
-                            "and no `NO_CROSS_CHECK: <reason>`")
+        check(lines, CROSS_CHECK, OPT_OUT, "NO_CROSS_CHECK",
+              "`RUN: LLUBI` or `RUN: ALIVE_EXEC`", relative, problems)
+        check(lines, CTREE, CTREE_OPT_OUT, "NO_CTREE", "`RUN: CTREE`",
+              relative, problems)
     for problem in problems:
         print(problem)
     return 1 if problems else 0
