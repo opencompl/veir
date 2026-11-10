@@ -3,6 +3,7 @@ module
 public import Veir.Interpreter.CTreeRefinement.Monotone
 public import Veir.Dialects.LLVM.Monotonicity
 public import Veir.Interpreter.CTreePrimitiveRefinement
+public import Veir.Dialects.LLVM.ResultsConform
 
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Dialects.LLVM.Interpreter
@@ -210,15 +211,15 @@ namespace Veir
 /--
 Every LLVM opcode is monotone in CTrees, with the results of the target typed: the obligation of
 `OpCode.interpretCTree_monotone` holds for LLVM. The types of the results come from
-`interpretOp'_results_conform`.
+`OpCode.resultsConform_llvm`.
 -/
 theorem OpCode.interpretCTree_monotone_llvm (op : Llvm) :
     OpCode.interpretCTree_monotone (.llvm op) := by
   intro ctx o oIn hType hVerified sv tv sm tm hConf hRef hMem
   simp only [OperationPtr.interpretCTree]
   refine CTree.llvm_sim_typed hType _ _ _ _ _ hRef hMem fun vals m a hok =>
-    interpretOp'_results_conform (mem := tm) (mem' := m) (act := a) hVerified
-      (hConf.of_isRefinedBy hRef) ?_
+    OpCode.resultsConform_def.mp (OpCode.resultsConform_llvm op) ctx o oIn hType hVerified
+      tv vals tm m a (hConf.of_isRefinedBy hRef) ?_
   simp only [OperationPtr.interpret]
   rw [OperationPtr.getOpType!_eq_getOpType oIn, OperationPtr.getProperties!_eq_getProperties oIn
     (by grind), OperationPtr.getResultTypes!_eq_getResultTypes oIn,
@@ -230,7 +231,6 @@ info: 'Veir.OpCode.interpretCTree_monotone_llvm' depends on axioms: [propext,
  Sim,
  Classical.choice,
  Quot.sound,
- interpretOp'_results_conform,
  Sim.ret,
  Sim.tau_l,
  Sim.tau_r,
