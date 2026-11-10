@@ -1,10 +1,8 @@
 // RUN: veir-interpret %s | filecheck %s
 
-// gMIR has no byte type, so `g_load` loads an integer and freezes its poison
-// bits to 0, unless every bit is poison; then we keep the poison.
-// This test confirms this behavior: We poison the lowest byte and ensure that
-// it is read as zeros.
-// TODO: With CTrees, the frozen bits should be chosen nondeterministically.
+// A `g_load` is poison if any bit it loads is poison, as an integer `llvm.load`.
+// This test confirms this behavior: We poison the lowest byte of an `i32` and
+// ensure that loading the `i32` gives poison.
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i32 ()>}> ({
@@ -19,4 +17,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: Program output: #[0x11223300#32]
+// CHECK: Program output: #[poison]

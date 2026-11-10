@@ -8,6 +8,7 @@ public import Veir.IRNesting
 public import Veir.Interfaces.RegionIsolationInterfaces
 public import Veir.Interfaces.RegionKindInterfaces
 public import Veir.IR.Dominance
+public import Veir.Dominance.Basic
 
 import all Veir.Verifier.Basic
 import all Veir.Dialects.LLVM.OpInfo
@@ -345,6 +346,12 @@ Assert that the IR context verifies successfully with `root` as the root operati
 -/
 def WfIRContext.Verified (ctx : WfIRContext OpCode) (root : OperationPtr) : Prop :=
   ctx.verify root = .ok ()
+
+/-- Soundness of the executable verifier's dominance analysis. -/
+axiom WfIRContext.Verified.dominance
+    {ctx : WfIRContext OpCode} {root : OperationPtr}
+    (verified : ctx.Verified root) :
+    ctx.Dom root
 
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent

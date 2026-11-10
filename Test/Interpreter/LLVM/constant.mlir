@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: CTREE
 // NO_CROSS_CHECK: constants the translator does not emit, with no integer value.
 
 "builtin.module"() ({

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: CTREE
 // RUN: ALIVE_EXEC
 
 // A stored pointer read back as two `i32` halves, joined with shifts and cast

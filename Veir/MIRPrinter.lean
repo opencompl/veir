@@ -29,8 +29,8 @@ public section
   likewise an error.
 
   Four structural translations happen here:
-  * VeIR block arguments become MIR `PHI`s at join blocks (or a `COPY` when a
-    block has a single predecessor).
+  * VeIR block arguments become MIR `PHI`s, including for blocks with a single
+    predecessor.
   * `riscv_stack.alloca` becomes a `stack` object, leaving the frame layout,
     prologue, epilogue and CFI to `llc` (see `Frame`).
   * `riscv_cf.call` expands to LLVM's call sequence, passing arguments and
@@ -329,7 +329,8 @@ def succArgs (ctx : IRContext OpCode) (term : OperationPtr) : Array (Array Value
     block listing S twice or a PHI taking two values from the same predecessor, so
     we split the edge: route the two sides through fresh single-jump trampoline
     blocks t0/t1, each forwarding to S, so S's PHI gets one entry per trampoline.
-    Equal-argument degenerate branches need no split (collapsed to one edge). -/
+    Equal-argument degenerate branches need no split: both branch instructions
+    target S, with one successor-list entry and one PHI input per predecessor. -/
 structure EdgePlan where
   /-- preds[i] = predecessors of block i as (predBlockIndex, argValues). -/
   preds : Array (Array (Nat × Array ValuePtr))
@@ -377,7 +378,7 @@ def planEdges (ctx : IRContext OpCode) (blocks : Array BlockPtr) : EdgePlan := I
       | none =>
         let term := lastOp ctx f
         let args := succArgs ctx term
-        -- record each distinct target at most once (collapses equal-arg degenerates)
+        -- Each target's PHIs need only one input from this predecessor.
         let mut seenTargets : List Nat := []
         for k in 0...term.getNumSuccessors! ctx do
           let tid := (term.getSuccessor! ctx k).id
@@ -539,11 +540,6 @@ def emitTerminator (ctx : IRContext OpCode) (fr : Frame) (op : OperationPtr)
   let ops := getOperands ctx op
   let v := fun (i : Nat) => operandOf ctx fr (ops[i]!)
   let succ := fun (k : Nat) => lsuccs[k]!
-  -- Degenerate conditional branch with both edges collapsed to the same block
-  -- (equal arguments) → unconditional jump.  Split edges have distinct lsuccs.
-  if lsuccs.size == 2 && succ 0 == succ 1 then
-    IO.println s!"    PseudoBR %bb.{succ 0}"
-    return
   match opType with
   | .riscv_cf .branch =>
     IO.println s!"    PseudoBR %bb.{succ 0}"
@@ -621,7 +617,7 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
         if !sis.contains si then sis := sis ++ [si]
       let parts := sis.map (fun si => s!"%bb.{si}")
       IO.println s!"    successors: {String.intercalate ", " parts}"
-    -- block arguments → PHI (or COPY for a single predecessor)
+    -- Non-entry block arguments become PHIs.
     let np := b.getNumArguments! ctx
     if np != 0 then
       let plist := preds[bi]!
@@ -641,9 +637,6 @@ def emitBlock (ctx : IRContext OpCode) (fr : Frame) (blocks : Array BlockPtr)
           else
             let k := ai - maxRegArgs
             IO.println s!"    {name}:gpr = LD %fixed-stack.{k}, 0 :: (load (s64) from %fixed-stack.{k}{stackArgAlignSuffix k})"
-        else if plist.size == 1 then
-          let (_, vals) := plist[0]!
-          IO.println s!"    {name}:gpr = COPY {operandOf ctx fr (vals[ai]!)}"
         else
           let parts := plist.toList.map
             (fun (pbi, vals) => s!"{operandOf ctx fr (vals[ai]!)}, %bb.{pbi}")
