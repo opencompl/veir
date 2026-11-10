@@ -138,31 +138,15 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
   -- An access of zero bytes is allowed at any offset, in bounds or not.
   if size = 0 then return ()
 
-  -- A pointer without provenance may access any object that holds the bytes.
-  if p.object.isNone then
-    if mem.objects.any (·.holds p.address size.toNat) then return ()
-    Interp.ub none
-
-  let some obj := mem.getObject? p | Interp.fail none
-
   -- The `size` bytes must lie inside the object.
-  if obj.holds p.address size.toNat then return ()
+  if mem.objects.any (·.holds p.address size.toNat) then return ()
 
   Interp.ub none
 
 /-- An access that succeeds through a pointer succeeds through its wildcard. -/
 theorem MemoryState.checkAccess_wildcard_of_ok {mem : MemoryState} {p : Pointer} {size : UInt64}
     (h : mem.checkAccess p size = .ok ()) : mem.checkAccess p.wildcard size = .ok () := by
-  rcases p with ⟨_ | o, a⟩
-  · rwa [← Pointer.mk_none_eq_wildcard]
-  · rw [← Pointer.mk_none_eq_wildcard]
-    -- The object of the pointer is one that holds the bytes.
-    rcases hobj : mem.objects[o]? with _ | obj
-    · by_cases h0 : size = 0 <;> simp_all [MemoryState.checkAccess, MemoryState.getObject?]
-    · have : obj.holds a size.toNat → mem.objects.any (·.holds a size.toNat) := fun h =>
-        Array.any_eq_true'.mpr ⟨obj, Array.mem_of_getElem? hobj, h⟩
-      by_cases h0 : size = 0 <;> by_cases hholds : obj.holds a size.toNat <;>
-        simp_all [MemoryState.checkAccess, MemoryState.getObject?]
+  simpa [MemoryState.checkAccess] using h
 
 /-- A computation after an access check that succeeds through a pointer, and its wildcard. -/
 theorem MemoryState.bind_checkAccess_wildcard_of_ok {α : Type} {mem : MemoryState} {p : Pointer}
