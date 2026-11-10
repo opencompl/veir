@@ -19,7 +19,8 @@ import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import Veir.Passes.RISCVCombines.Proofs
 
 /-! Shared imports, tactics and semantic lemmas for the CTree validity proofs of the RISC-V
-combines. Each proof normalizes the pattern's semantics down to a register equality and closes it
+combines. Each proof unfolds the pattern with the `riscv_pattern` simp set, normalizes its
+semantics down to a register equality and closes it
 with the combine's local correctness lemma from `Veir.Passes.RISCVCombines.Proofs`. -/
 
 namespace Veir.RISCV.CTreeProofs
@@ -84,11 +85,12 @@ macro "normalizeCombineValid" : tactic => `(tactic| (
   casesConformingValues
   iterate 4 (all_goals (try simp_all [RuntimeValue.isRefinedBy]); all_goals (try subst_vars))))
 
-/-- Prove the validity of a combine pattern whose builders have been unfolded, closing each
+/-- Prove the validity of a combine pattern, closing each
 remaining register equality with the local correctness lemma `lemma` from
 `Veir.Passes.RISCVCombines.Proofs`. The lemma's conclusion must match the normalized goal; its
 hypotheses (the matcher's guards) are discharged from the matched properties. -/
 macro "proveCombineValid" "using" lemma:term : tactic => `(tactic| (
+  simp only [riscv_pattern]
   simpPuddleValid
   simpCombineSemantics
   normalizeCombineValid
@@ -96,6 +98,7 @@ macro "proveCombineValid" "using" lemma:term : tactic => `(tactic| (
 
 /-- Print the normalized goals of a combine validity proof. Used to state local lemmas. -/
 macro "probeCombineValid" : tactic => `(tactic| (
+  simp only [riscv_pattern]
   simpPuddleValid
   simpCombineSemantics
   normalizeCombineValid
@@ -153,9 +156,10 @@ macro "closeStoreValid" bytes:term : tactic => `(tactic| (
       (by simp [RuntimeValue.arrayIsRefinedBy_refl, ControlFlowAction.optionIsRefinedBy])
       _ _ _ _ _ _ _ $bytes))
 
-/-- Prove the validity of a store combine whose builders have been unfolded, given the local
+/-- Prove the validity of a store combine, given the local
 lemma `bytes` showing that the dropped extension does not change the stored bytes. -/
 macro "proveStoreValid" bytes:term : tactic => `(tactic| (
+  simp only [riscv_pattern]
   simpPuddleValid
   simp [ctree_semantics]
   closeStoreValid $bytes))

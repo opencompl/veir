@@ -12,6 +12,7 @@ import all Veir.Data.RISCV.Reg.Lemmas
 import all Veir.Dialects.RISCV.OpInfo
 import all Veir.ForLean
 import Veir.PatternRewriter.Puddle.Validity
+import Veir.IR.Simp
 
 namespace Veir.RISCV
 
@@ -37,6 +38,7 @@ namespace Veir.RISCV
 abbrev CombineRule := List (Puddle.Pattern OpCode)
 
 /-- riscv.add x 0 -> x -/
+@[riscv_pattern]
 def right_identity_zero_add_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -64,6 +66,7 @@ def right_identity_zero_add : CombineRule :=
     `sdiv x, 2^k` sequence: the correction shift's amount `W - k` only happens to
     coincide with `W - 1` when `k = 1`.
     https://github.com/llvm/llvm-project/blob/2e87cf8c2b8ec6453ccfa7e448d5b33f1d71a2ca/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L11628-L11633 -/
+@[riscv_pattern]
 def srl_sra_signbitGen_pattern (srlDst : Riscv)
     (hSrl : Riscv.propertiesOf srlDst = RISCVImmediateProperties) (sraDst : Riscv) (width : Nat) :
     Puddle.Pattern OpCode :=
@@ -107,6 +110,7 @@ def srlw_sraw_signbit := srl_sra_signbitGen .srliw rfl .sraiw 32
     DAGCombiner folds the `(srl (shl X, XLen-1), XLen-1)` round trip away through
     known/demanded bits -- there is no RISC-V-specific peephole for it.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelLowering.cpp#L919 -/
+@[riscv_pattern]
 def drop_slli_srli_boolGen_pattern (boolDst : Riscv) (arity : Nat) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -133,6 +137,7 @@ def drop_slli_srli_boolGen (boolDst : Riscv) (arity : Nat) : CombineRule :=
 
     LLVM: the generic DAGCombiner and the GlobalISel `redundant_and` combine drop the mask through
     known bits. -/
+@[riscv_pattern]
 def drop_andi_one_srli_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -184,6 +189,7 @@ def drop_slli_srli_sgtz := drop_slli_srli_boolGen .sgtz 1
     away generically (by `SimplifyDemandedBits`, or by sext.w removal --
     `hasAllNBitUsers` treats an outer `sext.w` as a low-32-bit user).
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
+@[riscv_pattern]
 def drop_redundant_ext_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -220,6 +226,7 @@ def sexth_sexth := drop_redundant_ext .sexth
     LLVM: InstCombine's common cast rewrite eliminates a cast-of-cast when
     `isEliminableCastPair` selects a replacement opcode.
     https://github.com/llvm/llvm-project/blob/c536b0aa030474672e293dccdb27b97c36c4e1af/llvm/lib/Transforms/InstCombine/InstCombineCasts.cpp#L222-L241 -/
+@[riscv_pattern]
 def zextw_zextb_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -243,6 +250,7 @@ def zextw_zextb : CombineRule :=
     LLVM: DAGCombiner removes the redundant mask through demanded-bits
     simplification before folding extended loads.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7872-L7897 -/
+@[riscv_pattern]
 def zextb_lbu_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -266,6 +274,7 @@ def zextb_lbu : CombineRule :=
     LLVM: as for `zextb_lbu`, the mask is dropped by demanded/known bits, and
     `zextloadi8` selects to `LBU`.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7872-L7897 -/
+@[riscv_pattern]
 def andi_255_lbu_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -295,6 +304,7 @@ public def liFitsSImm12 (props : RISCVImmediateProperties) : Bool :=
 
     LLVM: `PatGprSimm12<add, ADDI>`.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfo.td#L1557 -/
+@[riscv_pattern]
 def add_li_to_addi_pattern (liFirst : Bool) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -332,6 +342,7 @@ def add_li_to_addi_commuted : CombineRule :=
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L701-L751
 
     `Data.RISCV.sextw_<op>` in `Proofs.lean` shows that each registered `op` is sign-extending. -/
+@[riscv_pattern]
 def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
     Puddle.Pattern OpCode :=
@@ -440,6 +451,7 @@ def sextw_ori := sextw_signExtendingOpW .ori 1 (fun p => (p.immField 12).msb)
     LLVM: DAGCombiner rewrites `zext (shl (zext x), cst)` to the wider `shl`
     when the shift does not discard set bits.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L15353-L15382 -/
+@[riscv_pattern]
 def zextw_slliw_lbu_pattern (shamt : BitVec 64) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -475,6 +487,7 @@ def matchLbu : Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
 
     LLVM instruction-selection rewrite:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L636-L638 -/
+@[riscv_pattern]
 def packh_low_bytes_pattern (commuted : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -504,6 +517,7 @@ def packh_low_bytes_pattern (commuted : Bool) :
     LLVM instruction-selection rewrites for RV32 and RV64:
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L656-L658
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/Target/RISCV/RISCVInstrInfoZb.td#L676-L681 -/
+@[riscv_pattern]
 def packh_high_bytes_pattern (commuted : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -576,6 +590,7 @@ def packh_high_bytes_commuted : CombineRule :=
 /-- Bypass a unary producer at one operand of a consumer, preserving the consumer's
     result type and properties. The caller must establish that the consumer ignores
     the producer's changes. -/
+@[riscv_pattern]
 def drop_unary_operand_pattern (srcOp dst : Riscv) (arity index : Nat)
     (matchProperties : Riscv.propertiesOf srcOp → Bool := fun _ => true) :
     Puddle.Pattern OpCode :=
@@ -623,6 +638,7 @@ def drop_ext_low_word (ext dst : Riscv) (arity : Nat) : CombineRule :=
 
     The guard tests the low bits of the immediate property. Truncating it to
     12 bits and sign-extending it for ANDI preserves those five or six bits. -/
+@[riscv_pattern]
 def drop_shift_amount_mask_pattern (dst : Riscv) (lowMask : BitVec 64) :
     Puddle.Pattern OpCode :=
   drop_unary_operand_pattern .andi dst 2 1
@@ -637,6 +653,7 @@ def drop_shift_amount_mask (dst : Riscv) (lowMask : BitVec 64) :
     already use `drop_ext_low_word` for both operands; do not register a second
     zero-extension rule for them. LLVM provenance is the same `selectShiftMask`
     rule cited above. -/
+@[riscv_pattern]
 def drop_zextw_shift_amount_pattern (dst : Riscv) : Puddle.Pattern OpCode :=
   drop_unary_operand_pattern .zextw dst 2 1
 
@@ -795,6 +812,7 @@ def drop_sextw_zextw := drop_ext_low_word .sextw .zextw 1
 
 /-- An operand of the inner op of `drop_ext_of_bitwise_pattern`: the result of a `riscv.<ext>`
     when `guarded` is set, and any value otherwise. -/
+@[riscv_pattern]
 def matchBitwiseOperand (ext : Riscv) (guarded : Bool) :
     Puddle.MatchProg.Builder (Puddle.Handle OpCode .value) := do
   let type ← Puddle.MatchProg.type (Attr := TypeAttr)
@@ -806,6 +824,7 @@ def matchBitwiseOperand (ext : Riscv) (guarded : Bool) :
 
 /-- `riscv.<ext> (riscv.<dst> a b) -> riscv.<dst> a b`, where `a` (if `lhsGuarded`) and `b` (if
     `rhsGuarded`) are results of a `riscv.<ext>`. -/
+@[riscv_pattern]
 def drop_ext_of_bitwise_pattern (ext dst : Riscv) (lhsGuarded rhsGuarded : Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -915,6 +934,7 @@ def sexth_xor := drop_ext_of_bitwise .sexth .xor false
     LLVM: the `SW`/`SH`/`SB` cases of `hasAllNBitUsers` demand only the low 32/16/8
     bits of the store's value operand (operand index 0), and nothing of the address.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L304-L311 -/
+@[riscv_pattern]
 def drop_ext_store_pattern (ext store : Riscv) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -971,6 +991,7 @@ def drop_sextw_sb := drop_ext_store .sextw .sb
     LLVM does this during isel: an `ISD::Constant` of 0 selects to a copy from
     the `X0` register rather than being materialized (commit d9906882fc61).
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVISelDAGToDAG.cpp#L1119-L1126 -/
+@[riscv_pattern]
 def li_zero_to_x0_pattern : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -995,6 +1016,7 @@ def li_zero_to_x0 : CombineRule := [li_zero_to_x0_pattern]
     LLVM: DAGCombiner folds extensions of constants, so extending zero remains
     zero.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L14097-L14117 -/
+@[riscv_pattern]
 def ext_x0_pattern (ext : Riscv) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -1022,6 +1044,7 @@ def sextb_x0 := ext_x0 .sextb
 def sexth_x0 := ext_x0 .sexth
 
 /-- `riscv.<ext> (riscv.li v) -> riscv.li v` when `redundant v` holds. -/
+@[riscv_pattern]
 def ext_of_li_pattern (ext : Riscv) (redundant : RISCVImmediateProperties → Bool) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
@@ -1041,6 +1064,7 @@ def ext_of_li_pattern (ext : Riscv) (redundant : RISCVImmediateProperties → Bo
     LLVM: DAGCombiner constant-folds bitwise `and`, eliminating the `zext.w`
     mask for a constant whose high 32 bits are already clear.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7507-L7519 -/
+@[riscv_pattern]
 def zextw_li_low32_pattern : Puddle.Pattern OpCode :=
   ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)
 
@@ -1057,6 +1081,7 @@ def zextw_li_low32 : CombineRule :=
     LLVM: constant folding / known-bits on `sext.w` of an already-sign-extended
     32-bit constant.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
+@[riscv_pattern]
 def sextw_li_low32_pattern : Puddle.Pattern OpCode :=
   ext_of_li_pattern .sextw fun cst =>
     !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)
@@ -1070,6 +1095,7 @@ def sextw_li_low32 : CombineRule :=
     range below `2^width` (bits above `width` clear); for a sign-extension the
     *signed* range `[-2^(width-1), 2^(width-1))` (bits above `width` all equal the
     sign bit). `ext`/`width` picks the op and its bit width. -/
+@[riscv_pattern]
 def ext_li_range_pattern (ext : Riscv) (lo hi : Int) : Puddle.Pattern OpCode :=
   ext_of_li_pattern ext fun cst => !decide (cst.value.toInt < lo ∨ cst.value.toInt ≥ hi)
 

@@ -38,8 +38,6 @@ inductive Unproven where
   /-- It relies on `x0` reading as zero, but `RuntimeValue.Conforms` lets a value of the `x0`
   register type be any register, so the rewrite does not hold in the semantic model. -/
   | readsX0
-  /-- It is an LLVM funnel-shift combine, left for a follow-up. -/
-  | llvmFunnelShift
   deriving Repr, DecidableEq
 
 /-- A certificate for each pattern of a list, in order: a CTree validity proof, or the reason why
@@ -292,14 +290,6 @@ def combineCertificates : Certificates combinePatternList :=
   .proven sextb_li_low8_valid <|
   .proven sexth_li_low16_valid <|
   .proven li_zero_to_x0_valid <|
-  .unproven .llvmFunnelShift <| -- funnel_shift_right_zero
-  .unproven .llvmFunnelShift <| -- funnel_shift_left_zero
-  .unproven .llvmFunnelShift <| -- funnel_shift_overshift_l
-  .unproven .llvmFunnelShift <| -- funnel_shift_overshift_r
-  .unproven .llvmFunnelShift <| -- funnel_shift_or_shift_to_funnel_shift_left
-  .unproven .llvmFunnelShift <| -- funnel_shift_or_shift_to_funnel_shift_left
-  .unproven .llvmFunnelShift <| -- funnel_shift_or_shift_to_funnel_shift_right
-  .unproven .llvmFunnelShift <| -- funnel_shift_or_shift_to_funnel_shift_right
   .nil
 
 /-- Every pattern `riscv-combine` runs is proven valid or recorded as unproven. -/
