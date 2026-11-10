@@ -10,7 +10,8 @@ public section
 
 open CTree
 
-namespace Veir.CTree
+namespace Veir
+namespace CTree
 
 set_option linter.unusedVariables false in
 /--
@@ -34,6 +35,18 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem
+
+end CTree
+
+/-- CTree counterpart of `OperationPtr.interpret`, with the operation's IR metadata fixed. -/
+def OperationPtr.interpretCTree {ctx : WfIRContext OpCode} (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw) (operands : Array RuntimeValue) (memory : MemoryState) :
+    Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+  let code := op.getOpType ctx.raw opIn
+  CTree.interpretOp' code (op.getProperties ctx.raw code) (op.getResultTypes ctx.raw)
+    operands (op.getSuccessors ctx.raw) memory (op.getRegions ctx.raw)
+
+namespace CTree
 
 /-- Interpret an operation given an operation pointer and an interpreter state. -/
 def interpretOp (op : OperationPtr) {ctx : WfIRContext OpCode}
@@ -114,8 +127,8 @@ def interpretRegion (region : RegionPtr) (values : Array RuntimeValue)
   CTree.mrec (E := RunRegionE ctx (InterpreterState ctx)) (fun ⟨region, values, state, inBounds⟩ =>
     interpretCFG region values state inBounds) ⟨region, values, state, inBounds⟩
 
-/-- Interpret a function body with the given runtime arguments. -/
-def interpretFunction (op : OperationPtr) (values : Array RuntimeValue)
+/-- Interpret a function body with the given runtime arguments and initial memory. -/
+def interpretFunction (op : OperationPtr) (values : Array RuntimeValue) (mem : MemoryState)
     {ctx : WfIRContext OpCode} (opIn : op.InBounds ctx.raw := by grind)
     : Tree (Array RuntimeValue) := do
   let some funcOp := FunctionOp.of? op ctx.raw | fail
@@ -123,7 +136,8 @@ def interpretFunction (op : OperationPtr) (values : Array RuntimeValue)
     fail
   else
     let (_, results) ← interpretRegion funcOp.getFunctionBody
-      values (.empty ctx)
+      values ⟨.empty ctx, mem⟩
     return results
 
-end Veir.CTree
+end CTree
+end Veir

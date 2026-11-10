@@ -24,7 +24,7 @@ def null : Ptr := .val Pointer.null
 @[expose, simp, grind .]
 def isRefinedBy : Ptr → Ptr → Prop
   | .poison, _ => True
-  | .val p, .val p' => p = p'
+  | .val p, .val p' => p ⊒ p'
   | .val _, .poison => False
 
 @[inherit_doc] infix:50 " ⊒ " => LLVM.Ptr.isRefinedBy

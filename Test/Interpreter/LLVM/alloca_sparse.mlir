@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: CTREE
 // RUN: ALIVE_EXEC
 
 // A 4 GiB alloca of which only the first and the last byte are touched: an

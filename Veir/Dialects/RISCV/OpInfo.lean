@@ -640,7 +640,7 @@ inductive LoadExtension
 
 /-- Read `bytes` of little-endian data from memory starting at
     `eaddr` and extend it to 64 bits according to `ext`. The access is
-    checked against the object `eaddr` decodes to, like an LLVM access. -/
+    checked like an LLVM access through the pointer `eaddr` decodes to. -/
 def riscvLoad (mem : MemoryState) (eaddr : BitVec 64) (bytes : Nat) (ext : LoadExtension) :
     Interp (BitVec 64 × MemoryState) := do
   let p := mem.decode (UInt64.ofBitVec eaddr)

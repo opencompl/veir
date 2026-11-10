@@ -1,10 +1,12 @@
 // RUN: veir-opt %s -p=canonicalize | filecheck %s
 
 "builtin.module"() ({
+  // An integer cast to a pointer has no object, so even address 0 is not the null pointer.
   "func.func"() <{sym_name = "null_pointer", function_type = () -> !llvm.ptr}> ({
     // CHECK-LABEL: func.func @null_pointer
-    // CHECK-NEXT: %[[NULL:.*]] = "llvm.mlir.zero"() : () -> !llvm.ptr
-    // CHECK-NEXT: "func.return"(%[[NULL]]) : (!llvm.ptr) -> ()
+    // CHECK-NEXT: %[[ZERO:.*]] = "llvm.mlir.constant"() <{"value" = 0 : i64}> : () -> i64
+    // CHECK-NEXT: %[[PTR:.*]] = "llvm.inttoptr"(%[[ZERO]]) : (i64) -> !llvm.ptr
+    // CHECK-NEXT: "func.return"(%[[PTR]]) : (!llvm.ptr) -> ()
     %zero = "llvm.mlir.constant"() <{value = 0 : i64}> : () -> i64
     %ptr = "llvm.inttoptr"(%zero) : (i64) -> !llvm.ptr
     "func.return"(%ptr) : (!llvm.ptr) -> ()

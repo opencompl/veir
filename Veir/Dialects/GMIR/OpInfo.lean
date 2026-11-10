@@ -576,8 +576,7 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let .integerType ⟨w, _⟩ := type.val
       | return (#[← mem.llvmLoad addr type], mem, none)
     let size := properties.size.toNat
-    -- gMIR has no byte type, so a byte load is converted to an integer load of the same size.
-    let val ← mem.frozenLoad addr size
+    let val ← mem.intLoad addr size
     /- TODO: The high bits of a wider result are undefined and should have the same semantic
        like `g_anyext`. Support nondeterminisim once CTrees have landed. -/
     if h : size < w then return (#[.int w (val.zext w (_h := h))], mem, none)
