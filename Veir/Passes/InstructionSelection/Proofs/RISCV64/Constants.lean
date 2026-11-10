@@ -14,8 +14,6 @@ namespace Veir
 open Puddle
 open _root_.CTree
 
-set_option warn.sorry false
-
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
@@ -45,42 +43,25 @@ theorem constant_pattern_valid :
   ext i hi
   simp [BitVec.getElem_signExtend, hi, Nat.lt_of_lt_of_le hi xBw]
 
-theorem poisonConstInt_pattern_valid :
-    Puddle.CTree.Pattern.Valid (poisonConst_pattern IntegerType) := by
+theorem poisonConst_pattern_valid :
+    Puddle.CTree.Pattern.Valid poisonConst_pattern := by
   unfold poisonConst_pattern
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  simp [RuntimeValue.isRefinedBy, Data.LLVM.Int.mlir_poison]
+  simp [ctree_semantics]
+  intro ⟨attr, hattr⟩
+  cases attr <;> simp [icmpTypeWidth?, ctree_semantics, RuntimeValue.isRefinedBy,
+    Data.LLVM.Int.mlir_poison, Data.RISCV.val_li, MemoryState.ptrFromInt,
+    MemoryState.decode, Data.LLVM.Ptr.null, Data.Pointer.null, Data.LLVM.Ptr.isRefinedBy]
 
-theorem poisonConstPtr_pattern_valid :
-    Puddle.CTree.Pattern.Valid (poisonConst_pattern LLVM.PointerType) := by
-  unfold poisonConst_pattern
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of]
-  simp [RuntimeValue.isRefinedBy]
-
-theorem zeroConstInt_pattern_valid :
-    Puddle.CTree.Pattern.Valid (zeroConst_pattern IntegerType (·.bitwidth)) := by
+theorem zeroConst_pattern_valid :
+    Puddle.CTree.Pattern.Valid zeroConst_pattern := by
   unfold zeroConst_pattern
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  simp [Data.RISCV.val_li]
-
-/-- Decoding zero need not preserve the null object's identity in an arbitrary memory. -/
-theorem zeroConstPtr_decode_counterexample :
-    ¬ (RuntimeValue.addr Data.LLVM.Ptr.null ⊒ RuntimeValue.addr
-      (({ bytes := {}, objects := #[⟨0, 0⟩, ⟨0, 0⟩] } : MemoryState).ptrFromInt
-        (.val (Data.RISCV.li 0#64).val))) := by
-  change ¬ ({ object := 0, address := 0 } : Data.Pointer) = ⟨1, 0⟩
-  simp
-
-theorem zeroConstPtr_pattern_valid :
-    Puddle.CTree.Pattern.Valid (zeroConst_pattern LLVM.PointerType (fun _ => 64)) := by
-  unfold zeroConst_pattern
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of]
-  -- False for the memory in `zeroConstPtr_decode_counterexample`.
-  sorry
+  simp [ctree_semantics]
+  intro ⟨attr, hattr⟩
+  cases attr <;> simp [icmpTypeWidth?, ctree_semantics, RuntimeValue.isRefinedBy,
+    Data.LLVM.Int.mlir_poison, Data.RISCV.val_li, MemoryState.ptrFromInt,
+    MemoryState.decode, Data.LLVM.Ptr.null, Data.Pointer.null, Data.LLVM.Ptr.isRefinedBy]
 
 theorem freeze_pattern_valid :
     Puddle.CTree.Pattern.Valid freeze_pattern := by
@@ -88,13 +69,16 @@ theorem freeze_pattern_valid :
   simp only [lowerRegCast]
   simpPuddleValid
   simp [ctree_semantics]
-  rintro x x₂ (v | _)
-  · simp
-    intro _ _hVerified xBw rfl
-    grind
-  · simp [ctree_semantics, Functor.map]
-    intro _ _hVerified xBw rfl
-    simp
+  intro ⟨src, hsrc⟩ ⟨dst, hdst⟩ value hc props hv hlegal
+  cases src <;> cases dst <;> simp at hlegal
+  obtain ⟨hw, rfl⟩ := hlegal
+  cases value <;> simp [RuntimeValue.Conforms] at hc
+  cases hc
+  rename_i bits
+  cases bits <;> simp [ctree_semantics, ←Attribute.integerType_eq_of, Builtin.interpretUnrealizedConversionCastCTree, ←Attribute.registerType_eq_of]
+  all_goals intros
+  all_goals simp_all [ctree_semantics, RISCV.Reg.toInt, BitVec.setWidth_setWidth_of_le _ hw, ←Attribute.integerType_eq_of,
+    ←Attribute.registerType_eq_of, Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind]
 
 theorem gmirConstant_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirConstant_pattern := by

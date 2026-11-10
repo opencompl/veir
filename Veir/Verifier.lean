@@ -1362,6 +1362,52 @@ theorem gmir_sext_inreg_size_bounds {sign : IntegerType.Signedness} {props}
   repeat' split at hv <;> simp_all [bind, Except.bind, pure, Except.pure, throw, throwThe]
   all_goals veir_bv_decide
 
+/-- The dynamic GEP operands account for every dynamic-index sentinel. -/
+theorem llvm_gep_dynamic_count {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.llvm .getelementptr) operands results props) :
+    1 + (props.rawConstantIndices.values.filter (· == -2147483648)).size = operands.size := by
+  rcases h with ⟨ctx, op, hin, hv, hop, hargs, _, hprops⟩
+  have hn : op.getNumOperands! ctx.raw = operands.size := by
+    have hs := congrArg Array.size hargs
+    simpa only [OperationPtr.getOperandTypes!.size_eq_getNumOperands!] using hs
+  have hp : op.getProperties! ctx.raw Llvm.getelementptr = props := hprops
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [Llvm.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  split at hv
+  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at hv
+  · rename_i he
+    have he' := Classical.not_not.mp he
+    have hn' : op.getNumOperands ctx.raw hin = operands.size := by
+      simpa only [OperationPtr.getNumOperands!_eq_getNumOperands hin] using hn
+    simpa only [hp, hn'] using he'.symm
+
+/-- A verified global address has pointer result type. -/
+theorem llvm_addressof_result_type {ty : TypeAttr} {props}
+    (h : IsFromVerifiedOp (.llvm .mlir__addressof) #[] #[ty] props) :
+    ∃ p : LLVM.PointerType, ty = TypeAttr.of LLVM.PointerType p := by
+  rcases h with ⟨ctx, op, hin, hv, hop, _, hresults, _⟩
+  have hr : (op.getResult 0).getType! ctx.raw = ty := by
+    have he := congrArg (fun a : Array TypeAttr => a[0]!) hresults
+    have hn : 0 < op.getNumResults! ctx.raw := by
+      have hs := congrArg Array.size hresults
+      rw [OperationPtr.getResultTypes!.size_eq_getNumResults!] at hs
+      simp at hs
+      grind
+    simpa [OperationPtr.getResultTypes!.getElem!_eq hn] using he
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [Llvm.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  simp only [hr] at hv
+  split at hv
+  · rename_i p hp
+    exact ⟨p, Subtype.ext (by simpa only [TypeAttr.of_def, ←Attribute.llvmPointerType_eq_of] using hp)⟩
+  · simp [throw, throwThe] at hv
+
 end IsFromVerifiedOp
 
 end

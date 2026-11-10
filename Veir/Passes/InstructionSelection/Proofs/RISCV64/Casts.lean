@@ -17,8 +17,6 @@ namespace Veir
 open Puddle
 open _root_.CTree
 
-set_option warn.sorry false
-
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
@@ -72,48 +70,48 @@ theorem isLegal_ext_result (op : GMIR) (hop : op = .g_sext ∨ op = .g_zext)
     · exact .inl (ext_scalar_type dst 32 (htypes ▸ hd))
     · exact .inr (ext_scalar_type dst 64 (htypes ▸ hd))
 
-theorem truncInt_pattern_valid :
-    Puddle.CTree.Pattern.Valid (trunc_pattern IntegerType (·.bitwidth)) := by
-  unfold trunc_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro a b x p _hverified hlt hle mem
-  simp only [dite_eq_right (Nat.not_le.mpr hlt)]
-  intro r hr
-  simp [ctree_semantics, RuntimeValue.isRefinedBy]
-  have h := Data.RISCV.trunc_refinement_le64 hle (x := x) (nsw := p.nsw) (nuw := p.nuw) (h := hlt)
-  cases x <;> simp_all [Data.LLVM.Int.trunc, RISCV.Reg.toInt, LLVM.Int.toReg, Id.run, isRefinedBy]
-  all_goals assumption
+private theorem legalTrunc_types (src dst : TypeAttr) (h : isLegalTrunc src dst = true) :
+    (∃ a b : IntegerType, src = .of IntegerType a ∧ dst = .of IntegerType b ∧ b.bitwidth < a.bitwidth ∧ a.bitwidth ≤ 64) ∨
+    (∃ a b : LLVM.ByteType, src = .of LLVM.ByteType a ∧ dst = .of LLVM.ByteType b ∧ b.bitwidth < a.bitwidth ∧ a.bitwidth ≤ 64) := by
+  rcases src with ⟨src, hs⟩
+  rcases dst with ⟨dst, hd⟩
+  cases src <;> simp [isLegalTrunc, getIntByteTypeBitwidth] at h
+  all_goals cases dst <;> simp [getIntByteTypeBitwidth] at h
+  all_goals simp_all [←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of]
+  all_goals first | exact .inl ⟨_,rfl,_,rfl,h.1,h.2⟩ | exact .inr ⟨_,rfl,_,rfl,h.1,h.2⟩
 
-theorem truncByte_pattern_valid :
-    Puddle.CTree.Pattern.Valid (trunc_pattern LLVM.ByteType (·.bitwidth)) := by
-  unfold trunc_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro a b x props _hverified hlt hle mem
-  simp only [ite_eq_right (Nat.not_le.mpr hlt)]
-  intro r bits hr
-  simp [ctree_semantics, RuntimeValue.isRefinedBy]
-  rw [hr]
-  ext i
-  simp [Data.LLVM.Byte.trunc, BitVec.getLsbD_setWidth]
-  grind
+private theorem bitcastType_cases (ty : TypeAttr) (h : checkBitcastType ty = true) :
+    (∃ a : IntegerType, ty = .of IntegerType a) ∨
+    (∃ a : LLVM.ByteType, ty = .of LLVM.ByteType a) ∨
+    (∃ a : LLVM.PointerType, ty = .of LLVM.PointerType a) := by
+  rcases ty with ⟨ty, ht⟩
+  cases ty <;> simp [checkBitcastType] at h
+  · exact .inl ⟨_,rfl⟩
+  · exact .inr (.inl ⟨_,rfl⟩)
+  · exact .inr (.inr ⟨_,rfl⟩)
 
-theorem bitcastIntInt_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern IntegerType IntegerType (·.bitwidth) (·.bitwidth)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
+theorem trunc_pattern_valid :
+    Puddle.CTree.Pattern.Valid trunc_pattern := by
+  unfold trunc_pattern lowerRegCast
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro ⟨w, s⟩ ⟨v, t⟩ a props _hverified hw hv
-  dsimp at *
-  rcases hw with rfl | rfl | rfl | rfl <;>
-    rcases hv with rfl | rfl | rfl | rfl <;>
-    simp [ctree_semantics, RuntimeValue.isRefinedBy] <;>
-    intros <;> cases a <;> simp_all <;> veir_bv_decide
+  simp [ctree_semantics]
+  intro src dst value hc props hv hlegal
+  rcases legalTrunc_types src dst hlegal with ⟨a,b,rfl,rfl,hlt,hle⟩ | ⟨a,b,rfl,rfl,hlt,hle⟩
+  · simp only [RuntimeValue.Conforms.integerType] at hc
+    rcases hc with ⟨x,rfl⟩
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of, Nat.not_le.mpr hlt]
+    intro r hr
+    have h := Data.RISCV.trunc_refinement_le64 hle (x := x) (nsw := props.nsw) (nuw := props.nuw) (h := hlt)
+    cases x <;> simp_all [ctree_semantics, Data.LLVM.Int.trunc, RISCV.Reg.toInt, LLVM.Int.toReg, Id.run, RuntimeValue.isRefinedBy, isRefinedBy]
+  · simp only [RuntimeValue.Conforms.byteType] at hc
+    rcases hc with ⟨x,rfl⟩
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of, Nat.not_le.mpr hlt]
+    intro r bits hr
+    simp [ctree_semantics, RuntimeValue.isRefinedBy]
+    rw [hr]
+    ext i
+    simp [Data.LLVM.Byte.trunc, BitVec.getLsbD_setWidth]
+    grind
 
 @[simp]
 private theorem xor_not_and_allOnes (x : BitVec w) :
@@ -121,115 +119,50 @@ private theorem xor_not_and_allOnes (x : BitVec w) :
   ext i
   simp
 
-theorem bitcastIntByte_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern IntegerType LLVM.ByteType (·.bitwidth) (·.bitwidth)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro ⟨w, s⟩ ⟨v⟩ a props _hverified hw hv
-  dsimp at *
-  rcases hw with rfl | rfl | rfl | rfl <;>
-    rcases hv with rfl | rfl | rfl | rfl <;>
-    simp [ctree_semantics, RuntimeValue.isRefinedBy] <;>
-    intros <;> cases a <;> simp_all [Data.LLVM.Byte.fromInt]
-  all_goals first | exact xor_not_and_allOnes _ | veir_bv_decide
-
-theorem bitcastIntPtr_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern IntegerType LLVM.PointerType (·.bitwidth) (fun _ => 64)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of]
-
-theorem bitcastByteInt_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern LLVM.ByteType IntegerType (·.bitwidth) (·.bitwidth)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro ⟨w⟩ ⟨v, t⟩ a props _hverified hw hv
-  dsimp at *
-  rcases hw with rfl | rfl | rfl | rfl <;>
-    rcases hv with rfl | rfl | rfl | rfl <;>
-    simp [ctree_semantics, RuntimeValue.isRefinedBy] <;>
-    intros <;> simp_all [Data.LLVM.Byte.toInt]
-  all_goals (repeat' split) <;> simp_all -failIfUnchanged [isRefinedBy] <;> veir_bv_decide
-
-theorem bitcastByteByte_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern LLVM.ByteType LLVM.ByteType (·.bitwidth) (·.bitwidth)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro ⟨w⟩ ⟨v⟩ a props _hverified hw hv
-  dsimp at *
-  rcases hw with rfl | rfl | rfl | rfl <;>
-    rcases hv with rfl | rfl | rfl | rfl <;>
-    simp [ctree_semantics, RuntimeValue.isRefinedBy] <;>
-    intros <;> simp_all
-  all_goals veir_bv_decide
-
-theorem bitcastPtrInt_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern LLVM.PointerType IntegerType (fun _ => 64) (·.bitwidth)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-
-theorem bitcastPtrByte_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern LLVM.PointerType LLVM.ByteType (fun _ => 64) (·.bitwidth)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.byteType_eq_of]
-  intro ptr ⟨w⟩ a props _hverified hw
-  rcases hw with rfl | rfl | rfl | rfl <;>
-    simp [ctree_semantics, RuntimeValue.isRefinedBy] <;>
-    intros <;> cases a <;> simp_all [Data.LLVM.Ptr.toInt, Data.LLVM.Ptr.toByte]
-  all_goals veir_bv_decide
-
-/-- A pointer's address does not determine its object identity in arbitrary memory. -/
-theorem bitcastPtrPtr_decode_counterexample :
-    ¬ (RuntimeValue.addr Data.LLVM.Ptr.null ⊒ RuntimeValue.addr
-      (({ bytes := {}, objects := #[⟨0, 0⟩, ⟨0, 0⟩] } : MemoryState).ptrFromInt
-        (.val 0#64))) := by
-  change ¬ ({ object := 0, address := 0 } : Data.Pointer) = ⟨1, 0⟩
+private theorem byte_resolved_mask (v p b : BitVec w) :
+    p ||| (v ^^^ ~~~(v ||| p &&& b)) &&& BitVec.allOnes w = BitVec.allOnes w := by
+  ext i
   simp
+  veir_bv_decide
 
-theorem bitcastPtrPtr_pattern_valid :
-    Puddle.CTree.Pattern.Valid
-      (bitcast_pattern LLVM.PointerType LLVM.PointerType (fun _ => 64) (fun _ => 64)) := by
-  unfold bitcast_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.llvmPointerType_eq_of]
-  -- False: see the concrete semantic witness `bitcastPtrPtr_decode_counterexample` above.
-  sorry
-
-theorem gmirTrunc_pattern_valid :
-    Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
-  unfold gmirTrunc_pattern
-  simp only [lowerRegCast]
+set_option maxHeartbeats 400000 in
+theorem bitcast_pattern_valid :
+    Puddle.CTree.Pattern.Valid bitcast_pattern := by
+  unfold bitcast_pattern lowerRegCast
   simpPuddleValid
   simp [ctree_semantics]
-  -- False: see the concrete semantic witness `gmirTrunc_wide_counterexample` below.
-  sorry
+  intro src dst value hc props hv hlegal
+  have hs : checkBitcastType src = true := by simp only [isLegalBitcast, Bool.and_eq_true] at hlegal; exact hlegal.1.1.1
+  have hd : checkBitcastType dst = true := by simp only [isLegalBitcast, Bool.and_eq_true] at hlegal; exact hlegal.1.1.2
+  rcases bitcastType_cases src hs with ⟨a,rfl⟩ | ⟨a,rfl⟩ | ⟨a,rfl⟩ <;>
+    rcases bitcastType_cases dst hd with ⟨b,rfl⟩ | ⟨b,rfl⟩ | ⟨b,rfl⟩ <;>
+    simp [isLegalBitcast, checkBitcastType, isBitcastByteToPtr, Attribute.bitwidthOfType, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of] at hlegal
+  all_goals simp only [RuntimeValue.Conforms.integerType, RuntimeValue.Conforms.byteType,
+    RuntimeValue.Conforms.llvmPointerType] at hc
+  all_goals rcases hc with ⟨x,rfl⟩
+  all_goals cases a
+  all_goals cases b
+  all_goals dsimp -failIfUnchanged at *
+  all_goals try
+    rcases hlegal with ⟨ha,hb⟩
+    rcases ha with rfl | rfl | rfl | rfl <;>
+      rcases hb with rfl | rfl | rfl | rfl
+  all_goals try rcases hlegal with rfl | rfl | rfl | rfl
+  all_goals simp [ctree_semantics, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of,
+    ←Attribute.llvmPointerType_eq_of]
+  all_goals intros
+  all_goals cases x <;> simp_all [ctree_semantics, RuntimeValue.isRefinedBy,
+    Data.LLVM.Byte.fromInt, Data.LLVM.Byte.toInt, Data.LLVM.Ptr.toInt,
+    Data.LLVM.Ptr.toByte, MemoryState.ptrFromInt, MemoryState.decode]
+  all_goals try (split <;> simp_all [isRefinedBy])
+  all_goals try (ext i; simp [Data.LLVM.Byte.allPoison]; all_goals veir_bv_decide)
+  all_goals rename_i reg bits val poison hp hr
+  all_goals exact byte_resolved_mask val poison bits
 
-theorem gmirAnyext_pattern_valid :
-    Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
-  unfold gmirAnyext_pattern
-  simp only [lowerRegCast]
-  simpPuddleValid
-  simp [ctree_semantics]
-  -- False: see the concrete semantic witness `gmirAnyext_wide_counterexample` below.
-  sorry
+/- The generic GMIR truncation and any-extension patterns are not valid for all legal
+   integer widths: their register round trip loses defined bits above bit 63.
+   The checked witnesses `gmirTrunc_wide_counterexample` and
+   `gmirAnyext_wide_counterexample` below document this limitation. -/
 
 theorem gmirAnyextOfReg_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyextOfReg_pattern := by

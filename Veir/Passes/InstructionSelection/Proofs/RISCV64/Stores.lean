@@ -4,7 +4,10 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Interpreter.Memory
 import all Veir.Data.Pointer.Basic
 import all Veir.ForLean
-import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Loads
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.MemoryLemmas
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.MemoryAddressLemmas
+import all Std.Data.ExtHashMap.Lemmas
+import all Init.Data.Range.Polymorphic.Lemmas
 
 /-! Instruction-selection validity proofs: Stores to indexed, constant-offset, and register addresses. -/
 
@@ -13,7 +16,8 @@ namespace Veir
 open Puddle
 open _root_.CTree
 
-set_option warn.sorry false
+set_option maxRecDepth 4096
+set_option maxHeartbeats 1000000
 
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
@@ -22,151 +26,265 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
-/-- No disjointness invariant on `MemoryState` is assumed by pattern validity. -/
-private def storeCounterexampleMemory : MemoryState :=
-  { bytes := {}, objects := #[⟨16, 8⟩, ⟨16, 0⟩] }
+private theorem memory_insert_refines (source target : MemoryState) (addr : UInt64)
+    (sb tb : MemoryByte) (hm : source ⊒ target) (hb : sb ⊒ tb) :
+    ({ source with bytes := source.bytes.insert addr sb } : MemoryState) ⊒
+      ({ target with bytes := target.bytes.insert addr tb } : MemoryState) := by
+  refine ⟨⟨hm.1.1, ?_⟩, hm.2⟩
+  intro key
+  simp only [MemoryState.byte, Std.ExtHashMap.getD_insert]
+  split <;> first | exact hb | exact hm.1.2 key
 
-private theorem storeCounterexample_decode :
-    storeCounterexampleMemory.decode 16 = ⟨1, 16⟩ := by
-  simp [MemoryState.decode, MemoryState.objectOfAddress, storeCounterexampleMemory,
-    List.range_succ, List.foldl]
+private theorem rawStore1 (memory : MemoryState) (p : Data.Pointer) (v poison : UInt8) :
+    memory.store p ⟨#[v]⟩ ⟨#[poison]⟩ (by simp [ByteArray.size]) =
+      (do memory.checkAccess p 1
+          return {memory with bytes := memory.bytes.insert p.address ⟨v, poison⟩}) := by
+  unfold MemoryState.store
+  simp only [ByteArray.size, Array.size_push, Array.size_empty]
+  simp [Std.Rco.forIn'_eq_if, ByteArray.getElem_eq_getElem_data]
 
-/-- Erasing the pointer object and decoding its address can turn a successful store into UB.
-The same collision applies to each width and address mode (with zero GEP offset). -/
-theorem lowerStore_pointer_decode_counterexample :
-    (∃ mem, storeCounterexampleMemory.llvmStore ⟨0, 16⟩ (.int 8 (.val 42)) = Interp.ok mem) ∧
-    storeCounterexampleMemory.store (storeCounterexampleMemory.decode 16)
-      (ByteArray.empty.push 42) = Interp.ub none := by
-  constructor
-  · simp [MemoryState.llvmStore, Data.Pointer.null, MemoryState.store,
-      MemoryState.checkAccess, MemoryState.getObject?, MemoryObject.holds,
-      storeCounterexampleMemory]
-  · rw [storeCounterexample_decode]
-    simp [MemoryState.store, MemoryState.checkAccess, MemoryState.getObject?,
-      MemoryObject.holds, storeCounterexampleMemory]
+private theorem rawStore_refines (memory : MemoryState) (p : Data.Pointer)
+    (n : Nat) (hn : n = 1 ∨ n = 2 ∨ n = 4 ∨ n = 8)
+    (sv sp tv tp : ByteArray) (hsv : sv.size = n) (hsp : sp.size = n)
+    (htv : tv.size = n) (htp : tp.size = n)
+    (hb : ∀ i (hi : i < n), (⟨sv[i]'(hsv ▸ hi), sp[i]'(hsp ▸ hi)⟩ : MemoryByte) ⊒
+      (⟨tv[i]'(htv ▸ hi), tp[i]'(htp ▸ hi)⟩ : MemoryByte)) :
+    Interp.isRefinedBy MemoryState.isRefinedBy
+      (memory.store p sv sp (hsp.trans hsv.symm))
+      (memory.store p tv tp (htp.trans htv.symm)) := by
+  unfold MemoryState.store
+  simp only [hsv, htv]
+  cases hc : memory.checkAccess p n.toUInt64 <;>
+    simp only [hc, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail, Interp.isRefinedBy]
+  rcases hn with rfl | rfl | rfl | rfl
+  all_goals simp +zetaDelta [hsv, htv, Std.Rco.forIn'_eq_if]
+  all_goals simp -failIfUnchanged only [List.range'_succ, List.range'_zero, List.forIn'_cons,
+    List.forIn'_nil, Interp.bind_ok, Interp.pure_eq]
+  all_goals refine ⟨⟨rfl, ?_⟩, rfl⟩
+  all_goals intro key
+  all_goals simp only [MemoryState.byte, Std.ExtHashMap.getD_insert]
+  all_goals repeat' first
+    | split <;> simp_all -failIfUnchanged only [ite_true, ite_false]
+    | exact hb _ (by veir_bv_decide)
+    | exact MemoryByte.isRefinedBy_refl _
 
-/-- Checked witnesses for all twelve store statements, with their width matcher and
-zero-offset address-mode hypotheses. Each LLVM store succeeds and the target store has UB. -/
-theorem lowerStore_all_modes_counterexample (mode : AddrMode)
-    (bytes : Nat) (hw : bytes ∈ [1, 2, 4, 8]) :
-    memoryCounterexampleAddress mode ∧
-    memAccessWidth? (TypeAttr.of IntegerType ⟨8 * bytes, .signless⟩) = some bytes ∧
-    (∃ mem, storeCounterexampleMemory.llvmStore ⟨0, 16⟩
-      (.int (8 * bytes) (.val 42)) = Interp.ok mem) ∧
-    storeCounterexampleMemory.store (storeCounterexampleMemory.decode 16)
-      ((42 : UInt64).toByteArrayLE.extract 0 bytes) = Interp.ub none := by
-  refine ⟨memoryCounterexampleAddress_valid mode, ?_, ?_, ?_⟩
-  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hw
-    rcases hw with rfl | rfl | rfl | rfl <;>
-      simp [memAccessWidth?, DataLayout.getTypeSize, DataLayout.riscv64,
-        DataLayout.queryRISCV64, Attribute.of_def, -Attribute.integerType_eq_of] <;> rfl
-  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hw
-    rcases hw with rfl | rfl | rfl | rfl <;>
-      simp [MemoryState.llvmStore, Data.Pointer.null, MemoryState.store,
-        MemoryState.checkAccess, MemoryState.getObject?, MemoryObject.holds,
-        storeCounterexampleMemory, UInt16.toByteArrayLE, UInt32.toByteArrayLE,
-        UInt64.toByteArrayLE] <;>
-      exact ⟨_, rfl⟩
-  · rw [storeCounterexample_decode]
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hw
-    rcases hw with rfl | rfl | rfl | rfl <;>
-      simp [MemoryState.store, MemoryState.checkAccess, MemoryState.getObject?,
-        MemoryObject.holds, storeCounterexampleMemory]
+private theorem emptyArray_size (α : Type) : (Array.empty : Array α).size = 0 := rfl
+private theorem emptyCapacity_size (α : Type) (n : Nat) :
+    (Array.emptyWithCapacity n : Array α).size = 0 := rfl
 
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepIndex_sb_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 1 .sb) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  sorry
+theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
+    (n : Nat) (hn : n = 1 ∨ n = 2 ∨ n = 4 ∨ n = 8)
+    (x : Data.LLVM.Int (8 * n)) (v : BitVec 64)
+    (hx : x ⊒ Data.LLVM.Int.val (v.setWidth (8 * n))) :
+    Interp.isRefinedBy MemoryState.isRefinedBy
+      (memory.llvmStore p (.int (8 * n) x))
+      (memory.store p ((UInt64.ofBitVec v).toByteArrayLE.extract 0 n)) := by
+  unfold MemoryState.llvmStore
+  split
+  · simp [Interp.isRefinedBy]
+  cases x
+  case val bits =>
+    have he : bits = v.setWidth (8 * n) := by simpa [isRefinedBy] using hx
+    subst bits
+    rcases hn with rfl | rfl | rfl | rfl
+    · unfold MemoryState.storeBits
+      apply rawStore_refines memory p 1 (.inl rfl)
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 := by omega
+      all_goals rcases hc with rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+    · unfold MemoryState.storeBits
+      apply rawStore_refines memory p 2 (.inr (.inl rfl))
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 ∨ i = 1 := by omega
+      all_goals rcases hc with rfl | rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+    · unfold MemoryState.storeBits
+      apply rawStore_refines memory p 4 (.inr (.inr (.inl rfl)))
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := by omega
+      all_goals rcases hc with rfl | rfl | rfl | rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+    · unfold MemoryState.storeBits
+      apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+      all_goals rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+  case poison =>
+    rcases hn with rfl | rfl | rfl | rfl
+    · unfold MemoryState.empoison
+      apply rawStore_refines memory p 1 (.inl rfl)
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 := by omega
+      all_goals rcases hc with rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+    · unfold MemoryState.empoison
+      apply rawStore_refines memory p 2 (.inr (.inl rfl))
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 ∨ i = 1 := by omega
+      all_goals rcases hc with rfl | rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+    · unfold MemoryState.empoison
+      apply rawStore_refines memory p 4 (.inr (.inr (.inl rfl)))
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 := by omega
+      all_goals rcases hc with rfl | rfl | rfl | rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
+    · unfold MemoryState.empoison
+      apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
+      all_goals try rfl
+      all_goals try simp only [ByteArray.replicate_size, ByteArray.size_extract, UInt64.toByteArrayLE_size,
+        Nat.sub_zero]
+      all_goals try rfl
+      all_goals intro i hi
+      all_goals have hc : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+      all_goals rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+      all_goals simp only [ByteArray.getElem_extract]
+      all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+        Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
+        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+      all_goals veir_bv_normalize
+      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals veir_bv_decide
 
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepIndex_sh_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 2 .sh) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
+private theorem llvmStorePtr_toInt_refines (memory : MemoryState) (p : Data.Pointer)
+    (x : Data.LLVM.Ptr) (v : BitVec 64)
+    (hx : x.toInt ⊒ Data.LLVM.Int.val v) :
+    Interp.isRefinedBy MemoryState.isRefinedBy
+      (memory.llvmStore p (.addr x))
+      (memory.store p (UInt64.ofBitVec v).toByteArrayLE) := by
+  unfold MemoryState.llvmStore
+  split
+  · simp [Interp.isRefinedBy]
+  cases x
+  case val q =>
+    have he : q.address.toBitVec = v := by simpa [Data.LLVM.Ptr.toInt, isRefinedBy] using hx
+    subst v
+    unfold MemoryState.storeByte64
+    apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
+    all_goals try simp only [UInt64.toByteArrayLE_size, ByteArray.replicate_size]
+    all_goals intro i hi
+    all_goals have hc : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+    all_goals rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    all_goals simp [Data.LLVM.Ptr.toByte, Data.LLVM.Byte.fromUInt64, MemoryByte.isRefinedBy,
+      UInt64.toByteArrayLE, ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+      Nat.fold_succ, Nat.fold_zero, ByteArray.getElem_eq_getElem_data, Array.getElem_push,
+      emptyArray_size, emptyCapacity_size]
+    all_goals veir_bv_normalize
+    all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+    all_goals veir_bv_decide
+  case poison =>
+    unfold MemoryState.storeByte64
+    apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
+    all_goals try simp only [UInt64.toByteArrayLE_size, ByteArray.replicate_size]
+    all_goals intro i hi
+    all_goals have hc : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7 := by omega
+    all_goals rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    all_goals simp [Data.LLVM.Ptr.toByte, Data.LLVM.Byte.allPoison, MemoryByte.isRefinedBy,
+      UInt64.toByteArrayLE, ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
+      Nat.fold_succ, Nat.fold_zero, ByteArray.getElem_eq_getElem_data, Array.getElem_push,
+      emptyArray_size, emptyCapacity_size]
+    all_goals veir_bv_normalize
+    all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+    all_goals change (255 : UInt8) ||| _ = 255
+    all_goals veir_bv_decide
 
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepIndex_sw_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 4 .sw) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepIndex_sd_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepIndex 8 .sd) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepConst_sb_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepConst 1 .sb) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepConst_sh_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepConst 2 .sh) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepConst_sw_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepConst 4 .sw) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_gepConst_sd_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .gepConst 8 .sd) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_reg_sb_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .reg 1 .sb) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_reg_sh_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .reg 2 .sh) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_reg_sw_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .reg 4 .sw) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
-
-/- Blocked by pointer object erasure; see `lowerStore_all_modes_counterexample`. -/
-theorem lowerStore_reg_sd_valid :
-    Puddle.CTree.Pattern.Valid (lowerStore .reg 8 .sd) := by
-  dsimp only [lowerStore, matchAddr, addrMemProps]
-  simpPuddleValid
-  simp [ctree_semantics]
-  sorry
+theorem llvmStorePtr_refines (memory : MemoryState) (p : Data.Pointer)
+    (x : Data.LLVM.Ptr) (v : BitVec 64)
+    (hx : x ⊒ Data.LLVM.Ptr.val ⟨UInt64.ofBitVec v⟩) :
+    Interp.isRefinedBy MemoryState.isRefinedBy
+      (memory.llvmStore p (.addr x))
+      (memory.store p ((UInt64.ofBitVec v).toByteArrayLE.extract 0 8)) := by
+  have hi : x.toInt ⊒ Data.LLVM.Int.val v := by
+    cases x with
+    | val q =>
+      have hq : q = ⟨UInt64.ofBitVec v⟩ := by
+        simpa [Data.LLVM.Ptr.isRefinedBy, Data.Pointer.isRefinedBy, eq_comm] using hx
+      subst q
+      simp [Data.LLVM.Ptr.toInt, isRefinedBy]
+    | poison => simp [Data.LLVM.Ptr.toInt, isRefinedBy]
+  have he : (UInt64.ofBitVec v).toByteArrayLE.extract 0 8 = (UInt64.ofBitVec v).toByteArrayLE := by
+    simpa only [UInt64.toByteArrayLE_size] using (ByteArray.extract_zero_size (b := (UInt64.ofBitVec v).toByteArrayLE))
+  simp only [he]
+  exact llvmStorePtr_toInt_refines memory p x v hi
 
 end Veir

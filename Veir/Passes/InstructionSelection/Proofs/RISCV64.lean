@@ -6,11 +6,15 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Bitwise
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Casts
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Comparisons
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Constants
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.GMIRLoads
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.GMIRFoldedLoads
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Loads
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Memory
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Rotates
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Shifts
-import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Stores
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Selects
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.StorePatterns
+import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Coverage
 
 /-! CTree validity proofs for the RISC-V 64-bit instruction-selection patterns.
 
@@ -18,34 +22,35 @@ Proofs are grouped by operation family in the `RISCV64` submodules. Parameterize
 builders are covered at the instantiations used by the instruction selector,
 including every element of its generated pattern arrays. -/
 
-/-! ## Placeholder audit
+/-! ## Proof coverage
 
-The 155 original placeholders have 121 proofs and 34 concrete semantic
-counterexamples. Counterexample witnesses are proved in the corresponding
-submodules; the false validity declarations retain annotated `sorry` bodies.
-Those declarations are not established validity results.
+There are 163 proved concrete Puddle pattern instances and four excluded instances
+with checked semantic counterexamples. `RISCV64Proofs.provedPatterns` packages
+each proved pattern with its validity theorem, and `provedPatterns_size` checks
+the total. Native procedural rewrites are outside this Puddle inventory.
 
-| File | Proved | Counterexamples |
-| --- | ---: | ---: |
-| Arithmetic | 19 | 0 |
-| BitManipulation | 21 | 0 |
-| Bitwise | 12 | 0 |
-| Casts | 16 | 3 |
-| Comparisons | 21 | 0 |
-| Constants | 5 | 1 |
-| Loads | 0 | 15 |
-| Memory | 0 | 3 |
-| Rotates | 14 | 0 |
-| Shifts | 13 | 0 |
-| Stores | 0 | 12 |
+| Family | Proved |
+| --- | ---: |
+| Arithmetic | 19 |
+| BitManipulation | 21 |
+| Bitwise | 12 |
+| Casts | 11 |
+| Comparisons | 21 |
+| Constants | 5 |
+| LLVM loads | 12 |
+| GMIR loads | 12 |
+| Address and lifetime | 3 |
+| Rotates | 14 |
+| Fused comparison/select | 8 |
+| Shifts | 13 |
+| Stores | 12 |
 
-Matched operations now carry `IsFromVerifiedOp` premises. These discharge twenty
-obligations previously blocked by operand/result type mismatches or inconsistent
-constant-attribute types. Earlier unverified semantic witnesses retained in the
-submodules do not refute these verified-source validity statements.
+Matched operation metadata carries `IsFromVerifiedOp` premises. The proofs use
+the address-only pointer model and memory refinement, including resolution of
+poison bits by register conversions and stores.
 
-The remaining counterexamples involve values wider than a register,
-pointer-object identity loss without runtime memory invariants, and
-unimplemented intrinsic-call semantics. IR verification alone does not exclude
-those cases.
+The two wide GMIR casts still lose defined bits above bit 63. The memcpy/memset
+call fallbacks still lack local call semantics. Their checked witnesses are in
+`Casts` and `Memory`; no validity theorem is exported for these four patterns.
+There are no admitted validity declarations in this suite.
 -/

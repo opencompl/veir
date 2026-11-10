@@ -10,7 +10,6 @@ namespace Veir
 open Puddle
 open _root_.CTree
 
-set_option warn.sorry false
 
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
