@@ -120,11 +120,8 @@ theorem custom_cttz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary 
   proveLegalValid using isRefinedBy_refl
 
 /-- `customLegalizeAbs`: the absolute value of an `i64` is the larger of it and its negation. -/
-private theorem abs_smax_neg (x : Data.LLVM.Int 64) (t : IntegerType) :
-    x.abs false ⊒ x.smax ((Data.LLVM.Int.val (BitVec.ofInt 64 (IntegerAttr.ofInt 0 t).value)).sub x) := by
-  have : (IntegerAttr.ofInt 0 t).value = 0 := by
-    simp [IntegerAttr.ofInt, IntegerAttr.normalizeValue]
-  rw [this]
+private theorem abs_smax_neg (x : Data.LLVM.Int 64) :
+    x.abs false ⊒ x.smax ((Data.LLVM.Int.val 0#64).sub x) := by
   veir_bv_decide
 
 theorem custom_abs_valid : Puddle.CTree.Pattern.Valid customLegalizeAbs := by
@@ -151,6 +148,78 @@ private theorem bitreverse_brev8 (x : Data.LLVM.Int 8) (m : BitVec 56) (h : 8 < 
 
 theorem custom_bitreverse_valid : Puddle.CTree.Pattern.Valid customLegalizeBitreverse8 := by
   proveLegalValid using bitreverse_brev8
+
+/-- The amount `w - 1` of the `g_ashr` that extracts the sign of a `w`-bit value. -/
+private theorem shiftAmount_width_sub_one {w : Nat} (hw : 0 < w) :
+    shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w (↑w - 1))) = .val (BitVec.ofNat w (w - 1)) := by
+  have hlt : w - 1 < 2 ^ w := Nat.lt_of_le_of_lt (Nat.sub_le w 1) Nat.lt_two_pow_self
+  rw [show (↑w - 1 : _root_.Int) = ((w - 1 : Nat) : _root_.Int) by omega, BitVec.ofInt_natCast]
+  simp [shiftAmount, Nat.mod_eq_of_lt hlt, show w - 1 < w by omega]
+
+/-- `lowerAddSubSatToAddoSubo .g_saddsat`: on overflow, the wrapped sum has the opposite sign of
+`x`, so `(r >>s (w - 1)) + INT_MIN` saturates towards the sign of `x`. -/
+private theorem saddSat_addo {w : Nat} (x y : Data.LLVM.Int w) :
+    x.saddSat y ⊒ GMIR.selectNonzero (x.saddOverflowFlag y)
+      (((x.add y).ashr (shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w (↑w - 1))))).add
+        (Data.LLVM.Int.val (BitVec.ofInt w (-2 ^ (w - 1)))))
+      (x.add y) := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.saddSat, Data.LLVM.Int.add, Data.LLVM.Int.saddOverflowFlag,
+    GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure]
+  rename_i x y
+  by_cases h : x.saddOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
+  · have hw : 0 < w := by
+      rcases w with _ | w
+      · revert h; revert x y; decide
+      · omega
+    have hmsb : (x + y).msb = !x.msb := by
+      rw [BitVec.saddOverflow_eq] at h
+      cases hx : x.msb <;> cases hy : y.msb <;> cases hs : (x + y).msb <;> simp_all
+    have hlt : w - 1 < 2 ^ w := Nat.lt_of_le_of_lt (Nat.sub_le w 1) Nat.lt_two_pow_self
+    simp [shiftAmount_width_sub_one hw, Data.LLVM.Int.ashr, Id.run, BitVec.sshiftRight_eq',
+      Nat.mod_eq_of_lt hlt, Data.LLVM.sshiftRight_width_sub_one, hmsb, ← BitVec.intMin_eq_neg_two_pow,
+      show ¬ w ≤ w - 1 by omega]
+    cases x.msb <;> simp [Data.LLVM.allOnes_add_intMin]
+  · simp
+
+/-- `lowerAddSubSatToAddoSubo .g_ssubsat`, as `saddSat_addo`. -/
+private theorem ssubSat_subo {w : Nat} (x y : Data.LLVM.Int w) :
+    x.ssubSat y ⊒ GMIR.selectNonzero (x.ssubOverflowFlag y)
+      (((x.sub y).ashr (shiftAmount w (Data.LLVM.Int.val (BitVec.ofInt w (↑w - 1))))).add
+        (Data.LLVM.Int.val (BitVec.ofInt w (-2 ^ (w - 1)))))
+      (x.sub y) := by
+  cases x <;> cases y <;> simp [Data.LLVM.Int.ssubSat, Data.LLVM.Int.sub, Data.LLVM.Int.add,
+    Data.LLVM.Int.ssubOverflowFlag, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure]
+  rename_i x y
+  by_cases h : x.ssubOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
+  · have hw : 0 < w := by
+      rcases w with _ | w
+      · revert h; revert x y; decide
+      · omega
+    have hmsb : (x - y).msb = !x.msb := by
+      rw [BitVec.ssubOverflow_eq] at h
+      cases hx : x.msb <;> cases hy : y.msb <;> cases hs : (x - y).msb <;> simp_all
+    have hlt : w - 1 < 2 ^ w := Nat.lt_of_le_of_lt (Nat.sub_le w 1) Nat.lt_two_pow_self
+    simp [shiftAmount_width_sub_one hw, Data.LLVM.Int.ashr, Id.run, BitVec.sshiftRight_eq',
+      Nat.mod_eq_of_lt hlt, Data.LLVM.sshiftRight_width_sub_one, hmsb, ← BitVec.intMin_eq_neg_two_pow,
+      show ¬ w ≤ w - 1 by omega]
+    cases x.msb <;> simp [Data.LLVM.allOnes_add_intMin]
+  · simp
+
+theorem custom_uaddsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_uaddsat false true) := by
+  proveLegalValid using Data.LLVM.uaddSat_addo
+
+theorem custom_usubsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_usubsat false false) := by
+  proveLegalValid using Data.LLVM.usubSat_subo
+
+theorem custom_saddsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_saddsat true true) := by
+  proveLegalValid using saddSat_addo
+
+theorem custom_ssubsat_valid :
+    Puddle.CTree.Pattern.Valid (lowerAddSubSatToAddoSubo .g_ssubsat true false) := by
+  proveLegalValid using ssubSat_subo
 
 /-! ## Status of every custom legalization -/
 
@@ -222,21 +291,21 @@ theorem custom_abs_status :
 @[legalization_status]
 theorem custom_uaddsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_uaddsat false true) :=
-  .unproven .notYetProven
+  .proven custom_uaddsat_valid
 
 @[legalization_status]
 theorem custom_usubsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_usubsat false false) :=
-  .unproven .notYetProven
+  .proven custom_usubsat_valid
 
 @[legalization_status]
 theorem custom_saddsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_saddsat true true) :=
-  .unproven .notYetProven
+  .proven custom_saddsat_valid
 
 @[legalization_status]
 theorem custom_ssubsat_status :
     Status Unproven (lowerAddSubSatToAddoSubo .g_ssubsat true false) :=
-  .unproven .notYetProven
+  .proven custom_ssubsat_valid
 
 end Veir.Legalization.CTreeProofs

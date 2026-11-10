@@ -6,6 +6,7 @@ public import Veir.PatternRewriter.Puddle.CTreeValidity
 public import Veir.PatternRewriter.Puddle.CTreeValidityTactics
 import all Veir.Interpreter.Basic
 import all Veir.Interpreter.CTreeInterpreter
+import all Veir.Interpreter.CTree
 import all Veir.IR.Attribute
 import all Veir.Data.Refinement
 import Veir.PatternRewriter.Puddle.Definitions
@@ -69,6 +70,14 @@ theorem sim_monadLift_ub_right {α β : Type} (R : α → β → Prop) (target :
     CTree.Sim R target (monadLift (Interp.ub location : Interp β) : Tree β) := by
   simp [monadLift, MonadLift.monadLift]
 
+/-- A failing tree has no successful outcome, so a matched operation whose semantics fail is not
+matched. -/
+@[simp]
+theorem PureOrErr.canInterpretTo_fail_ok {EIn CIn R} {E : EIn → Type} {C : CIn → Type}
+    [ErrorE -< E] [UBE -< E] (v : R) :
+    PureOrErr.CanInterpretTo (fail : CTree E C R) (.ok v) ↔ False := by
+  simp [Veir.fail, CTree.trigger_def, Bind.bind, CTree.CTree.bind_vis]
+
 end
 
 open Lean Meta in
@@ -119,6 +128,25 @@ open Lean Elab Tactic in
 elab "casesIntegerTypes" : tactic => do
   let goals ← getGoals
   setGoals (← goals.flatMapM fun goal => casesIntegerTypes goal)
+
+open Lean Meta in
+/-- Case-split, recursively, each local existential and conjunction, e.g. the choice of high bits
+by which a matched `g_anyext` produced its result, or a width equation of a type check. -/
+meta partial def casesExistsAnd (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    for decl in ← getLCtx do
+      if decl.isImplementationDetail then continue
+      let type ← instantiateMVars decl.type
+      unless type.isAppOfArity ``Exists 2 || type.isAppOfArity ``And 2 do continue
+      let subgoals ← goal.cases decl.fvarId
+      return (← subgoals.toList.mapM fun subgoal => casesExistsAnd subgoal.mvarId).flatten
+    return [goal]
+
+open Lean Elab Tactic in
+/-- Case-split every local existential and conjunction. -/
+elab "casesExistsAnd" : tactic => do
+  let goals ← getGoals
+  setGoals (← goals.flatMapM fun goal => casesExistsAnd goal)
 
 open Lean Meta in
 /-- Whether `c` compares two natural numbers. -/

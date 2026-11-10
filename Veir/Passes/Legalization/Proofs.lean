@@ -780,6 +780,273 @@ theorem icmp_sext (h : w < W) (x y : LLVM.Int w) (p : IntPred) :
 
 end Widening
 
+/-! ## Counting bits at every width
+
+The count rules widen the operand of `g_ctlz` and `g_cttz` to any width `W` above its width `w`.
+These facts relate the counts of the wide and the narrow operand. -/
+
+section Counting
+
+variable {w W : Nat}
+
+/-- The leading zeros of a nonzero bit-vector are fewer than its width. -/
+theorem clz_lt_of_ne_zero {x : BitVec w} (hx : x ≠ 0#w) : (BitVec.clz x).toNat < w := by
+  have := BitVec.clz_lt_iff_ne_zero.mpr hx
+  rw [BitVec.lt_def] at this
+  simpa [Nat.mod_eq_of_lt Nat.lt_two_pow_self] using this
+
+theorem toNat_clz_zero : (BitVec.clz (0#w)).toNat = w := by
+  rw [BitVec.clz_eq_iff_eq_zero.mpr rfl]
+  simp [Nat.mod_eq_of_lt Nat.lt_two_pow_self]
+
+/-- Zero-extending a bit-vector by `W - w` bits adds `W - w` leading zeros. The count is pinned
+down by the bounds `2 ^ (w - 1 - clz x) ≤ x < 2 ^ (w - clz x)` of a nonzero `x`. -/
+theorem toNat_clz_setWidth (h : w ≤ W) (x : BitVec w) :
+    (BitVec.clz (x.setWidth W)).toNat = (BitVec.clz x).toNat + (W - w) := by
+  by_cases hx : x = 0#w
+  · subst hx
+    simp only [BitVec.setWidth_zero, toNat_clz_zero]
+    omega
+  · have hX : x.setWidth W ≠ 0#W := by
+      intro h'
+      apply hx
+      apply BitVec.eq_of_toNat_eq
+      have := congrArg BitVec.toNat h'
+      simpa [toNat_setWidth_of_le h] using this
+    have hw : 0 < w := by
+      rcases w with _ | w
+      · exact absurd (BitVec.eq_nil x) hx
+      · omega
+    have a1 := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero hw hx
+    have a2 := BitVec.toNat_lt_two_pow_sub_clz (x := x)
+    have b1 := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero (by omega) hX
+    have b2 := BitVec.toNat_lt_two_pow_sub_clz (x := x.setWidth W)
+    rw [toNat_setWidth_of_le h] at b1 b2
+    have c1 := clz_lt_of_ne_zero hx
+    have c2 := clz_lt_of_ne_zero hX
+    have e1 := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (Nat.lt_of_le_of_lt a1 b2)
+    have e2 := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp (Nat.lt_of_le_of_lt b1 a2)
+    omega
+
+/-- The trailing zeros of `x` are `k` if bit `k` is its lowest set bit. -/
+theorem toNat_ctz_eq {x : BitVec w} {k : Nat} (hk : x.getLsbD k = true)
+    (hlt : ∀ i < k, x.getLsbD i = false) : (BitVec.ctz x).toNat = k := by
+  have hx : x ≠ 0#w := by intro h; simp [h] at hk
+  have h1 := BitVec.getLsbD_true_ctz_of_ne_zero hx
+  rcases Nat.lt_trichotomy (BitVec.ctz x).toNat k with h | h | h
+  · simp [hlt _ h] at h1
+  · exact h
+  · simp [BitVec.getLsbD_false_of_lt_ctz h] at hk
+
+theorem toNat_ctz_zero : (BitVec.ctz (0#w)).toNat = w := by
+  rw [BitVec.ctz_eq_reverse_clz, show (0#w).reverse = 0#w from BitVec.reverse_eq_zero_iff.mpr rfl,
+    toNat_clz_zero]
+
+theorem getLsbD_ofInt_two_pow {i : Nat} :
+    (BitVec.ofInt W (2 ^ w)).getLsbD i = (decide (i < W) && decide (w = i)) := by
+  rw [show (2 ^ w : _root_.Int) = ((2 ^ w : Nat) : _root_.Int) by simp, BitVec.ofInt_natCast,
+    BitVec.getLsbD_ofNat, Nat.testBit_two_pow]
+
+/-- Setting bit `w` of any extension of the `w`-bit `x` keeps the trailing zeros of `x`, and makes
+those of a zero `x` its width. -/
+theorem toNat_ctz_or_two_pow (h : w < W) (m : BitVec (W - w)) (x : BitVec w) :
+    (BitVec.ctz (((m ++ x).cast (by omega) : BitVec W) ||| BitVec.ofInt W (2 ^ w))).toNat =
+      (BitVec.ctz x).toNat := by
+  have hbit : ∀ i < w, (((m ++ x).cast (by omega) : BitVec W) ||| BitVec.ofInt W (2 ^ w)).getLsbD i =
+      x.getLsbD i := by
+    intro i hi
+    simp [BitVec.getLsbD_append, hi, getLsbD_ofInt_two_pow, Nat.ne_of_gt hi]
+  have htop : (((m ++ x).cast (by omega) : BitVec W) ||| BitVec.ofInt W (2 ^ w)).getLsbD w = true := by
+    simp [getLsbD_ofInt_two_pow, h]
+  by_cases hx : x = 0#w
+  · subst hx
+    rw [toNat_ctz_zero]
+    exact toNat_ctz_eq htop fun i hi => by simp [hbit i hi]
+  · have hk := BitVec.getLsbD_true_ctz_of_ne_zero hx
+    have hlt : (BitVec.ctz x).toNat < w := by
+      have := BitVec.ctz_lt_iff_ne_zero.mpr hx
+      rw [BitVec.lt_def] at this
+      simpa [Nat.mod_eq_of_lt Nat.lt_two_pow_self] using this
+    apply toNat_ctz_eq
+    · rw [hbit _ hlt, hk]
+    · intro i hi
+      rw [hbit _ (by omega)]
+      exact BitVec.getLsbD_false_of_lt_ctz hi
+
+/-- The wide operand of a `g_cttz` widened by `widenCttzSrc` is never zero. -/
+theorem ext_or_two_pow_ne_zero (h : w < W) (m : BitVec (W - w)) (x : BitVec w) :
+    ((m ++ x).cast (by omega) : BitVec W) ||| BitVec.ofInt W (2 ^ w) ≠ 0#W := by
+  intro h0
+  have htop : (((m ++ x).cast (by omega) : BitVec W) ||| BitVec.ofInt W (2 ^ w)).getLsbD w = true := by
+    simp [getLsbD_ofInt_two_pow, h]
+  simp [h0] at htop
+
+end Counting
+
+/-! ## Saturating arithmetic at every width
+
+The lowerings of the saturating operations clamp with min and max, or select on an overflow flag.
+They are proved on the signed values (`toInt`), where none of the clamped operations wraps, so
+`omega` decides them once the min and max are exposed. -/
+
+section Saturating
+
+variable {w : Nat}
+
+/- The case splits of the saturation proofs share one simp set, each case using part of it. -/
+set_option linter.unusedSimpArgs false
+
+theorem ofInt_neg_one : BitVec.ofInt w (-1) = BitVec.allOnes w := by
+  rw [show (-1 : _root_.Int) = _root_.Int.negSucc 0 from rfl, BitVec.ofInt_negSucc_eq_not_ofNat]
+  simp
+
+theorem toInt_smin_ite (a b : BitVec w) :
+    (if a.sle b = true then a else b).toInt = min a.toInt b.toInt := by
+  split <;> simp_all [BitVec.sle_iff_toInt_le] <;> omega
+
+theorem toInt_smax_ite (a b : BitVec w) :
+    (if a.sle b = true then b else a).toInt = max a.toInt b.toInt := by
+  split <;> simp_all [BitVec.sle_iff_toInt_le] <;> omega
+
+/-- A signed value in range does not wrap. -/
+theorem bmod_two_pow_of_range (hw : 0 < w) {s : _root_.Int} (h1 : -2 ^ (w - 1) ≤ s)
+    (h2 : s < 2 ^ (w - 1)) : s.bmod (2 ^ w) = s := by
+  rw [← BitVec.toInt_ofInt]
+  exact BitVec.toInt_ofInt_eq_self hw h1 h2
+
+/-- An arithmetic shift right by `w - 1` spreads the sign bit. -/
+theorem sshiftRight_width_sub_one (x : BitVec w) :
+    x.sshiftRight (w - 1) = if x.msb then BitVec.allOnes w else 0#w := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  rw [BitVec.getElem_sshiftRight hi]
+  split
+  · have : i = 0 := by omega
+    subst this
+    simp only [Nat.add_zero, BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_eq_getElem (by omega : w - 1 < w)]
+    split <;> simp_all
+  · split <;> simp_all
+
+theorem allOnes_add_intMin : BitVec.allOnes w + BitVec.intMin w = BitVec.intMax w := by
+  rw [← BitVec.neg_one_eq_allOnes, BitVec.add_comm, ← BitVec.sub_eq_add_neg]
+  exact (BitVec.eq_sub_iff_add_eq.mpr BitVec.intMax_add_one).symm
+
+theorem intMax_eq_ofInt : BitVec.intMax w = BitVec.ofInt w (2 ^ (w - 1) - 1) := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
+  apply BitVec.eq_of_toInt_eq
+  have : (1 : _root_.Int) ≤ 2 ^ (w - 1) := by
+    have := Nat.one_le_two_pow (n := w - 1)
+    exact_mod_cast this
+  rw [BitVec.toInt_intMax, BitVec.toInt_ofInt_eq_self hw (by omega) (by omega)]
+
+/-- Lowering `g_uaddsat` with `g_umin`: `uadd.sat a b = a + umin (~a) b`. -/
+theorem uaddSat_minmax (x y : LLVM.Int w) :
+    x.uaddSat y ⊒ x.add ((x.xor (.val (BitVec.ofInt w (-1)))).umin y) := by
+  cases x <;> cases y <;>
+    simp [Int.uaddSat, Int.add, Int.xor, Int.umin, Id.run, isRefinedBy_eq, pure, ofInt_neg_one,
+      BitVec.xor_allOnes]
+  rename_i x y
+  have := x.isLt
+  have := y.isLt
+  by_cases h1 : x.uaddOverflow y <;> by_cases h2 : (~~~x).ule y <;>
+    simp only [h1, h2, ite_true, ite_false, Bool.false_eq_true] <;>
+    simp only [BitVec.uaddOverflow, BitVec.ule_eq_decide, BitVec.toNat_not, decide_eq_true_eq,
+      Bool.not_eq_true, decide_eq_false_iff_not] at h1 h2
+  · exact (BitVec.add_not_self x).symm
+  · omega
+  · congr 1
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_not]
+    omega
+
+/-- Lowering `g_usubsat` with `g_umin`: `usub.sat a b = a - umin a b`. -/
+theorem usubSat_minmax (x y : LLVM.Int w) : x.usubSat y ⊒ x.sub (x.umin y) := by
+  cases x <;> cases y <;> simp [Int.usubSat, Int.sub, Int.umin, Id.run, isRefinedBy_eq, pure]
+  rename_i x y
+  by_cases h1 : x.usubOverflow y <;> by_cases h2 : x.ule y <;>
+    simp only [h1, h2, ite_true, ite_false, Bool.false_eq_true] <;>
+    simp only [BitVec.usubOverflow, BitVec.ule_eq_decide, decide_eq_true_eq,
+      Bool.not_eq_true, decide_eq_false_iff_not] at h1 h2
+  · simp
+  · omega
+  · have : x = y := BitVec.eq_of_toNat_eq (by omega)
+    simp [this]
+
+/-- Lowering `g_saddsat` with `g_smin` and `g_smax`:
+`sadd.sat a b = a + smin (smax (INT_MIN - smin a 0) b) (INT_MAX - smax a 0)`. -/
+theorem saddSat_minmax (x y : LLVM.Int w) :
+    x.saddSat y ⊒ x.add ((((LLVM.Int.val (BitVec.ofInt w (-2 ^ (w - 1)))).sub
+        (x.smin (.val 0#w))).smax y).smin
+        ((LLVM.Int.val (BitVec.ofInt w (2 ^ (w - 1) - 1))).sub (x.smax (.val 0#w)))) := by
+  cases x <;> cases y <;> simp [Int.saddSat, Int.add, Int.sub, Int.smin, Int.smax, Id.run, isRefinedBy_eq,
+    pure]
+  rename_i x y
+  by_cases h : x.saddOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
+  all_goals rcases Nat.eq_zero_or_pos w with rfl | hw
+  all_goals try exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
+  all_goals
+    have := BitVec.le_toInt x
+    have := BitVec.toInt_lt (x := x)
+    have := BitVec.le_toInt y
+    have := BitVec.toInt_lt (x := y)
+    have : (1 : _root_.Int) ≤ 2 ^ (w - 1) := by
+      have := Nat.one_le_two_pow (n := w - 1)
+      exact_mod_cast this
+    simp only [BitVec.saddOverflow, Bool.or_eq_true, decide_eq_true_eq, Bool.not_eq_true,
+      Bool.or_eq_false_iff, decide_eq_false_iff_not] at h
+    apply BitVec.eq_of_toInt_eq
+    simp (disch := omega) only [BitVec.toInt_add, BitVec.toInt_sub, BitVec.toInt_ofInt, toInt_smin_ite,
+      toInt_smax_ite, BitVec.toInt_zero, bmod_two_pow_of_range hw]
+  · split <;> simp_all [BitVec.msb_eq_toInt, BitVec.toInt_intMin_of_pos hw] <;> omega
+  · omega
+
+/-- Lowering `g_ssubsat` with `g_smin` and `g_smax`:
+`ssub.sat a b = a - smin (smax (smax a (-1) - INT_MAX) b) (smin a (-1) - INT_MIN)`. -/
+theorem ssubSat_minmax (x y : LLVM.Int w) :
+    x.ssubSat y ⊒ x.sub ((((x.smax (.val (BitVec.ofInt w (-1)))).sub
+        (.val (BitVec.ofInt w (2 ^ (w - 1) - 1)))).smax y).smin
+        ((x.smin (.val (BitVec.ofInt w (-1)))).sub (.val (BitVec.ofInt w (-2 ^ (w - 1)))))) := by
+  cases x <;> cases y <;> simp [Int.ssubSat, Int.sub, Int.smin, Int.smax, Id.run, isRefinedBy_eq, pure]
+  rename_i x y
+  by_cases h : x.ssubOverflow y <;> simp only [h, ite_true, ite_false, Bool.false_eq_true]
+  all_goals rcases Nat.eq_zero_or_pos w with rfl | hw
+  all_goals try exact BitVec.of_length_zero.trans BitVec.of_length_zero.symm
+  all_goals
+    have := BitVec.le_toInt x
+    have := BitVec.toInt_lt (x := x)
+    have := BitVec.le_toInt y
+    have := BitVec.toInt_lt (x := y)
+    have : (1 : _root_.Int) ≤ 2 ^ (w - 1) := by
+      have := Nat.one_le_two_pow (n := w - 1)
+      exact_mod_cast this
+    simp only [BitVec.ssubOverflow, Bool.or_eq_true, decide_eq_true_eq, Bool.not_eq_true,
+      Bool.or_eq_false_iff, decide_eq_false_iff_not] at h
+    apply BitVec.eq_of_toInt_eq
+    simp (disch := omega) only [BitVec.toInt_add, BitVec.toInt_sub, BitVec.toInt_ofInt, toInt_smin_ite,
+      toInt_smax_ite, BitVec.toInt_zero, bmod_two_pow_of_range hw]
+  · split <;> simp_all [BitVec.msb_eq_toInt, BitVec.toInt_intMin_of_pos hw] <;> omega
+  · omega
+
+/-- Lowering `g_uaddsat` with `g_uaddo`: `uadd.sat a b = let (r, ov) := uaddo a b; ov ? -1 : r`. -/
+theorem uaddSat_addo (x y : LLVM.Int w) :
+    x.uaddSat y ⊒ GMIR.selectNonzero (x.uaddOverflowFlag y) (.val (BitVec.ofInt w (-1))) (x.add y) := by
+  cases x <;> cases y <;>
+    simp [Int.uaddSat, Int.add, Int.uaddOverflowFlag, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure,
+      ofInt_neg_one]
+  rename_i x y
+  by_cases h1 : x.uaddOverflow y <;> simp [h1]
+
+/-- Lowering `g_usubsat` with `g_usubo`: `usub.sat a b = let (r, ov) := usubo a b; ov ? 0 : r`. -/
+theorem usubSat_subo (x y : LLVM.Int w) :
+    x.usubSat y ⊒ GMIR.selectNonzero (x.usubOverflowFlag y) (.val (BitVec.ofInt w 0)) (x.sub y) := by
+  cases x <;> cases y <;>
+    simp [Int.usubSat, Int.sub, Int.usubOverflowFlag, GMIR.selectNonzero, Id.run, isRefinedBy_eq, pure]
+  rename_i x y
+  by_cases h1 : x.usubOverflow y <;> simp [h1]
+
+end Saturating
+
 end Veir.Data.LLVM
 
 end

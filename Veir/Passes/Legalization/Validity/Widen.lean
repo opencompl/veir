@@ -13,7 +13,12 @@ import all Veir.Data.LLVM.Int.Basic
 import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
 
-/-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width. -/
+/-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width.
+
+`widenReverse .g_bitreverse` shifts the reversed wide operand down by `W - w`, which is the whole
+wide width for a source width `w = 0`, so the shift is poison there. `widenConstant` reads the
+value of the constant at the width of its attribute, which the matcher does not tie to the width
+of its result. -/
 
 namespace Veir.Legalization.CTreeProofs
 
@@ -54,6 +59,56 @@ private theorem resizeCount_trunc {v w W : Nat} (h : W > w) (x : Data.LLVM.Int v
     simp [resizeCount, Data.LLVM.Int.trunc, Id.run, this]
 
 
+/-- `widenCtlzSrc`: the leading zeros of the zero-extended operand, less the `W - w` added ones. -/
+private theorem widen_ctlz_src {w W : Nat} (h : w < W) (a : Data.LLVM.Int w) :
+    resizeCount W (a.ctlz false) ⊒
+      (resizeCount W ((a.zext W false h).ctlz false)).sub (.val (BitVec.ofInt W (↑W - ↑w))) false true := by
+  cases a with
+  | poison => simp [resizeCount, Data.LLVM.Int.ctlz, Data.LLVM.Int.zext, Data.LLVM.Int.sub, Id.run]
+  | val x =>
+    have hc := Data.LLVM.toNat_clz_setWidth (Nat.le_of_lt h) x
+    have hle : (BitVec.clz x).toNat ≤ w := by
+      have := BitVec.clz_le (x := x)
+      rw [BitVec.le_def] at this
+      simpa [Nat.mod_eq_of_lt Nat.lt_two_pow_self] using this
+    have hW : W < 2 ^ W := Nat.lt_two_pow_self
+    have hd : (↑W - ↑w : _root_.Int) = ((W - w : Nat) : _root_.Int) := by omega
+    simp only [resizeCount, Data.LLVM.Int.ctlz, Data.LLVM.Int.zext, Data.LLVM.Int.sub, Id.run,
+      Bool.false_and, Bool.false_eq_true, false_and, ite_false, hd, BitVec.ofInt_natCast]
+    simp only [BitVec.setWidth_eq, hc, BitVec.usubOverflow, BitVec.toNat_ofNat, decide_eq_true_eq,
+      true_and]
+    rw [Nat.mod_eq_of_lt (by omega : (BitVec.clz x).toNat + (W - w) < 2 ^ W),
+      Nat.mod_eq_of_lt (by omega : W - w < 2 ^ W), ite_eq_right (by omega)]
+    simp only [isRefinedBy_eq]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt (by omega : (BitVec.clz x).toNat + (W - w) < 2 ^ W),
+      Nat.mod_eq_of_lt (by omega : W - w < 2 ^ W),
+      show 2 ^ W - (W - w) + ((BitVec.clz x).toNat + (W - w)) = (BitVec.clz x).toNat + 2 ^ W by omega,
+      Nat.add_mod_right, Nat.mod_eq_of_lt (by omega)]
+
+/-- `widenCttzSrc`: the trailing zeros of the extended operand with bit `w` set. -/
+private theorem widen_cttz_src {w W : Nat} (h : w < W) (a : Data.LLVM.Int w) (m : BitVec (W - w)) :
+    resizeCount W (a.cttz false) ⊒
+      resizeCount W (((a.ext W m h).or (.val (BitVec.ofInt W (2 ^ w)))).cttz true) := by
+  cases a with
+  | poison => simp [resizeCount, Data.LLVM.Int.cttz, Data.LLVM.Int.ext, Data.LLVM.Int.or, Id.run]
+  | val x =>
+    simp [resizeCount, Data.LLVM.Int.cttz, Data.LLVM.Int.ext, Data.LLVM.Int.or, Data.LLVM.Int.cast, Id.run,
+      Data.LLVM.ext_or_two_pow_ne_zero h m x, isRefinedBy_eq, Data.LLVM.toNat_ctz_or_two_pow h m x]
+
+/-- `widenScalar` of the operand of `g_ctpop` (type group 1) with `g_zext`: zero extension adds no
+set bits. -/
+private theorem widen_ctpop_src {w W v : Nat} (h : w < W) (a : Data.LLVM.Int w) :
+    resizeCount v a.ctpop ⊒ resizeCount v (a.zext W false h).ctpop := by
+  cases a with
+  | poison => simp [resizeCount, Data.LLVM.Int.ctpop, Data.LLVM.Int.zext, Id.run]
+  | val x =>
+    have : (BitVec.cpop (x.setWidth W)).toNat = (BitVec.cpop x).toNat := by
+      rw [BitVec.toNat_cpop, BitVec.toNat_cpop, BitVec.cpopNatRec_setWidth_of_le _ (Nat.le_refl _),
+        show W = w + (W - w) by omega, BitVec.cpopNatRec_of_le _ _ (Nat.le_refl _)]
+    simp [resizeCount, Data.LLVM.Int.ctpop, Data.LLVM.Int.zext, Id.run, isRefinedBy_eq, this]
+
 theorem widen_icmp_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 1) .g_sext W) := by
   proveLegalValid using Data.LLVM.icmp_sext
@@ -93,6 +148,16 @@ theorem widen_fshl_1_valid (W : Nat) :
 theorem widen_fshr_1_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_fshr (.type 1) .g_zext W) := by
   proveLegalValid using Data.LLVM.funnelShiftAmount_zext
+
+theorem widen_ctlz_1_valid (W : Nat) : Puddle.CTree.Pattern.Valid (widenCtlzSrc W) := by
+  proveLegalValid using widen_ctlz_src
+
+theorem widen_cttz_1_valid (W : Nat) : Puddle.CTree.Pattern.Valid (widenCttzSrc W) := by
+  proveLegalValid using widen_cttz_src
+
+theorem widen_ctpop_1_valid (W : Nat) :
+    Puddle.CTree.Pattern.Valid (widenTypeGroup .g_ctpop (.type 1) .g_zext W) := by
+  proveLegalValid using widen_ctpop_src
 
 /-! ## Status of every widening rule -/
 
@@ -199,7 +264,7 @@ theorem widen_urem_0_status (W : Nat) :
 @[legalization_status]
 theorem widen_constant_0_status (W : Nat) :
     Status Unproven (widenConstant W) :=
-  .unproven .notYetProven
+  .unproven .needsTypedMatch
 
 @[legalization_status]
 theorem widen_sext_inreg_0_status (W : Nat) :
@@ -224,17 +289,17 @@ theorem widen_ctpop_0_status (W : Nat) :
 @[legalization_status]
 theorem widen_ctlz_1_status (W : Nat) :
     Status Unproven (widenCtlzSrc W) :=
-  .unproven .notYetProven
+  .proven (widen_ctlz_1_valid W)
 
 @[legalization_status]
 theorem widen_cttz_1_status (W : Nat) :
     Status Unproven (widenCttzSrc W) :=
-  .unproven .notYetProven
+  .proven (widen_cttz_1_valid W)
 
 @[legalization_status]
 theorem widen_ctpop_1_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_ctpop (.type 1) .g_zext W) :=
-  .unproven .notYetProven
+  .proven (widen_ctpop_1_valid W)
 
 @[legalization_status]
 theorem widen_bswap_0_status (W : Nat) :
@@ -244,7 +309,7 @@ theorem widen_bswap_0_status (W : Nat) :
 @[legalization_status]
 theorem widen_bitreverse_0_status (W : Nat) :
     Status Unproven (widenReverse .g_bitreverse W) :=
-  .unproven .notYetProven
+  .unproven .widthDependent
 
 @[legalization_status]
 theorem widen_smin_0_status (W : Nat) :
