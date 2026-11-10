@@ -5,7 +5,7 @@ public import Veir.PatternRewriter.Puddle.CTreeProofs
 public import Veir.Passes.LLVMToGMIR
 import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.LLVMToGMIR
-import Veir.Passes.LLVMToGMIR.Remaining
+import all Veir.Passes.LLVMToGMIR.Remaining
 import all Veir.Passes.Legalization.LegalizerInfo
 import all Veir.Interpreter.RuntimeValue.Conforms
 import all Veir.Passes.CastsReconciliation.Reconciliation
@@ -32,13 +32,10 @@ the certificates does not build. The local rewrites of the GEP indices and of th
 Puddle patterns.
 
 The unproven patterns (see `Unproven`):
-* `g_icmp` and the counts (`needsTypedMatch`): gMIR computes them at the matched result type,
-  which the matcher does not tie to `i1` or to the operand width.
 * The byte shifts (`allPoisonByte`): an all-poison byte becomes a poison integer, so the shift can
-  no longer move defined zero bits in.
-* The byte `trunc` (`byteTruncFlags`): the `nsw`/`nuw` flags that LLVM ignores on bytes poison the
-  `g_trunc` of the integer.
-* The byte/integer `bitcast` (`widthDependent`): a byte of no bits casts to a poison integer.
+  no longer move defined zero bits in. This is a property of the value, which no matcher can check
+  (`byte_shl_frozen` and `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove the other
+  bytes).
 * The static `alloca` (`staticAlloca`).
 
 The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with the
@@ -87,22 +84,13 @@ public section
 
 /-- Why a pattern of `llvm-to-gmir` has no CTree validity proof. -/
 inductive Unproven where
-  /-- The matcher does not tie the result type to the operands: gMIR computes `g_icmp` and the
-  counts at the matched result type, while LLVM computes them at `i1` and the operand width. -/
-  | needsTypedMatch
   /-- A byte shift is translated through an integer, which is entirely poison when every bit of
   the byte is. The byte shift moves defined zero bits into such a byte; the integer shift cannot. -/
   | allPoisonByte
-  /-- The rule is wrong at width 0: a byte of no bits casts to a poison integer, while
-  `llvm.bitcast` yields its value. -/
-  | widthDependent
   /-- The replacement's stack object is computed from the IR around the `llvm.alloca`
   (`MatchProg.inspectOperation`), which the semantics of the matched operation do not determine,
   and the pointer is cast back from an integer. -/
   | staticAlloca
-  /-- `llvm.trunc` of a byte ignores its `nsw` and `nuw` flags, which the translation carries onto
-  the `g_trunc` of the integer, where they add poison. -/
-  | byteTruncFlags
   /-- The local correctness lemma is not proven yet. -/
   | notYetProven
   deriving Repr, DecidableEq
@@ -335,12 +323,69 @@ theorem sshlsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__sshl__sat 
 theorem ushlsat_valid : Puddle.CTree.Pattern.Valid (lowerBinop .intr__ushl__sat .g_ushlsat) := by
   proveLegalValid using ushlSat_shiftAmount
 
+theorem icmp_valid : Puddle.CTree.Pattern.Valid lowerIcmp := by
+  proveLegalValid using isRefinedBy_refl
+
+/-- A count is refined by itself resized to the width it has. -/
+private theorem isRefinedBy_resizeCount {w : Nat} (c : Data.LLVM.Int w) : c ⊒ resizeCount w c := by
+  rw [resizeCount_self]
+  exact isRefinedBy_refl _
+
+theorem ctlz_valid : Puddle.CTree.Pattern.Valid
+    (lowerCount .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison)) := by
+  proveLegalValid using isRefinedBy_resizeCount
+
+theorem cttz_valid : Puddle.CTree.Pattern.Valid
+    (lowerCount .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison)) := by
+  proveLegalValid using isRefinedBy_resizeCount
+
+theorem ctlz_zero_poison_valid : Puddle.CTree.Pattern.Valid
+    (lowerCount .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison)) := by
+  proveLegalValid using isRefinedBy_resizeCount
+
+theorem cttz_zero_poison_valid : Puddle.CTree.Pattern.Valid
+    (lowerCount .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison)) := by
+  proveLegalValid using isRefinedBy_resizeCount
+
+theorem ctpop_valid : Puddle.CTree.Pattern.Valid (lowerCount .intr__ctpop .g_ctpop id) := by
+  proveLegalValid using isRefinedBy_resizeCount
+
+theorem byte_trunc_valid : Puddle.CTree.Pattern.Valid
+    (lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩)) := by
+  proveLegalValid using byte_trunc_frozen
+
+/-- A byte and an integer type of the same nonzero width, in either order. -/
+@[local simp] theorem isByteIntBitcast_iff (a b : TypeAttr) :
+    isByteIntBitcast a b = true ↔
+      (∃ bt, a.val = .byteType bt ∧ ∃ i, b.val = .integerType i ∧ bt.bitwidth = i.bitwidth ∧
+        0 < bt.bitwidth) ∨
+      (∃ i, a.val = .integerType i ∧ ∃ bt, b.val = .byteType bt ∧ bt.bitwidth = i.bitwidth ∧
+        0 < bt.bitwidth) := by
+  rcases a with ⟨a, _⟩
+  rcases b with ⟨b, _⟩
+  cases a <;> cases b <;> simp [isByteIntBitcast, -Attribute.integerType_eq_of]
+
+/-- Only a byte of its width conforms to a type whose attribute is a byte type. -/
+theorem conforms_of_val_byteType {v : RuntimeValue} {t : TypeAttr} {b : LLVM.ByteType}
+    (h : t.val = .byteType b) :
+    v.Conforms t ↔ (match v with | .byte bw _ => b.bitwidth = bw | _ => False) := by
+  rcases t with ⟨attr, _⟩
+  subst h
+  cases v <;> simp [RuntimeValue.Conforms]
+
+attribute [local simp] conforms_of_val_integerType conforms_of_val_byteType in
+theorem byte_int_bitcast_valid : Puddle.CTree.Pattern.Valid lowerByteIntBitcast := by
+  proveLegalValid with
+    first
+    | exact byte_toInt_frozen ‹_› _
+    | (split <;> (try simp_all) <;> rename_i heq <;> split at heq <;> cases heq)
+
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
 public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMIRPatternList :=
   .proven add_valid <|
   .proven sub_valid <|
-  .unproven .needsTypedMatch <| -- icmp
+  .proven icmp_valid <|
   .proven select_valid <|
   .proven sext_valid <|
   .proven zext_valid <|
@@ -371,18 +416,18 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven usubsat_valid <|
   .proven sshlsat_valid <|
   .proven ushlsat_valid <|
-  .unproven .needsTypedMatch <| -- ctlz
-  .unproven .needsTypedMatch <| -- cttz
-  .unproven .needsTypedMatch <| -- ctlz_zero_poison
-  .unproven .needsTypedMatch <| -- cttz_zero_poison
-  .unproven .needsTypedMatch <| -- ctpop
+  .proven ctlz_valid <|
+  .proven cttz_valid <|
+  .proven ctlz_zero_poison_valid <|
+  .proven cttz_zero_poison_valid <|
+  .proven ctpop_valid <|
   .proven bswap_valid <|
   .proven bitreverse_valid <|
   .proven constant_valid <|
-  .unproven .byteTruncFlags <| -- byte_trunc
+  .proven byte_trunc_valid <|
   .unproven .allPoisonByte <| -- byte_shl
   .unproven .allPoisonByte <| -- byte_lshr
-  .unproven .widthDependent <| -- byte_int_bitcast
+  .proven byte_int_bitcast_valid <|
   .unproven .staticAlloca <| -- static_alloca
   .proven round_trip_valid <|
   .nil

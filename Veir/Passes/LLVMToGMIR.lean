@@ -101,6 +101,26 @@ def lowerUnop (lOp : Llvm) (gOp : GMIR)
 
 /- As in LLVM, a `ctlz`/`cttz` whose zero input is poison becomes a `_zero_poison` count. -/
 
+/--
+  GMIR lowerings with Puddle for the bit counts, whose result has the type of their operand, as in
+  LLVM. gMIR computes the count at the width of the result type, so the matcher ties it to the
+  operand's type.
+-/
+def lowerCount (lOp : Llvm) (gOp : GMIR)
+    (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp))
+    (guard : propertiesOf (OpCode.llvm lOp) → Bool := fun _ => true) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let type ← Puddle.MatchProg.type (Attr := IntegerType)
+      let operand ← Puddle.MatchProg.value type
+      let root ← Puddle.MatchProg.root (.llvm lOp) #[operand] #[type]
+      Puddle.MatchProg.matchNative root.properties guard
+      return (type, operand, root))
+    (fun (type, operand, root) => do
+      let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (convert p))
+      Puddle.CreateProg.operation (.gmir gOp) #[operand] #[type] (.inr props))
+    (fun newOp => newOp)
 
 
 
@@ -110,6 +130,27 @@ def lowerUnop (lOp : Llvm) (gOp : GMIR)
 
 
 
+
+
+/--
+  `llvm.icmp` -> `g_icmp` on an `i1` result, as LLVM computes it. gMIR computes the comparison at
+  the width of the result type.
+-/
+def lowerIcmp : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let lhsType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let rhsType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let resultType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
+      let lhs ← Puddle.MatchProg.value lhsType
+      let rhs ← Puddle.MatchProg.value rhsType
+      let root ← Puddle.MatchProg.root (.llvm .icmp) #[lhs, rhs] #[resultType]
+      return (resultType, lhs, rhs, root))
+    (fun (resultType, lhs, rhs, root) => do
+      let props ← Puddle.CreateProg.applyNative
+          (Outputs := Puddle.Handle OpCode (.prop (.gmir .g_icmp))) root.properties some
+      Puddle.CreateProg.operation (.gmir .g_icmp) #[lhs, rhs] #[resultType] (.inr props))
+    (fun newOp => newOp)
 
 /- LLVM translates `abs` to `G_ABS` and drops `is_int_min_poison`, which `g_abs` refines. -/
 
@@ -350,10 +391,10 @@ def TypeAttr.intOfByte? (type : TypeAttr) : Option TypeAttr := do
 /--
   `lOp` on bytes -> `gOp` on integers of the same widths, between `builtin.unrealized_conversion_cast`s.
   LLVM converts all byte types to integer types of the same width when translating to gMIR
-  (see `getLLTForType`); this mirrors that conversion.
+  (see `getLLTForType`); this mirrors that conversion. The properties are converted with `convert`.
 -/
 def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
-    (h : propertiesOf (OpCode.llvm lOp) = propertiesOf (OpCode.gmir gOp) := by rfl) :
+    (convert : propertiesOf (OpCode.llvm lOp) → propertiesOf (OpCode.gmir gOp)) :
     Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
@@ -369,7 +410,7 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
           resultType TypeAttr.intOfByte?
       let castOp ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[operand] #[intOperandType]
-      let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (cast h p))
+      let props ← Puddle.CreateProg.applyNative root.properties (fun p => some (convert p))
       let newOp ← Puddle.CreateProg.operation (.gmir gOp) #[castOp.res[0]!]
           #[intResultType] (.inr props)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
@@ -426,10 +467,14 @@ def lowerByteShift (lOp : Llvm) (gOp : GMIR)
 
 
 
-/-- Whether `opType` and `resType` are a byte and an integer type of the same width. -/
+/--
+  Whether `opType` and `resType` are a byte and an integer type of the same nonzero width. A byte
+  of no bits casts to a poison integer, while `llvm.bitcast` yields its value.
+-/
 def isByteIntBitcast (opType resType : TypeAttr) : Bool :=
   match opType.val, resType.val with
-  | .byteType b, .integerType i | .integerType i, .byteType b => b.bitwidth = i.bitwidth
+  | .byteType b, .integerType i | .integerType i, .byteType b =>
+    b.bitwidth = i.bitwidth && 0 < b.bitwidth
   | _, _ => false
 
 /--
@@ -468,7 +513,7 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
   appear twice, as they always have.
 -/
 public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
-  lowerBinop .add .g_add, lowerBinop .sub .g_sub, lowerBinop .icmp .g_icmp, lowerSelect,
+  lowerBinop .add .g_add, lowerBinop .sub .g_sub, lowerIcmp, lowerSelect,
   lowerIntegerCast .sext .g_sext, lowerIntegerCast .zext .g_zext, lowerIntegerCast .trunc .g_trunc,
   lowerBinop .and .g_and, lowerBinop .or .g_or, lowerBinop .xor .g_xor,
   lowerBinop .shl .g_shl, lowerBinop .lshr .g_lshr, lowerBinop .ashr .g_ashr,
@@ -482,13 +527,14 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerBinop .intr__sadd__sat .g_saddsat, lowerBinop .intr__uadd__sat .g_uaddsat,
   lowerBinop .intr__ssub__sat .g_ssubsat, lowerBinop .intr__usub__sat .g_usubsat,
   lowerBinop .intr__sshl__sat .g_sshlsat, lowerBinop .intr__ushl__sat .g_ushlsat,
-  lowerUnop .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison),
-  lowerUnop .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison),
-  lowerUnop .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison),
-  lowerUnop .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison),
-  lowerUnop .intr__ctpop .g_ctpop id,
+  lowerCount .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison),
+  lowerCount .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison),
+  lowerCount .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison),
+  lowerCount .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison),
+  lowerCount .intr__ctpop .g_ctpop id,
   lowerUnop .intr__bswap .g_bswap id, lowerUnop .intr__bitreverse .g_bitreverse id,
-  lowerIntegerConstant, lowerPoison, lowerBytePoison, lowerUnaryByteOp .trunc .g_trunc,
+  lowerIntegerConstant, lowerPoison, lowerBytePoison,
+  lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
   lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr, lowerByteIntBitcast,
   lowerStaticAlloca_pattern, reconcilePairingCast isIntToByteRoundTrip]
 
