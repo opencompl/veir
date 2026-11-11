@@ -2,6 +2,7 @@ module
 
 public import Veir.Dialects.LLVM.CTreeMonotonicity
 public import Veir.Dialects.GMIR.CTreeMonotonicity
+public import Veir.Dialects.RISCV.CTreeMonotonicity
 
 public section
 
