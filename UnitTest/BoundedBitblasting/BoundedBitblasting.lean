@@ -745,6 +745,16 @@ example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) (h : x.msb = y.msb) :
     x.ssubOverflow y = false := by
   pbv_decide 4
 
+/-- The difference of two widths adds back up to the larger one -/
+example {w t : Nat} (hwt : w ≤ t) (ht : t ≤ 8) :
+    BitVec.ofNat t (t - w) + BitVec.ofNat t w = BitVec.ofNat t t := by
+  pbv_decide 8
+
+/-- The difference of two widths is zero when the subtrahend is larger -/
+example {w t : Nat} (hwt : t ≤ w) (hw : w ≤ 8) :
+    BitVec.ofNat w (t - w) = 0#w := by
+  pbv_decide 8
+
 /-- Xor with all ones is complement -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x ^^^ BitVec.allOnes w = ~~~x := by
@@ -780,6 +790,12 @@ example {w : Nat} (x : LLVM.Int w) (hw : w ≤ 4) :
 /-- `2 ^ w - 1` is all ones at width `w` -/
 example {w : Nat} (hw : w ≤ 4) :
     LLVM.Int.constant w (2 ^ w - 1) ⊒ LLVM.Int.constant w (-1) := by
+  veir_bv_normalize
+  pbv_decide 4
+
+/-- `-2 ^ (w - 1)` is the signed minimum, which is its own negation -/
+example {w : Nat} (hw : w ≤ 4) :
+    LLVM.Int.constant w (-2 ^ (w - 1)) ⊒ LLVM.Int.constant w (2 ^ (w - 1)) := by
   veir_bv_normalize
   pbv_decide 4
 

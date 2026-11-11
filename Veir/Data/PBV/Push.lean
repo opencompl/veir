@@ -588,3 +588,50 @@ theorem ofNat_nat_sub_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o) 
     grind
   rw [hshift]
   exact (cpop_eq_width_of_maskOfWidth (by omega) rfl).symm
+
+/-- The difference of two width variables is the difference of their masks' popcounts.
+This takes priority over `ofNat_nat_sub_of_maskOfWidth`, which would shift by the `Nat` `w`. -/
+@[pbv_push high]
+theorem ofNat_sub_of_maskOfWidth {o t w : Nat} {mt mw : BitVec o} (ht : t ≤ o) (hw : w ≤ o)
+    (hmt : mt = maskOfWidth o t) (hmw : mw = maskOfWidth o w) :
+    BitVec.ofNat o (t - w) = bif mw.ule mt then mt.cpop - mw.cpop else 0#o := by
+  rw [cpop_eq_width_of_maskOfWidth ht hmt, cpop_eq_width_of_maskOfWidth hw hmw]
+  have ho : o < 2 ^ o := Nat.lt_two_pow_self
+  have hle : mw.ule mt = decide (w ≤ t) := by
+    subst hmt hmw
+    rw [BitVec.ule_eq_decide, toNat_maskOfWidth hw, toNat_maskOfWidth ht]
+    have := Nat.one_le_two_pow (n := w); have := Nat.one_le_two_pow (n := t)
+    simp only [decide_eq_decide]
+    rw [Nat.sub_le_sub_iff_right (by omega), Nat.pow_le_pow_iff_right (by decide)]
+  rw [hle]
+  by_cases h : w ≤ t
+  · simp only [h, decide_true, Bool.cond_true]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_sub_of_le (by rw [BitVec.le_def]; simp [Nat.mod_eq_of_lt (by omega : w < 2 ^ o), Nat.mod_eq_of_lt (by omega : t < 2 ^ o)]; omega)]
+    simp [Nat.mod_eq_of_lt (by omega : w < 2 ^ o), Nat.mod_eq_of_lt (by omega : t < 2 ^ o), Nat.mod_eq_of_lt (by omega : t - w < 2 ^ o)]
+  · simp only [h, decide_false, Bool.cond_false]
+    rw [Nat.sub_eq_zero_of_le (by omega)]
+
+/-- The mask of a difference of two width variables, for widths that have no mask variable of their
+own. Like `ofNat_sub_of_maskOfWidth`, it takes priority over the `Nat` shift of
+`maskOfWidth_sub_eq_ushiftRight`. -/
+@[pbv_push high]
+theorem maskOfWidth_sub_eq_ushiftRight_cpop {o t n : Nat} {mt mn : BitVec o} (ht : t ≤ o)
+    (hn : n ≤ o) (hmt : mt = maskOfWidth o t) (hmn : mn = maskOfWidth o n) :
+    maskOfWidth o (t - n) = mt >>> mn.cpop := by
+  rw [BitVec.ushiftRight_eq', cpop_eq_width_of_maskOfWidth hn hmn, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt hn Nat.lt_two_pow_self)]
+  subst hmt
+  ext i hi
+  simp only [BitVec.getElem_ushiftRight, getLsbD_maskOfWidth, getElem_maskOfWidth]
+  grind
+
+/-- The mask of a width variable minus a literal. -/
+@[pbv_push]
+theorem maskOfWidth_sub_eq_ushiftRight {o t n : Nat} {mt : BitVec o} (ht : t ≤ o)
+    (hmt : mt = maskOfWidth o t) :
+    maskOfWidth o (t - n) = mt >>> n := by
+  subst hmt
+  ext i hi
+  simp only [BitVec.getElem_ushiftRight, getLsbD_maskOfWidth, getElem_maskOfWidth]
+  grind
