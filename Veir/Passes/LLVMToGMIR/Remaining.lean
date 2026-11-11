@@ -20,6 +20,7 @@ or a count to its resized form. The patterns match the condition each lemma need
 | the counts | `resizeCount_self` | the result has the operand's type (`lowerCount`) |
 | byte `trunc` | `byte_trunc_frozen` | no `nsw`/`nuw`, which the translation drops |
 | byte/integer `bitcast` | `byte_toInt_frozen` | a nonzero width (`isByteIntBitcast`) |
+| integer/byte round trip | `freezeByteWith_fromInt` | a nonzero width (`isIntToByteRoundTrip`) |
 | byte `shl`, byte `lshr` | `byte_shl_frozen`, `byte_lshr_frozen` | the byte is not entirely poison |
 | static `alloca` | `ptrFromInt_toInt` | the stack object has the size of the `alloca` |
 
@@ -37,12 +38,23 @@ private theorem resizeCount_self {w : Nat} (c : LLVM.Int w) : resizeCount w c = 
   simp only [resizeCount, BitVec.ofNat_toNat, BitVec.setWidth_eq]
   split <;> rfl
 
+/-- The integer a byte casts to when the poison bits of `b` are frozen to `bits`: poison if every
+bit of `b` is (see `Builtin.byteToIntCTree`). With `bits = 0`, it is `LLVM.Byte.toFrozenInt b`. -/
+def freezeByteWith {w : Nat} (b : LLVM.Byte w) (bits : BitVec w) : LLVM.Int w :=
+  if b.poison = BitVec.allOnes w then .poison else .val (b.val ||| (b.poison &&& bits))
+
+/-- An integer cast to a byte and back is unchanged, at a nonzero width, whatever bits the cast
+back chooses. -/
+private theorem freezeByteWith_fromInt {w : Nat} (h : 0 < w) (x : LLVM.Int w) (bits : BitVec w) :
+    freezeByteWith (LLVM.Byte.fromInt x) bits = x := by
+  cases x <;> simp [freezeByteWith, LLVM.Byte.fromInt, LLVM.Int.isPoison] <;> grind
+
 /-- `llvm.trunc` of a byte, through the integer of its bits, without the flags that LLVM ignores on
-bytes. -/
-private theorem byte_trunc_frozen {w w' : Nat} (h : w > w') (b : LLVM.Byte w) :
+bytes, whatever bits the cast to the integer chooses. -/
+private theorem byte_trunc_frozen {w w' : Nat} (h : w > w') (b : LLVM.Byte w) (bits : BitVec w) :
     LLVM.Byte.isRefinedBy (b.trunc w')
-      (LLVM.Byte.fromInt ((_root_.LLVM.Byte.toFrozenInt b).trunc w' false false h)) := by
-  simp only [LLVM.Byte.isRefinedBy, LLVM.Byte.fromInt, LLVM.Byte.toFrozenInt, BitVec.ofNat_eq_ofNat]
+      (LLVM.Byte.fromInt ((freezeByteWith b bits).trunc w' false false h)) := by
+  simp only [LLVM.Byte.isRefinedBy, LLVM.Byte.fromInt, freezeByteWith, BitVec.ofNat_eq_ofNat]
   veir_bv_normalize
   split
   · case _ h =>
@@ -52,6 +64,7 @@ private theorem byte_trunc_frozen {w w' : Nat} (h : w > w') (b : LLVM.Byte w) :
   · case _ h =>
     ext k hk
     simp
+    by_cases hp : b.poison.getLsbD k <;> simp [hp]
 
 private theorem shiftAmount_val {w : Nat} (y : BitVec w) :
     shiftAmount w (.val y) = if y.toNat < w then .val y else .val (BitVec.allOnes w) := by
@@ -125,11 +138,11 @@ private theorem byte_lshr_frozen {w : Nat} (b : LLVM.Byte w) (y : LLVM.Int w) (e
         ite_true]
       exact LLVM.Byte.allPoison_isRefinedBy _
 
-/-- `llvm.bitcast` of a byte to an integer, at a nonzero width: freezing the poison bits refines
-the integer, which is poison if any bit is. -/
-private theorem byte_toInt_frozen {w : Nat} (hw : 0 < w) (b : LLVM.Byte w) :
-    _root_.isRefinedBy b.toInt (_root_.LLVM.Byte.toFrozenInt b) := by
-  simp only [LLVM.Byte.toInt, _root_.LLVM.Byte.toFrozenInt]
+/-- `llvm.bitcast` of a byte to an integer, at a nonzero width: freezing the poison bits, to any
+`bits`, refines the integer, which is poison if any bit is. -/
+private theorem byte_toInt_frozen {w : Nat} (hw : 0 < w) (b : LLVM.Byte w) (bits : BitVec w) :
+    _root_.isRefinedBy b.toInt (freezeByteWith b bits) := by
+  simp only [LLVM.Byte.toInt, freezeByteWith]
   split <;> split
   · rename_i h h'
     rw [h] at h'
@@ -137,7 +150,7 @@ private theorem byte_toInt_frozen {w : Nat} (hw : 0 < w) (b : LLVM.Byte w) :
     simp [BitVec.toNat_allOnes] at this
     have := Nat.one_lt_two_pow (n := w) (by omega)
     omega
-  all_goals first | exact isRefinedBy_refl _ | exact poison_isRefinedBy _
+  all_goals first | exact isRefinedBy_refl _ | exact poison_isRefinedBy _ | simp_all
 
 /-- The pointer cast back from the address of an allocation refines it: it is the allocation's
 pointer without its provenance. -/
@@ -145,7 +158,5 @@ private theorem ptrFromInt_toInt (mem : MemoryState) (p : Pointer) :
     LLVM.Ptr.isRefinedBy (.val p) (mem.ptrFromInt (LLVM.Ptr.toInt (.val p))) := by
   simp only [LLVM.Ptr.isRefinedBy, MemoryState.ptrFromInt, LLVM.Ptr.toInt, MemoryState.decode,
     UInt64.ofBitVec_toBitVec, Pointer.isRefinedBy_iff]
-  veir_bv_normalize
-  exact Or.inr (by cases p; exact Pointer.mk_none_eq_wildcard _ _)
 
 end Veir.LLVMToGMIR.CTreeProofs
