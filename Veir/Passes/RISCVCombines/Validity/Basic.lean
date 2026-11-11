@@ -15,7 +15,6 @@ attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Rv64.interpretOp'
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf Riscv.propertiesOf
 
 theorem right_identity_zero_add_valid :
     Puddle.CTree.Pattern.Valid (right_identity_zero_add_pattern) := by

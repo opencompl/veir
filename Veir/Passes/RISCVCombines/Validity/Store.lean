@@ -15,7 +15,7 @@ attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Rv64.interpretOp'
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf Riscv.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 theorem drop_zextw_sw_valid :
     Puddle.CTree.Pattern.Valid (drop_ext_store_pattern .zextw .sw) := by
