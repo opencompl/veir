@@ -15,6 +15,7 @@ import all Init.Data.Array.Basic
 
 import Veir.Meta.Tactic.BVDecide
 meta import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.Tactic.PBVDecide
 
 /-! CTree validity of the gMIR combines of `Veir.Passes.Legalization.CombinerHelper`. The combines
 that test or compute the value of a matched `g_constant` are in
@@ -37,17 +38,10 @@ attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
 attribute [local implicit_reducible] TypeAttr
 
-private theorem bv_beq_comm {w : Nat} (a b : BitVec w) : (a == b) = (b == a) := by
-  rw [Bool.eq_iff_iff]
-  simp only [beq_iff_eq]
-  exact eq_comm
-
 /-- `canonicalize_icmp_pattern`: swapping the operands of a comparison swaps its predicate. -/
-private theorem icmp_swap {w : Nat} (k x : Data.LLVM.Int w) (p : Data.LLVM.IntPred) :
+private theorem icmp_swap {w : Nat} (hw : w ≤ 64) (k x : Data.LLVM.Int w) (p : Data.LLVM.IntPred) :
     k.icmp x p ⊒ x.icmp k (swapIntPred p) := by
-  cases k <;> cases x <;> cases p <;>
-    simp [Data.LLVM.Int.icmp, swapIntPred, Data.LLVM.IntPred.eval, Id.run, isRefinedBy_eq, bne]
-  all_goals rw [bv_beq_comm]
+  cases p <;> simp only [swapIntPred] <;> veir_bv_normalize <;> pbv_decide 64
 
 /-- The low bit of an odd constant is set. -/
 private theorem one_and_ofInt_of_odd {W : Nat} (hW : 0 < W) (v : _root_.Int) (hv : v % 2 = 1) :

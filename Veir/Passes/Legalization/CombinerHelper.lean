@@ -33,6 +33,17 @@ public section
 
 /-! ### Helpers -/
 
+/--
+Matches an integer type of at most 64 bits, with the further `matcher` if any. These are the
+integer types the RISC-V 64 legalizer leaves: its legal types are `s64` and the narrower types
+its extensions and truncations read and write. The combines that run after legalization match
+their types with it, so that their local correctness lemmas can be stated for widths up to 64 and
+decided by `pbv_decide`.
+-/
+def matchLegalInt (matcher : IntegerType → Bool := fun _ => true) :
+    MatchProg.Builder (Handle OpCode .type) :=
+  MatchProg.type (Attr := IntegerType) fun type => type.bitwidth ≤ 64 && matcher type
+
 /-- Match a `g_constant` of `type` whose properties satisfy `pred`. The constant's attribute has
 `type`, as the verifier requires, so `pred` reads the constant at the width of its result. -/
 def matchConstant (type : Handle OpCode .type)
@@ -55,7 +66,7 @@ https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ec
 def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let constant ← matchConstant type
       let root ← MatchProg.root (.gmir .g_sub) #[x, constant.res[0]!] #[type]
@@ -92,7 +103,7 @@ def redundant_and_pattern : Pattern OpCode :=
       let operandType ← MatchProg.type (Attr := TypeAttr)
       let lhs ← MatchProg.value operandType
       let rhs ← MatchProg.value operandType
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
       let constant ← matchConstant type (·.value.value % 2 = 1)
       let _ ← MatchProg.root (.gmir .g_and) #[icmp.res[0]!, constant.res[0]!] #[type]
@@ -129,8 +140,8 @@ https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ec
 def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let c ← MatchProg.value condType
       let t ← matchBoolArm type tArm
       let f ← matchBoolArm type fArm
@@ -155,8 +166,8 @@ def redundant_and_select : Array (CompiledPattern OpCode) :=
 def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let rhsType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let rhsType ← matchLegalInt
       let x ← MatchProg.value type
       let zero ← matchConstant rhsType (·.bits = 0)
       let _ ← MatchProg.root (.gmir opcode) #[x, zero.res[0]!] #[type]
@@ -167,7 +178,7 @@ def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
 def right_identity_one_int_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let one ← matchConstant type (·.bits.toNat = 1)
       let _ ← MatchProg.root (.gmir .g_mul) #[x, one.res[0]!] #[type]
@@ -178,7 +189,7 @@ def right_identity_one_int_pattern : Pattern OpCode :=
 def binop_same_val_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[x, x] #[type]
       return x)
@@ -188,7 +199,7 @@ def binop_same_val_pattern (opcode : GMIR) : Pattern OpCode :=
 def same_val_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[x, x] #[type]
       return type)
@@ -198,7 +209,7 @@ def same_val_zero_pattern (opcode : GMIR) : Pattern OpCode :=
 def binop_right_to_zero_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
       let _ ← MatchProg.root (.gmir .g_mul) #[x, zero.res[0]!] #[type]
@@ -209,8 +220,8 @@ def binop_right_to_zero_pattern : Pattern OpCode :=
 def binop_left_to_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let rhsType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let rhsType ← matchLegalInt
       let x ← MatchProg.value rhsType
       let zero ← matchConstant type (·.bits = 0)
       let _ ← MatchProg.root (.gmir opcode) #[zero.res[0]!, x] #[type]
@@ -221,7 +232,7 @@ def binop_left_to_zero_pattern (opcode : GMIR) : Pattern OpCode :=
 def add_sub_reg_0_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let sub ← MatchProg.operation (.gmir .g_sub) #[y, x] #[type]
@@ -233,7 +244,7 @@ def add_sub_reg_0_pattern : Pattern OpCode :=
 def add_sub_reg_1_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let sub ← MatchProg.operation (.gmir .g_sub) #[y, x] #[type]
@@ -247,7 +258,7 @@ def add_sub_reg_1_pattern : Pattern OpCode :=
 def sub_add_reg_x_add_y_sub_y_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let add ← MatchProg.operation (.gmir .g_add) #[x, y] #[type]
@@ -259,7 +270,7 @@ def sub_add_reg_x_add_y_sub_y_pattern : Pattern OpCode :=
 def sub_add_reg_x_add_y_sub_x_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let add ← MatchProg.operation (.gmir .g_add) #[x, y] #[type]
@@ -271,7 +282,7 @@ def sub_add_reg_x_add_y_sub_x_pattern : Pattern OpCode :=
 def sub_add_reg_negate_pattern (xFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let add ← MatchProg.operation (.gmir .g_add) (if xFirst then #[x, y] else #[y, x]) #[type]
@@ -292,7 +303,7 @@ original ones did not, as in LLVM, which builds them without flags.
 def sub_minus_one_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
       let _ ← MatchProg.root (.gmir .g_sub) #[allOnes.res[0]!, x] #[type]
@@ -304,7 +315,7 @@ def sub_minus_one_pattern : Pattern OpCode :=
 def APlusBMinusCMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -319,7 +330,7 @@ def APlusBMinusCMinusB_pattern : Pattern OpCode :=
 def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -334,7 +345,7 @@ def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
 def ZeroMinusAPlusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
@@ -348,7 +359,7 @@ def ZeroMinusAPlusB_pattern : Pattern OpCode :=
 def APlusZeroMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
@@ -362,7 +373,7 @@ def APlusZeroMinusB_pattern : Pattern OpCode :=
 def AMinusBPlusCMinusA_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -377,7 +388,7 @@ def AMinusBPlusCMinusA_pattern : Pattern OpCode :=
 def AMinusBPlusBMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -393,7 +404,7 @@ def AMinusBPlusBMinusC_pattern : Pattern OpCode :=
 def APlusBMinusAPlusC_pattern (aFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -408,7 +419,7 @@ def APlusBMinusAPlusC_pattern (aFirst : Bool) : Pattern OpCode :=
 def AMinusZeroMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
@@ -422,7 +433,7 @@ def AMinusZeroMinusB_pattern : Pattern OpCode :=
 def AMinusBMinusA_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let sub ← MatchProg.operation (.gmir .g_sub) #[a, b] #[type]
@@ -434,7 +445,7 @@ def AMinusBMinusA_pattern : Pattern OpCode :=
 def AMinusBMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -450,7 +461,7 @@ def AMinusBMinusC_pattern : Pattern OpCode :=
 def sub_one_from_sub_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let one ← matchConstant type (·.bits.toInt = 1)
@@ -473,7 +484,7 @@ def constant_reassoc_pattern (root inner result : GMIR) (constFirst constOuterLe
     (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let c₁ ← matchConstant type
       let c₂ ← matchConstant type
@@ -515,7 +526,7 @@ def AMinusC1PlusC2_pattern : Pattern OpCode :=
 def sub_of_mul_const_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let x ← MatchProg.value type
       let c ← matchConstant type
@@ -533,7 +544,7 @@ def sub_of_mul_const_pattern : Pattern OpCode :=
 def mul_by_neg_one_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
       let root ← MatchProg.root (.gmir .g_mul) #[x, allOnes.res[0]!] #[type]
@@ -549,7 +560,7 @@ def mul_by_neg_one_pattern : Pattern OpCode :=
 def mulo_by_2_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let two ← matchConstant type (·.bits.toInt = 2)
       let root ← MatchProg.root (.gmir .g_mul) #[x, two.res[0]!] #[type]
@@ -565,8 +576,8 @@ def mulo_by_2_pattern : Pattern OpCode :=
 def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amountType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let amountType ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value amountType
@@ -586,7 +597,7 @@ def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
 def NotAPlusNegOne_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
       let add ← MatchProg.operation (.gmir .g_add) #[x, allOnes.res[0]!] #[type]
@@ -610,8 +621,8 @@ example, `(x << z) | (y << z)` can be disjoint while `x | y` is not.
 def hoist_logic_op_pattern (logic hand : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let zType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let zType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let z ← MatchProg.value zType
@@ -630,7 +641,7 @@ def hoist_logic_op_pattern (logic hand : GMIR) : Pattern OpCode :=
 def xor_of_and_with_same_reg_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let and ← MatchProg.operation (.gmir .g_and) #[x, y] #[type]
@@ -647,7 +658,7 @@ def xor_of_and_with_same_reg_pattern : Pattern OpCode :=
 def or_and_xor_to_or_pattern (outer inner : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
@@ -663,7 +674,7 @@ def or_and_xor_to_or_pattern (outer inner : GMIR) : Pattern OpCode :=
 def or_and_xor_to_xor_or_pattern (outer inner : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
@@ -679,7 +690,7 @@ def or_and_xor_to_xor_or_pattern (outer inner : GMIR) : Pattern OpCode :=
 def combine_or_of_and_pattern (andLeft xFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let and ← MatchProg.operation (.gmir .g_and) (if xFirst then #[x, y] else #[y, x]) #[type]
@@ -695,7 +706,7 @@ def combine_or_of_and_pattern (andLeft xFirst : Bool) : Pattern OpCode :=
 def simplify_neg_minmax_pattern (minmax opposite : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let innerZero ← matchConstant type (·.bits = 0)
       let neg ← MatchProg.operation (.gmir .g_sub) #[innerZero.res[0]!, a] #[type]
@@ -718,8 +729,8 @@ def swapIntPred : Data.LLVM.IntPred → Data.LLVM.IntPred
 def canonicalize_icmp_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let resType ← matchLegalInt
       let x ← MatchProg.value type
       let c ← matchConstant type
       let root ← MatchProg.root (.gmir .g_icmp) #[c.res[0]!, x] #[resType]
@@ -737,8 +748,8 @@ def canonicalize_icmp_pattern : Pattern OpCode :=
 def not_cmp_fold_pattern (pred inverse : Data.LLVM.IntPred) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let opType ← MatchProg.type (Attr := IntegerType)
-      let type ← MatchProg.type (Attr := IntegerType)
+      let opType ← matchLegalInt
+      let type ← matchLegalInt
       let x ← MatchProg.value opType
       let y ← MatchProg.value opType
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[x, y] #[type] (·.predicate = pred)
@@ -756,8 +767,8 @@ def redundant_binop_in_equality_pattern (opcode : GMIR) (pred : Data.LLVM.IntPre
     Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let resType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let binop ← MatchProg.operation (.gmir opcode) #[x, y] #[type]
@@ -774,8 +785,8 @@ def redundant_binop_in_equality_pattern (opcode : GMIR) (pred : Data.LLVM.IntPre
 def double_icmp_zero_pattern (logic : GMIR) (pred : Data.LLVM.IntPred) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let opType ← MatchProg.type (Attr := IntegerType)
-      let type ← MatchProg.type (Attr := IntegerType)
+      let opType ← matchLegalInt
+      let type ← matchLegalInt
       let x ← MatchProg.value opType
       let y ← MatchProg.value opType
       let zeroX ← matchConstant opType (·.bits = 0)
@@ -797,8 +808,8 @@ def double_icmp_zero_pattern (logic : GMIR) (pred : Data.LLVM.IntPred) : Pattern
 def trunc_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let wideType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let wideType ← matchLegalInt
       let x ← MatchProg.value type
       let extOp ← MatchProg.operation (.gmir ext) #[x] #[wideType]
       let _ ← MatchProg.root (.gmir .g_trunc) #[extOp.res[0]!] #[type]
@@ -810,9 +821,9 @@ def trunc_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
 def ext_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let midType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let midType ← matchLegalInt
+      let resType ← matchLegalInt
       let x ← MatchProg.value type
       let inner ← MatchProg.operation (.gmir ext) #[x] #[midType]
       let _ ← MatchProg.root (.gmir ext) #[inner.res[0]!] #[resType]
@@ -827,8 +838,8 @@ def ext_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
 def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amountType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let amountType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value amountType
       let inner ← MatchProg.operation (.gmir .g_bitreverse) #[x] #[type]
@@ -1034,7 +1045,7 @@ def sdiv_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
 def mul_to_shl_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let c ← matchConstant type (·.log2?.isSome)
       let root ← MatchProg.root (.gmir .g_mul) #[x, c.res[0]!] #[type]
@@ -1050,7 +1061,7 @@ def mul_to_shl_pattern : Pattern OpCode :=
 def urem_pow2_to_mask_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let c ← matchConstant type (·.log2?.isSome)
       let _ ← MatchProg.root (.gmir .g_urem) #[x, c.res[0]!] #[type]
@@ -1066,7 +1077,7 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let c₁ ← matchConstant type
       let c₂ ← matchConstant type
       let _ ← MatchProg.root (.gmir opcode) #[c₁.res[0]!, c₂.res[0]!] #[type]
@@ -1088,8 +1099,8 @@ the same way, so its `tryFoldSelectOfConstants` runs before legalization, in
 def select_same_val_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let c ← MatchProg.value condType
       let x ← MatchProg.value type
       let _ ← MatchProg.root (.gmir .g_select) #[c, x, x] #[type]
@@ -1101,8 +1112,8 @@ def select_same_val_pattern : Pattern OpCode :=
 def select_constant_cmp_pattern (nonzero : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let c ← matchConstant condType fun c => (c.bits != 0) == nonzero
@@ -1115,8 +1126,8 @@ def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) 
     Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[x, y] #[condType] (·.predicate = pred)
@@ -1133,9 +1144,9 @@ def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) 
 def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let srcType ← matchLegalInt
+      let condType ← matchLegalInt
       let c ← MatchProg.value condType
       let x ← MatchProg.value srcType
       let y ← MatchProg.value srcType
