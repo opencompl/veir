@@ -24,7 +24,8 @@ namespace Veir
   upstream's `MachineInstr::copyFlagsFromInstruction`
 
   This lowering differs from the upstream implementation in the following ways:
-  - Upstream converts all poison values to undef values; we only have poison but no undef.
+  - Upstream converts all poison values to undef values; we only have poison but no undef, and
+    translate `llvm.mlir.poison` to `g_poison`, which LLVM is introducing to replace undef.
   - Some information represented as operation properties (e.g. the icmp condition code) is
     represented as special operands in upstream gMIR. This includes all operands with type `immediate`
     or `unknown` in upstream's llvm/include/llvm/Target/GenericOpcodes.td.
@@ -366,6 +367,21 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
 def g_constant := lowerIntegerConstant.compile
 
 /--
+  `llvm.mlir.poison` (integer or pointer) -> `gmir.g_poison`, as LLVM's IRTranslator turns poison
+  of any type into `G_IMPLICIT_DEF`. Byte poison is translated by `lowerBytePoison`.
+-/
+def lowerPoison : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := TypeAttr) fun t => (LLT.ofType? t).isSome
+      let _ ← Puddle.MatchProg.root (.llvm .mlir__poison) #[] #[resultType]
+      return resultType)
+    (fun resultType => Puddle.CreateProg.operation (.gmir .g_poison) #[] #[resultType])
+    (fun newOp => newOp)
+
+def g_poison := lowerPoison.compile
+
+/--
   The integer type with the same width as the byte type `type`.
   Returns `none` if `type` is not a byte type.
 -/
@@ -401,6 +417,27 @@ def lowerUnaryByteOp (lOp : Llvm) (gOp : GMIR)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[newOp.res[0]!]
           #[resultType])
     (fun castBackOp => castBackOp)
+
+/--
+  `llvm.mlir.poison` (byte) -> `gmir.g_poison` on the integer of the same width, cast back to the
+  byte type, as in `lowerUnaryByteOp`. An integer poison casts to a wholly poison byte
+  (see `LLVM.Byte.fromInt`).
+-/
+def lowerBytePoison : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let resultType ← Puddle.MatchProg.type (Attr := LLVM.ByteType)
+      let _ ← Puddle.MatchProg.root (.llvm .mlir__poison) #[] #[resultType]
+      return resultType)
+    (fun resultType => do
+      let intType ← Puddle.CreateProg.applyNative (Outputs := Puddle.Handle OpCode .type)
+          resultType TypeAttr.intOfByte?
+      let poison ← Puddle.CreateProg.operation (.gmir .g_poison) #[] #[intType]
+      Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[poison.res[0]!]
+          #[resultType])
+    (fun castOp => castOp)
+
+def g_bytePoison := lowerBytePoison.compile
 
 def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
 
@@ -486,7 +523,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run, g_fshl.run, g_fshr.run,
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
-    g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
+    g_constant.run, g_poison.run, g_bytePoison.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
     .fromLocalRewrite normalizeGEPIndices,
     lowerStaticAlloca.run, g_load.run,
     intToByteRoundTrip.run
