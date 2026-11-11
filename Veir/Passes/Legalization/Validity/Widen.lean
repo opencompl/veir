@@ -15,11 +15,10 @@ import all Init.Data.Array.Basic
 
 /-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width.
 
-`widenReverse .g_bitreverse` shifts the reversed wide operand down by `W - w`, which is the whole
-wide width for a source width `w = 0`, so the shift is poison there. `widenTypeGroup .g_icmp
-(.type 0)` widens the result of a `g_icmp`, which the interpreter computes as an `i1` for a result
-type narrower than `i1`, so the rule is wrong for a result of type `i0`, which verified IR rules
-out. -/
+`widenReverse .g_bswap` is only defined at the widths 16, 32 and 64, which the matcher cannot
+require of the target width. `widenTypeGroup .g_icmp (.type 0)` widens the result of a `g_icmp`,
+which the interpreter computes as an `i1` for a result type narrower than `i1`, so the rule is
+wrong for a result of type `i0`, which verified IR rules out. -/
 
 namespace Veir.Legalization.CTreeProofs
 
@@ -166,6 +165,34 @@ private theorem ashr_widening {v : Nat} (h : w < W) (x : Data.LLVM.Int w) (z : D
   · rw [shiftAmount_of_le z (Nat.not_lt.mp hz)]
     simp [Data.LLVM.Int.ashr, Id.run, pure, ofNat_width_le_allOnes]
 
+
+/-- `widenReverse .g_bitreverse`: the reverse of the any-extended operand holds the reverse of the
+operand in its high `w` bits, which the shift down by `W - w` moves to the low bits. The shift
+amount is below `W` since `0 < w`, so it is not poison. -/
+private theorem bitreverse_widening {w W : Nat} (hw : 0 < w) (h : w < W) (x : Data.LLVM.Int w) (m : BitVec (W - w)) :
+    x.bitreverse ⊒
+      ((x.ext W m h).bitreverse.lshr (shiftAmount W (.val (BitVec.ofInt W (↑W - ↑w))))).trunc w false false h := by
+  cases x with
+  | poison => simp [Data.LLVM.Int.bitreverse, Data.LLVM.Int.ext, Data.LLVM.Int.lshr, Id.run, pure]
+  | val x =>
+    have hd : (↑W - ↑w : _root_.Int) = ((W - w : Nat) : _root_.Int) := by omega
+    have hlt : W - w < W := by omega
+    have hlt2 : W - w < 2 ^ W := Nat.lt_trans hlt Nat.lt_two_pow_self
+    have hWW : W < 2 ^ W := Nat.lt_two_pow_self
+    rw [hd, BitVec.ofInt_natCast]
+    simp only [shiftAmount, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt2, hlt, ite_true]
+    simp [Data.LLVM.Int.bitreverse, Data.LLVM.Int.ext, Data.LLVM.Int.lshr, Data.LLVM.Int.trunc, Data.LLVM.Int.cast, Id.run,
+      BitVec.le_def, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt2, Nat.mod_eq_of_lt hWW,
+      Nat.not_le.mpr hlt, BitVec.ushiftRight_eq', isRefinedBy_eq]
+    apply BitVec.eq_of_getElem_eq
+    intro i hi
+    simp only [BitVec.getElem_setWidth, BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD,
+      BitVec.getLsbD_ushiftRight, BitVec.getLsbD_reverse, BitVec.getMsbD_cast, BitVec.getLsbD_append]
+    have e1 : W - 1 - (W - w + i) = w - 1 - i := by omega
+    simp only [BitVec.getElem_cast, BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD, BitVec.getLsbD_append,
+      show W - w + w = W by omega, show W - w + i < W by omega, decide_true, Bool.true_and, e1,
+      show w - 1 - i < w by omega, ite_true, BitVec.getLsbD_eq_getElem]
+    simp [hi]
 
 /-- A count resized to a wide type and truncated back is the count resized to the narrow type. -/
 private theorem resizeCount_trunc {v w W : Nat} (h : W > w) (x : Data.LLVM.Int v) :
@@ -435,6 +462,10 @@ theorem widen_load_0_valid (W : Nat) :
     Data.LLVM.trunc_zext, Data.LLVM.trunc_ext, Data.LLVM.trunc_ext_of_lt]
   all_goals (intro msb; exact ⟨_, by first | exact isRefinedBy_refl _ | rfl⟩)
 
+theorem widen_bitreverse_0_valid (W : Nat) :
+    Puddle.CTree.Pattern.Valid (widenReverse .g_bitreverse W) := by
+  proveLegalValid using bitreverse_widening
+
 /-! ## Status of every widening rule -/
 
 @[legalization_status]
@@ -592,7 +623,7 @@ theorem widen_bswap_0_status (W : Nat) :
 @[legalization_status]
 theorem widen_bitreverse_0_status (W : Nat) :
     Status Unproven (widenReverse .g_bitreverse W) :=
-  .unproven .widthDependent
+  .proven (widen_bitreverse_0_valid W)
 
 @[legalization_status]
 theorem widen_smin_0_status (W : Nat) :
