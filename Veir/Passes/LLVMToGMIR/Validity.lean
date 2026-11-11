@@ -7,6 +7,12 @@ import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.LLVMToGMIR
 import all Veir.Passes.LLVMToGMIR.Remaining
 import all Veir.Passes.Legalization.LegalizerInfo
+import all Veir.Passes.InstructionSelection.Common
+import Veir.DataLayout.RISCV64
+import all Veir.Interfaces.DataLayoutInterfaces
+import all Veir.Dialects.LLVM.Properties
+import all Veir.Dialects.GMIR.Properties
+import all Veir.Interpreter.Memory
 import all Veir.Interpreter.RuntimeValue.Conforms
 import all Veir.Passes.CastsReconciliation.Reconciliation
 import all Veir.Dialects.GMIR.OpInfo
@@ -37,7 +43,6 @@ The unproven patterns (see `Unproven`):
   (`byte_shl_frozen` and `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove the other
   bytes).
 * The static `alloca` (`staticAlloca`).
-* The `llvm.load` translation to `g_load` (`notYetProven`).
 
 The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with the
 LLVM and builtin interpreters added to the semantics. Most translations interpret the same
@@ -93,8 +98,6 @@ inductive Unproven where
   (`MatchProg.inspectOperation`), which the semantics of the matched operation do not determine,
   and the pointer is cast back from an integer. -/
   | staticAlloca
-  /-- The local correctness lemma is not proven yet. -/
-  | notYetProven
   deriving Repr, DecidableEq
 
 end
@@ -399,6 +402,112 @@ theorem byte_int_bitcast_valid : Puddle.CTree.Pattern.Valid lowerByteIntBitcast 
     | exact byte_toInt_frozen ‹_› _ _
     | (split <;> (try simp_all) <;> rename_i heq <;> split at heq <;> cases heq)
 
+/-! ## Loads
+
+`lowerLoad_pattern` accepts a load whose `loadMemOperand?` is defined: a naturally aligned load
+of an `i8`, `i16`, `i32`, `i64` or pointer. Its `g_load` checks the alignment of the memory
+operand, which is the alignment `llvm.load` checks (`Llvm.accessAlignment`), wrapped to 64 bits:
+an alignment of `2 ^ 64` or more makes the `llvm.load` of any non-null pointer undefined
+behavior. The loaded values agree by the lemmas of `Veir.Passes.LLVMToGMIR.Remaining`. -/
+
+/-- What `loadMemOperand?` accepts, and the memory operand it builds. -/
+theorem loadMemOperand?_some {type : TypeAttr} {props : LoadProperties} {mmo : MachineMemOperand}
+    (h : loadMemOperand? type props = some mmo) :
+    mmo.alignment.toNat = Llvm.accessAlignment .riscv64 props.alignment type.val % 2 ^ 64 ∧
+    ((∃ s, type.val = .integerType ⟨8, s⟩ ∧ mmo.size.toNat = 8) ∨
+     (∃ s, type.val = .integerType ⟨16, s⟩ ∧ mmo.size.toNat = 16) ∨
+     (∃ s, type.val = .integerType ⟨32, s⟩ ∧ mmo.size.toNat = 32) ∨
+     (∃ s, type.val = .integerType ⟨64, s⟩ ∧ mmo.size.toNat = 64) ∨
+     (∃ p, type.val = .llvmPointerType p ∧ mmo.size.toNat = 64)) := by
+  rcases type with ⟨val, hval⟩
+  cases val <;> simp [loadMemOperand?, memAccessWidth?, DataLayout.getTypeSize,
+    DataLayout.getTypeABIAlignment, Llvm.accessAlignment, guard, Option.bind_eq_some_iff,
+    -Attribute.integerType_eq_of] at h ⊢
+  · obtain ⟨a, ⟨h8, ⟨a1, ⟨h0, rfl⟩, rfl⟩, hw⟩, hsync, hmmo⟩ := h
+    rename_i t
+    rcases t with ⟨bw, sg⟩
+    dsimp only at h8 h0 hw hmmo ⊢
+    have hbw : bw = 8 ∨ bw = 16 ∨ bw = 32 ∨ bw = 64 := by omega
+    rcases hbw with rfl | rfl | rfl | rfl <;>
+      by_cases hv : props.alignment.value = 0 <;>
+      simp [hv, Option.bind_eq_some_iff] at hmmo ⊢
+    all_goals first
+      | (subst hmmo; simp)
+      | (obtain ⟨-, rfl⟩ := hmmo; simp)
+  · obtain ⟨hsync, h⟩ := h
+    by_cases hv : props.alignment.value = 0 <;> simp [hv, Option.bind_eq_some_iff] at h ⊢
+    · subst h; simp
+    · obtain ⟨-, rfl⟩ := h; simp
+
+/-- A target that lifts the source's own interpretation `S`, then continues with `m` and `k`,
+simulates the source when the continuation simulates each successful outcome. -/
+theorem sim_match_eq {α β γ : Type} {R : γ → α → Prop} (S : Interp α) (m : α → Tree β)
+    (k : β → Tree γ) (hk : ∀ v, S = .ok v → Sim R (CTree.bind (m v) k) (pure v : Tree α)) :
+    (match (generalizing := false) S with
+      | .ok v => Sim R (CTree.bind (CTree.bind (monadLift S : Tree α) m) k) (pure v : Tree α)
+      | .ub _ => True
+      | .fail _ => True) := by
+  cases S with
+  | ok v => simpa using hk v rfl
+  | ub _ => trivial
+  | fail _ => trivial
+
+theorem load_valid : Puddle.CTree.Pattern.Valid lowerLoad_pattern := by
+  conv => arg 1; cbv
+  simpPuddleValid
+  intro addrType type value hconf props hsome mem
+  simp only [TypeAttr.of_typeAttr] at hsome hconf ⊢
+  obtain ⟨mmo, hmmo⟩ := Option.isSome_iff_exists.mp hsome
+  obtain ⟨halign, htype⟩ := loadMemOperand?_some hmmo
+  simp only [hmmo]
+  simpLegalSemantics
+  /- Only a defined address runs the load: otherwise the source fails or is undefined. -/
+  cases value
+  case addr addr =>
+    cases addr
+    case poison => simp
+    case val p =>
+      dsimp only
+      rw [halign]
+      by_cases hA : Llvm.accessAlignment DataLayout.riscv64 props.alignment type.val < 2 ^ 64
+      · rw [Nat.mod_eq_of_lt hA]
+        rcases htype with ⟨s, ht, hs⟩ | ⟨s, ht, hs⟩ | ⟨s, ht, hs⟩ | ⟨s, ht, hs⟩ | ⟨pt, ht, hs⟩
+        case inr.inr.inr.inr =>
+          /- A pointer: both sides run `llvmLoad`. -/
+          rw [llvmLoad_ptr mem p type pt ht]
+          simp only [ht]
+          refine sim_match_eq _ _ _ ?_
+          intro v hv
+          simp only [Interp.bind_eq_ok_iff, Interp.ok.injEq] at hv
+          obtain ⟨_, _, w, hw, rfl⟩ := hv
+          by_cases hp : p = .null
+          · simp [hp] at hw
+          · simp only [hp, ite_false, Interp.bind_eq_ok_iff, Interp.pure_eq, Interp.ok.injEq] at hw
+            obtain ⟨b, _, rfl⟩ := hw
+            simp [RuntimeValue.arrayIsRefinedBy_refl, MemoryState.isRefinedBy_refl,
+              ControlFlowAction.optionIsRefinedBy]
+        /- An integer: `llvmLoad` is the `intLoad` of the operand's size, which is the width. -/
+        all_goals
+          first
+            | rw [llvmLoad_i8 mem p s type ht] | rw [llvmLoad_i16 mem p s type ht]
+            | rw [llvmLoad_i32 mem p s type ht] | rw [llvmLoad_i64 mem p s type ht]
+          generalize mmo.size.toNat = sz at hs ⊢
+          subst hs
+          simp only [ht, Nat.lt_irrefl, dite_false, dite_true, Data.LLVM.Int.cast_self,
+            LawfulMonad.bind_assoc, Interp.pure_eq, Interp.bind_ok]
+          refine sim_match_eq _ _ _ ?_
+          intro v hv
+          simp only [Interp.bind_eq_ok_iff, Interp.ok.injEq] at hv
+          obtain ⟨_, _, val, _, rfl⟩ := hv
+          simp [RuntimeValue.arrayIsRefinedBy_refl, MemoryState.isRefinedBy_refl,
+            ControlFlowAction.optionIsRefinedBy]
+      · rw [checkAlignment_of_le (Nat.le_of_not_lt hA)]
+        by_cases hp : p = .null
+        · subst hp
+          simp [llvmLoad_null]
+        · simp [hp]
+  all_goals simp
+
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
 public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMIRPatternList :=
@@ -446,7 +555,7 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .unproven .allPoisonByte <| -- byte_lshr
   .proven byte_int_bitcast_valid <|
   .unproven .staticAlloca <| -- static_alloca
-  .unproven .notYetProven <| -- load
+  .proven load_valid <|
   .proven round_trip_valid <|
   .nil
 

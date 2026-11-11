@@ -1,5 +1,7 @@
 module
 
+import all Std.Data.ByteSlice
+
 public import Std.Data.ExtHashSet
 public import Veir.Meta.Tactic.BVNormalizeSimp
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
@@ -113,6 +115,55 @@ def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
     a read of a known size has a literal width, which `bv_decide` requires. -/
 def toBitVecLE (ba : ByteArray) (w : Nat) : BitVec w :=
   ba.toByteSlice.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth w) 0
+
+/-- The slice fold of a whole byte array stops at its end. -/
+private theorem foldrM_loop_end {β : Type} (f : UInt8 → β → β) (ba : ByteArray) (i : Nat) (acc : β)
+    (hi : ¬ i < ba.size) :
+    ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice i acc = pure acc := by
+  rw [ByteSlice.foldrM.loop]
+  simp [ByteArray.toByteSlice, ByteSlice.size, ByteSlice.stop, ByteSlice.start, hi]
+
+/-- One step of the slice fold of a whole byte array. -/
+private theorem foldrM_loop_succ {β : Type} (f : UInt8 → β → β) (ba : ByteArray) (i : Nat) (acc : β)
+    (hi : i < ba.size) :
+    ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice i acc =
+      ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice (i + 1)
+        (f (ba[ba.size - 1 - i]'(by omega)) acc) := by
+  conv => lhs; rw [ByteSlice.foldrM.loop]
+  simp [ByteArray.toByteSlice, ByteSlice.size, ByteSlice.stop, ByteSlice.start, hi,
+    ByteSlice.instGetElemNatUInt8LtSize, ByteSlice.get, ByteSlice.byteArray]
+
+/-- The slice fold of a whole byte array, from index `i` on, as the fold of a list. -/
+private theorem foldrM_loop_toByteSlice {β : Type} (f : UInt8 → β → β) (ba : ByteArray) :
+    ∀ (k i : Nat) (acc : β), ba.size - i = k →
+    ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice i acc =
+      (ba.data.toList.take k).foldr f acc := by
+  intro k
+  induction k with
+  | zero =>
+    intro i acc hk
+    rw [foldrM_loop_end f ba i acc (by omega)]
+    rfl
+  | succ k ih =>
+    intro i acc hk
+    rw [foldrM_loop_succ f ba i acc (by omega), ih (i + 1) _ (by omega)]
+    have hlt : k < ba.data.toList.length := by simp; omega
+    rw [List.take_add_one, List.getElem?_eq_getElem hlt]
+    simp only [List.foldr_append, Array.getElem_toList]
+    congr 2
+    rw [ByteArray.getElem_eq_getElem_data]
+    congr 1
+    omega
+
+/-- `toBitVecLE` is a fold over the bytes, from the most significant one. -/
+theorem toBitVecLE_eq_foldr (ba : ByteArray) (w : Nat) :
+    ba.toBitVecLE w =
+      ba.data.toList.foldr (fun (b : UInt8) (acc : BitVec w) => acc <<< 8 ||| b.toBitVec.setWidth w)
+        (0 : BitVec w) := by
+  simp only [ByteArray.toBitVecLE, ByteSlice.foldr, ByteSlice.foldrM]
+  rw [foldrM_loop_toByteSlice _ ba ba.size 0 0 (by omega)]
+  simp [List.take_of_length_le]
+  rfl
 
 end ByteArray
 
