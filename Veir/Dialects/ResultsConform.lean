@@ -2,6 +2,7 @@ module
 
 public import Veir.Dialects.LLVM.ResultsConform
 public import Veir.Dialects.GMIR.ResultsConform
+public import Veir.Dialects.RISCV.ResultsConform
 
 public section
 
