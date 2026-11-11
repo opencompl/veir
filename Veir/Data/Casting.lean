@@ -99,6 +99,31 @@ theorem LLVM.Byte.isRefinedBy_toByte_toReg {w : Nat} (hw : w ≤ 64) (b : Veir.D
     b ⊒ RISCV.Reg.toByte (LLVM.Byte.toReg b) w := by
   grind [LLVM.Byte.toReg, BitVec.setWidth_setWidth_of_le _ hw]
 
+/-- The register of an integer that is not poison holds its bits. -/
+theorem LLVM.Int.toReg_val {w : Nat} {x : BitVec w} :
+    LLVM.Int.toReg (.val x) = ⟨x.zeroExtend 64⟩ := by
+  simp [LLVM.Int.toReg]
+
+/-- The register of a byte holds its bits, with its poison bits as zero. -/
+theorem LLVM.Byte.toReg_eq {w : Nat} {b : Veir.Data.LLVM.Byte w} :
+    LLVM.Byte.toReg b = ⟨b.val.zeroExtend 64⟩ := by
+  simp [LLVM.Byte.toReg]
+
+/--
+  A byte of at most 64 bits is refined by its round trip through a register,
+  whatever bits its poison bits come out as.
+-/
+theorem LLVM.Byte.isRefinedBy_toByte_of_poison {w : Nat} (hw : w ≤ 64)
+    (b : Veir.Data.LLVM.Byte w) (bits : BitVec w) :
+    b ⊒ RISCV.Reg.toByte ⟨(b.val ||| (b.poison &&& bits)).zeroExtend 64⟩ w := by
+  simp only [Veir.Data.LLVM.Byte.isRefinedBy, RISCV.Reg.toByte,
+    BitVec.truncate_eq_setWidth, BitVec.setWidth_setWidth_of_le _ hw, BitVec.setWidth_eq]
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_not,
+    BitVec.getLsbD_allOnes, hi, decide_true]
+  cases b.poison.getLsbD i <;> simp
+
 /--
   Resolving the poison bits of a byte to the bits of a resolved refinement of it
   gives that resolved refinement: the bits that are not poison already agree.

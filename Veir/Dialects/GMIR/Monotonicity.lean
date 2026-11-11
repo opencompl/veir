@@ -398,6 +398,10 @@ def GMIR.touchesMemory : GMIR → Bool
   | .g_load | .g_store => true
   | _ => false
 
+theorem GMIR.touchesMemory_eq_false {op : GMIR} (hLoad : op ≠ .g_load) (hStore : op ≠ .g_store) :
+    op.touchesMemory = false := by
+  cases op <;> simp_all [GMIR.touchesMemory]
+
 set_option maxHeartbeats 4000000 in
 /--
 A gMIR opcode that does not touch memory returns the memory it is given, and reads only its
