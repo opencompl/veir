@@ -48,11 +48,6 @@ public section
 
 /-- Why a legalization rule or gMIR combine has no CTree validity proof. -/
 inductive Unproven where
-  /-- The rule reads a matched `g_constant` at the width of its attribute
-  (`GMIRConstantProperties.bits`), while the constant's semantics read it at the width of its
-  result, which the matcher does not tie to the attribute's. The rule is correct when they agree,
-  as in verified IR. -/
-  | untypedConstant
   /-- The rule is wrong at some widths, which `Pattern.Valid` quantifies over: `g_bswap` is only
   defined at widths 16, 32 and 64, `lowerSext` passes the source width as a 64-bit size, and
   `lowerFunnelShift` shifts by one, which is poison at width 1, and computes the amount in the

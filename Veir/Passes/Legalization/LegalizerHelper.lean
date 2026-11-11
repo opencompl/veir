@@ -47,7 +47,9 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
     Pattern OpCode :=
   let info := opcode.genericOpInfo
   let matchType (group : TypeGroup) : MatchProg.Builder (Handle OpCode .type) :=
-    if group = typeIdx then MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+    -- The verifier rejects `i0`, at which `g_icmp` yields an `i1` that is not its result type.
+    if group = typeIdx then
+      MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
     else MatchProg.type (Attr := TypeAttr)
   Pattern.Builder
     (do

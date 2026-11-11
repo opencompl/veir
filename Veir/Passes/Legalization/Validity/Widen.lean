@@ -16,9 +16,7 @@ import all Init.Data.Array.Basic
 /-! CTree validity of the widening rules of `widenScalarPattern?`, at every target width.
 
 `widenReverse .g_bswap` is only defined at the widths 16, 32 and 64, which the matcher cannot
-require of the target width. `widenTypeGroup .g_icmp (.type 0)` widens the result of a `g_icmp`,
-which the interpreter computes as an `i1` for a result type narrower than `i1`, so the rule is
-wrong for a result of type `i0`, which verified IR rules out. -/
+require of the target width. -/
 
 namespace Veir.Legalization.CTreeProofs
 
@@ -466,6 +464,14 @@ theorem widen_bitreverse_0_valid (W : Nat) :
     Puddle.CTree.Pattern.Valid (widenReverse .g_bitreverse W) := by
   proveLegalValid using bitreverse_widening
 
+/-- The result of a `g_icmp` is an `i1`, which the interpreter zero-extends to a wider result
+type; the matcher excludes `i0`, so the narrow result is the `i1` or its zero extension. -/
+theorem widen_icmp_0_valid (W : Nat) :
+    Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 0) .g_anyext W) := by
+  proveLegalValid with first
+    | simp_all [Data.LLVM.trunc_zext_of_lt]
+    | (apply Data.LLVM.icmp_result_widening_one <;> omega)
+
 /-! ## Status of every widening rule -/
 
 @[legalization_status]
@@ -478,12 +484,10 @@ theorem widen_sub_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_sub (.type 0) .g_anyext W clearNswNuwProperties) :=
   .proven (widen_sub_0_valid W)
 
-/-- The interpreter computes an `i1` for a `g_icmp` whose result type is narrower than `i1`, so
-the rule is wrong at the result type `i0`. -/
 @[legalization_status]
 theorem widen_icmp_0_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_icmp (.type 0) .g_anyext W) :=
-  .unproven .widthDependent
+  .proven (widen_icmp_0_valid W)
 
 @[legalization_status]
 theorem widen_icmp_1_status (W : Nat) :
