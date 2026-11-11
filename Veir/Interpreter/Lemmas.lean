@@ -702,14 +702,84 @@ theorem interpretOp'_monotone
   inst.monotone properties resultTypes operands operands' blockOperands mem
 
 /--
-A successful operation interpretation returns result values that conform to the declared
-`resultTypes` when the operation verifies.
+Monotonicity of `interpretOp'` in its operands and its memory: refined operands and refined
+memory give a refined result, whose memory is refined rather than equal.
 -/
-axiom interpretOp'_results_conform {ctx : WfIRContext OpCode}
-    {opInBounds : op.InBounds ctx.raw} (opVerif : op.Verified ctx opInBounds)
-    (conforms : RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw))
-    (h : op.interpret ctx.raw operands mem = .ok (vals, mem', act)) :
-    RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
+class InterpretOp'ContextuallyMonotone (opType : OpCode) : Prop where
+  monotone (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
+    (operands operands' : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem mem' : MemoryState) :
+    operands ⊒ operands' → mem ⊒ mem' →
+    Interp.isRefinedBy OperationResult.isRefinedBy
+      (interpretOp' opType properties resultTypes operands blockOperands mem)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem')
+
+/--
+An opcode that returns the memory it is given and reads only its objects, as `hFrame` says, is
+monotone in its memory as it is in its operands.
+-/
+theorem InterpretOp'ContextuallyMonotone.of_frame {opType : OpCode}
+    [inst : InterpretOp'Monotone opType]
+    (hFrame : ∀ properties resultTypes operands blockOperands (mem mem' : MemoryState),
+      mem.objects = mem'.objects →
+      interpretOp' opType properties resultTypes operands blockOperands mem' =
+        (interpretOp' opType properties resultTypes operands blockOperands mem).map
+          (fun r => (r.1, mem', r.2.2))) :
+    InterpretOp'ContextuallyMonotone opType where
+  monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
+    have hm := inst.monotone properties resultTypes operands operands' blockOperands mem h
+    rw [hFrame properties resultTypes operands' blockOperands mem mem' hMem.1.1,
+      hFrame properties resultTypes operands blockOperands mem mem rfl]
+    rw [hFrame properties resultTypes operands blockOperands mem mem rfl] at hm
+    rcases hs : interpretOp' opType properties resultTypes operands blockOperands mem with
+      _ | _ | ⟨values, mem₁, action⟩
+    · simp [Interp.isRefinedBy]
+    · simp [Interp.isRefinedBy]
+    rw [hs] at hm
+    rcases ht : interpretOp' opType properties resultTypes operands' blockOperands mem with
+      _ | _ | ⟨values', mem₂, action'⟩ <;> rw [ht] at hm <;>
+      simp [Interp.isRefinedBy, OperationResult.isRefinedBy] at hm
+    obtain ⟨⟨hValues, -, hAction⟩, -⟩ := hm
+    simpa [Interp.isRefinedBy, Interp.map, OperationResult.isRefinedBy] using
+      ⟨hValues, hMem, hAction⟩
+
+/--
+The results of an opcode conform to their types: a verified operation of the opcode whose operands
+conform to their types, and whose interpretation succeeds, returns values that conform to its
+result types.
+-/
+def OpCode.resultsConform (opType : OpCode) : Prop :=
+  ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
+    op.getOpType ctx.raw opIn = opType →
+    op.Verified ctx opIn →
+    ∀ (operands vals : Array RuntimeValue) (mem mem' : MemoryState)
+      (act : Option ControlFlowAction),
+      RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
+      op.interpret ctx.raw operands mem = .ok (vals, mem', act) →
+      RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw)
+
+/-- Unfold `OpCode.resultsConform`. -/
+theorem OpCode.resultsConform_def {opType : OpCode} :
+    opType.resultsConform ↔
+      ∀ (ctx : WfIRContext OpCode) (op : OperationPtr) (opIn : op.InBounds ctx.raw),
+        op.getOpType ctx.raw opIn = opType →
+        op.Verified ctx opIn →
+        ∀ (operands vals : Array RuntimeValue) (mem mem' : MemoryState)
+          (act : Option ControlFlowAction),
+          RuntimeValue.ArrayConforms operands (op.getOperandTypes! ctx.raw) →
+          op.interpret ctx.raw operands mem = .ok (vals, mem', act) →
+          RuntimeValue.ArrayConforms vals (op.getResultTypes! ctx.raw) :=
+  Iff.rfl
+
+/-- Assumed for an opcode that has no proof yet. -/
+axiom OpCode.resultsConform_assumed (opType : OpCode) : opType.resultsConform
+
+/--
+The results of an opcode conform to their types, as a class so that a dialect can discharge it for
+its own opcodes without this file knowing about the dialect.
+-/
+class ResultsConform (opType : OpCode) : Prop where
+  conform : opType.resultsConform
 
 /--
 A branch control-flow action returned by interpreting an operation always targets one of the
