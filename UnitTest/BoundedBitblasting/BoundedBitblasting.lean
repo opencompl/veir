@@ -771,4 +771,16 @@ example {w : Nat} (x y : LLVM.Int w) (hw : w ≤ 4) :
   veir_bv_normalize
   pbv_decide 4
 
+/-- `2 ^ w` wraps to zero at width `w` -/
+example {w : Nat} (x : LLVM.Int w) (hw : w ≤ 4) :
+    LLVM.Int.add x (LLVM.Int.constant w (2 ^ w)) ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 4
+
+/-- `2 ^ w - 1` is all ones at width `w` -/
+example {w : Nat} (hw : w ≤ 4) :
+    LLVM.Int.constant w (2 ^ w - 1) ⊒ LLVM.Int.constant w (-1) := by
+  veir_bv_normalize
+  pbv_decide 4
+
 end RefinementTest
