@@ -778,6 +778,657 @@ theorem icmp_sext (h : w < W) (x y : LLVM.Int w) (p : IntPred) :
   cases x <;> cases y <;>
     simp [Int.sext, Int.icmp, Id.run, IntPred.eval_signExtend (Nat.le_of_lt h)]
 
+/-! ### Widening at every width: the type-group rules
+
+`widenTypeGroup` extends the operands of an operation to `W` bits, computes it there, and truncates
+the result back to `w` bits. These lemmas state that for each operation, in the form the CTree
+validity proofs see. An any-extended operand is `x.ext W m`, whatever the high bits `m` the
+`g_anyext` chooses. -/
+
+set_option linter.unusedSimpArgs false
+
+/-- A signed value in range does not wrap. -/
+theorem bmod_two_pow_of_range (hw : 0 < w) {s : _root_.Int} (h1 : -2 ^ (w - 1) ≤ s)
+    (h2 : s < 2 ^ (w - 1)) : s.bmod (2 ^ w) = s := by
+  rw [← BitVec.toInt_ofInt]
+  exact BitVec.toInt_ofInt_eq_self hw h1 h2
+
+/-- The signed value of a bit-vector is in the range of its width. -/
+theorem bmod_toInt (x : BitVec w) : x.toInt.bmod (2 ^ w) = x.toInt := by
+  rw [← BitVec.toInt_ofInt, BitVec.ofInt_toInt]
+
+
+/-- The signed value of a truncation is the signed value modulo the narrow width. -/
+theorem toInt_setWidth_of_le (h : w ≤ W) (z : BitVec W) :
+    (z.setWidth w).toInt = z.toInt.bmod (2 ^ w) := by
+  rw [BitVec.toInt_setWidth, BitVec.toInt_eq_toNat_bmod, Int.bmod_bmod_of_dvd]
+  exact_mod_cast Nat.pow_dvd_pow 2 h
+
+
+/-- A sign extension truncated back is the value. -/
+theorem setWidth_signExtend_of_le (h : w ≤ W) (x : BitVec w) : (x.signExtend W).setWidth w = x := by
+  apply BitVec.eq_of_toInt_eq
+  rw [toInt_setWidth_of_le h, BitVec.toInt_signExtend_of_le h, bmod_toInt]
+
+
+/-- The low bits of a sum are the sum of the low bits, and likewise for the other operations that
+truncation commutes with. -/
+theorem trunc_add (h : w < W) (a b : LLVM.Int W) :
+    LLVM.Int.trunc (LLVM.Int.add a b) w false false h =
+      LLVM.Int.add (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
+  cases a <;> cases b <;> simp [LLVM.Int.add, LLVM.Int.trunc, Id.run, BitVec.setWidth_add _ _ (Nat.le_of_lt h)]
+
+
+theorem trunc_sub (h : w < W) (a b : LLVM.Int W) :
+    LLVM.Int.trunc (LLVM.Int.sub a b) w false false h =
+      LLVM.Int.sub (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
+  cases a <;> cases b <;> simp [LLVM.Int.sub, LLVM.Int.trunc, Id.run, BitVec.sub_eq_add_neg,
+    BitVec.setWidth_add _ _ (Nat.le_of_lt h), BitVec.setWidth_neg_of_le (Nat.le_of_lt h)]
+
+
+theorem trunc_mul (h : w < W) (a b : LLVM.Int W) :
+    LLVM.Int.trunc (LLVM.Int.mul a b) w false false h =
+      LLVM.Int.mul (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
+  cases a <;> cases b <;> simp [LLVM.Int.mul, LLVM.Int.trunc, Id.run, BitVec.setWidth_mul _ _ (Nat.le_of_lt h)]
+
+
+theorem trunc_and (h : w < W) (a b : LLVM.Int W) :
+    LLVM.Int.trunc (LLVM.Int.and a b) w false false h =
+      LLVM.Int.and (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
+  cases a <;> cases b <;> simp [LLVM.Int.and, LLVM.Int.trunc, Id.run]
+
+
+theorem trunc_or (h : w < W) (a b : LLVM.Int W) :
+    LLVM.Int.trunc (LLVM.Int.or a b) w false false h =
+      LLVM.Int.or (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
+  cases a <;> cases b <;> simp [LLVM.Int.or, LLVM.Int.trunc, Id.run]
+
+
+theorem trunc_xor (h : w < W) (a b : LLVM.Int W) :
+    LLVM.Int.trunc (LLVM.Int.xor a b) w false false h =
+      LLVM.Int.xor (LLVM.Int.trunc a w false false h) (LLVM.Int.trunc b w false false h) := by
+  cases a <;> cases b <;> simp [LLVM.Int.xor, LLVM.Int.trunc, Id.run]
+
+
+
+/-- `widenTypeGroup .g_add (.type 0) .g_anyext`: the sum of the any-extended operands, without the
+no-wrap flags, truncated back; and likewise for the operations below. -/
+theorem add_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw nuw : Bool) :
+    LLVM.Int.add x y nsw nuw ⊒
+      LLVM.Int.trunc (LLVM.Int.add (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
+  rw [trunc_add, trunc_ext, trunc_ext]
+  exact add_isRefinedBy_add x y nsw nuw
+
+
+theorem sub_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw nuw : Bool) :
+    LLVM.Int.sub x y nsw nuw ⊒
+      LLVM.Int.trunc (LLVM.Int.sub (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
+  rw [trunc_sub, trunc_ext, trunc_ext]
+  grind
+
+
+theorem mul_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (nsw nuw : Bool) :
+    LLVM.Int.mul x y nsw nuw ⊒
+      LLVM.Int.trunc (LLVM.Int.mul (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
+  rw [trunc_mul, trunc_ext, trunc_ext]
+  grind
+
+
+theorem and_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) :
+    LLVM.Int.and x y ⊒
+      LLVM.Int.trunc (LLVM.Int.and (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
+  rw [trunc_and, trunc_ext, trunc_ext]
+  exact isRefinedBy_refl _
+
+
+theorem or_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) (disjoint : Bool) :
+    LLVM.Int.or x y disjoint ⊒
+      LLVM.Int.trunc (LLVM.Int.or (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
+  rw [trunc_or, trunc_ext, trunc_ext]
+  grind
+
+
+theorem xor_widening (h : w < W) (x y : LLVM.Int w) (m m' : BitVec (W - w)) :
+    LLVM.Int.xor x y ⊒
+      LLVM.Int.trunc (LLVM.Int.xor (LLVM.Int.ext x W m h) (LLVM.Int.ext y W m' h)) w false false h := by
+  rw [trunc_xor, trunc_ext, trunc_ext]
+  exact isRefinedBy_refl _
+
+
+/-- The shift amount, when it is below the width, as a bit vector of that width. -/
+
+theorem setWidth_signExtend_signExtend {n : Nat} (h1 : n ≤ w) (h2 : w ≤ W) (c : BitVec n) :
+    (c.signExtend W).setWidth w = c.signExtend w := by
+  apply BitVec.eq_of_toInt_eq
+  rw [toInt_setWidth_of_le h2, BitVec.toInt_signExtend_of_le (Nat.le_trans h1 h2),
+    BitVec.toInt_signExtend_of_le h1, ← BitVec.toInt_signExtend_of_le h1 (x := c), bmod_toInt]
+
+
+/-- `widenTypeGroup .g_smin (.type 0) .g_sext`: sign extension preserves the signed order, and
+likewise for the other minimum and maximum operations. -/
+theorem smin_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.smin x y ⊒
+      LLVM.Int.trunc (LLVM.Int.smin (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.smin, LLVM.Int.sext, LLVM.Int.trunc, Id.run,
+    signExtend_sle_signExtend (Nat.le_of_lt h)]
+  split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
+
+
+theorem smax_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.smax x y ⊒
+      LLVM.Int.trunc (LLVM.Int.smax (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.smax, LLVM.Int.sext, LLVM.Int.trunc, Id.run,
+    signExtend_sle_signExtend (Nat.le_of_lt h)]
+  split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
+
+
+theorem umin_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.umin x y ⊒
+      LLVM.Int.trunc (LLVM.Int.umin (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.umin, LLVM.Int.sext, LLVM.Int.trunc, Id.run,
+    signExtend_ule_signExtend (Nat.le_of_lt h)]
+  split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
+
+
+theorem umax_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.umax x y ⊒
+      LLVM.Int.trunc (LLVM.Int.umax (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.umax, LLVM.Int.sext, LLVM.Int.trunc, Id.run,
+    signExtend_ule_signExtend (Nat.le_of_lt h)]
+  split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h)]
+
+
+/-- Sign extension to a wider width keeps the sign bit. -/
+theorem msb_signExtend_of_lt (h : w < W) (x : BitVec w) : (x.signExtend W).msb = x.msb := by
+  simp [BitVec.msb_signExtend, Nat.not_le.mpr h, show 0 < W by omega]
+
+
+/-- `widenTypeGroup .g_abs (.type 0) .g_sext`: the absolute value of the sign-extended operand
+truncated back. -/
+theorem abs_widening (h : w < W) (x : LLVM.Int w) :
+    LLVM.Int.abs x false ⊒
+      LLVM.Int.trunc (LLVM.Int.abs (LLVM.Int.sext x W h) false) w false false h := by
+  cases x <;> simp [LLVM.Int.abs, LLVM.Int.sext, LLVM.Int.trunc, Id.run, msb_signExtend_of_lt h]
+  split <;> simp [setWidth_signExtend_of_le (Nat.le_of_lt h), BitVec.setWidth_neg_of_le (Nat.le_of_lt h)]
+
+
+/-- A zero extension is zero exactly when its operand is. -/
+theorem setWidth_eq_zero_iff_of_le (h : w ≤ W) (y : BitVec w) : y.setWidth W = 0#W ↔ y = 0#w := by
+  rw [BitVec.toNat_eq, BitVec.toNat_eq, BitVec.toNat_setWidth_of_le h]; simp
+
+
+/-- Unsigned division and remainder of zero-extended operands, truncated back. -/
+theorem setWidth_udiv_setWidth (h : w ≤ W) (x y : BitVec w) :
+    (x.setWidth W / y.setWidth W).setWidth w = x / y := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_setWidth, BitVec.toNat_udiv, BitVec.toNat_setWidth_of_le h]
+  exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) x.isLt)
+
+
+theorem setWidth_umod_setWidth (h : w ≤ W) (x y : BitVec w) :
+    (x.setWidth W % y.setWidth W).setWidth w = x % y := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_setWidth, BitVec.toNat_umod, BitVec.toNat_setWidth_of_le h]
+  exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.mod_le _ _) x.isLt)
+
+
+theorem umod_setWidth_eq_zero_iff (h : w ≤ W) (x y : BitVec w) :
+    x.setWidth W % y.setWidth W = 0#W ↔ x % y = 0#w := by
+  rw [BitVec.toNat_eq, BitVec.toNat_eq, BitVec.toNat_umod, BitVec.toNat_umod,
+    BitVec.toNat_setWidth_of_le h, BitVec.toNat_setWidth_of_le h]; simp
+
+
+/-- `widenTypeGroup .g_udiv (.type 0) .g_zext`: the quotient of the zero-extended operands truncated
+back, whatever the `exact` flag, and likewise for `g_urem`. -/
+theorem udiv_widening (h : w < W) (x y : LLVM.Int w) (exact : Bool) :
+    LLVM.Int.udiv x y exact ⊒
+      LLVM.Int.trunc (LLVM.Int.udiv (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h) exact)
+        w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.udiv, LLVM.Int.zext, LLVM.Int.trunc, Id.run, pure]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  by_cases hex : exact = true ∧ ¬x % y = 0#w
+  · simp [hex, pure]
+  by_cases hy : y = 0#w
+  · simp [hy, pure]
+  simp [hex, hy, pure, umod_setWidth_eq_zero_iff hle, setWidth_eq_zero_iff_of_le hle,
+    setWidth_udiv_setWidth hle]
+
+
+theorem urem_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.urem x y ⊒
+      LLVM.Int.trunc (LLVM.Int.urem (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h))
+        w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.urem, LLVM.Int.zext, LLVM.Int.trunc, Id.run, pure]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  by_cases hy : y = 0#w
+  · simp [hy, pure]
+  simp [hy, pure, setWidth_eq_zero_iff_of_le hle, setWidth_umod_setWidth hle]
+
+
+/-- A value sign-extended to a wider width is not the minimum of that width, so the only overflowing
+signed division is of the narrow operands. -/
+theorem signExtend_ne_intMin (h : w < W) (x : BitVec w) : x.signExtend W ≠ BitVec.intMin W := by
+  intro heq
+  have h1 := congrArg BitVec.toInt heq
+  rw [BitVec.toInt_signExtend_of_le (Nat.le_of_lt h), BitVec.toInt_intMin_of_pos (by omega)] at h1
+  have h2 := BitVec.le_toInt x
+  rcases w with _ | w
+  · rw [BitVec.toInt_of_zero_length rfl] at h1
+    have : (1 : _root_.Int) ≤ 2 ^ (W - 1) := by exact_mod_cast Nat.one_le_two_pow
+    omega
+  · have : (2 : _root_.Int) ^ w < 2 ^ (W - 1) := by
+      exact_mod_cast Nat.pow_lt_pow_right (by decide) (by omega)
+    simp at h2
+    omega
+
+
+/-- Signed division, remainder and modulo of sign-extended operands, through their signed values. -/
+theorem smod_signExtend_eq_zero_iff (h : w ≤ W) (x y : BitVec w) :
+    (x.signExtend W).smod (y.signExtend W) = 0#W ↔ x.smod y = 0#w := by
+  rw [← BitVec.toInt_inj, ← BitVec.toInt_inj, BitVec.toInt_smod, BitVec.toInt_smod,
+    BitVec.toInt_signExtend_of_le h, BitVec.toInt_signExtend_of_le h, BitVec.toInt_zero, BitVec.toInt_zero]
+
+
+theorem setWidth_sdiv_signExtend (h : w ≤ W) (x y : BitVec w) :
+    ((x.signExtend W).sdiv (y.signExtend W)).setWidth w = x.sdiv y := by
+  apply BitVec.eq_of_toInt_eq
+  rw [toInt_setWidth_of_le h, BitVec.toInt_sdiv, BitVec.toInt_sdiv, BitVec.toInt_signExtend_of_le h,
+    BitVec.toInt_signExtend_of_le h, Int.bmod_bmod_of_dvd (by exact_mod_cast Nat.pow_dvd_pow 2 h)]
+
+
+theorem setWidth_srem_signExtend (h : w ≤ W) (x y : BitVec w) :
+    ((x.signExtend W).srem (y.signExtend W)).setWidth w = x.srem y := by
+  apply BitVec.eq_of_toInt_eq
+  rw [toInt_setWidth_of_le h, ← bmod_toInt (x.srem y), BitVec.toInt_srem, BitVec.toInt_srem,
+    BitVec.toInt_signExtend_of_le h, BitVec.toInt_signExtend_of_le h]
+
+
+theorem signExtend_eq_zero_iff_of_le (h : w ≤ W) (y : BitVec w) : y.signExtend W = 0#W ↔ y = 0#w := by
+  rw [← BitVec.toInt_inj, ← BitVec.toInt_inj, BitVec.toInt_signExtend_of_le h, BitVec.toInt_zero,
+    BitVec.toInt_zero]
+
+
+/-- `widenTypeGroup .g_sdiv (.type 0) .g_sext`: the quotient of the sign-extended operands truncated
+back, whatever the `exact` flag, and likewise for `g_srem`. The narrow division of the minimum by
+`-1` is poison, which any wide quotient refines. -/
+theorem sdiv_widening (h : w < W) (x y : LLVM.Int w) (exact : Bool) :
+    LLVM.Int.sdiv x y exact ⊒
+      LLVM.Int.trunc (LLVM.Int.sdiv (LLVM.Int.sext x W h) (LLVM.Int.sext y W h) exact)
+        w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.sdiv, LLVM.Int.sext, LLVM.Int.trunc, Id.run, pure]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  by_cases hy : y = 0#w
+  · simp [hy, pure]
+  by_cases hmin : x = BitVec.intMin w ∧ y = -1#w
+  · simp [hmin, pure]
+  by_cases hex : exact = true ∧ ¬x.smod y = 0#w
+  · simp [hy, hmin, hex, pure]
+  simp [hy, hmin, hex, pure, signExtend_ne_intMin h, signExtend_eq_zero_iff_of_le hle,
+    smod_signExtend_eq_zero_iff hle, setWidth_sdiv_signExtend hle]
+
+
+theorem srem_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.srem x y ⊒
+      LLVM.Int.trunc (LLVM.Int.srem (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h := by
+  cases x <;> cases y <;> simp [LLVM.Int.srem, LLVM.Int.sext, LLVM.Int.trunc, Id.run, pure]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  by_cases hy : y = 0#w
+  · simp [hy, pure]
+  by_cases hmin : x = BitVec.intMin w ∧ y = -1#w
+  · simp [hmin, pure]
+  simp [hy, hmin, pure, signExtend_ne_intMin h, signExtend_eq_zero_iff_of_le hle,
+    setWidth_srem_signExtend hle]
+
+
+/-- A sign extension is `-1` only when its operand is. -/
+theorem signExtend_eq_neg_one (h : w < W) (y : BitVec w) (hy : y.signExtend W = -1#W) : y = -1#w := by
+  have h1 := congrArg BitVec.toInt hy
+  rw [BitVec.toInt_signExtend_of_le (Nat.le_of_lt h), BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes] at h1
+  simp only [show 0 < W by omega, ite_true] at h1
+  rcases w with _ | w
+  · rw [BitVec.toInt_of_zero_length rfl] at h1; omega
+  · rw [← BitVec.toInt_inj, h1, BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]
+    simp
+
+
+/-- The source of a widened division has undefined behavior whenever the division of the
+sign-extended operands has. -/
+
+theorem isSignedDivisionUB_sext (h : w < W) (x y : LLVM.Int w)
+    (hub : LLVM.Int.isSignedDivisionUB (LLVM.Int.sext x W h) (LLVM.Int.sext y W h) = true) :
+    LLVM.Int.isSignedDivisionUB x y = true := by
+  have hn := signExtend_eq_neg_one h
+  cases x <;> cases y <;> simp_all [LLVM.Int.isSignedDivisionUB, LLVM.Int.sext, Id.run,
+    signExtend_ne_intMin h, signExtend_eq_zero_iff_of_le (Nat.le_of_lt h)]
+  exact hub.imp id (hn _)
+
+
+/-- A widened unsigned division has undefined behavior exactly when the narrow one has. -/
+theorem isUnsignedDivisionUB_zext (h : w < W) (y : LLVM.Int w) :
+    LLVM.Int.isUnsignedDivisionUB (LLVM.Int.zext y W false h) = LLVM.Int.isUnsignedDivisionUB y := by
+  cases y <;> simp [LLVM.Int.isUnsignedDivisionUB, LLVM.Int.zext, Id.run,
+    setWidth_eq_zero_iff_of_le (Nat.le_of_lt h)]
+
+
+/-- The `exact` check of a right shift: the shifted-out bits are zero. -/
+theorem ushiftRight_shiftLeft_eq_self_iff {n : Nat} (v : BitVec n) (k : Nat) :
+    (v >>> k) <<< k = v ↔ v.toNat % 2 ^ k = 0 := by
+  rw [BitVec.toNat_eq, BitVec.toNat_shiftLeft, BitVec.toNat_ushiftRight, Nat.shiftLeft_eq,
+    Nat.shiftRight_eq_div_pow]
+  have h1 := Nat.div_add_mod v.toNat (2 ^ k)
+  have h2 : v.toNat / 2 ^ k * 2 ^ k ≤ v.toNat := Nat.div_mul_le_self _ _
+  rw [Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt h2 v.isLt)]
+  rw [Nat.mul_comm] at h1
+  omega
+
+
+/-- Sign extension keeps the low bits. -/
+theorem toNat_signExtend_mod {k : Nat} (h : w ≤ W) (hk : k ≤ w) (x : BitVec w) :
+    (x.signExtend W).toNat % 2 ^ k = x.toNat % 2 ^ k := by
+  rw [BitVec.toNat_signExtend, BitVec.toNat_setWidth_of_le h]
+  have hd : 2 ^ k ∣ 2 ^ W - 2 ^ w :=
+    Nat.dvd_sub (Nat.pow_dvd_pow 2 (Nat.le_trans hk h)) (Nat.pow_dvd_pow 2 hk)
+  obtain ⟨t, ht⟩ := hd
+  split
+  · rw [ht, Nat.add_mul_mod_self_left]
+  · simp
+
+
+/-- `widenTypeGroup .g_sext_inreg (.type 0) .g_anyext`: the sign extension of the low `sz` bits of
+the any-extended operand, truncated back. -/
+theorem sext_inreg_widening {sz : Nat} (h : w < W) (hs : sz < w) (x : LLVM.Int w) (m : BitVec (W - w)) :
+    LLVM.Int.sext (LLVM.Int.trunc x sz false false hs) w hs ⊒
+      LLVM.Int.trunc (LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.ext x W m h) sz false false (by omega)) W
+        (by omega)) w false false h := by
+  cases x <;> simp [LLVM.Int.sext, LLVM.Int.trunc, LLVM.Int.ext, LLVM.Int.cast, Id.run, pure,
+    BitVec.setWidth_append, Nat.le_of_lt hs, setWidth_signExtend_signExtend (Nat.le_of_lt hs) (Nat.le_of_lt h)]
+
+
+/-- A signed value does not wrap exactly when it is in range. -/
+theorem bmod_two_pow_eq_self_iff (hw : 0 < w) (s : _root_.Int) :
+    s.bmod (2 ^ w) = s ↔ -2 ^ (w - 1) ≤ s ∧ s < 2 ^ (w - 1) := by
+  have h2 : (2 : _root_.Int) ^ w = 2 ^ (w - 1) * 2 := by
+    rw [← Int.pow_succ]; congr 1; omega
+  constructor
+  · intro hs
+    have h1 := Int.le_bmod (x := s) (m := 2 ^ w) (Nat.two_pow_pos w)
+    have h3 := Int.bmod_lt (x := s) (m := 2 ^ w) (Nat.two_pow_pos w)
+    rw [hs] at h1 h3
+    push_cast at h1 h3
+    omega
+  · rintro ⟨h1, h3⟩
+    exact bmod_two_pow_of_range hw h1 h3
+
+
+/-- The low bits of a difference are the difference of the low bits. -/
+theorem setWidth_sub_of_le (h : w ≤ W) (a b : BitVec W) :
+    (a - b).setWidth w = a.setWidth w - b.setWidth w := by
+  rw [BitVec.sub_eq_add_neg, BitVec.setWidth_add _ _ h, BitVec.setWidth_neg_of_le h, ← BitVec.sub_eq_add_neg]
+
+
+/-- The inequality check of `g_icmp ne`, on the values of the bit-vectors. -/
+theorem bne_eq_decide_toNat {n : Nat} (a b : BitVec n) : (a != b) = decide (a.toNat ≠ b.toNat) := by
+  by_cases hab : a = b
+  · subst hab; simp
+  · have hn : a.toNat ≠ b.toNat := fun e => hab (BitVec.eq_of_toNat_eq e)
+    simp [bne, hab, hn]
+
+
+theorem bne_eq_decide_toInt {n : Nat} (a b : BitVec n) : (a != b) = decide (a.toInt ≠ b.toInt) := by
+  by_cases hab : a = b
+  · subst hab; simp
+  · have hn : a.toInt ≠ b.toInt := fun e => hab (BitVec.eq_of_toInt_eq e)
+    simp [bne, hab, hn]
+
+
+/-- The sign extension of zero. -/
+theorem signExtend_zero' : (0#w).signExtend W = 0#W := by
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_signExtend]
+
+
+/-- `widenScalarAddSubOverflow .g_uaddo`: the sum of the zero-extended operands truncated back, which
+overflows exactly when the wide sum does not survive the truncation and zero extension. -/
+theorem uaddo_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.add x y ⊒
+      LLVM.Int.trunc (LLVM.Int.add (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h)) w false false h ∧
+    LLVM.Int.uaddOverflowFlag x y ⊒
+      LLVM.Int.icmp (LLVM.Int.add (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h))
+        (LLVM.Int.zext (LLVM.Int.trunc (LLVM.Int.add (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h))
+          w false false h) W false h) .ne := by
+  cases x <;> cases y <;> simp [LLVM.Int.add, LLVM.Int.zext, LLVM.Int.trunc, LLVM.Int.uaddOverflowFlag,
+    LLVM.Int.icmp, Id.run, pure, IntPred.eval]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  have h2 : 2 ^ w * 2 ≤ 2 ^ W := by rw [← Nat.pow_succ]; exact Nat.pow_le_pow_right (by decide) h
+  have hx := x.isLt
+  have hy := y.isLt
+  refine ⟨?_, ?_⟩
+  · rw [BitVec.setWidth_add _ _ hle, BitVec.setWidth_setWidth_of_le _ hle,
+      BitVec.setWidth_setWidth_of_le _ hle, BitVec.setWidth_eq, BitVec.setWidth_eq]
+    exact isRefinedBy_refl _
+  · have hS : x.toNat + y.toNat < 2 ^ W := by omega
+    have hm := Nat.mod_lt (x.toNat + y.toNat) (Nat.two_pow_pos w)
+    simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toNat, BitVec.uaddOverflow,
+      BitVec.toNat_add, BitVec.toNat_setWidth, BitVec.toNat_setWidth_of_le hle, decide_eq_decide, ne_eq,
+      Nat.mod_eq_of_lt hS, Nat.mod_eq_of_lt (show (x.toNat + y.toNat) % 2 ^ w < 2 ^ W by omega)]
+    by_cases hs : x.toNat + y.toNat < 2 ^ w
+    · rw [Nat.mod_eq_of_lt hs]; omega
+    · omega
+
+
+/-- `widenScalarAddSubOverflow .g_usubo`, as `uaddo_widening`: the wide difference wraps below
+`2 ^ W - 2 ^ w` exactly when the narrow one borrows. -/
+theorem usubo_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.sub x y ⊒
+      LLVM.Int.trunc (LLVM.Int.sub (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h)) w false false h ∧
+    LLVM.Int.usubOverflowFlag x y ⊒
+      LLVM.Int.icmp (LLVM.Int.sub (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h))
+        (LLVM.Int.zext (LLVM.Int.trunc (LLVM.Int.sub (LLVM.Int.zext x W false h) (LLVM.Int.zext y W false h))
+          w false false h) W false h) .ne := by
+  cases x <;> cases y <;> simp [LLVM.Int.sub, LLVM.Int.zext, LLVM.Int.trunc, LLVM.Int.usubOverflowFlag,
+    LLVM.Int.icmp, Id.run, pure, IntPred.eval]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  have h2 : 2 ^ w * 2 ≤ 2 ^ W := by rw [← Nat.pow_succ]; exact Nat.pow_le_pow_right (by decide) h
+  have hx := x.isLt
+  have hy := y.isLt
+  refine ⟨?_, ?_⟩
+  · rw [setWidth_sub_of_le hle, BitVec.setWidth_setWidth_of_le _ hle,
+      BitVec.setWidth_setWidth_of_le _ hle, BitVec.setWidth_eq, BitVec.setWidth_eq]
+    exact isRefinedBy_refl _
+  · have hm := Nat.mod_lt ((2 ^ W - y.toNat + x.toNat) % 2 ^ W) (Nat.two_pow_pos w)
+    simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toNat, BitVec.usubOverflow,
+      BitVec.toNat_sub, BitVec.toNat_setWidth, BitVec.toNat_setWidth_of_le hle, decide_eq_decide, ne_eq,
+      Nat.mod_eq_of_lt (show (2 ^ W - y.toNat + x.toNat) % 2 ^ W % 2 ^ w < 2 ^ W by omega)]
+    by_cases hs : x.toNat < y.toNat
+    · rw [Nat.mod_eq_of_lt (show 2 ^ W - y.toNat + x.toNat < 2 ^ W by omega)] at hm ⊢
+      omega
+    · have heq : (2 ^ W - y.toNat + x.toNat) % 2 ^ W = x.toNat - y.toNat := by
+        rw [show 2 ^ W - y.toNat + x.toNat = (x.toNat - y.toNat) + 1 * 2 ^ W by omega,
+          Nat.add_mul_mod_self_right, Nat.mod_eq_of_lt (by omega)]
+      rw [heq, Nat.mod_eq_of_lt (by omega : x.toNat - y.toNat < 2 ^ w)]
+      omega
+
+
+private theorem signed_sum_toInt (h : w < W) (hw : 0 < w) (x y : BitVec w) :
+    (x.signExtend W + y.signExtend W).toInt = x.toInt + y.toInt ∧
+    (x.signExtend W - y.signExtend W).toInt = x.toInt - y.toInt := by
+  have hle := Nat.le_of_lt h
+  have h1 := BitVec.le_toInt x
+  have h2 := BitVec.toInt_lt (x := x)
+  have h3 := BitVec.le_toInt y
+  have h4 := BitVec.toInt_lt (x := y)
+  have h5 : (2 : _root_.Int) ^ w ≤ 2 ^ (W - 1) := by
+    exact_mod_cast Nat.pow_le_pow_right (by decide) (by omega)
+  have h6 : (2 : _root_.Int) ^ w = 2 ^ (w - 1) * 2 := by
+    rw [← Int.pow_succ]; congr 1; omega
+  constructor
+  · rw [BitVec.toInt_add, BitVec.toInt_signExtend_of_le hle, BitVec.toInt_signExtend_of_le hle]
+    exact bmod_two_pow_of_range (by omega) (by omega) (by omega)
+  · rw [BitVec.toInt_sub, BitVec.toInt_signExtend_of_le hle, BitVec.toInt_signExtend_of_le hle]
+    exact bmod_two_pow_of_range (by omega) (by omega) (by omega)
+
+
+/-- `widenScalarAddSubOverflow .g_saddo`: the sum of the sign-extended operands does not wrap at the
+wide width, so it survives the truncation and sign extension exactly when it is in the narrow
+signed range. -/
+theorem saddo_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.add x y ⊒
+      LLVM.Int.trunc (LLVM.Int.add (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h ∧
+    LLVM.Int.saddOverflowFlag x y ⊒
+      LLVM.Int.icmp (LLVM.Int.add (LLVM.Int.sext x W h) (LLVM.Int.sext y W h))
+        (LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.add (LLVM.Int.sext x W h) (LLVM.Int.sext y W h))
+          w false false h) W h) .ne := by
+  cases x <;> cases y <;> simp [LLVM.Int.add, LLVM.Int.sext, LLVM.Int.trunc, LLVM.Int.saddOverflowFlag,
+    LLVM.Int.icmp, Id.run, pure, IntPred.eval]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  refine ⟨?_, ?_⟩
+  · rw [BitVec.setWidth_add _ _ hle, setWidth_signExtend_of_le hle, setWidth_signExtend_of_le hle]
+    exact isRefinedBy_refl _
+  · simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toInt]
+    rcases Nat.eq_zero_or_pos w with rfl | hw
+    · simp [BitVec.of_length_zero (x := x), BitVec.of_length_zero (x := y), BitVec.saddOverflow,
+        signExtend_zero']
+    have hs := (signed_sum_toInt h hw x y).1
+    have key : (x.toInt + y.toInt = (x.toInt + y.toInt).bmod (2 ^ w)) ↔
+        (-2 ^ (w - 1) ≤ x.toInt + y.toInt ∧ x.toInt + y.toInt < 2 ^ (w - 1)) :=
+      ⟨fun e => (bmod_two_pow_eq_self_iff hw _).mp e.symm,
+        fun r => ((bmod_two_pow_eq_self_iff hw _).mpr r).symm⟩
+    simp only [BitVec.saddOverflow, hs, BitVec.toInt_signExtend_of_le hle, toInt_setWidth_of_le hle, ne_eq, key]
+    by_cases h1 : 2 ^ (w - 1) ≤ x.toInt + y.toInt <;> by_cases h2 : x.toInt + y.toInt < -2 ^ (w - 1) <;>
+      simp [h1, h2] <;> omega
+
+
+/-- `widenScalarAddSubOverflow .g_ssubo`, as `saddo_widening`. -/
+theorem ssubo_widening (h : w < W) (x y : LLVM.Int w) :
+    LLVM.Int.sub x y ⊒
+      LLVM.Int.trunc (LLVM.Int.sub (LLVM.Int.sext x W h) (LLVM.Int.sext y W h)) w false false h ∧
+    LLVM.Int.ssubOverflowFlag x y ⊒
+      LLVM.Int.icmp (LLVM.Int.sub (LLVM.Int.sext x W h) (LLVM.Int.sext y W h))
+        (LLVM.Int.sext (LLVM.Int.trunc (LLVM.Int.sub (LLVM.Int.sext x W h) (LLVM.Int.sext y W h))
+          w false false h) W h) .ne := by
+  cases x <;> cases y <;> simp [LLVM.Int.sub, LLVM.Int.sext, LLVM.Int.trunc, LLVM.Int.ssubOverflowFlag,
+    LLVM.Int.icmp, Id.run, pure, IntPred.eval]
+  rename_i x y
+  have hle := Nat.le_of_lt h
+  refine ⟨?_, ?_⟩
+  · rw [setWidth_sub_of_le hle, setWidth_signExtend_of_le hle, setWidth_signExtend_of_le hle]
+    exact isRefinedBy_refl _
+  · simp only [isRefinedBy_eq, BitVec.ofBool_eq_iff_eq, bne_eq_decide_toInt]
+    rcases Nat.eq_zero_or_pos w with rfl | hw
+    · simp [BitVec.of_length_zero (x := x), BitVec.of_length_zero (x := y), BitVec.ssubOverflow,
+        signExtend_zero']
+    have hs := (signed_sum_toInt h hw x y).2
+    have key : (x.toInt - y.toInt = (x.toInt - y.toInt).bmod (2 ^ w)) ↔
+        (-2 ^ (w - 1) ≤ x.toInt - y.toInt ∧ x.toInt - y.toInt < 2 ^ (w - 1)) :=
+      ⟨fun e => (bmod_two_pow_eq_self_iff hw _).mp e.symm,
+        fun r => ((bmod_two_pow_eq_self_iff hw _).mpr r).symm⟩
+    simp only [BitVec.ssubOverflow, hs, BitVec.toInt_signExtend_of_le hle, toInt_setWidth_of_le hle, ne_eq, key]
+    by_cases h1 : 2 ^ (w - 1) ≤ x.toInt - y.toInt <;> by_cases h2 : x.toInt - y.toInt < -2 ^ (w - 1) <;>
+      simp [h1, h2] <;> omega
+
+
+/-- `lowerSAddSubO true`: the sum overflows exactly when it is below `a` and `b` is not negative,
+or the converse. -/
+
+theorem saddo_lowering (x y : LLVM.Int w) :
+    LLVM.Int.saddOverflowFlag x y ⊒
+      LLVM.Int.xor (LLVM.Int.icmp y (.val 0#w) .slt) (LLVM.Int.icmp (LLVM.Int.add x y) x .slt) := by
+  cases x <;> cases y <;> simp [LLVM.Int.saddOverflowFlag, LLVM.Int.xor, LLVM.Int.icmp, LLVM.Int.add,
+    Id.run, pure, IntPred.eval, isRefinedBy_eq, BitVec.ofBool_xor_ofBool, BitVec.ofBool_eq_iff_eq,
+    BitVec.slt_eq_decide, BitVec.toInt_zero, -BitVec.toInt_add]
+  rename_i x y
+  by_cases hov : BitVec.saddOverflow x y
+  · have hmsb := hov
+    rw [BitVec.saddOverflow_eq] at hmsb
+    simp only [Bool.and_eq_true, beq_iff_eq, Bool.not_eq_eq_eq_not, Bool.not_true, beq_eq_false_iff_ne,
+      ne_eq, BitVec.msb_eq_toInt] at hmsb
+    rw [hov]
+    by_cases hx : x.toInt < 0 <;> by_cases hs : (x + y).toInt < 0 <;> by_cases hy : y.toInt < 0 <;>
+      by_cases hz : (x + y).toInt < x.toInt <;> simp [hx, hs, hy, hz, -BitVec.toInt_add] at hmsb ⊢ <;> omega
+  · simp only [Bool.not_eq_true] at hov
+    rw [hov, BitVec.toInt_add_of_not_saddOverflow (by simp [hov])]
+    by_cases hy : y.toInt < 0 <;> by_cases hz : x.toInt + y.toInt < x.toInt <;> simp [hy, hz] <;> omega
+
+
+/-- `lowerSAddSubO false`: the difference overflows exactly when `a <s b` and it is not negative,
+or the converse. -/
+
+theorem ssubo_lowering (x y : LLVM.Int w) :
+    LLVM.Int.ssubOverflowFlag x y ⊒
+      LLVM.Int.xor (LLVM.Int.icmp x y .slt) (LLVM.Int.icmp (LLVM.Int.sub x y) (.val 0#w) .slt) := by
+  cases x <;> cases y <;> simp [LLVM.Int.ssubOverflowFlag, LLVM.Int.xor, LLVM.Int.icmp, LLVM.Int.sub,
+    Id.run, pure, IntPred.eval, isRefinedBy_eq, BitVec.ofBool_xor_ofBool, BitVec.ofBool_eq_iff_eq,
+    BitVec.slt_eq_decide, BitVec.toInt_zero, -BitVec.toInt_sub]
+  rename_i x y
+  by_cases hov : BitVec.ssubOverflow x y
+  · have hmsb := hov
+    rw [BitVec.ssubOverflow_eq] at hmsb
+    simp only [Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
+      BitVec.msb_eq_toInt, decide_eq_true_eq, decide_eq_false_iff_not] at hmsb
+    rw [hov]
+    by_cases hx : x.toInt < 0 <;> by_cases hy : y.toInt < 0 <;> by_cases hd : (x - y).toInt < 0 <;>
+      by_cases hxy : x.toInt < y.toInt <;> simp [hx, hy, hd, hxy, -BitVec.toInt_sub] at hmsb ⊢ <;> omega
+  · simp only [Bool.not_eq_true] at hov
+    rw [hov, BitVec.toInt_sub_of_not_ssubOverflow (by simp [hov])]
+    by_cases hxy : x.toInt < y.toInt <;> by_cases hd : x.toInt - y.toInt < 0 <;> simp [hxy, hd] <;> omega
+
+/-- The overflow flag of `lowerUAddSubO true`: the sum carries exactly when it is below `b`. -/
+theorem uaddo_flag_lowering (x y : LLVM.Int w) :
+    LLVM.Int.uaddOverflowFlag x y ⊒ LLVM.Int.icmp (LLVM.Int.add x y) y .ult := by
+  have := congrArg Prod.snd (uaddo_lowering x y)
+  simp only at this
+  rw [this]
+  exact isRefinedBy_refl _
+
+/-- The overflow flag of `lowerUAddSubO false`: the difference borrows exactly when `a <u b`. -/
+theorem usubo_flag_lowering (x y : LLVM.Int w) :
+    LLVM.Int.usubOverflowFlag x y ⊒ LLVM.Int.icmp x y .ult := by
+  have := congrArg Prod.snd (usubo_lowering x y)
+  simp only at this
+  rw [this]
+  exact isRefinedBy_refl _
+
+/-- `widenConstant`: a wide constant truncated back is the narrow constant, whatever the value
+it was created with is modulo `2 ^ w`. -/
+theorem trunc_ofInt_of_bmod_eq (h : w < W) {v v' : _root_.Int}
+    (hv : v'.bmod (2 ^ w) = v.bmod (2 ^ w)) :
+    LLVM.Int.trunc (.val (BitVec.ofInt W v')) w false false h = .val (BitVec.ofInt w v) := by
+  simp only [LLVM.Int.trunc, Id.run, Bool.false_and, Bool.false_eq_true, ite_false, BitVec.truncate_eq_setWidth]
+  congr 1
+  apply BitVec.eq_of_toInt_eq
+  rw [toInt_setWidth_of_le (Nat.le_of_lt h), BitVec.toInt_ofInt, BitVec.toInt_ofInt,
+    Int.bmod_bmod_of_dvd (by exact_mod_cast Nat.pow_dvd_pow 2 (Nat.le_of_lt h)), hv]
+
+/-- The value `widenConstant` creates the wide constant with, as `LLVM::getExtOpcodeForWideningConstant`
+chooses it: the value itself for a width that is a multiple of 8, else its bits as an unsigned
+integer, is the constant's value modulo `2 ^ w`. -/
+theorem widenConstant_value_bmod (w : Nat) (v : _root_.Int) :
+    (if w % 8 = 0 then v else ((BitVec.ofInt w v).toNat : _root_.Int)).bmod (2 ^ w) = v.bmod (2 ^ w) := by
+  split
+  · rfl
+  · rw [BitVec.toNat_ofInt, Int.toNat_of_nonneg (Int.emod_nonneg _ (by exact_mod_cast Nat.ne_of_gt (Nat.two_pow_pos w)))]
+    exact Int.emod_bmod v (2 ^ w)
+
+/-- A zero-extended value truncated back is the value. -/
+theorem trunc_zext {n m : Nat} (h : n < m) (x : LLVM.Int n) :
+    LLVM.Int.trunc (LLVM.Int.zext x m false h) n false false h = x := by
+  cases x <;> simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run, BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt h)]
+
+/-- An any-extended value truncated to an intermediate width is the value any-extended with the
+low bits of the chosen high bits. -/
+theorem trunc_ext_of_lt {s w W : Nat} (h1 : s < w) (h2 : w < W) (v : LLVM.Int s) (m : BitVec (W - s)) :
+    LLVM.Int.trunc (LLVM.Int.ext v W m (by omega)) w false false h2 =
+      LLVM.Int.ext v w (m.setWidth (w - s)) h1 := by
+  cases v <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run, BitVec.setWidth_append,
+    Nat.not_le.mpr h1]
+
 end Widening
 
 /-! ## Counting bits at every width
@@ -907,12 +1558,6 @@ theorem toInt_smin_ite (a b : BitVec w) :
 theorem toInt_smax_ite (a b : BitVec w) :
     (if a.sle b = true then b else a).toInt = max a.toInt b.toInt := by
   split <;> simp_all [BitVec.sle_iff_toInt_le] <;> omega
-
-/-- A signed value in range does not wrap. -/
-theorem bmod_two_pow_of_range (hw : 0 < w) {s : _root_.Int} (h1 : -2 ^ (w - 1) ≤ s)
-    (h2 : s < 2 ^ (w - 1)) : s.bmod (2 ^ w) = s := by
-  rw [← BitVec.toInt_ofInt]
-  exact BitVec.toInt_ofInt_eq_self hw h1 h2
 
 /-- An arithmetic shift right by `w - 1` spreads the sign bit. -/
 theorem sshiftRight_width_sub_one (x : BitVec w) :

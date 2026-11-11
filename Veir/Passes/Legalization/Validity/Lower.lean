@@ -18,7 +18,9 @@ meta import Veir.Meta.Tactic.BVDecide
 /-! CTree validity of the lowerings of `lower?` and the narrowings of `narrowScalar?`.
 
 `lowerSext` passes the source width as a 64-bit `g_sext_inreg` size, so it is wrong from width
-`2^64`; `lowerFunnelShift` computes `urem` by the width, which is undefined at width 0. -/
+`2^64`; `lowerFunnelShift` computes `urem` by the width, which is undefined at width 0. The
+narrowings match the width `2 * W`, which the interpreter of `g_merge_values` produces as `W + W`,
+so their local lemmas are stated up to that cast. -/
 
 namespace Veir.Legalization.CTreeProofs
 
@@ -171,6 +173,74 @@ theorem lower_uadde_valid : Puddle.CTree.Pattern.Valid (lowerAddSubE true) := by
 theorem lower_usube_valid : Puddle.CTree.Pattern.Valid (lowerAddSubE false) := by
   proveLegalValid with simp_all [usube_lowering, Data.LLVM.Int.constant, IntegerAttr.ofInt_zero_value]
 
+/-- Copied from `Veir.Passes.Legalization.Proofs`, where it is private. -/
+private theorem add_isRefinedBy_add {w : Nat} (x y : Data.LLVM.Int w) (nsw nuw : Bool) :
+    Data.LLVM.Int.add x y nsw nuw ⊒ Data.LLVM.Int.add x y := by
+  grind
+
+/-- Copied from `Veir.Passes.Legalization.Proofs`, where it is private. -/
+private theorem sub_isRefinedBy_sub {w : Nat} (x y : Data.LLVM.Int w) (nsw nuw : Bool) :
+    Data.LLVM.Int.sub x y nsw nuw ⊒ Data.LLVM.Int.sub x y := by
+  grind
+
+/-- `narrowAddSub true`, at the width `n = k + k` of the matched operands, where `k` is the half
+width the interpreter of `g_unmerge_values` computes, and up to the casts of the interpreters of
+`g_unmerge_values` and `g_merge_values`: the sum of the low halves, and the sum with carry of the
+high halves, as `add_narrowing` of `Veir.Passes.Legalization.Proofs`. The validity goal
+existentially quantifies a width equation `P` its body does not use. -/
+private theorem add_narrowing_cast {n k : Nat} (h : n = k + k) (x y : Data.LLVM.Int n)
+    (nsw nuw : Bool) {P : Prop} (hP : P) :
+    ∃ _ : P, (x.add y nsw nuw).cast h ⊒
+      mergeValues ((unmergeValues (x.cast h)).1.add (unmergeValues (y.cast h)).1)
+        (uaddWithCarry (unmergeValues (x.cast h)).2 (unmergeValues (y.cast h)).2
+          ((unmergeValues (x.cast h)).1.uaddOverflowFlag (unmergeValues (y.cast h)).1)).1 := by
+  subst h
+  refine ⟨hP, ?_⟩
+  simp only [Data.LLVM.Int.cast_self]
+  refine isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
+  cases x <;> cases y
+  case val.val x y =>
+    simp [Data.LLVM.Int.add, Data.LLVM.Int.uaddOverflowFlag, unmergeValues, uaddWithCarry, mergeValues,
+      Id.run, BitVec.add_eq_append]
+  all_goals exact poison_isRefinedBy _
+
+/-- `narrowAddSub false`, as `add_narrowing_cast`. -/
+private theorem sub_narrowing_cast {n k : Nat} (h : n = k + k) (x y : Data.LLVM.Int n)
+    (nsw nuw : Bool) {P : Prop} (hP : P) :
+    ∃ _ : P, (x.sub y nsw nuw).cast h ⊒
+      mergeValues ((unmergeValues (x.cast h)).1.sub (unmergeValues (y.cast h)).1)
+        (usubWithBorrow (unmergeValues (x.cast h)).2 (unmergeValues (y.cast h)).2
+          ((unmergeValues (x.cast h)).1.usubOverflowFlag (unmergeValues (y.cast h)).1)).1 := by
+  subst h
+  refine ⟨hP, ?_⟩
+  simp only [Data.LLVM.Int.cast_self]
+  refine isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
+  cases x <;> cases y
+  case val.val x y =>
+    simp [Data.LLVM.Int.sub, Data.LLVM.Int.usubOverflowFlag, unmergeValues, usubWithBorrow, mergeValues,
+      Id.run, BitVec.sub_eq_append]
+  all_goals exact poison_isRefinedBy _
+
+theorem lower_uaddo_valid : Puddle.CTree.Pattern.Valid (lowerUAddSubO true) := by
+  proveLegalValid using Data.LLVM.uaddo_flag_lowering
+
+theorem lower_usubo_valid : Puddle.CTree.Pattern.Valid (lowerUAddSubO false) := by
+  proveLegalValid using Data.LLVM.usubo_flag_lowering
+
+theorem lower_saddo_valid : Puddle.CTree.Pattern.Valid (lowerSAddSubO true) := by
+  proveLegalValid using Data.LLVM.saddo_lowering
+
+theorem lower_ssubo_valid : Puddle.CTree.Pattern.Valid (lowerSAddSubO false) := by
+  proveLegalValid using Data.LLVM.ssubo_lowering
+
+/-- The matcher fixes the width `2 * W`, which the interpreter halves to `2 * W / 2`; the width
+equations are arithmetic. -/
+theorem narrow_add_valid (W : Nat) : Puddle.CTree.Pattern.Valid (narrowAddSub true W) := by
+  proveLegalValid with (apply add_narrowing_cast <;> omega)
+
+theorem narrow_sub_valid (W : Nat) : Puddle.CTree.Pattern.Valid (narrowAddSub false W) := by
+  proveLegalValid with (apply sub_narrowing_cast <;> omega)
+
 /-! ## Status of every lowering and narrowing -/
 
 @[legalization_status]
@@ -236,22 +306,22 @@ theorem lower_ushlsat_status :
 @[legalization_status]
 theorem lower_uaddo_status :
     Status Unproven (lowerUAddSubO true) :=
-  .unproven .needsTypedMatch
+  .proven lower_uaddo_valid
 
 @[legalization_status]
 theorem lower_usubo_status :
     Status Unproven (lowerUAddSubO false) :=
-  .unproven .needsTypedMatch
+  .proven lower_usubo_valid
 
 @[legalization_status]
 theorem lower_saddo_status :
     Status Unproven (lowerSAddSubO true) :=
-  .unproven .needsTypedMatch
+  .proven lower_saddo_valid
 
 @[legalization_status]
 theorem lower_ssubo_status :
     Status Unproven (lowerSAddSubO false) :=
-  .unproven .needsTypedMatch
+  .proven lower_ssubo_valid
 
 @[legalization_status]
 theorem lower_uadde_status :
@@ -266,11 +336,11 @@ theorem lower_usube_status :
 @[legalization_status]
 theorem narrow_add_status (W : Nat) :
     Status Unproven (narrowAddSub true W) :=
-  .unproven .needsTypedMatch
+  .proven (narrow_add_valid W)
 
 @[legalization_status]
 theorem narrow_sub_status (W : Nat) :
     Status Unproven (narrowAddSub false W) :=
-  .unproven .needsTypedMatch
+  .proven (narrow_sub_valid W)
 
 end Veir.Legalization.CTreeProofs

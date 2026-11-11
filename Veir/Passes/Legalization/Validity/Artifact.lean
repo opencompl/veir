@@ -6,6 +6,7 @@ import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Dialects.GMIR.OpInfo
+import all Veir.Dialects.GMIR.Properties
 import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR_RISCV.OpInfo
@@ -17,9 +18,7 @@ meta import Veir.Meta.Tactic.BVDecide
 
 /-! CTree validity of the legalization artifact combines of `tryCombineInstruction`.
 
-The constant combines read the constant's bits at the width of its attribute, which the matcher
-does not tie to the width of its result, hence `needsTypedMatch`. `combineZExtOfTruncOfICmp`
-accepts a truncation to `i0`, which drops the bit of the `g_icmp`. -/
+`combineZExtOfTruncOfICmp` accepts a truncation to `i0`, which drops the bit of the `g_icmp`. -/
 
 namespace Veir.Legalization.CTreeProofs
 
@@ -52,6 +51,20 @@ theorem artifact_anyext_trunc_wider_valid : Puddle.CTree.Pattern.Valid
 
 theorem artifact_trunc_trunc_valid : Puddle.CTree.Pattern.Valid combineTruncOfTrunc := by
   proveLegalValid using Data.LLVM.trunc_trunc
+
+/-- The constant combines match the bits of the constant at the width of its attribute, which the
+matcher ties to the width of the constant, so they are the constant's value. -/
+theorem artifact_zext_trunc_constant_valid :
+    Puddle.CTree.Pattern.Valid (combineExtOfTruncOfConstant false) := by
+  proveLegalValid with
+    simp only [GMIRConstantProperties.bits] at *
+    apply Data.LLVM.zext_trunc_constant <;> simp_all
+
+theorem artifact_sext_trunc_constant_valid :
+    Puddle.CTree.Pattern.Valid (combineExtOfTruncOfConstant true) := by
+  proveLegalValid with
+    simp only [GMIRConstantProperties.bits] at *
+    apply Data.LLVM.sext_trunc_constant <;> simp_all
 
 /-- `g_unmerge_values` of `g_merge_values lo hi`, at the half width `k` the interpreter computes. -/
 private theorem int_unmerge_merge {w k : Nat} (hk : k = w) (h : w + w = k + k) (lo hi : Data.LLVM.Int w) :
@@ -121,12 +134,12 @@ theorem artifact_4_status :
 @[legalization_status]
 theorem artifact_5_status :
     Status Unproven (combineExtOfTruncOfConstant false) :=
-  .unproven .needsTypedMatch
+  .proven artifact_zext_trunc_constant_valid
 
 @[legalization_status]
 theorem artifact_6_status :
     Status Unproven (combineExtOfTruncOfConstant true) :=
-  .unproven .needsTypedMatch
+  .proven artifact_sext_trunc_constant_valid
 
 @[legalization_status]
 theorem artifact_7_status :

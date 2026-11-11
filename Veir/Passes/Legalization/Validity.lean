@@ -30,9 +30,8 @@ closed by the rule's local correctness lemma, mostly in `Veir.Passes.Legalizatio
 ## Not covered
 
 * `widenBrcondCondition` and `widenBlockArguments` are local rewrites, not Puddle patterns.
-* Rules with status `.unproven .needsTypedMatch`: their matchers accept operands and results of a
-  type group at different widths, for which the rewrite is wrong. They are correct on verified IR,
-  which `Pattern.Valid` does not assume.
+* Rules with status `.unproven .widthDependent` are wrong at a width that verified IR rules out,
+  such as `i0`, or from width `2^64`, which `Pattern.Valid` does not assume.
 -/
 
 namespace Veir.Legalization.CTreeProofs

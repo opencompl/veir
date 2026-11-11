@@ -104,15 +104,17 @@ def combineExtOfTruncOfConstant (signed : Bool) : Pattern OpCode :=
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
       let narrowType ← MatchProg.type (Attr := IntegerType)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[constant.res[0]!] #[narrowType]
-      MatchProg.matchNative (narrowType, constant.properties) fun (narrowType, c) =>
-        match narrowType.val with
-        | .integerType narrowType =>
+      MatchProg.matchNative (type, narrowType, constant.properties) fun (type, narrowType, c) =>
+        match type.val, narrowType.val with
+        | .integerType type, .integerType narrowType =>
+          -- The bits are read at the width of the attribute, which the verifier ties to the result.
           let width := narrowType.bitwidth
+          c.value.type.bitwidth == type.bitwidth &&
           if signed then
             0 < width && -2 ^ (width - 1) ≤ c.bits.toInt && c.bits.toInt < 2 ^ (width - 1)
           else
             c.bits.toNat < 2 ^ width
-        | _ => false
+        | _, _ => false
       let _ ← MatchProg.root (.gmir (if signed then .g_sext else .g_zext))
         #[trunc.res[0]!] #[type]
       return constant.res[0]!)

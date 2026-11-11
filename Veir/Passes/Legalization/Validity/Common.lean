@@ -44,11 +44,6 @@ public section
 
 /-- Why a legalization rule or gMIR combine has no CTree validity proof. -/
 inductive Unproven where
-  /-- The matcher gives each operand and result of a type group its own type handle, so it
-  accepts matches whose operands and results have different widths, which verified IR rules
-  out. The gMIR interpreter computes the result at the operands' width, but the rewrite produces
-  one of the matched result type, so the rewrite is only correct on well-typed matches. -/
-  | needsTypedMatch
   /-- The rule is wrong at some widths: `g_bswap` is only defined at widths 16, 32 and 64, and
   other rules are wrong at the degenerate width 0, or from width `2^64`. -/
   | widthDependent
