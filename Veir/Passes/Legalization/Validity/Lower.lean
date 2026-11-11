@@ -140,6 +140,17 @@ private theorem ushlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLV
 theorem lower_zext_valid : Puddle.CTree.Pattern.Valid lowerZext := by
   proveLegalValid using Data.LLVM.zext_and_anyext
 
+/-- `lowerSext`: the high bits a `g_anyext` chooses are overwritten by the `g_sext_inreg` of the
+source width, so the result is the sign extension of the source whatever it chose. -/
+theorem sext_anyext_inreg {w W : Nat} (h : w < W) (x : Data.LLVM.Int w) (msb : BitVec (W - w)) :
+    x.sext W h ⊒ ((x.ext W msb h).trunc w false false h).sext W h := by
+  sorry
+
+/-- The matcher bounds the source width by `2 ^ 64`, so the `sz` of the `g_sext_inreg` reads back
+as the source width. -/
+theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
+  sorry
+
 theorem lower_uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_uaddsat false true) := by
   proveLegalValid using Data.LLVM.uaddSat_minmax
 
@@ -247,7 +258,7 @@ theorem narrow_sub_valid (W : Nat) : Puddle.CTree.Pattern.Valid (narrowAddSub fa
 @[legalization_status]
 theorem lower_sext_status :
     Status Unproven (lowerSext) :=
-  .unproven .widthDependent
+  .proven lower_sext_valid
 
 @[legalization_status]
 theorem lower_zext_status :
