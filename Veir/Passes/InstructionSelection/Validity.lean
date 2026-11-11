@@ -9,6 +9,7 @@ public import Veir.PatternRewriter.Semantics
 
 import all Veir.Passes.InstructionSelection.RISCV64
 import all Veir.Passes.InstructionSelection.RISCV64Branches
+import all Veir.Passes.InstructionSelection.RISCV64Abi
 import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Interpreter.RuntimeValue.Conforms
 import all Veir.Interpreter.Basic
@@ -55,11 +56,13 @@ the semantics (`normalizeIselValid`):
 * `unreachable_pattern` rewrites a terminator, which `Pattern.Valid` does not support
   (`unreachable_unsupported`).
 
-The rewrites that are not Puddle patterns are stated at the end, and not proven: the local
-rewrites of `isel-riscv64` and the argument lowering of `isel-abi-riscv64` as
-`LocalRewritePattern.Sound`, and the branch lowering of `isel-br-riscv64` as a refinement of every
-function of the module. The lowering of returns and calls of `isel-abi-riscv64` has no statement:
-it needs a refinement up to the ABI (see the last section).
+The remaining Puddle patterns, which their drivers instantiate at parameters computed from the
+matched operation (the split loads and stores, the inline memory intrinsics, `getelementptr` and
+the argument lowering of `isel-abi-riscv64`), are stated at every parameter; the argument
+lowering is proven (`formal_argument_valid`). The
+branch lowering of `isel-br-riscv64` is not a Puddle pattern; it is stated as a refinement of
+every function of the module. The lowering of returns and calls of `isel-abi-riscv64` has no
+statement: it needs a refinement up to the ABI (see the last section).
 -/
 
 namespace Veir.ISel.CTreeProofs
@@ -270,40 +273,51 @@ theorem gmir_anyext_status : Status Unproven gmirAnyext_pattern := .unproven .wi
 
 theorem unreachable_status : Status Unproven unreachable_pattern := .unproven .terminator
 
-/-! ## The rewrites that are not Puddle patterns
+/-! ## The remaining rewrites
 
-The local rewrites of `isel-riscv64` are `LocalRewritePattern`s, so their obligation is
-`LocalRewritePattern.Sound` (`Veir.PatternRewriter.Semantics`): the structural conditions on the
-returned operations and values, the preservation of dominance and verification, and the
-refinement of the matched operation by the created ones. None is proven yet. -/
+The split loads and stores, the inline memory intrinsics, the `getelementptr` lowering and the
+argument lowering of `isel-abi-riscv64` are Puddle patterns, stated at every parameter their
+drivers instantiate them at. The argument lowering is proven; the three memory families need the
+support of memory effects in `Pattern.Supported`, as the loads and stores proven on the wip
+branch do, and `getelementptr` the address lemmas of that branch. -/
 
-/-- An `llvm.load` of 3, 5, 6 or 7 bytes is read in power-of-two pieces that are shifted and
-combined (`splitLoad_local`): the pieces read the same bytes as the whole load, in order. -/
-theorem splitLoad_local_sound : LocalRewritePattern.Sound splitLoad_local := by
+theorem split_load_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
+    Puddle.CTree.Pattern.Valid (splitLoad_pattern bytes) := by
   sorry
 
-/-- An `llvm.store` of 3, 5, 6 or 7 bytes is written in power-of-two pieces of the shifted value
-(`splitStore_local`): the pieces write the same bytes as the whole store. -/
-theorem splitStore_local_sound : LocalRewritePattern.Sound splitStore_local := by
+theorem split_store_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
+    Puddle.CTree.Pattern.Valid (splitStore_pattern bytes) := by
   sorry
 
-/-- A constant-length `memcpy` or `memset` of at most `memMaxStores` aligned accesses is
-expanded into loads and stores (`memIntrinsicInline_local`): the accesses copy, or fill, exactly
-the bytes of the intrinsic (`memAccesses` partitions its length), and a `memcpy` reads all of
-its source before writing, so overlapping ranges are not an issue. -/
-theorem memIntrinsicInline_local_sound : LocalRewritePattern.Sound memIntrinsicInline_local := by
+/-- The accesses are those of `memIntrinsicAccesses?`, which the matcher checks: they partition
+the intrinsic's length, and a `memcpy` reads each piece before writing it. -/
+theorem mem_intrinsic_inline_valid (isMemset : Bool) (accesses : Array (Nat × Nat)) (fill : MemFill) :
+    Puddle.CTree.Pattern.Valid (memIntrinsicInline_pattern isMemset accesses fill) := by
   sorry
 
-/-- An `llvm.getelementptr` is lowered to the address arithmetic of its offsets on registers
-(`getelementptr_local`): the computed address is `interpretGEP` of the indices, as
-`selectAddrRegImm` decomposes it. -/
-theorem getelementptr_local_sound : LocalRewritePattern.Sound getelementptr_local := by
+/-- The address computed on registers is `interpretGEP` of the indices, as `gepDecomposition?`
+decomposes it. -/
+theorem getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
+    Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset) := by
   sorry
 
-/-- A cast of a register argument to a narrow integer is replaced by its ABI extension and a
-cast (`lowerFormalArgument`): the extension keeps the low bits the cast reads. -/
-theorem lowerFormalArgument_sound : LocalRewritePattern.Sound lowerFormalArgument := by
-  sorry
+/-- The `g_trunc` of a register's `i64` reads the low bits that the narrow cast of the register
+reads. -/
+theorem toInt_trunc_toInt (r : Data.RISCV.Reg) (tb : Nat) (h : 64 > tb) :
+    RISCV.Reg.toInt r tb ⊒ (RISCV.Reg.toInt r 64).trunc tb false false h := by
+  simp [RISCV.Reg.toInt, Data.LLVM.Int.trunc, isRefinedBy, Id.run,
+    BitVec.setWidth_setWidth_of_le r.val (by omega : tb ≤ 64)]
+
+/-- The argument lowering reduces to `toInt_trunc_toInt`: the matcher bounds the narrow width
+by 64, which the remaining width guard contradicts. -/
+theorem formal_argument_valid : Puddle.CTree.Pattern.Valid lowerFormalArgument_pattern := by
+  unfold lowerFormalArgument_pattern
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeIselValid
+  all_goals first
+    | (exfalso; omega)
+    | exact toInt_trunc_toInt _ _ _
 
 /-- The branch lowering of `isel-br-riscv64` rewrites terminators and block arguments, which no
 local rewrite statement covers, so its obligation is that every function of the module is
