@@ -157,7 +157,7 @@ private theorem byte_toInt_frozen {w : Nat} (hw : 0 < w) (b : LLVM.Byte w) (bits
 
 /-- The pointer cast back from the address of an allocation refines it: it is the allocation's
 pointer without its provenance. -/
-private theorem ptrFromInt_toInt (mem : MemoryState) (p : Pointer) :
+theorem ptrFromInt_toInt (mem : MemoryState) (p : Pointer) :
     LLVM.Ptr.isRefinedBy (.val p) (mem.ptrFromInt (LLVM.Ptr.toInt (.val p))) := by
   simp only [LLVM.Ptr.isRefinedBy, MemoryState.ptrFromInt, LLVM.Ptr.toInt, MemoryState.decode,
     UInt64.ofBitVec_toBitVec, Pointer.isRefinedBy_iff]

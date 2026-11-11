@@ -27,6 +27,8 @@ import all Veir.Data.LLVM.Byte.Basic
 import all Veir.Data.Casting
 import all Veir.Data.Refinement
 import all Init.Data.Array.Basic
+import all Veir.Dialects.RISCV_Stack.OpInfo
+import all Veir.Dialects.Arith.OpInfo
 
 /-!
 # CTree validity of the LLVM to gMIR translation
@@ -43,7 +45,10 @@ The unproven patterns (see `Unproven`):
   no longer move defined zero bits in. This is a property of the value, which no matcher can check
   (`byte_shl_frozen` and `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove the other
   bytes).
-* The static `alloca` (`staticAlloca`).
+
+The static `alloca` reads its count from the matched constant and the stack object from the
+`alloca`'s properties, so its validity ties the object to the allocation (`static_alloca_valid`
+and the variants per kind of constant).
 
 The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with the
 LLVM and builtin interpreters added to the semantics. Most translations interpret the same
@@ -63,7 +68,7 @@ set_option maxHeartbeats 1000000
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   GMIR.interpretOp' GMIR.interpretOpCTree Llvm.interpretOpCTree Llvm.interpretOp' Builtin.interpretOpCTree
-  Builtin.interpretUnrealizedConversionCastCTree
+  Builtin.interpretUnrealizedConversionCastCTree Riscv_Stack.interpretOp' Arith.interpretOp'
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects Llvm.isTerminator Llvm.getEffects Builtin.getEffects
 
@@ -98,13 +103,6 @@ inductive Unproven where
   which does not refine it. The pattern is therefore not valid; `byte_shl_frozen` and
   `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove it on every other byte. -/
   | allPoisonByte
-  /-- The replacement's stack object is computed from the IR around the `llvm.alloca`
-  (`MatchProg.inspectOperation`, `staticAllocaProperties?`). `Pattern.Valid` quantifies over every
-  value the inspection may produce, while the memory refinement requires the same objects, so
-  the replacement would have to allocate the size of the `llvm.alloca` whatever the inspection
-  says. Proving it needs a validity statement that ties the inspected properties to the matched
-  operation. The cast back from the object's address is covered by `ptrFromInt_toInt`. -/
-  | staticAlloca
   deriving Repr, DecidableEq
 
 end
@@ -552,20 +550,101 @@ theorem cond_br_interpretOp'_refines (props : propertiesOf (OpCode.llvm .cond_br
   all_goals simp_all
   all_goals (intro hc; exfalso; bv_decide)
 
-/-! ## Poison
+/-! ## Static allocas
 
-Both sides produce the poison of the result type; a byte poison is the wholly poison byte, which
-the cast of the integer poison back to the byte type also produces. -/
+`lowerStaticAllocaOf` reads the allocation's count from the matched constant and the stack object
+from the `alloca`'s properties (`staticAllocaProperties?`), so the object it allocates is the one
+the `llvm.alloca` allocates: `count * allocSize` bytes, which the matcher bounds by `2 ^ 63`. The
+pointer cast back from the object's address refines the allocation's pointer
+(`ptrFromInt_toInt`). -/
 
-theorem poison_valid : Puddle.CTree.Pattern.Valid lowerPoison := by
-  proveLegalValid with
-    first
-      | (simp [Data.LLVM.Int.mlir_poison])
-      | (exact poison_isRefinedBy _)
-      | (simp [LLT.ofType?] at *)
+/-- What `staticAllocaProperties?` accepts, and the size of the object it builds. -/
+theorem staticAllocaProperties?_some {countType : TypeAttr} {count : Int} {props : AllocaProperties}
+    {sp : RISCVStackAllocaProperties} (h : staticAllocaProperties? countType count props = some sp) :
+    ∃ w layout, countType.val = Attribute.integerType w ∧
+      DataLayout.riscv64.query props.elem_type.val = some layout ∧
+      (count % 2 ^ w.bitwidth).toNat * layout.allocSize < 2 ^ 63 ∧
+      sp.size = BitVec.ofNat 64 ((count % 2 ^ w.bitwidth).toNat * layout.allocSize) := by
+  unfold staticAllocaProperties? at h
+  simp [Option.bind_eq_some_iff] at h
+  split at h <;> try simp at h
+  rename_i w hw
+  split at h <;> try simp at h
+  rename_i layout hq
+  all_goals (obtain ⟨hs, -, rfl⟩ := h; exact ⟨w, layout, hw, hq, hs, rfl⟩)
 
-theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
-  proveLegalValid using isRefinedBy_refl
+set_option hygiene false in
+/-- Close a static alloca goal after the allocation of `u` bytes on both sides: case on it, and
+cast the allocation's address back to a pointer. -/
+macro "staticAllocaAlloc" u:term : tactic => `(tactic| (
+  cases halloc : memory.alloc $u with
+  | fail _ => simp only [Interp.bind_fail]
+  | ub _ => simp only [Interp.bind_ub]
+  | ok p =>
+  obtain ⟨mem', addr⟩ := p
+  simp only [Interp.bind_ok, CTree.monadLift_interp_ok, _root_.CTree.bind_pure]
+  obtain ⟨ptrTy, hp⟩ : ∃ ptrTy, type.val = Attribute.llvmPointerType ptrTy := by
+    revert htype; split <;> simp_all
+  simp [hp, RuntimeValue.isRefinedBy, RuntimeValue.arrayIsRefinedBy, LLVM.Int.toReg, Data.LLVM.Ptr.toInt]
+  simpa [Data.LLVM.Ptr.toInt, Data.LLVM.Ptr.isRefinedBy] using ptrFromInt_toInt mem' addr))
+
+set_option hygiene false in
+/-- Close a static alloca goal once the count `cnt` and the matched constant are fixed. -/
+macro "staticAllocaTail" cnt:term : tactic => `(tactic| (
+  obtain ⟨sp, hsp⟩ := Option.isSome_iff_exists.mp hprops
+  obtain ⟨w, layout, hw, hquery, hsize, hsp_size⟩ := staticAllocaProperties?_some hsp
+  have hwa : w = a := by grind [TypeAttr.of_def, Attribute.of_def]
+  subst hwa
+  simp [hsp, ctree_semantics, DataLayout.getTypeAllocSize, hquery, memorySize]
+  have hn : layout.allocSize * (($cnt) % 2 ^ w.bitwidth).toNat < 2 ^ 64 := by
+    rw [Nat.mul_comm]; omega
+  have hu : ({ toBitVec := sp.size } : UInt64) =
+      UInt64.ofNat layout.allocSize * UInt64.ofNat (($cnt) % 2 ^ w.bitwidth).toNat := by
+    rw [hsp_size, Nat.mul_comm, BitVec.ofNat_mul]; rfl
+  simp only [hn, ↓reduceIte, Interp.bind_ok, hu]
+  staticAllocaAlloc (UInt64.ofNat layout.allocSize * UInt64.ofNat (($cnt) % 2 ^ w.bitwidth).toNat)))
+
+theorem static_alloca_valid : Puddle.CTree.Pattern.Valid lowerStaticAlloca_pattern := by
+  unfold lowerStaticAlloca_pattern lowerStaticAllocaOf
+  simpPuddleValid
+  simpLegalSemantics
+  intro a property hcount value mem mem' hcst type htype props hinalloca values hprops memory
+  cases hv : property.value <;> simp [hv] at hcount hcst hprops
+  rename_i cst
+  obtain ⟨rfl, rfl⟩ := hcst
+  staticAllocaTail cst.value
+
+theorem static_alloca_gmir_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaGMIR_pattern := by
+  unfold lowerStaticAllocaGMIR_pattern lowerStaticAllocaOf
+  simpPuddleValid
+  simpLegalSemantics
+  intro a property type htype props hinalloca values hprops memory
+  staticAllocaTail property.value.value
+
+theorem static_alloca_arith_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaArith_pattern := by
+  unfold lowerStaticAllocaArith_pattern lowerStaticAllocaOf
+  simpPuddleValid
+  simpLegalSemantics
+  intro a property hcount value mem mem' hcst type htype props hinalloca values hprops memory
+  cases property <;> simp at hcount hcst hprops
+  rename_i attr
+  obtain ⟨rfl, rfl⟩ := hcst
+  staticAllocaTail attr.value
+
+/-- An `llvm.mlir.zero` count allocates no bytes on either side. -/
+theorem static_alloca_zero_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaZero_pattern := by
+  unfold lowerStaticAllocaZero_pattern lowerStaticAllocaOf
+  simpPuddleValid
+  simpLegalSemantics
+  intro a type htype props hinalloca values hprops memory
+  obtain ⟨sp, hsp⟩ := Option.isSome_iff_exists.mp hprops
+  obtain ⟨w, layout, hw, hquery, hsize, hsp_size⟩ := staticAllocaProperties?_some hsp
+  have hwa : w = a := by grind [TypeAttr.of_def, Attribute.of_def]
+  subst hwa
+  simp [hsp, ctree_semantics, DataLayout.getTypeAllocSize, hquery, memorySize]
+  have hu : ({ toBitVec := sp.size } : UInt64) = 0 := by rw [hsp_size]; simp
+  simp only [hu]
+  staticAllocaAlloc 0
 
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
@@ -615,8 +694,10 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .unproven .allPoisonByte <| -- byte_shl
   .unproven .allPoisonByte <| -- byte_lshr
   .proven byte_int_bitcast_valid <|
-  .unproven .staticAlloca <| -- static_alloca
-  .unproven .staticAlloca <| -- static_alloca, g_constant count
+  .proven static_alloca_valid <|
+  .proven static_alloca_gmir_valid <|
+  .proven static_alloca_arith_valid <|
+  .proven static_alloca_zero_valid <|
   .proven load_valid <|
   .proven round_trip_valid <|
   .nil

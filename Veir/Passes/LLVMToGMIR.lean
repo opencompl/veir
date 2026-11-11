@@ -266,10 +266,10 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
   operand and result counts, `inalloca`, result type, and position in the entry block of its
   function are made by `lowerStaticAllocaOf`.
 -/
-def staticAllocaProperties? (countType : TypeAttr) (count : IntegerAttr)
+public def staticAllocaProperties? (countType : TypeAttr) (count : Int)
     (props : AllocaProperties) : Option RISCVStackAllocaProperties := do
   let .integerType countWidth := countType.val | none
-  let count := (BitVec.ofInt countWidth.bitwidth count.value).toNat
+  let count := (BitVec.ofInt countWidth.bitwidth count).toNat
   let some layout := DataLayout.riscv64.query props.elem_type.val | none
   let size := count * layout.allocSize
   /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
@@ -281,7 +281,7 @@ def staticAllocaProperties? (countType : TypeAttr) (count : IntegerAttr)
            alignment := BitVec.ofInt 64 alignment }
 
 /-- Whether `op` is in the entry block of a function. -/
-def inEntryBlock (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := do
+public def inEntryBlock (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := do
   let some parentOp := op.getParentOp! ctx | none
   let some funcOp := FunctionOp.of? parentOp ctx | none
   let some entry := funcOp.getEntryBlock? | none
@@ -295,8 +295,8 @@ def inEntryBlock (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := d
   additional stack-lifetime support in the backend. This must run before legalization, which can
   hide a narrow constant count behind `g_trunc`.
 -/
-def lowerStaticAllocaOf (cstOp : OpCode)
-    (countOf : propertiesOf cstOp → Option IntegerAttr) : Puddle.Pattern OpCode :=
+public def lowerStaticAllocaOf (cstOp : OpCode)
+    (countOf : propertiesOf cstOp → Option Int) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let countType ← Puddle.MatchProg.type (Attr := IntegerType)
@@ -326,15 +326,26 @@ def lowerStaticAllocaOf (cstOp : OpCode)
     (fun castBackOp => castBackOp)
 
 /-- `lowerStaticAllocaOf`, counted by an `llvm.mlir.constant`. -/
-def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
+public def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
   lowerStaticAllocaOf (.llvm .mlir__constant) fun props =>
     match props.value with
-    | .integer value => some value
+    | .integer value => some value.value
     | _ => none
 
 /-- `lowerStaticAllocaOf`, counted by the `g_constant` that `lowerIntegerConstant` made. -/
-def lowerStaticAllocaGMIR_pattern : Puddle.Pattern OpCode :=
-  lowerStaticAllocaOf (.gmir .g_constant) fun props => some props.value
+public def lowerStaticAllocaGMIR_pattern : Puddle.Pattern OpCode :=
+  lowerStaticAllocaOf (.gmir .g_constant) fun props => some props.value.value
+
+/-- `lowerStaticAllocaOf`, counted by an `arith.constant`. -/
+public def lowerStaticAllocaArith_pattern : Puddle.Pattern OpCode :=
+  lowerStaticAllocaOf (.arith .constant) fun props =>
+    match props with
+    | .int value => some value.value
+    | _ => none
+
+/-- `lowerStaticAllocaOf`, counted by an `llvm.mlir.zero`. -/
+public def lowerStaticAllocaZero_pattern : Puddle.Pattern OpCode :=
+  lowerStaticAllocaOf (.llvm .mlir__zero) fun _ => some 0
 
 /--
   The memory operand of the `g_load` for an `llvm.load` of `type`, if it is a naturally aligned load
@@ -560,8 +571,8 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerIntegerConstant, lowerPoison, lowerBytePoison,
   lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
   lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr, lowerByteIntBitcast,
-  lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerLoad_pattern,
-  reconcilePairingCast isIntToByteRoundTrip]
+  lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,
+  lowerStaticAllocaZero_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
 
 /-- The compiled patterns of `llvmToGMIRPatternList`. -/
 private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
