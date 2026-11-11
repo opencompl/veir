@@ -6,6 +6,7 @@ import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.InstructionSelection.Common
+import Veir.Passes.LLVMToGMIR.Branches
 import Veir.Passes.Matching
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.DCE.dce
@@ -255,19 +256,6 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
       operands #[] #[] props none
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
 
-private def lowerBranch : LocalRewritePattern OpCode := fun ctx op => do
-  let opType := op.getOpType! ctx.raw
-  if opType != OpCode.llvm .br && opType != OpCode.llvm .cond_br then return (ctx, none)
-  let operands := op.getOperands! ctx.raw
-  let successors := op.getSuccessors! ctx.raw
-  let (ctx', branch) ← if opType = OpCode.llvm .br then
-      WfRewriter.createOp! ctx GMIR.g_br #[] operands successors #[] () none
-    else
-      let props : LLVMCondBrProperties := op.getProperties! ctx.raw (OpCode.llvm .cond_br)
-      WfRewriter.createOp! ctx GMIR.g_brcond #[] operands successors #[]
-        (GMIRBrCondProperties.mk props.operandSegmentSizes) none
-  return (ctx', some (#[branch], #[]))
-
 /--
   The properties of the fixed RISC-V stack object for the `llvm.alloca` `op`, or `none` if it is
   not a constant-count allocation in the entry block of its function, or its size or alignment
@@ -488,6 +476,8 @@ def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
 
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
+  -- Branches are translated by a separate step, which is proved to refine the module.
+  let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
@@ -497,7 +487,7 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
     g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run, g_bswap.run, g_bitreverse.run,
     g_constant.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices, .fromLocalRewrite lowerBranch,
+    .fromLocalRewrite normalizeGEPIndices,
     lowerStaticAlloca.run, g_load.run,
     intToByteRoundTrip.run
   ]
