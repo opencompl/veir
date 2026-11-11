@@ -402,6 +402,14 @@ theorem widen_constant_0_valid (W : Nat) : Puddle.CTree.Pattern.Valid (widenCons
   rw [ofInt_ofInt_value]
   exact Data.LLVM.trunc_ofInt_of_bmod_eq _ (by simpa using Data.LLVM.widenConstant_value_bmod w value)
 
+/-- `widenTypeGroup .g_poison`: a wide poison truncates to poison, which any value refines. -/
+theorem widen_poison_0_valid (W : Nat) :
+    Puddle.CTree.Pattern.Valid (widenTypeGroup .g_poison (.type 0) .g_anyext W) := by
+  proveLegalValid with
+    first
+      | exact poison_isRefinedBy _
+      | simp_all
+
 /-- `widenTypeGroup .g_load`: a wider `g_load` reads the same `properties.size` bytes, and leaves
 the high bits of its result unspecified as the narrow one does, so the source chooses the low
 `w - size` of the high bits the target chose. The proof follows the interpreter's alignment check
@@ -570,6 +578,11 @@ theorem widen_cttz_1_status (W : Nat) :
 theorem widen_ctpop_1_status (W : Nat) :
     Status Unproven (widenTypeGroup .g_ctpop (.type 1) .g_zext W) :=
   .proven (widen_ctpop_1_valid W)
+
+@[legalization_status]
+theorem widen_poison_0_status (W : Nat) :
+    Status Unproven (widenTypeGroup .g_poison (.type 0) .g_anyext W) :=
+  .proven (widen_poison_0_valid W)
 
 @[legalization_status]
 theorem widen_bswap_0_status (W : Nat) :

@@ -66,6 +66,20 @@ theorem ofInt_ofInt_value (v : Int) (w : Nat) (s : IntegerType.Signedness) :
 
 end
 
+open Lean Elab Tactic in
+/-- Clear the hypotheses that each matched operation is verified (`IsFromVerifiedOp`), which the
+proofs do not use: they would otherwise shift the positions of the hypotheses the proofs name,
+and send `simp_all` into the existentials they hold. -/
+elab "clearVerified" : tactic => do
+  let goals ← getGoals
+  setGoals (← goals.mapM fun goal => goal.withContext do
+    let mut goal := goal
+    for decl in ← getLCtx do
+      if decl.isImplementationDetail then continue
+      if (← instantiateMVars decl.type).isAppOf ``Veir.IsFromVerifiedOp then
+        goal ← goal.tryClear decl.fvarId
+    return goal)
+
 /-- Unfold the semantics of a gMIR pattern goal: the operation interpreters, the result-type
 matches of `Attribute.of`, and the high bits chosen by each created `g_anyext`, which become a
 universally quantified bit-vector. -/
@@ -79,6 +93,7 @@ checks of the interpreters, and substitute the widths they equate. A `g_anyext` 
 only resolves here exposes its chosen high bits at that point. -/
 macro "normalizeLegalValid" : tactic => `(tactic| (
   intros
+  clearVerified
   casesConformingValues
   all_goals casesIntegerTypes
   /- Reduce the widths of the split integer types, so that matched widths can be substituted. -/
@@ -88,6 +103,7 @@ macro "normalizeLegalValid" : tactic => `(tactic| (
     /- Introduce the high bits chosen by the extensions resolved so far, and those chosen by the
     extensions among the matched operations. -/
     all_goals intros
+    all_goals clearVerified
     all_goals (try casesExistsAnd)
     all_goals (try simp_all [RuntimeValue.isRefinedBy, le_eq_false_of_lt, lt_eq_false_of_le, Attribute.of,
       IntegerType.signless, Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, ofInt_ofInt_value,
