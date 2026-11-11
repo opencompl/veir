@@ -645,6 +645,86 @@ example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x.cpop + (~~~x).cpop = (BitVec.allOnes w).cpop := by
   pbv_decide 4
 
+/-- Reversing twice is the identity -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.reverse.reverse = x := by
+  pbv_decide 8
+
+/-- Reverse distributes over conjunction -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 8) :
+    (x &&& y).reverse = x.reverse &&& y.reverse := by
+  pbv_decide 8
+
+/-- Reverse commutes with complement -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (~~~x).reverse = ~~~x.reverse := by
+  pbv_decide 8
+
+/-- Reverse preserves the popcount -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.reverse.cpop = x.cpop := by
+  pbv_decide 8
+
+/-- Reverse of an append swaps and reverses the operands -/
+example {w v : Nat} (x : BitVec w) (y : BitVec v) (hw : w ≤ 4) (hv : v ≤ 4) :
+    (x ++ y).reverse = (y.reverse ++ x.reverse).cast (Nat.add_comm v w) := by
+  pbv_decide 8
+
+/-- Reversing a zero extension moves the bits to the top -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x.zeroExtend 8).reverse = x.reverse.zeroExtend 8 <<< (8#8 - BitVec.ofNat 8 w) := by
+  pbv_decide 8
+
+/-- Trailing zeros are the leading zeros of the reverse -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.ctz = x.reverse.clz := by
+  pbv_decide 8
+
+/-- Leading zeros are the trailing zeros of the reverse -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.clz = x.reverse.ctz := by
+  pbv_decide 8
+
+/-- Leading zeros are at most the width -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.clz ≤ BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Trailing zeros of a nonzero value are below the width -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hx : x ≠ 0#w) :
+    x.ctz < BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Leading zeros of zero are the width -/
+example {w : Nat} (hw : w ≤ 8) :
+    (0#w).clz = BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- Trailing zeros of zero are the width -/
+example {w : Nat} (hw : w ≤ 8) :
+    (0#w).ctz = BitVec.ofNat w w := by
+  pbv_decide 8
+
+/-- The lowest bit is set iff there are no trailing zeros -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hw0 : 0 < w) :
+    (x.ctz == 0#w) = ((x &&& 1#w) != 0#w) := by
+  pbv_decide 8
+
+/-- Isolating the lowest set bit keeps the trailing zeros -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x &&& -x).ctz = x.ctz := by
+  pbv_decide 8
+
+/-- Zero extension keeps the trailing zeros of a nonzero value -/
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) (hx : x ≠ 0#w) :
+    (x.zeroExtend 8).ctz = x.ctz.zeroExtend 8 := by
+  pbv_decide 8
+
+/-- Zero extension from `w` to `v` bits adds `v - w` leading zeros -/
+example {w v : Nat} (x : BitVec w) (hv : v ≤ 8) (hwv : w ≤ v) :
+    (x.zeroExtend v).clz + BitVec.ofNat v w = x.clz.zeroExtend v + BitVec.ofNat v v := by
+  pbv_decide 8
+
 /-- Xor with all ones is complement -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x ^^^ BitVec.allOnes w = ~~~x := by
