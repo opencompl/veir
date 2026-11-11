@@ -2,11 +2,7 @@
 // RUN: veir-interpret --ctree %s | filecheck %s
 
 // Registers cannot carry poison, so a load chooses the bits of the loaded bytes
-// that are poison, such as those of a byte that nothing was stored to. Both
-// interpreters read these bits as 0 by default. We store the byte 0xff into the
-// low byte of a two-byte stack slot and load the halfword with `riscv.lh`: its
-// high byte is poison and read as 0, so the result is 0xff and not
-// sign-extended. `riscv.lbu` of the high byte alone reads 0 as well.
+// that are poison.
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (!riscv.reg, !riscv.reg)}> ({
