@@ -17,22 +17,30 @@ attribute [local ctree_semantics]
 
 attribute [local implicit_reducible] TypeAttr
 
-/-- A RISC-V load that succeeds returns the bytes it read, extended to a register, and leaves
+/-- `x` is a value a RISC-V load of `n` bytes at `p` can produce: the bits stored at `p`, with each
+poison bit frozen to some concrete value. It is kept folded, so that the validity proofs treat the
+loaded value as an arbitrary bitvector. -/
+def LoadsBits (mem : MemoryState) (p : Data.Pointer) (n : Nat) (x : BitVec (8 * n)) : Prop :=
+  ∃ b, mem.loadByte p (8 * n) = .ok b ∧ ∃ bits, x = b.val ||| (b.poison &&& bits)
+
+/-- A RISC-V load CTree that succeeds returns the bits it read, extended to a register, and leaves
 memory unchanged. -/
-@[local simp] theorem riscvLoad_reg_eq_ok {mem mem' : MemoryState} {eaddr : BitVec 64} {n : Nat}
-    {ext : LoadExtension} {v : RuntimeValue} :
-    (do
-        let x ← riscvLoad mem eaddr n ext
-        Interp.ok (#[RuntimeValue.reg ⟨x.fst⟩], x.snd, (none : Option ControlFlowAction))) =
-      Interp.ok (#[v], mem', none) ↔
-    ∃ bytes, mem.load (mem.decode (UInt64.ofBitVec eaddr)) n.toUInt64 = .ok bytes ∧
-      v = .reg ⟨match ext with
-        | .signExt => (bytes.toBitVecLE (8 * n)).signExtend 64
-        | .zeroExt => (bytes.toBitVecLE (8 * n)).setWidth 64⟩ ∧
-      mem' = mem := by
-  simp only [riscvLoad]
-  cases h : mem.load (mem.decode (UInt64.ofBitVec eaddr)) n.toUInt64 <;>
-    cases ext <;> simp [h, Bind.bind] <;> grind
+@[local simp] theorem riscvLoadCTree_canInterpretTo_ok {EIn : Type} {E : EIn → Type}
+    [ErrorE -< E] [UBE -< E] {imm12 : BitVec 12} {addr : Data.RISCV.Reg}
+    {mem mem' : MemoryState} {n : Nat} {ext : LoadExtension} {v : RuntimeValue} :
+    PureOrErr.CanInterpretTo (E := E) (riscvLoadCTree imm12 #[.reg addr] mem n ext)
+        (.ok (#[v], mem', none)) ↔
+      ∃ x, LoadsBits mem (mem.decode (UInt64.ofBitVec (riscvEffectiveAddr addr.val imm12))) n x ∧
+        v = .reg ⟨match ext with
+          | .signExt => x.signExtend 64
+          | .zeroExt => x.setWidth 64⟩ ∧
+        mem' = mem := by
+  simp [riscvLoadCTree, Bind.bind, PureOrErr.CanInterpretTo.bind_iff, LoadsBits]
+  constructor
+  · rintro ⟨b, hb, ⟨bits, rfl⟩, rfl⟩
+    exact ⟨_, ⟨b, hb, bits, rfl⟩, by cases ext <;> simp, rfl⟩
+  · rintro ⟨_, ⟨b, hb, bits, rfl⟩, rfl, rfl⟩
+    exact ⟨b, hb, ⟨bits, by cases ext <;> simp⟩, rfl⟩
 
 theorem zextb_lbu_valid : Puddle.CTree.Pattern.Valid (zextb_lbu_pattern) := by
   proveCombineValid using Data.RISCV.zextb_lbu
