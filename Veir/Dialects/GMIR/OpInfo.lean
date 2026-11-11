@@ -877,6 +877,7 @@ def GMIR.propagatesPoison : GMIR → Bool
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
 `llvm.store`. Other operations have no effects.
 -/
+@[get_effects]
 def GMIR.getEffects (op : GMIR) (props : GMIR.propertiesOf op) : MemoryEffects :=
   match op, props with
   | .g_load, props => if props.volatile_ then .readWrite else .read
@@ -904,6 +905,7 @@ def GMIR.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
 def GMIR.hasSSADominance (_op : GMIR) (_index : Nat) : Bool :=
   true
 
+@[is_terminator]
 def GMIR.isTerminator : GMIR → Bool
   | .g_br | .g_brcond => true
   | _ => false
