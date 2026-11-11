@@ -47,7 +47,7 @@ attribute [local ctree_semantics]
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 /-- The predicates the combines test on a matched constant, read at the width of its result. -/
 local macro "simpConstantPreds" : tactic => `(tactic|
@@ -332,7 +332,7 @@ private theorem log2_some {w : Nat} {c : BitVec w}
     have hP := two_pow_cast k
     have hci : c.toInt = 2 ^ k := by omega
     obtain ⟨hkw, hc⟩ := eq_twoPow_of_toInt hci
-    exact ⟨k, by rw [ite_cond_eq_true _ _ (eq_true ‹_›)]; exact hk, hkw, hc⟩
+    exact ⟨k, by rw [ite_eq_left_of_eq_true _ _ (eq_true ‹_›)]; exact hk, hkw, hc⟩
   · simp at h
 
 private theorem mul_pow2 {w : Nat} (x : Data.LLVM.Int w) (c : BitVec w)

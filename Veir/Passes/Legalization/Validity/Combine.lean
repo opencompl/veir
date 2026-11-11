@@ -35,7 +35,7 @@ attribute [local ctree_semantics]
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 private theorem bv_beq_comm {w : Nat} (a b : BitVec w) : (a == b) = (b == a) := by
   rw [Bool.eq_iff_iff]
