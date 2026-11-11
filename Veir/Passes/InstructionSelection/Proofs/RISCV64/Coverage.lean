@@ -108,7 +108,7 @@ def provedPatterns : Array {pattern : Puddle.Pattern OpCode // Puddle.CTree.Patt
   ⟨(gmirSlti_pattern .sle), gmirSlti_sle_pattern_valid⟩,
   ⟨(gmirSlti_pattern .ule), gmirSlti_ule_pattern_valid⟩,
   ⟨constant_pattern, constant_pattern_valid⟩,
-  ⟨poisonConst_pattern, poisonConst_pattern_valid⟩,
+  ⟨gmirPoison_pattern, gmirPoison_pattern_valid⟩,
   ⟨zeroConst_pattern, zeroConst_pattern_valid⟩,
   ⟨freeze_pattern, freeze_pattern_valid⟩,
   ⟨gmirConstant_pattern, gmirConstant_pattern_valid⟩,

@@ -2,6 +2,7 @@ module
 
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Common
 import all Veir.Interpreter.Memory
+import all Veir.Interpreter.Refinement.Memory
 import all Veir.Dialects.RISCV.OpInfo
 import all Veir.Data.Pointer.Basic
 import all Veir.Data.LLVM.Ptr.Basic
@@ -254,5 +255,175 @@ theorem llvmLoad_pointer_riscvLoad (memory : MemoryState) (p : Data.Pointer)
     change (UInt64.ofBitVec (bytes.toBitVecLE 64)) =
       UInt64.ofBitVec (bytes.toBitVecLE 64) &&& (-1 : UInt64)
     simp only [UInt64.and_neg_one]
+
+/-- A successful concrete load also exposes its poison mask to the CTree load. -/
+private theorem loadByte_of_load_hasPoison (memory : MemoryState) (p : Data.Pointer)
+    (n : Nat) (data : ByteArray) (poison : Bool)
+    (hl : memory.load p n.toUInt64 = .ok data)
+    (hp : memory.hasPoison p n.toUInt64 = .ok poison) :
+    ∃ b : Data.LLVM.Byte (8 * n), memory.loadByte p (8 * n) = .ok b ∧
+      (poison = false → b.poison = 0) ∧
+      b.val = data.toBitVecLE (8 * n) &&& ~~~b.poison := by
+  have hacc : memory.checkAccess p n.toUInt64 = .ok () := by
+    unfold MemoryState.load at hl
+    cases h : memory.checkAccess p n.toUInt64 <;> simp_all
+  let mask := (ByteArray.mk (Array.ofFn fun i : Fin n.toUInt64.toNat =>
+    (memory.byte (p.address + i.val.toUInt64)).poison)).toBitVecLE (8 * n)
+  refine ⟨⟨data.toBitVecLE (8 * n) &&& ~~~mask, mask, by ext; simp⟩, ?_, ?_, rfl⟩
+  · simp only [MemoryState.loadByte, Nat.mul_mod_right, ne_eq, not_true_eq_false,
+      ↓reduceIte]
+    rw [show 8 * n / 8 = n by omega]
+    simp only [MemoryState.loadPoison, hacc, hl, Interp.bind_ok, Interp.pure_eq]
+    rfl
+  · intro hfalse
+    subst poison
+    rw [MemoryState.hasPoison_eq] at hp
+    simp only [hacc, Interp.bind_ok, Interp.pure_eq, Interp.ok.injEq,
+      List.any_eq_false, List.mem_range, bne_iff_ne, ne_eq, Decidable.not_not] at hp
+    change mask = 0
+    apply BitVec.eq_of_getLsbD_eq
+    intro j
+    simp [mask, getLsbD_toBitVecLE_ofFn]
+    intro hj hn
+    have hz := hp (j / 8) (by simpa using hn)
+    change (memory.byte (p.address + UInt64.ofNat (j / 8))).poison = 0 at hz
+    rw [hz]
+    change (0#8).getLsbD (j % 8) = false
+    simp
+
+/-- The register bits obtained by resolving poison and extending the loaded bytes. -/
+def resolvedLoadBits {w : Nat} (b : Data.LLVM.Byte w) (choice : BitVec w)
+    (ext : LoadExtension) : BitVec 64 :=
+  match ext with
+  | .signExt => (b.val ||| b.poison &&& choice).signExtend 64
+  | .zeroExt => (b.val ||| b.poison &&& choice).setWidth 64
+
+/-- Every choice of poisoned bits refines the corresponding LLVM integer load. -/
+theorem llvmLoad8_riscvLoadCTree (memory : MemoryState) (p : Data.Pointer)
+    (sign : IntegerType.Signedness) (value : RuntimeValue)
+    (h : memory.llvmLoad p (TypeAttr.of IntegerType ⟨8, sign⟩) = .ok value)
+    (ext : LoadExtension) :
+    ∃ b : Data.LLVM.Byte 8, memory.loadByte p 8 = .ok b ∧
+      ∀ choice, value ⊒ RuntimeValue.int 8 (.val ((resolvedLoadBits b choice ext).setWidth 8)) := by
+  simp only [MemoryState.llvmLoad, TypeAttr.of_val, ←Attribute.integerType_eq_of] at h
+  split at h
+  · contradiction
+  cases hl : memory.load p 1 <;> simp only [hl, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i data
+  have hsize := MemoryState.load_size hl
+  cases hp : memory.hasPoison p 1 <;> simp only [hp, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i poison
+  obtain ⟨b, hb, hclear, hdata⟩ := loadByte_of_load_hasPoison memory p 1 data poison hl hp
+  refine ⟨b, hb, ?_⟩
+  intro choice
+  cases poison <;> simp only [Bool.false_eq_true, ↓reduceIte, Interp.pure_eq, Interp.ok.injEq] at h <;>
+    subst value
+  · have hz := hclear rfl
+    cases ext <;> simp [resolvedLoadBits, hz, hdata, RuntimeValue.isRefinedBy, isRefinedBy, byteArray_toBitVecLE8 data hsize]
+    all_goals veir_bv_decide
+  · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+
+/-- Every choice of poisoned bits refines the corresponding LLVM integer load. -/
+theorem llvmLoad16_riscvLoadCTree (memory : MemoryState) (p : Data.Pointer)
+    (sign : IntegerType.Signedness) (value : RuntimeValue)
+    (h : memory.llvmLoad p (TypeAttr.of IntegerType ⟨16, sign⟩) = .ok value)
+    (ext : LoadExtension) :
+    ∃ b : Data.LLVM.Byte 16, memory.loadByte p 16 = .ok b ∧
+      ∀ choice, value ⊒ RuntimeValue.int 16 (.val ((resolvedLoadBits b choice ext).setWidth 16)) := by
+  simp only [MemoryState.llvmLoad, TypeAttr.of_val, ←Attribute.integerType_eq_of] at h
+  split at h
+  · contradiction
+  cases hl : memory.load p 2 <;> simp only [hl, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i data
+  have hsize := MemoryState.load_size hl
+  cases hp : memory.hasPoison p 2 <;> simp only [hp, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i poison
+  obtain ⟨b, hb, hclear, hdata⟩ := loadByte_of_load_hasPoison memory p 2 data poison hl hp
+  refine ⟨b, hb, ?_⟩
+  intro choice
+  cases poison <;> simp only [Bool.false_eq_true, ↓reduceIte, Interp.pure_eq, Interp.ok.injEq] at h <;>
+    subst value
+  · have hz := hclear rfl
+    cases ext <;> simp [resolvedLoadBits, hz, hdata, RuntimeValue.isRefinedBy, isRefinedBy]
+    all_goals veir_bv_decide
+  · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+
+/-- Every choice of poisoned bits refines the corresponding LLVM integer load. -/
+theorem llvmLoad32_riscvLoadCTree (memory : MemoryState) (p : Data.Pointer)
+    (sign : IntegerType.Signedness) (value : RuntimeValue)
+    (h : memory.llvmLoad p (TypeAttr.of IntegerType ⟨32, sign⟩) = .ok value)
+    (ext : LoadExtension) :
+    ∃ b : Data.LLVM.Byte 32, memory.loadByte p 32 = .ok b ∧
+      ∀ choice, value ⊒ RuntimeValue.int 32 (.val ((resolvedLoadBits b choice ext).setWidth 32)) := by
+  simp only [MemoryState.llvmLoad, TypeAttr.of_val, ←Attribute.integerType_eq_of] at h
+  split at h
+  · contradiction
+  cases hl : memory.load p 4 <;> simp only [hl, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i data
+  have hsize := MemoryState.load_size hl
+  cases hp : memory.hasPoison p 4 <;> simp only [hp, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i poison
+  obtain ⟨b, hb, hclear, hdata⟩ := loadByte_of_load_hasPoison memory p 4 data poison hl hp
+  refine ⟨b, hb, ?_⟩
+  intro choice
+  cases poison <;> simp only [Bool.false_eq_true, ↓reduceIte, Interp.pure_eq, Interp.ok.injEq] at h <;>
+    subst value
+  · have hz := hclear rfl
+    cases ext <;> simp [resolvedLoadBits, hz, hdata, RuntimeValue.isRefinedBy, isRefinedBy]
+    all_goals veir_bv_decide
+  · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+
+/-- Every choice of poisoned bits refines the corresponding LLVM integer load. -/
+theorem llvmLoad64_riscvLoadCTree (memory : MemoryState) (p : Data.Pointer)
+    (sign : IntegerType.Signedness) (value : RuntimeValue)
+    (h : memory.llvmLoad p (TypeAttr.of IntegerType ⟨64, sign⟩) = .ok value)
+    (ext : LoadExtension) :
+    ∃ b : Data.LLVM.Byte 64, memory.loadByte p 64 = .ok b ∧
+      ∀ choice, value ⊒ RuntimeValue.int 64 (.val ((resolvedLoadBits b choice ext).setWidth 64)) := by
+  simp only [MemoryState.llvmLoad, TypeAttr.of_val, ←Attribute.integerType_eq_of] at h
+  split at h
+  · contradiction
+  cases hl : memory.load p 8 <;> simp only [hl, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i data
+  have hsize := MemoryState.load_size hl
+  cases hp : memory.hasPoison p 8 <;> simp only [hp, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail] at h
+  all_goals try contradiction
+  rename_i poison
+  obtain ⟨b, hb, hclear, hdata⟩ := loadByte_of_load_hasPoison memory p 8 data poison hl hp
+  refine ⟨b, hb, ?_⟩
+  intro choice
+  cases poison <;> simp only [Bool.false_eq_true, ↓reduceIte, Interp.pure_eq, Interp.ok.injEq] at h <;>
+    subst value
+  · have hz := hclear rfl
+    cases ext <;> simp [resolvedLoadBits, hz, hdata, RuntimeValue.isRefinedBy, isRefinedBy, byteArray_toBitVecLE64 data hsize]
+    all_goals veir_bv_decide
+  · simp [RuntimeValue.isRefinedBy, isRefinedBy]
+
+/-- Every choice of poisoned pointer bits refines the pointer load. -/
+theorem llvmLoad_pointer_riscvLoadCTree (memory : MemoryState) (p : Data.Pointer)
+    (pointer : LLVM.PointerType) (value : RuntimeValue)
+    (h : memory.llvmLoad p (TypeAttr.of LLVM.PointerType pointer) = .ok value) :
+    ∃ b : Data.LLVM.Byte 64, memory.loadByte p 64 = .ok b ∧
+      ∀ choice, value ⊒ RuntimeValue.addr
+        (memory.ptrFromInt (.val (resolvedLoadBits b choice .zeroExt))) := by
+  simp only [MemoryState.llvmLoad, TypeAttr.of_val, ←Attribute.llvmPointerType_eq_of] at h
+  split at h
+  · contradiction
+  cases hl : memory.loadByte p 64 <;> simp [hl] at h
+  rename_i b
+  subst value
+  refine ⟨b, rfl, ?_⟩
+  intro choice
+  by_cases hp : b.poison = 0#64
+  · simp [resolvedLoadBits, MemoryState.ptrOfByte, hp, RuntimeValue.isRefinedBy,
+      Data.LLVM.Ptr.isRefinedBy, Data.LLVM.Byte.toUInt64, MemoryState.decode]
+  · simp [MemoryState.ptrOfByte, hp, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy]
 
 end Veir

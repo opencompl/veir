@@ -162,6 +162,69 @@ theorem selectAddrRegImm_decomposition (gep : GetelementptrProperties)
       exact ⟨base, dynamic, rfl, hselect, hselect ▸ bounds⟩
     · simp [guard, bounds, pure, bind, Option.bind] at hselect
 
+private def gepRead (entry : RuntimeValue × Nat) : Option (Option Int × Nat) :=
+  match entry.1 with
+  | .int _ (.val bits) => some (some bits.toInt, entry.2)
+  | .int _ .poison => some (none, entry.2)
+  | _ => none
+
+private theorem selectedGEP_indices (gep : GetelementptrProperties)
+    (idxs : Array GMIRConstantProperties) (off : Int) (ptr : Data.LLVM.Ptr)
+    (hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ idxs.size)
+    (hselect : selectAddrRegImm gep idxs = some off) :
+    let operands := #[RuntimeValue.addr ptr] ++
+      idxs.map (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value)))
+    ∃ (base : Int) (dynamic : Array (Option Nat × Nat)) (values : Array (BitVec 64 × Nat)),
+      DataLayout.riscv64.gepOffsets gep.elem_type.val
+        (GEPIndex.decode gep.rawConstantIndices.values
+          ((Array.range (operands.size - 1)).map some)) = some (base, dynamic) ∧
+      dynamic.mapM (Llvm.gepIndex operands) = some (values.map (fun (b, n) => (some b.toInt, n))) ∧
+      values.foldl (fun n (entry : BitVec 64 × Nat) => n + entry.1.toInt * entry.2) base = off := by
+  let bits := constantBits idxs
+  let toValue := fun b : BitVec 64 => RuntimeValue.int 64 (.val b)
+  let operands := #[RuntimeValue.addr ptr] ++ bits.map toValue
+  let positions := (Array.range bits.size).map some
+  have hsize : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ bits.size := by
+    simpa [bits, constantBits] using hcount
+  have hextract : operands.extract 1 = bits.map toValue := by
+    simp [operands, Array.extract_append]
+  have hread : positions.map (Llvm.gepOperand operands) = bits.map toValue := by
+    apply Array.ext
+    · simp [positions]
+    · intro i hi hj
+      have hiBits : i < bits.size := by simpa using hj
+      simp [positions, Llvm.gepOperand, hextract, getElem!_pos, hiBits]
+  have hdecode : (GEPIndex.decode gep.rawConstantIndices.values positions).map
+      (mapIndex (Llvm.gepOperand operands)) =
+      (GEPIndex.decode gep.rawConstantIndices.values bits).map (mapIndex toValue) := by
+    rw [←decode_map _ _ _ (by simpa [positions] using hsize), hread,
+      decode_map _ _ _ hsize]
+  obtain ⟨base, values, hparts, hoff, _⟩ :=
+    selectAddrRegImm_decomposition gep idxs off hcount hselect
+  have heq := congrArg (DataLayout.riscv64.gepOffsets gep.elem_type.val) hdecode
+  rw [gepOffsets_map, gepOffsets_map, hparts] at heq
+  cases hp : DataLayout.riscv64.gepOffsets gep.elem_type.val
+      (GEPIndex.decode gep.rawConstantIndices.values positions) with
+  | none => simp [hp] at heq
+  | some parts =>
+    rcases parts with ⟨base', dynamic⟩
+    simp only [hp, Option.map_some, Option.some.injEq, Prod.mk.injEq] at heq
+    obtain ⟨rfl, hvalues⟩ := heq
+    have hindices : dynamic.mapM (Llvm.gepIndex operands) =
+        some (values.map (fun (b, n) => (some b.toInt, n))) := by
+      calc
+        _ = (dynamic.map (fun (a, n) => (Llvm.gepOperand operands a, n))).mapM gepRead := by
+          rw [Array.mapM_map]
+          rfl
+        _ = _ := by
+          rw [hvalues]
+          rw [Array.mapM_map]
+          change values.mapM (pure ∘ fun x => (some x.1.toInt, x.2)) = _
+          exact Array.mapM_pure
+    refine ⟨base', dynamic, values, ?_, ?_, hoff⟩
+    · simpa [operands, positions, bits, constantBits, toValue] using hp
+    · simpa [operands, bits, constantBits, toValue, Array.map_map, Function.comp_def] using hindices
+
 /-- The selected immediate computes the same address as the matched constant-index GEP. -/
 theorem interpretGEP_selected (gep : GetelementptrProperties) (idxs : Array GMIRConstantProperties)
     (off : Int) (types : Array TypeAttr) (memory : MemoryState) (p : Data.Pointer)
@@ -171,24 +234,23 @@ theorem interpretGEP_selected (gep : GetelementptrProperties) (idxs : Array GMIR
       (#[.addr (.val p)] ++ idxs.map (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))))
       #[] memory DataLayout.riscv64 =
       Interp.ok (#[.addr (.val ⟨UInt64.ofInt (p.address.toNat + off)⟩)], memory, none) := by
-  obtain ⟨base, dynamic, hparts, hoff, _⟩ := selectAddrRegImm_decomposition gep idxs off hcount hselect
-  have hextract (xs : Array RuntimeValue) : (#[RuntimeValue.addr (.val p)] ++ xs).extract 1 = xs := by
-    simp [Array.extract_append]
-  have hvalues : idxs.map (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) =
-      (constantBits idxs).map (fun bits => RuntimeValue.int 64 (.val bits)) := by
-    simp only [constantBits, Array.map_map, Function.comp_def]
-  unfold Llvm.interpretOp'
-  simp only [Array.toList_append, List.singleton_append, hextract, hvalues]
-  rw [decode_map _ _ _ (by simpa only [constantBits, Array.size_map] using hcount), gepOffsets_map, hparts]
-  simp only [Option.map_some, Interp.liftOption_some, Interp.bind_ok, Array.forIn_map]
-  simp only [Array.forIn_pure_yield_eq_foldl]
-  rw [Array.foldl_hom
-    (fun n : Int => ((none : Option (Array RuntimeValue × MemoryState × Option ControlFlowAction)), n))
-    (g₁ := fun n (b, stride) => n + b.toInt * stride) (by intros; rfl)]
-  rw [Array.foldl_hom (fun n : Int => (p.address.toNat : Int) + n)
-    (g₁ := fun n (b, stride) => n + b.toInt * stride)
-    (by intros; simp only [Int.add_assoc])]
-  simp only [hoff, Interp.pure_eq, Interp.bind_ok]
+  obtain ⟨base, dynamic, values, hparts, hindices, hoff⟩ :=
+    selectedGEP_indices gep idxs off (.val p) hcount hselect
+  simp only [Llvm.interpretOp', Array.toList_append, List.singleton_append, hparts,
+    Interp.liftOption_some, Interp.bind_ok, hindices, Array.mapM_map, Function.comp_def,
+    Option.map_some]
+  rw [show values.mapM (fun x => some (x.1.toInt * (x.2 : Int))) =
+    some (values.map (fun x => x.1.toInt * (x.2 : Int))) from Array.mapM_pure]
+  simp only [Interp.pure_eq]
+  congr 4
+  rw [←hoff, Array.foldl_map]
+  have hfold := Array.foldl_hom (fun n : Int => base + n)
+    (g₁ := fun n (entry : BitVec 64 × Nat) => n + entry.1.toInt * entry.2)
+    (g₂ := fun n (entry : BitVec 64 × Nat) => n + entry.1.toInt * entry.2)
+    (by intros; simp only [Int.add_assoc]) (xs := values) (init := 0)
+  simp only [Int.add_zero] at hfold
+  rw [hfold]
+  simp [Int.add_assoc]
 
 /-- A selected GEP preserves a poison base, so a following memory access has source UB. -/
 theorem interpretGEP_selected_poison (gep : GetelementptrProperties) (idxs : Array GMIRConstantProperties)
@@ -198,16 +260,10 @@ theorem interpretGEP_selected_poison (gep : GetelementptrProperties) (idxs : Arr
     Llvm.interpretOp' .getelementptr gep types
       (#[.addr .poison] ++ idxs.map (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))))
       #[] memory DataLayout.riscv64 = Interp.ok (#[.addr .poison], memory, none) := by
-  obtain ⟨base, dynamic, hparts, _, _⟩ := selectAddrRegImm_decomposition gep idxs off hcount hselect
-  have hextract (xs : Array RuntimeValue) : (#[RuntimeValue.addr .poison] ++ xs).extract 1 = xs := by
-    simp [Array.extract_append]
-  have hvalues : idxs.map (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) =
-      (constantBits idxs).map (fun bits => RuntimeValue.int 64 (.val bits)) := by
-    simp only [constantBits, Array.map_map, Function.comp_def]
-  unfold Llvm.interpretOp'
-  simp only [Array.toList_append, List.singleton_append, hextract, hvalues]
-  rw [decode_map _ _ _ (by simpa only [constantBits, Array.size_map] using hcount), gepOffsets_map, hparts]
-  simp only [Option.map_some, Interp.liftOption_some, Interp.bind_ok, Interp.pure_eq]
+  obtain ⟨base, dynamic, values, hparts, hindices, _⟩ :=
+    selectedGEP_indices gep idxs off .poison hcount hselect
+  simp only [Llvm.interpretOp', Array.toList_append, List.singleton_append, hparts,
+    Interp.liftOption_some, Interp.bind_ok, hindices, Interp.pure_eq]
 
 /-- A selected signed twelve-bit offset is unchanged by the memory instruction field. -/
 theorem selectedOffset_signExtend (gep : GetelementptrProperties) (idxs : Array GMIRConstantProperties)

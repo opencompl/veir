@@ -17,9 +17,7 @@ TODO: Support LLUBI's '-undef-behavior=mode'. We currently choose 'zero' as the 
 'undef'.
 -/
 partial def Tree.run {R : Type} (t : Tree R)
-    (freezeHandler : ∀ c, FreezeC c := fun
-      | .mk _ => 0
-      | .pointer => Data.Pointer.null) : Interp R :=
+    (freezeHandler : ∀ c, FreezeC c := fun _ => 0) : Interp R :=
   match t.unfold with
   | .ret r => .ok r
   | .tau (.inl .c1) k => run (k PUnit.unit) freezeHandler

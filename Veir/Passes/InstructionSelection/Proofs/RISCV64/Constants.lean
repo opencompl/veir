@@ -17,7 +17,7 @@ open _root_.CTree
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
-  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
+  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree Riscv.interpretOpCTree
 
 @[simp, ctree_semantics]
 private theorem forall_gmirConstantProperties (P : propertiesOf (OpCode.gmir GMIR.g_constant) → Prop) :
@@ -43,9 +43,9 @@ theorem constant_pattern_valid :
   ext i hi
   simp [BitVec.getElem_signExtend, hi, Nat.lt_of_lt_of_le hi xBw]
 
-theorem poisonConst_pattern_valid :
-    Puddle.CTree.Pattern.Valid poisonConst_pattern := by
-  unfold poisonConst_pattern
+theorem gmirPoison_pattern_valid :
+    Puddle.CTree.Pattern.Valid gmirPoison_pattern := by
+  unfold gmirPoison_pattern
   simpPuddleValid
   simp [ctree_semantics]
   intro ⟨attr, hattr⟩

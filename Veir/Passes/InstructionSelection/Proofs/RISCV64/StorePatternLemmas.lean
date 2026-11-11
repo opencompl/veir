@@ -13,7 +13,7 @@ open _root_.CTree
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
-  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
+  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree Riscv.interpretOpCTree
 attribute [local implicit_reducible] TypeAttr
 
 theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :

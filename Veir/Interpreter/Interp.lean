@@ -91,7 +91,7 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.
       exact this ▸ Lean.Order.PartialOrder.rel_refl
     rcases Interp.rel_iff.mp hbelow with heq | heq <;> exact heq ▸ hub
 
-@[simp, grind =] theorem Interp.pure_eq (a : α) : (pure a : Interp α) = .ok a := rfl
+@[simp, grind norm] theorem Interp.pure_eq (a : α) : (pure a : Interp α) = .ok a := rfl
 @[simp, grind =] theorem Interp.bind_ok (a : α) (f : α → Interp β) :
     (Interp.ok a >>= f) = f a := rfl
 @[simp, grind =] theorem Interp.bind_ub (f : α → Interp β) :
@@ -166,6 +166,27 @@ def Interp.withBlame (op : OperationPtr) : Interp α → Interp α
 @[simp, grind =] theorem Interp.isUB_withBlame (x : Interp α) :
     (x.withBlame op).isUB = x.isUB := by
   unfold Interp.withBlame; split <;> rfl
+
+/-- A loop runs as another does wherever every step of it runs as the other's step does. -/
+theorem Interp.forIn_list_eq_ok {α β : Type} (l : List α) {f g : α → β → Interp (ForInStep β)}
+    (hfg : ∀ a b s, f a b = .ok s → g a b = .ok s) {init r : β}
+    (h : forIn l init f = .ok r) : forIn l init g = .ok r := by
+  induction l generalizing init with
+  | nil => simpa using h
+  | cons a l ih =>
+    simp only [List.forIn_cons] at h ⊢
+    rcases hf : f a init with _ | _ | (b | b) <;> rw [hf] at h
+    · simp at h
+    · simp at h
+    · rw [hfg a init _ hf]; simpa using h
+    · rw [hfg a init _ hf]; exact ih h
+
+/-- A loop over a range runs as another does wherever every step of it runs as the other's does. -/
+theorem Interp.forIn_range_eq_ok {β : Type} (r : Std.Legacy.Range)
+    {f g : Nat → β → Interp (ForInStep β)} (hfg : ∀ a b s, f a b = .ok s → g a b = .ok s)
+    {init s : β} (h : forIn r init f = .ok s) : forIn r init g = .ok s := by
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range'] at h ⊢
+  exact Interp.forIn_list_eq_ok _ hfg h
 
 /-! ## Refinement -/
 

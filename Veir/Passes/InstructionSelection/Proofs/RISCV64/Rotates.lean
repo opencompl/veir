@@ -13,7 +13,7 @@ open _root_.CTree
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
-  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
+  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree Riscv.interpretOpCTree
 
 attribute [local implicit_reducible] TypeAttr
 
@@ -137,7 +137,7 @@ theorem fshrConst64_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨64, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
   have hamt' : amtTy = ⟨64, sign⟩ := IsTypeAttr.of_injective hamt
@@ -161,7 +161,7 @@ theorem fshrConst32_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
   have hamt' : amtTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -185,7 +185,7 @@ theorem fshrConst32Trunc_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b hb truncTy tp _hTrunc c hc p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb truncTy tp _hTrunc c _truncMemory hc p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType truncTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
   have htrunc : truncTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -220,7 +220,7 @@ theorem fshlConst64_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨64, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
   have hamt' : amtTy = ⟨64, sign⟩ := IsTypeAttr.of_injective hamt
@@ -244,7 +244,7 @@ theorem fshlConst32_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
   have hamt' : amtTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -268,7 +268,7 @@ theorem fshlConst32Trunc_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b hb truncTy tp _hTrunc c hc p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb truncTy tp _hTrunc c _truncMemory hc p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType truncTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
   have htrunc : truncTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt

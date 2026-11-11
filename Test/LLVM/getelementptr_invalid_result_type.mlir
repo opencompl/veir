@@ -9,4 +9,4 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: llvm.getelementptr: Expected result to have !llvm.ptr type
+// CHECK: llvm.getelementptr: Expected the result to have !llvm.ptr type

@@ -14,7 +14,7 @@ open _root_.CTree
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp' GMIR_RISCV.interpretOp'
-  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
+  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree Riscv.interpretOpCTree
 
 attribute [local implicit_reducible] TypeAttr
 
@@ -54,7 +54,7 @@ theorem gmirSlli_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value _evalMemory heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -73,7 +73,7 @@ theorem gmirSrli_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value _evalMemory heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -92,7 +92,7 @@ theorem gmirSrai_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value _evalMemory heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -111,7 +111,7 @@ theorem gmirRiscvSlliw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
+  intro s a ⟨c⟩ _hconstant value _evalMemory heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -130,7 +130,7 @@ theorem gmirRiscvSrliw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
+  intro s a ⟨c⟩ _hconstant value _evalMemory heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -149,7 +149,7 @@ theorem gmirRiscvSraiw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
+  intro s a ⟨c⟩ _hconstant value _evalMemory heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
   subst value
@@ -168,7 +168,7 @@ theorem gmirSlliuw_pattern_valid :
   simp only [matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s t a p _hzext value heval ⟨c⟩ hrange _hconstant other hc q _hverified hlegal mem
+  intro s t a p _hzext value _evalMemory heval ⟨c⟩ hrange _hconstant other _constantMemory hc q _hverified hlegal mem
   simp only [←Attribute.integerType_eq_of] at heval hc
   simp at heval hc
   subst value

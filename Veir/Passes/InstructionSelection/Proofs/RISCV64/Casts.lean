@@ -20,7 +20,7 @@ open _root_.CTree
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Llvm.interpretOp' GMIR.interpretOp'
-  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree
+  Builtin.interpretOpCTree Llvm.interpretOpCTree GMIR.interpretOpCTree Riscv.interpretOpCTree
 
 attribute [local implicit_reducible] TypeAttr
 
@@ -148,7 +148,8 @@ private theorem llvm_bitcast_singleton (props : propertiesOf (OpCode.llvm .bitca
       | _, _ => none
     return (#[result], mem, none)) := by
   rcases type with ⟨type, ht⟩
-  rfl
+  cases val <;> cases type <;> simp [Llvm.interpretOp', Llvm.bitcastValue]
+  all_goals split <;> rfl
 
 section
 attribute [-ctree_semantics] Llvm.interpretOp'
@@ -200,7 +201,7 @@ theorem gmirAnyextOfReg_pattern_valid :
   unfold gmirAnyextOfReg_pattern
   simpPuddleValid
   simp [ctree_semantics]
-  intro regType reg src castprops _hcastVerified value hcast dst p _hanyVerified hlegal mem
+  intro regType reg src castprops _hcastVerified value _castMemory hcast dst p _hanyVerified hlegal mem
   cases value <;> simp [ctree_semantics]
   rcases src with ⟨sa, hs⟩
   cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast

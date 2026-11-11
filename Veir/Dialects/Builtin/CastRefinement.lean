@@ -20,28 +20,34 @@ theorem byteToIntCTree_allPoison {EIn : Type} {E : EIn → Type} (width : Nat) :
     byteToIntCTree (E := E) (LLVM.Byte.allPoison : LLVM.Byte width) = pure (.poison) := by
   simp [byteToIntCTree, LLVM.Byte.allPoison]
 
-/-- A byte with no poison is converted without introducing a choice. -/
+/-- A byte with no poison has the same concrete result for every choice. -/
 theorem byteToIntCTree_concrete {EIn : Type} {E : EIn → Type}
-    (value : LLVM.Byte width) (hzero : value.poison = 0) (hwidth : 0 < width) :
-    byteToIntCTree (E := E) value = pure (.val value.val) := by
-  simp [byteToIntCTree, hzero, Nat.ne_of_gt hwidth]
+    [ErrorE -< E] [_root_.CTree.UBE -< E]
+    (value : LLVM.Byte width) (hzero : value.poison = 0) (hwidth : 0 < width)
+    (result : Interp (LLVM.Int width)) :
+    PureOrErr.CanInterpretTo (byteToIntCTree (E := E) value) result ↔
+      result = .ok (.val value.val) := by
+  simp [byteToIntCTree, hzero, Nat.ne_of_gt hwidth, -bind_pure_comp, Bind.bind,
+    PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.choose_iff]
 
 /-- Integer-to-byte-to-integer casts preserve both concrete integers and poison. -/
 @[simp]
 theorem byteToIntCTree_fromInt {EIn : Type} {E : EIn → Type}
-    (value : LLVM.Int width) (hwidth : 0 < width) :
-    byteToIntCTree (E := E) (LLVM.Byte.fromInt value) = pure value := by
+    [ErrorE -< E] [_root_.CTree.UBE -< E]
+    (value : LLVM.Int width) (hwidth : 0 < width) (result : Interp (LLVM.Int width)) :
+    PureOrErr.CanInterpretTo (byteToIntCTree (E := E) (LLVM.Byte.fromInt value)) result ↔
+      result = .ok value := by
   cases value with
   | poison => simp [LLVM.Byte.fromInt, byteToIntCTree]
-  | val value => exact byteToIntCTree_concrete _ rfl hwidth
+  | val value => exact byteToIntCTree_concrete _ rfl hwidth result
 
-/-- Every filling of the partially poisoned bits is an admitted result. -/
-theorem byteToIntCTree_canInterpret_partial (value : LLVM.Byte width)
-    (hfull : value.poison ≠ BitVec.allOnes width) (hzero : value.poison ≠ 0)
+/-- Every filling of the poison bits is admitted unless the byte is fully poisoned. -/
+theorem byteToIntCTree_canInterpret_resolve (value : LLVM.Byte width)
+    (hfull : value.poison ≠ BitVec.allOnes width)
     (bits : BitVec width) :
     PureOrErr.CanInterpretTo (byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) value)
       (.ok (.val (value.val ||| (value.poison &&& bits)))) := by
-  simp only [byteToIntCTree, hfull, hzero, ↓reduceIte]
+  simp only [byteToIntCTree, hfull, ↓reduceIte]
   apply (PureOrErr.CanInterpretTo.bind_iff _ _ _).mpr
   left
   exact ⟨bits, (PureOrErr.CanInterpretTo.choose_iff _ _).mpr ⟨bits, rfl⟩, .ret _⟩
@@ -51,8 +57,8 @@ theorem byteToIntCTree_partialPoison_admits_one :
     PureOrErr.CanInterpretTo
       (byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) (⟨0, 1, by decide⟩ : LLVM.Byte 2))
       (.ok (.val 1)) := by
-  simpa using byteToIntCTree_canInterpret_partial (⟨0, 1, by decide⟩ : LLVM.Byte 2)
-    (by decide) (by decide) 1
+  simpa using byteToIntCTree_canInterpret_resolve (⟨0, 1, by decide⟩ : LLVM.Byte 2)
+    (by decide) 1
 
 /-- The opcode delegates its byte-to-integer branch to the nondeterministic cast. -/
 theorem interpretOpCTree_byteToInt (value : LLVM.Byte width) (memory : MemoryState) :
@@ -125,36 +131,16 @@ theorem byteToIntCTree_outcome_monotone (source target : LLVM.Byte width) (href 
       intro hfull
       simp only [hfull, BitVec.and_allOnes] at hm
       exact hsfull hm
-    by_cases htzero : target.poison = 0
-    · have hval : result = .val target.val := by
-        rw [byteToIntCTree, ite_eq_right htfull, ite_eq_left htzero] at hresult
-        simpa using hresult
-      subst result
-      by_cases hszero : source.poison = 0
-      · have heq := byte_concretize_of_refinement source target href 0
-        simp [hszero, htzero] at heq
-        refine ⟨.val source.val, ?_, ?_⟩
-        · rw [byteToIntCTree, ite_eq_right hsfull, ite_eq_left hszero]
-          exact .ret _
-        · simp [heq]
-      · refine ⟨.val target.val, ?_, ?_⟩
-        · have hw := byteToIntCTree_canInterpret_partial source hsfull hszero target.val
-          have heq := byte_concretize_of_refinement source target href 0
-          simp [htzero] at heq
-          rw [heq] at hw
-          exact hw
-        · simp
-    · have hout : ∃ bits : BitVec width, result = .val (target.val ||| (target.poison &&& bits)) := by
-        simp only [byteToIntCTree, htfull, htzero, ↓reduceIte] at hresult
-        have hr := (PureOrErr.CanInterpretTo.bind_iff _ _ _).mp hresult
-        simpa [PureOrErr.CanInterpretTo.choose_iff] using hr
-      obtain ⟨bits, rfl⟩ := hout
-      have hszero : source.poison ≠ 0 := by intro hz; simp [hz] at hm; exact htzero hm.symm
-      refine ⟨.val (target.val ||| (target.poison &&& bits)), ?_, ?_⟩
-      · have hw := byteToIntCTree_canInterpret_partial source hsfull hszero
-          (target.val ||| (target.poison &&& bits))
-        simpa only [byte_concretize_of_refinement source target href bits] using hw
-      · simp
+    have hout : ∃ bits : BitVec width, result = .val (target.val ||| (target.poison &&& bits)) := by
+      simp only [byteToIntCTree, htfull, ↓reduceIte] at hresult
+      have hr := (PureOrErr.CanInterpretTo.bind_iff _ _ _).mp hresult
+      simpa [PureOrErr.CanInterpretTo.choose_iff] using hr
+    obtain ⟨bits, rfl⟩ := hout
+    refine ⟨.val (target.val ||| (target.poison &&& bits)), ?_, ?_⟩
+    · have hw := byteToIntCTree_canInterpret_resolve source hsfull
+        (target.val ||| (target.poison &&& bits))
+      simpa only [byte_concretize_of_refinement source target href bits] using hw
+    · simp
 
 private theorem sim_pure_of_outcome {α β : Type} (relation : α → β → Prop)
     {source : Tree β} {sourceValue : β} (targetValue : α)
@@ -188,23 +174,16 @@ theorem byteToIntCTree_monotone (source target : LLVM.Byte width) (href : source
     apply hsim
     rw [heq]
     exact .ret _
-  · by_cases hzero : target.poison = 0
-    · have heq : byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) target = pure (.val target.val) := by
-        rw [byteToIntCTree, ite_eq_right hfull, ite_eq_left hzero]
-      rw [heq]
-      apply hsim
-      rw [heq]
-      exact .ret _
-    · have heq : byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) target =
-          (do let bits : BitVec width ← _root_.CTree.CTree.choose (SubC := FreezeC) (FreezeCIn.mk width)
-              pure (.val (target.val ||| (target.poison &&& bits)))) := by
-        simp only [byteToIntCTree, hfull, hzero, ↓reduceIte]
-      rw [heq]
-      simp only [_root_.CTree.CTree.choose_def, _root_.CTree.CTree.tau_def, Bind.bind,
-        _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret,
-        _root_.CTree.Sim.tau_l]
-      intro bits
-      exact hsim _ (byteToIntCTree_canInterpret_partial target hfull hzero bits)
+  · have heq : byteToIntCTree (E := ErrorE ⊕ₑ _root_.CTree.UBE) target =
+        (do let bits : BitVec width ← _root_.CTree.CTree.choose (SubC := FreezeC) (FreezeCIn.mk width)
+            pure (.val (target.val ||| (target.poison &&& bits)))) := by
+      simp only [byteToIntCTree, hfull, ↓reduceIte]
+    rw [heq]
+    simp only [_root_.CTree.CTree.choose_def, _root_.CTree.CTree.tau_def, Bind.bind,
+      _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret,
+      _root_.CTree.Sim.tau_l]
+    intro bits
+    exact hsim _ (byteToIntCTree_canInterpret_resolve target hfull bits)
 
 end
 

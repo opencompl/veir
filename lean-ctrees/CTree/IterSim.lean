@@ -32,36 +32,6 @@ theorem bind_approx_congr {A B : Type u} (n : Nat) (tree : CTree E C A)
       funext x
       exact ih (next x) (fun a m hm => same a m (by omega))
 
-/-- Guarding recursive calls by a silent step makes the loop equation unique,
-independently of the order-theoretic construction used to define `iter`. -/
-theorem iter_unique {I X : Type u} (body : I → CTree E C (I ⊕ X))
-    (solution : I → CTree E C X)
-    (equation : ∀ i, solution i = (body i >>= fun result => match result with
-      | .inl j => CTree.tau1 (solution j)
-      | .inr x => pure x)) :
-    ∀ i, solution i = iter.{u, u} body i := by
-  have approximations : ∀ n i, (solution i).approx n = (iter.{u, u} body i).approx n := by
-    intro n
-    induction n using Nat.strongRecOn with
-    | ind n ih =>
-      intro i
-      rw [equation i, iter.eq_def]
-      apply bind_approx_congr
-      intro result m hm
-      cases result with
-      | inl j =>
-        cases m with
-        | zero => rfl
-        | succ m =>
-          simp only [CTree.tau1_def, approx_tau_succ]
-          congr 1
-          funext _
-          exact ih m (by omega) j
-      | inr x => rfl
-  intro i
-  apply Coinductive.CoInd.ext
-  exact fun n => approximations n i
-
 theorem interp_mrec_ret_step {FIn A : Type u} {F : FIn → Type u}
     (handler : (event : EIn) → CTree (E ⊕ₑ F) C (E event)) (value : A) :
     interp_mrec handler (CTree.ret value) = pure value := by
@@ -172,7 +142,7 @@ theorem interp_mrec_iter_eq {FIn I X : Type u} {F : FIn → Type u}
   | inl k =>
     simp only [CTree.tau1_def, interp_mrec_tau_step, Pure.pure,
       Bind.bind, CTree.bind_tau, CTree.bind_ret]
-  | inr x => simp only [Pure.pure, interp_mrec_ret_step, Bind.bind, CTree.bind_ret]
+  | inr x => simp only [Pure.pure, interp_mrec_ret_step, Bind.bind, CTree.bind_ret, iterCont]
 
 /-- Extra guards introduced while interpreting a loop can be removed using the
 existing synchronized iteration simulation rule. -/
@@ -271,6 +241,10 @@ theorem iter_guardedSteps_eq {I X : Type u} (body : I → CTree E C (I ⊕ X))
   symm
   apply iter_unique
   intro j
+  change iter body j = (iterGuardedSteps body (batchSize j) j >>= fun result =>
+    match result with
+    | .inl k => CTree.tau1 (iter body k)
+    | .inr x => pure x)
   obtain ⟨n, hn⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.ne_of_gt (positive j))
   simpa only [hn, Nat.succ_eq_add_one] using iter_unroll_guardedSteps body n j
 

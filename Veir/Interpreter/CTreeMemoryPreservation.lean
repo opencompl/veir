@@ -88,19 +88,6 @@ theorem Llvm.interpretOp'_gep_memory
     | split at h
     | simp only [Bind.bind, Pure.pure, liftM, monadLift, MonadLift.monadLift] at h
   all_goals try grind
-  rename_i loopComputation loopState hloop optionResult outcome houtcome
-  have hinv : ∀ outcome, loopState.1 = some outcome → outcome.2.1 = before := by
-    apply array_forIn_preserves _ _ _ _ _ ?_ ?_ hloop
-    · simp
-    · intro x state _ result hresult
-      repeat first
-        | cases hresult; simp
-        | contradiction
-        | split at hresult
-      all_goals grind
-  have hm := hinv outcome houtcome
-  cases h
-  exact hm
 
 set_option maxHeartbeats 2000000 in
 /-- A successful effect-free deterministic LLVM operation leaves memory unchanged. -/

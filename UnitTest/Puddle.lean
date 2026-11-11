@@ -308,10 +308,9 @@ example :
 
 /-- Operation results carry their declared types forward rather than inferring runtime types. -/
 example :
-    ((SemanticAssignment.bindValues #[.int 32 .poison, .addr .poison] SemanticAssignment.empty
-      [⟨0⟩, ⟨1⟩] [TypeAttr.of IntegerType ⟨32, .unsigned⟩,
-        TypeAttr.of LLVM.PointerType ⟨42⟩]) >>= fun assignment =>
-          assignment.getValueTypes [⟨0⟩, ⟨1⟩]) =
+    (SemanticAssignment.bindValues #[.int 32 .poison, .addr .poison] SemanticAssignment.empty
+      [⟨0⟩, ⟨1⟩] (types := #[TypeAttr.of IntegerType ⟨32, .unsigned⟩,
+        TypeAttr.of LLVM.PointerType ⟨42⟩])).getValueTypes [⟨0⟩, ⟨1⟩] =
       some [TypeAttr.of IntegerType ⟨32, .unsigned⟩, TypeAttr.of LLVM.PointerType ⟨42⟩] := rfl
 
 /-- An unbound operand rejects the model; every bound value now carries its declared type. -/
@@ -354,18 +353,27 @@ example (opcode : OpCode) (value : RuntimeValue) (operandType resultType : TypeA
     SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bind]
   rfl
 
-/-- Binding helpers reject missing or surplus types instead of inventing type metadata. -/
-example (value : RuntimeValue) (type : TypeAttr) :
-    SemanticAssignment.bindValues #[value] SemanticAssignment.empty [⟨0⟩] [] = none ∧
-    SemanticAssignment.bindValues #[] SemanticAssignment.empty [] [type] = none := by
+/-- Untyped bindings retain their values but cannot supply declared operand types. -/
+example (value : RuntimeValue) :
+    (SemanticAssignment.bindValues #[value] SemanticAssignment.empty [⟨0⟩]).getValue ⟨0⟩ =
+      some value ∧
+    (SemanticAssignment.bindValues #[value] SemanticAssignment.empty [⟨0⟩]).getValueTypes [⟨0⟩] =
+      none := by
   constructor <;> rfl
 
+/-- Quantified bindings preserve explicit metadata and leave absent metadata unknown. -/
 example (type : TypeAttr) :
-    ¬ SemanticAssignment.ForallValues SemanticAssignment.empty [⟨0⟩] [] (fun _ _ => True) ∧
-    ¬ SemanticAssignment.ForallValues SemanticAssignment.empty [] [type] (fun _ _ => True) ∧
-    ¬ SemanticAssignment.ExistsValues SemanticAssignment.empty [⟨0⟩] [] (fun _ _ => True) ∧
-    ¬ SemanticAssignment.ExistsValues SemanticAssignment.empty [] [type] (fun _ _ => True) := by
-  simp [SemanticAssignment.ForallValues, SemanticAssignment.ExistsValues]
+    SemanticAssignment.ForallValues SemanticAssignment.empty [⟨0⟩]
+      (fun _ assignment => assignment.getValueTypes [⟨0⟩] = some [type]) [type] ∧
+    SemanticAssignment.ForallValues SemanticAssignment.empty [⟨0⟩]
+      (fun _ assignment => assignment.getValueTypes [⟨0⟩] = none) ∧
+    SemanticAssignment.ExistsValues SemanticAssignment.empty [⟨0⟩]
+      (fun _ assignment => assignment.getValueTypes [⟨0⟩] = some [type]) [type] ∧
+    SemanticAssignment.ExistsValues SemanticAssignment.empty [⟨0⟩]
+      (fun _ assignment => assignment.getValueTypes [⟨0⟩] = none) := by
+  simp [SemanticAssignment.ForallValues, SemanticAssignment.ExistsValues,
+    SemanticAssignment.getValueTypes, SemanticAssignment.getValueType,
+    SemanticAssignment.bindValue, SemanticAssignment.bind]
 
 /-- The verification premise rules out the former i8-to-i64 funnel-shift cases. -/
 example (leftProps : propertiesOf (.llvm .intr__fshl : OpCode))
