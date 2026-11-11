@@ -20,10 +20,8 @@ open Veir.Data
 namespace Veir
 
 /--
-CTree counterpart of a RISC-V load of `bytes` bytes through the register in `operands`, with the
-immediate offset `imm12`: read the bytes and their poison bits, choose the bits that are poison,
-and extend the value to 64 bits according to `ext`. With the poison bits chosen as zeros, this is
-what `riscvLoad` reads.
+A RISC-V load loads `bytes` bytes into a 64-bit register. Bits marked as poison in memory are
+nondeterministically assigned concrete in-register bits.  
 -/
 def riscvLoadCTree {EIn : Type} {E : EIn → Type} [ErrorE -< E] [UBE -< E]
     (imm12 : BitVec 12) (operands : Array RuntimeValue) (mem : MemoryState) (bytes : Nat)
