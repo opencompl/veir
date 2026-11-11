@@ -179,7 +179,7 @@ theorem IRContext.fieldsInBounds_OperationPtr_dealloc {ctx : IRContext OpInfo} {
         cases hback : operand.getBack! ctx
         case operandNextUse nextUse =>
           simp only
-          grind (gen := 20) (splits := 20) [ValuePtr.DefUse, Array.getElem_of_mem]
+          grind (gen := 20) (branches := 20) [ValuePtr.DefUse, Array.getElem_of_mem]
         case valueFirstUse firstUse =>
           cases firstUse
           case blockArgument blockArg => simp
