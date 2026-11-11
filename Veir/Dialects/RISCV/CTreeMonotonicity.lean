@@ -6,6 +6,7 @@ public import Veir.Interpreter.CTreePrimitiveRefinement
 public import Veir.Dialects.RISCV.ResultsConform
 
 import all Veir.Interpreter.CTreeInterpreter
+import all Veir.Dialects.RISCV.Interpreter
 
 public section
 
@@ -22,20 +23,22 @@ open CTree
 
 namespace Veir.CTree
 
-/-- A RISC-V opcode runs its `Interp` semantics. -/
-theorem interpretOp'_riscv (op : Riscv) (properties : propertiesOf (OpCode.riscv op))
-    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
-    (mem : MemoryState) (regions : Array RegionPtr) :
+/-- A RISC-V opcode but a load runs its `Interp` semantics. -/
+theorem interpretOp'_riscv {op : Riscv} (h : op.isLoad = false)
+    (properties : propertiesOf (OpCode.riscv op)) (resultTypes : Array TypeAttr)
+    (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
+    (regions : Array RegionPtr) :
     interpretOp' (.riscv op) properties resultTypes operands blockOperands mem regions =
       monadLift
         (Veir.interpretOp' (.riscv op) properties resultTypes operands blockOperands mem) := by
-  rfl
+  rw [← Bool.not_eq_true, Riscv.isLoad_iff] at h
+  cases op <;> simp at h <;> rfl
 
 /-- Every RISC-V opcode but the loads is monotone in CTrees. -/
 theorem riscv_interpretOpTreeMonotone {op : Riscv} (h : op.isLoad = false) :
     InterpretOpTreeMonotone (.riscv op) :=
   have := riscv_interpretOp'ContextuallyMonotone h
-  .of_lift (interpretOp'_riscv op)
+  .of_lift (interpretOp'_riscv h)
 
 /-- A refinement in `Interp` together with what holds of every result of the target. -/
 private theorem Interp.isRefinedBy_and {R : α → β → Prop} {P : β → Prop} {s : Interp α}
@@ -59,7 +62,7 @@ theorem riscv_sim_typed {op : Riscv} {opType : OpCode} (hType : opType = .riscv 
       (interpretOp' opType properties resultTypes operands blockOperands mem regions) := by
   subst hType
   have := riscv_interpretOp'ContextuallyMonotone hLoad
-  rw [interpretOp'_riscv, interpretOp'_riscv]
+  rw [interpretOp'_riscv hLoad, interpretOp'_riscv hLoad]
   exact sim_monadLift_of_isRefinedBy (Interp.isRefinedBy_and
     (this.monotone properties resultTypes operands operands' blockOperands mem mem' h hMem)
     fun ⟨vals, m, a⟩ hok => hTyped vals m a hok)
