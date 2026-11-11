@@ -347,7 +347,6 @@ def lowerLoad_pattern : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.gmir .g_load) #[addr] #[resultType] mmo)
     (fun load => load)
 
-def g_load := lowerLoad_pattern.compile
 
 /-- `llvm.mlir.constant` (integer) -> `gmir.g_constant`. -/
 def lowerIntegerConstant : Puddle.Pattern OpCode :=
@@ -536,34 +535,22 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerIntegerConstant, lowerPoison, lowerBytePoison,
   lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
   lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr, lowerByteIntBitcast,
-  lowerStaticAlloca_pattern, reconcilePairingCast isIntToByteRoundTrip]
+  lowerStaticAlloca_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
 
 /-- The compiled patterns of `llvmToGMIRPatternList`. -/
 private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
   (llvmToGMIRPatternList.map (·.compile)).toArray
 
 /-
-  The local rewrites come after the patterns. They match `llvm.getelementptr`, `llvm.br` and
-  `llvm.cond_br`, which no pattern matches, so their position does not change which rewrite
-  applies to an operation.
+  The local rewrite comes after the patterns. It matches `llvm.getelementptr`, which no pattern
+  matches, so its position does not change which rewrite applies to an operation.
 -/
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   -- Branches are translated by a separate step, which is proved to refine the module.
   let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
-  let pattern := RewritePattern.GreedyRewritePattern #[
-    g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
-    g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
-    g_mul.run, g_sdiv.run, g_udiv.run, g_srem.run, g_urem.run,
-    g_bswap.run, g_bitreverse.run,
-    g_smax.run, g_smin.run, g_umax.run, g_umin.run, g_abs.run, g_fshl.run, g_fshr.run,
-    g_saddsat.run, g_uaddsat.run, g_ssubsat.run, g_usubsat.run, g_sshlsat.run, g_ushlsat.run,
-    g_ctlz.run, g_cttz.run, g_ctlz_zero_poison.run, g_cttz_zero_poison.run, g_ctpop.run,
-    g_constant.run, g_poison.run, g_bytePoison.run, g_truncByte.run, g_shlByte.run, g_lshrByte.run, byteIntBitcast.run,
-    .fromLocalRewrite normalizeGEPIndices,
-    lowerStaticAlloca.run, g_load.run,
-    intToByteRoundTrip.run
-  ]
+  let pattern := RewritePattern.GreedyRewritePattern <|
+    llvmToGMIRPatterns.map (·.run) ++ #[.fromLocalRewrite normalizeGEPIndices]
   match RewritePattern.applyToFunctions pattern ctx op with
   | none => throw "Error while applying llvm-to-gmir translation"
   | some ctx =>

@@ -28,8 +28,8 @@ import all Init.Data.Array.Basic
 `llvmToGMIRCertificates` holds a certificate for every Puddle pattern of `llvm-to-gmir`, in the
 order of `llvmToGMIRPatternList`: a proof of `Puddle.CTree.Pattern.Valid`, or the reason why there
 is none. Its type is indexed by the list, so changing the patterns of the pass without updating
-the certificates does not build. The local rewrites of the GEP indices and of the branches are not
-Puddle patterns.
+the certificates does not build. The local rewrite of the GEP indices is not a Puddle pattern, and
+the branches are translated by a separate step (`convertLLVMBranches`).
 
 The unproven patterns (see `Unproven`):
 * The byte shifts (`allPoisonByte`): an all-poison byte becomes a poison integer, so the shift can
@@ -37,6 +37,7 @@ The unproven patterns (see `Unproven`):
   (`byte_shl_frozen` and `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove the other
   bytes).
 * The static `alloca` (`staticAlloca`).
+* The `llvm.load` translation to `g_load` (`notYetProven`).
 
 The proofs are those of the gMIR legalization rules (`Veir.Passes.Legalization.Validity`), with the
 LLVM and builtin interpreters added to the semantics. Most translations interpret the same
@@ -56,10 +57,11 @@ set_option maxHeartbeats 1000000
 attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   GMIR.interpretOp' GMIR.interpretOpCTree Llvm.interpretOpCTree Llvm.interpretOp' Builtin.interpretOpCTree
+  Builtin.interpretUnrealizedConversionCastCTree
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects Llvm.isTerminator Llvm.getEffects Builtin.getEffects
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf Llvm.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 /- The normalization unfolds `Attribute.of` to case on the result types of the builtin casts, which
 the lemmas folding each attribute constructor back would undo. -/
@@ -96,6 +98,22 @@ inductive Unproven where
   deriving Repr, DecidableEq
 
 end
+
+/-- A target that casts a byte to an integer simulates the source whatever bits it chooses. -/
+@[local simp] theorem sim_bind_map_byteToIntCTree_left {X Y Z : Type} {RR : Y → Z → Prop}
+    {w : Nat} (b : Data.LLVM.Byte w) (f : Data.LLVM.Int w → X) (k : X → Tree Y) (u : Tree Z) :
+    Sim RR (CTree.bind (f <$> Builtin.byteToIntCTree b) k) u ↔
+      ∀ bits, Sim RR (k (f (freezeByteWith b bits))) u := by
+  unfold Builtin.byteToIntCTree freezeByteWith
+  split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map]
+
+/-- A source that casts a byte to an integer simulates a value it can choose bits for. -/
+@[local simp] theorem sim_pure_map_byteToIntCTree_right {X Y : Type} {RR : X → Y → Prop}
+    {w : Nat} (b : Data.LLVM.Byte w) (f : Data.LLVM.Int w → Y) (x : X) :
+    Sim RR (pure x : Tree X) (f <$> Builtin.byteToIntCTree b) ↔
+      ∃ bits, RR x (f (freezeByteWith b bits)) := by
+  unfold Builtin.byteToIntCTree freezeByteWith
+  split <;> simp [CTree.choose_def, CTree.tau_def, Functor.map]
 
 /-- A type with an `LLT` is an integer or pointer type, so no byte conforms to it. -/
 @[local simp] theorem byte_conforms_of_LLT {bw : Nat} {v : Data.LLVM.Byte bw} {t : TypeAttr}
@@ -225,7 +243,8 @@ theorem constant_valid : Puddle.CTree.Pattern.Valid lowerIntegerConstant := by
 
 attribute [local simp] conforms_of_val_integerType in
 theorem round_trip_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isIntToByteRoundTrip) := by
-  proveLegalValid using isRefinedBy_refl
+  proveLegalValid with
+    exact ⟨0, by rw [freezeByteWith_fromInt ‹0 < _›]; exact isRefinedBy_refl _⟩
 
 theorem add_valid : Puddle.CTree.Pattern.Valid (lowerBinop .add .g_add) := by
   proveLegalValid using isRefinedBy_refl
@@ -352,7 +371,7 @@ theorem ctpop_valid : Puddle.CTree.Pattern.Valid (lowerCount .intr__ctpop .g_ctp
 
 theorem byte_trunc_valid : Puddle.CTree.Pattern.Valid
     (lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩)) := by
-  proveLegalValid using byte_trunc_frozen
+  proveLegalValid with exact byte_trunc_frozen _ _ _
 
 /-- A byte and an integer type of the same nonzero width, in either order. -/
 @[local simp] theorem isByteIntBitcast_iff (a b : TypeAttr) :
@@ -377,7 +396,7 @@ attribute [local simp] conforms_of_val_integerType conforms_of_val_byteType in
 theorem byte_int_bitcast_valid : Puddle.CTree.Pattern.Valid lowerByteIntBitcast := by
   proveLegalValid with
     first
-    | exact byte_toInt_frozen ‹_› _
+    | exact byte_toInt_frozen ‹_› _ _
     | (split <;> (try simp_all) <;> rename_i heq <;> split at heq <;> cases heq)
 
 set_option maxRecDepth 100000 in
@@ -421,14 +440,13 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven ctlz_zero_poison_valid <|
   .proven cttz_zero_poison_valid <|
   .proven ctpop_valid <|
-  .proven bswap_valid <|
-  .proven bitreverse_valid <|
   .proven constant_valid <|
   .proven byte_trunc_valid <|
   .unproven .allPoisonByte <| -- byte_shl
   .unproven .allPoisonByte <| -- byte_lshr
   .proven byte_int_bitcast_valid <|
   .unproven .staticAlloca <| -- static_alloca
+  .unproven .notYetProven <| -- load
   .proven round_trip_valid <|
   .nil
 
