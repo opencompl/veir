@@ -340,6 +340,23 @@ def IsSignExtendingOpW (op : Riscv) (arity : Nat)
       sextwResults run = run
   | _ => False
 
+/-- The matcher and replacement of `sextw_signExtendingOpW_pattern`, without its correctness
+    hypothesis: `riscv.sextw (producer …) -> producer …`. -/
+def drop_sextw_of_producer_pattern (producer : Riscv) (arity : Nat)
+    (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true) :
+    Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let operands ← (Array.range arity).mapM fun _ => do
+        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
+        Puddle.MatchProg.value operandType
+      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let inner ← Puddle.MatchProg.operation (.riscv producer) operands #[resultType] property
+      let _ ← Puddle.MatchProg.root (.riscv .sextw) #[inner.res[0]!] #[resultType]
+      return inner.res[0]!)
+    pure
+    (fun inner => inner)
+
 /-- `riscv.sextw (op …) -> op …` when `op` already returns a sign-extended
     32-bit value.
 
@@ -358,17 +375,7 @@ def sextw_signExtendingOpW_pattern (producer : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
     (_signExtending : IsSignExtendingOpW producer arity property) :
     Puddle.Pattern OpCode :=
-  Puddle.Pattern.Builder
-    (do
-      let operands ← (Array.range arity).mapM fun _ => do
-        let operandType ← Puddle.MatchProg.type (Attr := RegisterType)
-        Puddle.MatchProg.value operandType
-      let resultType ← Puddle.MatchProg.type (Attr := RegisterType)
-      let inner ← Puddle.MatchProg.operation (.riscv producer) operands #[resultType] property
-      let _ ← Puddle.MatchProg.root (.riscv .sextw) #[inner.res[0]!] #[resultType]
-      return inner.res[0]!)
-    pure
-    (fun inner => inner)
+  drop_sextw_of_producer_pattern producer arity property
 
 def sextw_signExtendingOpW (producer : Riscv) (arity : Nat)
     (property : Puddle.PropertyMatcher (OpCode.riscv producer) := fun _ => true)
@@ -1096,8 +1103,11 @@ def ext_of_li_pattern (ext : Riscv) (redundant : RISCVImmediateProperties → Bo
     LLVM: DAGCombiner constant-folds bitwise `and`, eliminating the `zext.w`
     mask for a constant whose high 32 bits are already clear.
     https://github.com/llvm/llvm-project/blob/ca7933e47d3a3451d81e72ac174dcb5aa28b59d1/llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp#L7507-L7519 -/
+def zextw_li_low32_pattern : Puddle.Pattern OpCode :=
+  ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)
+
 def zextw_li_low32 : Puddle.CompiledPattern OpCode :=
-  (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)).compile
+  zextw_li_low32_pattern.compile
 
 /-- `riscv.sextw (riscv.li v) -> riscv.li v` when `-2^31 ≤ v < 2^31`: in that
     (signed 32-bit) range `li`'s materialized value (`BitVec.ofInt 64 v`) is
@@ -1109,9 +1119,12 @@ def zextw_li_low32 : Puddle.CompiledPattern OpCode :=
     LLVM: constant folding / known-bits on `sext.w` of an already-sign-extended
     32-bit constant.
     https://github.com/llvm/llvm-project/blob/d9906882fc613471ab51e7185094efae893066de/llvm/lib/Target/RISCV/RISCVOptWInstrs.cpp#L120 -/
+def sextw_li_low32_pattern : Puddle.Pattern OpCode :=
+  ext_of_li_pattern .sextw fun cst =>
+    !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)
+
 def sextw_li_low32 : Puddle.CompiledPattern OpCode :=
-  (ext_of_li_pattern .sextw fun cst =>
-    !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)).compile
+  sextw_li_low32_pattern.compile
 
 /-- Byte- and half-word mirrors of `zextw_li_low32`/`sextw_li_low32`: a `riscv.<ext>`
     of a `riscv.li v` is redundant when `v`'s materialized value already carries
@@ -1119,8 +1132,11 @@ def sextw_li_low32 : Puddle.CompiledPattern OpCode :=
     range below `2^width` (bits above `width` clear); for a sign-extension the
     *signed* range `[-2^(width-1), 2^(width-1))` (bits above `width` all equal the
     sign bit). `ext`/`width` picks the op and its bit width. -/
+def ext_li_range_pattern (ext : Riscv) (lo hi : Int) : Puddle.Pattern OpCode :=
+  ext_of_li_pattern ext fun cst => !decide (cst.value.toInt < lo ∨ cst.value.toInt ≥ hi)
+
 def ext_li_range (ext : Riscv) (lo hi : Int) : Puddle.CompiledPattern OpCode :=
-  (ext_of_li_pattern ext fun cst => !decide (cst.value.toInt < lo ∨ cst.value.toInt ≥ hi)).compile
+  (ext_li_range_pattern ext lo hi).compile
 
 /-- `riscv.zextb (riscv.li v) -> riscv.li v` when `0 ≤ v < 2^8`. -/
 def zextb_li_low8 := ext_li_range .zextb 0 256
