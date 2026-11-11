@@ -36,7 +36,7 @@ attribute [local ctree_semantics]
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 theorem artifact_anyext_trunc_same_valid :
     Puddle.CTree.Pattern.Valid combineAnyExtOfTruncSame := by
@@ -78,8 +78,8 @@ theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmerge
   all_goals subst_vars
   all_goals simp only [heq_eq_eq, dite_true] at *
   all_goals subst_vars
-  rename_i _ v _ mem w _ _ _ lo hi hmerge
-  obtain rfl := (Array.singleton_inj.mp (Prod.mk.inj (Interp.ok.inj (hmerge mem))).1).symm
+  rename_i _ v _ mem w _ _ _ _ _ lo hi hmerge
+  obtain rfl := (Array.singleton_inj.mp (Prod.mk.inj (Interp.ok.inj hmerge)).1).symm
   have hk : (w + w) / 2 = w := by omega
   have key := int_unmerge_merge hk (by omega) lo (hi.cast rfl)
   simp only [List.toList_toArray,

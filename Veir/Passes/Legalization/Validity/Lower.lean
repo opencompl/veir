@@ -35,7 +35,7 @@ attribute [local ctree_semantics]
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 /-- A count whose zero input is poison refines the count that is defined at zero. -/
 private theorem ctlz_zero_poison {v w : Nat} (x : Data.LLVM.Int v) :
