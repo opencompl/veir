@@ -22,11 +22,19 @@ inductive Tower : α → Prop where
   | inf (P : α → Prop) : (∀ x, P x → Tower x) → Tower (inf P)
 
 /-- An element of a tower -/
-structure Chain where
+structure Chain : Type u where
   elem : α
   hTower : Tower f elem
 
 attribute [coe] Chain.elem
+
+@[expose]
+def Chain.next (x : Chain f) : Chain f :=
+  Chain.mk (f x.elem) (Tower.chain x.hTower)
+
+theorem Chain.f_eq_next (C : Chain f) :
+    f C.elem = C.next.elem := by
+  rfl
 
 /-- Tower-based definition of the companion -/
 noncomputable def cpn (x : α) : α := inf (fun y : α => Tower f y ∧ x ⊑ y)
@@ -129,6 +137,46 @@ theorem tower_ind : ∀ (P : α → Prop),
     apply h
     exact ih
 
+attribute [simp, grind =] inf_iff_binary_rel
+
+theorem Chain.apply (hf : monotone f) :
+  forall (x : Chain f),
+    f x.elem ⊑ x.elem := by
+  apply tower_ind (P := fun x => f x ⊑ x)
+  case a =>
+    intros P h
+    simp only at h
+    apply le_inf
+    intros y h
+    apply PartialOrder.rel_trans (y := f y)
+    case a =>
+      apply hf
+      apply inf_le
+      trivial
+    case a =>
+      grind
+  case a =>
+    intros x ch
+    apply hf
+    apply ch
+
+@[grind .]
+theorem Chain.apply_binary_rel {α β : Type u} (f : (α → β → Prop) → α → β → Prop)
+  (hf : monotone f) (R : Chain f) :
+    forall x y, f R.elem x y → R.elem x y := by
+  rw [←le_def_binary_rel]
+  apply Chain.apply
+  apply hf
+
+@[grind .]
+theorem Chain.apply_ternary_rel {α : Type u1} {β : Type u2} {γ : Type u3}
+    (f : (α → β → γ → Prop) → α → β → γ → Prop)
+    (hf : monotone f) (R : Chain f) :
+    forall x y z, f R.elem x y z → R.elem x y z := by
+  rw [←le_def_ternary_rel]
+  apply Chain.apply
+  apply hf
+
 noncomputable def bot : α := L.sup (fun _ => False)
 
 /-- Companion-based definition of greatest fixpoint -/
@@ -141,6 +189,51 @@ theorem bot_le : ∀ x : α, Tower.bot ⊑ x := by
   intros x
   apply sup_le
   simp
+
+theorem gfp_eq_inf_tower : gfp f = inf (Tower f) := by
+  unfold gfp cpn
+  apply PartialOrder.rel_antisymm
+  · rw [inf_spec]
+    intros y h
+    apply inf_le
+    constructor
+    apply h
+    apply bot_le
+  · rw [inf_spec]
+    intros y h
+    apply inf_le
+    rcases h with ⟨h, _⟩
+    apply h
+
+@[grind =]
+theorem gfp_iff_binary_rel {X : Type u} {Y : Type v} :
+    ∀ (f : (X → Y → Prop) → X → Y → Prop) x y,
+    gfp f x y ↔ ∀ R : Chain f, R.elem x y := by
+  intros f x y
+  rw [gfp_eq_inf_tower]
+  rw [inf_iff_binary_rel]
+  constructor
+  · intros h R
+    rcases R with ⟨R, hR⟩
+    apply h
+    apply hR
+  · intros h R hR
+    exact (h ⟨R, hR⟩)
+
+@[grind =]
+theorem gfp_iff_ternary_rel {X : Type u} {Y : Type v} {Z : Type w} :
+    ∀ (f : (X → Y → Z → Prop) → X → Y → Z → Prop) x y z,
+    gfp f x y z ↔ ∀ R : Chain f, R.elem x y z := by
+  intros f x y z
+  rw [gfp_eq_inf_tower]
+  rw [inf_iff_ternary_rel]
+  constructor
+  · intros h R
+    rcases R with ⟨R, hR⟩
+    apply h
+    apply hR
+  · intros h R hR
+    exact (h ⟨R, hR⟩)
 
 theorem f_gfp' : monotone f → f (gfp' f) = gfp' f := by
   intros hmon
@@ -180,3 +273,4 @@ theorem gfp_eq_gfp' : monotone f → gfp f = gfp' f := by
       apply hmon
       apply ch
       apply hmon
+
