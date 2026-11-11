@@ -77,8 +77,18 @@ theorem freeze_pattern_valid :
   rename_i bits
   cases bits <;> simp [ctree_semantics, ←Attribute.integerType_eq_of, Builtin.interpretUnrealizedConversionCastCTree, ←Attribute.registerType_eq_of]
   all_goals intros
-  all_goals simp_all [ctree_semantics, RISCV.Reg.toInt, BitVec.setWidth_setWidth_of_le _ hw, ←Attribute.integerType_eq_of,
-    ←Attribute.registerType_eq_of, Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind]
+  all_goals
+    have regcheck (r : Data.RISCV.Reg) : RuntimeValue.ArrayConforms #[.reg r]
+        #[TypeAttr.of RegisterType {}] := by simp
+    simp [regcheck, ctree_semantics, RuntimeValue.Conforms, RuntimeValue.isRefinedBy,
+      RISCV.Reg.toInt, BitVec.setWidth_setWidth_of_le _ hw,
+      -Attribute.integerType_eq_of, -Attribute.registerType_eq_of,
+      Functor.map, CTree.choose_def, CTree.tau_def, Bind.bind]
+    all_goals intros
+    all_goals try simp [ctree_semantics, RuntimeValue.Conforms, RuntimeValue.isRefinedBy,
+      -Attribute.integerType_eq_of, -Attribute.registerType_eq_of]
+
+  all_goals exact ⟨_, isRefinedBy_refl _⟩
 
 theorem gmirConstant_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirConstant_pattern := by

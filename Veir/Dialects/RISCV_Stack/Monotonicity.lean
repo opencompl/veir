@@ -24,6 +24,7 @@ instance riscvStack_contextuallyMonotone (op : Riscv_Stack) :
   monotone props _ _ _ _ mem mem' _ hMem := by
     cases op
     simp only [interpretOp', Riscv_Stack.interpretOp']
+    apply checkResultTypes_isRefinedBy (values := fun _ _ h => h.1)
     refine Interp.isRefinedBy_bind (MemoryState.alloc_isRefinedBy hMem _) ?_
     rintro ⟨m, a⟩ ⟨m', a'⟩ ⟨hm, rfl⟩
     simp only [Interp.pure_eq, Interp.isRefinedBy_ok_ok]

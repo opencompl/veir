@@ -35,7 +35,8 @@ elab "simpPuddleValid" : tactic => withMainContext do
   unless (← getMainTarget).isAppOf ``Pattern.Valid do
     throwError "expected a CTree pattern validity goal"
   evalTactic (← `(tactic| (
-    unfoldPuddleBuilder
+    /- The pattern may already be normalized, e.g. by `cbv`. -/
+    try unfoldPuddleBuilder
     constructor
     · conv => arg 1; cbv
       /- Eliminate empty-list quantifiers before unfolding opcode metadata. -/
@@ -55,6 +56,7 @@ elab "simpPuddleValid" : tactic => withMainContext do
       SemanticAssignment.bindValues, SemanticAssignment.bindValue, SemanticAssignment.bindType,
       SemanticAssignment.bindProperty, SemanticAssignment.bind, SemanticAssignment.empty,
       SemanticAssignment.ForallValues, SemanticAssignment.ExistsValues,
+      List.head?_cons, List.head?_nil, List.tail_cons, List.tail_nil,
       MetadataTuple.resolveSemantic, MetadataTuple.Shape.resolveSemantic,
       MetadataTuple.Atom.resolveSemantic, MetadataTuple.bindSemantic,
       MetadataTuple.Shape.bindSemantic, MetadataTuple.Atom.bindSemantic,
@@ -67,8 +69,10 @@ elab "simpPuddleValid" : tactic => withMainContext do
       /- Evaluate concrete builder loops before resolving their allocated handles. -/
       Array.mapM, ↓Array.mapM.map, bind, pure,
       List.size_toArray, List.length_cons, List.length_nil,
-      List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ,
+      List.getElem_toArray, List.getElem?_toArray, List.getElem_cons_zero, List.getElem_cons_succ,
       Array.toList_push, Array.emptyWithCapacity, Array.size_map, Array.size_range,
+      /- Resolve builders that replace one handle of a concrete handle array. -/
+      Array.toList_set!, List.set_cons_zero, List.set_cons_succ, List.set_nil,
       getElem!_pos, Array.getElem_map, Array.getElem_range,
       List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind, Option.bind_some,
       Option.bind_fun_some, Nat.add_zero, Nat.reduceAdd, Nat.reduceEqDiff, Nat.reduceLT,

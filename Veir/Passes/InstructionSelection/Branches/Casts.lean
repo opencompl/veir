@@ -8,6 +8,11 @@ import Veir.Dialects.GMIR.Lemmas
 import Veir.Dialects.RISCV_Cf.Lemmas
 import Veir.Dialects.RV64.Lemmas
 
+import all Veir.Interpreter.Basic
+import all Veir.Interpreter.RuntimeValue.Conforms
+import all Veir.Interpreter.RuntimeValue.ArrayConformsSimp
+import all Veir.IR.Attribute
+
 public section
 
 /-!
@@ -98,7 +103,17 @@ theorem interpretOp'_cast_toReg {value : RuntimeValue} {reg : RISCV.Reg} {mem : 
     (successors : Array BlockPtr) :
     interpretOp' (.builtin .unrealized_conversion_cast) properties #[RegisterType.mk] #[value]
       successors mem = .ok (#[.reg reg], mem, none) := by
-  cases value <;> grind [RuntimeValue.toReg?, interpretOp']
+  change checkResultTypes _ (Builtin.interpretConversion _ _ mem) = _
+  rw [checkResultTypes_ok_iff]
+  cases value <;> simp only [RuntimeValue.toReg?, Option.some.injEq, reduceCtorEq] at hReg
+  all_goals subst reg
+  all_goals constructor
+  all_goals try (first | rfl | simp [RuntimeValue.Conforms, TypeAttr.of_def, Attribute.of_def,
+    IsAttr.inject, -Attribute.registerType_eq_of, -Attribute.integerType_eq_of,
+    -Attribute.byteType_eq_of, -Attribute.llvmPointerType_eq_of])
+  all_goals simp only [Builtin.interpretConversion, Array.getElem?_singleton,
+    TypeAttr.of_def, Attribute.of_def, IsAttr.inject, MemoryState.ptrFromInt_val]
+  all_goals rfl
 
 /-- A cast from a register computes `ofReg?`. -/
 theorem interpretOp'_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value : RuntimeValue}
@@ -107,8 +122,18 @@ theorem interpretOp'_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value : Run
     (successors : Array BlockPtr) :
     interpretOp' (.builtin .unrealized_conversion_cast) properties #[type] #[.reg reg]
       successors mem = .ok (#[value], mem, none) := by
+  change checkResultTypes _ (Builtin.interpretConversion _ _ mem) = _
+  rw [checkResultTypes_ok_iff]
   obtain ⟨attr, hattr⟩ := type
-  cases attr <;> grind [RuntimeValue.ofReg?, interpretOp', MemoryState.ptrFromInt_val]
+  cases attr <;> simp only [RuntimeValue.ofReg?, Option.some.injEq, reduceCtorEq] at hValue
+  all_goals subst value
+  all_goals constructor
+  all_goals try (first | rfl | simp [RuntimeValue.Conforms, TypeAttr.of_def, Attribute.of_def,
+    IsAttr.inject, -Attribute.registerType_eq_of, -Attribute.integerType_eq_of,
+    -Attribute.byteType_eq_of, -Attribute.llvmPointerType_eq_of])
+  all_goals simp only [Builtin.interpretConversion, Array.getElem?_singleton,
+    TypeAttr.of_def, Attribute.of_def, IsAttr.inject, MemoryState.ptrFromInt_val]
+  all_goals rfl
 
 /--
   A cast to a register, in CTrees, gives a register that the value may be cast

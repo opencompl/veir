@@ -137,7 +137,7 @@ theorem fshrConst64_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory _constantMemoryAfter hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨64, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
   have hamt' : amtTy = ⟨64, sign⟩ := IsTypeAttr.of_injective hamt
@@ -145,6 +145,7 @@ theorem fshrConst64_valid :
   simp [ctree_semantics] at ha
   obtain ⟨a, rfl⟩ := ha
   simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+  rcases hb with ⟨hb, _⟩
   subst b
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
   intro x hx
@@ -161,7 +162,7 @@ theorem fshrConst32_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory _constantMemoryAfter hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
   have hamt' : amtTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -169,6 +170,7 @@ theorem fshrConst32_valid :
   simp [ctree_semantics] at ha
   obtain ⟨a, rfl⟩ := ha
   simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+  rcases hb with ⟨hb, _⟩
   subst b
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
   intro x hx
@@ -185,7 +187,7 @@ theorem fshrConst32Trunc_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb truncTy tp _hTrunc c _truncMemory hc p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory _constantMemoryAfter hb truncTy tp _hTrunc c _truncMemory _truncMemoryAfter hc p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType truncTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshr_types (props := p) hVerified)
   have htrunc : truncTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -193,10 +195,12 @@ theorem fshrConst32Trunc_valid :
   simp [ctree_semantics] at ha
   obtain ⟨a, rfl⟩ := ha
   simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+  rcases hb with ⟨hb, _⟩
   subst b
   by_cases hwidth : amtTy.bitwidth ≤ 32
   · simp [ctree_semantics, ←Attribute.integerType_eq_of, hwidth] at hc
   · simp [ctree_semantics, ←Attribute.integerType_eq_of, hwidth] at hc
+    rcases hc with ⟨hc, _⟩
     subst c
     simp [ctree_semantics, ←Attribute.integerType_eq_of]
     intro x hx
@@ -220,7 +224,7 @@ theorem fshlConst64_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory _constantMemoryAfter hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨64, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
   have hamt' : amtTy = ⟨64, sign⟩ := IsTypeAttr.of_injective hamt
@@ -228,6 +232,7 @@ theorem fshlConst64_valid :
   simp [ctree_semantics] at ha
   obtain ⟨a, rfl⟩ := ha
   simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+  rcases hb with ⟨hb, _⟩
   subst b
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
   intro x hx
@@ -244,7 +249,7 @@ theorem fshlConst32_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory _constantMemoryAfter hb p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType amtTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
   have hamt' : amtTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -252,6 +257,7 @@ theorem fshlConst32_valid :
   simp [ctree_semantics] at ha
   obtain ⟨a, rfl⟩ := ha
   simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+  rcases hb with ⟨hb, _⟩
   subst b
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
   intro x hx
@@ -268,7 +274,7 @@ theorem fshlConst32Trunc_valid :
   dsimp only [lowerFshConst]
   simpPuddleValid
   simp [ctree_semantics]
-  intro valTy amtTy sign a ha cp _hConstant b _constantMemory hb truncTy tp _hTrunc c _truncMemory hc p hVerified
+  intro valTy amtTy sign a ha cp _hConstant b _constantMemory _constantMemoryAfter hb truncTy tp _hTrunc c _truncMemory _truncMemoryAfter hc p hVerified
   obtain ⟨rfl, _, hamt⟩ := ternaryOperandTypes valTy valTy (TypeAttr.of IntegerType truncTy)
     ⟨32, sign⟩ (IsFromVerifiedOp.llvm_fshl_types (props := p) hVerified)
   have htrunc : truncTy = ⟨32, sign⟩ := IsTypeAttr.of_injective hamt
@@ -276,10 +282,12 @@ theorem fshlConst32Trunc_valid :
   simp [ctree_semantics] at ha
   obtain ⟨a, rfl⟩ := ha
   simp [ctree_semantics, ←Attribute.integerType_eq_of] at hb
+  rcases hb with ⟨hb, _⟩
   subst b
   by_cases hwidth : amtTy.bitwidth ≤ 32
   · simp [ctree_semantics, ←Attribute.integerType_eq_of, hwidth] at hc
   · simp [ctree_semantics, ←Attribute.integerType_eq_of, hwidth] at hc
+    rcases hc with ⟨hc, _⟩
     subst c
     simp [ctree_semantics, ←Attribute.integerType_eq_of]
     intro x hx

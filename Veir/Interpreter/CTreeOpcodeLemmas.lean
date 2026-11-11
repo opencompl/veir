@@ -14,6 +14,32 @@ namespace Veir
 
 open _root_.CTree
 
+@[simp]
+theorem CTree.checkResultTypes_ok_iff {types} {tree : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)} {result} :
+    PureOrErr.CanInterpretTo (CTree.checkResultTypes types tree) (.ok result) ↔
+      PureOrErr.CanInterpretTo tree (.ok result) ∧ RuntimeValue.ArrayConforms result.1 types := by
+  simp only [CTree.checkResultTypes, Bind.bind, PureOrErr.CanInterpretTo.bind_iff]
+  simp only [reduceCtorEq, and_false, or_false]
+  constructor
+  · rintro ⟨value, outcome, checked⟩
+    split at checked
+    · simp only [PureOrErr.CanInterpretTo.pure_iff, Interp.ok.injEq] at checked
+      subst value
+      exact ⟨outcome, ‹_›⟩
+    · simp [Veir.ub, _root_.CTree.CTree.trigger_def] at checked
+  · rintro ⟨outcome, conforms⟩
+    exact ⟨result, outcome, by simp [conforms]⟩
+
+/-- Result checking only introduces a return or UB. -/
+theorem CTree.checkResultTypes_pureOrErr {types} {tree : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)}
+    (h : PureOrErr tree) : PureOrErr (CTree.checkResultTypes types tree) := by
+  apply PureOrErr.bind _ _ h
+  intro result
+  split
+  · exact .ret _
+  · simpa [Veir.ub, _root_.CTree.CTree.trigger_def, Bind.bind] using
+      (PureOrErr.ub (E := ErrorE ⊕ₑ UBE) (C := FreezeC) (k := _))
+
 /-- Lifting a deterministic interpreter outcome introduces no infinite or external behavior. -/
 theorem PureOrErr.liftedInterp {EIn CIn : Type} {E : EIn → Type} {C : CIn → Type}
     [ErrorE -< E] [UBE -< E] (outcome : Interp α) :
@@ -127,8 +153,8 @@ theorem CTree.interpretOp'_pureOrErr (code : OpCode) (properties : propertiesOf 
   all_goals first
     | exact Llvm.interpretOpCTree_pureOrErr _ _ _ _ _ _
     | exact GMIR.interpretOpCTree_pureOrErr _ _ _ _ _ _
-    | exact Builtin.interpretOpCTree_pureOrErr _ _ _ _ _ _
-    | exact Riscv.interpretOpCTree_pureOrErr _ _ _ _ _ _
+    | exact CTree.checkResultTypes_pureOrErr (Builtin.interpretOpCTree_pureOrErr _ _ _ _ _ _)
+    | exact CTree.checkResultTypes_pureOrErr (Riscv.interpretOpCTree_pureOrErr _ _ _ _ _ _)
     | exact PureOrErr.liftedInterp _
 
 end Veir

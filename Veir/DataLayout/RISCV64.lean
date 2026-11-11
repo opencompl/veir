@@ -82,4 +82,27 @@ decreasing_by
 public def riscv64 : DataLayout :=
   { query := queryRISCV64 }
 
+/-- The layout of an integer type: `(w + 7) / 8` bytes, aligned as LLVM's
+`i1:8-i8:8-i16:16-i32:32-i64:64-i128:128` entries (see `rv64IntegerAlignment`). -/
+@[simp] public theorem riscv64_query_integerType (t : IntegerType) :
+    riscv64.query (.integerType t) =
+      if t.bitwidth = 0 then none
+      else
+        let alignment := if t.bitwidth ≤ 8 then 1 else if t.bitwidth ≤ 16 then 2
+          else if t.bitwidth ≤ 32 then 4 else if t.bitwidth ≤ 64 then 8 else 16
+        some { size := (t.bitwidth + 7) / 8, abiAlignment := alignment,
+               preferredAlignment := alignment } := by
+  rcases t with ⟨w, s⟩
+  simp only [riscv64]
+  rw [queryRISCV64]
+  simp [scalarInfo, rv64IntegerAlignment]
+
+/-- The layout of a pointer: 8 bytes, aligned to 8. -/
+@[simp] public theorem riscv64_query_llvmPointerType (p : LLVM.PointerType) :
+    riscv64.query (.llvmPointerType p) =
+      some { size := 8, abiAlignment := 8, preferredAlignment := 8 } := by
+  simp only [riscv64]
+  rw [queryRISCV64]
+  simp [scalarInfo]
+
 end Veir.DataLayout

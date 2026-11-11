@@ -154,11 +154,13 @@ theorem lowerLoad_gepConst_lbu_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -210,11 +212,13 @@ theorem lowerLoad_gepConst_lh_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -266,11 +270,13 @@ theorem lowerLoad_gepConst_lw_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -322,11 +328,13 @@ theorem lowerLoad_gepConst_ld_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -396,11 +404,13 @@ theorem lowerLoad_gepIndex_lbu_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -453,11 +463,13 @@ theorem lowerLoad_gepIndex_lh_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -510,11 +522,13 @@ theorem lowerLoad_gepIndex_lw_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -567,11 +581,13 @@ theorem lowerLoad_gepIndex_ld_valid :
   dsimp only [lowerLoad, lowerLoadOf, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected width memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count

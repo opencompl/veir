@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.Basic
 public import Veir.Interpreter.CTree
+import all Veir.Interpreter.CTree
 public import Veir.Dialects.Builtin.Interpreter
 public import Veir.Dialects.LLVM.Interpreter
 public import Veir.Dialects.GMIR.Interpreter
@@ -11,8 +12,34 @@ public section
 
 open CTree
 
+@[simp, ctree_semantics]
+theorem CTree.monadLift_interp_fail {EIn CIn R} {E : EIn → Type} {C : CIn → Type}
+    [Veir.ErrorE -< E] [UBE -< E] (op : Option Veir.OperationPtr) :
+    (monadLift (Veir.Interp.fail op) : CTree E C R) = Veir.fail := rfl
+
+@[simp, ctree_semantics]
+theorem CTree.monadLift_interp_ub {EIn CIn R} {E : EIn → Type} {C : CIn → Type}
+    [Veir.ErrorE -< E] [UBE -< E] (op : Option Veir.OperationPtr) :
+    (monadLift (Veir.Interp.ub op) : CTree E C R) = Veir.ub := rfl
+
 namespace Veir
 namespace CTree
+
+/-- Normalize nested primitive result checks before simplifying opcode semantics. -/
+@[ctree_semantics]
+theorem bind_assoc_raw (tree : _root_.CTree.CTree E C α)
+    (next : α → _root_.CTree.CTree E C β) (last : β → _root_.CTree.CTree E C γ) :
+    _root_.CTree.bind (_root_.CTree.bind tree next) last =
+      _root_.CTree.bind tree (fun value => _root_.CTree.bind (next value) last) :=
+  _root_.CTree.bind_assoc tree next last
+
+/-- Check primitive results before they can enter the SSA state. -/
+@[ctree_semantics]
+def checkResultTypes (types : Array TypeAttr)
+    (tree : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction) :=
+  _root_.CTree.bind tree fun result =>
+    if RuntimeValue.ArrayConforms result.1 types then pure result else Veir.ub
 
 set_option linter.unusedVariables false in
 /--
@@ -32,9 +59,9 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .gmir opType =>
     GMIR.interpretOpCTree opType properties resultTypes operands blockOperands mem
   | .riscv opType =>
-    Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem
+    checkResultTypes resultTypes (Riscv.interpretOpCTree opType properties resultTypes operands blockOperands mem)
   | .builtin opType =>
-    Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem
+    checkResultTypes resultTypes (Builtin.interpretOpCTree opType properties resultTypes operands blockOperands mem)
   /- Other dialects rely on lifting the `Interp`-based interpreter. -/
   | opType =>
     monadLift <| Veir.interpretOp' opType properties resultTypes operands blockOperands mem

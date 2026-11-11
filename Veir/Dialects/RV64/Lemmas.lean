@@ -1,5 +1,10 @@
 module
 
+import all Veir.Interpreter.RuntimeValue.Conforms
+import all Veir.Interpreter.RuntimeValue.ArrayConformsSimp
+import all Veir.Interpreter.Basic
+import all Veir.IR.Attribute
+
 public import Veir.Interpreter.Basic
 
 import all Veir.Dialects.RV64.OpInfo
@@ -16,6 +21,6 @@ theorem interpretOp'_rv64_get_register_x0 {properties : propertiesOf (OpCode.rv6
         operands successors mem layout =
       .ok (#[.reg ⟨0⟩], mem, none) := by
   simp only [interpretOp', Rv64.interpretOp', TypeAttr.of_def, Attribute.of_def, IsAttr.inject]
-  rfl
+  simp [checkResultTypes, RuntimeValue.Conforms, -Attribute.registerType_eq_of]
 
 end Veir

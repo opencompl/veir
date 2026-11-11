@@ -20,11 +20,13 @@ theorem gmirLoad_gepConst_lbu_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -57,7 +59,7 @@ theorem gmirLoad_gepConst_lbu_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 1 (.inl rfl) legal size .zeroExt
 
 theorem gmirLoad_gepConst_lh_valid :
@@ -65,11 +67,13 @@ theorem gmirLoad_gepConst_lh_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -102,7 +106,7 @@ theorem gmirLoad_gepConst_lh_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 2 (by simp) legal size .signExt
 
 theorem gmirLoad_gepConst_lw_valid :
@@ -110,11 +114,13 @@ theorem gmirLoad_gepConst_lw_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -147,7 +153,7 @@ theorem gmirLoad_gepConst_lw_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 4 (by simp) legal size .signExt
 
 theorem gmirLoad_gepConst_ld_valid :
@@ -155,11 +161,13 @@ theorem gmirLoad_gepConst_ld_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics]
-  intro argType arg harg gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -192,7 +200,7 @@ theorem gmirLoad_gepConst_ld_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 8 (by simp) legal size .zeroExt
 
 theorem gmirLoad_gepIndex_lbu_valid :
@@ -200,11 +208,13 @@ theorem gmirLoad_gepIndex_lbu_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -237,7 +247,7 @@ theorem gmirLoad_gepIndex_lbu_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[index] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 1 (by simp) legal size .zeroExt
 
 theorem gmirLoad_gepIndex_lh_valid :
@@ -245,11 +255,13 @@ theorem gmirLoad_gepIndex_lh_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -282,7 +294,7 @@ theorem gmirLoad_gepIndex_lh_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[index] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 2 (by simp) legal size .signExt
 
 theorem gmirLoad_gepIndex_lw_valid :
@@ -290,11 +302,13 @@ theorem gmirLoad_gepIndex_lw_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -327,7 +341,7 @@ theorem gmirLoad_gepIndex_lw_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[index] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 4 (by simp) legal size .signExt
 
 theorem gmirLoad_gepIndex_ld_valid :
@@ -335,11 +349,13 @@ theorem gmirLoad_gepIndex_ld_valid :
   dsimp only [gmirLoad_pattern, lowerLoadOf, matchAddr, addrMemProps, matchLegal]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of]
-  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory hinterp
+  intro argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address _gepMemory _gepAfter hinterp
     resultType props verified selected legal size memory
   have hinterp : Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] _gepMemory
-    .riscv64 = .ok (#[address], _gepMemory, none) := by
+    .riscv64 = .ok (#[address], _gepAfter, none) := by
     simpa [Llvm.interpretOp'] using hinterp
+  have hmemory := Llvm.interpretOp'_gep_memory _ _ _ _ _ _ _ _ _ hinterp
+  subst _gepAfter
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
@@ -372,7 +388,7 @@ theorem gmirLoad_gepIndex_ld_valid :
         dsimp only [riscvEffectiveAddr, RISCVMemProperties.imm12, addr]
         rw [pointer_add_offset]
         simp [hreg, selectedOffset_signExtend gep #[index] offset hcount hselect]
-      rw [gmirLoad_target_expanded, heffective]
+      rw [gmirLoad_target_expanded (htypes := (isLegal_g_load_types _ _ _ legal).1), heffective]
       exact gmirLoad_sim memory addr resultType argType props 8 (by simp) legal size .zeroExt
 
 end Veir

@@ -61,12 +61,14 @@ theorem interpretOpCore_branch_mem {ctx : WfIRContext OpCode} {op : OperationPtr
   obtain ⟨operands, raw, _, rawOutcome, _, _, action⟩ :=
     interpretOpCore_outcome op opIn state (final, some (.branch args dest)) outcome
   rw [interpretCTree_eq_bang op opIn] at rawOutcome
-  obtain ⟨deterministic, legacy, _⟩ := Veir.CTree.interpretOp'_result_shape
+  obtain (⟨deterministic, legacy⟩ | noAction) := Veir.CTree.interpretOp'_controlFlow
     (op.getOpType! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw))
     (op.getResultTypes! ctx.raw) operands (op.getSuccessors! ctx.raw) state.memory raw.2.1 raw.1 raw.2.2 #[] rawOutcome
-  have actionEq : raw.2.2 = some (.branch args dest) := by simpa using action.symm
-  rw [actionEq] at legacy
-  exact Veir.interpretOp'_branch_dest_mem legacy
+  · have actionEq : raw.2.2 = some (.branch args dest) := by simpa using action.symm
+    rw [actionEq] at legacy
+    exact Veir.interpretOp'_branch_dest_mem legacy
+  · simp [noAction] at action
+
 
 
 private theorem successor_reachable {ctx : WfIRContext OpCode} {block dest : BlockPtr}

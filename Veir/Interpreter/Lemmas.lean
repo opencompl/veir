@@ -667,6 +667,20 @@ axiom interpretOp'_ne_fail {ctx : WfIRContext OpCode} {op : OperationPtr}
     (mem : MemoryState) :
   (op.interpret ctx.raw operands mem).isFail = false
 
+/-- Checking result types preserves refinement because conformance survives value refinement. -/
+theorem checkResultTypes_isRefinedBy {s t : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)}
+    {R : (Array RuntimeValue × MemoryState × Option ControlFlowAction) →
+      (Array RuntimeValue × MemoryState × Option ControlFlowAction) → Prop}
+    (h : Interp.isRefinedBy R s t)
+    (values : ∀ s t, R s t → RuntimeValue.arrayIsRefinedBy s.1 t.1) :
+    Interp.isRefinedBy R (checkResultTypes types s) (checkResultTypes types t) := by
+  cases s <;> cases t <;> simp_all [Interp.isRefinedBy, checkResultTypes, Bind.bind, Pure.pure]
+  rename_i s t
+  by_cases hc : RuntimeValue.ArrayConforms s.1 types
+  · have ht := hc.of_isRefinedBy (values s.1 s.2.1 s.2.2 t.1 t.2.1 t.2.2 h)
+    simp [hc, ht, Interp.isRefinedBy, h]
+  · simp [hc, Interp.isRefinedBy]
+
 /-- Reflexivity including the legacy deterministic memory-equality guarantee. -/
 theorem Interp.isRefinedBy_refl_operationResult_sameMemory
     (x : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :

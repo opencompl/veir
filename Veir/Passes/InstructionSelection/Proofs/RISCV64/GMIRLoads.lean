@@ -142,12 +142,22 @@ theorem gmirLoad_sim (memory : MemoryState) (p : Data.Pointer)
     exact gmirLoad_pointer_sim memory p ptr props ext
 
 theorem gmirLoad_target_expanded (memory : MemoryState) (reg : Data.RISCV.Reg)
-    (imm : BitVec 12) (resultType : TypeAttr) (bytes : Nat) (ext : LoadExtension) :
+    (imm : BitVec 12) (resultType : TypeAttr) (bytes : Nat) (ext : LoadExtension)
+    (htypes : (∃ sign, resultType = TypeAttr.of IntegerType ⟨64, sign⟩) ∨
+      ∃ p, p.addressSpace = 0 ∧ resultType = TypeAttr.of LLVM.PointerType p) :
     CTree.bind (riscvLoadCTree imm #[RuntimeValue.reg reg] memory bytes ext)
-      (fun r => CTree.bind (Builtin.interpretUnrealizedConversionCastCTree #[resultType] #[r.1[0]!] r.2.1)
-        (fun r => pure (#[r.1[0]!],r.2.1,none))) =
+      (fun value => CTree.bind
+        (if RuntimeValue.ArrayConforms value.1 #[TypeAttr.of RegisterType {}] then pure value else ub)
+        (fun r => CTree.bind (Builtin.interpretUnrealizedConversionCastCTree #[resultType] #[r.1[0]!] r.2.1)
+          (fun value => CTree.bind
+            (if RuntimeValue.ArrayConforms value.1 #[TypeAttr.of TypeAttr resultType] then pure value else ub)
+            (fun r => pure (#[r.1[0]!],r.2.1,none))))) =
       gmirLoad_target memory (riscvEffectiveAddr reg.val imm) resultType bytes ext := by
-  simp [gmirLoad_target, riscvLoadCTree, riscvEffectiveAddr, Bind.bind]
+  rcases htypes with ⟨sign, rfl⟩ | ⟨p, _, rfl⟩
+  all_goals cases ext <;>
+    simp [gmirLoad_target, riscvLoadCTree, riscvEffectiveAddr, Bind.bind,
+      CTree.bind_assoc_raw, Builtin.interpretUnrealizedConversionCastCTree,
+      ←Attribute.integerType_eq_of, ←Attribute.llvmPointerType_eq_of]
 
 
 theorem gmirLoad_reg_lbu_valid :
@@ -156,7 +166,7 @@ theorem gmirLoad_reg_lbu_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro argType arg hc resultType props hv hlegal hsize memory
-  obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
+  obtain ⟨hresult, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
   rcases hc with ⟨pointer,rfl⟩
   cases pointer with
@@ -166,7 +176,7 @@ theorem gmirLoad_reg_lbu_valid :
     intro reg hr
     have hs := gmirLoad_sim memory p resultType (TypeAttr.of LLVM.PointerType _) props 1
       (by simp) hlegal hsize .zeroExt
-    rw [gmirLoad_target_expanded]
+    rw [gmirLoad_target_expanded _ _ _ _ _ _ hresult]
     simpa [hr, riscvEffectiveAddr, RISCVMemProperties.imm12,
       GMIR.interpretOpCTree, GMIR.interpretOp'] using hs
 
@@ -176,7 +186,7 @@ theorem gmirLoad_reg_lh_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro argType arg hc resultType props hv hlegal hsize memory
-  obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
+  obtain ⟨hresult, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
   rcases hc with ⟨pointer,rfl⟩
   cases pointer with
@@ -186,7 +196,7 @@ theorem gmirLoad_reg_lh_valid :
     intro reg hr
     have hs := gmirLoad_sim memory p resultType (TypeAttr.of LLVM.PointerType _) props 2
       (by simp) hlegal hsize .signExt
-    rw [gmirLoad_target_expanded]
+    rw [gmirLoad_target_expanded _ _ _ _ _ _ hresult]
     simpa [hr, riscvEffectiveAddr, RISCVMemProperties.imm12,
       GMIR.interpretOpCTree, GMIR.interpretOp'] using hs
 
@@ -196,7 +206,7 @@ theorem gmirLoad_reg_lw_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro argType arg hc resultType props hv hlegal hsize memory
-  obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
+  obtain ⟨hresult, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
   rcases hc with ⟨pointer,rfl⟩
   cases pointer with
@@ -206,7 +216,7 @@ theorem gmirLoad_reg_lw_valid :
     intro reg hr
     have hs := gmirLoad_sim memory p resultType (TypeAttr.of LLVM.PointerType _) props 4
       (by simp) hlegal hsize .signExt
-    rw [gmirLoad_target_expanded]
+    rw [gmirLoad_target_expanded _ _ _ _ _ _ hresult]
     simpa [hr, riscvEffectiveAddr, RISCVMemProperties.imm12,
       GMIR.interpretOpCTree, GMIR.interpretOp'] using hs
 
@@ -216,7 +226,7 @@ theorem gmirLoad_reg_ld_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro argType arg hc resultType props hv hlegal hsize memory
-  obtain ⟨_, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
+  obtain ⟨hresult, p, hp, rfl⟩ := isLegal_g_load_types resultType argType props hlegal
   simp only [RuntimeValue.Conforms.llvmPointerType] at hc
   rcases hc with ⟨pointer,rfl⟩
   cases pointer with
@@ -226,7 +236,7 @@ theorem gmirLoad_reg_ld_valid :
     intro reg hr
     have hs := gmirLoad_sim memory p resultType (TypeAttr.of LLVM.PointerType _) props 8
       (by simp) hlegal hsize .zeroExt
-    rw [gmirLoad_target_expanded]
+    rw [gmirLoad_target_expanded _ _ _ _ _ _ hresult]
     simpa [hr, riscvEffectiveAddr, RISCVMemProperties.imm12,
       GMIR.interpretOpCTree, GMIR.interpretOp'] using hs
 

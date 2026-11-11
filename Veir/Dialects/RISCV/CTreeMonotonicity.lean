@@ -36,7 +36,8 @@ theorem interpretOp'_riscv {op : Riscv} (h : op.isLoad = false)
       monadLift
         (Veir.interpretOp' (.riscv op) properties resultTypes operands blockOperands mem) := by
   rw [← Bool.not_eq_true, Riscv.isLoad_iff] at h
-  cases op <;> simp at h <;> rfl
+  cases op <;> simp at h <;> simp only [interpretOp', Riscv.interpretOpCTree,
+    Veir.interpretOp', checkResultTypes_lift]
 
 /-- A refinement in `Interp` together with what holds of every result of the target. -/
 private theorem Interp.isRefinedBy_and {R : α → β → Prop} {P : β → Prop} {s : Interp α}
@@ -108,68 +109,37 @@ private theorem sim_riscvLoadCTree {Q : Array RuntimeValue → Prop} (hQ : RegsA
         hQ _ _ hQ'⟩
   | _ => simp
 
-/--
-A RISC-V opcode is monotone in CTrees, with what holds of the `Interp` results of the target, `Q`,
-holding of its CTree results.
--/
-private theorem riscv_sim {op : Riscv} {Q : Array RuntimeValue → Prop} (hQ : RegsAlike Q)
-    (properties : propertiesOf (OpCode.riscv op)) (resultTypes : Array TypeAttr)
+/-- Checked RISC-V execution preserves refinement and guarantees result conformance. -/
+theorem riscv_sim_typed {op : Riscv} {opType : OpCode} (hType : opType = .riscv op)
+    (properties : propertiesOf opType) (resultTypes : Array TypeAttr)
     {operands operands' : Array RuntimeValue} (blockOperands : Array BlockPtr)
     {mem mem' : MemoryState} (regions : Array RegionPtr) (h : operands ⊒ operands')
-    (hMem : mem ⊒ mem')
-    (hTyped : ∀ vals m a, Veir.interpretOp' (.riscv op) properties resultTypes operands'
-      blockOperands mem' = .ok (vals, m, a) → Q vals) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ Q t.1)
-      (interpretOp' (.riscv op) properties resultTypes operands' blockOperands mem' regions)
-      (interpretOp' (.riscv op) properties resultTypes operands blockOperands mem regions) := by
+    (hMem : mem ⊒ mem') :
+    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 resultTypes)
+      (interpretOp' opType properties resultTypes operands' blockOperands mem' regions)
+      (interpretOp' opType properties resultTypes operands blockOperands mem regions) := by
+  subst hType
   cases hLoad : op.isLoad
   · have := riscv_interpretOp'ContextuallyMonotone hLoad
     rw [interpretOp'_riscv hLoad, interpretOp'_riscv hLoad]
-    exact sim_monadLift_of_isRefinedBy (Interp.isRefinedBy_and
-      (this.monotone properties resultTypes operands operands' blockOperands mem mem' h hMem)
-      fun ⟨vals, m, a⟩ hok => hTyped vals m a hok)
+    apply sim_monadLift_of_isRefinedBy (Interp.isRefinedBy_and
+      (this.monotone properties resultTypes operands operands' blockOperands mem mem' h hMem) ?_)
+    rintro ⟨vals, m, a⟩ hok
+    exact (Veir.checkResultTypes_ok_iff.mp hok).2
   · rw [interpretOp'_regions, interpretOp'_regions]
     rw [Riscv.isLoad_iff] at hLoad
     rcases hLoad with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
       simp only [interpretOp', Riscv.interpretOpCTree] <;>
-      refine sim_riscvLoadCTree hQ _ _ _ h hMem fun addr hs v m hok => hTyped _ m none ?_ <;>
-      simp [Veir.interpretOp', Riscv.interpretOp', hs, hok]
+      apply sim_checkResultTypes <;>
+      apply sim_mono (sim_riscvLoadCTree (Q := fun _ => True)
+        (fun _ _ _ => trivial) _ _ _ h hMem (fun _ _ _ _ _ => trivial)) <;>
+      exact fun _ _ h => h.1
 
 /-- Every RISC-V opcode is monotone in CTrees. -/
 theorem riscv_interpretOpTreeMonotone (op : Riscv) : InterpretOpTreeMonotone (.riscv op) where
-  monotone properties resultTypes operands operands' blockOperands mem mem' regions h hMem := by
-    simpa using riscv_sim (Q := fun _ => True) (fun _ _ _ => trivial) properties resultTypes
-      blockOperands regions h hMem fun _ _ _ _ => trivial
-
-/-! ## With the types of the results -/
-
-/-- A single result conforms as another single result of the same kind does. -/
-private theorem arrayConforms_singleton {v v' : RuntimeValue} {types : Array TypeAttr}
-    (h : RuntimeValue.ArrayConforms #[v] types) (hk : ∀ ty, v.Conforms ty → v'.Conforms ty) :
-    RuntimeValue.ArrayConforms #[v'] types := by
-  obtain ⟨hs, hc⟩ := h
-  refine ⟨by simpa using hs, fun i hi => ?_⟩
-  obtain rfl : i = 0 := by simp at hi; omega
-  simpa using hk _ (by simpa using hc 0 (by simp))
-
-/--
-A RISC-V opcode is monotone in CTrees, with the results of the target of the types that its
-`Interp` results have.
--/
-theorem riscv_sim_typed {op : Riscv} {opType : OpCode} (hType : opType = .riscv op)
-    (properties : propertiesOf opType) (resultTypes types : Array TypeAttr)
-    {operands operands' : Array RuntimeValue} (blockOperands : Array BlockPtr)
-    {mem mem' : MemoryState} (regions : Array RegionPtr) (h : operands ⊒ operands')
-    (hMem : mem ⊒ mem')
-    (hTyped : ∀ vals m a, Veir.interpretOp' opType properties resultTypes operands' blockOperands
-      mem' = .ok (vals, m, a) → RuntimeValue.ArrayConforms vals types) :
-    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
-      (interpretOp' opType properties resultTypes operands' blockOperands mem' regions)
-      (interpretOp' opType properties resultTypes operands blockOperands mem regions) := by
-  subst hType
-  refine riscv_sim (fun _ _ hc => arrayConforms_singleton hc fun ty hc => ?_) properties
-    resultTypes blockOperands regions h hMem hTyped
-  obtain ⟨a, _⟩ := ty; cases a <;> exact hc
+  monotone properties resultTypes operands operands' blockOperands mem mem' regions h hMem :=
+    sim_mono (riscv_sim_typed rfl properties resultTypes blockOperands regions h hMem)
+      (fun _ _ h => h.1)
 
 end Veir.CTree
 
@@ -184,20 +154,15 @@ theorem OpCode.interpretCTree_monotone_riscv (op : Riscv) :
     OpCode.interpretCTree_monotone (.riscv op) := by
   intro ctx o oIn hType hVerified sv tv sm tm hConf hRef hMem
   simp only [OperationPtr.interpretCTree]
-  refine CTree.riscv_sim_typed hType _ _ _ _ _ hRef hMem fun vals m a hok =>
-    OpCode.resultsConform_def.mp (OpCode.resultsConform_riscv op) ctx o oIn hType hVerified
-      tv vals tm m a (hConf.of_isRefinedBy hRef) ?_
-  simp only [OperationPtr.interpret]
-  rw [OperationPtr.getOpType!_eq_getOpType oIn, OperationPtr.getProperties!_eq_getProperties oIn
-    (by grind), OperationPtr.getResultTypes!_eq_getResultTypes oIn,
-    OperationPtr.getSuccessors!_eq_getSuccessors oIn]
-  exact hok
+  rw [OperationPtr.getResultTypes!_eq_getResultTypes oIn]
+  exact CTree.riscv_sim_typed hType _ _ _ _ hRef hMem
 
 /--
 info: 'Veir.OpCode.interpretCTree_monotone_riscv' depends on axioms: [propext,
  Sim,
  Classical.choice,
  Quot.sound,
+ Sim.bind,
  Sim.ret,
  Sim.tau_l,
  Sim.tau_r,

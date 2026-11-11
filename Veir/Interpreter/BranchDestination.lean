@@ -32,7 +32,7 @@ namespace Veir
 
 /-- Unfolds a dialect interpreter and checks every outcome that branches. -/
 local macro "dest_tac" ls:Lean.Parser.Tactic.simpLemma,* : tactic => `(tactic| (
-  simp only [interpretOp', $ls,*] at * <;> (repeat' split at *) <;>
+  simp only [interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion, $ls,*] at * <;> (repeat' split at *) <;>
     simp_all [Interp.pure_eq, liftM, monadLift, MonadLift.monadLift, Bind.bind, Array.mem_def,
       -Array.mem_toList_iff] <;> grind [List.eq_toArray_iff]))
 

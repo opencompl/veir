@@ -64,7 +64,8 @@ theorem Riscv.interpretOp'_monotone {operands operands' : Array RuntimeValue} :
 instance (opType : Riscv) : InterpretOp'Monotone (.riscv opType) where
   monotone _ _ _ _ _ _ h := by
     simp only [interpretOp']
-    exact Riscv.interpretOp'_monotone h
+    exact checkResultTypes_isRefinedBy (Riscv.interpretOp'_monotone h)
+      (fun _ _ h => h.1.1)
 
 /-! ## Monotonicity with refined memory -/
 
@@ -98,7 +99,8 @@ theorem riscv_frame {opType : Riscv} (h : opType.touchesMemory = false)
   cases opType <;> simp [Riscv.touchesMemory] at h <;>
     simp only [interpretOp', Riscv.interpretOp'] <;>
     (repeat' split) <;>
-    simp [Interp.pure_eq, liftM, monadLift, MonadLift.monadLift, Interp.map]
+    simp [checkResultTypes, Interp.pure_eq, liftM, monadLift, MonadLift.monadLift, Interp.map, Bind.bind]
+  all_goals split <;> simp_all
 
 /-- A result of one value and refined memory. -/
 private theorem result_single {v v' : RuntimeValue} {m m' : MemoryState} (hv : v ⊒ v')
@@ -125,6 +127,7 @@ private theorem Riscv.contextuallyMonotone_of_mem {opType : Riscv}
     InterpretOp'ContextuallyMonotone (.riscv opType) where
   monotone properties resultTypes operands operands' blockOperands mem mem' h hMem := by
     simp only [Veir.interpretOp']
+    apply checkResultTypes_isRefinedBy (values := fun _ _ h => h.1)
     by_cases hregs : ∀ v ∈ operands, ∃ r, v = .reg r
     · obtain rfl := RuntimeValue.eq_of_arrayIsRefinedBy_of_regs h hregs
       exact hm _ _ _ _ _ _ hMem

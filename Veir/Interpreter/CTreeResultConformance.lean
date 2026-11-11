@@ -46,7 +46,7 @@ theorem Llvm.interpretOpCTree_result_shape
   unfold Llvm.interpretOpCTree at h
   split at h
   · repeat first | split at h
-    all_goals simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff, Veir.fail, CTree.trigger_def] at h
+    all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff, Veir.fail, CTree.trigger_def] at h
     all_goals simp_all [Llvm.interpretOp', Bind.bind, Pure.pure]
     all_goals try simp_all
     all_goals try rcases h with ⟨⟨choice, rfl⟩, _, _⟩
@@ -74,7 +74,7 @@ theorem GMIR.interpretOpCTree_result_shape
   unfold GMIR.interpretOpCTree at h
   split at h
   · repeat first | split at h
-    all_goals simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
+    all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
       Veir.fail, CTree.trigger_def] at h
     all_goals simp_all only [GMIR.interpretOp', Bind.bind, Pure.pure, Attribute.of_def, IsAttr.inject]
     all_goals try simp_all
@@ -118,109 +118,56 @@ theorem GMIR.interpretOpCTree_result_shape
       exact ⟨_, hdet, fun _ ht => ht⟩
   · exact ⟨results, (liftedInterp_ok_iff _ _).mp h, fun _ ht => ht⟩
 
-set_option maxRecDepth 4000 in
-set_option maxHeartbeats 1000000 in
-theorem Builtin.interpretOpCTree_result_shape
+set_option linter.unusedSimpArgs false in
+/-- Builtin casts never produce control-flow actions. -/
+theorem Builtin.interpretOpCTree_no_action
     (code : Builtin) (properties : propertiesOf code) (types : Array TypeAttr)
     (operands : Array RuntimeValue) (successors : Array BlockPtr)
     (before after : MemoryState) (results : Array RuntimeValue) (action : Option ControlFlowAction)
     (h : PureOrErr.CanInterpretTo
       (Builtin.interpretOpCTree (E := ErrorE ⊕ₑ UBE) code properties types operands successors before)
-      (.ok (results, after, action))) :
-    ∃ deterministic, Veir.interpretOp' (.builtin code) properties types operands successors before =
-      .ok (deterministic, after, action) ∧ RuntimeValue.ResultShapeRefines deterministic results := by
+      (.ok (results, after, action))) : action = none := by
   unfold Builtin.interpretOpCTree at h
   simp only [Builtin.interpretUnrealizedConversionCastCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+    Veir.fail, _root_.CTree.CTree.trigger_def, Builtin.byteToIntCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+    Veir.fail, _root_.CTree.CTree.trigger_def, Builtin.byteToIntCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+    Veir.fail, _root_.CTree.CTree.trigger_def, Builtin.byteToIntCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
-  all_goals simp_all only [Veir.interpretOp', Bind.bind, Pure.pure, Attribute.of_def, IsAttr.inject]
-  all_goals try
-    obtain ⟨choice, choices, hresults, hmemory, haction⟩ := h
-    obtain ⟨bits, hbits⟩ := choices
-    subst choice
-    subst results
-    subst after
-    subst action
-    simp
-  all_goals try simp_all
-  all_goals try rcases h with ⟨⟨choice, rfl⟩, _, _⟩
-  all_goals try rcases result with ⟨choice, rfl⟩
-  all_goals intro ts conf
-  all_goals try exact conf
-  all_goals
-    simp only [RuntimeValue.ArrayConforms, Array.size_singleton, Nat.lt_one_iff,
-        forall_eq] at conf ⊢
-    simp only [singleton_get] at conf ⊢
-    rcases conf with ⟨size, conf⟩
-    refine ⟨size, ?_⟩
-    cases hty : ts[0]! with
-      | mk val verified => cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] using conf
+    Veir.fail, _root_.CTree.CTree.trigger_def, Builtin.byteToIntCTree] at h
+  all_goals repeat split at h
+  all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
+    Veir.fail, _root_.CTree.CTree.trigger_def, Builtin.byteToIntCTree] at h
+  all_goals grind
 
-private theorem loadByte_load_exists (memory : MemoryState) (pointer : Data.Pointer)
-    (bytes : Nat) (value : Data.LLVM.Byte (8 * bytes))
-    (h : memory.loadByte pointer (8 * bytes) = .ok value) :
-    ∃ raw, memory.load pointer bytes.toUInt64 = .ok raw := by
-  unfold MemoryState.loadByte at h
-  simp only [show 8 * bytes % 8 = 0 by omega, ne_eq, not_true_eq_false,
-    ↓reduceIte, show 8 * bytes / 8 = bytes by omega] at h
-  cases hp : memory.loadPoison pointer bytes.toUInt64 <;>
-    cases hl : memory.load pointer bytes.toUInt64 <;>
-    simp_all [Bind.bind, Pure.pure]
-
-private theorem register_result_shape (left right : Data.RISCV.Reg) :
-    RuntimeValue.ResultShapeRefines #[.reg left] #[.reg right] := by
-  intro ts conf
-  simp only [RuntimeValue.ArrayConforms, Array.size_singleton, Nat.lt_one_iff,
-    forall_eq, singleton_get] at conf ⊢
-  rcases conf with ⟨size, conf⟩
-  refine ⟨size, ?_⟩
-  cases hty : ts[0]! with
-  | mk val verified =>
-    cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def,
-      Attribute.of_def, IsAttr.inject] using conf
-
-set_option maxHeartbeats 1000000 in
-theorem Riscv.interpretOpCTree_result_shape
+/-- RISC-V instructions never produce control-flow actions. -/
+theorem Riscv.interpretOpCTree_no_action
     (code : Riscv) (properties : propertiesOf code) (types : Array TypeAttr)
     (operands : Array RuntimeValue) (successors : Array BlockPtr)
     (before after : MemoryState) (results : Array RuntimeValue) (action : Option ControlFlowAction)
     (h : PureOrErr.CanInterpretTo
       (Riscv.interpretOpCTree (E := ErrorE ⊕ₑ UBE) code properties types operands successors before)
-      (.ok (results, after, action))) :
-    ∃ deterministic, Riscv.interpretOp' code properties types operands successors before =
-      .ok (deterministic, after, action) ∧ RuntimeValue.ResultShapeRefines deterministic results := by
+      (.ok (results, after, action))) : action = none := by
   unfold Riscv.interpretOpCTree at h
   split at h
   all_goals first
-    | exact ⟨results, (liftedInterp_ok_iff _ _).mp h, fun _ ht => ht⟩
+    | exact (Riscv.interpretOp'_ok_results ((liftedInterp_ok_iff _ _).mp h)).2
     | skip
   all_goals unfold riscvLoadCTree at h
   all_goals split at h
-  all_goals simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-    Veir.fail, CTree.trigger_def, liftedInterp_ok_iff, Bind.bind] at h
-  all_goals obtain ⟨loaded, hload, ⟨bits, hresults⟩, hmemory, haction⟩ := h
-  all_goals first
-    | obtain ⟨raw, hraw⟩ := loadByte_load_exists before _ 8 loaded hload
-    | obtain ⟨raw, hraw⟩ := loadByte_load_exists before _ 4 loaded hload
-    | obtain ⟨raw, hraw⟩ := loadByte_load_exists before _ 2 loaded hload
-    | obtain ⟨raw, hraw⟩ := loadByte_load_exists before _ 1 loaded hload
-  all_goals subst results; subst after; subst action
-  all_goals simp_all only [Riscv.interpretOp', riscvLoad, Bind.bind, Pure.pure]
-  all_goals exact ⟨_, rfl, register_result_shape _ _⟩
+  all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
+    Veir.fail, _root_.CTree.CTree.trigger_def, liftedInterp_ok_iff, Bind.bind] at h
+  all_goals grind
 
-/-- Every successful nondeterministic primitive result has the type shape of a successful
-legacy deterministic result on the same inputs, with identical memory and control flow. -/
-theorem CTree.interpretOp'_result_shape
+/-- Nondeterministic primitive execution either agrees with a deterministic control-flow
+outcome, or has no control-flow action. Register payload choices need not preserve x0 conformance. -/
+theorem CTree.interpretOp'_controlFlow
     (code : OpCode) (properties : propertiesOf code) (types : Array TypeAttr)
     (operands : Array RuntimeValue) (successors : Array BlockPtr)
     (before after : MemoryState) (results : Array RuntimeValue) (action : Option ControlFlowAction)
@@ -228,17 +175,25 @@ theorem CTree.interpretOp'_result_shape
     (h : PureOrErr.CanInterpretTo
       (CTree.interpretOp' code properties types operands successors before regions)
       (.ok (results, after, action))) :
-    ∃ deterministic, Veir.interpretOp' code properties types operands successors before =
-      .ok (deterministic, after, action) ∧ RuntimeValue.ResultShapeRefines deterministic results := by
+    (∃ deterministic, Veir.interpretOp' code properties types operands successors before =
+      .ok (deterministic, after, action)) ∨ action = none := by
   cases code with
-  | llvm code => exact Llvm.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
-  | gmir code => exact GMIR.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
-  | builtin code => exact Builtin.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
-  | riscv code => exact Riscv.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
-  | _ => exact ⟨results, (liftedInterp_ok_iff _ _).mp h, fun _ ht => ht⟩
+  | llvm code =>
+    obtain ⟨deterministic, legacy, _⟩ := Llvm.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
+    exact .inl ⟨deterministic, legacy⟩
+  | gmir code =>
+    obtain ⟨deterministic, legacy, _⟩ := GMIR.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
+    exact .inl ⟨deterministic, legacy⟩
+  | builtin code =>
+    simp only [CTree.interpretOp', CTree.checkResultTypes_ok_iff] at h
+    exact .inr (Builtin.interpretOpCTree_no_action _ _ _ _ _ _ _ _ _ h.1)
+  | riscv code =>
+    simp only [CTree.interpretOp', CTree.checkResultTypes_ok_iff] at h
+    exact .inr (Riscv.interpretOpCTree_no_action _ _ _ _ _ _ _ _ _ h.1)
+  | _ => exact .inl ⟨results, (liftedInterp_ok_iff _ _).mp h⟩
 
-/-- Verified CTree opcode returns conform, using the existing deterministic conformance theorem
-and the proved nondeterministic payload correspondence. -/
+/-- Successful checked register results conform by construction; integer dialects preserve
+conformance across nondeterministic payload choices. -/
 theorem CTree.interpretOp'_results_conform {ctx : WfIRContext OpCode} {op : OperationPtr}
     {hop : op.InBounds ctx.raw} (verified : op.Verified ctx hop)
     {operands results : Array RuntimeValue} {before after : MemoryState} {action : Option ControlFlowAction}
@@ -249,8 +204,29 @@ theorem CTree.interpretOp'_results_conform {ctx : WfIRContext OpCode} {op : Oper
         operands (op.getSuccessors! ctx.raw) before (op.getRegions! ctx.raw))
       (.ok (results, after, action))) :
     RuntimeValue.ArrayConforms results (op.getResultTypes! ctx.raw) := by
-  obtain ⟨deterministic, legacy, shape⟩ := CTree.interpretOp'_result_shape _ _ _ _ _ _ _ _ _ _ h
-  exact shape _ (Veir.interpretOp'_results_conform verified conforms legacy)
+  generalize hc : op.getOpType! ctx.raw = code at h
+  cases code with
+  | llvm code =>
+    obtain ⟨deterministic, legacy, shape⟩ := Llvm.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
+    refine shape _ (Veir.interpretOp'_results_conform (mem := before) (mem' := after)
+      (act := action) verified conforms ?_)
+    simp only [OperationPtr.interpret]
+    rw [hc]
+    exact legacy
+  | gmir code =>
+    obtain ⟨deterministic, legacy, shape⟩ := GMIR.interpretOpCTree_result_shape _ _ _ _ _ _ _ _ _ h
+    refine shape _ (Veir.interpretOp'_results_conform (mem := before) (mem' := after)
+      (act := action) verified conforms ?_)
+    simp only [OperationPtr.interpret]
+    rw [hc]
+    exact legacy
+  | builtin code => exact (CTree.checkResultTypes_ok_iff.mp h).2
+  | riscv code => exact (CTree.checkResultTypes_ok_iff.mp h).2
+  | _ =>
+    apply Veir.interpretOp'_results_conform (mem := before) (mem' := after) (act := action) verified conforms
+    simp only [OperationPtr.interpret]
+    rw [hc]
+    exact (liftedInterp_ok_iff _ _).mp h
 
 end
 end Veir

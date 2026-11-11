@@ -31,6 +31,51 @@ namespace Veir
 variable {OpInfo : Type} [HasOpInfo OpInfo]
 variable {ctx : WfIRContext OpInfo}
 
+/-- Deterministic builtin conversion before checking the declared result types. -/
+@[expose, ctree_semantics]
+def Builtin.interpretConversion (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
+    (mem : MemoryState) : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) := do
+  let some resType := resultTypes[0]? | none
+  match resType.val, operands.toList with
+  | .registerType _, [.int _bw val] =>
+    return (#[.reg (LLVM.Int.toReg val)], mem, none)
+  | .registerType _, [.byte _bw val] =>
+    return (#[.reg (LLVM.Byte.toReg val)], mem, none)
+  | .registerType _, [.addr val] =>
+    /- A register has no poison to carry. Like a poison integer, a poison pointer
+       may become any register value; the interpreter picks 0. -/
+    return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
+  | .integerType _bw, [.reg val] =>
+    let .integerType resBw := resType.val | none
+    return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
+  | .byteType _bw, [.reg val] =>
+    let .byteType resBw := resType.val | none
+    return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
+  | .llvmPointerType _, [.reg val] =>
+    return (#[.addr (mem.ptrFromInt (.val val.val))], mem, none)
+  | .integerType resBw, [.byte bw val] =>
+    if resBw.bitwidth ≠ bw then none
+    return (#[.int bw (LLVM.Byte.toFrozenInt val)], mem, none)
+  | .byteType resBw, [.int bw val] =>
+    if resBw.bitwidth ≠ bw then none
+    return (#[.byte bw (LLVM.Byte.fromInt val)], mem, none)
+  | _ , _ => none
+
+/-- Invalid runtime results are undefined behavior, including nonzero values assigned to x0. -/
+@[expose, ctree_semantics]
+def checkResultTypes (types : Array TypeAttr)
+    (outcome : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction) := do
+  let result ← outcome
+  if RuntimeValue.ArrayConforms result.1 types then return result else .ub none
+
+@[simp]
+theorem checkResultTypes_ok_iff :
+    checkResultTypes types outcome = .ok result ↔
+      outcome = .ok result ∧ RuntimeValue.ArrayConforms result.1 types := by
+  cases outcome <;> simp [checkResultTypes, Bind.bind, Pure.pure]
+  split <;> simp_all <;> rintro rfl <;> assumption
+
 /--
   Interpret a single operation given its opcode, type-dependent properties,
   result types, and the runtime values of its operands.
@@ -57,15 +102,15 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
   | .llvm llvmOp => do
     Llvm.interpretOp' llvmOp properties resultTypes operands blockOperands mem layout
   | .riscv riscvOp => do
-    Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands mem
+    checkResultTypes resultTypes (Riscv.interpretOp' riscvOp properties resultTypes operands blockOperands mem)
   | .riscv_cf riscvCfOp => do
     let (vals, act) ← Riscv_Cf.interpretOp' riscvCfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
   | .riscv_stack riscvStackOp =>
-    Riscv_Stack.interpretOp' riscvStackOp properties resultTypes operands blockOperands mem
+    checkResultTypes resultTypes (Riscv_Stack.interpretOp' riscvStackOp properties resultTypes operands blockOperands mem)
   | .rv64 rv64Op => do
     let (vals, act) ← Rv64.interpretOp' rv64Op properties resultTypes operands blockOperands
-    return (vals, mem, act)
+    checkResultTypes resultTypes (.ok (vals, mem, act))
   | .cf cfOp => do
     let (vals, act) ← Cf.interpretOp' cfOp properties resultTypes operands blockOperands
     return (vals, mem, act)
@@ -83,32 +128,8 @@ def interpretOp' (opType : OpCode) (properties : propertiesOf opType)
     GMIR.interpretOp' gmirOp properties resultTypes operands blockOperands mem
   | .gmir_riscv gmirRiscvOp =>
     GMIR_RISCV.interpretOp' gmirRiscvOp properties resultTypes operands blockOperands mem
-  | .builtin .unrealized_conversion_cast => do
-    let some resType := resultTypes[0]? | none
-    match resType.val, operands.toList with
-    | .registerType _, [.int _bw val] =>
-      return (#[.reg (LLVM.Int.toReg val)], mem, none)
-    | .registerType _, [.byte _bw val] =>
-      return (#[.reg (LLVM.Byte.toReg val)], mem, none)
-    | .registerType _, [.addr val] =>
-      /- A register has no poison to carry. Like a poison integer, a poison pointer
-         may become any register value; the interpreter picks 0. -/
-      return (#[.reg (LLVM.Int.toReg val.toInt)], mem, none)
-    | .integerType _bw, [.reg val] =>
-      let .integerType resBw := resType.val | none
-      return (#[.int resBw.bitwidth (RISCV.Reg.toInt val resBw.bitwidth)], mem, none)
-    | .byteType _bw, [.reg val] =>
-      let .byteType resBw := resType.val | none
-      return (#[.byte resBw.bitwidth (RISCV.Reg.toByte val resBw.bitwidth)], mem, none)
-    | .llvmPointerType _, [.reg val] =>
-      return (#[.addr (mem.ptrFromInt (.val val.val))], mem, none)
-    | .integerType resBw, [.byte bw val] =>
-      if resBw.bitwidth ≠ bw then none
-      return (#[.int bw (LLVM.Byte.toFrozenInt val)], mem, none)
-    | .byteType resBw, [.int bw val] =>
-      if resBw.bitwidth ≠ bw then none
-      return (#[.byte bw (LLVM.Byte.fromInt val)], mem, none)
-    | _ , _ => none
+  | .builtin .unrealized_conversion_cast =>
+    checkResultTypes resultTypes (Builtin.interpretConversion resultTypes operands mem)
   | _ => none
 
 /-- Wrapper around `interpretOp'` that retrieves the operation type, properties,

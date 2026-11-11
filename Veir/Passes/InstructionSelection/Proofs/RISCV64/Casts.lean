@@ -201,13 +201,15 @@ theorem gmirAnyextOfReg_pattern_valid :
   unfold gmirAnyextOfReg_pattern
   simpPuddleValid
   simp [ctree_semantics]
-  intro regType reg src castprops _hcastVerified value _castMemory hcast dst p _hanyVerified hlegal mem
-  cases value <;> simp [ctree_semantics]
+  intro regType operand reg rfl _hzero src castprops _hcastVerified value
+    _castMemory _castAfter hcast _hconforms dst p _hanyVerified hlegal mem
+  cases value <;> simp -failIfUnchanged [ctree_semantics]
   rcases src with ⟨sa, hs⟩
-  cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast
+  cases sa <;> dsimp -failIfUnchanged [Builtin.interpretUnrealizedConversionCastCTree] at hcast
   all_goals simp -failIfUnchanged [ctree_semantics] at hcast
   all_goals try simp [fail, CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis] at hcast
-  rcases hcast with ⟨rfl, h⟩
+  rcases hcast with ⟨⟨rfl, h⟩, hmem⟩
+  subst _castAfter
   cases h
   rcases dst with ⟨da, hd⟩
   cases da <;> simp -failIfUnchanged [ctree_semantics]

@@ -43,7 +43,9 @@ theorem rawStore_sim (memory source : MemoryState) (p : Data.Pointer) (data : By
         (monadLift (do
           let mem ← memory.store p data
           pure ((#[] : Array RuntimeValue), mem, (none : Option ControlFlowAction))))
-        (fun result => pure (#[], result.2.1, none)) : Tree _)
+        (fun result => CTree.bind
+          (if result.1 = #[] then pure result else ub)
+          (fun result => pure (#[], result.2.1, none))) : Tree _)
       (pure (#[], source, none) : Tree _) := by
   cases h : memory.store p data <;> rw [h] at href
   all_goals simp only [Interp.isRefinedBy] at href

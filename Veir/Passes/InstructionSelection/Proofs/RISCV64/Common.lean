@@ -1,5 +1,10 @@
 module
 
+import all Veir.Interpreter.RuntimeValue.ArrayConformsSimp
+import all Veir.Interpreter.RuntimeValue.Conforms
+
+import Veir.Interpreter.CTreeMemoryPreservation
+
 import all Veir.Passes.InstructionSelection.RISCV64
 import all Veir.Passes.InstructionSelection.RISCV64Branches
 import all Veir.Passes.InstructionSelection.Common

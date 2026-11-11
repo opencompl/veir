@@ -4,6 +4,7 @@ public import Veir.Interpreter.CTreeInterpreter
 public import Veir.Interpreter.Lemmas
 
 import all Veir.Interpreter.CTreeInterpreter
+import all Veir.Interpreter.CTree
 
 public section
 
@@ -26,6 +27,40 @@ theorem tree_bind_eq (t : Tree α) (k : α → Tree β) : t >>= k = CTree.bind t
 @[simp]
 theorem fail_bind (k : α → Tree β) : (fail : Tree α) >>= k = fail := by
   rw [tree_bind_eq, bind_fail]
+
+/-- A simulation with a stronger relation. -/
+theorem sim_mono {RR RR' : α → β → Prop} {t : Tree α} {s : Tree β} (h : Sim RR t s)
+    (hRR : ∀ a b, RR a b → RR' a b) : Sim RR' t s := by
+  have := Sim.bind (RR' := RR') t s pure pure h (fun a b hab => (Sim.pure _ _ _).mpr (hRR a b hab))
+  rwa [← tree_bind_eq, ← tree_bind_eq, _root_.bind_pure, _root_.bind_pure] at this
+
+/-- Checked results preserve opcode simulation and establish target conformance. -/
+theorem sim_checkResultTypes {source target : Tree (Array RuntimeValue × MemoryState × Option ControlFlowAction)}
+    (h : Sim (fun t s => OperationResult.isRefinedBy s t) target source) :
+    Sim (fun t s => OperationResult.isRefinedBy s t ∧ RuntimeValue.ArrayConforms t.1 types)
+      (checkResultTypes types target) (checkResultTypes types source) := by
+  unfold checkResultTypes
+  apply Sim.bind _ _ _ _ h
+  intro t s related
+  by_cases hc : RuntimeValue.ArrayConforms s.1 types
+  · have ht := hc.of_isRefinedBy related.1
+    simp only [hc, ht, ↓reduceIte, Sim.pure]
+    exact ⟨related, trivial⟩
+  · simp only [hc, ↓reduceIte]
+    exact Veir.sim_ub _ _
+
+/-- Checking a lifted deterministic result agrees with lifting its checked result. -/
+theorem checkResultTypes_lift (types : Array TypeAttr)
+    (outcome : Interp (Array RuntimeValue × MemoryState × Option ControlFlowAction)) :
+    checkResultTypes types (monadLift outcome) = monadLift (Veir.checkResultTypes types outcome) := by
+  cases outcome with
+  | fail => simp [checkResultTypes, Veir.checkResultTypes, monadLift, MonadLift.monadLift, Bind.bind]
+  | ub => simp [checkResultTypes, Veir.checkResultTypes, monadLift, MonadLift.monadLift, Bind.bind]
+  | ok result =>
+    simp only [checkResultTypes, Veir.checkResultTypes, Interp.bind_ok, CTree.monadLift_interp_ok,
+      ← CTree.ret_pure, CTree.CTree.bind_ret]
+    split <;> rfl
+
 
 /-- No dialect with CTree semantics calls a region, so `interpretOp'` ignores the regions. -/
 theorem interpretOp'_regions {opType : OpCode} (properties : propertiesOf opType)

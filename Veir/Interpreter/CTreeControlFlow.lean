@@ -60,7 +60,7 @@ theorem interpretOp'_no_action_of_nonterm
     · subst code
       exact Llvm.interpretOp'_gep_no_action properties types operands successors before after results action .riscv64 h
     · cases code <;> simp_all only [OpCode.isTerminator, Llvm.isTerminator]
-      all_goals simp only [Veir.interpretOp', Llvm.interpretOp'] at h
+      all_goals simp only [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion, Llvm.interpretOp'] at h
       all_goals
         repeat first
           | cases h; rfl
@@ -69,11 +69,11 @@ theorem interpretOp'_no_action_of_nonterm
           | simp only [Bind.bind, Pure.pure, liftM, monadLift, MonadLift.monadLift] at h
   | _ =>
     first
-    | solve | simp [Veir.interpretOp', liftM, monadLift, MonadLift.monadLift] at h
+    | solve | simp [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion, liftM, monadLift, MonadLift.monadLift] at h
     | rename_i code
       cases code <;> simp_all only [OpCode.isTerminator, Func.isTerminator, Cir.isTerminator,
         Riscv_Cf.isTerminator, Cf.isTerminator, GMIR.isTerminator]
-      all_goals simp only [Veir.interpretOp', Arith.interpretOp', Riscv.interpretOp',
+      all_goals simp only [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion, Arith.interpretOp', Riscv.interpretOp',
         Riscv_Cf.interpretOp', Riscv_Stack.interpretOp', Rv64.interpretOp', Cf.interpretOp',
         ModArith.interpretOp', HW.interpretOp', Comb.interpretOp', GMIR.interpretOp',
         GMIR_RISCV.interpretOp', Felt.interpretOp'] at h
@@ -99,10 +99,11 @@ theorem CTree.interpretOp'_no_action_of_nonterm
     (outcome : PureOrErr.CanInterpretTo
       (CTree.interpretOp' code properties types operands successors before regions)
       (.ok (results, after, action))) : action = none := by
-  obtain ⟨deterministic, legacy, _⟩ :=
-    CTree.interpretOp'_result_shape code properties types operands successors
+  obtain (⟨deterministic, legacy⟩ | noAction) :=
+    CTree.interpretOp'_controlFlow code properties types operands successors
       before after results action regions outcome
-  exact Veir.interpretOp'_no_action_of_nonterm code properties types operands successors
-    before after deterministic action nonterm legacy
+  · exact Veir.interpretOp'_no_action_of_nonterm code properties types operands successors
+      before after deterministic action nonterm legacy
+  · exact noAction
 
 end Veir

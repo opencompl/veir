@@ -113,7 +113,7 @@ theorem Llvm.interpretOp'_memory_of_noEffects
       | cases h; rfl
       | contradiction
       | split at h
-      | simp only [Bind.bind, Pure.pure] at h
+      | simp only [Bind.bind, Pure.pure, checkResultTypes_ok_iff] at h
 
   all_goals try grind
 
@@ -135,7 +135,7 @@ theorem Riscv.interpretOp'_memory_of_noEffects
       | cases h; rfl
       | contradiction
       | split at h
-      | simp only [Bind.bind, Pure.pure] at h
+      | simp only [Bind.bind, Pure.pure, checkResultTypes_ok_iff] at h
   all_goals try grind
 
 set_option maxHeartbeats 2000000 in
@@ -156,7 +156,7 @@ theorem GMIR.interpretOp'_memory_of_noEffects
       | cases h; rfl
       | contradiction
       | split at h
-      | simp only [Bind.bind, Pure.pure] at h
+      | simp only [Bind.bind, Pure.pure, checkResultTypes_ok_iff] at h
   all_goals try grind
 
 set_option maxHeartbeats 2000000 in
@@ -177,7 +177,7 @@ theorem GMIR_RISCV.interpretOp'_memory_of_noEffects
       | cases h; rfl
       | contradiction
       | split at h
-      | simp only [Bind.bind, Pure.pure] at h
+      | simp only [Bind.bind, Pure.pure, checkResultTypes_ok_iff] at h
   all_goals
     simp only [GMIR_RISCV.base, GMIR.interpretOp'] at *
     repeat first
@@ -202,7 +202,7 @@ theorem interpretOp'_memory_of_noEffects
         before after results action .riscv64 effects nonterm h
   | riscv code =>
       exact Riscv.interpretOp'_memory_of_noEffects code properties types operands successors
-        before after results action effects h
+        before after results action effects (checkResultTypes_ok_iff.mp h).1
   | gmir code =>
       exact GMIR.interpretOp'_memory_of_noEffects code properties types operands successors
         before after results action effects h
@@ -210,25 +210,27 @@ theorem interpretOp'_memory_of_noEffects
       exact GMIR_RISCV.interpretOp'_memory_of_noEffects code properties types operands successors
         before after results action effects h
   | builtin code =>
-      cases code <;> simp only [Veir.interpretOp'] at h
+      cases code <;> simp only [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion] at h
       all_goals
         repeat first
           | cases h; rfl
           | contradiction
+          | (rcases h with ⟨h, _⟩)
           | split at h
-          | simp only [Bind.bind, Pure.pure] at h
-  | func code => cases code <;> simp [Veir.interpretOp', Pure.pure] at h <;> grind
-  | cir code => cases code <;> simp [Veir.interpretOp', Pure.pure] at h <;> grind
+          | simp only [Bind.bind, Pure.pure, checkResultTypes_ok_iff] at h
+  | func code => cases code <;> simp [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion, Pure.pure] at h <;> grind
+  | cir code => cases code <;> simp [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion, Pure.pure] at h <;> grind
   | riscv_stack code =>
       cases code <;> simp [OpCode.getEffects, Riscv_Stack.getEffects, MemoryEffects.none,
         MemoryEffects.allocate] at effects
   | _ =>
-      simp only [Veir.interpretOp'] at h
+      simp only [Veir.interpretOp', checkResultTypes_ok_iff, Builtin.interpretConversion] at h
       repeat first
         | cases h; rfl
         | contradiction
+        | (rcases h with ⟨h, _⟩)
         | split at h
-        | simp only [Bind.bind, Pure.pure] at h
+        | simp only [Bind.bind, Pure.pure, checkResultTypes_ok_iff] at h
 
 open _root_.CTree
 
@@ -324,8 +326,9 @@ theorem CTree.interpretOp'_memory_of_noEffects
         before after results action effects h
   | builtin code =>
       exact Builtin.interpretOpCTree_memory code properties types operands successors
-        before after results action h
+        before after results action (CTree.checkResultTypes_ok_iff.mp h).1
   | riscv code =>
+      have h := (CTree.checkResultTypes_ok_iff.mp h).1
       change PureOrErr.CanInterpretTo
         (Riscv.interpretOpCTree (E := ErrorE ⊕ₑ UBE) code properties types operands successors before)
         (.ok (results, after, action)) at h

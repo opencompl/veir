@@ -1,5 +1,7 @@
 module
 
+import all Veir.PatternRewriter.Puddle.CTreeProofs
+
 import all Veir.Passes.InstructionSelection.RISCV64
 import all Veir.Passes.InstructionSelection.Common
 import all Veir.Dialects.LLVM.OpInfo

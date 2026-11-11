@@ -21,6 +21,7 @@ import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs
 import Veir.Passes.RISCVCombines.Proofs
+import Veir.Passes.RISCVCombines.Validity
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
@@ -39,8 +40,12 @@ import Veir.Dialects.GMIR.Lemmas
 import Veir.Dialects.RV64.Lemmas
 import Veir.Passes.InstructionSelection.Branches.Pass
 import Veir.Passes.LLVMToGMIR.BranchPass
+import Veir.Passes.InstructionSelection.Validity
 import Veir.Passes.CastsReconciliation.Reconciliation
+import Veir.Passes.CastsReconciliation.Validity
 import Veir.Passes.Legalization.Proofs
+import Veir.Passes.Legalization.Validity
+import Veir.Passes.LLVMToGMIR.Validity
 
 -- FIXME: These modules are otherwise orphans and would not be compiled.
 import Veir.Analysis.DataFlow.SparseFact

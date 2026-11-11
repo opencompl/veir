@@ -71,12 +71,6 @@ theorem Returns.inflate {t : Tree α} {P : α → Prop} (h : Returns t P) : Retu
   rw [← inflate_pure ()]
   exact Sim.interp _ t (pure ()) h
 
-/-- A simulation with a stronger relation. -/
-theorem sim_mono {RR RR' : α → β → Prop} {t : Tree α} {s : Tree β} (h : Sim RR t s)
-    (hRR : ∀ a b, RR a b → RR' a b) : Sim RR' t s := by
-  have := Sim.bind (RR' := RR') t s pure pure h (fun a b hab => (Sim.pure _ _ _).mpr (hRR a b hab))
-  rwa [← tree_bind_eq, ← tree_bind_eq, _root_.bind_pure, _root_.bind_pure] at this
-
 /-- A simulation of a source that returns one value, together with what holds of that value. -/
 theorem sim_pure_and {RR : α → β → Prop} {t : Tree α} {b : β} (h : Sim RR t (pure b : Tree β))
     {P : β → Prop} (hb : P b) : Sim (fun a b => RR a b ∧ P b) t (pure b : Tree β) := by

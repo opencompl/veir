@@ -8,6 +8,8 @@ public import Veir.Interpreter.CTreeRefinement.Embedding
 public import Veir.Dialects.GMIR.Lemmas
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Interpreter.Basic
+import all Veir.Interpreter.RuntimeValue.ArrayConformsSimp
+import all Veir.Interpreter.RuntimeValue.Conforms
 import all Veir.Dialects.LLVM.Interpreter
 import all Veir.Dialects.GMIR.Interpreter
 import all Veir.Dialects.RISCV.Interpreter
@@ -49,8 +51,15 @@ theorem interpretOp'_builtin {op : Veir.Builtin} (properties : propertiesOf (OpC
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
     (mem : MemoryState) :
     interpretOp' (.builtin op) properties resultTypes operands blockOperands mem =
-      Builtin.interpretOpCTree op properties resultTypes operands blockOperands mem := by
+      checkResultTypes resultTypes
+        (Builtin.interpretOpCTree op properties resultTypes operands blockOperands mem) := by
   simp [interpretOp']
+
+private theorem bind_ite_raw (p : Prop) [Decidable p]
+    (yes no : Tree α) (after : α → Tree β) :
+    CTree.bind (if p then yes else no) after =
+      if p then CTree.bind yes after else CTree.bind no after := by
+  split <;> rfl
 
 section Casts
 
@@ -59,80 +68,154 @@ variable {properties : propertiesOf (OpCode.builtin .unrealized_conversion_cast)
   {mem : MemoryState}
 
 /-- An integer that is not poison is cast to the register that holds its bits. -/
-theorem interpretOp'_cast_int_val (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_int_val (hType : resultTypes = #[type])
     {registerType : RegisterType} (hRegister : type.val = .registerType registerType)
+    (nonzero : registerType.index ≠ some 0 := by decide)
     {w : Nat} {x : BitVec w} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
-      #[.int w (.val x)] blockOperands mem = pure (#[.reg ⟨x.zeroExtend 64⟩], mem, none) :=
-  Builtin.interpretOpCTree_cast_int_val (properties := properties) (blockOperands := blockOperands) hType hRegister
+      #[.int w (.val x)] blockOperands mem = pure (#[.reg ⟨x.zeroExtend 64⟩], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_int_val (properties := properties)
+    (blockOperands := blockOperands) rfl hRegister]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hRegister
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A poison integer is cast to any register. -/
-theorem interpretOp'_cast_int_poison (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_int_poison (hType : resultTypes = #[type])
     {registerType : RegisterType} (hRegister : type.val = .registerType registerType)
+    (nonzero : registerType.index ≠ some 0 := by decide)
     {w : Nat} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
       #[.int w .poison] blockOperands mem =
       CTree.choose (SubC := FreezeC.{0}) (FreezeCIn.mk 64) >>= fun (bits : FreezeC.{0} (.mk 64)) =>
-        pure (#[.reg ⟨bits⟩], mem, none) :=
-  Builtin.interpretOpCTree_cast_int_poison.{0, 0} (properties := properties) (blockOperands := blockOperands) hType hRegister
+        pure (#[.reg ⟨bits⟩], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_int_poison.{0,0} (properties := properties)
+    (blockOperands := blockOperands) rfl hRegister]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hRegister
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A byte is cast to a register that holds its bits, with any bits for its poison bits. -/
-theorem interpretOp'_cast_byte (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_byte (hType : resultTypes = #[type])
     {registerType : RegisterType} (hRegister : type.val = .registerType registerType)
+    (nonzero : registerType.index ≠ some 0 := by decide)
     {w : Nat} {b : Data.LLVM.Byte w} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
       #[.byte w b] blockOperands mem =
       if b.poison = 0 then pure (#[.reg (LLVM.Byte.toReg b)], mem, none) else
         CTree.choose (SubC := FreezeC.{0}) (FreezeCIn.mk w) >>= fun (bits : FreezeC.{0} (.mk w)) =>
-          pure (#[.reg ⟨(b.val ||| (b.poison &&& bits)).zeroExtend 64⟩], mem, none) :=
-  Builtin.interpretOpCTree_cast_byte.{0, 0} (properties := properties) (blockOperands := blockOperands) hType hRegister
+          pure (#[.reg ⟨(b.val ||| (b.poison &&& bits)).zeroExtend 64⟩], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_byte.{0,0} (properties := properties)
+    (blockOperands := blockOperands) rfl hRegister]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hRegister
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A register is cast to the integer of its low bits. -/
-theorem interpretOp'_cast_toInt (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_toInt (hType : resultTypes = #[type])
     {integerType : IntegerType} (hInteger : type.val = .integerType integerType)
     {reg : Data.RISCV.Reg} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
       #[.reg reg] blockOperands mem =
-      pure (#[.int integerType.bitwidth (RISCV.Reg.toInt reg integerType.bitwidth)], mem, none) :=
-  Builtin.interpretOpCTree_cast_toInt (properties := properties) (blockOperands := blockOperands) hType hInteger
+      pure (#[.int integerType.bitwidth (RISCV.Reg.toInt reg integerType.bitwidth)], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_toInt (properties := properties)
+    (blockOperands := blockOperands) rfl hInteger]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hInteger
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A register is cast to the byte of its low bits. -/
-theorem interpretOp'_cast_toByte (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_toByte (hType : resultTypes = #[type])
     {byteType : LLVM.ByteType} (hByte : type.val = .byteType byteType)
     {reg : Data.RISCV.Reg} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
       #[.reg reg] blockOperands mem =
-      pure (#[.byte byteType.bitwidth (RISCV.Reg.toByte reg byteType.bitwidth)], mem, none) :=
-  Builtin.interpretOpCTree_cast_toByte (properties := properties) (blockOperands := blockOperands) hType hByte
+      pure (#[.byte byteType.bitwidth (RISCV.Reg.toByte reg byteType.bitwidth)], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_toByte (properties := properties)
+    (blockOperands := blockOperands) rfl hByte]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hByte
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A pointer that is not poison is cast to the register that holds its address. -/
-theorem interpretOp'_cast_addr_val (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_addr_val (hType : resultTypes = #[type])
     {registerType : RegisterType} (hRegister : type.val = .registerType registerType)
+    (nonzero : registerType.index ≠ some 0 := by decide)
     {p : Data.Pointer} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
-      #[.addr (.val p)] blockOperands mem = pure (#[.reg ⟨p.address.toBitVec⟩], mem, none) :=
-  Builtin.interpretOpCTree_cast_addr_val (properties := properties)
-    (blockOperands := blockOperands) hType hRegister
+      #[.addr (.val p)] blockOperands mem = pure (#[.reg ⟨p.address.toBitVec⟩], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_addr_val (properties := properties)
+    (blockOperands := blockOperands) rfl hRegister]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hRegister
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A poison pointer is cast to any register. -/
-theorem interpretOp'_cast_addr_poison (hType : resultTypes[0]? = some type)
-    {registerType : RegisterType} (hRegister : type.val = .registerType registerType) :
+theorem interpretOp'_cast_addr_poison (hType : resultTypes = #[type])
+    {registerType : RegisterType} (hRegister : type.val = .registerType registerType)
+    (nonzero : registerType.index ≠ some 0 := by decide) :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
       #[.addr .poison] blockOperands mem =
       CTree.choose (SubC := FreezeC.{0}) (FreezeCIn.mk 64) >>= fun (bits : FreezeC.{0} (.mk 64)) =>
-        pure (#[.reg ⟨bits⟩], mem, none) :=
-  Builtin.interpretOpCTree_cast_addr_poison.{0, 0} (properties := properties)
-    (blockOperands := blockOperands) hType hRegister
+        pure (#[.reg ⟨bits⟩], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_addr_poison.{0,0} (properties := properties)
+    (blockOperands := blockOperands) rfl hRegister]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hRegister
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 /-- A register is cast to the pointer to its address. -/
-theorem interpretOp'_cast_toPtr (hType : resultTypes[0]? = some type)
+theorem interpretOp'_cast_toPtr (hType : resultTypes = #[type])
     {pointerType : LLVM.PointerType} (hPointer : type.val = .llvmPointerType pointerType)
     {reg : Data.RISCV.Reg} :
     interpretOp' (.builtin .unrealized_conversion_cast) properties resultTypes
       #[.reg reg] blockOperands mem =
-      pure (#[.addr (.val ⟨UInt64.ofBitVec reg.val⟩)], mem, none) :=
-  Builtin.interpretOpCTree_cast_toPtr (properties := properties)
-    (blockOperands := blockOperands) hType hPointer
+      pure (#[.addr (.val ⟨UInt64.ofBitVec reg.val⟩)], mem, none) := by
+  subst resultTypes
+  rw [interpretOp'_builtin, Builtin.interpretOpCTree_cast_toPtr (properties := properties)
+    (blockOperands := blockOperands) rfl hPointer]
+  rcases type with ⟨attr, verified⟩
+  dsimp at hPointer
+  subst attr
+  simp_all [checkResultTypes,
+    Bind.bind, bind_assoc_raw, ← CTree.ret_pure, CTree.CTree.bind_ret, bind_ite_raw]
+  all_goals try simp_all
+
 
 end Casts
 
@@ -212,7 +295,7 @@ theorem interpretOp'_bind_dropAction {opType : OpCode} (hLifted : opType.isLifte
     cases op <;> simp [OpCode.isLifted] at hLifted
     simp only [interpretOp', Llvm.interpretOpCTree]
     repeat' split
-    all_goals simp [dropAction, -bind_pure_comp]
+    all_goals simp [dropAction, -bind_pure_comp, Bind.bind, bind_assoc_raw, bind_ite_raw]
   | gmir op =>
     cases op <;> simp [OpCode.isLifted] at hLifted
     · simp only [interpretOp', GMIR.interpretOpCTree]
@@ -232,14 +315,14 @@ theorem interpretOp'_bind_dropAction {opType : OpCode} (hLifted : opType.isLifte
     rw [Riscv.isLoad_iff] at hLoad
     cases op <;> simp at hLoad
     all_goals
-      simp only [interpretOp', Riscv.interpretOpCTree, riscvLoadCTree]
+      simp only [interpretOp', checkResultTypes, Riscv.interpretOpCTree, riscvLoadCTree]
       repeat' split
-      all_goals simp [dropAction, -bind_pure_comp]
+      all_goals simp [dropAction, -bind_pure_comp, Bind.bind, bind_assoc_raw, bind_ite_raw]
   | builtin op =>
-    cases op <;> simp only [interpretOp', Builtin.interpretOpCTree,
+    cases op <;> simp only [interpretOp', checkResultTypes, Builtin.interpretOpCTree,
       Builtin.interpretUnrealizedConversionCastCTree]
     repeat' split
-    all_goals simp [dropAction, -bind_pure_comp, Builtin.byteToIntCTree]
+    all_goals simp [dropAction, -bind_pure_comp, Builtin.byteToIntCTree, Bind.bind, bind_assoc_raw, bind_ite_raw]
   | _ => simp [OpCode.isLifted] at hLifted
 
 end CTree

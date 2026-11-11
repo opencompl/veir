@@ -61,7 +61,9 @@ theorem sim_byteToIntCTree {w : Nat} {b b' : Data.LLVM.Byte w} (hb : b ⊒ b') {
 instance (op : Veir.Builtin) : InterpretOpTreeMonotone (.builtin op) where
   monotone properties resultTypes operands operands' blockOperands mem mem' regions h hMem := by
     rw [interpretOp'_regions, interpretOp'_regions]
-    simp only [interpretOp', Builtin.interpretOpCTree, Builtin.interpretUnrealizedConversionCastCTree]
+    simp only [interpretOp']
+    apply sim_mono (sim_checkResultTypes ?_) (fun _ _ h => h.1)
+    simp only [Builtin.interpretOpCTree, Builtin.interpretUnrealizedConversionCastCTree]
     cases op <;> try simp
     rcases hr : resultTypes[0]? with _ | resType
     · simp

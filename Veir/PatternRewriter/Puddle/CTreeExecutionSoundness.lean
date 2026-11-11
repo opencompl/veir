@@ -87,9 +87,9 @@ theorem Pattern.Valid.root_nonterminator_of_interpret {rule : Veir.Puddle.Patter
         · simp [Veir.Puddle.Pattern.interpret, Veir.Puddle.MatchProg.run, decls, guard,
             same, failure, Option.bind] at run
       rw [sameCode]
-      exact (valid.Supported.1
+      exact valid.Supported.1
         (.operation code operands types matcher property handle results count)
-        (by simp [decls])).1
+        (by simp [decls])
     | type matcher handle => simp [Veir.Puddle.MatchProg.ConstrainsRoot, decls] at constrains
     | value ty handle => simp [Veir.Puddle.MatchProg.ConstrainsRoot, decls] at constrains
     | inspectOperation op inspect outputs => simp [Veir.Puddle.MatchProg.ConstrainsRoot, decls] at constrains
