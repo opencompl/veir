@@ -1221,6 +1221,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .alloca => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyPlainOpCounts ctx opIn 1 1
+    ((op.getResult 0).getType! ctx.raw).verifyLlvmPointerType
+      "Expected the result to have !llvm.ptr type"
     let properties := op.getProperties! ctx.raw Llvm.alloca
     if properties.alignment.type.bitwidth ≠ 64 then
       throw "'llvm.alloca' op attribute 'alignment' failed to satisfy constraint: 64-bit integer attribute"
