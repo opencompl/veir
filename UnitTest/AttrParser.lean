@@ -227,6 +227,20 @@ macro "#assert " e:term : command =>
 #assert expectErrorAttr "#arith.overflow<>"
   "expected integer overflow flag to be one of: none, nsw, nuw" (some 16)
 
+/-! ## Linalg iterator type attributes -/
+
+#assert expectSuccessAttr "#linalg.iterator_type<parallel>"
+  (Linalg.IteratorTypeAttr.mk .parallel)
+#assert expectSuccessAttr "#linalg.iterator_type<reduction>"
+  (Linalg.IteratorTypeAttr.mk .reduction)
+#assert expectRoundTripAttr "#linalg.iterator_type<parallel>"
+#assert expectRoundTripAttr "#linalg.iterator_type<reduction>"
+#assert expectRoundTripAttr
+  "[#linalg.iterator_type<parallel>, #linalg.iterator_type<reduction>]"
+#assert expectErrorAttr "#linalg.iterator_type<window>"
+  "expected iterator type to be one of: parallel, reduction" (some 22)
+#assert expectErrorAttr "#linalg.iterator_type" "Expected punctuation '<'" (some 21)
+
 /-! ## Float types -/
 
 #assert expectSuccessType "f16" FloatType.f16
@@ -419,6 +433,63 @@ macro "#assert " e:term : command =>
 #assert expectSuccessAttr "dense<0> : vector<[4]xi8>" (DenseElementsAttr.mk "0" "vector<[4]xi8>")
 #assert expectErrorAttr "dense<0> : memref<4xi8>"
   "'tensor' or 'vector' type expected in dense elements attribute" (some 11)
+
+/-! ## Affine map attribute -/
+
+#assert expectSuccessAttr "affine_map<(d0, d1) -> (d1, 0)>"
+  (AffineMapAttr.mk 2 #[.dim 1, .const 0])
+#assert expectSuccessAttr "affine_map<(d0, d1) -> ()>" (AffineMapAttr.mk 2 #[])
+#assert expectSuccessAttr "affine_map<() -> ()>" (AffineMapAttr.mk 0 #[])
+#assert expectSuccessAttr "affine_map<() -> (5)>" (AffineMapAttr.mk 0 #[.const 5])
+#assert expectSuccessAttr "affine_map<(d0) -> (-1)>" (AffineMapAttr.mk 1 #[.const (-1)])
+#assert expectSuccessAttr "affine_map<(d0) -> (- 1)>" (AffineMapAttr.mk 1 #[.const (-1)])
+#assert expectSuccessAttr "affine_map<(d0) -> (-0)>" (AffineMapAttr.mk 1 #[.const 0])
+#assert expectSuccessAttr "affine_map<(d0) -> (0x10)>" (AffineMapAttr.mk 1 #[.const 16])
+#assert expectSuccessAttr "affine_map<(d0)->(d0,d0)>" (AffineMapAttr.mk 1 #[.dim 0, .dim 0])
+#assert expectSuccessAttr "affine_map<(i, j) -> (j, i)>" (AffineMapAttr.mk 2 #[.dim 1, .dim 0])
+#assert expectSuccessAttr "affine_map<(d1, d0) -> (d0)>" (AffineMapAttr.mk 2 #[.dim 1])
+#assert expectSuccessAttr "affine_map<(d0) -> (9223372036854775807)>"
+  (AffineMapAttr.mk 1 #[.const 9223372036854775807])
+#assert expectSuccessAttr "affine_map<(d0) -> (-9223372036854775807)>"
+  (AffineMapAttr.mk 1 #[.const (-9223372036854775807)])
+#assert expectRoundTripAttr "affine_map<(d0, d1) -> (d1, 0)>"
+#assert expectRoundTripAttr "affine_map<(d0, d1) -> ()>"
+#assert expectRoundTripAttr "affine_map<() -> ()>"
+#assert expectRoundTripAttr "affine_map<(d0) -> (-1)>"
+#assert expectRoundTripAttr "affine_map<(d0, d1, d2) -> (d0, d2)>"
+#assert (testAttr "affine_map<(i, j) -> (j, i)>").map Attribute.toString ==
+  .ok "affine_map<(d0, d1) -> (d1, d0)>"
+#assert expectErrorAttr "affine_map<(d0) -> (d1)>" "use of undeclared identifier 'd1'" (some 20)
+#assert expectErrorAttr "affine_map<(d0, d0) -> (d0)>" "redefinition of identifier 'd0'" (some 16)
+#assert expectErrorAttr "affine_map<(0) -> ()>" "dimension identifier expected in affine map"
+  (some 12)
+#assert expectErrorAttr "affine_map<(d0)[s0] -> (s0)>" "symbols are not supported in affine maps"
+  (some 15)
+#assert expectErrorAttr "affine_map<(d0) (d0)>" "expected '->' in affine map" (some 16)
+#assert (testAttr "affine_map<(mod, symbol) -> (mod, 0)>").map Attribute.toString ==
+  .ok "affine_map<(d0, d1) -> (d0, 0)>"
+#assert expectErrorAttr "affine_map<(symbol) -> (symbol)>" "symbols are not supported in affine maps"
+  (some 24)
+#assert expectErrorAttr "affine_map<(d0) -> d0>" "opening delimiter '(' expected" (some 19)
+#assert expectErrorAttr "affine_map<(d0) -> (d0>" "closing delimiter ')' expected" (some 22)
+#assert expectErrorAttr "affine_map<(d0) -> (d0 + 1)>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (d0 - 1)>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (2 * d0)>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (d0 floordiv 2)>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (d0 mod 2)>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (-d0)>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> ((d0))>"
+  "only dimensions and integer constants are supported in affine expressions" (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (9223372036854775808)>" "constant too large for index"
+  (some 20)
+#assert expectErrorAttr "affine_map<(d0) -> (-9223372036854775808)>" "constant too large for index"
+  (some 21)
 
 /-! ## Unregistered dialect type -/
 
