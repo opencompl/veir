@@ -1,6 +1,7 @@
 module
 
 public import Veir.Dialects.LLVM.ResultsConform
+public import Veir.Dialects.GMIR.ResultsConform
 
 public section
 
