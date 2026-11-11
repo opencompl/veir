@@ -1,13 +1,15 @@
 module
 
 public import Veir.Passes.InstructionSelection.Branches.Frame
-public import Veir.Passes.InstructionSelection.Branches.Simulation
+public import Veir.Passes.InstructionSelection.Branches.SimulationCTree
 
 import all Veir.Passes.InstructionSelection.RISCV64Branches
 public import Veir.Passes.Matching.GMIR.Basic
 import all Veir.Passes.Matching.GMIR.Basic
 import all Veir.IR.Basic
 import all Veir.IR.OpCode
+public import Veir.Dialects.ProvedMonotone
+public import Veir.Dialects.CTreeMonotonicity
 
 public section
 
@@ -1701,15 +1703,128 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
   lowered as a branch is a shape `PhaseA` does not describe. Nor does it cover a
   module in which the pass leaves a branch alone, or passes a pointer through a
   register, which `BranchesLowerable` rules out.
+
+  The operations the lowering leaves alone see refined operands, as a register
+  holds no poison, so the module must consist of opcodes proved monotone
+  (`OpCode.monotoneProved`): gMIR but `g_store`, RISC-V, `llvm.load`, `func` and
+  `builtin.module`. A `g_store` of a refined value stores other bytes, and the
+  proof in `Interp` keeps the memories equal.
 -/
 theorem convertModule_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
     (hVerified : ctx.Verified root)
     (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
       o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
-    (hLowerable : BranchesLowerable ctx) (hMono : MonotoneOps ctx)
+    (hLowerable : BranchesLowerable ctx)
+    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
     (h : convertModule ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
   (convertModule_branchLowering hVerified hNoUnreachable hLowerable h).elim fun lowering =>
-    lowering.isModuleRefinedBy hMono module
+    lowering.isModuleRefinedBy
+      (fun o oIn => OpCode.interpretOp'Monotone_of_monotoneProved (hMonotone o oIn)) module
+
+/--
+  The operations of a module that verifies are monotone in CTrees: those whose
+  opcode has a proof, the others by `OpCode.interpretCTree_monotone_assumed`.
+-/
+theorem treeMonotoneOps_of_verified {ctx : WfIRContext OpCode} {root : OperationPtr}
+    (hVerified : ctx.Verified root) : TreeMonotoneOps ctx :=
+  fun o oIn => o.treeMonotone_of_interpretCTree_monotone oIn
+    (OperationPtr.satisfyInvariants_of_IRContext_satisfyOpInvariants hVerified oIn)
+    (OpCode.interpretCTree_monotone_of_opCode _)
+
+/--
+  The operations of a module whose opcodes are proved monotone in CTrees are
+  proved monotone, in `Interp` if their CTree semantics is their `Interp` one.
+-/
+theorem provedMonotoneOps_of_treeMonotoneProved {ctx : WfIRContext OpCode}
+    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved) :
+    ProvedMonotoneOps ctx :=
+  fun o oIn => ⟨fun hLifted =>
+      OpCode.interpretOp'ContextuallyMonotone_of_treeMonotoneProved (hMonotone o oIn) hLifted,
+    fun _ =>
+      have := OpCode.interpretOpTreeMonotone_of_treeMonotoneProved (hMonotone o oIn)
+      o.treeMonotone_of_interpretOpTreeMonotone⟩
+
+/--
+  The RISC-V branch lowering refines the same modules in CTrees, stores
+  included. The operations it keeps see refined operands and refined memory, so
+  they must be monotone in CTrees: the opcodes of gMIR, LLVM and RISC-V are, by
+  their proofs, and the others by `OpCode.interpretCTree_monotone_assumed`.
+  `freeze`, `g_anyext`, the loads and the casts have CTree semantics of their
+  own, which choose what is poison.
+-/
+theorem convertModule_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hLowerable : BranchesLowerable ctx)
+    (h : convertModule ctx = .ok ctx')
+    (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
+  (convertModule_branchLowering hVerified hNoUnreachable hLowerable h).elim fun lowering =>
+    lowering.isModuleRefinedByCTree
+      (lowering.keptOpsSim_of_treeMonotoneOps (treeMonotoneOps_of_verified hVerified)) module
+
+/--
+  The RISC-V branch lowering refines in CTrees, without assuming anything about
+  the interpreter, a module whose opcodes are proved monotone in CTrees
+  (`OpCode.treeMonotoneProved`): those of gMIR, LLVM, RISC-V, `gmir_riscv`,
+  `riscv_stack`, `cf`, `riscv_cf`, `func`, `builtin` and `test`.
+-/
+theorem convertModule_isModuleRefinedByCTree_of_treeMonotoneProved {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hLowerable : BranchesLowerable ctx)
+    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
+    (h : convertModule ctx = .ok ctx')
+    (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
+  (convertModule_branchLowering hVerified hNoUnreachable hLowerable h).elim fun lowering =>
+    lowering.isModuleRefinedByCTree
+      (lowering.keptOpsSim_of_provedMonotoneOps (provedMonotoneOps_of_treeMonotoneProved hMonotone))
+      module
+
+/-! ## The pass as registered -/
+
+/-- The pass succeeds only with the module `convertModule` returns. -/
+theorem ISelBrPass.convertModule_eq_ok_of_run {strict : Bool} {ctx ctx' : WfIRContext OpCode}
+    (h : ISelBrPass.run strict ctx = .ok ctx') : convertModule ctx = .ok ctx' := by
+  unfold ISelBrPass.run at h
+  rcases hc : convertModule ctx with e | c
+  · simp [hc, bind, Except.bind] at h
+  · simp only [hc, bind, Except.bind] at h
+    (repeat' split at h) <;> simp_all [pure, Except.pure]
+
+/--
+  The pass `isel-br-riscv64` refines a module it succeeds on, in either mode, under the
+  hypotheses of `convertModule_isModuleRefinedBy`. The pass with its IO
+  (`ISelBrPass.impl`) returns what `ISelBrPass.run` does (`ISelBrPass.impl_eq_run`).
+-/
+theorem ISelBrPass.run_isModuleRefinedBy {strict : Bool} {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hLowerable : BranchesLowerable ctx)
+    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
+    (h : ISelBrPass.run strict ctx = .ok ctx') (module : OperationPtr) :
+    module.isModuleRefinedBy ctx module ctx' :=
+  convertModule_isModuleRefinedBy hVerified hNoUnreachable hLowerable hMonotone
+    (ISelBrPass.convertModule_eq_ok_of_run h) module
+
+/-- The pass `isel-br-riscv64` refines a module it succeeds on in CTrees. -/
+theorem ISelBrPass.run_isModuleRefinedByCTree {strict : Bool} {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (hVerified : ctx.Verified root)
+    (hNoUnreachable : ∀ o : OperationPtr, o.InBounds ctx.raw →
+      o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
+    (hLowerable : BranchesLowerable ctx)
+    (h : ISelBrPass.run strict ctx = .ok ctx') (module : OperationPtr) :
+    module.isModuleRefinedByCTree ctx module ctx' :=
+  convertModule_isModuleRefinedByCTree hVerified hNoUnreachable hLowerable
+    (ISelBrPass.convertModule_eq_ok_of_run h) module
+
+/-- The pass, with its IO, returns what `ISelBrPass.run` does. -/
+theorem ISelBrPass.impl_eq_run (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw) :
+    ISelBrPass.impl strict ctx op opIn = ExceptT.mk (pure (ISelBrPass.run strict ctx)) := by
+  rw [ISelBrPass.impl]
 
 end Veir

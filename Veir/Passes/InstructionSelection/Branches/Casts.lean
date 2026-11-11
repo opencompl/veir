@@ -1,6 +1,7 @@
 module
 
 public import Veir.Passes.InstructionSelection.RISCV64Branches
+public import Veir.Interpreter.CTreeRefinement.OpList
 
 import Veir.Interpreter.Refinement.Lemmas
 import Veir.Dialects.GMIR.Lemmas
@@ -57,6 +58,36 @@ theorem RuntimeValue.toReg?_int {w : Nat} {value : LLVM.Int w} :
   simp only [RuntimeValue.toReg?]
 
 /--
+  `reg` is a register that `builtin.unrealized_conversion_cast` may turn `value`
+  into. A register cannot hold poison, so the cast of a poison integer may be any
+  register, and the poison bits of a byte may come out as any bits.
+-/
+def RuntimeValue.CastsTo : RuntimeValue → RISCV.Reg → Prop
+  | .int _ (.val value), r => r = ⟨value.zeroExtend 64⟩
+  | .int _ .poison, _ => True
+  | .byte _ value, r => ∃ bits, r = ⟨(value.val ||| (value.poison &&& bits)).zeroExtend 64⟩
+  | _, _ => False
+
+/-- The register that `toReg?` picks is one that the cast may give. -/
+theorem RuntimeValue.castsTo_of_toReg? {value : RuntimeValue} {reg : RISCV.Reg}
+    (h : value.toReg? = some reg) : value.CastsTo reg := by
+  cases value with
+  | int w x =>
+    simp only [toReg?, Option.some.injEq] at h
+    subst h
+    cases x <;> simp [CastsTo, LLVM.Int.toReg_val]
+  | byte w b =>
+    simp only [toReg?, Option.some.injEq] at h
+    subst h
+    exact ⟨0, by simp [LLVM.Byte.toReg_eq]⟩
+  | _ => simp [toReg?] at h
+
+/-- The cast of an integer that is not poison is its bits. -/
+theorem RuntimeValue.castsTo_int_val {w : Nat} {x : BitVec w} {reg : RISCV.Reg} :
+    (RuntimeValue.int w (.val x)).CastsTo reg ↔ reg = LLVM.Int.toReg (.val x) := by
+  simp [CastsTo, LLVM.Int.toReg_val]
+
+/--
   The integer or byte of type `type` that `builtin.unrealized_conversion_cast`
   turns a register into.
 -/
@@ -84,6 +115,47 @@ theorem interpretOp'_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value : Run
       successors mem = .ok (#[value], mem, none) := by
   obtain ⟨attr, hattr⟩ := type
   cases attr <;> grind [RuntimeValue.ofReg?, interpretOp']
+
+/--
+  A cast to a register, in CTrees, gives a register that the value may be cast
+  to: the cast of a poison integer, or of a byte with poison bits, chooses the
+  bits that are poison.
+-/
+theorem returns_cast_toReg {value : RuntimeValue} {reg : RISCV.Reg}
+    (hReg : value.toReg? = some reg)
+    (properties : propertiesOf (OpCode.builtin .unrealized_conversion_cast))
+    (successors : Array BlockPtr) (mem : MemoryState) :
+    CTree.Returns (CTree.interpretOp' (.builtin .unrealized_conversion_cast) properties
+        #[RegisterType.mk] #[value] successors mem)
+      (fun r => ∃ reg', value.CastsTo reg' ∧ r = (#[.reg reg'], mem, none)) := by
+  cases value with
+  | int w x =>
+    cases x with
+    | val x =>
+      rw [CTree.interpretOp'_cast_int_val (registerType := ⟨none⟩) rfl (by simp)]
+      exact CTree.returns_pure.mpr ⟨_, rfl, rfl⟩
+    | poison =>
+      rw [CTree.interpretOp'_cast_int_poison (registerType := ⟨none⟩) rfl (by simp)]
+      exact CTree.returns_choose_bind _ fun _ => CTree.returns_pure.mpr ⟨_, trivial, rfl⟩
+  | byte w b =>
+    rw [CTree.interpretOp'_cast_byte (registerType := ⟨none⟩) rfl (by simp)]
+    split
+    · next h => exact CTree.returns_pure.mpr ⟨_, ⟨0, by simp [LLVM.Byte.toReg_eq, h]⟩, rfl⟩
+    · exact CTree.returns_choose_bind _ fun bits => CTree.returns_pure.mpr ⟨_, ⟨bits, rfl⟩, rfl⟩
+  | _ => simp [RuntimeValue.toReg?] at hReg
+
+/-- A cast from a register, in CTrees, computes `ofReg?`. -/
+theorem interpretOp'_tree_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value : RuntimeValue}
+    {mem : MemoryState} (hValue : RuntimeValue.ofReg? type reg = some value)
+    (properties : propertiesOf (OpCode.builtin .unrealized_conversion_cast))
+    (successors : Array BlockPtr) :
+    CTree.interpretOp' (.builtin .unrealized_conversion_cast) properties #[type] #[.reg reg]
+      successors mem = pure (#[value], mem, none) := by
+  obtain ⟨attr, hattr⟩ := type
+  cases attr <;> simp only [RuntimeValue.ofReg?, Option.some.injEq, reduceCtorEq] at hValue <;>
+    subst hValue
+  · exact CTree.interpretOp'_cast_toInt rfl rfl
+  · exact CTree.interpretOp'_cast_toByte rfl rfl
 
 /-- An integer of a type that `roundTrips` has at most 64 bits. -/
 theorem RuntimeValue.width_le_of_roundTrips {type : TypeAttr} {w : Nat} {x : Data.LLVM.Int w}
@@ -120,6 +192,35 @@ theorem RuntimeValue.isRefinedBy_ofReg?_of_toReg? {type : TypeAttr} {value : Run
     exact ⟨_, rfl, by grind [RuntimeValue.isRefinedBy], rfl⟩
 
 /--
+  A value of a type that `roundTrips` is refined by what comes back from any
+  register it may be cast to, and what comes back is of its type.
+-/
+theorem RuntimeValue.isRefinedBy_ofReg?_of_castsTo {type : TypeAttr} {value : RuntimeValue}
+    {reg : RISCV.Reg} (hRoundTrips : roundTrips type) (hConforms : value.Conforms type)
+    (hCasts : value.CastsTo reg) :
+    ∃ value', RuntimeValue.ofReg? type reg = some value' ∧ value ⊒ value' ∧
+      value'.Conforms type := by
+  obtain ⟨attr, hattr⟩ := type
+  cases attr <;> simp [roundTrips] at hRoundTrips
+  case integerType t =>
+    cases value <;> simp only [Conforms] at hConforms <;> subst hConforms
+    case int x =>
+    refine ⟨_, rfl, ?_, rfl⟩
+    cases x with
+    | poison => simp [RuntimeValue.isRefinedBy]
+    | val x =>
+      simp only [CastsTo] at hCasts
+      subst hCasts
+      grind [RuntimeValue.isRefinedBy]
+  case byteType t =>
+    cases value <;> simp only [Conforms] at hConforms <;> subst hConforms
+    case byte b =>
+    refine ⟨_, rfl, ?_, rfl⟩
+    obtain ⟨bits, rfl⟩ := hCasts
+    simpa [RuntimeValue.isRefinedBy] using
+      LLVM.Byte.isRefinedBy_toByte_of_poison hRoundTrips.2 b bits
+
+/--
   A value of a type that `roundTrips` is refined by its round trip through a
   register, even when the value that is cast is only a refinement of it.
 -/
@@ -138,15 +239,15 @@ theorem RuntimeValue.isRefinedBy_ofReg?_toReg? {type : TypeAttr} {source target 
 /-! ## The branches -/
 
 /--
-  `target` holds the registers that the values `source` are cast to, where the
+  `target` holds registers that the values `source` may be cast to, where the
   value that is cast may be a refinement of the source value.
 -/
 structure RegistersOf (source target : Array RuntimeValue) : Prop where
   /-- There is one register per value. -/
   size_eq : source.size = target.size
-  /-- The register at `i` is the cast of a refinement of the value at `i`. -/
+  /-- The register at `i` is a cast of a refinement of the value at `i`. -/
   get : ∀ i, i < source.size → ∃ value reg,
-    source[i]! ⊒ value ∧ value.toReg? = some reg ∧ target[i]! = .reg reg
+    source[i]! ⊒ value ∧ value.CastsTo reg ∧ target[i]! = .reg reg
 
 /-- No value has no register. -/
 theorem RegistersOf.empty : RegistersOf #[] #[] := ⟨rfl, by simp⟩
@@ -154,7 +255,7 @@ theorem RegistersOf.empty : RegistersOf #[] #[] := ⟨rfl, by simp⟩
 /-- One more value and the register it is cast to. -/
 theorem RegistersOf.push {source target : Array RuntimeValue} (h : RegistersOf source target)
     {s value : RuntimeValue} {reg : RISCV.Reg} (hRefined : s ⊒ value)
-    (hReg : value.toReg? = some reg) :
+    (hReg : value.CastsTo reg) :
     RegistersOf (source.push s) (target.push (.reg reg)) := by
   refine ⟨by simp [h.size_eq], fun i hi => ?_⟩
   grind [h.size_eq, h.get]
@@ -231,10 +332,10 @@ theorem interpretOp'_brcond_registers
   rw [getElem!_pos operands 0 hLt, hOperand, RuntimeValue.int_val_isRefinedBy_iff]
     at hRefined
   subst hRefined
-  simp only [RuntimeValue.toReg?, Option.some.injEq] at hReg
+  rw [RuntimeValue.castsTo_int_val] at hReg
   have hRegister' : registers[0]? = some (.reg reg) := by
     rw [← hRegister]; exact Array.getElem?_eq_some_getElem! _ _ (hRegisters.size_eq ▸ hLt)
-  have hRegVal : reg.val = cond.zeroExtend 64 := by simp [← hReg, val_toReg]
+  have hRegVal : reg.val = cond.zeroExtend 64 := by simp [hReg, val_toReg]
   have hCondIff : reg.val ≠ 0#64 ↔ cond ≠ 0 := by
     rw [hRegVal]
     constructor
