@@ -13,7 +13,7 @@ inductive Test where
 | test
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Test.propertiesOf (_op : Test) : Type :=
   Unit
 

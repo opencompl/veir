@@ -80,7 +80,7 @@ inductive GMIR where
 | g_rotr
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def GMIR.propertiesOf : GMIR → Type
   | .g_add | .g_sub | .g_mul | .g_shl | .g_trunc => NswNuwProperties
   | .g_sdiv | .g_udiv | .g_lshr | .g_ashr => ExactProperties

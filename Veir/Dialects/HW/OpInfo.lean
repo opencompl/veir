@@ -20,7 +20,7 @@ inductive HW where
 | instance
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def HW.propertiesOf (op : HW) : Type :=
 match op with
 | .constant => HWConstantProperties

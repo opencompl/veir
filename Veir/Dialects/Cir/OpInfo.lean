@@ -45,7 +45,7 @@ inductive Cir where
 | unreachable
 deriving Inhabited, Repr, Hashable, DecidableEq
 
-@[expose, properties_of]
+@[expose, implicit_reducible, properties_of]
 def Cir.propertiesOf (op : Cir) : Type :=
 match op with
 | .func => CirFuncProperties
