@@ -1483,6 +1483,28 @@ def gmirAddi_pattern : Pattern OpCode :=
 def gmirAndi_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_and) .andi rfl (-2048) 2047 (guard := matchLegal .g_and)
 
+/-- `gmir.g_and` (`i64`) with the constant rhs `mask` -> `riscvOp`. -/
+def gmirAndMask_pattern (mask : Nat) (riscvOp : Riscv)
+    (riscvProps : propertiesOf (OpCode.riscv riscvOp)) : Pattern OpCode :=
+  Pattern.Builder
+    (do
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 64)
+      let lhs ← MatchProg.value type
+      let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
+      let root ← MatchProg.root (.gmir .g_and) #[lhs, constant.res[0]!] #[type]
+      matchLegal .g_and type root.properties
+      MatchProg.matchNative constant.properties fun ⟨const⟩ =>
+        BitVec.ofInt 64 const.value = BitVec.ofNat 64 mask
+      return (type, lhs))
+    (fun (type, lhs) => createRegOp type #[lhs] riscvOp riscvProps)
+    (fun castBackOp => castBackOp)
+
+/-- `gmir.g_and` (`i64`) with the constant rhs `0xFFFF` -> `riscv.zexth`. -/
+def gmirZexth_pattern : Pattern OpCode := gmirAndMask_pattern 0xFFFF .zexth ()
+
+/-- `gmir.g_and` (`i64`) with the constant rhs `0xFFFFFFFF` -> `riscv.zextw`. -/
+def gmirZextw_pattern : Pattern OpCode := gmirAndMask_pattern 0xFFFFFFFF .zextw ()
+
 /-- `gmir.g_or` (`i64`) with a simm12 constant rhs -> `riscv.ori`. -/
 def gmirOri_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir .g_or) .ori rfl (-2048) 2047 (guard := matchLegal .g_or)
@@ -1521,6 +1543,8 @@ def gmirRiscvSraiw_pattern : Pattern OpCode :=
 
 def gmirAddi : Puddle.CompiledPattern OpCode := gmirAddi_pattern.compile
 def gmirAndi : Puddle.CompiledPattern OpCode := gmirAndi_pattern.compile
+def gmirZexth : Puddle.CompiledPattern OpCode := gmirZexth_pattern.compile
+def gmirZextw : Puddle.CompiledPattern OpCode := gmirZextw_pattern.compile
 def gmirOri : Puddle.CompiledPattern OpCode := gmirOri_pattern.compile
 def gmirXori : Puddle.CompiledPattern OpCode := gmirXori_pattern.compile
 def gmirSlli : Puddle.CompiledPattern OpCode := gmirSlli_pattern.compile
@@ -2109,6 +2133,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
+    gmirZexth.run, gmirZextw.run,
     gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
     gmirCpopw.run, gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
   let ctx ← match RewritePattern.applyToFunctions early ctx op with
