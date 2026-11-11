@@ -83,10 +83,10 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | Popcount                        | `BitVec.cpop`                | `setWidth_cpop`                    |
 | Leading zeros                   | `BitVec.clz`                 | `setWidth_clz`                     |
 | Trailing zeros                  | `BitVec.ctz`                 | `setWidth_ctz`                     |
-| Unsigned add overflow           | `BitVec.uaddOverflow`        | —                                  |
-| Signed add overflow             | `BitVec.saddOverflow`        | —                                  |
-| Unsigned sub overflow           | `BitVec.usubOverflow`        | —                                  |
-| Signed sub overflow             | `BitVec.ssubOverflow`        | —                                  |
+| Unsigned add overflow           | `BitVec.uaddOverflow`        | `uaddOverflow_eq_ult_setWidth`     |
+| Signed add overflow             | `BitVec.saddOverflow`        | `BitVec.saddOverflow_eq`           |
+| Unsigned sub overflow           | `BitVec.usubOverflow`        | `usubOverflow_eq_ult_setWidth`     |
+| Signed sub overflow             | `BitVec.ssubOverflow`        | `BitVec.ssubOverflow_eq`           |
 | Neg overflow                    | `BitVec.negOverflow`         | —                                  |
 | Unsigned mul overflow           | `BitVec.umulOverflow`        | —                                  |
 | Signed mul overflow             | `BitVec.smulOverflow`        | —                                  |
@@ -490,6 +490,34 @@ theorem msb_eq_and_signBitOfMask_ne_zero (o : Nat) {w : Nat} (h : w ≤ o) (a : 
     cases a.getLsbD (w - 1)
     · simp
     · simp [BitVec.twoPow_ne_zero hlt]
+
+/-! ### Overflow flags
+
+The signed overflows are unfolded into `msb`s, which `msb_eq_and_signBitOfMask_ne_zero` pushes.
+Otherwise `bv_decide` would unfold them only after pushing, leaving `msb`s at the parametric width.
+-/
+
+attribute [pbv_push] BitVec.saddOverflow_eq BitVec.ssubOverflow_eq
+
+/-- Unsigned addition overflows iff the wrapped sum is below an operand, compared at width `o`. -/
+@[pbv_push_bound]
+theorem uaddOverflow_eq_ult_setWidth (o : Nat) {w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    a.uaddOverflow b = ((a + b).setWidth o).ult (a.setWidth o) := by
+  rw [← ult_setWidth o h]
+  have := a.isLt; have := b.isLt
+  simp only [BitVec.uaddOverflow, BitVec.ult_eq_decide, BitVec.toNat_add]
+  rw [decide_eq_decide]
+  by_cases hc : a.toNat + b.toNat < 2 ^ w
+  · simp only [Nat.mod_eq_of_lt hc]; omega
+  · simp only [Nat.mod_eq_sub_mod (Nat.le_of_not_lt hc), Nat.mod_eq_of_lt (by omega : a.toNat + b.toNat - 2 ^ w < 2 ^ w)]
+    omega
+
+/-- Unsigned subtraction overflows iff `a < b`, compared at width `o`. -/
+@[pbv_push_bound]
+theorem usubOverflow_eq_ult_setWidth (o : Nat) {w : Nat} (h : w ≤ o) (a b : BitVec w) :
+    a.usubOverflow b = (a.setWidth o).ult (b.setWidth o) := by
+  rw [← ult_setWidth o h, BitVec.usubOverflow_eq, BitVec.ult_eq_decide]
+  simp [BitVec.lt_def]
 
 @[pbv_push]
 theorem setWidth_twoPow {o w n : Nat} (h : w ≤ o) :

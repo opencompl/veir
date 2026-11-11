@@ -725,6 +725,26 @@ example {w v : Nat} (x : BitVec w) (hv : v ≤ 8) (hwv : w ≤ v) :
     (x.zeroExtend v).clz + BitVec.ofNat v w = x.clz.zeroExtend v + BitVec.ofNat v v := by
   pbv_decide 8
 
+/-- Unsigned addition overflows iff the sum wraps below an operand -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.uaddOverflow y = (x + y).ult x := by
+  pbv_decide 4
+
+/-- Unsigned subtraction overflows iff the subtrahend is larger -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.usubOverflow y = x.ult y := by
+  pbv_decide 4
+
+/-- Signed addition overflow is symmetric -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) :
+    x.saddOverflow y = y.saddOverflow x := by
+  pbv_decide 4
+
+/-- Signed subtraction overflows only when the operands' signs differ -/
+example {w : Nat} (x y : BitVec w) (hw : w ≤ 4) (h : x.msb = y.msb) :
+    x.ssubOverflow y = false := by
+  pbv_decide 4
+
 /-- Xor with all ones is complement -/
 example {w : Nat} (x : BitVec w) (hw : w ≤ 4) :
     x ^^^ BitVec.allOnes w = ~~~x := by
@@ -744,5 +764,11 @@ example {w t : Nat} (i i' : LLVM.Int w) (ext ext' : BitVec (t - w)) (nuw nsw : B
     ) w false false (by grind) := by
   veir_bv_normalize
   pbv_decide 8
+
+/-- The overflow flag of an LLVM addition is symmetric -/
+example {w : Nat} (x y : LLVM.Int w) (hw : w ≤ 4) :
+    LLVM.Int.uaddOverflowFlag x y ⊒ LLVM.Int.uaddOverflowFlag y x := by
+  veir_bv_normalize
+  pbv_decide 4
 
 end RefinementTest
