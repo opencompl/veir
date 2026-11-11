@@ -407,11 +407,13 @@ public def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext
 
 /-! # Pass implementation -/
 
-def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  let ctx ← match convertModule ctx with
-    | .ok ctx => pure ctx
-    | .error message => throw message
+/--
+  The pass on a module, without IO: `convertModule`, and in strict mode the check
+  that no branch but a RISC-V one remains.
+-/
+public def ISelBrPass.run (strict : Bool) (ctx : WfIRContext OpCode) :
+    Except String (WfIRContext OpCode) := do
+  let ctx ← convertModule ctx
   -- In strict mode, no branch but a RISC-V one may remain.
   if strict then
     for o in ctx.raw.operations.keys do
@@ -422,6 +424,10 @@ def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPt
       if opType = OpCode.gmir .g_br || opType = OpCode.gmir .g_brcond then
         throw "isel-br-riscv64: a branch operand does not fit a register"
   return ctx
+
+public def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (ISelBrPass.run strict ctx))
 
 public def IselBrRISCV64 : Pass OpCode :=
   { name := "isel-br-riscv64"

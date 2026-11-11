@@ -192,7 +192,7 @@ theorem VariableState.setResultValues?_empty {variables : VariableState ctx} {op
 
 /--
   Two states whose variables refine and whose memories are related by `R`. The
-  proof in `Interp` keeps the memories equal.
+  proof in `Interp` keeps the memories equal, that in CTrees refines them.
 -/
 abbrev InterpreterState.RefinedUnder (R : MemoryState → MemoryState → Prop)
     (source : InterpreterState ctx) (target : InterpreterState ctx')
@@ -405,14 +405,15 @@ theorem preservesOperation {op : OperationPtr} (opIn : op.InBounds ctx.raw)
 /--
   The states while the casts at the start of `block` run: the arguments hold
   registers, and every value of the source has its counterpart, except for
-  the arguments whose cast is still `pending`.
+  the arguments whose cast is still `pending`. The memories are related by `R`,
+  which the casts leave alone.
 -/
-structure EntryInv (block : BlockPtr) (source : InterpreterState ctx)
-    (target : InterpreterState ctx') (pending : List Nat) : Prop where
-  memory : source.memory = target.memory
+structure EntryInv (R : MemoryState → MemoryState → Prop) (block : BlockPtr)
+    (source : InterpreterState ctx) (target : InterpreterState ctx') (pending : List Nat) : Prop where
+  memory : R source.memory target.memory
   arguments : ∀ i, i < block.getNumArguments! ctx.raw → ∃ sourceValue value reg,
     source.variables.getVar? (block.getArgument i) = some sourceValue ∧
-    sourceValue ⊒ value ∧ value.toReg? = some reg ∧
+    sourceValue ⊒ value ∧ value.CastsTo reg ∧
     target.variables.getVar? (block.getArgument i) = some (.reg reg)
   values : ∀ value, value.InBounds ctx.raw → ∀ sourceValue,
     source.variables.getVar? value = some sourceValue →
@@ -433,10 +434,11 @@ theorem entryCasts_inBounds {block : BlockPtr} (blockIn : block.InBounds ctx.raw
 theorem interpretOpList_entryCasts {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
     (hConverted : L.converted block) {source : InterpreterState ctx} {pending : List Nat}
     (hPending : ∀ i ∈ pending, i < block.getNumArguments! ctx.raw)
-    {target : InterpreterState ctx'} (hInv : L.EntryInv block source target pending) :
+    {R : MemoryState → MemoryState → Prop}
+    {target : InterpreterState ctx'} (hInv : L.EntryInv R block source target pending) :
     ∃ target', interpretOpList (pending.map (fun i => L.argCast (block.getArgument i))) target
         (L.entryCasts_inBounds blockIn hConverted hPending) = .ok (target', none) ∧
-      L.EntryInv block source target' [] := by
+      L.EntryInv R block source target' [] := by
   induction pending generalizing target with
   | nil => exact ⟨target, by simp [interpretOpList_nil], hInv⟩
   | cons i pending ih =>
@@ -448,12 +450,12 @@ theorem interpretOpList_entryCasts {block : BlockPtr} (blockIn : block.InBounds 
     have hFits := (L.argTypeConverted blockIn hConverted hi).2
     have hConforms := VariableState.getVar?_conforms hSource
     obtain ⟨result, hResult, hRefinedResult, hConformsResult⟩ :=
-      RuntimeValue.isRefinedBy_ofReg?_of_toReg? hFits (hConforms.of_isRefinedBy hRefined) hReg
+      RuntimeValue.isRefinedBy_ofReg?_of_castsTo hFits (hConforms.of_isRefinedBy hRefined) hReg
     have hRefinedResult := RuntimeValue.isRefinedBy_trans hRefined hRefinedResult
     obtain ⟨target', hOk, hMem, hGet⟩ := interpretOp_cast (state := target) hSpec.1 hSpec.2.2.1
       hSpec.2.2.2.1 hSpec.2.2.2.2 hTarget (interpretOp'_cast_ofReg hResult) hConformsResult
-    have hInv' : L.EntryInv block source target' pending := by
-      refine ⟨hInv.memory.trans hMem.symm, fun j hj => ?_, fun v vIn sv hv => ?_⟩
+    have hInv' : L.EntryInv R block source target' pending := by
+      refine ⟨hMem ▸ hInv.memory, fun j hj => ?_, fun v vIn sv hv => ?_⟩
       · obtain ⟨sv, tv, r, h₁, h₂, h₃, h₄⟩ := hInv.arguments j hj
         exact ⟨sv, tv, r, h₁, h₂, h₃, by rw [hGet]; simpa [OperationPtr.getResult_def] using h₄⟩
       · have hMapArg : L.mapValue (block.getArgument i) =
@@ -477,21 +479,20 @@ theorem interpretOpList_entryCasts {block : BlockPtr} (blockIn : block.InBounds 
     exact hOk'
 
 /--
-  Entering a converted block: the target sets its arguments to the registers
-  it was passed, and after the casts the states are related again.
+  Entering a converted block: the target sets its arguments to the registers it
+  was passed, and the states are related as `EntryInv` says before the casts.
 -/
-theorem setArgumentValues?_converted {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+theorem entryInv_of_setArgumentValues? {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
     (hConverted : L.converted block) {state : InterpreterState ctx}
-    {state' : InterpreterState ctx'} (hState : state.RefinedUnder Eq state' L.mapping)
+    {state' : InterpreterState ctx'} {R : MemoryState → MemoryState → Prop}
+    (hState : state.RefinedUnder R state' L.mapping)
     {values values' : Array RuntimeValue} (hValues : RegistersOf values values')
     {variables : VariableState ctx}
     (hSet : state.variables.setArgumentValues? block values blockIn = some variables) :
-    ∃ variables' target,
+    ∃ variables',
       state'.variables.setArgumentValues? block values' (L.blockIn blockIn) = some variables' ∧
-      interpretOpList ((List.range (block.getNumArguments! ctx.raw)).map
-          (fun i => L.argCast (block.getArgument i))) ⟨variables', state'.memory⟩
-        (L.entryCasts_inBounds blockIn hConverted (by simp)) = .ok (target, none) ∧
-      InterpreterState.RefinedUnder Eq ⟨variables, state.memory⟩ target L.mapping := by
+      L.EntryInv R block ⟨variables, state.memory⟩ ⟨variables', state'.memory⟩
+        (List.range (block.getNumArguments! ctx.raw)) := by
   have hNum := L.numArguments blockIn
   have hSizeEq : values.size = block.getNumArguments! ctx.raw := by
     grind [VariableState.setArgumentValues?]
@@ -506,7 +507,7 @@ theorem setArgumentValues?_converted {block : BlockPtr} (blockIn : block.InBound
     obtain ⟨_, reg, _, _, hReg⟩ := hValues.2 j (hSize j hj)
     rw [(L.argTypeConverted blockIn hConverted hj).1, hReg]
     exact RuntimeValue.reg_conforms)
-  have hInv : L.EntryInv block ⟨variables, state.memory⟩ ⟨variables', state'.memory⟩
+  have hInv : L.EntryInv R block ⟨variables, state.memory⟩ ⟨variables', state'.memory⟩
       (List.range (block.getNumArguments! ctx.raw)) := by
     refine ⟨hState.1, fun i hi => ?_, fun v vIn sv hv => ?_⟩
     · obtain ⟨value, reg, hRefined, hReg, hTarget⟩ := hValues.2 i (hSize i hi)
@@ -531,11 +532,39 @@ theorem setArgumentValues?_converted {block : BlockPtr} (blockIn : block.InBound
             · simp [OperationPtr.getResult_def] at hEq
             · exact hMem (BlockPtr.getArguments!.mem_iff_exists_index.mpr
                 ⟨j, by rw [← hNum]; exact hj, hEq⟩)
-  obtain ⟨target, hOk, hInv'⟩ := L.interpretOpList_entryCasts blockIn hConverted (by simp) hInv
-  refine ⟨variables', target, hSet', hOk, hInv'.memory, fun v vIn sv hv => ?_⟩
-  rcases hInv'.values v vIn sv hv with ⟨_, h, _⟩ | h
+  exact ⟨variables', hSet', hInv⟩
+
+/-- Once no cast is pending, every value of the source has its counterpart. -/
+theorem isRefinedBy_of_entryInv {block : BlockPtr} {source : InterpreterState ctx}
+    {target : InterpreterState ctx'} {R : MemoryState → MemoryState → Prop}
+    (hInv : L.EntryInv R block source target []) :
+    source.RefinedUnder R target L.mapping := by
+  refine ⟨hInv.memory, fun v vIn sv hv => ?_⟩
+  rcases hInv.values v vIn sv hv with ⟨_, h, _⟩ | h
   · simp at h
   · exact h
+
+/--
+  Entering a converted block: the target sets its arguments to the registers
+  it was passed, and after the casts the states are related again.
+-/
+theorem setArgumentValues?_converted {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
+    (hConverted : L.converted block) {state : InterpreterState ctx}
+    {state' : InterpreterState ctx'} {R : MemoryState → MemoryState → Prop}
+    (hState : state.RefinedUnder R state' L.mapping)
+    {values values' : Array RuntimeValue} (hValues : RegistersOf values values')
+    {variables : VariableState ctx}
+    (hSet : state.variables.setArgumentValues? block values blockIn = some variables) :
+    ∃ variables' target,
+      state'.variables.setArgumentValues? block values' (L.blockIn blockIn) = some variables' ∧
+      interpretOpList ((List.range (block.getNumArguments! ctx.raw)).map
+          (fun i => L.argCast (block.getArgument i))) ⟨variables', state'.memory⟩
+        (L.entryCasts_inBounds blockIn hConverted (by simp)) = .ok (target, none) ∧
+      InterpreterState.RefinedUnder R ⟨variables, state.memory⟩ target L.mapping := by
+  obtain ⟨variables', hSet', hInv⟩ :=
+    L.entryInv_of_setArgumentValues? blockIn hConverted hState hValues hSet
+  obtain ⟨target, hOk, hInv'⟩ := L.interpretOpList_entryCasts blockIn hConverted (by simp) hInv
+  exact ⟨variables', target, hSet', hOk, L.isRefinedBy_of_entryInv hInv'⟩
 
 /-- A value stands for an argument of a block only if it is that argument. -/
 theorem eq_of_mapValue_eq_getArgument {value : ValuePtr} {block : BlockPtr} {i : Nat}
@@ -555,13 +584,14 @@ theorem eq_of_mapValue_eq_getArgument {value : ValuePtr} {block : BlockPtr} {i :
 /-- Entering a block whose arguments are unchanged keeps the states related. -/
 theorem setArgumentValues?_other {block : BlockPtr} (blockIn : block.InBounds ctx.raw)
     (hConverted : L.converted block = false) {state : InterpreterState ctx}
-    {state' : InterpreterState ctx'} (hState : state.RefinedUnder Eq state' L.mapping)
+    {state' : InterpreterState ctx'} {R : MemoryState → MemoryState → Prop}
+    (hState : state.RefinedUnder R state' L.mapping)
     {values values' : Array RuntimeValue} (hValues : values ⊒ values')
     {variables : VariableState ctx}
     (hSet : state.variables.setArgumentValues? block values blockIn = some variables) :
     ∃ variables',
       state'.variables.setArgumentValues? block values' (L.blockIn blockIn) = some variables' ∧
-      InterpreterState.RefinedUnder Eq ⟨variables, state.memory⟩ ⟨variables', state'.memory⟩
+      InterpreterState.RefinedUnder R ⟨variables, state.memory⟩ ⟨variables', state'.memory⟩
         L.mapping := by
   have hNum := L.numArguments blockIn
   have hSizeEq : values.size = block.getNumArguments! ctx.raw := by
@@ -729,15 +759,15 @@ def regValue (target : InterpreterState ctx') : Option ValuePtr → BitVec 64
     | none => 0
 
 /--
-  The register that holds `source`: `x0`, or the cast of the counterpart in
+  The register that holds `source`: `x0`, or a cast of the counterpart in
   `target` of the value of `source` in `state`.
 -/
 @[expose]
 def RegFor (state : InterpreterState ctx) (target : InterpreterState ctx')
     (source : Option ValuePtr) (register : RuntimeValue) : Prop :=
-  register = .reg ⟨L.regValue target source⟩ ∧
+  (source = none → register = .reg ⟨0⟩) ∧
   ∀ value, source = some value → ∃ sv tv reg, state.variables.getVar? value = some sv ∧
-    target.variables.getVar? (L.mapValue value) = some tv ∧ sv ⊒ tv ∧ tv.toReg? = some reg ∧
+    target.variables.getVar? (L.mapValue value) = some tv ∧ sv ⊒ tv ∧ tv.CastsTo reg ∧
     register = .reg reg
 
 /--
@@ -781,7 +811,7 @@ theorem interpretOpList_regOps {op : OperationPtr} (opIn : op.InBounds ctx.raw)
       · obtain ⟨hType, hResultTypes, hOperands⟩ := L.regOpX0 opIn hBranch hSource
         obtain ⟨target', hOk', hMem, hGet⟩ :=
           interpretOp_getRegister (state := target) hSpec.1 hType hResultTypes hOperands
-        exact ⟨_, target', hOk', hMem, hGet, rfl, fun _ h => by simp at h⟩
+        exact ⟨_, target', hOk', hMem, hGet, fun _ => rfl, fun _ h => by simp at h⟩
       · obtain ⟨hType, hResultTypes, hOperands⟩ := L.regOpCast opIn hBranch hSource
         obtain ⟨valueIn, sv, hSv, hRegs⟩ := hSources k value hSource
         obtain ⟨tv, hTv, hRefined⟩ := hState.2 value valueIn sv hSv
@@ -794,10 +824,9 @@ theorem interpretOpList_regOps {op : OperationPtr} (opIn : op.InBounds ctx.raw)
           hResultTypes hOperands hTv'
           (fun properties successors => interpretOp'_cast_toReg hReg properties successors)
           RuntimeValue.reg_conforms
-        refine ⟨_, target', hOk', hMem, hGet, ?_, fun value' h => ?_⟩
-        · simp [regValue, hTv, hReg]
-        · obtain rfl := Option.some.inj h
-          exact ⟨sv, tv, reg, hSv, hTv, hRefined, hReg, rfl⟩
+        refine ⟨_, target', hOk', hMem, hGet, fun h => by simp at h, fun value' h => ?_⟩
+        obtain rfl := Option.some.inj h
+        exact ⟨sv, tv, reg, hSv, hTv, hRefined, RuntimeValue.castsTo_of_toReg? hReg, rfl⟩
     refine ⟨target', registers.push register, ?_, ⟨hTarget.1.trans hMem.symm, ?_⟩,
       by simp [hSize], fun value valueIn => ?_, fun i hi => ?_⟩
     · simp only [List.range_succ, List.map_append, List.map_cons, List.map_nil,
@@ -906,6 +935,239 @@ theorem registersOf_of_regFor {op : OperationPtr} {state : InterpreterState ctx}
     simp [Nat.add_comm]
 
 /--
+  The values that the operations in front of the new branch of a branch cast
+  to registers fit a register, and so does every refinement of them. A
+  compare-and-branch needs the `CompareFact` of its `g_icmp`.
+-/
+theorem regSources {op : OperationPtr} (opIn : op.InBounds ctx.raw)
+    (hBranch : op.IsGmirBranch ctx.raw) {state : InterpreterState ctx}
+    {operands : Array RuntimeValue}
+    (hOperands : state.variables.getOperandValues op = some operands)
+    (hFact : ∀ c, L.compare op = some c → L.CompareFact op state) :
+    ∀ (i : Nat) (value : ValuePtr),
+      (regOperands ctx.raw op (L.compare op))[i]? = some (some value) →
+      value.InBounds ctx.raw ∧ ∃ sv, state.variables.getVar? value = some sv ∧
+        ∀ tv, sv ⊒ tv → ∃ reg, tv.toReg? = some reg := by
+  have operandIn : ∀ i, i < op.getNumOperands! ctx.raw →
+      (op.getOperand! ctx.raw i).InBounds ctx.raw := fun i hi =>
+    OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds opIn
+      (OperationPtr.getOperands!.mem_getOperand hi)
+  /- An operand of the branch fits a register, and so does every refinement of its value. -/
+  have hOperandRegs : ∀ i, i < op.getNumOperands! ctx.raw → ∀ tv, operands[i]! ⊒ tv →
+      ∃ reg, tv.toReg? = some reg := by
+    intro i hi tv hRefined
+    have hConforms :=
+      (VariableState.getVar?_conforms (getVar?_getOperand hOperands hi)).of_isRefinedBy hRefined
+    exact RuntimeValue.toReg?_eq_some_of_roundTrips (L.operandRoundTrips opIn hBranch hi) hConforms
+  /- So do the values that a compare-and-branch compares, as the `g_icmp` compared integers. -/
+  intro i value hValue
+  rcases hc : L.compare op with _ | ⟨branch, l, r⟩
+  · rw [hc, regOperands_none] at hValue
+    obtain ⟨hi, rfl⟩ : i < op.getNumOperands! ctx.raw ∧ op.getOperand! ctx.raw i = value := by
+      grind [List.getElem?_range]
+    exact ⟨operandIn i hi, _, getVar?_getOperand hOperands hi, hOperandRegs i hi⟩
+  · obtain ⟨-, icmpIn, -, -, -, hIcmpNumOps, -, -, -, hCompareEq⟩ := L.compareSpec opIn hc
+    obtain ⟨a, b, cond, hA, hB, _, _, _, _, _, hIcmp⟩ := hFact _ hc
+    obtain ⟨bw, x, y, -, -, hOps, -⟩ := interpretOp'_gmir_g_icmp_eq_ok hIcmp
+    obtain ⟨rfl, rfl⟩ : a = .int bw x ∧ b = .int bw y := by simpa using hOps
+    have hInt : ∀ v : Data.LLVM.Int bw, ∀ tv, RuntimeValue.int bw v ⊒ tv →
+        ∃ reg, tv.toReg? = some reg := by
+      intro v tv hRefined
+      obtain ⟨t, rfl, -⟩ := RuntimeValue.int_of_isRefinedBy hRefined
+      exact ⟨_, RuntimeValue.toReg?_int⟩
+    have icmpOperandIn : ∀ j, j < 2 → ((L.icmpOf op).getOperand! ctx.raw j).InBounds ctx.raw :=
+      fun j hj => OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds icmpIn
+        (OperationPtr.getOperands!.mem_getOperand (by omega))
+    /- A compared value is one of the two operands of the `g_icmp`. -/
+    have hCompared : some value = l ∨ some value = r →
+        value.InBounds ctx.raw ∧ ∃ sv, state.variables.getVar? value = some sv ∧
+          ∀ tv, sv ⊒ tv → ∃ reg, tv.toReg? = some reg := by
+      intro hMem
+      have := compareBranch_operands (value := some value) (by rw [hCompareEq]; exact hMem)
+      rcases this with h | h | h
+      · simp at h
+      · obtain rfl := Option.some.inj h
+        exact ⟨icmpOperandIn 0 (by omega), _, hA, hInt x⟩
+      · obtain rfl := Option.some.inj h
+        exact ⟨icmpOperandIn 1 (by omega), _, hB, hInt y⟩
+    rw [hc, regOperands_some] at hValue
+    rcases i with _ | _ | i
+    · exact hCompared (.inl (by simpa using hValue.symm))
+    · exact hCompared (.inr (by simpa using hValue.symm))
+    · obtain ⟨hi, rfl⟩ : i + 1 < op.getNumOperands! ctx.raw ∧
+          op.getOperand! ctx.raw (i + 1) = value := by
+        simp only [List.getElem?_cons_succ] at hValue
+        grind [List.getElem?_range]
+      exact ⟨operandIn _ hi, _, getVar?_getOperand hOperands hi, hOperandRegs _ hi⟩
+
+/--
+  The new branch of a branch, run on registers that hold its operands as
+  `RegFor` says, branches like the branch, to registers of the values it passes.
+  A compare-and-branch needs the `CompareFact` of its `g_icmp`, and the constant
+  it may compare with to hold its value.
+-/
+theorem interpret_newBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
+    (hBranch : op.IsGmirBranch ctx.raw) {state : InterpreterState ctx}
+    {state' : InterpreterState ctx'} {R : MemoryState → MemoryState → Prop}
+    (hState : state.RefinedUnder R state' L.mapping)
+    (hConstants : ConstantsHold state)
+    (hFact : ∀ c, L.compare op = some c → L.CompareFact op state)
+    {operands results : Array RuntimeValue} {mem₁ : MemoryState}
+    {action : Option ControlFlowAction}
+    (hOperands : state.variables.getOperandValues op = some operands)
+    (hInterp : op.interpret ctx.raw operands state.memory = .ok (results, mem₁, action))
+    {registers : Array RuntimeValue}
+    (hSize : registers.size = (regOperands ctx.raw op (L.compare op)).length)
+    (hRegisters : ∀ i, i < (regOperands ctx.raw op (L.compare op)).length →
+      ∃ source, (regOperands ctx.raw op (L.compare op))[i]? = some source ∧
+        L.RegFor state state' source registers[i]!) :
+    ∃ values values' dest, results = #[] ∧ mem₁ = state.memory ∧
+      action = some (.branch values dest) ∧
+      (L.newBranch op).interpret ctx'.raw registers state.memory =
+        .ok (#[], state.memory, some (.branch values' dest)) ∧
+      RegistersOf values values' := by
+  have hNumOperands := (VariableState.getOperandValues_eq_some_iff.mp hOperands).1
+  have hSpec := L.newBranchSpec opIn hBranch
+  /- Without a compare, the registers are those of the operands. -/
+  have hPlain : L.compare op = none → RegistersOf operands registers := by
+    intro hc
+    have hLen : (regOperands ctx.raw op (L.compare op)).length = operands.size := by
+      rw [hc, regOperands_none]; simp [hNumOperands]
+    have := L.registersOf_of_regFor (registers := registers) (state' := state')
+      (start := 0) (offset := 0) hOperands (by omega)
+      (by omega) (fun i _ hi => by
+        obtain ⟨source, hSource, hFor⟩ := hRegisters i (by omega)
+        rw [hc, regOperands_none] at hSource
+        obtain rfl : source = some (op.getOperand! ctx.raw i) := by
+          grind [List.getElem?_range]
+        simpa using hFor)
+    simpa using this
+  simp only [OperationPtr.interpret, hSpec.2.2.1] at hInterp ⊢
+  rcases hBranch with hType | hType
+  · obtain ⟨hc, hNewType⟩ := L.newBranchBr opIn hType
+    rw [interpretOp'_opType_cast hType (OperationPtr.getProperties!_cast hType)] at hInterp
+    rw [interpretOp'_opType_cast hNewType (OperationPtr.getProperties!_cast hNewType)]
+    exact interpretOp'_br_registers hInterp (hPlain hc) _ _
+  rw [interpretOp'_opType_cast hType (OperationPtr.getProperties!_cast hType)] at hInterp
+  rcases hc : L.compare op with _ | ⟨branch, l, r⟩
+  · obtain ⟨hNewType, hSizes⟩ := L.newBranchBnez opIn hType hc
+    rw [interpretOp'_opType_cast hNewType (OperationPtr.getProperties!_cast hNewType)]
+    refine interpretOp'_brcond_registers hInterp (fun w x h0 => ?_) (hPlain hc) _ _ hSizes
+    have hLt : 0 < op.getNumOperands! ctx.raw := by
+      have := (Array.getElem?_eq_some_iff.mp h0).1; omega
+    have hValue := getVar?_getOperand hOperands hLt
+    rw [getElem!_pos operands 0 (by omega), (Array.getElem?_eq_some_iff.mp h0).2] at hValue
+    exact RuntimeValue.width_le_of_roundTrips (L.operandRoundTrips opIn (.inr hType) hLt)
+      (VariableState.getVar?_conforms hValue)
+  · obtain ⟨-, icmpIn, -, -, hCondOperand, hIcmpNumOps, -, -, hFills, hCompareEq⟩ :=
+      L.compareSpec opIn hc
+    obtain ⟨a, b, cond, hA, hB, hCond, _, _, _, _, hIcmp⟩ := hFact _ hc
+    obtain ⟨hNewType, segments, hProps, hSegments⟩ := L.newBranchCompare opIn hc
+    have icmpOperandIn : ∀ j, j < 2 → ((L.icmpOf op).getOperand! ctx.raw j).InBounds ctx.raw :=
+      fun j hj => OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds icmpIn
+        (OperationPtr.getOperands!.mem_getOperand (by omega))
+    /- The compared values are integers of 64 bits, as the first fills a register. -/
+    have hWidth : ∀ w x, a = .int w x → w = 64 := by
+      intro w x rfl
+      have hConf := VariableState.getVar?_conforms hA
+      rcases fillsRegister_iff.mp hFills with ⟨t, ht, h64⟩ | ⟨t, ht⟩ <;> rw [ht] at hConf <;>
+        simp at hConf
+      omega
+    /- The register of a compared value holds the value. -/
+    have hValue : ∀ (v : ValuePtr) (x : BitVec 64), v.InBounds ctx.raw →
+        state.variables.getVar? v = some (.int 64 (.val x)) → L.regValue state' (some v) = x := by
+      intro v x vIn hv
+      obtain ⟨tv, hTv, hRef⟩ := hState.2 v vIn _ hv
+      simp only [mapping_val] at hTv
+      rw [RuntimeValue.int_val_isRefinedBy_iff] at hRef
+      subst hRef
+      simp [regValue, hTv, val_toReg]
+    /- A constant that the `g_icmp` compares with holds its value. -/
+    have hConstant : ∀ k, L.constantOf op = some k → b = .int 64 (.val (BitVec.ofInt 64 k)) := by
+      intro k hk
+      obtain ⟨constant, type, ⟨n⟩, hRhs, constantIn, constantType, hResultType, hTypeVal, rfl⟩ :=
+        L.constantSpec opIn hc hk
+      have hHolds := hConstants constant constantIn constantType b type _ (hRhs ▸ hB) hResultType
+        hTypeVal
+      obtain ⟨bw, x, y, -, -, hOps, -⟩ := interpretOp'_gmir_g_icmp_eq_ok hIcmp
+      obtain ⟨rfl, rfl⟩ : a = .int bw x ∧ b = .int bw y := by simpa using hOps
+      obtain rfl := hWidth bw x rfl
+      simp only [RuntimeValue.int.injEq] at hHolds
+      obtain ⟨rfl, hy⟩ := hHolds
+      obtain rfl := eq_of_heq hy
+      rw [BitVec.ofInt_toInt]
+    have h0 : 0 < operands.size := by
+      obtain ⟨_, _, _, _, _, _, hC, _⟩ := interpretOp'_gmir_g_brcond_eq_ok_iff.mp hInterp
+      exact (Array.getElem?_eq_some_iff.mp hC).1
+    have hCond' : operands[0]? = some cond := by
+      have := getVar?_getOperand hOperands (i := 0) (by omega)
+      rw [hCondOperand, hCond] at this
+      rw [Array.getElem?_eq_some_getElem! operands 0 h0, ← Option.some.inj this]
+    /- The branch does not branch on poison, so the compared values are integers that are not
+      poison. -/
+    have hCompared : ∀ v, (some v = l ∨ some v = r) → ∃ x : BitVec 64,
+        state.variables.getVar? v = some (.int 64 (.val x)) ∧ v.InBounds ctx.raw := by
+      intro v hMem
+      obtain ⟨_, _, w, c, _, _, hC, _⟩ := interpretOp'_gmir_g_brcond_eq_ok_iff.mp hInterp
+      rw [hCond'] at hC
+      obtain ⟨bw, x, y, w', c', hOps, hRes, -, -, hHolds⟩ := interpretOp'_gmir_g_icmp_eq_ok hIcmp
+      obtain ⟨rfl, rfl⟩ : a = .int bw x ∧ b = .int bw y := by simpa using hOps
+      obtain rfl : cond = .int w' c' := by simpa using hRes
+      obtain ⟨rfl, hc'⟩ : w' = w ∧ c' ≍ (Data.LLVM.Int.val c : Data.LLVM.Int w) := by
+        simpa using hC
+      obtain rfl := eq_of_heq hc'
+      obtain ⟨x', y', rfl, rfl, -⟩ := hHolds c rfl
+      obtain rfl := hWidth bw _ rfl
+      have := compareBranch_operands (value := some v) (by rw [hCompareEq]; exact hMem)
+      rcases this with h | h | h
+      · simp at h
+      · obtain rfl := Option.some.inj h
+        exact ⟨x', hA, icmpOperandIn 0 (by omega)⟩
+      · obtain rfl := Option.some.inj h
+        exact ⟨y', hB, icmpOperandIn 1 (by omega)⟩
+    have hLen : (regOperands ctx.raw op (L.compare op)).length = operands.size + 1 := by
+      rw [hc, regOperands_some]; simp; omega
+    have hReg : ∀ j source, j < 2 → (regOperands ctx.raw op (L.compare op))[j]? = some source →
+        (source = l ∨ source = r) →
+        registers[j]? = some (.reg ⟨L.regValue state' source⟩) := by
+      intro j source hj hSource hMem
+      obtain ⟨source', hSource', hFor⟩ := hRegisters j (by omega)
+      rw [hSource] at hSource'
+      obtain rfl := Option.some.inj hSource'
+      rw [Array.getElem?_eq_some_getElem! registers j (by omega)]
+      congr 1
+      rcases source with _ | v
+      · exact hFor.1 rfl
+      · obtain ⟨x, hx, vIn⟩ := hCompared v hMem
+        obtain ⟨sv, tv, reg, hSv, hTv, hRef, hCasts, hRegister⟩ := hFor.2 v rfl
+        rw [hx] at hSv
+        obtain rfl := Option.some.inj hSv
+        rw [RuntimeValue.int_val_isRefinedBy_iff] at hRef
+        subst hRef
+        rw [RuntimeValue.castsTo_int_val] at hCasts
+        rw [hRegister, hCasts]
+        simp [regValue, hTv]
+    have hTail : RegistersOf (operands.extract 1) (registers.extract 2) :=
+      L.registersOf_of_regFor (registers := registers) (state' := state') hOperands (by omega)
+        (by omega) (fun i hi hi' => by
+          obtain ⟨source, hSource, hFor⟩ := hRegisters i (by omega)
+          rw [hc, regOperands_some] at hSource
+          obtain rfl : source = some (op.getOperand! ctx.raw (i - 2 + 1)) := by
+            obtain ⟨i, rfl⟩ : ∃ i', i = i' + 2 := ⟨i - 2, by omega⟩
+            simp only [List.getElem?_cons_succ] at hSource
+            grind [List.getElem?_range]
+          exact hFor)
+    have hResult := interpretOp'_brcond_compare_registers hInterp hIcmp hCond' hWidth
+      hCompareEq (value := L.regValue state') rfl
+      (fun x hx => hValue _ x (icmpOperandIn 0 (by omega)) (hx ▸ hA))
+      (fun y hy => hValue _ y (icmpOperandIn 1 (by omega)) (hy ▸ hB)) hConstant
+      (hReg 0 l (by omega) (by rw [hc, regOperands_some]; rfl) (.inl rfl))
+      (hReg 1 r (by omega) (by rw [hc, regOperands_some]; rfl) (.inr rfl)) hTail hSegments
+      ((L.newBranch op).getResultTypes! ctx'.raw)
+    rw [interpretOp'_opType_cast hNewType (OperationPtr.getProperties!_cast hNewType), hProps]
+    exact hResult
+
+/--
   A branch is refined by the operations that put its registers in front of the
   RISC-V branch. A compare-and-branch needs the `CompareFact` of its `g_icmp`,
   and the constant it may compare with to hold its value.
@@ -923,179 +1185,16 @@ theorem interpretOp_gmirBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
   · simp [Interp.isRefinedBy]
   obtain ⟨operands, results, mem₁, variables₁, hOperands, hInterp, hSetResults, rfl⟩ :=
     interpretOp_some_iff.mp hsrc
-  have hNumOperands := (VariableState.getOperandValues_eq_some_iff.mp hOperands).1
-  have operandIn : ∀ i, i < op.getNumOperands! ctx.raw →
-      (op.getOperand! ctx.raw i).InBounds ctx.raw := fun i hi =>
-    OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds opIn
-      (OperationPtr.getOperands!.mem_getOperand hi)
-  /- An operand of the branch fits a register, and so does every refinement of its value. -/
-  have hOperandRegs : ∀ i, i < op.getNumOperands! ctx.raw → ∀ tv, operands[i]! ⊒ tv →
-      ∃ reg, tv.toReg? = some reg := by
-    intro i hi tv hRefined
-    have hConforms :=
-      (VariableState.getVar?_conforms (getVar?_getOperand hOperands hi)).of_isRefinedBy hRefined
-    exact RuntimeValue.toReg?_eq_some_of_roundTrips (L.operandRoundTrips opIn hBranch hi) hConforms
-  /- So do the values that a compare-and-branch compares, as the `g_icmp` compared integers. -/
-  have hSources : ∀ (i : Nat) (value : ValuePtr),
-      (regOperands ctx.raw op (L.compare op))[i]? = some (some value) →
-      value.InBounds ctx.raw ∧ ∃ sv, state.variables.getVar? value = some sv ∧
-        ∀ tv, sv ⊒ tv → ∃ reg, tv.toReg? = some reg := by
-    intro i value hValue
-    rcases hc : L.compare op with _ | ⟨branch, l, r⟩
-    · rw [hc, regOperands_none] at hValue
-      obtain ⟨hi, rfl⟩ : i < op.getNumOperands! ctx.raw ∧ op.getOperand! ctx.raw i = value := by
-        grind [List.getElem?_range]
-      exact ⟨operandIn i hi, _, getVar?_getOperand hOperands hi, hOperandRegs i hi⟩
-    · obtain ⟨-, icmpIn, -, -, -, hIcmpNumOps, -, -, -, hCompareEq⟩ := L.compareSpec opIn hc
-      obtain ⟨a, b, cond, hA, hB, _, _, _, _, _, hIcmp⟩ := hFact _ hc
-      obtain ⟨bw, x, y, -, -, hOps, -⟩ := interpretOp'_gmir_g_icmp_eq_ok hIcmp
-      obtain ⟨rfl, rfl⟩ : a = .int bw x ∧ b = .int bw y := by simpa using hOps
-      have hInt : ∀ v : Data.LLVM.Int bw, ∀ tv, RuntimeValue.int bw v ⊒ tv →
-          ∃ reg, tv.toReg? = some reg := by
-        intro v tv hRefined
-        obtain ⟨t, rfl, -⟩ := RuntimeValue.int_of_isRefinedBy hRefined
-        exact ⟨_, RuntimeValue.toReg?_int⟩
-      have icmpOperandIn : ∀ j, j < 2 → ((L.icmpOf op).getOperand! ctx.raw j).InBounds ctx.raw :=
-        fun j hj => OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds icmpIn
-          (OperationPtr.getOperands!.mem_getOperand (by omega))
-      /- A compared value is one of the two operands of the `g_icmp`. -/
-      have hCompared : some value = l ∨ some value = r →
-          value.InBounds ctx.raw ∧ ∃ sv, state.variables.getVar? value = some sv ∧
-            ∀ tv, sv ⊒ tv → ∃ reg, tv.toReg? = some reg := by
-        intro hMem
-        have := compareBranch_operands (value := some value) (by rw [hCompareEq]; exact hMem)
-        rcases this with h | h | h
-        · simp at h
-        · obtain rfl := Option.some.inj h
-          exact ⟨icmpOperandIn 0 (by omega), _, hA, hInt x⟩
-        · obtain rfl := Option.some.inj h
-          exact ⟨icmpOperandIn 1 (by omega), _, hB, hInt y⟩
-      rw [hc, regOperands_some] at hValue
-      rcases i with _ | _ | i
-      · exact hCompared (.inl (by simpa using hValue.symm))
-      · exact hCompared (.inr (by simpa using hValue.symm))
-      · obtain ⟨hi, rfl⟩ : i + 1 < op.getNumOperands! ctx.raw ∧
-            op.getOperand! ctx.raw (i + 1) = value := by
-          simp only [List.getElem?_cons_succ] at hValue
-          grind [List.getElem?_range]
-        exact ⟨operandIn _ hi, _, getVar?_getOperand hOperands hi, hOperandRegs _ hi⟩
   obtain ⟨target, registers, hOk, hTarget, hSize, hSame, hRegisters⟩ :=
-    L.interpretOpList_regOps opIn hBranch hState hSources (Nat.le_refl _)
+    L.interpretOpList_regOps opIn hBranch hState (L.regSources opIn hBranch hOperands hFact)
+      (Nat.le_refl _)
   have hNewOperands := L.getOperandValues_newBranch opIn hBranch hSize
     (fun i hi => (hRegisters i hi).2)
   have hSpec := L.newBranchSpec opIn hBranch
-  /- Both branches compute the same successor, from the operands and from their registers. -/
-  have hData : ∃ values values' dest, results = #[] ∧ mem₁ = state.memory ∧
-      action = some (.branch values dest) ∧
-      (L.newBranch op).interpret ctx'.raw registers target.memory =
-        .ok (#[], target.memory, some (.branch values' dest)) ∧
-      RegistersOf values values' := by
-    /- Without a compare, the registers are those of the operands. -/
-    have hPlain : L.compare op = none → RegistersOf operands registers := by
-      intro hc
-      have hLen : (regOperands ctx.raw op (L.compare op)).length = operands.size := by
-        rw [hc, regOperands_none]; simp [hNumOperands]
-      have := L.registersOf_of_regFor (registers := registers) (state' := state')
-        (start := 0) (offset := 0) hOperands (by omega)
-        (by omega) (fun i _ hi => by
-          obtain ⟨⟨source, hSource, hFor⟩, -⟩ := hRegisters i (by omega)
-          rw [hc, regOperands_none] at hSource
-          obtain rfl : source = some (op.getOperand! ctx.raw i) := by
-            grind [List.getElem?_range]
-          simpa using hFor)
-      simpa using this
-    rw [← hTarget.1]
-    simp only [OperationPtr.interpret, hSpec.2.2.1] at hInterp ⊢
-    rcases hBranch with hType | hType
-    · obtain ⟨hc, hNewType⟩ := L.newBranchBr opIn hType
-      rw [interpretOp'_opType_cast hType (OperationPtr.getProperties!_cast hType)] at hInterp
-      rw [interpretOp'_opType_cast hNewType (OperationPtr.getProperties!_cast hNewType)]
-      exact interpretOp'_br_registers hInterp (hPlain hc) _ _
-    rw [interpretOp'_opType_cast hType (OperationPtr.getProperties!_cast hType)] at hInterp
-    rcases hc : L.compare op with _ | ⟨branch, l, r⟩
-    · obtain ⟨hNewType, hSizes⟩ := L.newBranchBnez opIn hType hc
-      rw [interpretOp'_opType_cast hNewType (OperationPtr.getProperties!_cast hNewType)]
-      refine interpretOp'_brcond_registers hInterp (fun w x h0 => ?_) (hPlain hc) _ _ hSizes
-      have hLt : 0 < op.getNumOperands! ctx.raw := by
-        have := (Array.getElem?_eq_some_iff.mp h0).1; omega
-      have hValue := getVar?_getOperand hOperands hLt
-      rw [getElem!_pos operands 0 (by omega), (Array.getElem?_eq_some_iff.mp h0).2] at hValue
-      exact RuntimeValue.width_le_of_roundTrips (L.operandRoundTrips opIn (.inr hType) hLt)
-        (VariableState.getVar?_conforms hValue)
-    · obtain ⟨-, icmpIn, -, -, hCondOperand, hIcmpNumOps, -, -, hFills, hCompareEq⟩ :=
-        L.compareSpec opIn hc
-      obtain ⟨a, b, cond, hA, hB, hCond, _, _, _, _, hIcmp⟩ := hFact _ hc
-      obtain ⟨hNewType, segments, hProps, hSegments⟩ := L.newBranchCompare opIn hc
-      have icmpOperandIn : ∀ j, j < 2 → ((L.icmpOf op).getOperand! ctx.raw j).InBounds ctx.raw :=
-        fun j hj => OperationPtr.getOperands!_inBounds ctx.wellFormed.inBounds icmpIn
-          (OperationPtr.getOperands!.mem_getOperand (by omega))
-      /- The compared values are integers of 64 bits, as the first fills a register. -/
-      have hWidth : ∀ w x, a = .int w x → w = 64 := by
-        intro w x rfl
-        have hConf := VariableState.getVar?_conforms hA
-        rcases fillsRegister_iff.mp hFills with ⟨t, ht, h64⟩ | ⟨t, ht⟩ <;> rw [ht] at hConf <;>
-          simp at hConf
-        omega
-      /- The register of a compared value holds the value. -/
-      have hValue : ∀ (v : ValuePtr) (x : BitVec 64), v.InBounds ctx.raw →
-          state.variables.getVar? v = some (.int 64 (.val x)) → L.regValue state' (some v) = x := by
-        intro v x vIn hv
-        obtain ⟨tv, hTv, hRef⟩ := hState.2 v vIn _ hv
-        simp only [mapping_val] at hTv
-        rw [RuntimeValue.int_val_isRefinedBy_iff] at hRef
-        subst hRef
-        simp [regValue, hTv, val_toReg]
-      /- A constant that the `g_icmp` compares with holds its value. -/
-      have hConstant : ∀ k, L.constantOf op = some k → b = .int 64 (.val (BitVec.ofInt 64 k)) := by
-        intro k hk
-        obtain ⟨constant, type, ⟨n⟩, hRhs, constantIn, constantType, hResultType, hTypeVal, rfl⟩ :=
-          L.constantSpec opIn hc hk
-        have hHolds := hConstants constant constantIn constantType b type _ (hRhs ▸ hB) hResultType
-          hTypeVal
-        obtain ⟨bw, x, y, -, -, hOps, -⟩ := interpretOp'_gmir_g_icmp_eq_ok hIcmp
-        obtain ⟨rfl, rfl⟩ : a = .int bw x ∧ b = .int bw y := by simpa using hOps
-        obtain rfl := hWidth bw x rfl
-        simp only [RuntimeValue.int.injEq] at hHolds
-        obtain ⟨rfl, hy⟩ := hHolds
-        obtain rfl := eq_of_heq hy
-        rw [BitVec.ofInt_toInt]
-      have h0 : 0 < operands.size := by
-        obtain ⟨_, _, _, _, _, _, hC, _⟩ := interpretOp'_gmir_g_brcond_eq_ok_iff.mp hInterp
-        exact (Array.getElem?_eq_some_iff.mp hC).1
-      have hCond' : operands[0]? = some cond := by
-        have := getVar?_getOperand hOperands (i := 0) (by omega)
-        rw [hCondOperand, hCond] at this
-        rw [Array.getElem?_eq_some_getElem! operands 0 h0, ← Option.some.inj this]
-      have hLen : (regOperands ctx.raw op (L.compare op)).length = operands.size + 1 := by
-        rw [hc, regOperands_some]; simp; omega
-      have hReg : ∀ j source, j < 2 → (regOperands ctx.raw op (L.compare op))[j]? = some source →
-          registers[j]? = some (.reg ⟨L.regValue state' source⟩) := by
-        intro j source hj hSource
-        obtain ⟨⟨source', hSource', hFor⟩, -⟩ := hRegisters j (by omega)
-        rw [hSource] at hSource'
-        obtain rfl := Option.some.inj hSource'
-        rw [← hFor.1]
-        exact Array.getElem?_eq_some_getElem! registers j (by omega)
-      have hTail : RegistersOf (operands.extract 1) (registers.extract 2) :=
-        L.registersOf_of_regFor (registers := registers) (state' := state') hOperands (by omega)
-          (by omega) (fun i hi hi' => by
-            obtain ⟨⟨source, hSource, hFor⟩, -⟩ := hRegisters i (by omega)
-            rw [hc, regOperands_some] at hSource
-            obtain rfl : source = some (op.getOperand! ctx.raw (i - 2 + 1)) := by
-              obtain ⟨i, rfl⟩ : ∃ i', i = i' + 2 := ⟨i - 2, by omega⟩
-              simp only [List.getElem?_cons_succ] at hSource
-              grind [List.getElem?_range]
-            exact hFor)
-      have hResult := interpretOp'_brcond_compare_registers hInterp hIcmp hCond' hWidth
-        hCompareEq (value := L.regValue state') rfl
-        (fun x hx => hValue _ x (icmpOperandIn 0 (by omega)) (hx ▸ hA))
-        (fun y hy => hValue _ y (icmpOperandIn 1 (by omega)) (hy ▸ hB)) hConstant
-        (hReg 0 l (by omega) (by rw [hc, regOperands_some]; rfl))
-        (hReg 1 r (by omega) (by rw [hc, regOperands_some]; rfl)) hTail hSegments
-        ((L.newBranch op).getResultTypes! ctx'.raw)
-      rw [interpretOp'_opType_cast hNewType (OperationPtr.getProperties!_cast hNewType), hProps]
-      exact hResult
-  obtain ⟨values, values', dest, rfl, rfl, rfl, hNewInterp, hValues⟩ := hData
+  obtain ⟨values, values', dest, rfl, rfl, rfl, hNewInterp, hValues⟩ :=
+    L.interpret_newBranch opIn hBranch hState hConstants hFact hOperands hInterp hSize
+      (fun i hi => (hRegisters i hi).1)
+  rw [hTarget.1] at hNewInterp
   have hDest : dest ∈ op.getSuccessors! ctx.raw := interpretOp'_branch_dest_mem hInterp
   have hVariables : variables₁ = state.variables := by
     rw [VariableState.setResultValues?_empty (L.branchNumResults opIn hBranch)] at hSetResults
