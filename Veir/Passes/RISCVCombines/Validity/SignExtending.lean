@@ -15,7 +15,7 @@ attribute [local ctree_semantics]
   OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
   Riscv.interpretOp' Rv64.interpretOp'
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf Riscv.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 theorem sextw_addw_valid :
     Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .addw 2) := by

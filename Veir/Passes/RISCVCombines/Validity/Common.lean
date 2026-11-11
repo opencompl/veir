@@ -9,6 +9,7 @@ import all Veir.Dialects.RV64.OpInfo
 import all Veir.GlobalOpInfo
 import all Veir.Interpreter.Basic
 import all Veir.Interpreter.CTreeInterpreter
+import all Veir.Dialects.RISCV.Interpreter
 import all Veir.IR.Attribute
 import all Veir.Data.RISCV.Reg.Basic
 import all Veir.Data.RISCV.Reg.Lemmas
