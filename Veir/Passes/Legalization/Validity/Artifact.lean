@@ -82,6 +82,7 @@ theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmerge
   conv => arg 1; cbv
   simpPuddleValid
   intros
+  clearVerified
   casesConformingValues
   all_goals casesIntegerTypes
   all_goals (try dsimp only at *)
