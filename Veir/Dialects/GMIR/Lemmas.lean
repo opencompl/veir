@@ -92,4 +92,15 @@ theorem interpretOp'_gmir_g_constant_eq_ok {properties : propertiesOf (OpCode.gm
   obtain ⟨rfl, rfl, rfl⟩ := h
   exact ⟨resType, t, hType, hVal, rfl, rfl, rfl⟩
 
+/-- A `g_load` does not branch or return. -/
+theorem gmir_g_load_action {properties : propertiesOf (OpCode.gmir .g_load)}
+    {resultTypes : Array TypeAttr} {operands : Array RuntimeValue}
+    {blockOperands : Array BlockPtr} {mem : MemoryState} {results : Array RuntimeValue}
+    {mem' : MemoryState} {action : Option ControlFlowAction}
+    (h : GMIR.interpretOp' .g_load properties resultTypes operands blockOperands mem =
+      .ok (results, mem', action)) : action = none := by
+  simp only [GMIR.interpretOp', bind, pure] at h
+  repeat' split at h
+  all_goals grind
+
 end Veir
