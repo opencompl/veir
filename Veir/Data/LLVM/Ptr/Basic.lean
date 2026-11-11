@@ -39,6 +39,14 @@ def toInt : Ptr → Int 64
   | .val p => .val p.address.toBitVec
   | .poison => .poison
 
+@[simp]
+theorem toInt_val {p : Pointer} : toInt (.val p) = .val p.address.toBitVec := by
+  rw [toInt]
+
+@[simp]
+theorem toInt_poison : toInt .poison = .poison := by
+  rw [toInt]
+
 /-- The bits of a pointer, its address. -/
 def toByte : Ptr → Byte 64
   | .val p => Byte.fromUInt64 p.address

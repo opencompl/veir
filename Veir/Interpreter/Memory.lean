@@ -170,6 +170,12 @@ def MemoryState.ptrFromInt (mem : MemoryState) : Data.LLVM.Int 64 → Ptr
   | .val v => .val (mem.decode (UInt64.ofBitVec v))
   | .poison => .poison
 
+/-- An address is the pointer to it, in any memory. -/
+@[simp]
+theorem MemoryState.ptrFromInt_val (mem : MemoryState) (v : BitVec 64) :
+    mem.ptrFromInt (.val v) = .val ⟨UInt64.ofBitVec v⟩ := by
+  simp [MemoryState.ptrFromInt, MemoryState.decode]
+
 /--
   Store the `w` bits of `val` in `w / 8` bytes at `p`, with the bits set in `poison` poison.
   Yields UB if the access is out of bounds.
