@@ -511,10 +511,11 @@ def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
 
 /-! ## Pass implementation -/
 
-def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+def LLVMToGMIRPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  -- Branches are translated by a separate step, which is proved to refine the module.
-  let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
+  -- Branches are translated by a separate step, which is proved to refine the module; in strict
+  -- mode the step checks the assumptions of that proof.
+  let ctx ← ExceptT.mk (pure (LLVMToGMIRBranches.run strict ctx op))
   let pattern := RewritePattern.GreedyRewritePattern #[
     g_add.run, g_sub.run, g_icmp.run, g_select.run, g_sext.run, g_zext.run, g_trunc.run,
     g_and.run, g_or.run, g_xor.run, g_shl.run, g_lshr.run, g_ashr.run,
@@ -539,6 +540,10 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"
     description := "Lower llvm dialect operations to the gmir dialect."
-    run := fun _ => LLVMToGMIRPass.impl }
+    options := .ofList [
+      ("strict", { description :=
+                     "Fail unless the branch translation is proved to refine the module.",
+                   defaultValue := false })]
+    run := fun options => LLVMToGMIRPass.impl ((options.get? "strict").getD false) }
 
 end Veir
