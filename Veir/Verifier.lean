@@ -11,8 +11,14 @@ public import Veir.IR.Dominance
 public import Veir.Dominance.Basic
 
 import all Veir.Verifier.Basic
+import all Veir.Verifier.Lemmas
+import all Veir.IR.Basic
+import all Veir.IR.OpCode
+import all Veir.GlobalOpInfo
 import all Veir.Dialects.LLVM.OpInfo
 import all Veir.Dialects.ModArith.OpInfo
+import all Veir.Dialects.GMIR.OpInfo
+import all Veir.Dialects.GMIR_RISCV.OpInfo
 
 namespace Veir
 
@@ -1171,6 +1177,238 @@ theorem OperationPtr.Verified.func_func {op : OperationPtr} {opInBounds}
     verifyNonOperandCounts, ← getOpType!_eq_getOpType, opType, ne_eq, bind, Except.bind, throw,
     throwThe, MonadExceptOf.throw, pure, Except.pure, ite_not] at opVerify
   grind
+
+namespace IsFromVerifiedOp
+
+/-- Package an operation's local verification certificate. -/
+theorem of_verified {ctx : WfIRContext OpCode} {op : OperationPtr}
+    {hin : op.InBounds ctx.raw} (h : op.Verified ctx hin) :
+    IsFromVerifiedOp (op.getOpType! ctx.raw) (op.getOperandTypes! ctx.raw)
+      (op.getResultTypes! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) :=
+  ⟨ctx, op, hin, h, rfl, rfl, rfl, rfl⟩
+
+/-- Every in-bounds operation of a verified context supplies a witness. -/
+theorem of_verified_context {ctx : WfIRContext OpCode} {root op : OperationPtr}
+    (h : ctx.Verified root) (hin : op.InBounds ctx.raw) :
+    IsFromVerifiedOp (op.getOpType! ctx.raw) (op.getOperandTypes! ctx.raw)
+      (op.getResultTypes! ctx.raw) (op.getProperties! ctx.raw (op.getOpType! ctx.raw)) :=
+  of_verified (op.satisfyInvariants_of_IRContext_satisfyOpInvariants h hin)
+
+private theorem integerTernop_types {ctx : WfIRContext OpCode} {op : OperationPtr}
+    (h : op.IsVerifiedIntegerTernop ctx) :
+    ∃ ty : IntegerType,
+      op.getOperandTypes! ctx.raw = #[TypeAttr.of IntegerType ty,
+        TypeAttr.of IntegerType ty, TypeAttr.of IntegerType ty] ∧
+      op.getResultTypes! ctx.raw = #[TypeAttr.of IntegerType ty] := by
+  rcases h with ⟨hr, ho, _, _, ty, ht, h0, h1, h2⟩
+  refine ⟨ty, ?_, ?_⟩
+  · apply Array.ext
+    · simp [OperationPtr.getOperandTypes!.size_eq_getNumOperands!, ho]
+    · intro i hi hj
+      have : i = 0 ∨ i = 1 ∨ i = 2 := by grind
+      rcases this with rfl | rfl | rfl <;> simp_all
+  · apply Array.ext
+    · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hr]
+    · intro i hi hj
+      have : i = 0 := by grind
+      subst i
+      simp_all
+
+/-- The funnel shift's three operands and its result share one integer type. -/
+theorem llvm_fshl_types {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.llvm .intr__fshl) operands results props) :
+    ∃ ty : IntegerType,
+      operands = #[TypeAttr.of IntegerType ty, TypeAttr.of IntegerType ty,
+        TypeAttr.of IntegerType ty] ∧ results = #[TypeAttr.of IntegerType ty] := by
+  rcases h with ⟨ctx, op, hin, hv, hop, rfl, rfl, _⟩
+  exact integerTernop_types (hv.llvm_intr__fshl hop)
+
+/-- The funnel shift's three operands and its result share one integer type. -/
+theorem llvm_fshr_types {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.llvm .intr__fshr) operands results props) :
+    ∃ ty : IntegerType,
+      operands = #[TypeAttr.of IntegerType ty, TypeAttr.of IntegerType ty,
+        TypeAttr.of IntegerType ty] ∧ results = #[TypeAttr.of IntegerType ty] := by
+  rcases h with ⟨ctx, op, hin, hv, hop, rfl, rfl, _⟩
+  exact integerTernop_types (hv.llvm_intr__fshr hop)
+
+
+private theorem wordCount_types {opcode : GMIR_RISCV}
+    (hopcode : opcode = .g_clzw ∨ opcode = .g_ctzw)
+    {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.gmir_riscv opcode) operands results props) :
+    ∃ sign, operands = #[TypeAttr.of IntegerType ⟨64, sign⟩] ∧
+      results = #[TypeAttr.of IntegerType ⟨64, sign⟩] := by
+  rcases h with ⟨ctx, op, hin, hv, hop, rfl, rfl, _⟩
+  rcases hopcode with rfl | rfl
+  all_goals
+    simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+      HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+      OpCode.verifyLocalInvariants, GMIR_RISCV.verifyLocalInvariants] at hv
+    obtain ⟨ty, hun, h64⟩ := Except.bind_eq_ok.mp hv
+    obtain ⟨hr, ho, _, _, heq, it, ht⟩ := op.verifyIntegerUnop_eq_ok hun
+    rw [ht] at h64
+    simp only [TypeAttr.verifyI64] at h64
+    have hw : it.bitwidth = 64 := by
+      simp only [TypeAttr.of_def, ←Attribute.integerType_eq_of] at h64
+      split at h64 <;> simp_all
+      rename_i heq
+      have := IsAttr.of_injective heq
+      cases this
+      rfl
+    rcases it with ⟨width, sign⟩
+    dsimp at hw
+    subst width
+    refine ⟨sign, ?_, ?_⟩
+    · apply Array.ext
+      · simp [OperationPtr.getOperandTypes!.size_eq_getNumOperands!, ho]
+      · intro i hi hj
+        have : i = 0 := by grind
+        subst i
+        simp_all
+    · apply Array.ext
+      · simp [OperationPtr.getResultTypes!.size_eq_getNumResults!, hr]
+      · intro i hi hj
+        have : i = 0 := by grind
+        subst i
+        simp_all
+
+/-- Word leading-zero count takes and returns the same 64-bit integer type. -/
+theorem gmir_riscv_clzw_types {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.gmir_riscv .g_clzw) operands results props) :
+    ∃ sign, operands = #[TypeAttr.of IntegerType ⟨64, sign⟩] ∧
+      results = #[TypeAttr.of IntegerType ⟨64, sign⟩] :=
+  wordCount_types (.inl rfl) h
+
+/-- Word trailing-zero count takes and returns the same 64-bit integer type. -/
+theorem gmir_riscv_ctzw_types {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.gmir_riscv .g_ctzw) operands results props) :
+    ∃ sign, operands = #[TypeAttr.of IntegerType ⟨64, sign⟩] ∧
+      results = #[TypeAttr.of IntegerType ⟨64, sign⟩] :=
+  wordCount_types (.inr rfl) h
+
+
+theorem gmir_constant_result_type {ty : TypeAttr} {props} (h : IsFromVerifiedOp (.gmir .g_constant) #[] #[ty] props) :
+    props.value.type = ty.val := by
+  rcases h with ⟨ctx, op, hin, hv, hop, hargs, hresults, hprops⟩
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [GMIR.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  have hr : (op.getResult 0).getType! ctx.raw = ty := by
+    have he := congrArg (fun a : Array TypeAttr => a[0]!) hresults
+    have hn : 0 < op.getNumResults! ctx.raw := by
+      have hs := congrArg Array.size hresults
+      rw [OperationPtr.getResultTypes!.size_eq_getNumResults!] at hs
+      simp at hs
+      grind
+    simpa [OperationPtr.getResultTypes!.getElem!_eq hn] using he
+  have hp : op.getProperties! ctx.raw GMIR.g_constant = props := by
+    exact hprops
+  split at hv
+  · simp [bind, Except.bind, throw] at hv
+  · rename_i he
+    simpa only [hp, hr] using Classical.not_not.mp he
+
+@[simp]
+theorem gmir_constant_type {ty : IntegerType} {props}
+    (h : IsFromVerifiedOp (.gmir .g_constant) #[] #[TypeAttr.of IntegerType ty] props) :
+    props.value.type = ty := by
+  apply IsAttr.of_injective
+  simpa only [TypeAttr.of_def] using gmir_constant_result_type h
+
+theorem gmir_sext_inreg_type_eq {src dst : TypeAttr} {props}
+    (h : IsFromVerifiedOp (.gmir .g_sext_inreg) #[src] #[dst] props) : src = dst := by
+  rcases h with ⟨ctx, op, hin, hv, hop, hargs, hresults, _⟩
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [GMIR.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, hloop, _⟩ := Except.bind_eq_ok.mp hv
+  simp [GMIR.getTypedGroups!, GMIR.genericOpInfo, hargs, hresults] at hloop
+  split at hloop <;> simp_all -failIfUnchanged [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw, Except.map, Functor.map]
+  split at hloop <;> simp_all -failIfUnchanged
+  all_goals grind
+
+theorem gmir_sext_inreg_size_bounds {sign : IntegerType.Signedness} {props}
+    (h : IsFromVerifiedOp (.gmir .g_sext_inreg)
+      #[TypeAttr.of IntegerType ⟨64, sign⟩] #[TypeAttr.of IntegerType ⟨64, sign⟩] props) :
+    1 ≤ props.sz.toInt ∧ props.sz.toInt < 64 := by
+  rcases h with ⟨ctx, op, hin, hv, hop, hargs, hresults, hprops⟩
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [GMIR.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  have ho : (op.getOperand! ctx.raw 0).getType! ctx.raw = TypeAttr.of IntegerType ⟨64, sign⟩ := by
+    have he := congrArg (fun a : Array TypeAttr => a[0]!) hargs
+    have hn : 0 < op.getNumOperands! ctx.raw := by
+      have hs := congrArg Array.size hargs
+      rw [OperationPtr.getOperandTypes!.size_eq_getNumOperands!] at hs
+      simp at hs
+      grind
+    simpa [OperationPtr.getOperandTypes!.getElem!_eq hn] using he
+  have hp : op.getProperties! ctx.raw GMIR.g_sext_inreg = props := hprops
+  dsimp only [OperationPtr.verifyGMIRSextInReg] at hv
+  simp only [ho, TypeAttr.of_def, ←Attribute.integerType_eq_of, hp] at hv
+  repeat' split at hv <;> simp_all [bind, Except.bind, pure, Except.pure, throw, throwThe]
+  all_goals veir_bv_decide
+
+/-- The dynamic GEP operands account for every dynamic-index sentinel. -/
+theorem llvm_gep_dynamic_count {operands results : Array TypeAttr} {props}
+    (h : IsFromVerifiedOp (.llvm .getelementptr) operands results props) :
+    1 + (props.rawConstantIndices.values.filter (· == -2147483648)).size = operands.size := by
+  rcases h with ⟨ctx, op, hin, hv, hop, hargs, _, hprops⟩
+  have hn : op.getNumOperands! ctx.raw = operands.size := by
+    have hs := congrArg Array.size hargs
+    simpa only [OperationPtr.getOperandTypes!.size_eq_getNumOperands!] using hs
+  have hp : op.getProperties! ctx.raw Llvm.getelementptr = props := hprops
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [Llvm.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  split at hv
+  · simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at hv
+  · rename_i he
+    have he' := Classical.not_not.mp he
+    have hn' : op.getNumOperands ctx.raw hin = operands.size := by
+      simpa only [OperationPtr.getNumOperands!_eq_getNumOperands hin] using hn
+    simpa only [hp, hn'] using he'.symm
+
+/-- A verified global address has pointer result type. -/
+theorem llvm_addressof_result_type {ty : TypeAttr} {props}
+    (h : IsFromVerifiedOp (.llvm .mlir__addressof) #[] #[ty] props) :
+    ∃ p : LLVM.PointerType, ty = TypeAttr.of LLVM.PointerType p := by
+  rcases h with ⟨ctx, op, hin, hv, hop, _, hresults, _⟩
+  have hr : (op.getResult 0).getType! ctx.raw = ty := by
+    have he := congrArg (fun a : Array TypeAttr => a[0]!) hresults
+    have hn : 0 < op.getNumResults! ctx.raw := by
+      have hs := congrArg Array.size hresults
+      rw [OperationPtr.getResultTypes!.size_eq_getNumResults!] at hs
+      simp at hs
+      grind
+    simpa [OperationPtr.getResultTypes!.getElem!_eq hn] using he
+  simp only [OperationPtr.Verified, OperationPtr.verifyLocalInvariants,
+    HasOpInfo.verifyLocalInvariants, ←OperationPtr.getOpType!_eq_getOpType, hop,
+    OpCode.verifyLocalInvariants] at hv
+  dsimp only [Llvm.verifyLocalInvariants] at hv
+  obtain ⟨_, _, hv⟩ := Except.bind_eq_ok.mp hv
+  simp only [hr] at hv
+  split at hv
+  · rename_i p hp
+    exact ⟨p, Subtype.ext (by simpa only [TypeAttr.of_def, ←Attribute.llvmPointerType_eq_of] using hp)⟩
+  · simp [throw, throwThe] at hv
+
+end IsFromVerifiedOp
 
 end
 end Veir

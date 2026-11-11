@@ -1,6 +1,7 @@
 import Veir.PatternRewriter.Puddle.Builders
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.PatternRewriter.Puddle.Validity
+import Veir.PatternRewriter.Puddle.CTreeValidity
 import Veir.Input
 import Veir.Printer
 
@@ -215,6 +216,211 @@ example (parentOpCode : OpCode) : Pattern.Valid (parentOpGuard parentOpCode) := 
     forall_exists_index, forall_eq_apply_imp_iff]
   rintro ⟨w⟩ x cstProp val propzero _ hinterpCst
   grind [add_zero_refines, constant_iff, addi_iff]
+
+/- ## Declared-type metadata and verified-operation hypotheses -/
+
+private def typedMatchAssignment (value : RuntimeValue) (operandType resultType : TypeAttr) :
+    SemanticAssignment :=
+  (SemanticAssignment.empty.bindValue ⟨0⟩ value operandType).bindType ⟨1⟩ resultType
+
+private def typedMatchDecl (opcode : OpCode) : MatchDecl OpCode :=
+  .operation opcode #[⟨0⟩] #[⟨1⟩] (fun _ => true) ⟨2⟩ ⟨3⟩ #[⟨4⟩] rfl
+
+private def typedCreateDecl (opcode : OpCode) : CreateDecl OpCode :=
+  .operation opcode #[⟨0⟩] #[⟨1⟩] ⟨2⟩ ⟨3⟩ #[⟨4⟩]
+
+/-- The legacy model requires a certificate for the matched operation and attaches its
+exact declared result type to the intermediate value. -/
+example (opcode : OpCode) (value : RuntimeValue) (operandType resultType : TypeAttr)
+    (k : SemanticAssignment → Prop) :
+    MatchDecl.Models (typedMatchDecl opcode) (typedMatchAssignment value operandType resultType) k ↔
+      ∀ property result,
+        IsFromVerifiedOp opcode #[operandType] #[resultType] property →
+        InterpretsTo opcode property #[resultType] #[value] #[result] →
+        k (((typedMatchAssignment value operandType resultType).bindValue ⟨4⟩ result
+          resultType).bindProperty ⟨2⟩ property) := by
+  simp [MatchDecl.Models, typedMatchDecl, typedMatchAssignment,
+    SemanticAssignment.getValues, SemanticAssignment.getValueTypes, SemanticAssignment.getTypes,
+    SemanticAssignment.getValue, SemanticAssignment.getValueType, SemanticAssignment.getType,
+    SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bind,
+    SemanticAssignment.ForallValues]
+
+/-- A root certificate is required even though CTree root execution is handled separately. -/
+example (opcode : OpCode) (value : RuntimeValue) (operandType resultType : TypeAttr)
+    (k : SemanticAssignment → Prop) :
+    CTree.MatchDecl.Models ⟨3⟩ (typedMatchDecl opcode)
+      (typedMatchAssignment value operandType resultType) k ↔
+      ∀ property, IsFromVerifiedOp opcode #[operandType] #[resultType] property →
+        k ((typedMatchAssignment value operandType resultType).bindProperty ⟨2⟩ property) := by
+  simp [CTree.MatchDecl.Models, typedMatchDecl, typedMatchAssignment,
+    SemanticAssignment.getValues, SemanticAssignment.getValueTypes, SemanticAssignment.getTypes,
+    SemanticAssignment.getValue, SemanticAssignment.getValueType, SemanticAssignment.getType,
+    SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bind]
+
+/-- Nested CTree operations also require certificates, and retain declared result types. -/
+example (opcode : OpCode) (value : RuntimeValue) (operandType resultType : TypeAttr)
+    (k : SemanticAssignment → Prop) :
+    CTree.MatchDecl.Models ⟨99⟩ (typedMatchDecl opcode)
+      (typedMatchAssignment value operandType resultType) k ↔
+      ∀ property, IsFromVerifiedOp opcode #[operandType] #[resultType] property →
+        ∀ result, CTree.CanInterpretTo opcode property #[resultType] #[value] (.ok #[result]) →
+          k (((typedMatchAssignment value operandType resultType).bindValue ⟨4⟩ result
+            resultType).bindProperty ⟨2⟩ property) := by
+  simp [CTree.MatchDecl.Models, typedMatchDecl, typedMatchAssignment,
+    SemanticAssignment.getValues, SemanticAssignment.getValueTypes, SemanticAssignment.getTypes,
+    SemanticAssignment.getValue, SemanticAssignment.getValueType, SemanticAssignment.getType,
+    SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bind,
+    SemanticAssignment.ForallValues]
+
+private def typedOuterMatchDecl (opcode : OpCode) : MatchDecl OpCode :=
+  .operation opcode #[⟨4⟩] #[⟨5⟩] (fun _ => true) ⟨6⟩ ⟨7⟩ #[⟨8⟩] rfl
+
+/-- A nested result's declared type becomes the root's operand type, independently of
+which runtime value the nested operation produces. Both operations retain their certificates. -/
+example (inner outer : OpCode) (value : RuntimeValue)
+    (inputType intermediateType finalType : TypeAttr) (P : Prop) :
+    CTree.MatchProg.ModelsDecls ⟨7⟩ [typedMatchDecl inner, typedOuterMatchDecl outer]
+      ((typedMatchAssignment value inputType intermediateType).bindType ⟨5⟩ finalType)
+      (fun _ => P) ↔
+      ∀ innerProperty, IsFromVerifiedOp inner #[inputType] #[intermediateType] innerProperty →
+        ∀ intermediate,
+          CTree.CanInterpretTo inner innerProperty #[intermediateType] #[value] (.ok #[intermediate]) →
+          ∀ outerProperty,
+            IsFromVerifiedOp outer #[intermediateType] #[finalType] outerProperty → P := by
+  simp [CTree.MatchProg.ModelsDecls, CTree.MatchDecl.Models,
+    typedMatchDecl, typedOuterMatchDecl, typedMatchAssignment,
+    SemanticAssignment.getValues, SemanticAssignment.getValueTypes, SemanticAssignment.getTypes,
+    SemanticAssignment.getValue, SemanticAssignment.getValueType, SemanticAssignment.getType,
+    SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bindProperty,
+    SemanticAssignment.bind, SemanticAssignment.ForallValues]
+
+/-- Runtime integers carry no signedness; metadata must retain the declared signed type. -/
+example :
+    (typedMatchAssignment (.int 32 .poison) (TypeAttr.of IntegerType ⟨32, .signed⟩)
+      (TypeAttr.of IntegerType ⟨32, .unsigned⟩)).getValueTypes [⟨0⟩] =
+      some [TypeAttr.of IntegerType ⟨32, .signed⟩] := rfl
+
+/-- The same runtime pointer can have a declared nonzero address space. -/
+example :
+    (typedMatchAssignment (.addr .poison) (TypeAttr.of LLVM.PointerType ⟨7⟩)
+      (TypeAttr.of LLVM.PointerType ⟨42⟩)).getValueTypes [⟨0⟩] =
+      some [TypeAttr.of LLVM.PointerType ⟨7⟩] := rfl
+
+/-- Operation results carry their declared types forward rather than inferring runtime types. -/
+example :
+    ((SemanticAssignment.bindValues #[.int 32 .poison, .addr .poison] SemanticAssignment.empty
+      [⟨0⟩, ⟨1⟩] [TypeAttr.of IntegerType ⟨32, .unsigned⟩,
+        TypeAttr.of LLVM.PointerType ⟨42⟩]) >>= fun assignment =>
+          assignment.getValueTypes [⟨0⟩, ⟨1⟩]) =
+      some [TypeAttr.of IntegerType ⟨32, .unsigned⟩, TypeAttr.of LLVM.PointerType ⟨42⟩] := rfl
+
+/-- An unbound operand rejects the model; every bound value now carries its declared type. -/
+example (opcode : OpCode) (resultType : TypeAttr) :
+    ¬ CTree.MatchDecl.Models ⟨3⟩ (typedMatchDecl opcode)
+      (SemanticAssignment.empty.bindType ⟨1⟩ resultType) (fun _ => True) := by
+  simp [CTree.MatchDecl.Models, typedMatchDecl,
+    SemanticAssignment.getValues, SemanticAssignment.getValueTypes, SemanticAssignment.getTypes,
+    SemanticAssignment.getValue, SemanticAssignment.getValueType, SemanticAssignment.getType,
+    SemanticAssignment.bindType, SemanticAssignment.bind, SemanticAssignment.empty]
+
+/-- Creation semantics has no verified-operation assumption: it must establish its own result. -/
+example (opcode : OpCode) (value : RuntimeValue) (operandType resultType : TypeAttr)
+    (property : propertiesOf opcode) (k : SemanticAssignment → Prop) :
+    CreateDecl.semantics (typedCreateDecl opcode)
+      ((typedMatchAssignment value operandType resultType).bindProperty ⟨2⟩ property) k ↔
+      ∃ result, InterpretsTo opcode property #[resultType] #[value] #[result] ∧
+        k (((typedMatchAssignment value operandType resultType).bindProperty ⟨2⟩ property).bindValue
+          ⟨4⟩ result resultType) := by
+  simp [CreateDecl.semantics, typedCreateDecl, typedMatchAssignment,
+    SemanticAssignment.getValues, SemanticAssignment.getTypes, SemanticAssignment.getProperty,
+    SemanticAssignment.getValue, SemanticAssignment.getType, SemanticAssignment.bindProperty,
+    SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bind,
+    SemanticAssignment.ExistsValues]
+
+/-- CTree creation executes the operation without assuming a verification certificate. -/
+example (opcode : OpCode) (value : RuntimeValue) (operandType resultType : TypeAttr)
+    (property : propertiesOf opcode) (memory : MemoryState) (α : Type)
+    (next : SemanticAssignment → MemoryState → Tree α) :
+    CTree.CreateDecl.semantics (typedCreateDecl opcode)
+      ((typedMatchAssignment value operandType resultType).bindProperty ⟨2⟩ property) memory next =
+      _root_.CTree.bind
+        (Veir.CTree.interpretOp' opcode property #[resultType] #[value] #[] memory)
+        (fun result => next
+          (((typedMatchAssignment value operandType resultType).bindProperty ⟨2⟩ property).bindValue
+            ⟨4⟩ result.1[0]! resultType) result.2.1) := by
+  simp [CTree.CreateDecl.semantics, typedCreateDecl, typedMatchAssignment,
+    SemanticAssignment.getValues, SemanticAssignment.getTypes, SemanticAssignment.getProperty,
+    SemanticAssignment.getValue, SemanticAssignment.getType, SemanticAssignment.bindProperty,
+    SemanticAssignment.bindType, SemanticAssignment.bindValue, SemanticAssignment.bind]
+  rfl
+
+/-- Binding helpers reject missing or surplus types instead of inventing type metadata. -/
+example (value : RuntimeValue) (type : TypeAttr) :
+    SemanticAssignment.bindValues #[value] SemanticAssignment.empty [⟨0⟩] [] = none ∧
+    SemanticAssignment.bindValues #[] SemanticAssignment.empty [] [type] = none := by
+  constructor <;> rfl
+
+example (type : TypeAttr) :
+    ¬ SemanticAssignment.ForallValues SemanticAssignment.empty [⟨0⟩] [] (fun _ _ => True) ∧
+    ¬ SemanticAssignment.ForallValues SemanticAssignment.empty [] [type] (fun _ _ => True) ∧
+    ¬ SemanticAssignment.ExistsValues SemanticAssignment.empty [⟨0⟩] [] (fun _ _ => True) ∧
+    ¬ SemanticAssignment.ExistsValues SemanticAssignment.empty [] [type] (fun _ _ => True) := by
+  simp [SemanticAssignment.ForallValues, SemanticAssignment.ExistsValues]
+
+/-- The verification premise rules out the former i8-to-i64 funnel-shift cases. -/
+example (leftProps : propertiesOf (.llvm .intr__fshl : OpCode))
+    (rightProps : propertiesOf (.llvm .intr__fshr : OpCode)) :
+    ¬ IsFromVerifiedOp (.llvm .intr__fshl)
+      #[IntegerType.signless 8, IntegerType.signless 8, IntegerType.signless 8]
+      #[IntegerType.signless 64] leftProps ∧
+    ¬ IsFromVerifiedOp (.llvm .intr__fshr)
+      #[IntegerType.signless 8, IntegerType.signless 8, IntegerType.signless 8]
+      #[IntegerType.signless 64] rightProps := by
+  constructor
+  · intro h
+    obtain ⟨ty, operands, results⟩ := h.llvm_fshl_types
+    have same : IntegerType.signless 8 = IntegerType.signless 64 :=
+      IsTypeAttr.of_injective (by
+        simpa using (congrArg (fun types : Array TypeAttr => types[0]!) operands).trans
+          (congrArg (fun types : Array TypeAttr => types[0]!) results).symm)
+    have width := congrArg IntegerType.bitwidth same
+    simp [IntegerType.signless] at width
+  · intro h
+    obtain ⟨ty, operands, results⟩ := h.llvm_fshr_types
+    have same : IntegerType.signless 8 = IntegerType.signless 64 :=
+      IsTypeAttr.of_injective (by
+        simpa using (congrArg (fun types : Array TypeAttr => types[0]!) operands).trans
+          (congrArg (fun types : Array TypeAttr => types[0]!) results).symm)
+    have width := congrArg IntegerType.bitwidth same
+    simp [IntegerType.signless] at width
+
+/-- A verified word count cannot reinterpret its 64-bit result as i8. -/
+example (props : propertiesOf (.gmir_riscv .g_clzw : OpCode)) :
+    ¬ IsFromVerifiedOp (.gmir_riscv .g_clzw)
+      #[IntegerType.signless 64] #[IntegerType.signless 8] props := by
+  intro h
+  obtain ⟨sign, _, results⟩ := h.gmir_riscv_clzw_types
+  have same : IntegerType.signless 8 = IntegerType.mk 64 sign :=
+    IsTypeAttr.of_injective (by
+      simpa using congrArg (fun types : Array TypeAttr => types[0]!) results)
+  have width := congrArg IntegerType.bitwidth same
+  simp [IntegerType.signless] at width
+
+/-- A gMIR constant's attribute and result must have the same integer type. -/
+example : ¬ IsFromVerifiedOp (.gmir .g_constant) #[] #[IntegerType.signless 64]
+    ⟨⟨0, IntegerType.signless 1⟩⟩ := by
+  intro h
+  have type := h.gmir_constant_type
+  simp [IntegerType.signless] at type
+
+/-- A verified sext-inreg cannot silently change an i128 operand into an i64 result. -/
+example (props : propertiesOf (.gmir .g_sext_inreg : OpCode)) :
+    ¬ IsFromVerifiedOp (.gmir .g_sext_inreg)
+      #[IntegerType.signless 128] #[IntegerType.signless 64] props := by
+  intro h
+  have same := IsTypeAttr.of_injective h.gmir_sext_inreg_type_eq
+  have width := congrArg IntegerType.bitwidth same
+  simp [IntegerType.signless] at width
 
 /- ## Test matcher builder validation -/
 
