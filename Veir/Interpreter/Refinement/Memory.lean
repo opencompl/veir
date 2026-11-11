@@ -505,6 +505,16 @@ theorem MemoryState.loadByte_isRefinedBy {mem mem' : MemoryState}
     · exact loadedBit_of_isRefinedBy (h.byte_refines _) (Nat.mod_lt _ (by omega))
     · simp
 
+/-- A load of the bytes of `w` bits succeeds where a load of the bits with their poison does. -/
+theorem MemoryState.load_eq_ok_of_loadByte_eq_ok {mem : MemoryState} {p : Pointer} {w : Nat}
+    {b : LLVM.Byte w} (h : mem.loadByte p w = .ok b) :
+    ∃ ba, mem.load p (w / 8).toUInt64 = .ok ba := by
+  unfold MemoryState.loadByte MemoryState.loadPoison at h
+  unfold MemoryState.load
+  split at h
+  · simp at h
+  cases hc : mem.checkAccess p (w / 8).toUInt64 <;> simp_all
+
 /--
   An integer load from refined memory: poison if any byte is, otherwise the bytes are those of
   the refinement.

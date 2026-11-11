@@ -18,6 +18,7 @@ monotone: the opcodes that do not touch memory carry their monotonicity over (`r
 store writes the same concrete bytes into refined memory, and `la` reads the globals, which
 refined memories share. A load is not monotone: it reads the value bits of the bytes and drops
 their poison bits, while refined memory may hold other value bits where the source has poison.
+In CTrees, a load chooses the bits that are poison, and is monotone.
 -/
 
 namespace Veir
@@ -67,11 +68,7 @@ instance (opType : Riscv) : InterpretOp'Monotone (.riscv opType) where
 
 /-! ## Monotonicity with refined memory -/
 
-/--
-The RISC-V opcodes that load from memory. It is reducible, so that instance resolution decides it
-for a concrete opcode.
--/
-@[reducible]
+/-- The RISC-V opcodes that load from memory. -/
 def Riscv.isLoad : Riscv → Bool
   | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu => true
   | _ => false
