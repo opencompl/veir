@@ -260,55 +260,81 @@ private def normalizeGEPIndices : LocalRewritePattern OpCode := fun ctx op => do
   return (ctx', some (ops.push gep, #[gep.getResult 0]))
 
 /--
-  The properties of the fixed RISC-V stack object for the `llvm.alloca` `op`, or `none` if it is
-  not a constant-count allocation in the entry block of its function, or its size or alignment
-  does not fit the object. The checks on its own opcode, operand and result counts, `inalloca`,
-  and result type are made by `lowerStaticAlloca_pattern`.
+  The properties of the fixed RISC-V stack object for an `llvm.alloca` with properties `props`
+  of `count` elements, where `count` is the value of an integer constant of type `countType`, or
+  `none` if its size or alignment does not fit the object. The checks on the alloca's opcode,
+  operand and result counts, `inalloca`, result type, and position in the entry block of its
+  function are made by `lowerStaticAllocaOf`.
 -/
-private def staticAllocaProperties? (ctx : IRContext OpCode) (op : OperationPtr) :
-    Option RISCVStackAllocaProperties := do
-  let properties := op.getProperties! ctx Llvm.alloca
-  let some parentOp := op.getParentOp! ctx | none
-  let some funcOp := FunctionOp.of? parentOp ctx | none
-  let some entry := funcOp.getEntryBlock? | none
-  if (op.getParent! ctx) != some entry then none
-  let some (.int _ (.val count)) := (op.getOperands! ctx)[0]!.constantValue ctx | none
-  let some layout := DataLayout.riscv64.query properties.elem_type.val | none
-  let size := count.toNat * layout.allocSize
+def staticAllocaProperties? (countType : TypeAttr) (count : IntegerAttr)
+    (props : AllocaProperties) : Option RISCVStackAllocaProperties := do
+  let .integerType countWidth := countType.val | none
+  let count := (BitVec.ofInt countWidth.bitwidth count.value).toNat
+  let some layout := DataLayout.riscv64.query props.elem_type.val | none
+  let size := count * layout.allocSize
   /- Do not silently wrap the fixed object's size to a signed 64-bit value. -/
   if size >= 2 ^ 63 then none
-  let alignment : Int := if properties.alignment.value = 0 then layout.preferredAlignment
-    else properties.alignment.value
+  let alignment : Int := if props.alignment.value = 0 then layout.preferredAlignment
+    else props.alignment.value
   if !isValidLLVMAlignment alignment || alignment >= 2 ^ 63 then none
   return { size := BitVec.ofNat 64 size
            alignment := BitVec.ofInt 64 alignment }
 
+/-- Whether `op` is in the entry block of a function. -/
+def inEntryBlock (ctx : IRContext OpCode) (op : OperationPtr) : Option Unit := do
+  let some parentOp := op.getParentOp! ctx | none
+  let some funcOp := FunctionOp.of? parentOp ctx | none
+  let some entry := funcOp.getEntryBlock? | none
+  guard (op.getParent! ctx = some entry)
+
 /--
   Lower a constant-count entry-block allocation to a fixed RISC-V stack object, as
-  `IRTranslator` turns a static alloca into a frame index. Dynamic allocations and
-  `inalloca` need additional stack-lifetime support in the backend. This must run before
-  legalization, which can hide a narrow constant count behind `g_trunc`.
+  `IRTranslator` turns a static alloca into a frame index. The count is the `cstOp` constant
+  whose value `countOf` reads: an `llvm.mlir.constant`, or the `g_constant` that
+  `lowerIntegerConstant` has already made of it. Dynamic allocations and `inalloca` need
+  additional stack-lifetime support in the backend. This must run before legalization, which can
+  hide a narrow constant count behind `g_trunc`.
 -/
-private def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
+def lowerStaticAllocaOf (cstOp : OpCode)
+    (countOf : propertiesOf cstOp → Option IntegerAttr) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
-      let countType ← Puddle.MatchProg.type (Attr := TypeAttr)
+      let countType ← Puddle.MatchProg.type (Attr := IntegerType)
+      let countOp ← Puddle.MatchProg.operation cstOp #[] #[countType]
+          fun props => (countOf props).isSome
       let resultType ← Puddle.MatchProg.type (Attr := TypeAttr)
           fun t => t.val matches .llvmPointerType _
-      let count ← Puddle.MatchProg.value countType
-      let root ← Puddle.MatchProg.root (.llvm .alloca) #[count] #[resultType]
+      let root ← Puddle.MatchProg.root (.llvm .alloca) #[countOp.res[0]!] #[resultType]
           fun props => !props.inalloca
-      let props ← Puddle.MatchProg.inspectOperation
-          (Outputs := Puddle.Handle OpCode (.prop (.riscv_stack .alloca))) root.op
-          staticAllocaProperties?
-      return (resultType, props))
-    (fun (resultType, props) => do
+      /- The allocation is static: it is in the entry block of its function. -/
+      let () ← Puddle.MatchProg.inspectOperation (Outputs := Unit) root.op inEntryBlock
+      /- Its size and alignment fit a fixed stack object. -/
+      Puddle.MatchProg.matchNative (countType, countOp.properties, root.properties)
+          fun (countType, count, props) =>
+            ((countOf count).bind (staticAllocaProperties? countType · props)).isSome
+      return (resultType, countType, countOp.properties, root.properties))
+    (fun (resultType, countType, count, props) => do
+      let stackProps ← Puddle.CreateProg.applyNative
+          (Outputs := Puddle.Handle OpCode (.prop (.riscv_stack .alloca))) (countType, count, props)
+          fun (countType, count, props) =>
+            (countOf count).bind (staticAllocaProperties? countType · props)
       let regType ← Puddle.CreateProg.type (RegisterType.mk none)
-      let stackOp ← Puddle.CreateProg.operation (.riscv_stack .alloca) #[] #[regType] (.inr props)
+      let stackOp ← Puddle.CreateProg.operation (.riscv_stack .alloca) #[] #[regType]
+          (.inr stackProps)
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[stackOp.res[0]!] #[resultType])
     (fun castBackOp => castBackOp)
 
+/-- `lowerStaticAllocaOf`, counted by an `llvm.mlir.constant`. -/
+def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
+  lowerStaticAllocaOf (.llvm .mlir__constant) fun props =>
+    match props.value with
+    | .integer value => some value
+    | _ => none
+
+/-- `lowerStaticAllocaOf`, counted by the `g_constant` that `lowerIntegerConstant` made. -/
+def lowerStaticAllocaGMIR_pattern : Puddle.Pattern OpCode :=
+  lowerStaticAllocaOf (.gmir .g_constant) fun props => some props.value
 
 /--
   The memory operand of the `g_load` for an `llvm.load` of `type`, if it is a naturally aligned load
@@ -534,7 +560,8 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerIntegerConstant, lowerPoison, lowerBytePoison,
   lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
   lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr, lowerByteIntBitcast,
-  lowerStaticAlloca_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
+  lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerLoad_pattern,
+  reconcilePairingCast isIntToByteRoundTrip]
 
 /-- The compiled patterns of `llvmToGMIRPatternList`. -/
 private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=

@@ -616,6 +616,7 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .unproven .allPoisonByte <| -- byte_lshr
   .proven byte_int_bitcast_valid <|
   .unproven .staticAlloca <| -- static_alloca
+  .unproven .staticAlloca <| -- static_alloca, g_constant count
   .proven load_valid <|
   .proven round_trip_valid <|
   .nil
