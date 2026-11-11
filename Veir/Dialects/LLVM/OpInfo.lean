@@ -1330,6 +1330,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       throw "Expected 0 successors"
     ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyLlvmPointerType
       "llvm.getelementptr: Expected operand 0 to have !llvm.ptr type"
+    for i in [1:op.getNumOperands ctx.raw opIn] do
+      ((op.getOperand! ctx.raw i).getType! ctx.raw).verifyIntegerType
+        s!"llvm.getelementptr: Expected operand {i} to have integer type"
     (op.getResult 0).getType! ctx.raw |>.verifyLlvmPointerType
       "llvm.getelementptr: Expected result to have !llvm.ptr type"
     Llvm.verifyGEPIndices props.elem_type props.rawConstantIndices
@@ -1448,6 +1451,27 @@ def Llvm.bitcastValue (mem : MemoryState) (val : RuntimeValue) (type : Attribute
   | .addr val', .byteType ⟨bw⟩ =>
       if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
   | _, _ => none
+
+/--
+  The operand of `llvm.getelementptr` at `position` among its dynamic indices, or `none` if the
+  operation has no operand there. `GEPIndex.decode` marks a position it has no operand for with
+  `none`, which a `getelementptr` with fewer operands than dynamic indices reaches.
+-/
+def Llvm.gepOperand (operands : Array RuntimeValue) : Option Nat → Option RuntimeValue
+  | some i => (operands.extract 1)[i]?
+  | none => none
+
+/--
+  A dynamic index of `llvm.getelementptr`, at its position, with its stride: its signed value,
+  sign-extended to the pointer width, or `none` if it is poison. An index that is missing or is
+  not an integer cannot be read.
+-/
+def Llvm.gepIndex (operands : Array RuntimeValue) (entry : Option Nat × Nat) :
+    Option (Option Int × Nat) :=
+  match Llvm.gepOperand operands entry.1 with
+  | some (.int _ (.val idx)) => some (some idx.toInt, entry.2)
+  | some (.int _ .poison) => some (none, entry.2)
+  | _ => none
 
 @[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
@@ -1770,15 +1794,14 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .getelementptr => do
     let .addr ptr :: _ := operands.toList | none
     /- Decompose the address into a constant offset and scaled dynamic indices. -/
-    let indices := GEPIndex.decode properties.rawConstantIndices.values (operands.extract 1)
-    let (offset, dynamic) ← layout.gepOffsets properties.elem_type.val indices
+    let positions := GEPIndex.decode properties.rawConstantIndices.values
+      ((Array.range (operands.size - 1)).map some)
+    let (offset, dynamic) ← layout.gepOffsets properties.elem_type.val positions
+    let some indices := dynamic.mapM (Llvm.gepIndex operands) | none
     let .val ptr := ptr | return (#[.addr .poison], mem, none)
-    let mut addr := (ptr.address.toNat : Int) + offset
-    for (idx, stride) in dynamic do
-      /- An index is signed, and sign-extended to the pointer width. -/
-      let .int _ idx := idx | none
-      let .val idx := idx | return (#[.addr .poison], mem, none)
-      addr := addr + idx.toInt * stride
+    let some scaled := indices.mapM (fun (idx, stride) => idx.map (· * (stride : Int)))
+      | return (#[.addr .poison], mem, none)
+    let addr := (ptr.address.toNat : Int) + offset + scaled.foldl (· + ·) 0
     return (#[.addr (.val ⟨UInt64.ofInt addr⟩)], mem, none)
   | .freeze => do
     let [val] := operands.toList | none
