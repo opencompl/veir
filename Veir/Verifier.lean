@@ -354,6 +354,10 @@ axiom WfIRContext.Verified.dominance
     (verified : ctx.Verified root) :
     ctx.Dom root
 
+/-- A context that the verifier accepts is verified. -/
+theorem WfIRContext.verified_of_verify_eq_ok {ctx : WfIRContext OpCode} {root : OperationPtr}
+    (h : ctx.verify root = .ok ()) : ctx.Verified root := h
+
 /-- A verified context satisfies the same-parent successor check. -/
 private theorem WfIRContext.Verified.successorsHaveSameParent
     {ctx : WfIRContext OpCode} {root : OperationPtr} (ctxVerified : ctx.Verified root) :
