@@ -101,27 +101,33 @@ theorem add_li_to_addi_commuted_valid :
   proveCombineValid using Data.RISCV.add_li_to_addi_commuted
 
 theorem zextw_li_low32_valid :
-    Puddle.CTree.Pattern.Valid (zextw_li_low32_pattern) := by
+    Puddle.CTree.Pattern.Valid
+      (ext_of_li_pattern .zextw fun cst => !decide (cst.value ≥ 4294967296#64)) := by
   proveCombineValid using Data.RISCV.zextw_li_low32
 
 theorem sextw_li_low32_valid :
-    Puddle.CTree.Pattern.Valid (sextw_li_low32_pattern) := by
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .sextw fun cst =>
+      !decide (cst.value.toInt < -2147483648 ∨ cst.value.toInt ≥ 2147483648)) := by
   proveCombineValid using Data.RISCV.sextw_li_low32
 
 theorem zextb_li_low8_valid :
-    Puddle.CTree.Pattern.Valid (ext_li_range_pattern .zextb 0 256) := by
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .zextb fun cst =>
+      !decide (cst.value.toInt < 0 ∨ cst.value.toInt ≥ 256)) := by
   proveCombineValid using Data.RISCV.zextb_li_low8
 
 theorem zexth_li_low16_valid :
-    Puddle.CTree.Pattern.Valid (ext_li_range_pattern .zexth 0 65536) := by
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .zexth fun cst =>
+      !decide (cst.value.toInt < 0 ∨ cst.value.toInt ≥ 65536)) := by
   proveCombineValid using Data.RISCV.zexth_li_low16
 
 theorem sextb_li_low8_valid :
-    Puddle.CTree.Pattern.Valid (ext_li_range_pattern .sextb (-128) 128) := by
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .sextb fun cst =>
+      !decide (cst.value.toInt < (-128) ∨ cst.value.toInt ≥ 128)) := by
   proveCombineValid using Data.RISCV.sextb_li_low8
 
 theorem sexth_li_low16_valid :
-    Puddle.CTree.Pattern.Valid (ext_li_range_pattern .sexth (-32768) 32768) := by
+    Puddle.CTree.Pattern.Valid (ext_of_li_pattern .sexth fun cst =>
+      !decide (cst.value.toInt < (-32768) ∨ cst.value.toInt ≥ 32768)) := by
   proveCombineValid using Data.RISCV.sexth_li_low16
 
 /-- The created `rv64.get_register` reads `x0`, whose value is zero. -/
