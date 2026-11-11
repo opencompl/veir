@@ -1,12 +1,12 @@
-// RUN: veir-opt %s -p=isel-abi-riscv64,reconcile-cast | filecheck %s
+// RUN: veir-opt %s -p=call-lowering-riscv64,reconcile-cast | filecheck %s
 
-// isel-abi-riscv64 coerces LLVM functions' register-width arguments and
+// call-lowering-riscv64 coerces LLVM functions' register-width arguments and
 // return values to `!riscv.reg`, inserting bridging casts and rewriting `function_type`,
 // regardless of whether the body has actually been lowered by instruction selection yet
 // (that's the caller's responsibility). For 64-bit boundaries (`i64`,
 // `!llvm.ptr`) a round-trip already present in a lowered body becomes an identity that the
-// pass removes; for `i32` boundaries the round-trip truncates and is instead reconciled
-// into an explicit `zextw` (see `i32fn`). Returns of registers become `riscv_cf.return`.
+// pass removes; `i32` boundaries are copied with gMIR operations instead, which instruction
+// selection lowers later (see `i32fn`). Returns of registers become `riscv_cf.return`.
 
 "builtin.module"() ({
 
@@ -53,12 +53,9 @@
       // CHECK-NEXT:   "riscv_cf.return"([[PR]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
-  // `i32` boundaries are coerced too (RISC-V passes/returns `int` in a register), but the
-  // `reg <-> i32` round-trip truncates rather than being the identity, so the reconciliation
-  // patterns do *not* simply erase it: the `function_type` becomes `(!riscv.reg) -> !riscv.reg`
-  // while the residual `reg -> i32 -> reg` truncation on both the argument and the return
-  // operand is reconciled into an explicit `zextw`. The psABI returns an `i32`
-  // sign-extended, hence the `sextw` (which `riscv-combine` would fold with the `zextw`).
+  // `i32` boundaries are coerced too (RISC-V passes/returns `int` in a register). The
+  // argument is a `g_trunc` of the register's `i64`, and the psABI returns an `i32`
+  // sign-extended, hence the `g_sext`.
     "llvm.func"() <{sym_name = "i32fn", function_type = !llvm.func<i32 (i32)>}> ({
     ^bb(%a: i32):
       %r = "builtin.unrealized_conversion_cast"(%a) : (i32) -> !riscv.reg
@@ -67,11 +64,14 @@
       "llvm.return"(%o) : (i32) -> ()
       // CHECK:      "llvm.func"() <{"function_type" = !llvm.func<!riscv.reg (!riscv.reg)>, "sym_name" = "i32fn"}>
       // CHECK-NEXT: ^{{.*}}([[IARG:%.*]] : !riscv.reg):
-      // CHECK-NEXT:   [[IZ:%.*]] = "riscv.zextw"([[IARG]]) : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IZ]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   [[IRET:%.*]] = "riscv.zextw"([[IS]]) : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   [[ISEXT:%.*]] = "riscv.sextw"([[IRET]]) : (!riscv.reg) -> !riscv.reg
-      // CHECK-NEXT:   "riscv_cf.return"([[ISEXT]]) : (!riscv.reg) -> ()
+      // CHECK-NEXT:   [[IW:%.*]] = "builtin.unrealized_conversion_cast"([[IARG]]) : (!riscv.reg) -> i64
+      // CHECK-NEXT:   [[IT:%.*]] = "gmir.g_trunc"([[IW]]) : (i64) -> i32
+      // CHECK-NEXT:   [[IR:%.*]] = "builtin.unrealized_conversion_cast"([[IT]]) : (i32) -> !riscv.reg
+      // CHECK-NEXT:   [[IS:%.*]] = "riscv.addi"([[IR]]) <{"value" = 1 : i64}> : (!riscv.reg) -> !riscv.reg
+      // CHECK-NEXT:   [[IO:%.*]] = "builtin.unrealized_conversion_cast"([[IS]]) : (!riscv.reg) -> i32
+      // CHECK-NEXT:   [[ISEXT:%.*]] = "gmir.g_sext"([[IO]]) : (i32) -> i64
+      // CHECK-NEXT:   [[IRET:%.*]] = "builtin.unrealized_conversion_cast"([[ISEXT]]) : (i64) -> !riscv.reg
+      // CHECK-NEXT:   "riscv_cf.return"([[IRET]]) : (!riscv.reg) -> ()
     }) : () -> ()
 
 }) : () -> ()
