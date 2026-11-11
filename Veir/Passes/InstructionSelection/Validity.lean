@@ -4,6 +4,8 @@ public import Veir.PatternRewriter.Puddle.CTreeValidity
 public import Veir.PatternRewriter.Puddle.CTreeProofs
 public import Veir.Passes.InstructionSelection.RISCV64
 public import Veir.Passes.InstructionSelection.RISCV64Branches
+public import Veir.Passes.InstructionSelection.RISCV64Abi
+public import Veir.PatternRewriter.Semantics
 
 import all Veir.Passes.InstructionSelection.RISCV64
 import all Veir.Passes.InstructionSelection.RISCV64Branches
@@ -53,10 +55,11 @@ the semantics (`normalizeIselValid`):
 * `unreachable_pattern` rewrites a terminator, which `Pattern.Valid` does not support
   (`unreachable_unsupported`).
 
-The rewrites that are not Puddle patterns have no statement: the local rewrites
-`splitLoad_local`, `splitStore_local`, `memIntrinsicInline_local` and `getelementptrGeneral` of
-`isel-riscv64`, the branch lowering of `isel-br-riscv64`, and `lowerReturn` and `lowerOp` of
-`isel-abi-riscv64`.
+The rewrites that are not Puddle patterns are stated at the end, and not proven: the local
+rewrites of `isel-riscv64` and the argument lowering of `isel-abi-riscv64` as
+`LocalRewritePattern.Sound`, and the branch lowering of `isel-br-riscv64` as a refinement of every
+function of the module. The lowering of returns and calls of `isel-abi-riscv64` has no statement:
+it needs a refinement up to the ABI (see the last section).
 -/
 
 namespace Veir.ISel.CTreeProofs
@@ -266,5 +269,58 @@ theorem gmir_anyext_valid_of_narrow (narrow : AnyextRoundTrip) :
 theorem gmir_anyext_status : Status Unproven gmirAnyext_pattern := .unproven .wideOperand
 
 theorem unreachable_status : Status Unproven unreachable_pattern := .unproven .terminator
+
+/-! ## The rewrites that are not Puddle patterns
+
+The local rewrites of `isel-riscv64` are `LocalRewritePattern`s, so their obligation is
+`LocalRewritePattern.Sound` (`Veir.PatternRewriter.Semantics`): the structural conditions on the
+returned operations and values, the preservation of dominance and verification, and the
+refinement of the matched operation by the created ones. None is proven yet. -/
+
+/-- An `llvm.load` of 3, 5, 6 or 7 bytes is read in power-of-two pieces that are shifted and
+combined (`splitLoad_local`): the pieces read the same bytes as the whole load, in order. -/
+theorem splitLoad_local_sound : LocalRewritePattern.Sound splitLoad_local := by
+  sorry
+
+/-- An `llvm.store` of 3, 5, 6 or 7 bytes is written in power-of-two pieces of the shifted value
+(`splitStore_local`): the pieces write the same bytes as the whole store. -/
+theorem splitStore_local_sound : LocalRewritePattern.Sound splitStore_local := by
+  sorry
+
+/-- A constant-length `memcpy` or `memset` of at most `memMaxStores` aligned accesses is
+expanded into loads and stores (`memIntrinsicInline_local`): the accesses copy, or fill, exactly
+the bytes of the intrinsic (`memAccesses` partitions its length), and a `memcpy` reads all of
+its source before writing, so overlapping ranges are not an issue. -/
+theorem memIntrinsicInline_local_sound : LocalRewritePattern.Sound memIntrinsicInline_local := by
+  sorry
+
+/-- An `llvm.getelementptr` is lowered to the address arithmetic of its offsets on registers
+(`getelementptr_local`): the computed address is `interpretGEP` of the indices, as
+`selectAddrRegImm` decomposes it. -/
+theorem getelementptr_local_sound : LocalRewritePattern.Sound getelementptr_local := by
+  sorry
+
+/-- A cast of a register argument to a narrow integer is replaced by its ABI extension and a
+cast (`lowerFormalArgument`): the extension keeps the low bits the cast reads. -/
+theorem lowerFormalArgument_sound : LocalRewritePattern.Sound lowerFormalArgument := by
+  sorry
+
+/-- The branch lowering of `isel-br-riscv64` rewrites terminators and block arguments, which no
+local rewrite statement covers, so its obligation is that every function of the module is
+refined by its lowering: the casts to registers before each branch and back at each block
+argument are the identity on the values that reach the block, and a fused compare-and-branch
+tests what the `g_icmp` it replaces computed. -/
+theorem convertModule_refines {ctx ctx' : WfIRContext OpCode} (h : convertModule ctx = .ok ctx')
+    (op : OperationPtr) (opIn : op.InBounds ctx.raw) (opIn' : op.InBounds ctx'.raw)
+    (hfunc : (FunctionOp.of? op ctx.raw).isSome) :
+    op.isRefinedByAsFunction ctx op ctx' opIn opIn' := by
+  sorry
+
+/- `lowerReturn` and `lowerCall` of `isel-abi-riscv64` are not `LocalRewritePattern.Sound`, and
+the pass is not a function refinement either: a return copies an `i32` result into its register
+sign-extended as the ABI requires, so the lowered function returns a different register value,
+and a `riscv_cf.call` has no semantics in the interpreter (`memcpy_call_fails`). Their statement
+is a refinement up to the ABI, relating a function's results and arguments to the registers that
+carry them, which does not exist yet. -/
 
 end Veir.ISel.CTreeProofs
