@@ -33,7 +33,7 @@ attribute [local ctree_semantics]
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 theorem custom_add_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_addw) := by
   proveLegalValid using Data.LLVM.add_drop_flags

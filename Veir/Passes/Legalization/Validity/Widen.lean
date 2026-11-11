@@ -35,7 +35,7 @@ attribute [local ctree_semantics]
 
 attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base
 
-attribute [local implicit_reducible] TypeAttr Veir._propertiesOf GMIR.propertiesOf
+attribute [local implicit_reducible] TypeAttr
 
 
 /-- A zero-extended shift amount converts to the same amount. -/
@@ -365,5 +365,12 @@ theorem widen_saddo_0_status (W : Nat) :
 theorem widen_ssubo_0_status (W : Nat) :
     Status Unproven (widenScalarAddSubOverflow .g_ssubo W) :=
   .unproven .needsTypedMatch
+
+/-- A wider `g_load` reads the same `properties.size` bytes and leaves the high bits of its result
+unspecified, as `g_anyext` does. -/
+@[legalization_status]
+theorem widen_load_0_status (W : Nat) :
+    Status Unproven (widenTypeGroup .g_load (.type 0) .g_anyext W) :=
+  .unproven .notYetProven
 
 end Veir.Legalization.CTreeProofs
