@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.PatternRewriter.Puddle.Definitions
 import Veir.Passes.Legalization.LegalizerInfo
 import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
@@ -63,33 +64,19 @@ def lowerBinop (lOp : Llvm) (gOp : GMIR)
       return newOp)
     (fun newOp => newOp)
 
-def g_add := (lowerBinop .add .g_add).compile
 
-def g_sub := (lowerBinop .sub .g_sub).compile
 
-def g_icmp := (lowerBinop .icmp  .g_icmp).compile
 
-def g_and := (lowerBinop .and .g_and).compile
 
-def g_or := (lowerBinop .or .g_or).compile
 
-def g_xor := (lowerBinop .xor .g_xor).compile
 
-def g_shl := (lowerBinop .shl .g_shl).compile
 
-def g_lshr := (lowerBinop .lshr .g_lshr).compile
 
-def g_ashr := (lowerBinop .ashr .g_ashr).compile
 
-def g_mul := (lowerBinop .mul .g_mul).compile
 
-def g_sdiv := (lowerBinop .sdiv .g_sdiv).compile
 
-def g_udiv := (lowerBinop .udiv .g_udiv).compile
 
-def g_srem := (lowerBinop .srem .g_srem).compile
 
-def g_urem := (lowerBinop .urem .g_urem).compile
 
 /--
   GMIR lowerings with Puddle for unary operations on values that gMIR can represent, whose
@@ -113,51 +100,31 @@ def lowerUnop (lOp : Llvm) (gOp : GMIR)
     (fun newOp => newOp)
 
 /- As in LLVM, a `ctlz`/`cttz` whose zero input is poison becomes a `_zero_poison` count. -/
-def g_ctlz := (lowerUnop .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison)).compile
 
-def g_cttz := (lowerUnop .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison)).compile
 
-def g_ctlz_zero_poison :=
-  (lowerUnop .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison)).compile
 
-def g_cttz_zero_poison :=
-  (lowerUnop .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison)).compile
 
-def g_ctpop := (lowerUnop .intr__ctpop .g_ctpop id).compile
 
-def g_bswap := (lowerUnop .intr__bswap .g_bswap id).compile
 
-def g_bitreverse := (lowerUnop .intr__bitreverse .g_bitreverse id).compile
 
-def g_smax := (lowerBinop .intr__smax .g_smax).compile
 
-def g_smin := (lowerBinop .intr__smin .g_smin).compile
 
-def g_umax := (lowerBinop .intr__umax .g_umax).compile
 
-def g_umin := (lowerBinop .intr__umin .g_umin).compile
 
 /- LLVM translates `abs` to `G_ABS` and drops `is_int_min_poison`, which `g_abs` refines. -/
-def g_abs := (lowerUnop .intr__abs .g_abs fun _ => ()).compile
 
-def g_saddsat := (lowerBinop .intr__sadd__sat .g_saddsat).compile
 
-def g_uaddsat := (lowerBinop .intr__uadd__sat .g_uaddsat).compile
 
-def g_ssubsat := (lowerBinop .intr__ssub__sat .g_ssubsat).compile
 
-def g_usubsat := (lowerBinop .intr__usub__sat .g_usubsat).compile
 
-def g_sshlsat := (lowerBinop .intr__sshl__sat .g_sshlsat).compile
 
-def g_ushlsat := (lowerBinop .intr__ushl__sat .g_ushlsat).compile
 
 /--
   `llvm.intr.fshl`/`llvm.intr.fshr` -> `g_fshl`/`g_fshr`, except for `i32` and `i64`: instruction
   selection still matches those widths in the LLVM dialect (as rotates or LLVM's
   `expandFunnelShift`), while the legalizer lowers the other widths to shifts.
 -/
-def lowerFunnelShift (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
+def lowerFunnelShiftIntrinsic (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
   Puddle.Pattern.Builder
     (do
       let type ← Puddle.MatchProg.type (Attr := IntegerType)
@@ -170,9 +137,7 @@ def lowerFunnelShift (lOp : Llvm) (gOp : GMIR) : Puddle.Pattern OpCode :=
     (fun (type, x, y, z) => Puddle.CreateProg.operation (.gmir gOp) #[x, y, z] #[type])
     (fun newOp => newOp)
 
-def g_fshl := (lowerFunnelShift .intr__fshl .g_fshl).compile
 
-def g_fshr := (lowerFunnelShift .intr__fshr .g_fshr).compile
 
 /--
   `llvm.select` -> `g_select`, as in LLVM's `IRTranslator::translateSelect`. The `i1` condition
@@ -192,7 +157,6 @@ def lowerSelect : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.gmir .g_select) #[cond, tval, fval] #[type])
     (fun newOp => newOp)
 
-def g_select := lowerSelect.compile
 
 /--
   GMIR lowerings with Puddle for integer casts.
@@ -214,11 +178,8 @@ def lowerIntegerCast (lOp : Llvm) (gOp : GMIR)
       return newOp)
     (fun newOp => newOp)
 
-def g_sext := (lowerIntegerCast .sext .g_sext).compile
 
-def g_zext := (lowerIntegerCast .zext .g_zext).compile
 
-def g_trunc := (lowerIntegerCast .trunc .g_trunc).compile
 
 /--
   Normalize dynamic GEP indices to the current 64-bit pointer index type, as in
@@ -307,7 +268,6 @@ private def lowerStaticAlloca_pattern : Puddle.Pattern OpCode :=
           #[stackOp.res[0]!] #[resultType])
     (fun castBackOp => castBackOp)
 
-private def lowerStaticAlloca := lowerStaticAlloca_pattern.compile
 
 /--
   The memory operand of the `g_load` for an `llvm.load` of `type`, if it is a naturally aligned load
@@ -364,7 +324,6 @@ def lowerIntegerConstant : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.gmir .g_constant) #[] #[resultType] (.inr props))
     (fun newOp => newOp)
 
-def g_constant := lowerIntegerConstant.compile
 
 /--
   `llvm.mlir.poison` (integer or pointer) -> `gmir.g_poison`, as LLVM's IRTranslator turns poison
@@ -379,7 +338,6 @@ def lowerPoison : Puddle.Pattern OpCode :=
     (fun resultType => Puddle.CreateProg.operation (.gmir .g_poison) #[] #[resultType])
     (fun newOp => newOp)
 
-def g_poison := lowerPoison.compile
 
 /--
   The integer type with the same width as the byte type `type`.
@@ -437,9 +395,7 @@ def lowerBytePoison : Puddle.Pattern OpCode :=
           #[resultType])
     (fun castOp => castOp)
 
-def g_bytePoison := lowerBytePoison.compile
 
-def g_truncByte := (lowerUnaryByteOp .trunc .g_trunc).compile
 
 /--
   A shift of a byte by an integer amount -> `gOp` on the integer of the same width, between
@@ -468,9 +424,7 @@ def lowerByteShift (lOp : Llvm) (gOp : GMIR)
           #[byteType])
     (fun castBackOp => castBackOp)
 
-def g_shlByte := (lowerByteShift .shl .g_shl).compile
 
-def g_lshrByte := (lowerByteShift .lshr .g_lshr).compile
 
 /-- Whether `opType` and `resType` are a byte and an integer type of the same width. -/
 def isByteIntBitcast (opType resType : TypeAttr) : Bool :=
@@ -496,7 +450,6 @@ def lowerByteIntBitcast : Puddle.Pattern OpCode :=
       Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[operand] #[resultType])
     (fun castOp => castOp)
 
-def byteIntBitcast := lowerByteIntBitcast.compile
 
 /--
   Whether `iN -> !llvm.byte<N> -> iN` is the identity (see `LLVM.Byte.toFrozenInt_fromInt`).
@@ -507,10 +460,47 @@ def isIntToByteRoundTrip (inputType interType : TypeAttr) : Bool :=
   | .integerType i, .byteType b => i.bitwidth = b.bitwidth && 0 < i.bitwidth
   | _, _ => false
 
-def intToByteRoundTrip := (reconcilePairingCast isIntToByteRoundTrip).compile
 
 /-! ## Pass implementation -/
 
+/--
+  The Puddle patterns of the pass, in the order it tries them. `g_bswap` and `g_bitreverse`
+  appear twice, as they always have.
+-/
+public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
+  lowerBinop .add .g_add, lowerBinop .sub .g_sub, lowerBinop .icmp .g_icmp, lowerSelect,
+  lowerIntegerCast .sext .g_sext, lowerIntegerCast .zext .g_zext, lowerIntegerCast .trunc .g_trunc,
+  lowerBinop .and .g_and, lowerBinop .or .g_or, lowerBinop .xor .g_xor,
+  lowerBinop .shl .g_shl, lowerBinop .lshr .g_lshr, lowerBinop .ashr .g_ashr,
+  lowerBinop .mul .g_mul, lowerBinop .sdiv .g_sdiv, lowerBinop .udiv .g_udiv,
+  lowerBinop .srem .g_srem, lowerBinop .urem .g_urem,
+  lowerUnop .intr__bswap .g_bswap id, lowerUnop .intr__bitreverse .g_bitreverse id,
+  lowerBinop .intr__smax .g_smax, lowerBinop .intr__smin .g_smin,
+  lowerBinop .intr__umax .g_umax, lowerBinop .intr__umin .g_umin,
+  lowerUnop .intr__abs .g_abs (fun _ => ()),
+  lowerFunnelShiftIntrinsic .intr__fshl .g_fshl, lowerFunnelShiftIntrinsic .intr__fshr .g_fshr,
+  lowerBinop .intr__sadd__sat .g_saddsat, lowerBinop .intr__uadd__sat .g_uaddsat,
+  lowerBinop .intr__ssub__sat .g_ssubsat, lowerBinop .intr__usub__sat .g_usubsat,
+  lowerBinop .intr__sshl__sat .g_sshlsat, lowerBinop .intr__ushl__sat .g_ushlsat,
+  lowerUnop .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison),
+  lowerUnop .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison),
+  lowerUnop .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison),
+  lowerUnop .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison),
+  lowerUnop .intr__ctpop .g_ctpop id,
+  lowerUnop .intr__bswap .g_bswap id, lowerUnop .intr__bitreverse .g_bitreverse id,
+  lowerIntegerConstant, lowerPoison, lowerBytePoison, lowerUnaryByteOp .trunc .g_trunc,
+  lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr, lowerByteIntBitcast,
+  lowerStaticAlloca_pattern, reconcilePairingCast isIntToByteRoundTrip]
+
+/-- The compiled patterns of `llvmToGMIRPatternList`. -/
+private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
+  (llvmToGMIRPatternList.map (·.compile)).toArray
+
+/-
+  The local rewrites come after the patterns. They match `llvm.getelementptr`, `llvm.br` and
+  `llvm.cond_br`, which no pattern matches, so their position does not change which rewrite
+  applies to an operation.
+-/
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
   -- Branches are translated by a separate step, which is proved to refine the module.

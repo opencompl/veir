@@ -31,6 +31,7 @@ import Veir.Passes.InstructionSelection.Proofs.I32
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.Legalization.Proofs
 import Veir.Passes.Legalization.Validity
+import Veir.Passes.LLVMToGMIR.Validity
 
 -- FIXME: These modules are otherwise orphans and would not be compiled.
 import Veir.Analysis.DataFlow.SparseFact
