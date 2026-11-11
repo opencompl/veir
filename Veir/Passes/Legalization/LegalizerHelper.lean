@@ -192,10 +192,11 @@ def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
     (fun op => op)
 
 /-- Lowers `g_sext` to a `g_anyext` followed by a `g_sext_inreg` of the source width, which is what
-LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. -/
+LLVM's artifact combiner makes of a `g_sext` of a `g_trunc`. The source width is passed as a 64-bit
+size, so it must fit one. -/
 def lowerSext : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_sext)
+    (matchUnary .g_sext (srcWidth := (· < 2 ^ 64)))
     (fun (srcType, resType, src) => do
       let extProps ← CreateProg.property (.gmir .g_anyext) default
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType] extProps

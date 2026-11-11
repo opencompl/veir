@@ -49,7 +49,7 @@ public section
 /-- Why a legalization rule or gMIR combine has no CTree validity proof. -/
 inductive Unproven where
   /-- The rule is wrong at some widths, which `Pattern.Valid` quantifies over: `g_bswap` is only
-  defined at widths 16, 32 and 64, `lowerSext` passes the source width as a 64-bit size, and
+  defined at widths 16, 32 and 64, and
   `lowerFunnelShift` shifts by one, which is poison at width 1, and computes the amount in the
   amount's type, which must hold the width. (The verifier rejects `i0`, and the matchers of the
   rules that are only wrong there exclude it.) -/
