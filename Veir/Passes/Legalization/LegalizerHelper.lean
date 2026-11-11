@@ -590,12 +590,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_usube => lowerAddSubE false
   | _ => none
 
-/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
-    Option (LocalRewritePattern OpCode)
-  | .g_brcond, .type 0, width => widenBrcondCondition width
-  | opcode, typeIdx, width => Option.map Puddle.Pattern.interpret <|
-  match opcode, typeIdx, width with
+/-- The Puddle pattern that widens type group `typeIdx` of `opcode` to `width` bits, if any. -/
+def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
   -- The high bits of the operands never reach the low bits of the result, so any extension is
   -- fine.
   | .g_add, .type 0, width => widenTypeGroup .g_add (.type 0) .g_anyext width clearNswNuwProperties
@@ -663,6 +659,12 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
   | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
   | _, _, _ => none
+
+/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
+    Option (LocalRewritePattern OpCode)
+  | .g_brcond, .type 0, width => widenBrcondCondition width
+  | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map Puddle.Pattern.interpret
 
 /-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
 def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
