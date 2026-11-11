@@ -776,12 +776,12 @@ def fshrGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 64).compi
 def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compile
 
 
-/-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst_pattern : Pattern OpCode :=
+/-- gmir.g_poison -> riscv.li 0 -/
+def gmirPoison_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
       let resType ← MatchProg.type (Attr := TypeAttr)
-      let _ ← MatchProg.root (.llvm .mlir__poison) #[] #[resType]
+      let _ ← MatchProg.root (.gmir .g_poison) #[] #[resType]
       return resType)
     (fun resType => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -812,8 +812,8 @@ def zeroConst_pattern : Pattern OpCode :=
 /-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
 def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 
-/-- llvm.mlir.poison -> riscv.li 0 -/
-def poisonConst : Puddle.CompiledPattern OpCode := poisonConst_pattern.compile
+/-- gmir.g_poison -> riscv.li 0 -/
+def gmirPoison : Puddle.CompiledPattern OpCode := gmirPoison_pattern.compile
 
 /-- llvm.freeze arg : Int w, for w ≤ 64 ->
   unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
@@ -2079,7 +2079,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     bitcast.run] ++
     load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    poisonConst.run, zeroConst.run, freeze.run,
+    gmirPoison.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,

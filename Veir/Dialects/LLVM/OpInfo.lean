@@ -1452,6 +1452,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     match resType.val with
     | .integerType bw => return (#[.int bw.bitwidth (LLVM.Int.mlir_poison bw.bitwidth)], mem, none)
     | .llvmPointerType _ => return (#[.addr .poison], mem, none)
+    | .byteType bw => return (#[.byte bw.bitwidth LLVM.Byte.allPoison], mem, none)
     | _ => none
   | .mlir__zero => do
     let some resType := resultTypes[0]? | none

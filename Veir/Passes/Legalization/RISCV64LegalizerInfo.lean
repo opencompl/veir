@@ -263,6 +263,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
+    | .g_poison => [
+      .legalFor [s64, p0],
+      .minScalar (.type 0) 64,
+    ]
     -- Loads must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM also makes
     -- `s16` and `s32` legal, for `flh`/`flw` We have no FPs, so we widen to `s64`.
     -- TODO: Split odd-sized and misaligned loads, as LLVM's `lowerIfMemSizeNotByteSizePow2` and

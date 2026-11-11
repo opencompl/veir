@@ -78,6 +78,7 @@ inductive GMIR where
 | g_fshr
 | g_rotl
 | g_rotr
+| g_poison
 deriving Inhabited, Repr, Hashable, DecidableEq
 
 @[expose, implicit_reducible, properties_of]
@@ -99,7 +100,7 @@ def GMIR.propertiesOf : GMIR → Type
   | .g_merge_values | .g_unmerge_values | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
-  | .g_fshl | .g_fshr | .g_rotl | .g_rotr => Unit
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr | .g_poison => Unit
 
 def GMIR.fromAttrDict
     (op : GMIR) (attrDict : Std.HashMap ByteArray Attribute) :
@@ -123,7 +124,7 @@ def GMIR.fromAttrDict
      | g_merge_values | g_unmerge_values | g_br
      | g_uaddo | g_uadde | g_usubo | g_usube | g_saddo | g_ssubo
      | g_ctlz | g_cttz | g_ctlz_zero_poison | g_cttz_zero_poison | g_ctpop
-     | g_fshl | g_fshr | g_rotl | g_rotr => exact .ok ()
+     | g_fshl | g_fshr | g_rotl | g_rotr | g_poison => exact .ok ()
 
 def GMIR.toAttrDict
     (op : GMIR) (props : GMIR.propertiesOf op) :
@@ -163,7 +164,7 @@ def GMIR.toAttrDict
   | .g_smin | .g_smax | .g_umin | .g_umax | .g_abs | .g_br
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_ctlz | .g_cttz | .g_ctlz_zero_poison | .g_cttz_zero_poison | .g_ctpop
-  | .g_fshl | .g_fshr | .g_rotl | .g_rotr
+  | .g_fshl | .g_fshr | .g_rotl | .g_rotr | .g_poison
   | .g_merge_values | .g_unmerge_values => {}
 
 #generate_dialect GMIR
@@ -222,7 +223,7 @@ def GMIR.genericOpInfo : GMIR → GenericOpInfo
   | .g_bswap | .g_bitreverse | .g_brev8 | .g_abs | .g_sext_inreg =>
     { outOperandList := #[.type 0]
       inOperandList := #[.type 0] }
-  | .g_constant =>
+  | .g_constant | .g_poison =>
     { outOperandList := #[.type 0]
       inOperandList := #[] }
   | .g_load =>
@@ -419,6 +420,12 @@ def GMIR.interpretOp' (opType : Veir.GMIR) (properties : propertiesOf opType)
     let some resType := resultTypes[0]? | none
     let .integerType bw := resType.val | none
     return (#[.int bw.bitwidth (.val (BitVec.ofInt bw.bitwidth properties.value.value))], mem, none)
+  | .g_poison => do
+    let some resType := resultTypes[0]? | none
+    match resType.val with
+    | .integerType bw => return (#[.int bw.bitwidth .poison], mem, none)
+    | .llvmPointerType _ => return (#[.addr .poison], mem, none)
+    | _ => none
   | .g_mul => do
     let [.int bw lhs, .int bw' rhs] := operands.toList | none
     if h : bw' ≠ bw then none else
@@ -778,6 +785,10 @@ def GMIR.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRIntegerTypes ctx opIn
+  | .g_poison =>
+    opPtr.checkIsNonNullIntegerType ctx opIn
+    ((opPtr.getResult 0).getType! ctx.raw).verifyIntegerOrPointerType
+      "gmir.g_poison: Expected result to have integer or !llvm.ptr type"
   | .g_select =>
     opPtr.checkIsNonNullIntegerType ctx opIn
     opPtr.verifyGMIRSelect ctx
@@ -871,7 +882,7 @@ def GMIR.propagatesPoison : GMIR → Bool
   | .g_uaddo | .g_uadde | .g_usubo | .g_usube | .g_saddo | .g_ssubo
   | .g_fshl | .g_fshr | .g_rotl | .g_rotr => true
   -- Poison on the arm that `g_select` does not select does not reach its result.
-  | .g_select | .g_constant | .g_load | .g_store | .g_br | .g_brcond => false
+  | .g_select | .g_constant | .g_poison | .g_load | .g_store | .g_br | .g_brcond => false
 
 /--
 `g_load` reads and `g_store` writes memory; a volatile access does both, as for `llvm.load` and
