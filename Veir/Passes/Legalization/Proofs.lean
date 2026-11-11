@@ -481,14 +481,14 @@ theorem select_into_xor {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) :
 /-! ### Word operations -/
 
 /-- `x` is its low bits after any extension. -/
-private theorem trunc_ext {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
+theorem trunc_ext {n m : Nat} (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
     LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h = x := by
   cases x <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run,
     BitVec.eq_of_getElem_eq_iff]
   grind
 
 /-- `x` is its low bits after a sign extension. -/
-private theorem trunc_sext {n m : Nat} (h : n < m) (x : LLVM.Int n) :
+theorem trunc_sext {n m : Nat} (h : n < m) (x : LLVM.Int n) :
     LLVM.Int.trunc (LLVM.Int.sext x m h) n false false h = x := by
   cases x <;> simp [LLVM.Int.sext, LLVM.Int.trunc, Id.run, BitVec.eq_of_getElem_eq_iff]
   grind
@@ -691,6 +691,94 @@ private theorem unmerge_merge {w : Nat} (lo hi : LLVM.Int w) :
   cases lo <;> cases hi <;>
     simp [mergeValues, unmergeValues, BitVec.setWidth_append_eq_right,
       BitVec.extractLsb'_append_eq_left]
+
+/-! ## Widening at every width
+
+The widening rules match any source width `w` below the target width `W`, so their local
+correctness lemmas hold at symbolic widths. They are stated as the CTree validity proofs of
+`Veir.Passes.Legalization.Validity` see the rules. -/
+
+section Widening
+
+variable {w W : Nat}
+
+/-- Sign extension preserves the unsigned order: it adds the same amount to two values whose
+sign bits agree, and keeps a negative value above a non-negative one. -/
+theorem signExtend_ult_signExtend (h : w ≤ W) (x y : BitVec w) :
+    (x.signExtend W).ult (y.signExtend W) = x.ult y := by
+  have hpow : 2 ^ w ≤ 2 ^ W := Nat.pow_le_pow_right (by decide) h
+  have hx := x.isLt
+  have hy := y.isLt
+  simp only [BitVec.ult, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
+    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le hx hpow), Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le hy hpow),
+    BitVec.msb_eq_decide, decide_eq_decide]
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · have : x.toNat = 0 := by omega
+    have : y.toNat = 0 := by omega
+    simp_all
+  · have hhalf : 2 ^ w = 2 * 2 ^ (w - 1) := by
+      rw [← Nat.pow_succ']; congr 1; omega
+    split <;> split <;> simp_all <;> omega
+
+/-- Sign extension preserves the unsigned non-strict order. -/
+theorem signExtend_ule_signExtend (h : w ≤ W) (x y : BitVec w) :
+    (x.signExtend W).ule (y.signExtend W) = x.ule y := by
+  have := signExtend_ult_signExtend h y x
+  simp only [BitVec.ule, BitVec.ult, decide_eq_decide] at this ⊢
+  omega
+
+/-- Sign extension preserves equality. -/
+theorem signExtend_beq_signExtend (h : w ≤ W) (x y : BitVec w) :
+    (x.signExtend W == y.signExtend W) = (x == y) := by
+  rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq, ← BitVec.toInt_inj, BitVec.toInt_signExtend_of_le h,
+    BitVec.toInt_signExtend_of_le h, BitVec.toInt_inj]
+
+/-- Sign extension preserves the signed order. -/
+theorem signExtend_slt_signExtend (h : w ≤ W) (x y : BitVec w) :
+    (x.signExtend W).slt (y.signExtend W) = x.slt y := by
+  simp only [BitVec.slt, BitVec.toInt_signExtend_of_le h]
+
+/-- Sign extension preserves the signed non-strict order. -/
+theorem signExtend_sle_signExtend (h : w ≤ W) (x y : BitVec w) :
+    (x.signExtend W).sle (y.signExtend W) = x.sle y := by
+  simp only [BitVec.sle, BitVec.toInt_signExtend_of_le h]
+
+/-- Sign extension preserves every integer comparison. -/
+theorem IntPred.eval_signExtend (h : w ≤ W) (p : IntPred) (x y : BitVec w) :
+    p.eval (x.signExtend W) (y.signExtend W) = p.eval x y := by
+  cases p <;> simp only [IntPred.eval, signExtend_ult_signExtend h, signExtend_ule_signExtend h,
+    signExtend_slt_signExtend h, signExtend_sle_signExtend h, bne, signExtend_beq_signExtend h]
+
+/-- Zero extension preserves the value of a bit-vector as a natural number. -/
+theorem toNat_setWidth_of_le (h : w ≤ W) (x : BitVec w) : (x.setWidth W).toNat = x.toNat := by
+  rw [BitVec.toNat_setWidth,
+    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le x.isLt (Nat.pow_le_pow_right (by decide) h))]
+
+/-- `widenScalar` of the condition of `g_select` (type group 1) with `g_zext`: a zero-extended
+condition is nonzero exactly when the condition is. -/
+theorem selectNonzero_zext {v : Nat} (h : w < W) (c : LLVM.Int w) (x y : LLVM.Int v) :
+    GMIR.selectNonzero (c.zext W false h) x y = GMIR.selectNonzero c x y := by
+  cases c with
+  | poison => simp [Int.zext, GMIR.selectNonzero, Id.run]
+  | val c =>
+    have : (c.setWidth W = 0#W) = (c = 0#w) := by
+      rw [eq_iff_iff, ← BitVec.toNat_inj, ← BitVec.toNat_inj, toNat_setWidth_of_le (Nat.le_of_lt h)]
+      simp
+    simp [Int.zext, GMIR.selectNonzero, Id.run, this]
+
+/-- `widenScalar` of the amount of `g_fshl` and `g_fshr` (type group 1) with `g_zext`: a
+zero-extended amount is the same amount. -/
+theorem funnelShiftAmount_zext {v : Nat} (h : w < W) (z : LLVM.Int w) :
+    GMIR.funnelShiftAmount v (z.zext W false h) = GMIR.funnelShiftAmount v z := by
+  cases z <;> simp [Int.zext, GMIR.funnelShiftAmount, Id.run, toNat_setWidth_of_le (Nat.le_of_lt h)]
+
+/-- `widenScalar` of the operands of `g_icmp` (type group 1) with `g_sext`. -/
+theorem icmp_sext (h : w < W) (x y : LLVM.Int w) (p : IntPred) :
+    (x.sext W h).icmp (y.sext W h) p = x.icmp y p := by
+  cases x <;> cases y <;>
+    simp [Int.sext, Int.icmp, Id.run, IntPred.eval_signExtend (Nat.le_of_lt h)]
+
+end Widening
 
 end Veir.Data.LLVM
 
