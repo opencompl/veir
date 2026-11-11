@@ -462,7 +462,7 @@ theorem sim_match_eq {α β γ : Type} {R : γ → α → Prop} (S : Interp α) 
 theorem load_valid : Puddle.CTree.Pattern.Valid lowerLoad_pattern := by
   conv => arg 1; cbv
   simpPuddleValid
-  intro addrType type value hconf props hsome mem
+  intro addrType type value hconf props _ hsome mem
   simp only [TypeAttr.of_typeAttr] at hsome hconf ⊢
   obtain ⟨mmo, hmmo⟩ := Option.isSome_iff_exists.mp hsome
   obtain ⟨halign, htype⟩ := loadMemOperand?_some hmmo
@@ -552,6 +552,21 @@ theorem cond_br_interpretOp'_refines (props : propertiesOf (OpCode.llvm .cond_br
   all_goals simp_all
   all_goals (intro hc; exfalso; bv_decide)
 
+/-! ## Poison
+
+Both sides produce the poison of the result type; a byte poison is the wholly poison byte, which
+the cast of the integer poison back to the byte type also produces. -/
+
+theorem poison_valid : Puddle.CTree.Pattern.Valid lowerPoison := by
+  proveLegalValid with
+    first
+      | (simp [Data.LLVM.Int.mlir_poison])
+      | (exact poison_isRefinedBy _)
+      | (simp [LLT.ofType?] at *)
+
+theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
+  proveLegalValid using isRefinedBy_refl
+
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
 public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMIRPatternList :=
@@ -594,6 +609,8 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven cttz_zero_poison_valid <|
   .proven ctpop_valid <|
   .proven constant_valid <|
+  .proven poison_valid <|
+  .proven byte_poison_valid <|
   .proven byte_trunc_valid <|
   .unproven .allPoisonByte <| -- byte_shl
   .unproven .allPoisonByte <| -- byte_lshr
