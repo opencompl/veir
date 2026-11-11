@@ -13,4 +13,13 @@ info: 'Veir.cf_resultsConform_not_assumed' depends on axioms: [propext, Classica
 #guard_msgs in
 #print axioms cf_resultsConform_not_assumed
 
+theorem gmir_resultsConform_not_assumed (op : GMIR) : ResultsConform (.gmir op) :=
+  inferInstance
+
+/--
+info: 'Veir.gmir_resultsConform_not_assumed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms gmir_resultsConform_not_assumed
+
 end Veir
