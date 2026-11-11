@@ -6,6 +6,8 @@ import Veir.Passes.FunctionBoundaryCoercion.Coercion
 import Veir.Passes.InstructionSelection.Common
 import Veir.Passes.Matching
 import Veir.PatternRewriter.Basic
+import Veir.PatternRewriter.Puddle.Builders
+import Veir.PatternRewriter.Puddle.Execution
 
 namespace Veir
 
@@ -167,25 +169,35 @@ def copyFromReg (ctx : WfIRContext OpCode) (type : TypeAttr) (reg : ValuePtr)
   return (ctx, #[cast, trunc], trunc.getResult 0)
 
 /--
-  Copy a narrow argument out of its register, like LLVM's `RISCVCallLowering::lowerFormalArguments`.
-  `op` is the cast of a register argument that the boundary coercion inserts at the entry.
-  Arguments of other blocks are left alone.
+  Copy a narrow argument out of its register, like LLVM's `RISCVCallLowering::lowerFormalArguments`:
+  the cast of a register argument of the entry block of an `llvm.func` that supports the ABI to a
+  narrow integer, which the boundary coercion inserts, becomes the `g_trunc` of its cast to `i64`
+  (see `copyFromReg`). Arguments of other blocks, and full-width arguments, which the cast already
+  copies, are left alone.
 -/
-def lowerFormalArgument : LocalRewritePattern OpCode := fun ctx op => do
-  let some reg := matchCastOp op ctx.raw | return (ctx, none)
-  let .blockArgument arg := reg | return (ctx, none)
-  if !(reg.getType! ctx.raw).isa RegisterType then return (ctx, none)
-  let some region := arg.block.getParent! ctx.raw | return (ctx, none)
-  if region.getFirstBlock! ctx.raw != some arg.block then return (ctx, none)
-  let some func := region.getParent! ctx.raw | return (ctx, none)
-  if func.getOpType! ctx.raw != .llvm .func || !supportsFunctionAbi ctx.raw func then
-    return (ctx, none)
-  let type := (op.getResult 0).getType! ctx.raw
-  -- A full-width argument is already copied by the cast.
-  let .integerType t := type.val | return (ctx, none)
-  if 64 ≤ t.bitwidth then return (ctx, none)
-  let (ctx, ops, value) ← copyFromReg ctx type reg
-  return (ctx, some (ops, #[value]))
+def lowerFormalArgument_pattern : Puddle.Pattern OpCode :=
+  Puddle.Pattern.Builder
+    (do
+      let regType ← Puddle.MatchProg.type (Attr := RegisterType)
+      let reg ← Puddle.MatchProg.value regType
+      let resType ← Puddle.MatchProg.type (Attr := IntegerType) (·.bitwidth < 64)
+      let root ← Puddle.MatchProg.root (.builtin .unrealized_conversion_cast) #[reg] #[resType]
+      let () ← Puddle.MatchProg.inspectOperation (Outputs := Unit) root.op fun ctx op => do
+        let .blockArgument arg := op.getOperand! ctx 0 | none
+        let some region := arg.block.getParent! ctx | none
+        guard (region.getFirstBlock! ctx = some arg.block)
+        let some func := region.getParent! ctx | none
+        guard (func.getOpType! ctx = .llvm .func ∧ supportsFunctionAbi ctx func)
+      return (reg, resType))
+    (fun (reg, resType) => do
+      let wideType ← Puddle.CreateProg.type (IntegerType.signless 64)
+      let cast ← Puddle.CreateProg.operation (.builtin .unrealized_conversion_cast) #[reg] #[wideType]
+      Puddle.CreateProg.operation (.gmir .g_trunc) #[cast.res[0]!] #[resType])
+    (fun trunc => trunc)
+
+/-- Lower a formal argument cast with `lowerFormalArgument_pattern`. -/
+def lowerFormalArgument : LocalRewritePattern OpCode :=
+  lowerFormalArgument_pattern.interpret
 
 /--
   Replace `op` by a `riscv_cf.return` if it returns registers from a function. Each
