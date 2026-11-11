@@ -1425,6 +1425,25 @@ def Llvm.materializeConstant {OpInfo : Type} [HasOpInfo OpInfo] [HasDialect OpIn
     else none
   | _, _ => none
 
+/-- `llvm.bitcast` of `val` to `type`, which reinterprets its bits. -/
+def Llvm.bitcastValue (mem : MemoryState) (val : RuntimeValue) (type : Attribute) :
+    Interp RuntimeValue :=
+  match val, type with
+  | .int bw1 _, .integerType ⟨bw2, _⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok (val)
+  | .int bw1 val', .byteType ⟨bw2⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
+  | .byte bw1 _, .byteType ⟨bw2⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok (val)
+  | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
+      if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
+  | .byte bw val', .llvmPointerType _ =>
+      if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
+  | .addr _, .llvmPointerType _ => .ok (val)
+  | .addr val', .byteType ⟨bw⟩ =>
+      if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
+  | _, _ => none
+
 @[expose]
 def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
@@ -1769,21 +1788,7 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
   | .bitcast => do
     let [val] := operands.toList | none
     let [⟨type, _⟩] := resultTypes.toList | none
-    let result ← do match val, type with
-      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok (val)
-      | .int bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ LLVM.Byte.fromInt val'))
-      | .byte bw1 val', .byteType ⟨bw2⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok (val)
-      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
-          if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
-      | .byte bw val', .llvmPointerType _ =>
-          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
-      | .addr val', .llvmPointerType _ => .ok (val)
-      | .addr val', .byteType ⟨bw⟩ =>
-          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
-      | _, _ => none
+    let result ← Llvm.bitcastValue mem val type
     return (#[result], mem, none)
   | .inttoptr => do
     let [.int bw val] := operands.toList | none
