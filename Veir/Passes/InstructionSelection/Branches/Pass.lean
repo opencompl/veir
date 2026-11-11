@@ -1324,33 +1324,17 @@ theorem getLast?_of_getPrevOp! {ctx : WfIRContext OpCode} {block : BlockPtr}
 /--
   The modules the proof covers: every operation with successors is a `g_br` or a
   `g_brcond`, and every value such a branch passes, and every argument of a block
-  it branches to, round-trips through a register. The pass then leaves no branch
-  alone and passes no pointer through a register.
+  it branches to, fits a register. The pass then leaves no branch alone.
 -/
 structure BranchesLowerable (ctx : WfIRContext OpCode) : Prop where
   successors : ∀ op : OperationPtr, op.InBounds ctx.raw → ¬ op.IsGmirBranch ctx.raw →
     op.getNumSuccessors! ctx.raw = 0
   operands : ∀ (op : OperationPtr) (i : Nat), op.InBounds ctx.raw → op.IsGmirBranch ctx.raw →
-    i < op.getNumOperands! ctx.raw → roundTrips ((op.getOperand! ctx.raw i).getType! ctx.raw)
+    i < op.getNumOperands! ctx.raw → fitsRegister ((op.getOperand! ctx.raw i).getType! ctx.raw)
   arguments : ∀ (op : OperationPtr) (block : BlockPtr) (i : Nat), op.InBounds ctx.raw →
     op.IsGmirBranch ctx.raw → block ∈ op.getSuccessors! ctx.raw →
     i < block.getNumArguments! ctx.raw →
-    roundTrips ((block.getArgument i : ValuePtr).getType! ctx.raw)
-
-/--
-  The gMIR branches of `ctx` pass no pointer: no operand of such a branch, and no
-  argument of a block it branches to, is a pointer. The pass passes a pointer
-  through a register too, which this proof does not cover: a register holds an
-  address, and the pointer cast back from it may belong to another object.
--/
-structure BranchesPassNoPointer (ctx : WfIRContext OpCode) : Prop where
-  operands : ∀ (op : OperationPtr) (i : Nat), op.InBounds ctx.raw → op.IsGmirBranch ctx.raw →
-    i < op.getNumOperands! ctx.raw →
-      ∀ t, ((op.getOperand! ctx.raw i).getType! ctx.raw).val ≠ .llvmPointerType t
-  arguments : ∀ (op : OperationPtr) (block : BlockPtr) (i : Nat), op.InBounds ctx.raw →
-    op.IsGmirBranch ctx.raw → block ∈ op.getSuccessors! ctx.raw →
-    i < block.getNumArguments! ctx.raw →
-      ∀ t, ((block.getArgument i : ValuePtr).getType! ctx.raw).val ≠ .llvmPointerType t
+    fitsRegister ((block.getArgument i : ValuePtr).getType! ctx.raw)
 
 namespace BranchesLowerable
 
@@ -1391,8 +1375,7 @@ theorem mem_convertible (opIn : op.InBounds ctx.raw) (hBranch : op.IsGmirBranch 
   have hConvertible : isConvertible ctx block := by
     simp only [isConvertible, List.all_eq_true, List.mem_range]
     intro i hi
-    exact fitsRegister_of_roundTrips (by
-      simpa [BlockPtr.getArgument_def] using hLowerable.arguments op block i opIn hBranch hMem hi)
+    simpa [BlockPtr.getArgument_def] using hLowerable.arguments op block i opIn hBranch hMem hi
   refine List.mem_filter.mpr ⟨Std.HashMap.mem_keys.mpr (BlockPtr.inBounds_def.mp blockIn), ?_⟩
   simp [Std.HashSet.contains_ofList, hNotBlocked, hConvertible, hUsed]
 
@@ -1674,7 +1657,7 @@ def BranchLowering.ofPhases (hA : PhaseA ctx₀ ctxA doneOps compareOf regOp new
   branchNumResults := fun opIn hBranch => (hA.branch _ (hDone _ opIn) hBranch).numResults
   branchSuccessorConverted := fun opIn hBranch hMem => by
     simpa using hTargets _ _ opIn hBranch hMem
-  operandRoundTrips := fun {op i} opIn hBranch hi => hLowerable.operands op i opIn hBranch hi
+  operandFitsRegister := fun {op i} opIn hBranch hi => hLowerable.operands op i opIn hBranch hi
   regOpSpec := fun {op i} opIn hBranch hi => by
     have hFacts := hA.branch op (hDone op opIn) hBranch
     obtain ⟨c₁, c₂, -⟩ := hFacts.regOpSpec i hi
@@ -1774,7 +1757,7 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
       ∀ i, i < op.getNumOperands! ctx.raw →
         fitsRegister ((op.getOperand! ctx.raw i).getType! ctx.raw) :=
     fun op hOp hBranch i hi =>
-      fitsRegister_of_roundTrips (hLowerable.operands op i ((hKeys op).mp hOp) hBranch hi)
+      hLowerable.operands op i ((hKeys op).mp hOp) hBranch hi
   simp only [convertModule, bind, Except.bind,
     dropTargetsOfUnlowered_eq_self hConvertible hOperands] at h
   split at h
@@ -1827,8 +1810,9 @@ theorem convertModule_branchLowering {ctx ctx' : WfIRContext OpCode} {root : Ope
   The lowering also replaces an `llvm.unreachable` by `riscv_cf.unreachable`,
   which this proof does not cover: an operation that is neither left alone nor
   lowered as a branch is a shape `PhaseA` does not describe. Nor does it cover a
-  module in which the pass leaves a branch alone, or passes a pointer through a
-  register, which `BranchesLowerable` rules out.
+  module in which the pass leaves a branch alone, which `BranchesLowerable` rules
+  out. A pointer passed through a register comes back as the pointer to its
+  address, which is the same pointer.
 
   The operations the lowering leaves alone see refined operands, as a register
   holds no poison, so the module must consist of opcodes proved monotone
@@ -2007,10 +1991,10 @@ theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
         · exact this.2 h
 
 /--
-  Strict mode checks what the proof assumes of a module, but for pointers: if the
-  pass succeeds in strict mode on a module whose branches pass no pointer, every
-  branch of the module is one the pass lowers. A `riscv_cf` branch of the input,
-  which strict mode accepts as already lowered, is ruled out as well.
+  Strict mode checks what the proof assumes of a module: if the pass succeeds in
+  strict mode, every branch of the module is one the pass lowers. A `riscv_cf`
+  branch of the input, which strict mode accepts as already lowered, is ruled out
+  as well.
 -/
 theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
     (hVerified : ctx.Verified root)
@@ -2018,7 +2002,6 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
       o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
       o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
-    (hNoPointer : BranchesPassNoPointer ctx)
     (h : ISelBrPass.run true ctx = .ok ctx') : BranchesLowerable ctx := by
   obtain ⟨hc, hSuccessors', hNoBranch'⟩ := ISelBrPass.run_strict h
   have hKeys : ∀ (c : WfIRContext OpCode) (o : OperationPtr),
@@ -2088,9 +2071,7 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
           OperationPtr.getSuccessors!.size_eq_getNumSuccessors!] at this
     · have hF := hFits o oIn hBranch
       simp only [branchFits, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem] at hF
-      exact roundTrips_of_fitsRegister
-        (hF.2 _ (OperationPtr.getOperands!.mem_getOperand hi))
-        (hNoPointer.operands o i oIn hBranch hi)
+      exact hF.2 _ (OperationPtr.getOperands!.mem_getOperand hi)
     · have hF := hFits o oIn hBranch
       simp only [branchFits, Bool.and_eq_true, Array.all_eq_true_iff_forall_mem,
         Std.HashSet.contains_ofList] at hF
@@ -2098,13 +2079,12 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
       simp only [Bool.and_eq_true] at hConv
       have hArgs := hConv.1.2
       simp only [isConvertible, List.all_eq_true, List.mem_range] at hArgs
-      exact roundTrips_of_fitsRegister (by simpa [BlockPtr.getArgument_def] using hArgs i hi)
-        (hNoPointer.arguments o block i oIn hBranch hMem hi)
+      simpa [BlockPtr.getArgument_def] using hArgs i hi
 
 /--
   In strict mode, `isel-br-riscv64` refines a module it succeeds on without
-  assuming `BranchesLowerable`: strict mode checks it, but for pointers passed
-  through a branch and `riscv_cf` branches already in the input.
+  assuming `BranchesLowerable`: strict mode checks it, but for `riscv_cf`
+  branches already in the input.
 -/
 theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
@@ -2112,12 +2092,11 @@ theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
       o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
       o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
-    (hNoPointer : BranchesPassNoPointer ctx)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
     (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
   ISelBrPass.run_isModuleRefinedBy hVerified hNoUnreachable
-    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch hNoPointer h)
+    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch h)
     hMonotone h module
 
 /--
@@ -2131,12 +2110,11 @@ theorem ISelBrPass.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpC
       o.getOpType! ctx.raw ≠ OpCode.llvm .unreachable)
     (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
       o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
-    (hNoPointer : BranchesPassNoPointer ctx)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
     (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedByCTree ctx module ctx' :=
   convertModule_isModuleRefinedByCTree_of_treeMonotoneProved hVerified hNoUnreachable
-    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch hNoPointer h)
+    (ISelBrPass.branchesLowerable_of_run hVerified hNoUnreachable hNoRiscvBranch h)
     hMonotone (ISelBrPass.convertModule_eq_ok_of_run h) module
 
 /-- The pass, with its IO, returns what `ISelBrPass.run` does. -/

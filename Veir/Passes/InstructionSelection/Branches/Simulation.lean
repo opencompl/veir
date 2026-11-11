@@ -958,7 +958,8 @@ theorem regSources {op : OperationPtr} (opIn : op.InBounds ctx.raw)
     intro i hi tv hRefined
     have hConforms :=
       (VariableState.getVar?_conforms (getVar?_getOperand hOperands hi)).of_isRefinedBy hRefined
-    exact RuntimeValue.toReg?_eq_some_of_roundTrips (L.operandRoundTrips opIn hBranch hi) hConforms
+    exact RuntimeValue.toReg?_eq_some_of_fitsRegister (L.operandFitsRegister opIn hBranch hi)
+      hConforms
   /- So do the values that a compare-and-branch compares, as the `g_icmp` compared integers. -/
   intro i value hValue
   rcases hc : L.compare op with _ | ⟨branch, l, r⟩
@@ -1057,7 +1058,7 @@ theorem interpret_newBranch {op : OperationPtr} (opIn : op.InBounds ctx.raw)
       have := (Array.getElem?_eq_some_iff.mp h0).1; omega
     have hValue := getVar?_getOperand hOperands hLt
     rw [getElem!_pos operands 0 (by omega), (Array.getElem?_eq_some_iff.mp h0).2] at hValue
-    exact RuntimeValue.width_le_of_roundTrips (L.operandRoundTrips opIn (.inr hType) hLt)
+    exact RuntimeValue.width_le_of_fitsRegister (L.operandFitsRegister opIn (.inr hType) hLt)
       (VariableState.getVar?_conforms hValue)
   · obtain ⟨-, icmpIn, -, -, hCondOperand, hIcmpNumOps, -, -, hFills, hCompareEq⟩ :=
       L.compareSpec opIn hc

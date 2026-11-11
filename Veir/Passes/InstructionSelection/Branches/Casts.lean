@@ -16,13 +16,11 @@ public section
 The branch lowering passes a value along a branch as a register. The value is
 cast to a register in front of the branch and back to its type at the start of
 the successor. This file gives the meaning of the two casts, shows that a value
-of a type that `roundTrips` is refined by its round trip, and shows that the
+of a type that fits a register is refined by its round trip, and shows that the
 RISC-V branch on the registers takes the successor that the gMIR branch takes.
 
-A pointer fits a register too, but it travels as its address and comes back as
-the pointer that the memory decodes that address to, which refines it only when
-the pointer's object owns its address. `roundTrips` leaves pointers out, so the
-proof does not cover a branch that passes one.
+A pointer travels as its address and comes back as the pointer to that
+address, which is the same pointer.
 -/
 
 open Veir.Data
@@ -30,38 +28,13 @@ open Veir.Data
 namespace Veir
 
 /--
-  Whether a value of type `type` is refined by its round trip through a register:
-  an integer or a byte that fits one.
--/
-def roundTrips (type : TypeAttr) : Bool :=
-  match type.val with
-  | .integerType _ | .byteType _ => fitsRegister type
-  | _ => false
-
-theorem fitsRegister_of_roundTrips {type : TypeAttr} (h : roundTrips type) :
-    fitsRegister type := by
-  obtain ⟨attr, hattr⟩ := type
-  cases attr <;> simp_all [roundTrips]
-
-/-- A type that fits a register and is no pointer round-trips through a register. -/
-theorem roundTrips_of_fitsRegister {type : TypeAttr} (h : fitsRegister type)
-    (hPointer : ∀ t, type.val ≠ .llvmPointerType t) : roundTrips type := by
-  have h' := fitsRegister_iff.mp h
-  obtain ⟨attr, hattr⟩ := type
-  cases attr <;> simp only [roundTrips] <;>
-    first
-      | exact h
-      | (exfalso
-         simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at h'
-         grind)
-
-/--
-  The register that `builtin.unrealized_conversion_cast` turns an integer or a
-  byte into.
+  The register that `builtin.unrealized_conversion_cast` turns an integer, a
+  byte or a pointer into.
 -/
 def RuntimeValue.toReg? : RuntimeValue → Option RISCV.Reg
   | .int _ value => some (LLVM.Int.toReg value)
   | .byte _ value => some (LLVM.Byte.toReg value)
+  | .addr value => some (LLVM.Int.toReg value.toInt)
   | _ => none
 
 @[simp]
@@ -71,13 +44,16 @@ theorem RuntimeValue.toReg?_int {w : Nat} {value : LLVM.Int w} :
 
 /--
   `reg` is a register that `builtin.unrealized_conversion_cast` may turn `value`
-  into. A register cannot hold poison, so the cast of a poison integer may be any
-  register, and the poison bits of a byte may come out as any bits.
+  into. A register cannot hold poison, so the cast of a poison integer or pointer
+  may be any register, and the poison bits of a byte may come out as any bits. A
+  pointer is cast to its address.
 -/
 def RuntimeValue.CastsTo : RuntimeValue → RISCV.Reg → Prop
   | .int _ (.val value), r => r = ⟨value.zeroExtend 64⟩
   | .int _ .poison, _ => True
   | .byte _ value, r => ∃ bits, r = ⟨(value.val ||| (value.poison &&& bits)).zeroExtend 64⟩
+  | .addr (.val p), r => r = ⟨p.address.toBitVec⟩
+  | .addr .poison, _ => True
   | _, _ => False
 
 /-- The register that `toReg?` picks is one that the cast may give. -/
@@ -92,6 +68,10 @@ theorem RuntimeValue.castsTo_of_toReg? {value : RuntimeValue} {reg : RISCV.Reg}
     simp only [toReg?, Option.some.injEq] at h
     subst h
     exact ⟨0, by simp [LLVM.Byte.toReg_eq]⟩
+  | addr p =>
+    simp only [toReg?, Option.some.injEq] at h
+    subst h
+    cases p <;> simp [CastsTo, LLVM.Int.toReg_val]
   | _ => simp [toReg?] at h
 
 /-- The cast of an integer that is not poison is its bits. -/
@@ -100,13 +80,15 @@ theorem RuntimeValue.castsTo_int_val {w : Nat} {x : BitVec w} {reg : RISCV.Reg} 
   simp [CastsTo, LLVM.Int.toReg_val]
 
 /--
-  The integer or byte of type `type` that `builtin.unrealized_conversion_cast`
-  turns a register into.
+  The integer, byte or pointer of type `type` that
+  `builtin.unrealized_conversion_cast` turns a register into. A register becomes
+  the pointer to its address.
 -/
 def RuntimeValue.ofReg? (type : TypeAttr) (reg : RISCV.Reg) : Option RuntimeValue :=
   match type.val with
   | .integerType intType => some (.int intType.bitwidth (RISCV.Reg.toInt reg intType.bitwidth))
   | .byteType byteType => some (.byte byteType.bitwidth (RISCV.Reg.toByte reg byteType.bitwidth))
+  | .llvmPointerType _ => some (.addr (.val ⟨UInt64.ofBitVec reg.val⟩))
   | _ => none
 
 /-- A cast to a register computes `toReg?`. -/
@@ -126,7 +108,7 @@ theorem interpretOp'_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value : Run
     interpretOp' (.builtin .unrealized_conversion_cast) properties #[type] #[.reg reg]
       successors mem = .ok (#[value], mem, none) := by
   obtain ⟨attr, hattr⟩ := type
-  cases attr <;> grind [RuntimeValue.ofReg?, interpretOp']
+  cases attr <;> grind [RuntimeValue.ofReg?, interpretOp', MemoryState.ptrFromInt_val]
 
 /--
   A cast to a register, in CTrees, gives a register that the value may be cast
@@ -154,6 +136,14 @@ theorem returns_cast_toReg {value : RuntimeValue} {reg : RISCV.Reg}
     split
     · next h => exact CTree.returns_pure.mpr ⟨_, ⟨0, by simp [LLVM.Byte.toReg_eq, h]⟩, rfl⟩
     · exact CTree.returns_choose_bind _ fun bits => CTree.returns_pure.mpr ⟨_, ⟨bits, rfl⟩, rfl⟩
+  | addr p =>
+    cases p with
+    | val p =>
+      rw [CTree.interpretOp'_cast_addr_val (registerType := ⟨none⟩) rfl (by simp)]
+      exact CTree.returns_pure.mpr ⟨_, rfl, rfl⟩
+    | poison =>
+      rw [CTree.interpretOp'_cast_addr_poison (registerType := ⟨none⟩) rfl (by simp)]
+      exact CTree.returns_choose_bind _ fun _ => CTree.returns_pure.mpr ⟨_, trivial, rfl⟩
   | _ => simp [RuntimeValue.toReg?] at hReg
 
 /-- A cast from a register, in CTrees, computes `ofReg?`. -/
@@ -168,55 +158,39 @@ theorem interpretOp'_tree_cast_ofReg {type : TypeAttr} {reg : RISCV.Reg} {value 
     subst hValue
   · exact CTree.interpretOp'_cast_toInt rfl rfl
   · exact CTree.interpretOp'_cast_toByte rfl rfl
+  · exact CTree.interpretOp'_cast_toPtr rfl rfl
 
-/-- An integer of a type that `roundTrips` has at most 64 bits. -/
-theorem RuntimeValue.width_le_of_roundTrips {type : TypeAttr} {w : Nat} {x : Data.LLVM.Int w}
-    (hRoundTrips : roundTrips type) (hConforms : (RuntimeValue.int w x).Conforms type) : w ≤ 64 := by
-  obtain ⟨attr, hattr⟩ := type
-  cases attr <;> simp only [roundTrips, Bool.false_eq_true] at hRoundTrips <;>
-    simp only [Conforms] at hConforms
-  have := fitsRegister_iff.mp hRoundTrips
-  grind
+/-- An integer of a type that fits a register has at most 64 bits. -/
+theorem RuntimeValue.width_le_of_fitsRegister {type : TypeAttr} {w : Nat} {x : Data.LLVM.Int w}
+    (hFits : fitsRegister type) (hConforms : (RuntimeValue.int w x).Conforms type) : w ≤ 64 := by
+  rcases fitsRegister_iff.mp hFits with ⟨t, rfl, -, h⟩ | ⟨t, rfl, -⟩ | ⟨t, rfl⟩ <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms] at hConforms
+  omega
 
-/-- A value of a type that `roundTrips` is cast to a register. -/
-theorem RuntimeValue.toReg?_eq_some_of_roundTrips {type : TypeAttr} {value : RuntimeValue}
-    (hRoundTrips : roundTrips type) (hConforms : value.Conforms type) :
+/-- A value of a type that fits a register is cast to a register. -/
+theorem RuntimeValue.toReg?_eq_some_of_fitsRegister {type : TypeAttr} {value : RuntimeValue}
+    (hFits : fitsRegister type) (hConforms : value.Conforms type) :
     ∃ reg, value.toReg? = some reg := by
-  obtain ⟨attr, hattr⟩ := type
-  cases attr <;> simp only [roundTrips, Bool.false_eq_true] at hRoundTrips
-  all_goals cases value <;> simp only [Conforms] at hConforms <;> exact ⟨_, rfl⟩
+  rcases fitsRegister_iff.mp hFits with ⟨t, rfl, -⟩ | ⟨t, rfl, -⟩ | ⟨t, rfl⟩ <;>
+    cases value <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms] at hConforms <;>
+    exact ⟨_, rfl⟩
 
 /--
-  A value of a type that `roundTrips` is refined by what comes back from the
-  register it is cast to, and what comes back is of its type.
--/
-theorem RuntimeValue.isRefinedBy_ofReg?_of_toReg? {type : TypeAttr} {value : RuntimeValue}
-    {reg : RISCV.Reg} (hRoundTrips : roundTrips type) (hConforms : value.Conforms type)
-    (hReg : value.toReg? = some reg) :
-    ∃ value', RuntimeValue.ofReg? type reg = some value' ∧ value ⊒ value' ∧
-      value'.Conforms type := by
-  obtain ⟨attr, hattr⟩ := type
-  cases attr <;> simp [roundTrips] at hRoundTrips
-  all_goals
-    cases value <;> simp only [Conforms] at hConforms <;> subst hConforms
-    simp only [toReg?, Option.some.injEq] at hReg
-    subst hReg
-    exact ⟨_, rfl, by grind [RuntimeValue.isRefinedBy], rfl⟩
-
-/--
-  A value of a type that `roundTrips` is refined by what comes back from any
+  A value of a type that fits a register is refined by what comes back from any
   register it may be cast to, and what comes back is of its type.
 -/
 theorem RuntimeValue.isRefinedBy_ofReg?_of_castsTo {type : TypeAttr} {value : RuntimeValue}
-    {reg : RISCV.Reg} (hRoundTrips : roundTrips type) (hConforms : value.Conforms type)
+    {reg : RISCV.Reg} (hFits : fitsRegister type) (hConforms : value.Conforms type)
     (hCasts : value.CastsTo reg) :
     ∃ value', RuntimeValue.ofReg? type reg = some value' ∧ value ⊒ value' ∧
       value'.Conforms type := by
-  obtain ⟨attr, hattr⟩ := type
-  cases attr <;> simp [roundTrips] at hRoundTrips
-  case integerType t =>
-    cases value <;> simp only [Conforms] at hConforms <;> subst hConforms
-    case int x =>
+  rcases fitsRegister_iff.mp hFits with ⟨t, rfl, -⟩ | ⟨t, rfl, -, h64⟩ | ⟨t, rfl⟩ <;>
+    cases value <;>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms] at hConforms
+  case inl.int x =>
+    subst hConforms
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject]
     refine ⟨_, rfl, ?_, rfl⟩
     cases x with
     | poison => simp [RuntimeValue.isRefinedBy]
@@ -224,27 +198,48 @@ theorem RuntimeValue.isRefinedBy_ofReg?_of_castsTo {type : TypeAttr} {value : Ru
       simp only [CastsTo] at hCasts
       subst hCasts
       grind [RuntimeValue.isRefinedBy]
-  case byteType t =>
-    cases value <;> simp only [Conforms] at hConforms <;> subst hConforms
-    case byte b =>
+  case inr.inl.byte b =>
+    subst hConforms
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject]
     refine ⟨_, rfl, ?_, rfl⟩
     obtain ⟨bits, rfl⟩ := hCasts
     simpa [RuntimeValue.isRefinedBy] using
-      LLVM.Byte.isRefinedBy_toByte_of_poison hRoundTrips.2 b bits
+      LLVM.Byte.isRefinedBy_toByte_of_poison h64 b bits
+  case inr.inr.addr x =>
+    simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject]
+    refine ⟨_, rfl, ?_, trivial⟩
+    cases x with
+    | poison => simp [RuntimeValue.isRefinedBy, LLVM.Ptr.isRefinedBy]
+    | val p =>
+      -- The pointer comes back as the pointer to its address, which it is.
+      simp only [CastsTo] at hCasts
+      subst hCasts
+      simp [RuntimeValue.isRefinedBy, LLVM.Ptr.isRefinedBy]
 
 /--
-  A value of a type that `roundTrips` is refined by its round trip through a
+  A value of a type that fits a register is refined by what comes back from the
+  register it is cast to, and what comes back is of its type.
+-/
+theorem RuntimeValue.isRefinedBy_ofReg?_of_toReg? {type : TypeAttr} {value : RuntimeValue}
+    {reg : RISCV.Reg} (hFits : fitsRegister type) (hConforms : value.Conforms type)
+    (hReg : value.toReg? = some reg) :
+    ∃ value', RuntimeValue.ofReg? type reg = some value' ∧ value ⊒ value' ∧
+      value'.Conforms type :=
+  isRefinedBy_ofReg?_of_castsTo hFits hConforms (castsTo_of_toReg? hReg)
+
+/--
+  A value of a type that fits a register is refined by its round trip through a
   register, even when the value that is cast is only a refinement of it.
 -/
 theorem RuntimeValue.isRefinedBy_ofReg?_toReg? {type : TypeAttr} {source target : RuntimeValue}
-    (hRoundTrips : roundTrips type) (hConforms : source.Conforms type)
+    (hFits : fitsRegister type) (hConforms : source.Conforms type)
     (hRefined : source ⊒ target) :
     ∃ reg value, target.toReg? = some reg ∧ RuntimeValue.ofReg? type reg = some value ∧
       source ⊒ value ∧ value.Conforms type := by
   have hTarget := hConforms.of_isRefinedBy hRefined
-  obtain ⟨reg, hReg⟩ := toReg?_eq_some_of_roundTrips hRoundTrips hTarget
+  obtain ⟨reg, hReg⟩ := toReg?_eq_some_of_fitsRegister hFits hTarget
   obtain ⟨value, hValue, hRefined', hConforms'⟩ :=
-    isRefinedBy_ofReg?_of_toReg? hRoundTrips hTarget hReg
+    isRefinedBy_ofReg?_of_toReg? hFits hTarget hReg
   exact ⟨reg, value, hReg, hValue, RuntimeValue.isRefinedBy_trans hRefined hRefined',
     hConforms'⟩
 

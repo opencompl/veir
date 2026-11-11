@@ -84,7 +84,7 @@ structure BranchLowering (ctx ctx' : WfIRContext OpCode) where
   argTypeConverted {block : BlockPtr} {i : Nat} : block.InBounds ctx.raw → converted block →
     i < block.getNumArguments! ctx.raw →
     (block.getArgument i : ValuePtr).getType! ctx'.raw = (RegisterType.mk : TypeAttr) ∧
-    roundTrips ((block.getArgument i : ValuePtr).getType! ctx.raw)
+    fitsRegister ((block.getArgument i : ValuePtr).getType! ctx.raw)
   argTypeOther {block : BlockPtr} {i : Nat} : block.InBounds ctx.raw → converted block = false →
     i < block.getNumArguments! ctx.raw →
     (block.getArgument i : ValuePtr).getType! ctx'.raw =
@@ -119,9 +119,9 @@ structure BranchLowering (ctx ctx' : WfIRContext OpCode) where
   branchSuccessorConverted {op : OperationPtr} {block : BlockPtr} : op.InBounds ctx.raw →
     op.IsGmirBranch ctx.raw → block ∈ op.getSuccessors! ctx.raw → converted block
   /-- The operands of a branch fit a register. -/
-  operandRoundTrips {op : OperationPtr} {i : Nat} : op.InBounds ctx.raw →
+  operandFitsRegister {op : OperationPtr} {i : Nat} : op.InBounds ctx.raw →
     op.IsGmirBranch ctx.raw → i < op.getNumOperands! ctx.raw →
-    roundTrips ((op.getOperand! ctx.raw i).getType! ctx.raw)
+    fitsRegister ((op.getOperand! ctx.raw i).getType! ctx.raw)
   /-- A new operation in front of the new branch. -/
   regOpSpec {op : OperationPtr} {i : Nat} : op.InBounds ctx.raw →
     op.IsGmirBranch ctx.raw → i < (regOperands ctx.raw op (compare op)).length →
