@@ -215,6 +215,85 @@ theorem approx_vis_succ i (k : E i → CTree E C R) n :
 theorem approx_fold_vis_succ i (t : E i → CTree E C R) n :
   (CTree.fold (CTreeF.vis i t)).approx (n + 1) = CTreeF.vis i (λ o => (t o).approx n) := approx_vis_succ i t n
 
+theorem eq_fold : CTree.fold t = CTree.fold t' → t = t' := by
+  intros h
+  rw [←fold_unfold _ t]
+  unfold CTree.fold at h
+  rw [h]
+  rw [fold_unfold]
+
+@[grind .]
+theorem ret_eq_ret (r r' : R) :
+    CTree.ret (E := E) (C := C) r = CTree.ret r' → r = r' := by
+  intros h
+  have h := eq_fold h
+  cases h
+  rfl
+
+@[grind .]
+theorem ret_eq_vis (r : R) i (k : E i → CTree E C R) :
+    CTree.ret r = CTree.vis i k → False := by
+  intros h
+  have h := eq_fold h
+  cases h
+
+@[grind .]
+theorem ret_eq_tauG (r : R) i (k : (C1 ⊕ₑ C) i → CTree E C R) :
+    CTree.ret r = CTree.tauG i k → False := by
+  intros h
+  have h := eq_fold h
+  cases h
+
+@[grind .]
+theorem vis_eq_ret (r : R) i (k : E i → CTree E C R) :
+    CTree.vis i k = CTree.ret r → False := by
+  grind
+
+@[grind .]
+theorem vis_eq_vis i i' (k : E i → CTree E C R) (k' : E i' → CTree E C R) :
+    CTree.vis i k = CTree.vis i' k' → i = i' := by
+  intros h
+  have h := eq_fold h
+  cases h
+  rfl
+
+@[grind .]
+theorem vis_eq_vis' i (k k' : E i → CTree E C R) :
+    CTree.vis i k = CTree.vis i k' → k = k' := by
+  intros h
+  have h := eq_fold h
+  cases h
+  rfl
+
+@[grind .]
+theorem vis_eq_tauG i i' (k : E i → CTree E C R) (k' : (C1 ⊕ₑ C) i' → CTree E C R) :
+    CTree.vis i k = CTree.tauG i' k' → False := by
+  intros h
+  have h := eq_fold h
+  cases h
+
+@[grind .]
+theorem tauG_eq_ret (r : R) i (k : (C1 ⊕ₑ C) i → CTree E C R) :
+    CTree.tauG i k = CTree.ret r → False := by
+  grind
+
+@[grind .]
+theorem tauG_eq_tauG i i'
+    (k : (C1 ⊕ₑ C) i → CTree E C R) (k' : (C1 ⊕ₑ C) i' → CTree E C R) :
+    CTree.tauG i k = CTree.tauG i' k' → i = i' := by
+  intros h
+  have h := eq_fold h
+  cases h
+  rfl
+
+@[grind .]
+theorem tauG_eq_tauG' i (k k' : (C1 ⊕ₑ C) i → CTree E C R) :
+    CTree.tauG i k = CTree.tauG i k' → k = k' := by
+  intros h
+  have h := eq_fold h
+  cases h
+  rfl
+
 @[simp, grind =]
 theorem unfold_ret (r : R) :
   CTree.unfold (CTree.ret r) = CTreeF.ret (E := E) (C := C) r := by
