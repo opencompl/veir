@@ -56,6 +56,21 @@ theorem Sim.bind_monadLift_right_iff {EIn : Type} {E : EIn → Type}
       | .fail _ => CTree.Sim relation other (fail : CTree E C' β) := by
   cases func <;> rfl
 
+/-- Lifting an `Interp` computation into a tree distributes over its binds, so that a tree can be
+simulated step by step along an interpreter's sequence of memory accesses. -/
+theorem monadLift_interp_bind {EIn CIn : Type} {E : EIn → Type} {C : CIn → Type}
+    [ErrorE -< E] [UBE -< E] {α β : Type} (x : Interp α) (f : α → Interp β) :
+    (monadLift (x >>= f) : CTree E C β) =
+      (monadLift x : CTree E C α) >>= fun a => (monadLift (f a) : CTree E C β) := by
+  cases x <;> simp [monadLift, MonadLift.monadLift, Bind.bind, Veir.bind_fail, Veir.bind_ub]
+
+/-- `CTree.bind_assoc` for `CTree.bind`, to reassociate the binds of a tree before simulating it
+step by step. -/
+theorem bind_bind {EIn CIn : Type} {E : EIn → Type} {C : CIn → Type} {α β γ : Type}
+    (x : CTree E C α) (f : α → CTree E C β) (g : β → CTree E C γ) :
+    CTree.bind (CTree.bind x f) g = CTree.bind x fun a => CTree.bind (f a) g :=
+  _root_.CTree.bind_assoc x f g
+
 /-- A lifted failing source is simulated by any target. -/
 @[simp]
 theorem sim_monadLift_fail_right {α β : Type} (R : α → β → Prop) (target : Tree α)
@@ -128,6 +143,24 @@ open Lean Elab Tactic in
 elab "casesIntegerTypes" : tactic => do
   let goals ← getGoals
   setGoals (← goals.flatMapM fun goal => casesIntegerTypes goal)
+
+open Lean Meta in
+/-- Case-split, recursively, each local pointer value into an address or poison, which the
+interpreters of memory operations match on. -/
+meta partial def casesPointers (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    for decl in ← getLCtx do
+      if decl.isImplementationDetail then continue
+      unless (← instantiateMVars decl.type).isConstOf ``Veir.Data.LLVM.Ptr do continue
+      let subgoals ← goal.cases decl.fvarId
+      return (← subgoals.toList.mapM fun subgoal => casesPointers subgoal.mvarId).flatten
+    return [goal]
+
+open Lean Elab Tactic in
+/-- Case-split every local pointer value into an address or poison. -/
+elab "casesPointers" : tactic => do
+  let goals ← getGoals
+  setGoals (← goals.flatMapM fun goal => casesPointers goal)
 
 open Lean Meta in
 /-- Case-split, recursively, each local existential and conjunction, e.g. the choice of high bits
