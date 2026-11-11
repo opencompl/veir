@@ -38,3 +38,4 @@ import UnitTest.RegisterAllocation
 import UnitTest.ResultsConform
 import UnitTest.Monotonicity
 import UnitTest.BranchLowering
+import UnitTest.LLVMToGMIRBranches
