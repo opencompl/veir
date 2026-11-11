@@ -1,6 +1,8 @@
 module
 
 public import Veir.Pass
+import Veir.Verifier
+import Veir.Dialects.TreeMonotoneProved
 import Veir.Passes.Matching
 import Veir.Data.LLVM.Int.Lemmas
 import Std
@@ -26,6 +28,10 @@ namespace Veir
   fails; with `strict=false` the branch survives alongside the lowered ones.
 
   The pass does not lower `llvm.unreachable`, and fails on a module that has one.
+  In strict mode it also fails on a module that does not verify, that has an
+  operation the refinement proof does not cover (`OpCode.treeMonotoneProved`), or
+  that has a `riscv_cf` branch already: on a module it succeeds on, it is proved
+  to refine.
 -/
 
 /-- Whether a value of type `type` fits into a register without losing information. -/
@@ -413,15 +419,36 @@ public def convertModule (ctx : WfIRContext OpCode) : Except String (WfIRContext
 
 /-! # Pass implementation -/
 
+/-- Whether `op` is a `riscv_cf` operation with successors: a branch lowered already. -/
+public def isRiscvBranch (ctx : WfIRContext OpCode) (op : OperationPtr) : Bool :=
+  match op.getOpType! ctx.raw with
+  | .riscv_cf _ => op.getNumSuccessors! ctx.raw != 0
+  | _ => false
+
 /--
-  The pass on a module, without IO: the check that the module has no
-  `llvm.unreachable`, `convertModule`, and in strict mode the check that no
-  branch but a RISC-V one remains.
+  The checks on the module the pass is given: it has no `llvm.unreachable`, and in
+  strict mode it verifies with `root` as its root, the refinement proof covers
+  each of its operations, and it has no `riscv_cf` branch, which strict mode would
+  otherwise accept as lowered.
 -/
-public def ISelBrPass.run (strict : Bool) (ctx : WfIRContext OpCode) :
-    Except String (WfIRContext OpCode) := do
+public def ISelBrPass.checkInput (strict : Bool) (ctx : WfIRContext OpCode)
+    (root : OperationPtr) : Except String Unit := do
   if ctx.raw.operations.keys.any (·.getOpType! ctx.raw = OpCode.llvm .unreachable) then
     throw "isel-br-riscv64: cannot lower llvm.unreachable"
+  if strict then
+    ctx.verify root
+    if ctx.raw.operations.keys.any fun o => !(o.getOpType! ctx.raw).treeMonotoneProved then
+      throw "isel-br-riscv64: the refinement proof does not cover an operation of the module"
+    if ctx.raw.operations.keys.any (isRiscvBranch ctx) then
+      throw "isel-br-riscv64: the module has a riscv_cf branch already"
+
+/--
+  The pass on the module `root`, without IO: `checkInput`, `convertModule`, and in
+  strict mode the check that no branch but a RISC-V one remains.
+-/
+public def ISelBrPass.run (strict : Bool) (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Except String (WfIRContext OpCode) := do
+  ISelBrPass.checkInput strict ctx root
   let ctx ← convertModule ctx
   -- In strict mode, no branch but a RISC-V one may remain.
   if strict then
@@ -436,7 +463,7 @@ public def ISelBrPass.run (strict : Bool) (ctx : WfIRContext OpCode) :
 
 public def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  ExceptT.mk (pure (ISelBrPass.run strict ctx))
+  ExceptT.mk (pure (ISelBrPass.run strict ctx op))
 
 public def IselBrRISCV64 : Pass OpCode :=
   { name := "isel-br-riscv64"

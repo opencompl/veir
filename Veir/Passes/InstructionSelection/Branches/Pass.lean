@@ -1873,16 +1873,56 @@ theorem convertModule_isModuleRefinedByCTree_of_treeMonotoneProved {ctx ctx' : W
 
 /-- The pass succeeds only with the module `convertModule` returns. -/
 theorem ISelBrPass.convertModule_eq_ok_of_run {strict : Bool} {ctx ctx' : WfIRContext OpCode}
-    (h : ISelBrPass.run strict ctx = .ok ctx') : convertModule ctx = .ok ctx' := by
+    {root : OperationPtr} (h : ISelBrPass.run strict ctx root = .ok ctx') :
+    convertModule ctx = .ok ctx' := by
   unfold ISelBrPass.run at h
+  rcases hi : ISelBrPass.checkInput strict ctx root with e | ⟨⟩
+  · simp [hi, bind, Except.bind] at h
+  simp only [hi, bind, Except.bind] at h
+  rcases hc : convertModule ctx with e | c
+  · simp [hc] at h
+  · simp only [hc] at h
+    (repeat' split at h) <;> simp_all [pure, Except.pure]
+
+/-- The pass succeeds only on a module that passes `checkInput`. -/
+theorem ISelBrPass.checkInput_of_run {strict : Bool} {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (h : ISelBrPass.run strict ctx root = .ok ctx') :
+    ISelBrPass.checkInput strict ctx root = .ok () := by
+  unfold ISelBrPass.run at h
+  rcases hi : ISelBrPass.checkInput strict ctx root with e | ⟨⟩
+  · simp [hi, bind, Except.bind] at h
+  · rfl
+
+/--
+  In strict mode, `checkInput` succeeds only on a module that verifies, whose
+  operations the refinement proof covers, and that has no `riscv_cf` branch.
+-/
+theorem ISelBrPass.checkInput_strict {ctx : WfIRContext OpCode} {root : OperationPtr}
+    (h : ISelBrPass.checkInput true ctx root = .ok ()) :
+    ctx.Verified root ∧
+      (∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved) ∧
+      ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
+        o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0 := by
+  unfold ISelBrPass.checkInput at h
   by_cases hU : (ctx.raw.operations.keys.any
       (·.getOpType! ctx.raw = OpCode.llvm .unreachable)) = true
   · simp [hU, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
   simp only [hU, Bool.false_eq_true, ↓reduceIte] at h
-  rcases hc : convertModule ctx with e | c
-  · simp [hc, bind, Except.bind] at h
-  · simp only [hc, bind, Except.bind] at h
-    (repeat' split at h) <;> simp_all [pure, Except.pure]
+  rcases hv : ctx.verify root with e | ⟨⟩
+  · simp [hv, bind, Except.bind] at h
+  simp only [hv, bind, Except.bind] at h
+  by_cases hM : (ctx.raw.operations.keys.any
+      fun o => !(o.getOpType! ctx.raw).treeMonotoneProved) = true
+  · simp [hM, throw, throwThe, MonadExceptOf.throw] at h
+  by_cases hR : ctx.raw.operations.keys.any (isRiscvBranch ctx) = true
+  · simp [hM, hR, throw, throwThe, MonadExceptOf.throw] at h
+  refine ⟨WfIRContext.verified_of_verify_eq_ok hv, fun o oIn => ?_, fun o oIn c hc => ?_⟩
+  · simp at hM
+    exact hM o (OperationPtr.inBounds_def.mp oIn)
+  · simp only [List.any_eq_true, Std.HashMap.mem_keys, not_exists, not_and,
+      Bool.not_eq_true] at hR
+    have := hR o (OperationPtr.inBounds_def.mp oIn)
+    simpa [isRiscvBranch, hc] using this
 
 /--
   The pass `isel-br-riscv64` refines a module it succeeds on, in either mode, under the
@@ -1893,7 +1933,7 @@ theorem ISelBrPass.run_isModuleRefinedBy {strict : Bool} {ctx ctx' : WfIRContext
     {root : OperationPtr} (hVerified : ctx.Verified root)
     (hLowerable : BranchesLowerable ctx)
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
-    (h : ISelBrPass.run strict ctx = .ok ctx') (module : OperationPtr) :
+    (h : ISelBrPass.run strict ctx root = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
   convertModule_isModuleRefinedBy hVerified hLowerable hMonotone
     (ISelBrPass.convertModule_eq_ok_of_run h) module
@@ -1902,7 +1942,7 @@ theorem ISelBrPass.run_isModuleRefinedBy {strict : Bool} {ctx ctx' : WfIRContext
 theorem ISelBrPass.run_isModuleRefinedByCTree {strict : Bool} {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
     (hLowerable : BranchesLowerable ctx)
-    (h : ISelBrPass.run strict ctx = .ok ctx') (module : OperationPtr) :
+    (h : ISelBrPass.run strict ctx root = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedByCTree ctx module ctx' :=
   convertModule_isModuleRefinedByCTree hVerified hLowerable
     (ISelBrPass.convertModule_eq_ok_of_run h) module
@@ -1926,8 +1966,8 @@ private theorem forIn_ok_of_yield {α ε : Type} {l : List α}
       · exact ih h o ho
 
 /-- In strict mode, the pass succeeds only if no branch but a RISC-V one remains. -/
-theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
-    (h : ISelBrPass.run true ctx = .ok ctx') :
+theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
+    (h : ISelBrPass.run true ctx root = .ok ctx') :
     convertModule ctx = .ok ctx' ∧
     (∀ o ∈ ctx'.raw.operations.keys, isLoweredBranch ctx' o = false →
       o.getNumSuccessors! ctx'.raw = 0) ∧
@@ -1935,11 +1975,10 @@ theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
   have hc := ISelBrPass.convertModule_eq_ok_of_run h
   refine ⟨hc, ?_⟩
   unfold ISelBrPass.run at h
-  by_cases hU : (ctx.raw.operations.keys.any
-      (·.getOpType! ctx.raw = OpCode.llvm .unreachable)) = true
-  · simp [hU, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
-  simp only [hU, Bool.false_eq_true, ↓reduceIte] at h
-  simp only [hc, bind, Except.bind] at h
+  rcases hi : ISelBrPass.checkInput true ctx root with e | ⟨⟩
+  · simp [hi, bind, Except.bind] at h
+  simp only [hi, bind, Except.bind] at h
+  simp only [hc, ↓reduceIte] at h
   split at h
   · simp at h
   next u h₁ =>
@@ -1972,15 +2011,14 @@ theorem ISelBrPass.run_strict {ctx ctx' : WfIRContext OpCode}
 
 /--
   Strict mode checks what the proof assumes of a module: if the pass succeeds in
-  strict mode, every branch of the module is one the pass lowers. A `riscv_cf`
-  branch of the input, which strict mode accepts as already lowered, is ruled out
-  as well.
+  strict mode, every branch of the module is one the pass lowers. `checkInput`
+  rules out a `riscv_cf` branch of the input, which strict mode would otherwise
+  accept as already lowered.
 -/
 theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
-    (hVerified : ctx.Verified root)
-    (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
-      o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
-    (h : ISelBrPass.run true ctx = .ok ctx') : BranchesLowerable ctx := by
+    (h : ISelBrPass.run true ctx root = .ok ctx') : BranchesLowerable ctx := by
+  obtain ⟨hVerified, -, hNoRiscvBranch⟩ :=
+    ISelBrPass.checkInput_strict (ISelBrPass.checkInput_of_run h)
   obtain ⟨hc, hSuccessors', hNoBranch'⟩ := ISelBrPass.run_strict h
   have hKeys : ∀ (c : WfIRContext OpCode) (o : OperationPtr),
       o ∈ c.raw.operations.keys ↔ o.InBounds c.raw := fun c o => by
@@ -2060,40 +2098,39 @@ theorem ISelBrPass.branchesLowerable_of_run {ctx ctx' : WfIRContext OpCode} {roo
 
 /--
   In strict mode, `isel-br-riscv64` refines a module it succeeds on without
-  assuming `BranchesLowerable`: strict mode checks it, but for `riscv_cf`
-  branches already in the input.
+  assuming `BranchesLowerable` or that the module verifies, which strict mode
+  checks. The operations the pass leaves alone must still be proved monotone in
+  `Interp`, which strict mode does not check: it checks the CTree proofs.
 -/
 theorem ISelBrPass.run_strict_isModuleRefinedBy {ctx ctx' : WfIRContext OpCode}
-    {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
-      o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
+    {root : OperationPtr}
     (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).monotoneProved)
-    (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
+    (h : ISelBrPass.run true ctx root = .ok ctx') (module : OperationPtr) :
     module.isModuleRefinedBy ctx module ctx' :=
-  ISelBrPass.run_isModuleRefinedBy hVerified
-    (ISelBrPass.branchesLowerable_of_run hVerified hNoRiscvBranch h)
-    hMonotone h module
+  ISelBrPass.run_isModuleRefinedBy
+    (ISelBrPass.checkInput_strict (ISelBrPass.checkInput_of_run h)).1
+    (ISelBrPass.branchesLowerable_of_run h) hMonotone h module
 
 /--
   In strict mode, `isel-br-riscv64` refines a module it succeeds on in CTrees,
-  without assuming anything about the interpreter if the opcodes of the module
-  are proved monotone in CTrees.
+  with no assumption on the module: strict mode checks that it verifies, that the
+  pass lowers each of its branches, and that the refinement proof covers each of
+  its operations (`OpCode.treeMonotoneProved`). Nor does it assume anything about
+  the interpreter.
 -/
 theorem ISelBrPass.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
-    {root : OperationPtr} (hVerified : ctx.Verified root)
-    (hNoRiscvBranch : ∀ o : OperationPtr, o.InBounds ctx.raw → ∀ c,
-      o.getOpType! ctx.raw = .riscv_cf c → o.getNumSuccessors! ctx.raw = 0)
-    (hMonotone : ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved)
-    (h : ISelBrPass.run true ctx = .ok ctx') (module : OperationPtr) :
+    {root : OperationPtr} (h : ISelBrPass.run true ctx root = .ok ctx')
+    (module : OperationPtr) :
     module.isModuleRefinedByCTree ctx module ctx' :=
-  convertModule_isModuleRefinedByCTree_of_treeMonotoneProved hVerified
-    (ISelBrPass.branchesLowerable_of_run hVerified hNoRiscvBranch h)
-    hMonotone (ISelBrPass.convertModule_eq_ok_of_run h) module
+  have hInput := ISelBrPass.checkInput_strict (ISelBrPass.checkInput_of_run h)
+  convertModule_isModuleRefinedByCTree_of_treeMonotoneProved hInput.1
+    (ISelBrPass.branchesLowerable_of_run h) hInput.2.1 (ISelBrPass.convertModule_eq_ok_of_run h)
+    module
 
 /-- The pass, with its IO, returns what `ISelBrPass.run` does. -/
 theorem ISelBrPass.impl_eq_run (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) :
-    ISelBrPass.impl strict ctx op opIn = ExceptT.mk (pure (ISelBrPass.run strict ctx)) := by
+    ISelBrPass.impl strict ctx op opIn = ExceptT.mk (pure (ISelBrPass.run strict ctx op)) := by
   rw [ISelBrPass.impl]
 
 end Veir
