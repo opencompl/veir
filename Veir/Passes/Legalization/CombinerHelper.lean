@@ -136,10 +136,14 @@ def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
       return select.res[0]!)
     pure (fun x => x)
 
+/-- The `redundant_and` patterns of a `g_select` of booleans, one for each kind of arm. -/
+def redundantAndSelectPatterns : Array (Pattern OpCode) :=
+  #[(BoolArm.icmp, BoolArm.icmp), (.icmp, .constant), (.constant, .icmp), (.constant, .constant)].map
+    fun (t, f) => redundant_and_select_pattern t f
+
 /-- The `redundant_and` combines of a `g_select` of booleans, one for each kind of arm. -/
 def redundant_and_select : Array (CompiledPattern OpCode) :=
-  #[(BoolArm.icmp, BoolArm.icmp), (.icmp, .constant), (.constant, .icmp), (.constant, .constant)].map
-    fun (t, f) => (redundant_and_select_pattern t f).compile
+  redundantAndSelectPatterns.map (·.compile)
 
 /-! ### identity_combines -/
 
@@ -1142,15 +1146,17 @@ def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode
       CreateProg.operation (.gmir .g_select) #[c, castX.res[0]!, castY.res[0]!] #[type])
     (fun op => op)
 
-/-- The select combines, which take the `LegalizerInfo` of the target. -/
-def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
-  let patterns : Array (Pattern OpCode) :=
+/-- The select patterns, which take the `LegalizerInfo` of the target. -/
+def selectPatterns (info : LegalizerInfo) : Array (Pattern OpCode) :=
   #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false] ++
   #[(Data.LLVM.IntPred.ugt, GMIR.g_umax), (.uge, .g_umax), (.sgt, .g_smax), (.sge, .g_smax),
     (.ult, .g_umin), (.ule, .g_umin), (.slt, .g_smin), (.sle, .g_smin)].map
       (fun (pred, minmax) => select_to_iminmax_pattern info pred minmax) ++
   #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc]
-  patterns.map (·.compile)
+
+/-- The select combines, which take the `LegalizerInfo` of the target. -/
+def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
+  (selectPatterns info).map (·.compile)
 
 /-! ### match_selects : `tryFoldSelectOfConstants`
 
@@ -1199,10 +1205,9 @@ def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_
     CreateProg.Builder CreatedOpHandle :=
   createConstantWith type c fun c => c.ulog2?.get!
 
-/-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
+/-- The patterns of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
     `c ? 1 : 0` also has the form `c ? C : C - 1`, and the first match wins. -/
-def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
-  let patterns : Array (Pattern OpCode) := #[
+def selectOfConstantsPatterns : Array (Pattern OpCode) := #[
     -- `c ? 1 : 0` → `zext c`
     select_of_constants_pattern (fun t f => t.isOne && f.isZero)
       fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type],
@@ -1254,7 +1259,10 @@ def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
         let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
         let constant ← createConstantWith type t fun t => t.value.value
         CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]]
-  patterns.map (·.compile)
+
+/-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. -/
+def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
+  selectOfConstantsPatterns.map (·.compile)
 
 /-! ### Selects of a binary operation on the other arm
 
@@ -1295,16 +1303,19 @@ def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode 
       CreateProg.operation (.gmir opcode) #[x, select.res[0]!] #[type])
     (fun op => op)
 
+/-- The patterns of `select_into_binop_pattern`. -/
+def selectIntoBinopPatterns : Array (Pattern OpCode) :=
+  #[GMIR.g_shl, .g_lshr, .g_ashr, .g_sub, .g_add, .g_or, .g_xor].flatMap fun opcode =>
+    #[false, true].map (select_into_binop_pattern opcode ·)
+
 /-- The combines of `select_into_binop_pattern`. -/
 def selectIntoBinopCombines : Array (CompiledPattern OpCode) :=
-  (#[GMIR.g_shl, .g_lshr, .g_ashr, .g_sub, .g_add, .g_or, .g_xor].flatMap fun opcode =>
-    #[false, true].map (select_into_binop_pattern opcode ·)).map (·.compile)
+  selectIntoBinopPatterns.map (·.compile)
 
 /-! ### Combine list -/
 
-/-- The combines above, in the order the combiner tries them. -/
-def combines : Array (CompiledPattern OpCode) :=
-  let patterns : Array (Pattern OpCode) :=
+/-- The patterns above, in the order the combiner tries them. -/
+def combinePatterns : Array (Pattern OpCode) :=
   (#[GMIR.g_shl, .g_lshr, .g_ashr, .g_and].flatMap fun hand =>
       #[GMIR.g_and, .g_or, .g_xor].map (hoist_logic_op_pattern · hand)) ++
   #[sub_add_reg_x_add_y_sub_y_pattern, sub_add_reg_x_add_y_sub_x_pattern,
@@ -1345,17 +1356,21 @@ def combines : Array (CompiledPattern OpCode) :=
     APlusZeroMinusB_pattern, AMinusBPlusCMinusA_pattern, AMinusBPlusBMinusC_pattern,
     APlusBMinusAPlusC_pattern true, APlusBMinusAPlusC_pattern false, AMinusZeroMinusB_pattern,
     AMinusBMinusA_pattern]
-  patterns.map (·.compile)
+
+/-- The combines above, in the order the combiner tries them. -/
+def combines : Array (CompiledPattern OpCode) :=
+  combinePatterns.map (·.compile)
+
+/-- The patterns that run before RISC-V 64 legalization. -/
+def preLegalizerPatterns : Array (Pattern OpCode) :=
+  #[udiv_by_pow2_pattern] ++
+    (#[false, true].flatMap fun negative =>
+      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]) ++
+  selectOfConstantsPatterns ++ selectIntoBinopPatterns
 
 /-- The combines that run before RISC-V 64 legalization. -/
 def preLegalizerCombines : Array (CompiledPattern OpCode) :=
-  (#[udiv_by_pow2_pattern] ++
-    #[false, true].flatMap fun negative =>
-      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile) ++
-  selectOfConstantsCombines ++ selectIntoBinopCombines ++
-  #[funnel_shift_right_zero, funnel_shift_left_zero, funnel_shift_overshift_l,
-    funnel_shift_overshift_r, funnel_shift_or_shift_to_funnel_shift_left,
-    funnel_shift_or_shift_to_funnel_shift_right]
+  preLegalizerPatterns.map (·.compile)
 
 end
 

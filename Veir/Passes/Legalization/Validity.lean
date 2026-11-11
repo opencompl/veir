@@ -4,6 +4,7 @@ public import Veir.PatternRewriter.Puddle.CTreeProofs
 public import Veir.Passes.Legalization.LegalizerHelper
 public import Veir.Passes.Legalization.RISCV64LegalizerInfo
 public import Veir.Passes.Legalization.LegalizationArtifactCombiner
+public import Veir.Passes.Legalization.CombinerHelper
 public import Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.Legalization.LegalizerHelper
 import all Veir.Passes.Legalization.Validity.Common
@@ -11,6 +12,8 @@ import all Veir.Passes.Legalization.Validity.Widen
 import all Veir.Passes.Legalization.Validity.Custom
 import all Veir.Passes.Legalization.Validity.Lower
 import all Veir.Passes.Legalization.Validity.Artifact
+import all Veir.Passes.Legalization.Validity.Combine
+import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
 
@@ -29,7 +32,8 @@ closed by the rule's local correctness lemma, mostly in `Veir.Passes.Legalizatio
 
 ## Not covered
 
-* `widenBrcondCondition` and `widenBlockArguments` are local rewrites, not Puddle patterns.
+* `widenBrcondCondition`, `widenBlockArguments` and `commutativeConstantRHS` are local rewrites,
+  not Puddle patterns.
 * Rules with status `.unproven .widthDependent` are wrong at a width that verified IR rules out,
   such as `i0`, or from width `2^64`, which `Pattern.Valid` does not assume.
 -/
@@ -77,6 +81,38 @@ theorem legalizeCustom_status (opcode : GMIR) (pattern : Pattern OpCode)
   cases opcode <;>
     simp only [riscv64LegalizerInfo, reduceCtorEq, Option.some.injEq] at h <;> subst h <;>
     simp only [legalization_status]
+
+/-! ## gMIR combines
+
+The combines of `RISCV64PostLegalizerCombiner` (`combines`, `selectCombines`, `sub_to_add`,
+`redundant_and` and `redundant_and_select`) and of `RISCV64PreLegalizerCombiner`
+(`preLegalizerCombines`). `commutativeConstantRHS` is a local rewrite, not a Puddle pattern. -/
+
+set_option maxHeartbeats 4000000 in
+set_option maxRecDepth 10000 in
+/-- Every post-legalizer combine has a certificate. -/
+theorem combinePatterns_status : ∀ pattern ∈ combinePatterns, Status Unproven pattern := by
+  simp [combinePatterns, legalization_status]
+
+/-- Every select combine has a certificate, whatever the legalizer info. -/
+theorem selectPatterns_status (info : LegalizerInfo) :
+    ∀ pattern ∈ selectPatterns info, Status Unproven pattern := by
+  simp [selectPatterns, legalization_status]
+
+/-- Every `redundant_and` combine of a select has a certificate. -/
+theorem redundantAndSelectPatterns_status :
+    ∀ pattern ∈ redundantAndSelectPatterns, Status Unproven pattern := by
+  simp [redundantAndSelectPatterns, legalization_status]
+
+set_option maxRecDepth 10000 in
+/-- Every pre-legalizer combine has a certificate. -/
+theorem preLegalizerPatterns_status : ∀ pattern ∈ preLegalizerPatterns, Status Unproven pattern := by
+  simp [preLegalizerPatterns, selectOfConstantsPatterns, selectIntoBinopPatterns, legalization_status]
+
+/-- `sub_to_add` and `redundant_and` have certificates. -/
+theorem sub_to_add_redundant_and_status (info : LegalizerInfo) :
+    Status Unproven (sub_to_add_pattern info) ∧ Status Unproven redundant_and_pattern := by
+  simp only [legalization_status, and_self]
 
 end
 
