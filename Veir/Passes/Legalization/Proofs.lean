@@ -1478,6 +1478,19 @@ theorem trunc_ext_of_lt {s w W : Nat} (h1 : s < w) (h2 : w < W) (v : LLVM.Int s)
   cases v <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run, BitVec.setWidth_append,
     Nat.not_le.mpr h1]
 
+/-- A zero extension truncated to an intermediate width is the zero extension to that width. -/
+theorem trunc_zext_of_lt {n w W : Nat} (hn : n < w) (hw : w < W) (c : LLVM.Int n) :
+    LLVM.Int.trunc (LLVM.Int.zext c W false (by omega)) w false false hw = LLVM.Int.zext c w false hn := by
+  cases c <;> simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run, BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hw)]
+
+/-- `widenTypeGroup .g_icmp (.type 0) .g_anyext` at an `i1` result, which the interpreter yields
+as is: the wide `g_icmp` zero-extends it, and the truncation reads it back. -/
+theorem icmp_result_widening_one {w W : Nat} (hw : w ≤ 1) (hw0 : 0 < w) (hW : 1 < W) (hwW : w < W)
+    (c : LLVM.Int 1) :
+    ∃ h : 1 = w, LLVM.Int.cast c h ⊒ LLVM.Int.trunc (LLVM.Int.zext c W false hW) w false false hwW := by
+  obtain rfl : w = 1 := by omega
+  exact ⟨rfl, by rw [LLVM.Int.cast_self, trunc_zext hW]; exact isRefinedBy_refl _⟩
+
 end Widening
 
 /-! ## Counting bits at every width
