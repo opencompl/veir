@@ -52,6 +52,191 @@ public section
 
 namespace Veir.Data.LLVM
 
+/-! ## Unfolding the interpreter's helpers
+
+`veir_bv_normalize` does not see through the helpers of the gMIR interpreter, so they are unfolded
+here. Comparisons and reductions of a value against a width are stated on bitvectors wide enough to
+hold both, which `pbv_decide` can push. -/
+
+
+/-- `x.toNat < w`, as a comparison of bitvectors holding both `x` and `w`. -/
+private theorem decide_toNat_lt_eq_ult {v : Nat} (x : BitVec v) (w : Nat) :
+    decide (x.toNat < w) = (x.setWidth (v + w)).ult (BitVec.ofNat (v + w) w) := by
+  have hx : x.toNat < 2 ^ (v + w) :=
+    Nat.lt_of_lt_of_le x.isLt (Nat.pow_le_pow_right (by decide) (by omega))
+  have hw : w < 2 ^ (v + w) :=
+    Nat.lt_of_lt_of_le Nat.lt_two_pow_self (Nat.pow_le_pow_right (by decide) (by omega))
+  simp [BitVec.ult_eq_decide, Nat.mod_eq_of_lt hx, Nat.mod_eq_of_lt hw]
+
+/-- `x.toNat % w`, as a remainder of bitvectors holding both `x` and `w`. -/
+private theorem ofNat_toNat_mod_eq_umod {v : Nat} (x : BitVec v) (w : Nat) :
+    BitVec.ofNat w (x.toNat % w) = ((x.setWidth (v + w)).umod (BitVec.ofNat (v + w) w)).setWidth w := by
+  have hx : x.toNat < 2 ^ (v + w) :=
+    Nat.lt_of_lt_of_le x.isLt (Nat.pow_le_pow_right (by decide) (by omega))
+  have hw : w < 2 ^ (v + w) :=
+    Nat.lt_of_lt_of_le Nat.lt_two_pow_self (Nat.pow_le_pow_right (by decide) (by omega))
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_umod, Nat.mod_eq_of_lt hx, Nat.mod_eq_of_lt hw]
+
+/-- The carry out of a `w`-bit addition, as the sign bit of the `w + 1`-bit sum. -/
+private theorem carry_eq_msb {w : Nat} (x y : BitVec w) (c : Bool) :
+    BitVec.carry w x y c =
+      (x.setWidth (w + 1) + y.setWidth (w + 1) + (BitVec.ofBool c).setWidth (w + 1)).msb := by
+  have hx := x.isLt
+  have hy := y.isLt
+  have hc : c.toNat ≤ 1 := by cases c <;> simp
+  have h1 := Nat.one_le_two_pow (n := w)
+  have h2 : 2 ^ (w + 1) = 2 * 2 ^ w := by rw [Nat.pow_succ]; omega
+  rw [BitVec.msb_eq_decide, BitVec.carry]
+  simp only [BitVec.toNat_add, BitVec.toNat_setWidth, BitVec.toNat_ofBool, Nat.add_sub_cancel,
+    Nat.mod_eq_of_lt hx, Nat.mod_eq_of_lt hy, Nat.mod_eq_of_lt (by omega : x.toNat < 2 ^ (w + 1)),
+    Nat.mod_eq_of_lt (by omega : y.toNat < 2 ^ (w + 1)),
+    Nat.mod_eq_of_lt (by omega : c.toNat < 2 ^ (w + 1)),
+    Nat.mod_eq_of_lt (by omega : x.toNat + y.toNat < 2 ^ (w + 1)),
+    Nat.mod_eq_of_lt (by omega : x.toNat + y.toNat + c.toNat < 2 ^ (w + 1))]
+
+attribute [local veir_bv_normalize] carry_eq_msb GMIR_RISCV.word GMIR_RISCV.wordUnary GMIR_RISCV.wordShiftAmount
+
+@[local veir_bv_normalize]
+private theorem isPoison_shiftAmount {w v : Nat} (y : LLVM.Int v) :
+    (shiftAmount w y).isPoison = y.isPoison := by
+  cases y <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_shiftAmount {w v : Nat} (y : LLVM.Int v)
+    (h : (shiftAmount w y).isPoison = false) :
+    (shiftAmount w y).getValue h =
+      bif (y.getValueD.setWidth (v + w)).ult (BitVec.ofNat (v + w) w) then y.getValueD.setWidth w
+      else BitVec.allOnes w := by
+  cases y with
+  | poison => rw [isPoison_shiftAmount] at h; simp [LLVM.Int.isPoison] at h
+  | val y =>
+    rw [← decide_toNat_lt_eq_ult, ← BitVec.ofNat_toNat]
+    by_cases hlt : y.toNat < w <;> simp [shiftAmount, LLVM.Int.getValue, hlt]
+
+@[local veir_bv_normalize]
+private theorem isPoison_funnelShiftAmount {w v : Nat} (z : LLVM.Int v) :
+    (GMIR.funnelShiftAmount w z).isPoison = z.isPoison := by
+  cases z <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_funnelShiftAmount {w v : Nat} (z : LLVM.Int v)
+    (h : (GMIR.funnelShiftAmount w z).isPoison = false) :
+    (GMIR.funnelShiftAmount w z).getValue h =
+      ((z.getValueD.setWidth (v + w)).umod (BitVec.ofNat (v + w) w)).setWidth w := by
+  cases z with
+  | poison => rw [isPoison_funnelShiftAmount] at h; simp [LLVM.Int.isPoison] at h
+  | val z =>
+    rw [← ofNat_toNat_mod_eq_umod]
+    rfl
+
+@[local veir_bv_normalize]
+private theorem isPoison_mergeValues {w : Nat} (lo hi : LLVM.Int w) :
+    (mergeValues lo hi).isPoison = (lo.isPoison || hi.isPoison) := by
+  cases lo <;> cases hi <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_mergeValues {w : Nat} (lo hi : LLVM.Int w)
+    (h : (mergeValues lo hi).isPoison = false) :
+    (mergeValues lo hi).getValue h = hi.getValueD ++ lo.getValueD := by
+  cases lo <;> cases hi <;> first | rfl | (rw [isPoison_mergeValues] at h; simp [LLVM.Int.isPoison] at h)
+
+@[local veir_bv_normalize]
+private theorem isPoison_unmergeValues_fst {w : Nat} (x : LLVM.Int (w + w)) :
+    (unmergeValues x).1.isPoison = x.isPoison := by
+  cases x <;> rfl
+
+@[local veir_bv_normalize]
+private theorem isPoison_unmergeValues_snd {w : Nat} (x : LLVM.Int (w + w)) :
+    (unmergeValues x).2.isPoison = x.isPoison := by
+  cases x <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_unmergeValues_fst {w : Nat} (x : LLVM.Int (w + w))
+    (h : (unmergeValues x).1.isPoison = false) :
+    (unmergeValues x).1.getValue h = x.getValueD.setWidth w := by
+  cases x with
+  | poison => rw [isPoison_unmergeValues_fst] at h; simp [LLVM.Int.isPoison] at h
+  | val => rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_unmergeValues_snd {w : Nat} (x : LLVM.Int (w + w))
+    (h : (unmergeValues x).2.isPoison = false) :
+    (unmergeValues x).2.getValue h = x.getValueD.extractLsb' w w := by
+  cases x with
+  | poison => rw [isPoison_unmergeValues_snd] at h; simp [LLVM.Int.isPoison] at h
+  | val => rfl
+
+@[local veir_bv_normalize]
+private theorem isPoison_uaddWithCarry_fst {w : Nat} (x y : LLVM.Int w) (c : LLVM.Int 1) :
+    (uaddWithCarry x y c).1.isPoison = (x.isPoison || y.isPoison || c.isPoison) := by
+  cases x <;> cases y <;> cases c <;> rfl
+
+@[local veir_bv_normalize]
+private theorem isPoison_uaddWithCarry_snd {w : Nat} (x y : LLVM.Int w) (c : LLVM.Int 1) :
+    (uaddWithCarry x y c).2.isPoison = (x.isPoison || y.isPoison || c.isPoison) := by
+  cases x <;> cases y <;> cases c <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_uaddWithCarry_fst {w : Nat} (x y : LLVM.Int w) (c : LLVM.Int 1)
+    (h : (uaddWithCarry x y c).1.isPoison = false) :
+    (uaddWithCarry x y c).1.getValue h = x.getValueD + y.getValueD + c.getValueD.setWidth w := by
+  cases x <;> cases y <;> cases c <;>
+    first | rfl | (rw [isPoison_uaddWithCarry_fst] at h; simp [LLVM.Int.isPoison] at h)
+
+@[local veir_bv_normalize]
+private theorem getValue_uaddWithCarry_snd {w : Nat} (x y : LLVM.Int w) (c : LLVM.Int 1)
+    (h : (uaddWithCarry x y c).2.isPoison = false) :
+    (uaddWithCarry x y c).2.getValue h =
+      BitVec.ofBool (BitVec.carry w x.getValueD y.getValueD (c.getValueD.getLsbD 0)) := by
+  cases x <;> cases y <;> cases c <;>
+    first | rfl | (rw [isPoison_uaddWithCarry_snd] at h; simp [LLVM.Int.isPoison] at h)
+
+@[local veir_bv_normalize]
+private theorem isPoison_usubWithBorrow_fst {w : Nat} (x y : LLVM.Int w) (b : LLVM.Int 1) :
+    (usubWithBorrow x y b).1.isPoison = (x.isPoison || y.isPoison || b.isPoison) := by
+  cases x <;> cases y <;> cases b <;> rfl
+
+@[local veir_bv_normalize]
+private theorem isPoison_usubWithBorrow_snd {w : Nat} (x y : LLVM.Int w) (b : LLVM.Int 1) :
+    (usubWithBorrow x y b).2.isPoison = (x.isPoison || y.isPoison || b.isPoison) := by
+  cases x <;> cases y <;> cases b <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_usubWithBorrow_fst {w : Nat} (x y : LLVM.Int w) (b : LLVM.Int 1)
+    (h : (usubWithBorrow x y b).1.isPoison = false) :
+    (usubWithBorrow x y b).1.getValue h = x.getValueD - y.getValueD - b.getValueD.setWidth w := by
+  cases x <;> cases y <;> cases b <;>
+    first | rfl | (rw [isPoison_usubWithBorrow_fst] at h; simp [LLVM.Int.isPoison] at h)
+
+@[local veir_bv_normalize]
+private theorem getValue_usubWithBorrow_snd {w : Nat} (x y : LLVM.Int w) (b : LLVM.Int 1)
+    (h : (usubWithBorrow x y b).2.isPoison = false) :
+    (usubWithBorrow x y b).2.getValue h =
+      BitVec.ofBool ((x.getValueD.setWidth (w + 1)).ult
+        (y.getValueD.setWidth (w + 1) + b.getValueD.setWidth (w + 1))) := by
+  cases x <;> cases y <;> cases b <;>
+    first | rfl | (rw [isPoison_usubWithBorrow_snd] at h; simp [LLVM.Int.isPoison] at h)
+
+/-- At 64 bits, `brev8` reverses the bits and the bytes. -/
+@[local veir_bv_normalize]
+private theorem brev8_64 (x : LLVM.Int 64) :
+    brev8 x = LLVM.Int.bitreverse (LLVM.Int.bswap x) := rfl
+
+@[local veir_bv_normalize]
+private theorem isPoison_bswap_64 (x : LLVM.Int 64) : (LLVM.Int.bswap x).isPoison = x.isPoison := by
+  cases x <;> rfl
+
+@[local veir_bv_normalize]
+private theorem getValue_bswap_64 (x : LLVM.Int 64) (h : (LLVM.Int.bswap x).isPoison = false) :
+    (LLVM.Int.bswap x).getValue h = LLVM.Int.bswap64BV x.getValueD := by
+  cases x with
+  | poison => rw [isPoison_bswap_64] at h; simp [LLVM.Int.isPoison] at h
+  | val => rfl
+
+attribute [local veir_bv_normalize] LLVM.Int.bswap64BV
+
+
 /-! ## `widenScalar?` -/
 
 /-! ### Operands any-extended -/
@@ -800,7 +985,7 @@ theorem custom_bitreverse8 (x : LLVM.Int 8) (ext : BitVec 56) :
     LLVM.Int.bitreverse x ⊒
       LLVM.Int.trunc (brev8 (LLVM.Int.ext x 64 ext (by decide))) 8 false false (by decide) := by
   veir_bv_normalize
-  pbv_decide 8
+  bv_decide
 
 /-! ## The remaining artifact combines
 
