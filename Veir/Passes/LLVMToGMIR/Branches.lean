@@ -1,6 +1,8 @@
 module
 
 public import Veir.Pass
+import Veir.Verifier
+import Veir.Dialects.TreeMonotoneProved
 
 namespace Veir
 
@@ -14,6 +16,10 @@ namespace Veir
 
   A `g_brcond` takes its first successor when its condition is not zero, an
   `llvm.cond_br` when its `i1` condition is one, so they agree on an `i1`.
+
+  In strict mode the step first checks that the module verifies and that the
+  refinement proof covers each of its operations (`OpCode.treeMonotoneProved`),
+  and fails otherwise: on a module it succeeds on, it is proved to refine.
 -/
 
 /-- `op` is one of the two LLVM branches that the step replaces. -/
@@ -52,5 +58,22 @@ public def convertLLVMBranch (ctx : WfIRContext OpCode) (op : OperationPtr) :
 -/
 public def convertLLVMBranches (ctx : WfIRContext OpCode) : Except String (WfIRContext OpCode) :=
   ctx.raw.operations.keys.foldlM convertLLVMBranch ctx
+
+/--
+  The checks of strict mode on the module the branch step is given: it verifies
+  with `root` as its root, and the refinement proof covers each of its operations.
+-/
+public def LLVMToGMIRBranches.checkInput (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Except String Unit := do
+  ctx.verify root
+  if ctx.raw.operations.keys.any fun o => !(o.getOpType! ctx.raw).treeMonotoneProved then
+    throw "llvm-to-gmir: the refinement proof does not cover an operation of the module"
+
+/-- The branch step on the module `root`, with the checks of `checkInput` in strict mode. -/
+public def LLVMToGMIRBranches.run (strict : Bool) (ctx : WfIRContext OpCode)
+    (root : OperationPtr) : Except String (WfIRContext OpCode) := do
+  if strict then
+    LLVMToGMIRBranches.checkInput ctx root
+  convertLLVMBranches ctx
 
 end Veir

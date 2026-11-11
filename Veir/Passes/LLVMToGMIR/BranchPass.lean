@@ -392,6 +392,68 @@ theorem convertLLVMBranches_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCod
   exact T.isModuleRefinedByCTree
     (T.keptOpsSim_of_treeMonotoneOps (treeMonotoneOps_of_verified hVerified)) module
 
+/-! ## The branch step with its checks -/
+
+/-- The branch step succeeds only with the module `convertLLVMBranches` returns. -/
+theorem LLVMToGMIRBranches.convertLLVMBranches_eq_ok_of_run {strict : Bool}
+    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr}
+    (h : LLVMToGMIRBranches.run strict ctx root = .ok ctx') :
+    convertLLVMBranches ctx = .ok ctx' := by
+  unfold LLVMToGMIRBranches.run at h
+  cases strict
+  · simpa using h
+  · rcases hi : LLVMToGMIRBranches.checkInput ctx root with e | ⟨⟩
+    · simp [hi, bind, Except.bind] at h
+    · simpa [hi, bind, Except.bind] using h
+
+/--
+  In strict mode, the branch step succeeds only on a module that verifies and
+  whose operations the refinement proof covers.
+-/
+theorem LLVMToGMIRBranches.checkInput_of_run {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (h : LLVMToGMIRBranches.run true ctx root = .ok ctx') :
+    ctx.Verified root ∧
+      ∀ o : OperationPtr, o.InBounds ctx.raw → (o.getOpType! ctx.raw).treeMonotoneProved := by
+  unfold LLVMToGMIRBranches.run at h
+  rcases hi : LLVMToGMIRBranches.checkInput ctx root with e | ⟨⟩
+  · simp [hi, bind, Except.bind] at h
+  unfold LLVMToGMIRBranches.checkInput at hi
+  rcases hv : ctx.verify root with e | ⟨⟩
+  · simp [hv, bind, Except.bind] at hi
+  simp only [hv, bind, Except.bind] at hi
+  by_cases hM : (ctx.raw.operations.keys.any
+      fun o => !(o.getOpType! ctx.raw).treeMonotoneProved) = true
+  · simp [hM, throw, throwThe, MonadExceptOf.throw] at hi
+  refine ⟨WfIRContext.verified_of_verify_eq_ok hv, fun o oIn => ?_⟩
+  simp at hM
+  exact hM o (OperationPtr.inBounds_def.mp oIn)
+
+/--
+  The branch step of `llvm-to-gmir` refines a module that verifies, in CTrees, in
+  either mode. This covers the branch step only, not the other patterns of
+  `llvm-to-gmir`.
+-/
+theorem LLVMToGMIRBranches.run_isModuleRefinedByCTree {strict : Bool}
+    {ctx ctx' : WfIRContext OpCode} {root : OperationPtr} (hVerified : ctx.Verified root)
+    (h : LLVMToGMIRBranches.run strict ctx root = .ok ctx') (module : OperationPtr) :
+    module.isModuleRefinedByCTree ctx module ctx' :=
+  convertLLVMBranches_isModuleRefinedByCTree hVerified
+    (LLVMToGMIRBranches.convertLLVMBranches_eq_ok_of_run h) module
+
+/--
+  In strict mode, the branch step of `llvm-to-gmir` refines a module it succeeds
+  on in CTrees, with no assumption on the module, which strict mode checks to be
+  covered by the refinement proof (`OpCode.treeMonotoneProved`), nor on the
+  interpreter. This covers the branch step only, not the other patterns of
+  `llvm-to-gmir`, which run after it.
+-/
+theorem LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpCode}
+    {root : OperationPtr} (h : LLVMToGMIRBranches.run true ctx root = .ok ctx')
+    (module : OperationPtr) : module.isModuleRefinedByCTree ctx module ctx' :=
+  convertLLVMBranches_isModuleRefinedByCTree_of_treeMonotoneProved
+    (LLVMToGMIRBranches.convertLLVMBranches_eq_ok_of_run h)
+    (LLVMToGMIRBranches.checkInput_of_run h).2 module
+
 end Veir
 
 /-!
@@ -399,10 +461,11 @@ end Veir
 
 Pinned so that a change to the axioms the proofs rest on shows up here. The
 theorems rest on the axioms of `CTree.Sim`, but not on `CTree.Sim.trans_rel`: the
-simulation relates refined states directly. The theorem for a module that verifies
-assumes that the opcodes without a proof are monotone in CTrees
-(`OpCode.interpretCTree_monotone_assumed`); the one for opcodes proved monotone
-assumes nothing about the interpreter.
+simulation relates refined states directly. The theorems for a module that verifies
+assume that the opcodes without a proof are monotone in CTrees
+(`OpCode.interpretCTree_monotone_assumed`); those for opcodes proved monotone, and
+for the branch step in strict mode, which checks that, assume nothing about the
+interpreter.
 -/
 
 /--
@@ -459,3 +522,36 @@ info: 'Veir.convertLLVMBranches_isModuleRefinedByCTree' depends on axioms: [prop
 -/
 #guard_msgs in
 #print axioms Veir.convertLLVMBranches_isModuleRefinedByCTree
+
+/--
+info: 'Veir.LLVMToGMIRBranches.run_isModuleRefinedByCTree' depends on axioms: [propext,
+ CTree.Sim,
+ Classical.choice,
+ Quot.sound,
+ CTree.Sim.bind,
+ CTree.Sim.interp,
+ CTree.Sim.iter,
+ CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
+ CTree.Sim.ub,
+ Veir.OpCode.interpretCTree_monotone_assumed]
+-/
+#guard_msgs in
+#print axioms Veir.LLVMToGMIRBranches.run_isModuleRefinedByCTree
+
+/--
+info: 'Veir.LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree' depends on axioms: [propext,
+ CTree.Sim,
+ Classical.choice,
+ Quot.sound,
+ CTree.Sim.bind,
+ CTree.Sim.interp,
+ CTree.Sim.iter,
+ CTree.Sim.ret,
+ CTree.Sim.tau_l,
+ CTree.Sim.tau_r,
+ CTree.Sim.ub]
+-/
+#guard_msgs in
+#print axioms Veir.LLVMToGMIRBranches.run_strict_isModuleRefinedByCTree
