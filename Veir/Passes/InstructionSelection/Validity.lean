@@ -7,378 +7,264 @@ public import Veir.Passes.InstructionSelection.RISCV64Branches
 
 import all Veir.Passes.InstructionSelection.RISCV64
 import all Veir.Passes.InstructionSelection.RISCV64Branches
+import all Veir.Passes.Legalization.Validity.Common
+import all Veir.Interpreter.RuntimeValue.Conforms
+import all Veir.Interpreter.Basic
+import all Veir.Interpreter.CTreeInterpreter
+import all Veir.Dialects.Builtin.Interpreter
+import all Veir.Dialects.Builtin.OpInfo
+import all Veir.Dialects.LLVM.Interpreter
+import all Veir.Dialects.LLVM.OpInfo
+import all Veir.Dialects.GMIR.Interpreter
+import all Veir.Dialects.GMIR.OpInfo
+import all Veir.Dialects.GMIR_RISCV.OpInfo
+import all Veir.Dialects.RISCV.OpInfo
+import all Veir.Dialects.RISCV.Interpreter
+import all Veir.Dialects.RISCV_Cf.OpInfo
+import all Veir.Dialects.RV64.OpInfo
+import all Veir.GlobalOpInfo
+import all Veir.IR.Attribute
+import all Veir.Data.RISCV.Reg.Basic
+import all Veir.Data.LLVM.Int.Basic
+import all Veir.Data.Casting
+import all Veir.Data.Refinement
+import Veir.Passes.InstructionSelection.Proofs
+import Veir.Meta.Tactic.BVDecide
+meta import Veir.Meta.Tactic.BVDecide
 
 /-!
 # CTree validity of the RISC-V 64 instruction selection
 
-The statements of `Puddle.CTree.Pattern.Valid` for every Puddle pattern that `isel-riscv64` and
-`isel-br-riscv64` run, in the order the passes try them, so that the whole pipeline from LLVM to
-RISC-V has a certificate statement for each of its rewrites. None is proven yet: each is `sorry`,
-to be closed with the local correctness lemmas of `Veir.Passes.InstructionSelection.Proofs`.
+The Puddle patterns of `isel-riscv64` and `isel-br-riscv64` that the branch
+`math-fehr/puddle-ctree-wip` does not prove valid
+(`Veir/Passes/InstructionSelection/Proofs/RISCV64/` there; the other patterns of both passes are
+proven there, and their proofs are to be cherry-picked). Each is handled by normalizing its
+semantics down to a goal over `Data.LLVM.Int` as the legalizer proofs do
+(`Veir.Passes.Legalization.Validity.Common`), with the register casts of the selector added to
+the semantics (`normalizeIselValid`):
 
-A pattern family the pass runs at several parameters, such as the loads at every addressing
-mode, is stated once, quantified over the parameters the pass uses. The rewrites that are not
-Puddle patterns have no statement: the local rewrites `splitLoad_local`, `splitStore_local`,
-`memIntrinsicInline_local` and `getelementptrGeneral` of `isel-riscv64`, the branch lowering of
-`isel-br-riscv64`, and `lowerReturn` and `lowerOp` of `isel-abi-riscv64`.
+* `gmirTrunc_pattern` and `gmirAnyext_pattern` reduce to a round trip of the operand through a
+  64-bit register (`TruncRoundTrip`, `AnyextRoundTrip`; `gmir_trunc_valid_of_narrow`,
+  `gmir_anyext_valid_of_narrow`). The round trip holds for operands of at most 64 bits
+  (`trunc_narrow`, `anyext_narrow`) and fails above (`trunc_wide`, `anyext_wide`), which the
+  matchers accept since the legalizer marks both operations `alwaysLegal`.
+* `memIntrinsicCallPattern` lowers to a `riscv_cf.call`, which the interpreter cannot run
+  (`memcpy_call_fails`, `memset_call_fails`).
+* `unreachable_pattern` rewrites a terminator, which `Pattern.Valid` does not support
+  (`unreachable_unsupported`).
+
+The rewrites that are not Puddle patterns have no statement: the local rewrites
+`splitLoad_local`, `splitStore_local`, `memIntrinsicInline_local` and `getelementptrGeneral` of
+`isel-riscv64`, the branch lowering of `isel-br-riscv64`, and `lowerReturn` and `lowerOp` of
+`isel-abi-riscv64`.
 -/
 
 namespace Veir.ISel.CTreeProofs
 
 open Puddle
-
-/-! ## Composed patterns (`gmirComposed`) -/
-
-theorem binopNot_andn_valid (notLhs : Bool) :
-    Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_and .andn () notLhs) := by
-  sorry
-
-theorem binopNot_orn_valid (notLhs : Bool) :
-    Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_or .orn () notLhs) := by
-  sorry
-
-theorem binopNot_xnor_valid (notLhs : Bool) :
-    Puddle.CTree.Pattern.Valid (gmirBinopNot_pattern .g_xor .xnor () notLhs) := by
-  sorry
-
-theorem orcb_valid (y : Nat) (hy : y < 8) : Puddle.CTree.Pattern.Valid (gmirOrcb_pattern y) := by
-  sorry
-
-theorem bexti_valid : Puddle.CTree.Pattern.Valid gmirBexti_pattern := by
-  sorry
-
-theorem slliuw_valid : Puddle.CTree.Pattern.Valid gmirSlliuw_pattern := by
-  sorry
-
-/-! ## Early patterns: intrinsics, memory accesses, selects of zero and immediates -/
-
-theorem lifetime_start_valid : Puddle.CTree.Pattern.Valid (lowerLifetime .intr__lifetime__start) := by
-  sorry
-
-theorem lifetime_end_valid : Puddle.CTree.Pattern.Valid (lowerLifetime .intr__lifetime__end) := by
-  sorry
-
-theorem memcpy_call_valid : Puddle.CTree.Pattern.Valid (memIntrinsicCallPattern false) := by
-  sorry
-
-theorem memset_call_valid : Puddle.CTree.Pattern.Valid (memIntrinsicCallPattern true) := by
-  sorry
-
-theorem load_lbu_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerLoad mode 1 .lbu) := by
-  sorry
-
-theorem load_lh_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerLoad mode 2 .lh) := by
-  sorry
-
-theorem load_lw_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerLoad mode 4 .lw) := by
-  sorry
-
-theorem load_ld_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerLoad mode 8 .ld) := by
-  sorry
-
-theorem gmir_load_lbu_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (gmirLoad_pattern mode 1 .lbu) := by
-  sorry
-
-theorem gmir_load_lh_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (gmirLoad_pattern mode 2 .lh) := by
-  sorry
-
-theorem gmir_load_lw_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (gmirLoad_pattern mode 4 .lw) := by
-  sorry
-
-theorem gmir_load_ld_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (gmirLoad_pattern mode 8 .ld) := by
-  sorry
-
-theorem store_sb_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerStore mode 1 .sb) := by
-  sorry
-
-theorem store_sh_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerStore mode 2 .sh) := by
-  sorry
-
-theorem store_sw_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerStore mode 4 .sw) := by
-  sorry
-
-theorem store_sd_valid (mode : AddrMode) : Puddle.CTree.Pattern.Valid (lowerStore mode 8 .sd) := by
-  sorry
-
-theorem select_zero_of_setcc_eq_valid (zeroFalse zeroRhs : Bool) :
-    Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern zeroFalse .eq zeroRhs) := by
-  sorry
-
-theorem select_zero_of_setcc_ne_valid (zeroFalse zeroRhs : Bool) :
-    Puddle.CTree.Pattern.Valid (gmirSelectZeroOfSetcc_pattern zeroFalse .ne zeroRhs) := by
-  sorry
-
-theorem select_zero_valid (zeroFalse : Bool) : Puddle.CTree.Pattern.Valid (gmirSelectZero_pattern zeroFalse) := by
-  sorry
-
-theorem fshl_const_64_valid : Puddle.CTree.Pattern.Valid (lowerFshConst true 64) := by
-  sorry
-
-theorem fshl_const_32_valid : Puddle.CTree.Pattern.Valid (lowerFshConst true 32) := by
-  sorry
-
-theorem fshl_const_32_trunc_valid : Puddle.CTree.Pattern.Valid (lowerFshConst true 32 true) := by
-  sorry
-
-theorem fshr_const_64_valid : Puddle.CTree.Pattern.Valid (lowerFshConst false 64) := by
-  sorry
-
-theorem fshr_const_32_valid : Puddle.CTree.Pattern.Valid (lowerFshConst false 32) := by
-  sorry
-
-theorem fshr_const_32_trunc_valid : Puddle.CTree.Pattern.Valid (lowerFshConst false 32 true) := by
-  sorry
-
-theorem addi_valid : Puddle.CTree.Pattern.Valid gmirAddi_pattern := by
-  sorry
-
-theorem andi_valid : Puddle.CTree.Pattern.Valid gmirAndi_pattern := by
-  sorry
-
-theorem ori_valid : Puddle.CTree.Pattern.Valid gmirOri_pattern := by
-  sorry
-
-theorem xori_valid : Puddle.CTree.Pattern.Valid gmirXori_pattern := by
-  sorry
-
-theorem slli_valid : Puddle.CTree.Pattern.Valid gmirSlli_pattern := by
-  sorry
-
-theorem srli_valid : Puddle.CTree.Pattern.Valid gmirSrli_pattern := by
-  sorry
-
-theorem srai_valid : Puddle.CTree.Pattern.Valid gmirSrai_pattern := by
-  sorry
-
-theorem addiw_valid : Puddle.CTree.Pattern.Valid gmirRiscvAddiw_pattern := by
-  sorry
-
-theorem slliw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSlliw_pattern := by
-  sorry
-
-theorem srliw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSrliw_pattern := by
-  sorry
-
-theorem sraiw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSraiw_pattern := by
-  sorry
-
-theorem cpopw_valid : Puddle.CTree.Pattern.Valid gmirCpopw_pattern := by
-  sorry
-
-theorem bseti_valid : Puddle.CTree.Pattern.Valid gmirBseti_pattern := by
-  sorry
-
-theorem binvi_valid : Puddle.CTree.Pattern.Valid gmirBinvi_pattern := by
-  sorry
-
-theorem bclri_valid : Puddle.CTree.Pattern.Valid gmirBclri_pattern := by
-  sorry
-
-theorem slti_valid (pred : Data.LLVM.IntPred)
-    (hpred : pred ∈ [Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule]) :
-    Puddle.CTree.Pattern.Valid (gmirSlti_pattern pred) := by
-  sorry
-
-/-! ## Main patterns: the per-operation lowerings -/
-
-theorem select_valid : Puddle.CTree.Pattern.Valid gmirSelect_pattern := by
-  sorry
-
-theorem constant_valid : Puddle.CTree.Pattern.Valid constant_pattern := by
-  sorry
-
-theorem addressof_valid : Puddle.CTree.Pattern.Valid addressof_pattern := by
-  sorry
-
-theorem sext32_valid : Puddle.CTree.Pattern.Valid sext32_pattern := by
-  sorry
-
-theorem sext16_valid : Puddle.CTree.Pattern.Valid sext16_pattern := by
-  sorry
-
-theorem sext_inreg_8_valid : Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 8 .sextb ()) := by
-  sorry
-
-theorem sext_inreg_16_valid : Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 16 .sexth ()) := by
-  sorry
-
-theorem sext_inreg_32_valid : Puddle.CTree.Pattern.Valid (sextInRegExt_pattern 32 .sextw ()) := by
-  sorry
-
-theorem sext_inreg_shift_valid : Puddle.CTree.Pattern.Valid sextInRegShift_pattern := by
-  sorry
-
-theorem zext32_valid : Puddle.CTree.Pattern.Valid zext32_pattern := by
-  sorry
-
-theorem zext16_valid : Puddle.CTree.Pattern.Valid zext16_pattern := by
-  sorry
-
-theorem trunc_valid : Puddle.CTree.Pattern.Valid trunc_pattern := by
-  sorry
-
-theorem bitcast_valid : Puddle.CTree.Pattern.Valid bitcast_pattern := by
-  sorry
-
-theorem fshl64_valid : Puddle.CTree.Pattern.Valid fshl64_pattern := by
-  sorry
-
-theorem fshl32_valid : Puddle.CTree.Pattern.Valid fshl32_pattern := by
-  sorry
-
-theorem fshr64_valid : Puddle.CTree.Pattern.Valid fshr64_pattern := by
-  sorry
-
-theorem fshr32_valid : Puddle.CTree.Pattern.Valid fshr32_pattern := by
-  sorry
-
-theorem fshl_general_64_valid : Puddle.CTree.Pattern.Valid (lowerFshlGeneral 64) := by
-  sorry
-
-theorem fshl_general_32_valid : Puddle.CTree.Pattern.Valid (lowerFshlGeneral 32) := by
-  sorry
-
-theorem fshr_general_64_valid : Puddle.CTree.Pattern.Valid (lowerFshrGeneral 64) := by
-  sorry
-
-theorem fshr_general_32_valid : Puddle.CTree.Pattern.Valid (lowerFshrGeneral 32) := by
-  sorry
-
-theorem poison_const_valid : Puddle.CTree.Pattern.Valid poisonConst_pattern := by
-  sorry
-
-theorem zero_const_valid : Puddle.CTree.Pattern.Valid zeroConst_pattern := by
-  sorry
-
-theorem freeze_valid : Puddle.CTree.Pattern.Valid freeze_pattern := by
-  sorry
-
-theorem add_valid : Puddle.CTree.Pattern.Valid gmirAdd_pattern := by
-  sorry
-
-theorem sub_valid : Puddle.CTree.Pattern.Valid gmirSub_pattern := by
-  sorry
-
-theorem gmir_trunc_valid : Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
-  sorry
-
-theorem anyext_of_reg_valid : Puddle.CTree.Pattern.Valid gmirAnyextOfReg_pattern := by
-  sorry
-
-theorem anyext_valid : Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
-  sorry
-
-theorem shl_valid : Puddle.CTree.Pattern.Valid gmirShl_pattern := by
-  sorry
-
-theorem lshr_valid : Puddle.CTree.Pattern.Valid gmirLshr_pattern := by
-  sorry
-
-theorem ashr_valid : Puddle.CTree.Pattern.Valid gmirAshr_pattern := by
-  sorry
-
-theorem and_valid : Puddle.CTree.Pattern.Valid gmirAnd_pattern := by
-  sorry
-
-theorem or_valid : Puddle.CTree.Pattern.Valid gmirOr_pattern := by
-  sorry
-
-theorem xor_valid : Puddle.CTree.Pattern.Valid gmirXor_pattern := by
-  sorry
-
-theorem mul_valid : Puddle.CTree.Pattern.Valid gmirMul_pattern := by
-  sorry
-
-theorem sdiv_valid : Puddle.CTree.Pattern.Valid gmirSdiv_pattern := by
-  sorry
-
-theorem udiv_valid : Puddle.CTree.Pattern.Valid gmirUdiv_pattern := by
-  sorry
-
-theorem srem_valid : Puddle.CTree.Pattern.Valid gmirSrem_pattern := by
-  sorry
-
-theorem urem_valid : Puddle.CTree.Pattern.Valid gmirUrem_pattern := by
-  sorry
-
-theorem addw_valid : Puddle.CTree.Pattern.Valid gmirRiscvAddw_pattern := by
-  sorry
-
-theorem subw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSubw_pattern := by
-  sorry
-
-theorem mulw_valid : Puddle.CTree.Pattern.Valid gmirRiscvMulw_pattern := by
-  sorry
-
-theorem divw_valid : Puddle.CTree.Pattern.Valid gmirRiscvDivw_pattern := by
-  sorry
-
-theorem divuw_valid : Puddle.CTree.Pattern.Valid gmirRiscvDivuw_pattern := by
-  sorry
-
-theorem remuw_valid : Puddle.CTree.Pattern.Valid gmirRiscvRemuw_pattern := by
-  sorry
-
-theorem sllw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSllw_pattern := by
-  sorry
-
-theorem srlw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSrlw_pattern := by
-  sorry
-
-theorem sraw_valid : Puddle.CTree.Pattern.Valid gmirRiscvSraw_pattern := by
-  sorry
-
-theorem clzw_valid : Puddle.CTree.Pattern.Valid gmirRiscvClzw_pattern := by
-  sorry
-
-theorem ctzw_valid : Puddle.CTree.Pattern.Valid gmirRiscvCtzw_pattern := by
-  sorry
-
-theorem gmir_constant_valid : Puddle.CTree.Pattern.Valid gmirConstant_pattern := by
-  sorry
-
-theorem ctlz_valid : Puddle.CTree.Pattern.Valid gmirCtlz_pattern := by
-  sorry
-
-theorem cttz_valid : Puddle.CTree.Pattern.Valid gmirCttz_pattern := by
-  sorry
-
-theorem ctpop_valid : Puddle.CTree.Pattern.Valid gmirCtpop_pattern := by
-  sorry
-
-theorem bswap_valid : Puddle.CTree.Pattern.Valid gmirBswap_pattern := by
-  sorry
-
-theorem brev8_valid : Puddle.CTree.Pattern.Valid gmirBrev8_pattern := by
-  sorry
-
-theorem bitreverse_valid : Puddle.CTree.Pattern.Valid gmirBitreverse_pattern := by
-  sorry
-
-theorem smax_valid : Puddle.CTree.Pattern.Valid gmirSmax_pattern := by
-  sorry
-
-theorem smin_valid : Puddle.CTree.Pattern.Valid gmirSmin_pattern := by
-  sorry
-
-theorem umax_valid : Puddle.CTree.Pattern.Valid gmirUmax_pattern := by
-  sorry
-
-theorem umin_valid : Puddle.CTree.Pattern.Valid gmirUmin_pattern := by
-  sorry
-
-/-- The `g_icmp` peepholes against zero, for `eq` and `ne`. -/
-theorem icmp_zero_valid (pred : Data.LLVM.IntPred) (hpred : pred ∈ [Data.LLVM.IntPred.eq, .ne]) :
-    Puddle.CTree.Pattern.Valid (gmirIcmp_pattern pred true) := by
-  sorry
-
-/-- The generic `g_icmp` lowering, for every predicate. -/
-theorem icmp_valid (pred : Data.LLVM.IntPred) : Puddle.CTree.Pattern.Valid (gmirIcmp_pattern pred false) := by
-  sorry
-
-/-! ## Branches (`isel-br-riscv64`) -/
-
-theorem unreachable_valid : Puddle.CTree.Pattern.Valid unreachable_pattern := by
-  sorry
+open Puddle.CTree
+open _root_.CTree
+open Veir.Legalization.CTreeProofs
+
+set_option linter.unusedSimpArgs false
+set_option maxHeartbeats 1000000
+
+attribute [local ctree_semantics]
+  OperationResult.isRefinedBy Veir.interpretOp' Veir.CTree.interpretOp' CTree.CanInterpretTo
+  GMIR.interpretOp' GMIR.interpretOpCTree GMIR_RISCV.interpretOp'
+  Llvm.interpretOp' Llvm.interpretOpCTree
+  Riscv.interpretOp' Riscv.interpretOpCTree Rv64.interpretOp' Riscv_Cf.interpretOp'
+  Builtin.interpretOpCTree Builtin.interpretUnrealizedConversionCastCTree
+
+attribute [local simp] GMIR.isTerminator GMIR.getEffects GMIR_RISCV.base Builtin.getEffects
+  Llvm.getEffects Llvm.isTerminator Riscv.getEffects Rv64.getEffects Riscv_Cf.getEffects
+  Riscv_Cf.isTerminator
+
+attribute [local implicit_reducible] TypeAttr
+
+/- The normalization unfolds `Attribute.of` to case on the result types of the casts, which the
+lemmas folding each attribute constructor back would undo (as in
+`Veir.Passes.CastsReconciliation.Validity`). -/
+attribute [-simp]
+  Attribute.floatType_eq_of Attribute.vectorType_eq_of Attribute.tensorType_eq_of Attribute.integerAttr_eq_of
+  Attribute.indexAttr_eq_of Attribute.floatAttr_eq_of Attribute.fastMathFlagsAttr_eq_of Attribute.arithIntegerOverflowFlagsAttr_eq_of
+  Attribute.cconvAttr_eq_of Attribute.linkageAttr_eq_of Attribute.framePointerKindAttr_eq_of Attribute.uwtableKindAttr_eq_of
+  Attribute.tailCallKindAttr_eq_of Attribute.moduleFlagAttr_eq_of Attribute.tbaaTagAttr_eq_of Attribute.constantRangeAttr_eq_of
+  Attribute.memoryEffectsAttr_eq_of Attribute.loopAnnotationAttr_eq_of Attribute.targetFeaturesAttr_eq_of Attribute.dlSpecAttr_eq_of
+  Attribute.registerType_eq_of Attribute.registerAttr_eq_of Attribute.stringAttr_eq_of Attribute.unitAttr_eq_of
+  Attribute.locationAttr_eq_of Attribute.arrayAttr_eq_of Attribute.denseArrayAttr_eq_of Attribute.denseElementsAttr_eq_of
+  Attribute.dictionaryAttr_eq_of Attribute.functionType_eq_of Attribute.unregisteredAttr_eq_of Attribute.flatSymbolRefAttr_eq_of
+  Attribute.symbolRefAttr_eq_of Attribute.modArithType_eq_of Attribute.feltType_eq_of Attribute.feltConstAttr_eq_of
+  Attribute.indexType_eq_of Attribute.cirIntType_eq_of Attribute.cirBoolType_eq_of Attribute.cirFuncType_eq_of
+  Attribute.cirIntAttr_eq_of Attribute.cirBoolAttr_eq_of Attribute.llvmVoidType_eq_of Attribute.byteType_eq_of
+  Attribute.llvmPointerType_eq_of Attribute.llvmArrayType_eq_of Attribute.llvmStructType_eq_of Attribute.llvmFunctionType_eq_of
+  Attribute.cudaTilePointerType_eq_of Attribute.ioAddressType_eq_of Attribute.hwModuleType_eq_of Attribute.pdlRangeType_eq_of
+  Attribute.pdlAttributeType_eq_of Attribute.pdlOperationType_eq_of Attribute.pdlValueType_eq_of Attribute.pdlTypeType_eq_of
+  Attribute.matchOptionalType_eq_of Attribute.seqClockType_eq_of Attribute.seqFirMemType_eq_of Attribute.smtSortType_eq_of
+
+public section
+
+/-- Why a pattern of the instruction selection has no CTree validity proof. -/
+inductive Unproven where
+  /-- The pattern casts its operand to a 64-bit register and back, and the legalizer marks the
+  operation `alwaysLegal`, so the matcher accepts operands wider than 64 bits, whose high bits
+  the register loses (`trunc_wide`, `anyext_wide`). The reduced goal holds for every operand of
+  at most 64 bits (`trunc_narrow`, `anyext_narrow`). -/
+  | wideOperand
+  /-- The replacement is a `riscv_cf.call`, which the interpreter cannot run, while the
+  intrinsic it replaces has semantics (`memcpy_call_fails`, `memset_call_fails`): a target that
+  fails is not a refinement. -/
+  | callWithoutSemantics
+  /-- The pattern rewrites a terminator, which `Pattern.Supported` excludes
+  (`unreachable_unsupported`). -/
+  | terminator
+  deriving Repr, DecidableEq
+
+end
+
+/-- Normalize an instruction selection validity goal after `simpLegalSemantics`, down to goals
+over `Data.LLVM.Int`: split the matched values, including a matched integer into a value or
+poison, since the casts to a register match on it; case the result types the casts match on;
+split the width guards; then resolve the register a cast of poison chooses (universally) and
+the high bits a matched `g_anyext` chooses (existentially). -/
+macro "normalizeIselValid" : tactic => `(tactic| (
+  intros
+  casesConformingValues
+  all_goals (try casesLocalsOf Data.LLVM.Int)
+  all_goals (simp_all [RuntimeValue.isRefinedBy, Attribute.of, IntegerType.signless, -Attribute.integerType_eq_of])
+  all_goals (try casesResultTypes)
+  all_goals (try simp only [RuntimeValue.isRefinedBy, IntegerType.signless, Attribute.of, TypeAttr.of_def,
+    Attribute.of_def])
+  all_goals (try simp [RuntimeValue.isRefinedBy, -Attribute.integerType_eq_of])
+  all_goals (try splitGuards)
+  all_goals (try simp [RuntimeValue.isRefinedBy, le_eq_false_of_lt, lt_eq_false_of_le, -Attribute.integerType_eq_of, *])
+  all_goals (try simp [CTree.choose_def, CTree.tau_def, Functor.map, Sim.tau_l, _root_.CTree.CTree.bind_tau,
+      Sim.bind_monadLift_right_iff, RuntimeValue.isRefinedBy, TypeAttr.of_def, Attribute.of_def,
+      -Attribute.integerType_eq_of, Id.run])))
+
+/-- Truncating poison is poison, so the register a cast of poison chooses refines it. -/
+@[local simp] theorem trunc_poison {w₁ w₂ : Nat} (nsw nuw : Bool) (h : w₁ > w₂) :
+    (Data.LLVM.Int.poison : Data.LLVM.Int w₁).trunc w₂ nsw nuw h = .poison := rfl
+
+/-- Extending poison is poison, whatever the high bits. -/
+@[local simp] theorem ext_poison {w₁ w₂ : Nat} (msb : BitVec (w₂ - w₁)) (h : w₁ < w₂) :
+    (Data.LLVM.Int.poison : Data.LLVM.Int w₁).ext w₂ msb h = .poison := rfl
+
+/-! ## The register round trips of `gmirTrunc_pattern` and `gmirAnyext_pattern`
+
+`gmirTrunc_pattern` and `gmirAnyext_pattern` cast their operand to a register and the register
+to the result type. Their validity reduces to the goals over `Data.LLVM.Int` below, stated at
+every operand width as the matchers accept, which hold up to 64 bits and fail above. -/
+
+/-- The goal `gmirTrunc_pattern` reduces to: truncating a value is refined by casting it to a
+register and the register to the result width. -/
+def TruncRoundTrip : Prop :=
+  ∀ {w : Nat} (a : BitVec w) (tb : Nat) (h : w > tb) (nsw nuw : Bool),
+    (Data.LLVM.Int.val a).trunc tb nsw nuw h ⊒ RISCV.Reg.toInt ⟨BitVec.setWidth 64 a⟩ tb
+
+/-- The goal `gmirAnyext_pattern` reduces to: a `g_anyext` of a value may choose its high bits
+as casting the value to a register and the register to the result width does. -/
+def AnyextRoundTrip : Prop :=
+  ∀ {w : Nat} (a : BitVec w) (tb : Nat) (h : w < tb),
+    ∃ msb, (Data.LLVM.Int.val a).ext tb msb h ⊒ RISCV.Reg.toInt ⟨BitVec.setWidth 64 a⟩ tb
+
+/-- The low `tb` bits of an operand of at most 64 bits survive the round trip through a register
+(`Data.RISCV.trunc_refinement_le64`). -/
+theorem trunc_narrow {w : Nat} (hw : w ≤ 64) (a : BitVec w) (tb : Nat) (h : w > tb) (nsw nuw : Bool) :
+    (Data.LLVM.Int.val a).trunc tb nsw nuw h ⊒ RISCV.Reg.toInt ⟨BitVec.setWidth 64 a⟩ tb :=
+  Data.RISCV.trunc_refinement_le64 hw
+
+/-- Above 64 bits the register loses the operand's high bits: bit 100 of an `i129` is dropped by
+the round trip, and kept by the truncation to `i128`. -/
+theorem trunc_wide : ¬ TruncRoundTrip := fun h => by
+  have := h (1#129 <<< 100) 128 (by omega) false false
+  simp [Data.LLVM.Int.trunc, RISCV.Reg.toInt, isRefinedBy, Id.run] at this
+
+/-- A `g_anyext` of an operand of at most 64 bits may choose zero high bits, which is what the
+round trip through a register produces. -/
+theorem anyext_narrow {w : Nat} (hw : w ≤ 64) (a : BitVec w) (tb : Nat) (h : w < tb) :
+    ∃ msb, (Data.LLVM.Int.val a).ext tb msb h ⊒ RISCV.Reg.toInt ⟨BitVec.setWidth 64 a⟩ tb := by
+  refine ⟨0, ?_⟩
+  simp only [Data.LLVM.Int.ext, RISCV.Reg.toInt, isRefinedBy, Data.LLVM.Int.cast, Id.run]
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_cast, BitVec.getElem_append, BitVec.getElem_setWidth, BitVec.getLsbD_setWidth,
+    BitVec.getElem_zero]
+  by_cases hiw : i < w
+  · simp [hiw, show i < 64 by omega, BitVec.getLsbD_eq_getElem hiw]
+  · simp [hiw, BitVec.getLsbD_of_ge a i (by omega)]
+
+/-- Above 64 bits no choice of high bits recovers bit 100 of an `i128`, which the round trip
+through a register drops. -/
+theorem anyext_wide_msb (msb : BitVec 1) :
+    ¬ ((Data.LLVM.Int.val (1#128 <<< 100)).ext 129 msb (by omega) ⊒
+      RISCV.Reg.toInt ⟨BitVec.setWidth 64 (1#128 <<< 100)⟩ 129) := by
+  simp [Data.LLVM.Int.ext, RISCV.Reg.toInt, isRefinedBy, Data.LLVM.Int.cast, Id.run, BitVec.cast_eq]
+  bv_decide
+
+theorem anyext_wide : ¬ AnyextRoundTrip := fun h =>
+  have ⟨msb, h⟩ := h (1#128 <<< 100) 129 (by omega)
+  anyext_wide_msb msb h
+
+/-! ## The memory intrinsic calls and `unreachable` -/
+
+/-- A zero-length `memcpy` succeeds in empty memory, while the call it is lowered to fails. -/
+theorem memcpy_call_fails :
+    Llvm.interpretOp' .intr__memcpy ⟨false, none, none, none, none, none, none⟩ #[]
+      #[.addr (.val ⟨0⟩), .addr (.val ⟨0⟩), .int 64 (.val 0)] #[] MemoryState.empty .riscv64 =
+      Interp.ok (#[], MemoryState.empty, none) ∧
+    Riscv_Cf.interpretOp' .call ⟨some ⟨"@memcpy"⟩⟩ #[] #[.reg ⟨0⟩, .reg ⟨0⟩, .reg ⟨0⟩] #[] = Interp.fail none :=
+  ⟨rfl, rfl⟩
+
+/-- A zero-length `memset` succeeds in empty memory, while the call it is lowered to fails. -/
+theorem memset_call_fails :
+    Llvm.interpretOp' .intr__memset ⟨false, none, none, none, none, none, none⟩ #[]
+      #[.addr (.val ⟨0⟩), .int 8 (.val 0), .int 64 (.val 0)] #[] MemoryState.empty .riscv64 =
+      Interp.ok (#[], MemoryState.empty, none) ∧
+    Riscv_Cf.interpretOp' .call ⟨some ⟨"@memset"⟩⟩ #[] #[.reg ⟨0⟩, .reg ⟨0⟩, .reg ⟨0⟩] #[] = Interp.fail none :=
+  ⟨rfl, rfl⟩
+
+/-- `llvm.unreachable` is a terminator, so `Pattern.Valid` does not support its pattern. -/
+theorem unreachable_unsupported : ¬ CTree.Pattern.Supported unreachable_pattern := by
+  unfold unreachable_pattern
+  conv => arg 1; cbv
+  simp only [CTree.Pattern.Supported, List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true]
+  simp [get_effects, is_terminator]
+
+/-! ## Status of the patterns without a validity proof -/
+
+theorem memcpy_call_status : Status Unproven (memIntrinsicCallPattern false) :=
+  .unproven .callWithoutSemantics
+
+theorem memset_call_status : Status Unproven (memIntrinsicCallPattern true) :=
+  .unproven .callWithoutSemantics
+
+/-- `gmirTrunc_pattern` is valid as soon as the round trip of the operand through a register
+keeps its low bits at every operand width: the only goal left over `Data.LLVM.Int`, which
+`trunc_narrow` proves up to 64 bits and `trunc_wide` refutes above. -/
+theorem gmir_trunc_valid_of_narrow (narrow : TruncRoundTrip) :
+    Puddle.CTree.Pattern.Valid gmirTrunc_pattern := by
+  unfold gmirTrunc_pattern lowerRegCast
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeIselValid
+  exact narrow _ _ _ _ _
+
+theorem gmir_trunc_status : Status Unproven gmirTrunc_pattern := .unproven .wideOperand
+
+/-- `gmirAnyext_pattern` is valid as soon as the round trip of the operand through a register is
+a choice of high bits of the matched `g_anyext` at every operand width: the only goal left over
+`Data.LLVM.Int`, which `anyext_narrow` proves up to 64 bits and `anyext_wide` refutes above. -/
+theorem gmir_anyext_valid_of_narrow (narrow : AnyextRoundTrip) :
+    Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
+  unfold gmirAnyext_pattern lowerRegCast
+  simpPuddleValid
+  simpLegalSemantics
+  normalizeIselValid
+  exact narrow _ _ _
+
+theorem gmir_anyext_status : Status Unproven gmirAnyext_pattern := .unproven .wideOperand
+
+theorem unreachable_status : Status Unproven unreachable_pattern := .unproven .terminator
 
 end Veir.ISel.CTreeProofs
