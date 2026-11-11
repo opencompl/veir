@@ -167,7 +167,8 @@ bits, so it is shifted back down before it is truncated, as in LLVM's `Legalizer
 def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      -- The verifier rejects `i0`, at which the shift down by the whole wide width is poison.
+      let type ← MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
       let src ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[src] #[type]
       return (type, src))

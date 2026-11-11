@@ -18,7 +18,8 @@ meta import Veir.Meta.Tactic.BVDecide
 /-! CTree validity of the lowerings of `lower?` and the narrowings of `narrowScalar?`.
 
 `lowerSext` passes the source width as a 64-bit `g_sext_inreg` size, so it is wrong from width
-`2^64`; `lowerFunnelShift` computes `urem` by the width, which is undefined at width 0. The
+`2^64`; `lowerFunnelShift` shifts the other operand by one, which is poison at width 1, and computes
+the amount in the amount's type, which the matcher does not require to hold the width. The
 narrowings match the width `2 * W`, which the interpreter of `g_merge_values` produces as `W + W`,
 so their local lemmas are stated up to that cast. -/
 

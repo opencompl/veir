@@ -95,6 +95,32 @@ theorem trunc_trunc (w n m : Nat) (hn : n < m) (hm : m < w) (x : LLVM.Int w)
   veir_bv_normalize
   simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
 
+/-- `combineZExtOfTruncOfICmp`: a `g_zext` of a `g_trunc` of a `g_icmp` keeps its bit, whatever the
+flags of the casts, when the truncation keeps at least that bit (`0 < n`). -/
+theorem zext_trunc_zext_bit {n W : Nat} (hn : 0 < n) (hnW : n < W) (h1 : 1 < W) (c : LLVM.Int 1)
+    (nsw nuw nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.trunc (LLVM.Int.zext c W false h1) n nsw nuw hnW) W nneg hnW ⊒
+      LLVM.Int.zext c W false h1 := by
+  cases c with
+  | poison => simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run]
+  | val c =>
+    have hc : c.toNat < 2 ^ n := Nat.lt_of_lt_of_le c.isLt (Nat.pow_le_pow_right (by decide) hn)
+    have hcW : c.toNat < 2 ^ W := Nat.lt_of_lt_of_le c.isLt (Nat.pow_le_pow_right (by decide) (by omega))
+    have hval : (c.setWidth n).setWidth W = c.setWidth W := by
+      apply BitVec.eq_of_toNat_eq
+      simp [BitVec.toNat_setWidth, Nat.mod_eq_of_lt hcW, Nat.mod_eq_of_lt hc]
+    have hval' : ((c.setWidth W).setWidth n).setWidth W = c.setWidth W := by
+      rw [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hnW), hval]
+    simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run]
+    by_cases hA : nsw = true ∧
+        ¬BitVec.signExtend W (BitVec.setWidth n (BitVec.setWidth W c)) = BitVec.setWidth W c
+    · simp [hA]
+    by_cases hB : nuw = true ∧
+        ¬BitVec.setWidth W (BitVec.setWidth n (BitVec.setWidth W c)) = BitVec.setWidth W c
+    · simp [hA, hB]
+    simp [hA, hB]
+    split <;> simp_all [pure]
+
 /--
 Prove the correctness of widening `g_poison`: truncating a wide poison, whatever the `nsw` and
 `nuw` flags, refines the narrow poison.

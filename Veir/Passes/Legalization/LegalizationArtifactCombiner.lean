@@ -78,7 +78,8 @@ def combineZExtOfTruncOfICmp : Pattern OpCode :=
       let rhs ← MatchProg.value operandType
       let wideType ← MatchProg.type (Attr := IntegerType)
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType]
-      let narrowType ← MatchProg.type (Attr := IntegerType)
+      -- The verifier rejects `i0`, to which the truncation would drop the bit of the `g_icmp`.
+      let narrowType ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[icmp.res[0]!] #[narrowType]
       let type ← MatchProg.type (Attr := IntegerType)
       MatchProg.matchNative (wideType, type) fun (wideType, type) =>

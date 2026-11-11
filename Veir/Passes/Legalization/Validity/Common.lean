@@ -53,8 +53,11 @@ inductive Unproven where
   result, which the matcher does not tie to the attribute's. The rule is correct when they agree,
   as in verified IR. -/
   | untypedConstant
-  /-- The rule is wrong at some widths: `g_bswap` is only defined at widths 16, 32 and 64, and
-  other rules are wrong at the degenerate width 0, or from width `2^64`. -/
+  /-- The rule is wrong at some widths, which `Pattern.Valid` quantifies over: `g_bswap` is only
+  defined at widths 16, 32 and 64, `lowerSext` passes the source width as a 64-bit size, and
+  `lowerFunnelShift` shifts by one, which is poison at width 1, and computes the amount in the
+  amount's type, which must hold the width. (The verifier rejects `i0`, and the matchers of the
+  rules that are only wrong there exclude it.) -/
   | widthDependent
   /-- The rewrite drops a matched `g_anyext` and extends its operand again. The matched operation's
   high bits are fixed once it has run, and may reach its other uses, while the new `g_anyext`

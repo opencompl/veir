@@ -35,8 +35,9 @@ closed by the rule's local correctness lemma, mostly in `Veir.Passes.Legalizatio
 
 * `widenBrcondCondition`, `widenBlockArguments` and `commutativeConstantRHS` are local rewrites,
   not Puddle patterns.
-* Rules with status `.unproven .widthDependent` are wrong at a width that verified IR rules out,
-  such as `i0`, or from width `2^64`, which `Pattern.Valid` does not assume.
+* Rules with status `.unproven .widthDependent` are wrong at some width that `Pattern.Valid`
+  quantifies over (see `Unproven.widthDependent`). The verifier rejects `i0`, and the matchers of
+  the rules that are only wrong at `i0` exclude it, so those are proven.
 * Every gMIR combine is proven (`combinePatterns_valid` and `preLegalizerPatterns_valid`).
 -/
 
