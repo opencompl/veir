@@ -50,6 +50,7 @@ elab "simpPuddleValid" : tactic => withMainContext do
       MatchProg.ModelsDecls, MatchDecl.Models, MatchProg.rootSemantics,
       CreateProg.semantics, CreateProg.semanticsDecls, CreateDecl.semantics,
       SemanticAssignment.getValues, SemanticAssignment.getTypes,
+      SemanticAssignment.getValueTypes, SemanticAssignment.getValueType,
       SemanticAssignment.getValue, SemanticAssignment.getType, SemanticAssignment.getProperty,
       SemanticAssignment.bindValues, SemanticAssignment.bindValue, SemanticAssignment.bindType,
       SemanticAssignment.bindProperty, SemanticAssignment.bind, SemanticAssignment.empty,
