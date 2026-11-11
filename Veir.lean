@@ -28,6 +28,7 @@ import Veir.Dialects.CTreeMonotonicity
 import Veir.Interpreter.CTreeRefinement.CFGSim
 import Veir.Interpreter.CTreeRefinement.Normalization
 import Veir.Interpreter.CTreeRefinement.OpList
+import Veir.Dialects.ProvedMonotone
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.InstructionSelection.Proofs.I32
