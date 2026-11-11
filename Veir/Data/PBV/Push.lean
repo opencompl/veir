@@ -79,10 +79,10 @@ Operations without a push theorem (`—`) are abstracted as opaque variables by 
 | MSB                             | `BitVec.msb`                 | `msb_eq_and_signBitOfMask_ne_zero` |
 | Bit, from LSB                   | `BitVec.getLsbD`             | —                                  |
 | Bit, from MSB                   | `BitVec.getMsbD`             | —                                  |
-| Reverse                         | `BitVec.reverse`             | —                                  |
-| Popcount                        | `BitVec.cpop`                | —                                  |
-| Leading zeros                   | `BitVec.clz`                 | —                                  |
-| Trailing zeros                  | `BitVec.ctz`                 | —                                  |
+| Reverse                         | `BitVec.reverse`             | `setWidth_reverse`                 |
+| Popcount                        | `BitVec.cpop`                | `setWidth_cpop`                    |
+| Leading zeros                   | `BitVec.clz`                 | `setWidth_clz`                     |
+| Trailing zeros                  | `BitVec.ctz`                 | `setWidth_ctz`                     |
 | Unsigned add overflow           | `BitVec.uaddOverflow`        | —                                  |
 | Signed add overflow             | `BitVec.saddOverflow`        | —                                  |
 | Unsigned sub overflow           | `BitVec.usubOverflow`        | —                                  |
@@ -429,6 +429,47 @@ theorem setWidth_cpop {o w : Nat} (h : w ≤ o) (a : BitVec w) :
   rw [BitVec.toNat_cpop_setWidth_eq_of_le h, BitVec.toNat_cpop, Nat.mod_eq_of_lt]
   apply Nat.lt_of_le_of_lt (by apply BitVec.cpopNatRec_le w)
   simp only [Nat.zero_add, Nat.lt_two_pow_self]
+
+@[pbv_push]
+theorem setWidth_clz {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    (a.clz).setWidth o = (a.setWidth o).clz - ((BitVec.ofNat o o) - (maskOfWidth o w).cpop) := by
+  have hclz : a.clz.toNat ≤ w := by
+    have := BitVec.clz_le (x := a)
+    rwa [BitVec.le_def, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt Nat.lt_two_pow_self] at this
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_sub_of_le, toNat_ofNat_sub_cpop_maskOfWidth h, BitVec.toNat_clz_setWidth a h,
+    BitVec.toNat_setWidth, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le a.clz.isLt (Nat.pow_le_pow_right (by decide) h))]
+  · omega
+  · rw [BitVec.le_def, toNat_ofNat_sub_cpop_maskOfWidth h, BitVec.toNat_clz_setWidth a h]
+    omega
+
+/-- Reversing the zero-extension puts `a`'s bits at the top, so shift them back down by `o - w`. -/
+@[pbv_push]
+theorem setWidth_reverse {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    a.reverse.setWidth o =
+      (a.setWidth o).reverse >>> ((BitVec.ofNat o o) - (maskOfWidth o w).cpop) := by
+  rw [BitVec.ushiftRight_eq', toNat_ofNat_sub_cpop_maskOfWidth h]
+  ext i hi
+  simp only [BitVec.getElem_setWidth, BitVec.getElem_ushiftRight, BitVec.getLsbD_reverse,
+    BitVec.getMsbD_setWidth]
+  rw [show o - w + i + w - o = i by omega]
+  simp
+
+/-- Zero-extension keeps the trailing zeros, except for `0`, where the count is the width `w`. -/
+@[pbv_push]
+theorem setWidth_ctz {o w : Nat} (h : w ≤ o) (a : BitVec w) :
+    a.ctz.setWidth o =
+      bif a.setWidth o == 0#o then (maskOfWidth o w).cpop else (a.setWidth o).ctz := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le a.ctz.isLt (Nat.pow_le_pow_right (by decide) h))]
+  by_cases ha : a = 0#w
+  · subst ha
+    simp only [BitVec.setWidth_zero, beq_self_eq_true, Bool.cond_true, BitVec.toNat_ctz_zero,
+      cpop_eq_width_of_maskOfWidth h rfl, BitVec.toNat_ofNat]
+    rw [Nat.mod_eq_of_lt (by have : o < 2 ^ o := Nat.lt_two_pow_self; omega)]
+  · have ha' := BitVec.setWidth_ne_zero_of_le h ha
+    simp only [beq_eq_false_iff_ne.mpr ha', Bool.cond_false, BitVec.toNat_ctz_setWidth_of_ne_zero h ha]
 
 /-! ### Other ops in terms of `maskOfWidth` -/
 
