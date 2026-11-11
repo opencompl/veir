@@ -953,6 +953,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
       | .floatType floatType =>
         if floatType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected float result type with bitwidth {floatAttr.type.bitwidth}"
+        /- MLIR checks only the width, but a constant of one type cannot be read as another. -/
+        if floatType ≠ floatAttr.type then
+          throw s!"llvm.mlir.constant: Expected float result type {floatAttr.type}"
       | .integerType intType =>
         if intType.bitwidth ≠ floatAttr.type.bitwidth then
           throw s!"llvm.mlir.constant: Expected integer result type with bitwidth {floatAttr.type.bitwidth}"
