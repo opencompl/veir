@@ -42,4 +42,3 @@ run_cmd do
       unproven := unproven.push (privateToUserName name)
   unless unproven.isEmpty do
     throwError "validity proofs depending on `sorryAx`: {unproven.qsort Name.lt}"
-  logInfo m!"{proofs.size} validity proofs, none depending on `sorryAx`"
