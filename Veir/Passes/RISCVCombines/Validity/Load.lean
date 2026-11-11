@@ -69,19 +69,24 @@ theorem packh_high_bytes_valid : Puddle.CTree.Pattern.Valid (packh_high_bytes_pa
 theorem packh_high_bytes_commuted_valid : Puddle.CTree.Pattern.Valid (packh_high_bytes_pattern true) := by
   proveCombineValid using Data.RISCV.packh_high_bytes_commuted
 
-theorem sextw_lw_valid : Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lw 1) := by
+theorem sextw_lw_valid (h : IsSignExtendingOpW .lw 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lw 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lw
 
-theorem sextw_lh_valid : Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lh 1) := by
+theorem sextw_lh_valid (h : IsSignExtendingOpW .lh 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lh 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lh
 
-theorem sextw_lb_valid : Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lb 1) := by
+theorem sextw_lb_valid (h : IsSignExtendingOpW .lb 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lb 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lb
 
-theorem sextw_lhu_valid : Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lhu 1) := by
+theorem sextw_lhu_valid (h : IsSignExtendingOpW .lhu 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lhu 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lhu
 
-theorem sextw_lbu_valid : Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lbu 1) := by
+theorem sextw_lbu_valid (h : IsSignExtendingOpW .lbu 1 fun _ => true) :
+    Puddle.CTree.Pattern.Valid (sextw_signExtendingOpW_pattern .lbu 1 _ h) := by
   proveCombineValid using Data.RISCV.sextw_lbu
 
 end Veir.RISCV.CTreeProofs
