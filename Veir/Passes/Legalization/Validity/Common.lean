@@ -44,6 +44,11 @@ public section
 
 /-- Why a legalization rule or gMIR combine has no CTree validity proof. -/
 inductive Unproven where
+  /-- The rule reads a matched `g_constant` at the width of its attribute
+  (`GMIRConstantProperties.bits`), while the constant's semantics read it at the width of its
+  result, which the matcher does not tie to the attribute's. The rule is correct when they agree,
+  as in verified IR. -/
+  | untypedConstant
   /-- The rule is wrong at some widths: `g_bswap` is only defined at widths 16, 32 and 64, and
   other rules are wrong at the degenerate width 0, or from width `2^64`. -/
   | widthDependent
@@ -128,8 +133,10 @@ macro "proveLegalValid" "using" lemma:term : tactic => `(tactic| (
   simpLegalSemantics
   normalizeLegalValid
   all_goals intros
-  /- Strip the truncations of extended values that a narrow operation reads back. -/
-  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext])
+  /- Strip the truncations of extended values that a narrow operation reads back, and the
+  zero extensions of `g_icmp` results to their result type, on both sides or in a condition. -/
+  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, Data.LLVM.zext_isRefinedBy_zext,
+    Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
   all_goals first
     | (apply $lemma <;> simp_all)
     | simp_all [$lemma:term]))
@@ -142,7 +149,8 @@ macro "proveLegalValid" "with" closer:tacticSeq : tactic => `(tactic| (
   simpLegalSemantics
   normalizeLegalValid
   all_goals intros
-  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext])
+  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, Data.LLVM.zext_isRefinedBy_zext,
+    Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
   all_goals ($closer)))
 
 /-- Print the normalized goals of a gMIR pattern validity proof. Used to state local lemmas. -/
