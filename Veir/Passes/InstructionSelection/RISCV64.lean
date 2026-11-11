@@ -125,7 +125,7 @@ def isLegalTrunc (opType resType : TypeAttr) : Bool :=
 
 /--
   Shared shape of the lowerings of single-operand ops that are no-ops on registers
-  (`trunc`/`bitcast`/`freeze`): when `legal` accepts the operand and result types, cast the operand to a
+  (`trunc`/`bitcast`/`g_freeze`): when `legal` accepts the operand and result types, cast the operand to a
   register, then cast the register to the result type.
 -/
 def lowerRegCast (srcOp : OpCode) (legal : TypeAttr → TypeAttr → propertiesOf srcOp → Bool) :
@@ -815,18 +815,13 @@ def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 /-- gmir.g_poison -> riscv.li 0 -/
 def gmirPoison : Puddle.CompiledPattern OpCode := gmirPoison_pattern.compile
 
-/-- llvm.freeze arg : Int w, for w ≤ 64 ->
-  unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
-def freeze_pattern : Pattern OpCode :=
-  lowerRegCast (.llvm .freeze) fun opType resType _ =>
-    match opType.val, resType.val with
-    | .integerType opType, .integerType resType =>
-      opType.bitwidth ≤ 64 && opType == resType
-    | _, _ => false
+/-- `gmir.g_freeze` (`i64`) -> a cast through `!riscv.reg`: a register value is never poison. -/
+def gmirFreeze_pattern : Pattern OpCode :=
+  lowerRegCast (.gmir .g_freeze) fun _ resType properties =>
+    riscv64LegalizerInfo.isLegal .g_freeze #[resType] properties
 
-/-- llvm.freeze arg : Int w ->
-  unrealized_conversion_cast (unrealized_conversion_cast arg : Int w -> Reg) : Reg -> Int w -/
-def freeze : Puddle.CompiledPattern OpCode := freeze_pattern.compile
+/-- `gmir.g_freeze` -> a cast through `!riscv.reg` (see `gmirFreeze_pattern`). -/
+def gmirFreeze : Puddle.CompiledPattern OpCode := gmirFreeze_pattern.compile
 
 /-! # Memory intrinsics -/
 
@@ -2079,7 +2074,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     bitcast.run] ++
     load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    gmirPoison.run, zeroConst.run, freeze.run,
+    gmirPoison.run, zeroConst.run, gmirFreeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
     gmirAnd.run, gmirOr.run, gmirXor.run,
     gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,

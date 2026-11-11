@@ -7,6 +7,7 @@ public import Veir.Dialects.GMIR_RISCV.Semantics
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
+meta import Veir.Meta.Tactic.PBVDecide
 
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
@@ -163,6 +164,17 @@ Prove the correctness of widening a block argument (`widenBlockArguments`): what
 theorem block_argument_widening (n m : Nat) (h : n < m) (x : LLVM.Int n) (ext : BitVec (m - n)) :
     x ⊒ LLVM.Int.trunc (LLVM.Int.ext x m ext h) n false false h :=
   trunc_ext_self h x ext
+
+/--
+Prove the correctness of widening `g_freeze` with `g_anyext`, at every width up to 64 and whatever
+the high bits: the frozen low bits are the frozen value.
+-/
+theorem freeze_widening {n m : Nat} (h : n < m) (hm : m ≤ 64) (x : LLVM.Int n)
+    (ext : BitVec (m - n)) :
+    LLVM.Int.freeze x ⊒
+      LLVM.Int.trunc (LLVM.Int.freeze (LLVM.Int.ext x m ext h)) n false false h := by
+  veir_bv_normalize
+  pbv_decide 64
 
 /--
 Prove the correctness of widening the values of `g_select` with `g_anyext`, at every width and
