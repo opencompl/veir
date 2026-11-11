@@ -14,9 +14,7 @@ open Veir.Data
   # CTree-based RISC-V Interpreter
 
   This file contains a CTree interpreter for the nondeterministic RISC-V operations: the loads.
-  Registers cannot carry poison, so a load chooses the bits of the loaded bytes that are poison,
-  such as those of a byte that nothing was stored to. The other operations are delegated to the
-  basic interpreter.
+  Registers cannot carry poison, so a use a ctree choice to set the poison bits of a loaded value.
 -/
 
 namespace Veir
