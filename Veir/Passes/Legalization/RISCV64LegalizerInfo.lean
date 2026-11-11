@@ -275,11 +275,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .legalFor [s64],
       .minScalar (.type 0) 64,
     ]
-    -- Loads must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM also makes
-    -- `s16` and `s32` legal, for `flh`/`flw` We have no FPs, so we widen to `s64`.
-    -- TODO: Split odd-sized and misaligned loads, as LLVM's `lowerIfMemSizeNotByteSizePow2` and
-    -- `lower`.
-    | .g_load => [
+    -- Loads and stores must be naturally aligned, as in LLVM without `+unaligned-scalar-mem`. LLVM
+    -- also makes `s16` and `s32` legal, for `flh`/`flw` and `fsh`/`fsw`. We have no FPs, so we widen
+    -- to `s64`. A store only writes the low `size` bits of the value.
+    -- We do not support misaligned loads and stores.
+    -- TODO: Split odd-sized loads and stores, as LLVM's `lowerIfMemSizeNotByteSizePow2`.
+    | .g_load | .g_store => [
       .legalForTypesWithMemDesc [⟨s64, p0, 8, 8⟩, ⟨s64, p0, 16, 16⟩, ⟨s64, p0, 32, 32⟩,
         ⟨s64, p0, 64, 64⟩, ⟨p0, p0, 64, 64⟩],
       .widenScalarToNextPow2 (.type 0),
