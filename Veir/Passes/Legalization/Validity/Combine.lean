@@ -336,6 +336,131 @@ theorem combine_redundant_and_valid : Puddle.CTree.Pattern.Valid redundant_and_p
     | (apply and_zext_icmp_odd <;> assumption)
     | (apply and_icmp_odd <;> assumption)
 
+/-! ### Funnel shifts or-ed with the shift they subsume
+
+`(fshl x z y) | (x << y) → fshl x z y` and `(z >> y) | (fshr x z y) → fshr x z y`, in both orders:
+the plain shift's bits are among the funnel shift's when the amount is in range, and it is poison
+otherwise. -/
+
+/-- The bits of `x << s` are among those of `fshl x z s`, for `s < w`. -/
+private theorem fshl_or_shl_bits {w : Nat} (x z : BitVec w) (s : Nat) :
+    ((x ++ z) <<< s).extractLsb' w w ||| x <<< s = ((x ++ z) <<< s).extractLsb' w w := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_or, BitVec.getElem_extractLsb', BitVec.getElem_shiftLeft,
+    BitVec.getLsbD_shiftLeft, BitVec.getLsbD_append]
+  by_cases h : i < s
+  · simp [h]
+  · have : ¬ w + i < s := by omega
+    simp only [h, this, decide_false, Bool.not_false, Bool.true_and, show w + i < w + w by omega,
+      decide_true, show ¬ (w + i - s < w) by omega, ite_false, BitVec.getLsbD_eq_getElem (by omega : i - s < w),
+      show w + i - s - w = i - s by omega]
+    simp
+
+/-- The bits of `z >> s` are among those of `fshr x z s`. -/
+private theorem lshr_or_fshr_bits {w : Nat} (x z : BitVec w) (s : Nat) :
+    z >>> s ||| ((x ++ z) >>> s).truncate w = ((x ++ z) >>> s).truncate w := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_or, BitVec.getElem_ushiftRight, BitVec.truncate_eq_setWidth,
+    BitVec.getElem_setWidth, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_append]
+  by_cases h : s + i < w
+  · simp [h]
+  · simp [BitVec.getLsbD_of_ge z (s + i) (by omega)]
+
+private theorem fshl_or_shl {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (n u d : Bool) :
+    (x.fshl z (GMIR.funnelShiftAmount w y)).or (x.shl (shiftAmount w y) n u) d ⊒
+      x.fshl z (GMIR.funnelShiftAmount w y) := by
+  cases x <;> cases z <;> cases y <;>
+    simp [GMIR.funnelShiftAmount, shiftAmount, Data.LLVM.Int.fshl, Data.LLVM.Int.shl, Data.LLVM.Int.or,
+      Id.run, poison_isRefinedBy, pure]
+  rename_i x z y
+  by_cases h : y.toNat < w
+  · have hw : w < 2 ^ w := Nat.lt_two_pow_self
+    have hsw : (BitVec.setWidth w y).toNat = y.toNat := by
+      simp only [BitVec.toNat_setWidth]
+      exact Nat.mod_eq_of_lt (by omega)
+    have hm : y.toNat % w % 2 ^ w % w = y.toNat := by
+      rw [Nat.mod_eq_of_lt h, Nat.mod_eq_of_lt (show y.toNat < 2 ^ w by omega), Nat.mod_eq_of_lt h]
+    have hlt : ¬ BitVec.ofNat w w ≤ BitVec.setWidth w y := by
+      simp only [BitVec.le_def, hsw, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hw]
+      omega
+    simp only [h, ite_true, hlt, ite_false, hsw, hm]
+    split
+    · rename_i y' heq
+      simp only [Data.LLVM.ite_poison_eq_val_id, Data.LLVM.val_eq_val_id] at heq
+      obtain ⟨-, -, rfl⟩ := heq
+      split <;> simp [poison_isRefinedBy, isRefinedBy_eq, fshl_or_shl_bits]
+    · simp [poison_isRefinedBy]
+  · have hge : BitVec.ofNat w w ≤ BitVec.allOnes w := by
+      have := Nat.lt_two_pow_self (n := w)
+      simp [BitVec.le_def, BitVec.toNat_allOnes, Nat.mod_eq_of_lt this]
+      omega
+    simp [h, hge, poison_isRefinedBy]
+
+private theorem lshr_or_fshr {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (e d : Bool) :
+    (z.lshr (shiftAmount w y) e).or (x.fshr z (GMIR.funnelShiftAmount w y)) d ⊒
+      x.fshr z (GMIR.funnelShiftAmount w y) := by
+  cases x <;> cases z <;> cases y <;>
+    simp [GMIR.funnelShiftAmount, shiftAmount, Data.LLVM.Int.fshr, Data.LLVM.Int.lshr, Data.LLVM.Int.or,
+      Id.run, poison_isRefinedBy, pure]
+  case poison.val.val => split <;> simp [poison_isRefinedBy]
+  rename_i x z y
+  by_cases h : y.toNat < w
+  · have hw : w < 2 ^ w := Nat.lt_two_pow_self
+    have hsw : (BitVec.setWidth w y).toNat = y.toNat := by
+      simp only [BitVec.toNat_setWidth]
+      exact Nat.mod_eq_of_lt (by omega)
+    have hm : y.toNat % w % 2 ^ w % w = y.toNat := by
+      rw [Nat.mod_eq_of_lt h, Nat.mod_eq_of_lt (show y.toNat < 2 ^ w by omega), Nat.mod_eq_of_lt h]
+    have hlt : ¬ BitVec.ofNat w w ≤ BitVec.setWidth w y := by
+      simp only [BitVec.le_def, hsw, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hw]
+      omega
+    simp only [h, ite_true, hlt, ite_false, hsw, hm]
+    split
+    · rename_i y' heq
+      simp only [Data.LLVM.ite_poison_eq_val_id, Data.LLVM.val_eq_val_id] at heq
+      obtain ⟨-, rfl⟩ := heq
+      split <;> simp [poison_isRefinedBy, isRefinedBy_eq, lshr_or_fshr_bits]
+    · simp [poison_isRefinedBy]
+  · have hge : BitVec.ofNat w w ≤ BitVec.allOnes w := by
+      have := Nat.lt_two_pow_self (n := w)
+      simp [BitVec.le_def, BitVec.toNat_allOnes, Nat.mod_eq_of_lt this]
+      omega
+    simp [h, hge, poison_isRefinedBy]
+
+/-- `g_or` is commutative, including its `disjoint` check. -/
+private theorem or_comm' {w : Nat} (a b : Data.LLVM.Int w) (d : Bool) : a.or b d = b.or a d := by
+  cases a <;> cases b <;> simp [Data.LLVM.Int.or, Id.run, BitVec.or_comm, BitVec.and_comm]
+
+private theorem shl_or_fshl {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (n u d : Bool) :
+    (x.shl (shiftAmount w y) n u).or (x.fshl z (GMIR.funnelShiftAmount w y)) d ⊒
+      x.fshl z (GMIR.funnelShiftAmount w y) := by
+  rw [or_comm']
+  exact fshl_or_shl x z y n u d
+
+private theorem fshr_or_lshr {w v : Nat} (x z : Data.LLVM.Int w) (y : Data.LLVM.Int v) (e d : Bool) :
+    (x.fshr z (GMIR.funnelShiftAmount w y)).or (z.lshr (shiftAmount w y) e) d ⊒
+      x.fshr z (GMIR.funnelShiftAmount w y) := by
+  rw [or_comm']
+  exact lshr_or_fshr x z y e d
+
+theorem combine_funnel_shift_fshl_or_shl_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true true) := by
+  proveLegalValid using fshl_or_shl
+
+theorem combine_funnel_shift_shl_or_fshl_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) := by
+  proveLegalValid using shl_or_fshl
+
+theorem combine_funnel_shift_fshr_or_lshr_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true) := by
+  proveLegalValid using fshr_or_lshr
+
+theorem combine_funnel_shift_lshr_or_fshr_valid :
+    Puddle.CTree.Pattern.Valid (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false) := by
+  proveLegalValid using lshr_or_fshr
+
 /-! ## Status of every combine -/
 
 @[legalization_status]
@@ -877,5 +1002,36 @@ theorem combine_select_into_lshr_status (swapped : Bool) :
 theorem combine_select_into_ashr_status (swapped : Bool) :
     Status Unproven (select_into_binop_pattern .g_ashr swapped) :=
   .unproven .widthDependent
+
+@[legalization_status]
+theorem combine_funnel_shift_zero_status (fsh : GMIR) (keepRight : Bool) :
+    Status Unproven (funnel_shift_zero_pattern fsh keepRight) :=
+  .unproven .untypedConstant
+
+@[legalization_status]
+theorem combine_funnel_shift_overshift_status (fsh : GMIR) :
+    Status Unproven (funnel_shift_overshift_pattern fsh) :=
+  .unproven .untypedConstant
+
+@[legalization_status]
+theorem combine_funnel_shift_fshl_or_shl_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshl .g_shl true true) :=
+  .proven combine_funnel_shift_fshl_or_shl_valid
+
+@[legalization_status]
+theorem combine_funnel_shift_shl_or_fshl_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshl .g_shl true false) :=
+  .proven combine_funnel_shift_shl_or_fshl_valid
+
+@[legalization_status]
+theorem combine_funnel_shift_fshr_or_lshr_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshr .g_lshr false true) :=
+  .proven combine_funnel_shift_fshr_or_lshr_valid
+
+@[legalization_status]
+theorem combine_funnel_shift_lshr_or_fshr_status :
+    Status Unproven (funnel_shift_or_shift_pattern .g_fshr .g_lshr false false) :=
+  .proven combine_funnel_shift_lshr_or_fshr_valid
+
 
 end Veir.Legalization.CTreeProofs
