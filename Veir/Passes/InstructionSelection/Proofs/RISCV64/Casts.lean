@@ -125,7 +125,34 @@ private theorem byte_resolved_mask (v p b : BitVec w) :
   simp
   veir_bv_decide
 
-set_option maxHeartbeats 400000 in
+/-- Normalize a strict singleton bitcast without unfolding its array/list destructors
+    in each of the type and width cases below. -/
+@[ctree_semantics]
+private theorem llvm_bitcast_singleton (props : propertiesOf (OpCode.llvm .bitcast))
+    (type : TypeAttr) (val : RuntimeValue) (mem : MemoryState) (layout : DataLayout) :
+    Llvm.interpretOp' .bitcast props #[type] #[val] #[] mem layout = (do
+    let result ← do match val, type.val with
+      | .int bw1 val', .integerType ⟨bw2, _⟩ =>
+          if bw1 ≠ bw2 then .fail none else .ok (val)
+      | .int bw1 val', .byteType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then .fail none else .ok ((.byte bw1 $ Data.LLVM.Byte.fromInt val'))
+      | .byte bw1 val', .byteType ⟨bw2⟩ =>
+          if bw1 ≠ bw2 then .fail none else .ok (val)
+      | .byte bw1 val', .integerType ⟨bw2, _⟩ =>
+          if bw1 ≠ bw2 then .fail none else .ok ((.int bw1 $ val'.toInt))
+      | .byte bw val', .llvmPointerType _ =>
+          if h : bw = 64 then .ok (.addr (mem.ptrFromInt (val'.cast h).toInt)) else .fail none
+      | .addr val', .llvmPointerType _ => .ok (val)
+      | .addr val', .byteType ⟨bw⟩ =>
+          if bw = 64 then .ok (.byte 64 val'.toByte) else .fail none
+      | _, _ => none
+    return (#[result], mem, none)) := by
+  rcases type with ⟨type, ht⟩
+  rfl
+
+section
+attribute [-ctree_semantics] Llvm.interpretOp'
+
 theorem bitcast_pattern_valid :
     Puddle.CTree.Pattern.Valid bitcast_pattern := by
   unfold bitcast_pattern lowerRegCast
@@ -158,6 +185,10 @@ theorem bitcast_pattern_valid :
   all_goals try (ext i; simp [Data.LLVM.Byte.allPoison]; all_goals veir_bv_decide)
   all_goals rename_i reg bits val poison hp hr
   all_goals exact byte_resolved_mask val poison bits
+
+end
+
+attribute [local ctree_semantics] Llvm.interpretOp'
 
 /- The generic GMIR truncation and any-extension patterns are not valid for all legal
    integer widths: their register round trip loses defined bits above bit 63.
