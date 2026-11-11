@@ -76,6 +76,12 @@ def Riscv.isLoad : Riscv → Bool
   | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu => true
   | _ => false
 
+/-- The loads are the opcodes that `isLoad` holds of. -/
+theorem Riscv.isLoad_iff {op : Riscv} :
+    op.isLoad = true ↔
+      op = .ld ∨ op = .lw ∨ op = .lwu ∨ op = .lh ∨ op = .lhu ∨ op = .lb ∨ op = .lbu := by
+  cases op <;> simp [Riscv.isLoad]
+
 /-- The RISC-V opcodes that read or write memory: the loads, the stores and `la`. -/
 def Riscv.touchesMemory : Riscv → Bool
   | .ld | .lw | .lwu | .lh | .lhu | .lb | .lbu | .sd | .sw | .sh | .sb | .la => true
