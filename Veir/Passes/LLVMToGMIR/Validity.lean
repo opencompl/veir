@@ -35,7 +35,8 @@ import all Init.Data.Array.Basic
 order of `llvmToGMIRPatternList`: a proof of `Puddle.CTree.Pattern.Valid`, or the reason why there
 is none. Its type is indexed by the list, so changing the patterns of the pass without updating
 the certificates does not build. The local rewrite of the GEP indices is not a Puddle pattern, and
-the branches are translated by a separate step (`convertLLVMBranches`).
+the branches are translated by a separate step (`convertLLVMBranches`), whose operation semantics
+are proven to agree below (`br_interpretOp'_eq`, `cond_br_interpretOp'_refines`).
 
 The unproven patterns (see `Unproven`):
 * The byte shifts (`allPoisonByte`): an all-poison byte becomes a poison integer, so the shift can
@@ -92,11 +93,17 @@ public section
 /-- Why a pattern of `llvm-to-gmir` has no CTree validity proof. -/
 inductive Unproven where
   /-- A byte shift is translated through an integer, which is entirely poison when every bit of
-  the byte is. The byte shift moves defined zero bits into such a byte; the integer shift cannot. -/
+  the byte is. The byte shift moves defined zero bits into such a byte; the integer shift cannot:
+  `shl` of the all-poison `b8` by one is `0b???????0`, while its translation is `0b????????`,
+  which does not refine it. The pattern is therefore not valid; `byte_shl_frozen` and
+  `byte_lshr_frozen` in `Veir.Passes.LLVMToGMIR.Remaining` prove it on every other byte. -/
   | allPoisonByte
   /-- The replacement's stack object is computed from the IR around the `llvm.alloca`
-  (`MatchProg.inspectOperation`), which the semantics of the matched operation do not determine,
-  and the pointer is cast back from an integer. -/
+  (`MatchProg.inspectOperation`, `staticAllocaProperties?`). `Pattern.Valid` quantifies over every
+  value the inspection may produce, while the memory refinement requires the same objects, so
+  the replacement would have to allocate the size of the `llvm.alloca` whatever the inspection
+  says. Proving it needs a validity statement that ties the inspected properties to the matched
+  operation. The cast back from the object's address is covered by `ptrFromInt_toInt`. -/
   | staticAlloca
   deriving Repr, DecidableEq
 
@@ -507,6 +514,43 @@ theorem load_valid : Puddle.CTree.Pattern.Valid lowerLoad_pattern := by
           simp [llvmLoad_null]
         · simp [hp]
   all_goals simp
+
+/-! ## Branches
+
+`convertLLVMBranches` replaces every `llvm.br` by a `g_br` and every `llvm.cond_br` by a
+`g_brcond`, with the same operands and successors (`createGMIRBranch`). The replacements are not
+Puddle patterns, so they have no `Pattern.Valid` certificate; instead, the interpreters of the
+replaced and the replacing operations agree: `g_br` is `llvm.br`, and `g_brcond` refines
+`llvm.cond_br`, taking the first successor iff the `i1` condition is one. A step-level refinement
+theorem for `convertLLVMBranches` would need a framework for local rewrites, which the repository
+does not have. -/
+
+/-- `g_br` branches exactly as `llvm.br`. -/
+theorem br_interpretOp'_eq (props : propertiesOf (OpCode.llvm .br)) (resultTypes : Array TypeAttr)
+    (operands : Array RuntimeValue) (blockOperands : Array BlockPtr) (mem : MemoryState)
+    (layout : DataLayout) :
+    Llvm.interpretOp' .br props resultTypes operands blockOperands mem layout =
+      GMIR.interpretOp' .g_br () resultTypes operands blockOperands mem := by
+  simp only [Llvm.interpretOp', GMIR.interpretOp']
+  generalize blockOperands.toList = l
+  rcases l with _ | ⟨d, _ | _⟩ <;> rfl
+
+/-- `g_brcond`, with the operand segments of the `llvm.cond_br`, refines it: on an `i1` condition
+both take the first successor iff it is one, and on a poison one both are undefined. `g_brcond`
+also accepts wider conditions, on which `llvm.cond_br` fails. -/
+theorem cond_br_interpretOp'_refines (props : propertiesOf (OpCode.llvm .cond_br))
+    (resultTypes : Array TypeAttr) (operands : Array RuntimeValue) (blockOperands : Array BlockPtr)
+    (mem : MemoryState) (layout : DataLayout) :
+    Interp.isRefinedBy Eq
+      (Llvm.interpretOp' .cond_br props resultTypes operands blockOperands mem layout)
+      (GMIR.interpretOp' .g_brcond ⟨props.operandSegmentSizes⟩ resultTypes operands blockOperands
+        mem) := by
+  apply Interp.isRefinedBy_eq_of_ok
+  intro r h
+  simp only [Llvm.interpretOp', GMIR.interpretOp'] at h ⊢
+  repeat' (split at h <;> try simp at h)
+  all_goals simp_all
+  all_goals (intro hc; exfalso; bv_decide)
 
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/

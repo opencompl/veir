@@ -547,7 +547,8 @@ private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
 -/
 def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  -- Branches are translated by a separate step, which is proved to refine the module.
+  -- Branches are translated by a separate step; `Veir.Passes.LLVMToGMIR.Validity` proves that the
+  -- gMIR branches interpret as the LLVM ones.
   let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
   let pattern := RewritePattern.GreedyRewritePattern <|
     llvmToGMIRPatterns.map (·.run) ++ #[.fromLocalRewrite normalizeGEPIndices]
