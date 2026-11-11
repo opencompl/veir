@@ -1401,7 +1401,13 @@ def preLegalizerPatterns : Array (Pattern OpCode) :=
   #[udiv_by_pow2_pattern] ++
     (#[false, true].flatMap fun negative =>
       #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]) ++
-  selectOfConstantsPatterns ++ selectIntoBinopPatterns
+  selectOfConstantsPatterns ++ selectIntoBinopPatterns ++
+  #[funnel_shift_zero_pattern .g_fshr true, funnel_shift_zero_pattern .g_fshl false,
+    funnel_shift_overshift_pattern .g_fshl, funnel_shift_overshift_pattern .g_fshr,
+    funnel_shift_or_shift_pattern .g_fshl .g_shl true true,
+    funnel_shift_or_shift_pattern .g_fshl .g_shl true false,
+    funnel_shift_or_shift_pattern .g_fshr .g_lshr false true,
+    funnel_shift_or_shift_pattern .g_fshr .g_lshr false false]
 
 /-- The combines that run before RISC-V 64 legalization. -/
 def preLegalizerCombines : Array (CompiledPattern OpCode) :=
