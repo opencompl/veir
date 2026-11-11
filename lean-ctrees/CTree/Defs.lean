@@ -111,6 +111,7 @@ def CTree.fold (t : CTreeF E C R (CTree E C R)) : CTree E C R := CoInd.fold _ t
 /--
 Unfolds the head of a CTree
 -/
+@[expose]
 def CTree.unfold (t : CTree E C R) : CTreeF E C R (CTree E C R) := CoInd.unfold _ t
 
 /-! ## High-level CTree constructors -/
@@ -129,11 +130,13 @@ def CTree.tauG (i : C1In ⊕ CIn) (k : (C1 ⊕ₑ C) i → CTree E C R) : CTree 
 /--
 A custom n-ary choice that generates τ transitions
 -/
+@[expose]
 def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.tau (.inr i) k)
 
 /--
 A unary choice that generates a τ transition
 -/
+@[expose]
 def CTree.tau1 (t : CTree E C R) : CTree E C R := CTree.tauG (.inl .c1) λ _ => t
 
 /--
