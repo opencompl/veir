@@ -450,4 +450,17 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven round_trip_valid <|
   .nil
 
+/-- Every pattern `llvm-to-gmir` runs is proven valid or recorded as unproven. -/
+theorem llvmToGMIRPatternList_certified (pattern : Pattern OpCode)
+    (h : pattern ∈ llvmToGMIRPatternList) :
+    pattern ∈ llvmToGMIRCertificates.provenPatterns ∨
+      pattern ∈ llvmToGMIRCertificates.unprovenPatterns.map Prod.fst :=
+  llvmToGMIRCertificates.covers pattern h
+
+/-- Every proven pattern of `llvm-to-gmir` satisfies the CTree validity predicate. -/
+theorem llvmToGMIRCertificates_valid (pattern : Pattern OpCode)
+    (h : pattern ∈ llvmToGMIRCertificates.provenPatterns) :
+    Puddle.CTree.Pattern.Valid pattern :=
+  llvmToGMIRCertificates.valid pattern h
+
 end Veir.LLVMToGMIR.CTreeProofs
