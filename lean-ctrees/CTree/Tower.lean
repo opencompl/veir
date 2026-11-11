@@ -205,6 +205,27 @@ theorem gfp_eq_inf_tower : gfp f = inf (Tower f) := by
     rcases h with ⟨h, _⟩
     apply h
 
+theorem gfp_apply : gfp f ⊑ f (gfp f) := by
+  rw [gfp_eq_inf_tower]
+  apply inf_le
+  constructor
+  constructor
+  grind
+
+theorem gfp_apply_binary_rel {X : Type u} {Y : Type v}
+  (f : (X → Y → Prop) → X → Y → Prop) x y :
+    gfp f x y → f (gfp f) x y := by
+  intros h
+  apply gfp_apply (f := f)
+  apply h
+
+theorem gfp_apply_ternary_rel {X : Type u} {Y : Type v} {Z : Type w}
+  (f : (X → Y → Z → Prop) → X → Y → Z → Prop) x y z :
+    gfp f x y z → f (gfp f) x y z := by
+  intros h
+  apply gfp_apply (f := f)
+  apply h
+
 @[grind =]
 theorem gfp_iff_binary_rel {X : Type u} {Y : Type v} :
     ∀ (f : (X → Y → Prop) → X → Y → Prop) x y,

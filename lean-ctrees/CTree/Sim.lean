@@ -36,10 +36,30 @@ theorem MuSimF.refl (RR : α → α → Prop) [hRR : Std.Refl RR] (R : Chain (Mu
   apply LTS.MuSimF.refl
   apply CTree.instReflObsRobs
 
+theorem MuSimF.empty :
+    MuSimF (UBE := UBE) RR Rel true .empty t := by
+  apply MuSimF.sim
+  constructor
+  case left =>
+    intros l t htr
+    exfalso
+    apply trans_empty <;> assumption
+  case right =>
+    intros t htr
+    exfalso
+    apply trans_empty <;> assumption
+
+theorem MuSimF.empty' (R : Chain (MuSimF RR)) (t : CTree E C' β) :
+    R.elem true (CTree.empty : CTree E C α) t := by
+  apply Chain.apply_ternary_rel
+  apply MuSimF.mon
+  apply MuSimF.empty
+
 theorem MuSimF.ret (r : α) (r' : β) :
   RR r r' →
+  Rel true .empty .empty →
   MuSimF RR Rel true (CTree.ret (E := E) (C := C) r) (CTree.ret (C := C') r') := by
-  intro h
+  intro h h'
   apply LTS.MuSimF.sim
   constructor
   case left =>
@@ -47,7 +67,7 @@ theorem MuSimF.ret (r : α) (r' : β) :
     have htr := trans_ret htr
     cases htr
     exists (.obs $ CTree.Obs.val r')
-    exists (CTree.ret r')
+    exists .empty
     constructor
     · apply Star.skip_l
       constructor
@@ -55,8 +75,7 @@ theorem MuSimF.ret (r : α) (r' : β) :
       constructor
       constructor
       assumption
-      have htr := trans_ret' htr
-      sorry
+      grind
   case right =>
     intros t' h'
     have h' := trans_ret h'
@@ -68,7 +87,18 @@ theorem MuSimF.ret' (R : Chain (MuSimF RR)) (r : α) (r' : β) :
   intros h
   apply Chain.apply_ternary_rel
   apply MuSimF.mon
-  apply MuSimF.ret <;> assumption
+  apply MuSimF.ret <;> try assumption
+  apply Chain.apply (f := MuSimF _)
+  apply MuSimF.mon
+  apply MuSimF.empty
+
+/-
+theorem MuSimF.ret_inv (r : α) (r' : β) :
+    MuSimF RR Rel true (CTree.ret (E := E) (C := C) r) (CTree.ret (C := C') r') →
+    RR r r' := by
+  intros h
+  cases h
+-/
 
 theorem MuSimF.tau (i : C1In ⊕ CIn) (i' : C1In ⊕ C'In) (k : (C1 ⊕ₑ C) i → CTree E C α) (k' : (C1 ⊕ₑ C') i' → CTree E C' β) :
     (∀ x, ∃ y, R.elem true (k x) (k' y)) →
@@ -185,6 +215,9 @@ theorem ret (r : α) (r' : β) :
   constructor
   case mp =>
     intros h
+    have h := gfp_apply_ternary_rel _ _ _ _ h
+    --cases h
+    -- FIXME lean bug
     sorry
   case mpr =>
     intros h
@@ -193,6 +226,7 @@ theorem ret (r : α) (r' : β) :
     intros R
     apply MuSimF.ret'
     apply h
+
 
 @[simp, grind =]
 theorem pure (r : α) (r' : β) :
@@ -320,6 +354,7 @@ theorem iter {I I'} {RRi : I → I' → Prop} {RRo : α → β → Prop}
         simp only
         apply MuSimF.ret
         grind
+        apply MuSimF.empty'
 
 axiom interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C α) (u : CTree E C β) :
   Sim RR t u →

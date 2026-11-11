@@ -71,7 +71,8 @@ def refine (h : (i : CIn) → CTree E D (C i)) : CTree E C X → CTree E D X :=
   iter fun t =>
     match t.unfold with
     | .ret r => return (.inr r)
-    | .tau (.inl _) k => .tau1 (return .inl (k .unit))
+    | .tau (.inl .c0) _ => .empty
+    | .tau (.inl .c1) k => .tau1 (return .inl (k .unit))
     | .tau (.inr i) k => do
         let o ← h i
         return (.inl (k o))

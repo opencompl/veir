@@ -30,6 +30,7 @@ Type of the unary choice.
 It is used to encode ITree-style tau nodes.
 -/
 inductive C1In : Type u where
+| c0
 | c1
 
 /--
@@ -39,6 +40,7 @@ ITree-style tau nodes only have a single child.
 @[expose]
 def C1 (c : C1In.{u}) : Type u :=
   match c with
+  | .c0 => PEmpty
   | .c1 => PUnit
 
 
@@ -132,6 +134,12 @@ A custom n-ary choice that generates τ transitions
 -/
 @[expose]
 def CTree.tau (i : CIn) (k : C i → CTree E C R) : CTree E C R := CTree.fold (.tau (.inr i) k)
+
+/--
+An empty state
+-/
+@[expose, reducible]
+def CTree.empty : CTree E C R := CTree.tauG (.inl .c0) λ x => by contradiction
 
 /--
 A unary choice that generates a τ transition

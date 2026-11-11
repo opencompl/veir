@@ -24,7 +24,7 @@ inductive CTree.Obs where
 inductive CTree.Trans : label (@CTree.Obs _ E α) → CTree E C α → CTree E C α → Prop where
 | tau : Trans .tau (.tauG i k) (k x)
 | vis : Trans (.obs (.eff i x)) (.vis i k) (k x)
-| ret : Trans (.obs (.val r)) (.ret r) (.ret r) -- FIXME
+| ret : Trans (.obs (.val r)) (.ret r) .empty
 
 @[expose, reducible]
 def CTree.lts (EIn CIn : Type u) (E : EIn → Type u) (C : CIn → Type u) (α : Type u) : LTS :=
@@ -58,13 +58,27 @@ def CTree.UB [UB : HasUB EIn] (t : CTree E C α) : Prop :=
   | _ => False
 
 @[grind .]
+theorem trans_empty : CTree.Trans l CTree.empty t' → False := by
+  intros h
+  generalize ht : CTree.empty = t at h
+  cases h
+  case tau i k x =>
+    have ht := tauG_eq_tauG _ _ _ _ ht
+    subst ht
+    cases x
+  case vis =>
+    grind
+  case ret =>
+    grind
+
+@[grind .]
 theorem trans_ret : CTree.Trans l (CTree.ret r) t' → l = .obs (.val r) := by
   intros h
   generalize ht : CTree.ret r = t at h
   cases h <;> grind
 
 @[grind .]
-theorem trans_ret' : CTree.Trans l (CTree.ret r) t' → t' = CTree.ret r := by
+theorem trans_ret' : CTree.Trans l (CTree.ret r) t' → t' = CTree.empty := by
   intros h
   generalize ht : CTree.ret r = t at h
   cases h <;> grind
