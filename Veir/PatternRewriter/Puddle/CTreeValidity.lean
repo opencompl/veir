@@ -59,7 +59,7 @@ operations that have `PureOrErr` semantics.
 def CanInterpretTo (opCode : OpCode) (property : propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (results : Interp (Array RuntimeValue)) : Prop :=
-  ∀ memory,
+  ∃ memory,
     PureOrErr.CanInterpretTo
       (Veir.CTree.interpretOp' opCode property resultTypes operands #[] memory)
       (results.map (·, memory, none))
