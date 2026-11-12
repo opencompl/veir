@@ -5,6 +5,8 @@ public import Veir.Passes.DCE.Validity
 public import Veir.Passes.CastsReconciliation.Validity
 public import Veir.Passes.InstructionSelection.Branches.Pass
 public import Veir.Passes.RISCVCombines.Validity.Strict
+public import Veir.Passes.LLVMToGMIR.Soundness
+public import Veir.Passes.Legalization.Validity
 
 /-!
 # Correctness of the strict RISC-V pipeline
@@ -19,26 +21,23 @@ public section
 namespace Veir
 
 /-- The `riscv` pipeline in strict mode. The passes still to be made strict are parameters. -/
-def riscvPipelineStrict (llvmToGmir callLowering preLegalizerCombiner legalize
-    postLegalizerCombiner isel : PurePass) : List PurePass :=
-  [llvmToGmir, callLowering, preLegalizerCombiner, legalize, postLegalizerCombiner,
-   ISelBrPass.runVerified true, isel, CastReconcilePass.runStrict, RISCV.Combine.runStrict,
-   DCEPass.runStrict]
+def riscvPipelineStrict (callLowering legalize isel : PurePass) : List PurePass :=
+  [LLVMToGMIRPass.runStrict, callLowering, PreLegalizerCombinerRISCV64Pass.runStrict, legalize,
+   PostLegalizerCombinerRISCV64Pass.runStrict, ISelBrPass.runVerified true, isel,
+   CastReconcilePass.runStrict, RISCV.Combine.runStrict, DCEPass.runStrict]
 
 /-- A successful strict run of the RISC-V pipeline refines the module and leaves it verified,
 provided the passes not yet made strict are sound. -/
-theorem riscvPipelineStrict_sound {llvmToGmir callLowering preLegalizerCombiner legalize
-    postLegalizerCombiner isel : PurePass}
-    (hLlvmToGmir : llvmToGmir.Sound) (hCallLowering : callLowering.Sound)
-    (hPreLegalizerCombiner : preLegalizerCombiner.Sound) (hLegalize : legalize.Sound)
-    (hPostLegalizerCombiner : postLegalizerCombiner.Sound) (hIsel : isel.Sound)
+theorem riscvPipelineStrict_sound {callLowering legalize isel : PurePass}
+    (hCallLowering : callLowering.Sound) (hLegalize : legalize.Sound) (hIsel : isel.Sound)
     {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr}
-    (run : runPure (riscvPipelineStrict llvmToGmir callLowering preLegalizerCombiner legalize
-      postLegalizerCombiner isel) ctx moduleOp = .ok ctx') :
+    (run : runPure (riscvPipelineStrict callLowering legalize isel) ctx moduleOp = .ok ctx') :
     moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ctx'.Verified moduleOp :=
   runPure_sound_of_head (by
     simp only [List.forall_mem_cons]
-    exact ⟨hLlvmToGmir, hCallLowering, hPreLegalizerCombiner, hLegalize, hPostLegalizerCombiner,
+    exact ⟨LLVMToGMIR.CTreeProofs.LLVMToGMIRPass.runStrict_sound, hCallLowering,
+      Legalization.CTreeProofs.PreLegalizerCombinerRISCV64Pass.runStrict_sound, hLegalize,
+      Legalization.CTreeProofs.PostLegalizerCombinerRISCV64Pass.runStrict_sound,
       ISelBrPass.runVerified_strict_sound, hIsel,
       CastsReconciliation.CTreeProofs.CastReconcilePass.runStrict_sound,
       RISCV.CTreeProofs.Combine.runStrict_sound, DCEPass.runStrict_sound,

@@ -36,6 +36,7 @@ import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.StrictDriver
 import Veir.Passes.Pipeline.Soundness
 import Veir.Passes.DCE.Validity
+import Veir.Passes.LLVMToGMIR.Soundness
 import Veir.Passes.Pipeline.RISCV
 import Veir.Passes.InstructionSelection.Proofs.I32
 import Veir.Passes.InstructionSelection.Validity

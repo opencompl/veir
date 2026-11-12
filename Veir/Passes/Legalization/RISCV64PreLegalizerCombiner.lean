@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+public import Veir.Passes.StrictDriver
 import Veir.Passes.Legalization.CombinerHelper
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -29,15 +30,29 @@ def dropAssumeLocal (ctx : WfIRContext OpCode) (op : OperationPtr) :
 
 def dropAssume := RewritePattern.fromLocalRewrite dropAssumeLocal
 
+/-- The strict pass: the Puddle combines, all proved valid, through the module-filtered driver;
+`dropAssume` is not run. Its soundness is `PreLegalizerCombinerRISCV64Pass.runStrict_sound`. -/
+def PreLegalizerCombinerRISCV64Pass.runStrict : PurePass :=
+  strictFunctionsPass "prelegalizer-combiner-riscv64"
+    (RewritePattern.GreedyRewritePattern (preLegalizerPatterns.map fun rule => rule.compile.run))
+
+def PreLegalizerCombinerRISCV64Pass.impl (strict : Bool) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  if strict then ExceptT.mk (pure (PreLegalizerCombinerRISCV64Pass.runStrict ctx op)) else do
+    let pattern := RewritePattern.GreedyRewritePattern <|
+      #[dropAssume] ++ preLegalizerCombines.map (·.run)
+    match RewritePattern.applyToFunctions pattern ctx op with
+    | none => throw "Error while applying the pre-legalizer combines"
+    | some ctx => pure ctx
+
 def PreLegalizerCombinerRISCV64Pass : Pass OpCode :=
   { name := "prelegalizer-combiner-riscv64"
     description := "Combine gMIR operations for RISC-V 64 before legalization."
-    run := fun _ ctx op _ => do
-      let pattern := RewritePattern.GreedyRewritePattern <|
-        #[dropAssume] ++ preLegalizerCombines.map (·.run)
-      match RewritePattern.applyToFunctions pattern ctx op with
-      | none => throw "Error while applying the pre-legalizer combines"
-      | some ctx => pure ctx }
+    options := .ofList [
+      ("strict", { description := "Only apply the combines proved to refine the module.",
+                   defaultValue := false })]
+    run := fun options =>
+      PreLegalizerCombinerRISCV64Pass.impl ((options.get? "strict").getD false) }
 
 end
 

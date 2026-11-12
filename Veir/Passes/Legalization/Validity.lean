@@ -6,7 +6,12 @@ public import Veir.Passes.Legalization.RISCV64LegalizerInfo
 public import Veir.Passes.Legalization.LegalizationArtifactCombiner
 public import Veir.Passes.Legalization.CombinerHelper
 public import Veir.Passes.Legalization.Validity.Common
+public import Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
+public import Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
+public import Veir.Passes.Pipeline.Soundness
 import all Veir.Passes.Legalization.LegalizerHelper
+import all Veir.Passes.Legalization.RISCV64PreLegalizerCombiner
+import all Veir.Passes.Legalization.RISCV64PostLegalizerCombiner
 import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.Legalization.Validity.Widen
 import all Veir.Passes.Legalization.Validity.Custom
@@ -151,6 +156,47 @@ set_option maxRecDepth 10000 in
 theorem preLegalizerPatterns_valid :
     ∀ pattern ∈ preLegalizerPatterns, Puddle.CTree.Pattern.Valid pattern := by
   simp [preLegalizerPatterns, selectOfConstantsPatterns, selectIntoBinopPatterns, combine_valid]
+
+/-! ### The strict combiner passes -/
+
+/-- Every pattern the strict post-legalizer combiner applies is valid. -/
+theorem postLegalizerStrictPatterns_valid :
+    ∀ pattern ∈ postLegalizerStrictPatterns, Puddle.CTree.Pattern.Valid pattern := by
+  intro pattern member
+  simp only [postLegalizerStrictPatterns, Array.mem_append, List.mem_toArray, List.mem_cons,
+    List.not_mem_nil, or_false] at member
+  rcases member with ((combine | select) | rfl | rfl) | redundant
+  · exact combinePatterns_valid pattern combine
+  · exact selectPatterns_valid _ pattern select
+  · exact (sub_to_add_redundant_and_valid riscv64LegalizerInfo).1
+  · exact (sub_to_add_redundant_and_valid riscv64LegalizerInfo).2
+  · exact redundantAndSelectPatterns_valid pattern redundant
+
+/-- The strict pre-legalizer combiner refines the module and leaves it verified. -/
+theorem PreLegalizerCombinerRISCV64Pass.runStrict_sound :
+    PreLegalizerCombinerRISCV64Pass.runStrict.Sound :=
+  strictFunctionsPass_sound
+    (RewritePattern.PointwiseValid.greedy_compiled preLegalizerPatterns_valid)
+
+/-- The strict post-legalizer combiner refines the module and leaves it verified. -/
+theorem PostLegalizerCombinerRISCV64Pass.runStrict_sound :
+    PostLegalizerCombinerRISCV64Pass.runStrict.Sound :=
+  strictFunctionsPass_sound
+    (RewritePattern.PointwiseValid.greedy_compiled postLegalizerStrictPatterns_valid)
+
+theorem PreLegalizerCombinerRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (opIn : op.InBounds ctx.raw) :
+    PreLegalizerCombinerRISCV64Pass.impl true ctx op opIn =
+      ExceptT.mk (pure (PreLegalizerCombinerRISCV64Pass.runStrict ctx op)) := by
+  rw [PreLegalizerCombinerRISCV64Pass.impl]
+  rfl
+
+theorem PostLegalizerCombinerRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (opIn : op.InBounds ctx.raw) :
+    PostLegalizerCombinerRISCV64Pass.impl true ctx op opIn =
+      ExceptT.mk (pure (PostLegalizerCombinerRISCV64Pass.runStrict ctx op)) := by
+  rw [PostLegalizerCombinerRISCV64Pass.impl]
+  rfl
 
 end
 
