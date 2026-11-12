@@ -7,6 +7,8 @@ public import Veir.Dialects.GMIR_RISCV.Semantics
 
 meta import Std.Tactic.BVDecide
 meta import Std.Tactic.BVDecide.Reflect
+meta import Veir.Meta.Tactic.PBVDecide
+meta import Lean
 
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
@@ -92,6 +94,32 @@ theorem trunc_trunc (w n m : Nat) (hn : n < m) (hm : m < w) (x : LLVM.Int w)
       LLVM.Int.trunc x n false false (by omega) := by
   veir_bv_normalize
   simp [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hn)]
+
+/-- `combineZExtOfTruncOfICmp`: a `g_zext` of a `g_trunc` of a `g_icmp` keeps its bit, whatever the
+flags of the casts, when the truncation keeps at least that bit (`0 < n`). -/
+theorem zext_trunc_zext_bit {n W : Nat} (hn : 0 < n) (hnW : n < W) (h1 : 1 < W) (c : LLVM.Int 1)
+    (nsw nuw nneg : Bool) :
+    LLVM.Int.zext (LLVM.Int.trunc (LLVM.Int.zext c W false h1) n nsw nuw hnW) W nneg hnW ⊒
+      LLVM.Int.zext c W false h1 := by
+  cases c with
+  | poison => simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run]
+  | val c =>
+    have hc : c.toNat < 2 ^ n := Nat.lt_of_lt_of_le c.isLt (Nat.pow_le_pow_right (by decide) hn)
+    have hcW : c.toNat < 2 ^ W := Nat.lt_of_lt_of_le c.isLt (Nat.pow_le_pow_right (by decide) (by omega))
+    have hval : (c.setWidth n).setWidth W = c.setWidth W := by
+      apply BitVec.eq_of_toNat_eq
+      simp [BitVec.toNat_setWidth, Nat.mod_eq_of_lt hcW, Nat.mod_eq_of_lt hc]
+    have hval' : ((c.setWidth W).setWidth n).setWidth W = c.setWidth W := by
+      rw [BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hnW), hval]
+    simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run]
+    by_cases hA : nsw = true ∧
+        ¬BitVec.signExtend W (BitVec.setWidth n (BitVec.setWidth W c)) = BitVec.setWidth W c
+    · simp [hA]
+    by_cases hB : nuw = true ∧
+        ¬BitVec.setWidth W (BitVec.setWidth n (BitVec.setWidth W c)) = BitVec.setWidth W c
+    · simp [hA, hB]
+    simp [hA, hB]
+    split <;> simp_all [pure]
 
 /--
 Prove the correctness of widening `g_poison`: truncating a wide poison, whatever the `nsw` and
@@ -280,7 +308,7 @@ theorem sdiv_exact_by_pow2_neg {w : Nat} (x : LLVM.Int w) (k : Nat) (hk : k < w)
     BitVec.toNat_ofInt_natCast_of_lt, BitVec.sdiv_neg_one_shl_of_smod_eq_zero]
 
 /-- The quotient that `sdiv_by_pow2_pattern` builds for `sdiv x, 2^k`. -/
-def sdivPow2Shift {w : Nat} (x : LLVM.Int w) (k : Nat) : LLVM.Int w :=
+@[expose] def sdivPow2Shift {w : Nat} (x : LLVM.Int w) (k : Nat) : LLVM.Int w :=
   LLVM.Int.ashr
     (LLVM.Int.add x
       (LLVM.Int.lshr (LLVM.Int.ashr x (LLVM.Int.constant w (w - 1 : Nat)))
@@ -324,7 +352,7 @@ private theorem selectNonzero_refines {w : Nat} (c : LLVM.Int 1) (x y : LLVM.Int
     · simpa [GMIR.selectNonzero, Id.run] using h1 rfl
 
 /-- The `i1` negation that `createNot` builds. -/
-def notI1 (c : LLVM.Int 1) : LLVM.Int 1 := LLVM.Int.xor c (LLVM.Int.constant 1 (-1))
+@[expose] def notI1 (c : LLVM.Int 1) : LLVM.Int 1 := LLVM.Int.xor c (LLVM.Int.constant 1 (-1))
 
 /-- Closes one case of a `tryFoldSelectOfConstants` proof, where the condition is known. -/
 local macro "select_const_tac" : tactic =>
@@ -451,6 +479,27 @@ theorem select_into_ashr {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int
     GMIR.selectNonzero c (LLVM.Int.ashr x k exact) x ⊒
       LLVM.Int.ashr x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
   select_into_binop (LLVM.Int.ashr · · exact) (LLVM.Int.ashr · ·) c x k
+    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
+
+theorem select_into_shl_swapped {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (nsw nuw : Bool) :
+    GMIR.selectNonzero c x (LLVM.Int.shl x k nsw nuw) ⊒
+      LLVM.Int.shl x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) :=
+  select_into_binop_swapped (LLVM.Int.shl · · nsw nuw) (LLVM.Int.shl · ·) c x k
+    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
+
+theorem select_into_lshr_swapped {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (exact : Bool) :
+    GMIR.selectNonzero c x (LLVM.Int.lshr x k exact) ⊒
+      LLVM.Int.lshr x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) :=
+  select_into_binop_swapped (LLVM.Int.lshr · · exact) (LLVM.Int.lshr · ·) c x k
+    (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
+
+theorem select_into_ashr_swapped {w : Nat} (hw : 0 < w) (c : LLVM.Int 1) (x k : LLVM.Int w)
+    (exact : Bool) :
+    GMIR.selectNonzero c x (LLVM.Int.ashr x k exact) ⊒
+      LLVM.Int.ashr x (GMIR.selectNonzero c (LLVM.Int.constant w 0) k) :=
+  select_into_binop_swapped (LLVM.Int.ashr · · exact) (LLVM.Int.ashr · ·) c x k
     (by select_shift_tac hw) (by select_shift_tac hw) (by select_shift_tac hw)
 
 theorem select_into_sub {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) (nsw nuw : Bool) :
@@ -1429,6 +1478,19 @@ theorem trunc_ext_of_lt {s w W : Nat} (h1 : s < w) (h2 : w < W) (v : LLVM.Int s)
   cases v <;> simp [LLVM.Int.ext, LLVM.Int.trunc, LLVM.Int.cast, Id.run, BitVec.setWidth_append,
     Nat.not_le.mpr h1]
 
+/-- A zero extension truncated to an intermediate width is the zero extension to that width. -/
+theorem trunc_zext_of_lt {n w W : Nat} (hn : n < w) (hw : w < W) (c : LLVM.Int n) :
+    LLVM.Int.trunc (LLVM.Int.zext c W false (by omega)) w false false hw = LLVM.Int.zext c w false hn := by
+  cases c <;> simp [LLVM.Int.zext, LLVM.Int.trunc, Id.run, BitVec.setWidth_setWidth_of_le _ (Nat.le_of_lt hw)]
+
+/-- `widenTypeGroup .g_icmp (.type 0) .g_anyext` at an `i1` result, which the interpreter yields
+as is: the wide `g_icmp` zero-extends it, and the truncation reads it back. -/
+theorem icmp_result_widening_one {w W : Nat} (hw : w ≤ 1) (hw0 : 0 < w) (hW : 1 < W) (hwW : w < W)
+    (c : LLVM.Int 1) :
+    ∃ h : 1 = w, LLVM.Int.cast c h ⊒ LLVM.Int.trunc (LLVM.Int.zext c W false hW) w false false hwW := by
+  obtain rfl : w = 1 := by omega
+  exact ⟨rfl, by rw [LLVM.Int.cast_self, trunc_zext hW]; exact isRefinedBy_refl _⟩
+
 end Widening
 
 /-! ## Counting bits at every width
@@ -1691,6 +1753,973 @@ theorem usubSat_subo (x y : LLVM.Int w) :
   by_cases h1 : x.usubOverflow y <;> simp [h1]
 
 end Saturating
+
+/-! ## gMIR combines
+
+The local correctness lemmas of the gMIR combines of `Veir.Passes.Legalization.CombinerHelper`,
+whatever the flags of the matched operations, which only add poison to the source.
+
+The combines that run after legalization match integer types of at most 64 bits
+(`matchLegalInt`), the types the RISC-V 64 legalizer leaves. Their lemmas take that bound
+(`hw : w ≤ 64`) and are decided: `veir_bv_normalize` reduces the operations to bit-vector
+arithmetic under their poison checks, and `pbv_decide 64` bit-blasts it at every width up to the
+bound. A lemma that mentions the integer value of a constant first rewrites it into bit-vector
+arithmetic (`ofInt_toInt_add` and the like).
+
+The remaining lemmas hold at every width: those of the combines that run before legalization,
+and those `pbv_decide` does not decide, such as a bit reverse, a multiplication by a power of two
+given as a natural number, or a constant known by its integer value. `combine_tac` unfolds their
+operations, splits their poison checks, and closes the remaining bit-vector identity with `simp`,
+`omega` or `grind`'s ring solver. The interpreters are written in the `Id` monad, so their poison
+checks are equations at `Id (LLVM.Int w)`, which the `_id` lemmas below rewrite. -/
+
+section Combines
+
+/- Each case split of `combine_tac` uses part of its simp set. -/
+set_option linter.unusedSimpArgs false
+
+theorem ite_poison_eq_val_id {w : Nat} {c : Prop} [inst : Decidable c] {e : Id (LLVM.Int w)}
+    {v : BitVec w} :
+    @Eq (Id (LLVM.Int w)) (@ite (Id (LLVM.Int w)) c inst (@LLVM.Int.poison w) e)
+      (@LLVM.Int.val w v) ↔ ¬c ∧ @Eq (Id (LLVM.Int w)) e (@LLVM.Int.val w v) := by
+  split <;> simp_all
+
+theorem val_eq_val_id {w : Nat} {a b : BitVec w} :
+    @Eq (Id (LLVM.Int w)) (@LLVM.Int.val w a) (@LLVM.Int.val w b) ↔ a = b := by
+  simp [Id]
+
+theorem poison_eq_val_id {w : Nat} {b : BitVec w} :
+    @Eq (Id (LLVM.Int w)) (@LLVM.Int.poison w) (@LLVM.Int.val w b) ↔ False := by
+  simp [Id]
+
+theorem reverse_shiftLeft_reverse {w : Nat} (x : BitVec w) (n : Nat) :
+    (x.reverse <<< n).reverse = x >>> n := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  rw [BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD, BitVec.getElem_ushiftRight]
+  simp only [hi, decide_true, Bool.true_and, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_reverse,
+    BitVec.getMsbD_eq_getLsbD]
+  by_cases h : w - 1 - i < n
+  · simp only [h, decide_true, Bool.not_true, Bool.and_false, Bool.false_and]
+    rw [BitVec.getLsbD_of_ge _ _ (by omega)]
+  · simp only [h, decide_false, Bool.not_false, Bool.true_and, Bool.and_true,
+      show w - 1 - i < w by omega, decide_true, show w - 1 - i - n < w by omega]
+    congr 1
+    omega
+
+theorem reverse_ushiftRight_reverse {w : Nat} (x : BitVec w) (n : Nat) :
+    (x.reverse >>> n).reverse = x <<< n := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  rw [BitVec.getElem_reverse, BitVec.getMsbD_eq_getLsbD, BitVec.getElem_shiftLeft]
+  simp only [hi, decide_true, Bool.true_and, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_reverse,
+    BitVec.getMsbD_eq_getLsbD]
+  by_cases h : i < n
+  · simp only [h, decide_true, Bool.not_true, Bool.false_and, show ¬ n + (w - 1 - i) < w by omega,
+      decide_false, Bool.false_and]
+  · simp only [h, decide_false, Bool.not_false, Bool.true_and, show n + (w - 1 - i) < w by omega,
+      decide_true]
+    rw [← BitVec.getLsbD_eq_getElem]
+    congr 1
+    omega
+
+open Lean Meta in
+/-- Split, recursively, each local conjunction, e.g. the poison checks an operation passed. -/
+private meta partial def casesAnd (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    for decl in ← getLCtx do
+      if decl.isImplementationDetail then continue
+      unless (← instantiateMVars decl.type).isAppOfArity ``And 2 do continue
+      let subgoals ← goal.cases decl.fvarId
+      return (← subgoals.toList.mapM fun subgoal => casesAnd subgoal.mvarId).flatten
+    return [goal]
+
+open Lean Elab Tactic in
+local elab "casesAnd" : tactic => do
+  let goals ← getGoals
+  setGoals (← goals.flatMapM fun goal => casesAnd goal)
+
+local macro "llvm_refines" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
+  (repeat' split) <;>
+    try simp_all [poison_isRefinedBy, isRefinedBy_refl, isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
+      poison_eq_val_id, $ls,*]
+  all_goals casesAnd
+  all_goals (try subst_vars)
+  all_goals try simp_all [poison_isRefinedBy, isRefinedBy_refl, isRefinedBy_eq, ite_poison_eq_val_id, val_eq_val_id,
+      poison_eq_val_id, $ls,*]
+  all_goals try (simp only [BitVec.le_def, BitVec.lt_def, BitVec.toNat_ofNat, Nat.mod_two_pow_self,
+    BitVec.natCast_eq_ofNat, ge_iff_le] at *; omega)
+  all_goals grind))
+
+
+local macro "combine_tac" "[" ls:Lean.Parser.Tactic.simpLemma,* "]" : tactic => `(tactic| (
+  simp only [Int.add, Int.sub, Int.and, Int.or, Int.xor, Int.shl, Int.lshr, Int.ashr, Int.icmp, Int.zext,
+    Int.sext, Int.trunc, Int.bitreverse, Int.smin, Int.smax, Int.umin, Int.umax, GMIR.selectNonzero,
+    Id.run, pure]
+  llvm_refines [$ls,*]))
+
+variable {w : Nat}
+
+/-! ### Hoisting a logic operation over the hands of its operands -/
+
+theorem hoist_and_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    (x.shl s n₁ u₁).and (y.shl s n₂ u₂) ⊒ (x.and y).shl s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_or_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ d : Bool) :
+    (x.shl s n₁ u₁).or (y.shl s n₂ u₂) d ⊒ (x.or y).shl s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_xor_shl (hw : w ≤ 64) (x y s : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    (x.shl s n₁ u₁).xor (y.shl s n₂ u₂) ⊒ (x.xor y).shl s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_and_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
+    (x.lshr s e₁).and (y.lshr s e₂) ⊒ (x.and y).lshr s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_or_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ d : Bool) :
+    (x.lshr s e₁).or (y.lshr s e₂) d ⊒ (x.or y).lshr s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_xor_lshr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
+    (x.lshr s e₁).xor (y.lshr s e₂) ⊒ (x.xor y).lshr s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_and_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
+    (x.ashr s e₁).and (y.ashr s e₂) ⊒ (x.and y).ashr s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_or_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ d : Bool) :
+    (x.ashr s e₁).or (y.ashr s e₂) d ⊒ (x.or y).ashr s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_xor_ashr (hw : w ≤ 64) (x y s : LLVM.Int w) (e₁ e₂ : Bool) :
+    (x.ashr s e₁).xor (y.ashr s e₂) ⊒ (x.xor y).ashr s := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem and_and_and_right (x y z : BitVec w) : x &&& z &&& (y &&& z) = x &&& y &&& z := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_and]
+  cases x[i] <;> cases y[i] <;> cases z[i] <;> rfl
+
+theorem xor_and_and_right (x y z : BitVec w) : x &&& z ^^^ y &&& z = (x ^^^ y) &&& z := by
+  apply BitVec.eq_of_getElem_eq
+  intro i hi
+  simp only [BitVec.getElem_and, BitVec.getElem_xor]
+  cases x[i] <;> cases y[i] <;> cases z[i] <;> rfl
+
+theorem hoist_and_and (hw : w ≤ 64) (x y z : LLVM.Int w) : (x.and z).and (y.and z) ⊒ (x.and y).and z := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_or_and (hw : w ≤ 64) (x y z : LLVM.Int w) (d : Bool) : (x.and z).or (y.and z) d ⊒ (x.or y).and z := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem hoist_xor_and (hw : w ≤ 64) (x y z : LLVM.Int w) : (x.and z).xor (y.and z) ⊒ (x.xor y).and z := by
+  veir_bv_normalize
+  pbv_decide 64
+
+/-! ### Additive identities -/
+
+theorem sub_add_reg_x_add_y_sub_y (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    (x.add y n₁ u₁).sub y n₂ u₂ ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_add_reg_x_add_y_sub_x (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    (x.add y n₁ u₁).sub x n₂ u₂ ⊒ y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_add_reg_negate (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    x.sub (y.add x n₁ u₁) n₂ u₂ ⊒ (LLVM.Int.val 0#w).sub y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_add_reg_negate_x_first (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    x.sub (x.add y n₁ u₁) n₂ u₂ ⊒ (LLVM.Int.val 0#w).sub y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem add_sub_reg_0 (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : x.add (y.sub x n₁ u₁) n₂ u₂ ⊒ y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem add_sub_reg_1 (hw : w ≤ 64) (x y : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : (y.sub x n₁ u₁).add x n₂ u₂ ⊒ y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem same_val_zero_sub (hw : w ≤ 64) (x : LLVM.Int w) (n u : Bool) : x.sub x n u ⊒ LLVM.Int.val 0#w := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem same_val_zero_xor (hw : w ≤ 64) (x : LLVM.Int w) : x.xor x ⊒ LLVM.Int.val 0#w := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_same_val_and (hw : w ≤ 64) (x : LLVM.Int w) : x.and x ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_same_val_or (hw : w ≤ 64) (x : LLVM.Int w) (d : Bool) : x.or x d ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem APlusBMinusCMinusB (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    (a.add (b.sub c n₁ u₁) n₂ u₂).sub b n₃ u₃ ⊒ a.sub c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusBMinusCMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    (a.sub (b.sub c n₁ u₁) n₂ u₂).sub c n₃ u₃ ⊒ a.sub b := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusBPlusCMinusA (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    (a.sub b n₁ u₁).add (c.sub a n₂ u₂) n₃ u₃ ⊒ c.sub b := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusBPlusBMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    (a.sub b n₁ u₁).add (b.sub c n₂ u₂) n₃ u₃ ⊒ a.sub c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem APlusBMinusAPlusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    a.add (b.sub (a.add c n₁ u₁) n₂ u₂) n₃ u₃ ⊒ b.sub c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem APlusBMinusCPlusA (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    a.add (b.sub (c.add a n₁ u₁) n₂ u₂) n₃ u₃ ⊒ b.sub c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusBMinusA (hw : w ≤ 64) (a b : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) : a.sub (a.sub b n₁ u₁) n₂ u₂ ⊒ b := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusBMinusC (hw : w ≤ 64) (a b c : LLVM.Int w) (n₁ u₁ n₂ u₂ : Bool) :
+    a.sub (b.sub c n₁ u₁) n₂ u₂ ⊒ a.add (c.sub b) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem xor_of_and_with_same_reg (hw : w ≤ 64) (x y : LLVM.Int w) :
+    (x.and y).xor y ⊒ (x.xor (.val (BitVec.ofInt w (-1)))).and y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem combine_or_of_and_left (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : (x.and y).or x d ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem combine_or_of_and_left' (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : (y.and x).or x d ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem combine_or_of_and_right (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : x.or (x.and y) d ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem combine_or_of_and_right' (hw : w ≤ 64) (x y : LLVM.Int w) (d : Bool) : x.or (y.and x) d ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+/-! ### Casts of casts -/
+
+theorem trunc_of_zext (hw : w ≤ 64) {W : Nat} (hW : W ≤ 64) (x : LLVM.Int w) (h : w < W) (h' : W > w) (nneg nsw nuw : Bool) :
+    (x.zext W nneg h).trunc w nsw nuw h' ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem trunc_of_sext (hw : w ≤ 64) {W : Nat} (hW : W ≤ 64) (x : LLVM.Int w) (h : w < W) (h' : W > w) (nsw nuw : Bool) :
+    (x.sext W h).trunc w nsw nuw h' ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem zext_of_zext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64) (x : LLVM.Int w) (h₁ : w < M) (h₂ : M < W) (h₃ : w < W)
+    (n₁ n₂ : Bool) : (x.zext M n₁ h₁).zext W n₂ h₂ ⊒ x.zext W false h₃ := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sext_of_sext (hw : w ≤ 64) {M W : Nat} (hM : M ≤ 64) (hW : W ≤ 64) (x : LLVM.Int w) (h₁ : w < M) (h₂ : M < W) (h₃ : w < W) :
+    (x.sext M h₁).sext W h₂ ⊒ x.sext W h₃ := by
+  veir_bv_normalize
+  pbv_decide 64
+
+/-- Zero extension without `nneg` keeps refinement both ways. -/
+theorem zext_isRefinedBy_zext {W : Nat} (x y : LLVM.Int w) (h : w < W) :
+    x.zext W false h ⊒ y.zext W false h ↔ x ⊒ y := by
+  cases x <;> cases y <;> simp [Int.zext, Id.run, isRefinedBy_eq, poison_isRefinedBy, pure]
+  rename_i a b
+  constructor
+  · intro hab
+    apply BitVec.eq_of_toNat_eq
+    have := congrArg BitVec.toNat hab
+    have hW : 2 ^ w ≤ 2 ^ W := Nat.pow_le_pow_right (by decide) (Nat.le_of_lt h)
+    simpa [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le a.isLt hW),
+      Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le b.isLt hW)] using this
+  · rintro rfl; rfl
+
+/-! ### Bit reverse of a shifted bit reverse -/
+
+theorem bitreverse_shl (x s : LLVM.Int w) (n u : Bool) :
+    (x.bitreverse.shl s n u).bitreverse ⊒ x.lshr s := by
+  cases x <;> cases s <;> combine_tac [reverse_shiftLeft_reverse]
+
+theorem bitreverse_lshr (x s : LLVM.Int w) (e : Bool) :
+    (x.bitreverse.lshr s e).bitreverse ⊒ x.shl s := by
+  cases x <;> cases s <;> combine_tac [reverse_ushiftRight_reverse]
+
+/-! ### Comparisons against a binary operation of the compared value -/
+
+theorem add_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
+    (x.add y n u).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem add_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
+    (x.add y n u).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
+    (x.sub y n u).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) (n u : Bool) :
+    (x.sub y n u).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem xor_eq_self_iff (x y : BitVec w) : (x ^^^ y = x) ↔ y = 0#w := by
+  constructor
+  · intro h
+    have := congrArg (x ^^^ ·) h
+    simpa [← BitVec.xor_assoc] using this
+  · rintro rfl
+    simp
+
+theorem xor_beq_self (x y : BitVec w) : (x ^^^ y == x) = (y == 0#w) := by
+  rw [Bool.eq_iff_iff]
+  simp [xor_eq_self_iff]
+
+theorem xor_eq_self (hw : w ≤ 64) (x y : LLVM.Int w) : (x.xor y).icmp x .eq ⊒ y.icmp (.val 0#w) .eq := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem xor_ne_self (hw : w ≤ 64) (x y : LLVM.Int w) : (x.xor y).icmp x .ne ⊒ y.icmp (.val 0#w) .ne := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem ofBool_eq_zero (b : Bool) : (BitVec.ofBool b = 0#1) ↔ b = false := by
+  cases b <;> decide
+
+/-- Closes the select-to-min/max lemmas: both sides pick the same operand. -/
+local macro "select_minmax_tac" : tactic => `(tactic| (
+  simp [Int.icmp, Int.umax, Int.umin, Int.smax, Int.smin, GMIR.selectNonzero, Id.run, pure, IntPred.eval,
+    poison_isRefinedBy, ofBool_eq_zero]
+  all_goals (repeat' split)
+  all_goals simp_all [BitVec.ult, BitVec.ule, BitVec.slt, BitVec.sle, isRefinedBy_eq]
+  all_goals first | omega | (apply BitVec.eq_of_toNat_eq; omega) | (apply BitVec.eq_of_toInt_eq; omega)))
+
+/-! ### Selects -/
+
+theorem select_same_val (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : LLVM.Int wc) (x : LLVM.Int w) : GMIR.selectNonzero c x x ⊒ x := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_ugt_umax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ugt) x y ⊒ x.umax y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_uge_umax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .uge) x y ⊒ x.umax y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_sgt_smax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sgt) x y ⊒ x.smax y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_sge_smax (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sge) x y ⊒ x.smax y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_ult_umin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ult) x y ⊒ x.umin y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_ule_umin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .ule) x y ⊒ x.umin y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_slt_smin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .slt) x y ⊒ x.smin y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_sle_smin (hw : w ≤ 64) (x y : LLVM.Int w) : GMIR.selectNonzero (x.icmp y .sle) x y ⊒ x.smin y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem zext_of_select {wc W : Nat} (hwc : wc ≤ 64) (hW : W ≤ 64) (c : LLVM.Int wc) (x y : LLVM.Int w) (h : w < W) (nneg : Bool) :
+    (GMIR.selectNonzero c x y).zext W nneg h ⊒
+      GMIR.selectNonzero c (x.zext W false h) (y.zext W false h) := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem trunc_of_select {wc W : Nat} (hwc : wc ≤ 64) (hW : W ≤ 64) (c : LLVM.Int wc) (x y : LLVM.Int W) (h : W > w) (nsw nuw : Bool) :
+    (GMIR.selectNonzero c x y).trunc w nsw nuw h ⊒
+      GMIR.selectNonzero c (x.trunc w false false h) (y.trunc w false false h) := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+/-! ### Selects of a binary operation on the other arm, with the arms exchanged -/
+
+theorem select_into_add_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
+    GMIR.selectNonzero c x (x.add k n u) ⊒ x.add (GMIR.selectNonzero c (.val 0#w) k) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_add' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
+    GMIR.selectNonzero c (x.add k n u) x ⊒ x.add (GMIR.selectNonzero c k (.val 0#w)) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_sub_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
+    GMIR.selectNonzero c x (x.sub k n u) ⊒ x.sub (GMIR.selectNonzero c (.val 0#w) k) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_sub' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (n u : Bool) :
+    GMIR.selectNonzero c (x.sub k n u) x ⊒ x.sub (GMIR.selectNonzero c k (.val 0#w)) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_or_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (d : Bool) :
+    GMIR.selectNonzero c x (x.or k d) ⊒ x.or (GMIR.selectNonzero c (.val 0#w) k) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_or' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) (d : Bool) :
+    GMIR.selectNonzero c (x.or k d) x ⊒ x.or (GMIR.selectNonzero c k (.val 0#w)) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_xor_swapped {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) :
+    GMIR.selectNonzero c x (x.xor k) ⊒ x.xor (GMIR.selectNonzero c (.val 0#w) k) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+theorem select_into_xor' {wc : Nat} (c : LLVM.Int wc) (x k : LLVM.Int w) :
+    GMIR.selectNonzero c (x.xor k) x ⊒ x.xor (GMIR.selectNonzero c k (.val 0#w)) := by
+  cases c <;> cases x <;> cases k <;> combine_tac []
+
+/-! ### Combines of a matched constant
+
+The constant `c` is matched at the width of its result (see `matchConstant`), and the hypotheses on
+it are the predicates of its matcher.
+-/
+
+theorem ofInt_toInt_add (x y : BitVec w) : BitVec.ofInt w (x.toInt + y.toInt) = x + y := by
+  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_add]
+
+theorem ofInt_toInt_sub (x y : BitVec w) : BitVec.ofInt w (x.toInt - y.toInt) = x - y := by
+  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_sub]
+
+theorem ofInt_toInt_mul (x y : BitVec w) : BitVec.ofInt w (x.toInt * y.toInt) = x * y := by
+  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_mul]
+
+theorem ofInt_neg_toInt (x : BitVec w) : BitVec.ofInt w (-x.toInt) = -x := by
+  apply BitVec.eq_of_toInt_eq; simp [BitVec.toInt_ofInt, BitVec.toInt_neg]
+
+theorem right_identity_zero_sub (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
+    x.sub (.val c) n u ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem right_identity_zero_add (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
+    x.add (.val c) n u ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem right_identity_zero_or (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (d : Bool) :
+    x.or (.val c) d ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem right_identity_zero_xor (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) :
+    x.xor (.val c) ⊒ x := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_right_to_zero (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
+    x.mul (.val c) n u ⊒ .val c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_left_to_zero_mul (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n u : Bool) :
+    (LLVM.Int.val c).mul x n u ⊒ .val c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem right_identity_one_mul (x : LLVM.Int w) (c : BitVec w) (hc : c.toNat = 1) (n u : Bool) :
+    x.mul (.val c) n u ⊒ x := by
+  have : c = 1#w := by
+    apply BitVec.eq_of_toNat_eq; rw [hc]
+    have : 1 < 2 ^ w := by
+      rcases Nat.lt_or_ge 1 (2 ^ w) with h | h
+      · exact h
+      · have := c.isLt; omega
+    simp [Nat.mod_eq_of_lt this]
+  subst this
+  cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
+    llvm_refines [BitVec.mul_zero, BitVec.zero_mul, BitVec.mul_one]
+
+theorem sub_minus_one (hw : w ≤ 64) (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool) :
+    (LLVM.Int.val c).sub x n u ⊒ x.xor (.val c) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem ZeroMinusAPlusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
+    ((LLVM.Int.val c).sub a n₁ u₁).add b n₂ u₂ ⊒ b.sub a := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem APlusZeroMinusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
+    a.add ((LLVM.Int.val c).sub b n₁ u₁) n₂ u₂ ⊒ a.sub b := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusZeroMinusB (hw : w ≤ 64) (a b : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ : Bool) :
+    a.sub ((LLVM.Int.val c).sub b n₁ u₁) n₂ u₂ ⊒ a.add b := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_one_from_sub (x y : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 1) (n₁ u₁ n₂ u₂ : Bool) :
+    (x.sub y n₁ u₁).sub (.val c) n₂ u₂ ⊒ (y.xor (.val (BitVec.ofInt w (-1)))).add x := by
+  have : c = 1#w := by
+    rw [← BitVec.ofInt_toInt (x := c), hc]; simp
+  subst this
+  have hsub (a b : BitVec w) : a - b - 1#w = ~~~b + a := by
+    rw [BitVec.not_eq_neg_add]; simp only [BitVec.sub_eq_add_neg]; ac_rfl
+  rw [ofInt_neg_one]
+  cases x <;> cases y <;> combine_tac [BitVec.xor_allOnes, hsub]
+
+theorem APlusC1MinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    (a.add (.val c₁) n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
+      a.add (.val (BitVec.ofInt w (c₁.toInt - c₂.toInt))) := by
+  simp only [ofInt_toInt_sub, ofInt_toInt_add]
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem C2MinusAPlusC1 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    (LLVM.Int.val c₂).sub (a.add (.val c₁) n₁ u₁) n₂ u₂ ⊒
+      (LLVM.Int.val (BitVec.ofInt w (c₂.toInt - c₁.toInt))).sub a := by
+  simp only [ofInt_toInt_sub, ofInt_toInt_add]
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusC1MinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    (a.sub (.val c₁) n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
+      a.sub (.val (BitVec.ofInt w (c₁.toInt + c₂.toInt))) := by
+  simp only [ofInt_toInt_sub, ofInt_toInt_add]
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem C1MinusAMinusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    ((LLVM.Int.val c₁).sub a n₁ u₁).sub (.val c₂) n₂ u₂ ⊒
+      (LLVM.Int.val (BitVec.ofInt w (c₁.toInt - c₂.toInt))).sub a := by
+  simp only [ofInt_toInt_sub, ofInt_toInt_add]
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem AMinusC1PlusC2 (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    (a.sub (.val c₁) n₁ u₁).add (.val c₂) n₂ u₂ ⊒
+      a.add (.val (BitVec.ofInt w (c₂.toInt - c₁.toInt))) := by
+  simp only [ofInt_toInt_sub, ofInt_toInt_add]
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_left_to_zero_shl (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (n u : Bool) :
+    (LLVM.Int.val c).shl s n u ⊒ .val c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_left_to_zero_lshr (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (e : Bool) :
+    (LLVM.Int.val c).lshr s e ⊒ .val c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem binop_left_to_zero_ashr (hw : w ≤ 64) (c : BitVec w) (hc : c = 0) (s : LLVM.Int w) (e : Bool) :
+    (LLVM.Int.val c).ashr s e ⊒ .val c := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_of_mul_const (a x : LLVM.Int w) (c : BitVec w) (n₁ u₁ n₂ u₂ : Bool) :
+    a.sub (x.mul (.val c) n₁ u₁) n₂ u₂ ⊒ a.add (x.mul (.val (BitVec.ofInt w (-c.toInt)))) := by
+  rw [ofInt_neg_toInt]
+  cases a <;> cases x <;> simp only [LLVM.Int.mul, Id.run, pure] <;>
+    combine_tac [BitVec.mul_neg, BitVec.sub_eq_add_neg]
+
+theorem mul_by_neg_one (x : LLVM.Int w) (c : BitVec w) (hc : c = -1) (n u : Bool) :
+    x.mul (.val c) n u ⊒ (LLVM.Int.val 0#w).sub x n := by
+  subst hc
+  cases x with
+  | poison => simp [LLVM.Int.mul, Id.run, poison_isRefinedBy]
+  | val x =>
+    have hov : BitVec.smulOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
+      rcases Nat.eq_zero_or_pos w with rfl | hw
+      · simp [BitVec.smulOverflow, BitVec.ssubOverflow, BitVec.toInt_of_zero_length]
+      have hm : (-1#w).toInt = -1 := by
+        rw [BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]; simp [hw]
+      simp only [BitVec.smulOverflow, BitVec.ssubOverflow, hm, BitVec.toInt_zero]
+      congr 1 <;> simp <;> omega
+    simp only [LLVM.Int.mul, LLVM.Int.sub, Id.run, pure, hov]
+    llvm_refines [BitVec.mul_neg, BitVec.mul_one, BitVec.zero_sub]
+
+theorem mulo_by_2 (x : LLVM.Int w) (c : BitVec w) (hc : c.toInt = 2) (n u : Bool) :
+    x.mul (.val c) n u ⊒ x.add x n u := by
+  have hn : c.toNat = 2 := by
+    have := BitVec.toInt_eq_toNat_of_msb (x := c); grind [BitVec.toInt_eq_toNat_cond]
+  cases x with
+  | poison => simp [LLVM.Int.mul, Id.run, poison_isRefinedBy]
+  | val x =>
+    have hs : BitVec.smulOverflow x c = BitVec.saddOverflow x x := by
+      simp only [BitVec.smulOverflow, BitVec.saddOverflow, hc]; congr 1 <;> simp <;> omega
+    have hu : BitVec.umulOverflow x c = BitVec.uaddOverflow x x := by
+      simp only [BitVec.umulOverflow, BitVec.uaddOverflow, hn]; congr 1; simp; omega
+    have hv : x * c = x + x := by
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.toNat_mul, BitVec.toNat_add, hn, Nat.mul_two]
+    simp only [LLVM.Int.mul, LLVM.Int.add, Id.run, hs, hu, hv]
+    exact isRefinedBy_refl _
+
+theorem add_shift (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    a.add (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂) n₃ u₃ ⊒ a.sub (b.shl s) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem add_shift' (hw : w ≤ 64) (a b s : LLVM.Int w) (c : BitVec w) (hc : c = 0) (n₁ u₁ n₂ u₂ n₃ u₃ : Bool) :
+    (((LLVM.Int.val c).sub b n₁ u₁).shl s n₂ u₂).add a n₃ u₃ ⊒ a.sub (b.shl s) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem NotAPlusNegOne (x : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = -1) (h₂ : c₂ = -1)
+    (n u : Bool) :
+    (x.add (.val c₁) n u).xor (.val c₂) ⊒ (LLVM.Int.val 0#w).sub x n u := by
+  subst h₁ h₂
+  cases x with
+  | poison => simp [LLVM.Int.add, LLVM.Int.xor, Id.run, poison_isRefinedBy]
+  | val x =>
+    have hs : BitVec.saddOverflow x (-1#w) = BitVec.ssubOverflow 0#w x := by
+      rcases Nat.eq_zero_or_pos w with rfl | hw
+      · simp [BitVec.saddOverflow, BitVec.ssubOverflow, BitVec.toInt_of_zero_length]
+      have hm : (-1#w).toInt = -1 := by
+        rw [BitVec.neg_one_eq_allOnes, BitVec.toInt_allOnes]; simp [hw]
+      have := BitVec.toInt_lt (x := x); have := BitVec.le_toInt (x := x)
+      simp only [BitVec.saddOverflow, BitVec.ssubOverflow, hm, BitVec.toInt_zero]
+      rw [Bool.eq_iff_iff]; simp; omega
+    have hu : BitVec.uaddOverflow x (-1#w) = BitVec.usubOverflow 0#w x := by
+      have hmn : (-1#w).toNat = 2 ^ w - 1 := by
+        rw [BitVec.neg_one_eq_allOnes, BitVec.toNat_allOnes]
+      have := Nat.one_le_two_pow (n := w)
+      have := x.isLt
+      simp only [BitVec.uaddOverflow, BitVec.usubOverflow, hmn, BitVec.toNat_zero]
+      rw [Bool.eq_iff_iff]
+      by_cases hx : 0 < x.toNat <;> simp [hx] <;> omega
+    have hv : (x + -1#w) ^^^ -1#w = 0#w - x := by
+      rw [BitVec.neg_one_eq_allOnes, BitVec.xor_allOnes, BitVec.not_eq_neg_add, BitVec.zero_sub,
+        ← BitVec.neg_one_eq_allOnes]
+      rw [_root_.BitVec.neg_add, _root_.BitVec.sub_neg, _root_.BitVec.add_sub_cancel]
+    simp only [LLVM.Int.add, LLVM.Int.sub, LLVM.Int.xor, Id.run, pure, hs, hu]
+    llvm_refines [hv]
+
+theorem and_not_or_self (x y : BitVec w) : x &&& (y ^^^ BitVec.allOnes w) ||| y = x ||| y := by
+  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
+
+theorem or_not_and_self (x y : BitVec w) : (x ||| (y ^^^ BitVec.allOnes w)) &&& y = x &&& y := by
+  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
+
+theorem and_or_not_self (x y : BitVec w) :
+    x &&& y ||| (y ^^^ BitVec.allOnes w) = x ||| (y ^^^ BitVec.allOnes w) := by
+  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
+
+theorem or_and_not_self (x y : BitVec w) :
+    (x ||| y) &&& (y ^^^ BitVec.allOnes w) = x &&& (y ^^^ BitVec.allOnes w) := by
+  ext i hi; simp; cases x[i] <;> cases y[i] <;> rfl
+
+theorem or_and_xor_to_or (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
+    (x.and (y.xor (.val c))).or y d ⊒ x.or y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem or_and_xor_to_or' (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
+    (x.or (y.xor (.val c)) d).and y ⊒ x.and y := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem or_and_xor_to_xor_or (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
+    (x.and y).or (y.xor (.val c)) d ⊒ x.or (y.xor (.val c)) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem or_and_xor_to_xor_or' (hw : w ≤ 64) (x y : LLVM.Int w) (c : BitVec w) (hc : c = -1#w) (d : Bool) :
+    (x.or y d).and (y.xor (.val c)) ⊒ x.and (y.xor (.val c)) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem simplify_neg_smax (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
+    (n₁ u₁ n₂ u₂ : Bool) :
+    (LLVM.Int.val c₁).sub (a.smax ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
+      a.smin ((LLVM.Int.val c₂).sub a n₁ u₁) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem simplify_neg_umax (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
+    (n₁ u₁ n₂ u₂ : Bool) :
+    (LLVM.Int.val c₁).sub (a.umax ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
+      a.umin ((LLVM.Int.val c₂).sub a n₁ u₁) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem simplify_neg_smin (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
+    (n₁ u₁ n₂ u₂ : Bool) :
+    (LLVM.Int.val c₁).sub (a.smin ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
+      a.smax ((LLVM.Int.val c₂).sub a n₁ u₁) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem simplify_neg_umin (hw : w ≤ 64) (a : LLVM.Int w) (c₁ c₂ : BitVec w) (h₁ : c₁ = 0) (h₂ : c₂ = 0)
+    (n₁ u₁ n₂ u₂ : Bool) :
+    (LLVM.Int.val c₁).sub (a.umin ((LLVM.Int.val c₂).sub a n₁ u₁)) n₂ u₂ ⊒
+      a.umax ((LLVM.Int.val c₂).sub a n₁ u₁) := by
+  veir_bv_normalize
+  pbv_decide 64
+
+/-- The predicate of the negated comparison, as `not_cmp_fold_pattern` pairs them. -/
+@[expose] def IntPred.inverse : IntPred → IntPred
+  | .eq => .ne | .ne => .eq | .ugt => .ule | .uge => .ult | .ult => .uge | .ule => .ugt
+  | .sgt => .sle | .sge => .slt | .slt => .sge | .sle => .sgt
+
+theorem IntPred.eval_inverse {v : Nat} (p : IntPred) (a b : BitVec v) :
+    p.inverse.eval a b = !p.eval a b := by
+  cases p <;> simp [IntPred.inverse, IntPred.eval, BitVec.ult, BitVec.ule, BitVec.slt, BitVec.sle,
+    BitVec.lt_def, BitVec.le_def]
+  all_goals first
+    | rfl
+    | simp [bne]
+    | (rw [Bool.eq_iff_iff]; simp only [Bool.not_eq_true', decide_eq_true_eq, decide_eq_false_iff_not]; omega)
+
+theorem not_cmp_fold {v : Nat} (x y : LLVM.Int v) (p : IntPred) (c : BitVec 1) (hc : c.toNat = 1) :
+    (x.icmp y p).xor (.val c) ⊒ x.icmp y p.inverse := by
+  have : c = 1#1 := BitVec.eq_of_toNat_eq (by simp [hc])
+  subst this
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, Id.run, poison_isRefinedBy,
+    IntPred.eval_inverse]
+  rename_i a b
+  cases p.eval a b <;> exact isRefinedBy_refl _
+
+theorem not_cmp_fold_zext {v W : Nat} (x y : LLVM.Int v) (p : IntPred) (h : 1 < W) (c : BitVec W)
+    (hc : c.toNat = 1) :
+    ((x.icmp y p).zext W false h).xor (.val c) ⊒ (x.icmp y p.inverse).zext W false h := by
+  have : c = 1#W := BitVec.eq_of_toNat_eq (by
+    simp [hc, Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le h (Nat.le_of_lt Nat.lt_two_pow_self))])
+  subst this
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, LLVM.Int.xor, LLVM.Int.zext, Id.run,
+    poison_isRefinedBy, IntPred.eval_inverse]
+  rename_i a b
+  cases p.eval a b <;>
+    simp [BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt (by decide : 0 < 1), isRefinedBy_refl]
+
+theorem or_beq_zero {v : Nat} (a b : BitVec v) : (a ||| b == 0#v) = (a == 0#v && b == 0#v) := by
+  rw [Bool.eq_iff_iff]; simp [BitVec.or_eq_zero_iff]
+
+theorem or_bne_zero {v : Nat} (a b : BitVec v) : (a ||| b != 0#v) = (a != 0#v || b != 0#v) := by
+  rw [Bool.eq_iff_iff]; simp [BitVec.or_eq_zero_iff]; by_cases a = 0#v <;> simp_all
+
+theorem double_icmp_zero_and (hw : w ≤ 64) {v : Nat} (hv : v ≤ 64) (x y : LLVM.Int v) (c₁ c₂ : BitVec v) (h₁ : c₁ = 0)
+    (h₂ : c₂ = 0) :
+    (x.icmp (.val c₁) .eq).and (y.icmp (.val c₂) .eq) ⊒ (x.or y).icmp (.val c₁) .eq := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem double_icmp_zero_or (hw : w ≤ 64) {v : Nat} (hv : v ≤ 64) (x y : LLVM.Int v) (c₁ c₂ : BitVec v) (h₁ : c₁ = 0)
+    (h₂ : c₂ = 0) (d : Bool) :
+    (x.icmp (.val c₁) .ne).or (y.icmp (.val c₂) .ne) d ⊒ (x.or y).icmp (.val c₁) .ne := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem double_icmp_zero_and_zext (hw : w ≤ 64) {v W : Nat} (hv : v ≤ 64) (hW : W ≤ 64) (h : 1 < W) (x y : LLVM.Int v) (c₁ c₂ : BitVec v)
+    (h₁ : c₁ = 0) (h₂ : c₂ = 0) :
+    ((x.icmp (.val c₁) .eq).zext W false h).and ((y.icmp (.val c₂) .eq).zext W false h) ⊒
+      ((x.or y).icmp (.val c₁) .eq).zext W false h := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem double_icmp_zero_or_zext (hw : w ≤ 64) {v W : Nat} (hv : v ≤ 64) (hW : W ≤ 64) (h : 1 < W) (x y : LLVM.Int v) (c₁ c₂ : BitVec v)
+    (h₁ : c₁ = 0) (h₂ : c₂ = 0) (d : Bool) :
+    ((x.icmp (.val c₁) .ne).zext W false h).or ((y.icmp (.val c₂) .ne).zext W false h) d ⊒
+      ((x.or y).icmp (.val c₁) .ne).zext W false h := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem constant_fold_add (c₁ c₂ : BitVec w) (n u : Bool) :
+    (LLVM.Int.val c₁).add (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt + c₂.toInt)) := by
+  simp only [ofInt_toInt_add]
+  veir_bv_normalize
+
+theorem constant_fold_sub (c₁ c₂ : BitVec w) (n u : Bool) :
+    (LLVM.Int.val c₁).sub (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt - c₂.toInt)) := by
+  simp only [ofInt_toInt_sub]
+  veir_bv_normalize
+
+theorem constant_fold_mul (c₁ c₂ : BitVec w) (n u : Bool) :
+    (LLVM.Int.val c₁).mul (.val c₂) n u ⊒ .val (BitVec.ofInt w (c₁.toInt * c₂.toInt)) := by
+  simp only [ofInt_toInt_mul]
+  veir_bv_normalize
+
+theorem constant_fold_smin (c₁ c₂ : BitVec w) :
+    (LLVM.Int.val c₁).smin (.val c₂) ⊒ .val (BitVec.ofInt w (min c₁.toInt c₂.toInt)) := by
+  simp only [LLVM.Int.smin, Id.run, BitVec.sle, Int.min_def]
+  split <;> split <;> simp_all [BitVec.ofInt_toInt, isRefinedBy_refl] <;> omega
+
+theorem constant_fold_smax (c₁ c₂ : BitVec w) :
+    (LLVM.Int.val c₁).smax (.val c₂) ⊒ .val (BitVec.ofInt w (max c₁.toInt c₂.toInt)) := by
+  simp only [LLVM.Int.smax, Id.run, BitVec.sle, Int.max_def]
+  split <;> split <;> simp_all [BitVec.ofInt_toInt, isRefinedBy_refl] <;> omega
+
+theorem select_constant_cmp_nonzero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : ¬ c = 0#wc) (x y : LLVM.Int w) :
+    GMIR.selectNonzero (.val c) x y ⊒ x := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem select_constant_cmp_zero (hw : w ≤ 64) {wc : Nat} (hwc : wc ≤ 64) (c : BitVec wc) (hc : c = 0#wc) (x y : LLVM.Int w) :
+    GMIR.selectNonzero (.val c) x y ⊒ y := by
+  subst_vars
+  veir_bv_normalize
+  pbv_decide 64
+
+theorem sub_to_add (a : LLVM.Int w) (c : BitVec w) (n u : Bool) :
+    a.sub (.val c) n u ⊒
+      a.add (.val (BitVec.ofInt w (-c.toInt))) (n && !decide (c = BitVec.intMin w)) := by
+  rw [ofInt_neg_toInt]
+  cases a with
+  | poison => simp [LLVM.Int.sub, Id.run, poison_isRefinedBy]
+  | val a =>
+    by_cases hmin : c = BitVec.intMin w
+    · simp only [hmin, decide_true, Bool.not_true, Bool.and_false]
+      simp only [LLVM.Int.sub, LLVM.Int.add, Id.run, pure]
+      llvm_refines [BitVec.sub_eq_add_neg]
+    · have hs : BitVec.saddOverflow a (-c) = BitVec.ssubOverflow a c := by
+        simp only [BitVec.saddOverflow, BitVec.ssubOverflow, BitVec.toInt_neg_of_ne_intMin hmin]
+        congr 1 <;> simp <;> omega
+      simp only [hmin, decide_false, Bool.not_false, Bool.and_true]
+      simp only [LLVM.Int.sub, LLVM.Int.add, Id.run, pure, hs]
+      llvm_refines [BitVec.sub_eq_add_neg]
+
+/-- `redundant_and_select_pattern`, whose mask `k` is odd as an integer, at every width. -/
+theorem and_select_bool_odd {wc : Nat} (c : LLVM.Int wc) (t f : LLVM.Int w) (k : _root_.Int)
+    (hk : k % 2 = 1)
+    (ht : t = .poison ∨ t = .val 0#w ∨ t = .val 1#w)
+    (hf : f = .poison ∨ f = .val 0#w ∨ f = .val 1#w) :
+    LLVM.Int.and (GMIR.selectNonzero c t f) (.val (BitVec.ofInt w k)) ⊒ GMIR.selectNonzero c t f := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · generalize GMIR.selectNonzero c t f = r
+    cases r <;> simp [LLVM.Int.and, Id.run, poison_isRefinedBy, isRefinedBy_refl,
+      BitVec.of_length_zero]
+  · rw [and_select_bool c t f _ _ ht hf]
+    · exact isRefinedBy_refl _
+    · have hd : (2 : _root_.Int) ∣ ((2 ^ w : Nat) : _root_.Int) := by
+        refine ⟨((2 ^ (w - 1) : Nat) : _root_.Int), ?_⟩
+        rw [show w = (w - 1) + 1 by omega, Nat.pow_succ]
+        push_cast
+        rw [_root_.Int.mul_comm]
+      have h0 : 0 ≤ k % ((2 ^ w : Nat) : _root_.Int) :=
+        _root_.Int.emod_nonneg _ (by have := Nat.two_pow_pos w; omega)
+      have h1 : (k % ((2 ^ w : Nat) : _root_.Int)) % 2 = 1 := by
+        rw [_root_.Int.emod_emod_of_dvd _ hd]; exact hk
+      simp only [BitVec.toNat_ofInt]
+      omega
+
+/-- An `i1` comparison arm of `redundant_and_select_pattern` is poison, zero or one. -/
+theorem icmp_eq_poison_or_zero_or_one {v : Nat} (x y : LLVM.Int v) (p : IntPred) :
+    x.icmp y p = .poison ∨ x.icmp y p = .val 0#1 ∨ x.icmp y p = .val 1#1 := by
+  cases x <;> cases y <;> simp [LLVM.Int.icmp, Id.run]
+  rename_i a b
+  cases p.eval a b <;> simp
+
+/-- A constant arm of `redundant_and_select_pattern` is zero or one. -/
+theorem boolArm_of_constant (c : BitVec w) (h : c = 0 ∨ c = 1) :
+    LLVM.Int.val c = .poison ∨ LLVM.Int.val c = .val 0#w ∨ LLVM.Int.val c = .val 1#w := by
+  rcases h with rfl | rfl <;> simp
+
+/-- Prove the correctness of `mul_to_shl_pattern`: `x * 2^k` → `x << k`, whose flags carry over. A
+multiplication that does not overflow makes the shift's no-wrap checks pass. -/
+theorem mul_twoPow_shl (x : LLVM.Int w) (k : Nat) (hk : k + 1 < w) (n u : Bool) :
+    x.mul (.val (BitVec.twoPow w k)) n u ⊒ x.shl (LLVM.Int.constant w k) n u := by
+  have hkw : k < 2 ^ w := Nat.lt_trans (by omega) Nat.lt_two_pow_self
+  have hlt : 2 ^ k < 2 ^ w := Nat.pow_lt_pow_right (by decide) (by omega)
+  have hkn : (BitVec.ofInt w (k : _root_.Int)).toNat = k := by
+    rw [BitVec.ofInt_natCast, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hkw]
+  have hrange : ¬ (w : BitVec w) ≤ BitVec.ofInt w (k : _root_.Int) :=
+    BitVec.not_le.mpr (BitVec.lt_ofInt_natCast_ofNat_of_lt (by omega))
+  have hti : (BitVec.twoPow w k).toInt = 2 ^ k := by
+    rw [BitVec.toInt_twoPow]
+    simp only [show ¬ w ≤ k by omega, show ¬ k + 1 = w by omega, ite_false]
+  cases x with
+  | poison => simp [LLVM.Int.mul, Id.run, poison_isRefinedBy]
+  | val x =>
+    have hv : x <<< BitVec.ofInt w (k : _root_.Int) = x * BitVec.twoPow w k := by
+      rw [BitVec.shiftLeft_eq', hkn, BitVec.shiftLeft_eq_mul_twoPow]
+    have hnuw (h : ¬ BitVec.umulOverflow x (BitVec.twoPow w k) = true) :
+        x <<< BitVec.ofInt w (k : _root_.Int) >>> BitVec.ofInt w (k : _root_.Int) = x := by
+      simp only [BitVec.umulOverflow, BitVec.toNat_twoPow_of_lt (by omega : k < w),
+        decide_eq_true_eq, ge_iff_le, Nat.not_le] at h
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.ushiftRight_eq', hkn, hv, BitVec.toNat_ushiftRight, BitVec.toNat_mul,
+        BitVec.toNat_twoPow_of_lt (by omega), Nat.mod_eq_of_lt h, Nat.shiftRight_eq_div_pow,
+        Nat.mul_div_cancel _ (Nat.two_pow_pos k)]
+    have hnsw (h : ¬ BitVec.smulOverflow x (BitVec.twoPow w k) = true) :
+        (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight' (BitVec.ofInt w (k : _root_.Int)) = x := by
+      simp only [BitVec.smulOverflow, hti, Bool.or_eq_true, decide_eq_true_eq, not_or,
+        ge_iff_le, _root_.Int.not_le, _root_.Int.not_lt] at h
+      apply BitVec.eq_of_toInt_eq
+      rw [BitVec.sshiftRight_eq', hkn, hv, BitVec.toInt_sshiftRight, BitVec.toInt_mul, hti,
+        bmod_two_pow_of_range (by omega) h.2 h.1, _root_.Int.shiftRight_eq_div_pow]
+      have hpos : (0 : _root_.Int) < 2 ^ k := by exact_mod_cast Nat.two_pow_pos k
+      push_cast
+      exact _root_.Int.mul_ediv_cancel _ (_root_.Int.ne_of_gt hpos)
+    simp only [LLVM.Int.mul, LLVM.Int.shl, LLVM.Int.constant, Id.run, pure, ge_iff_le, hrange,
+      ite_false]
+    by_cases hs : n = true ∧ BitVec.smulOverflow x (BitVec.twoPow w k) = true
+    · simp [hs, poison_isRefinedBy]
+    by_cases hu : u = true ∧ BitVec.umulOverflow x (BitVec.twoPow w k) = true
+    · simp [hu, poison_isRefinedBy]
+    have hs' : ¬ (n = true ∧ (x <<< BitVec.ofInt w (k : _root_.Int)).sshiftRight'
+        (BitVec.ofInt w (k : _root_.Int)) ≠ x) := by
+      rintro ⟨hn, hne⟩; exact hne (hnsw fun h => hs ⟨hn, h⟩)
+    have hu' : ¬ (u = true ∧ x <<< BitVec.ofInt w (k : _root_.Int) >>>
+        BitVec.ofInt w (k : _root_.Int) ≠ x) := by
+      rintro ⟨hn, hne⟩; exact hne (hnuw fun h => hu ⟨hn, h⟩)
+    simp only [hs, hu, hs', hu', ite_false]
+    rw [hv]
+    exact isRefinedBy_refl _
+
+end Combines
 
 end Veir.Data.LLVM
 

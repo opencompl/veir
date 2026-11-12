@@ -47,7 +47,9 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
     Pattern OpCode :=
   let info := opcode.genericOpInfo
   let matchType (group : TypeGroup) : MatchProg.Builder (Handle OpCode .type) :=
-    if group = typeIdx then MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+    -- The verifier rejects `i0`, at which `g_icmp` yields an `i1` that is not its result type.
+    if group = typeIdx then
+      MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
     else MatchProg.type (Attr := TypeAttr)
   Pattern.Builder
     (do
@@ -167,7 +169,8 @@ bits, so it is shifted back down before it is truncated, as in LLVM's `Legalizer
 def widenReverse (opcode : GMIR) (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
+      -- The verifier rejects `i0`, at which the shift down by the whole wide width is poison.
+      let type ← MatchProg.type (Attr := IntegerType) fun t => 0 < t.bitwidth && t.bitwidth < width
       let src ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[src] #[type]
       return (type, src))

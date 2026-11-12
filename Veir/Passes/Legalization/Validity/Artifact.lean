@@ -18,7 +18,8 @@ meta import Veir.Meta.Tactic.BVDecide
 
 /-! CTree validity of the legalization artifact combines of `tryCombineInstruction`.
 
-`combineZExtOfTruncOfICmp` accepts a truncation to `i0`, which drops the bit of the `g_icmp`. -/
+`combineAnyExtOfAnyExt` chooses the high bits of a matched `g_anyext` afresh
+(`rechoosesMatchedChoice`). -/
 
 namespace Veir.Legalization.CTreeProofs
 
@@ -105,6 +106,10 @@ theorem artifact_unmerge_merge_valid : Puddle.CTree.Pattern.Valid combineUnmerge
   | 0, _ => exact key.1
   | 1, _ => exact key.2
 
+/-- The truncation keeps the bit of the `g_icmp`, as the matcher excludes `i0`. -/
+theorem artifact_zext_trunc_icmp_valid : Puddle.CTree.Pattern.Valid combineZExtOfTruncOfICmp := by
+  proveLegalValid using Data.LLVM.zext_trunc_zext_bit
+
 /-! ## Status of every artifact combine -/
 
 @[legalization_status]
@@ -130,7 +135,7 @@ theorem artifact_3_status :
 @[legalization_status]
 theorem artifact_4_status :
     Status Unproven (combineZExtOfTruncOfICmp) :=
-  .unproven .widthDependent
+  .proven artifact_zext_trunc_icmp_valid
 
 @[legalization_status]
 theorem artifact_5_status :

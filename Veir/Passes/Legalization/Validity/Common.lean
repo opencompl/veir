@@ -34,6 +34,10 @@ opcode metadata to `simp` with local attributes (see `Validity/Basic.lean`). Eac
 `Veir.Passes.Legalization.Validity`. -/
 register_simp_attr legalization_status
 
+/-- The `Pattern.Valid` proof of each gMIR combine, looked up by the theorems of
+`Veir.Passes.Legalization.Validity` that every combine of the combiner passes is valid. -/
+register_simp_attr combine_valid
+
 namespace Veir.Legalization.CTreeProofs
 
 open Puddle
@@ -44,8 +48,11 @@ public section
 
 /-- Why a legalization rule or gMIR combine has no CTree validity proof. -/
 inductive Unproven where
-  /-- The rule is wrong at some widths: `g_bswap` is only defined at widths 16, 32 and 64, and
-  other rules are wrong at the degenerate width 0, or from width `2^64`. -/
+  /-- The rule is wrong at some widths, which `Pattern.Valid` quantifies over: `g_bswap` is only
+  defined at widths 16, 32 and 64, `lowerSext` passes the source width as a 64-bit size, and
+  `lowerFunnelShift` shifts by one, which is poison at width 1, and computes the amount in the
+  amount's type, which must hold the width. (The verifier rejects `i0`, and the matchers of the
+  rules that are only wrong there exclude it.) -/
   | widthDependent
   /-- The rewrite drops a matched `g_anyext` and extends its operand again. The matched operation's
   high bits are fixed once it has run, and may reach its other uses, while the new `g_anyext`
@@ -128,8 +135,10 @@ macro "proveLegalValid" "using" lemma:term : tactic => `(tactic| (
   simpLegalSemantics
   normalizeLegalValid
   all_goals intros
-  /- Strip the truncations of extended values that a narrow operation reads back. -/
-  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext])
+  /- Strip the truncations of extended values that a narrow operation reads back, and the
+  zero extensions of `g_icmp` results to their result type, on both sides or in a condition. -/
+  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, Data.LLVM.zext_isRefinedBy_zext,
+    Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
   all_goals first
     | (apply $lemma <;> simp_all)
     | simp_all [$lemma:term]))
@@ -142,7 +151,8 @@ macro "proveLegalValid" "with" closer:tacticSeq : tactic => `(tactic| (
   simpLegalSemantics
   normalizeLegalValid
   all_goals intros
-  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext])
+  all_goals (try simp only [Data.LLVM.trunc_ext, Data.LLVM.trunc_sext, Data.LLVM.zext_isRefinedBy_zext,
+    Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
   all_goals ($closer)))
 
 /-- Print the normalized goals of a gMIR pattern validity proof. Used to state local lemmas. -/
