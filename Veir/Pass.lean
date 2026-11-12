@@ -122,32 +122,51 @@ def ofString? {OpInfo : Type} [HasOpInfo OpInfo]
   return { passes := passes.toArray }
 
 /--
+  Run `pass` under `options` on the module, then verify the IR unless `disableVerifiers`.
+  If `timePasses` is set, report the time taken by the pass and the verification to stderr.
+-/
+@[expose]
+def step (pass : Pass OpCode) (options : PassOptions) (ctx : WfIRContext OpCode)
+    (moduleOp : OperationPtr) (disableVerifiers timePasses : Bool) :
+    ExceptT String IO (WfIRContext OpCode) := do
+  if h : moduleOp.InBounds ctx.raw then
+    let passStart ← (if timePasses then liftM IO.monoNanosNow else pure 0 : ExceptT String IO Nat)
+    let ctx' ← try pass.run options ctx moduleOp h
+               catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
+    if timePasses then reportTime pass.name passStart
+    if !disableVerifiers then
+      let verifyStart ← (if timePasses then liftM IO.monoNanosNow else pure 0 : ExceptT String IO Nat)
+      if let .error errMsg := ctx'.verify moduleOp then
+        throw s!"verification failed after pass '{pass.name}': {errMsg}"
+      if timePasses then reportTime s!"verify after {pass.name}" verifyStart
+    return ctx'
+  else
+    throw s!"module is not in bounds before pass '{pass.name}'"
+
+/-- Run the passes in order, each with `step`, stopping at the first error. -/
+@[expose]
+def runFrom (passes : List (Pass OpCode × PassOptions)) (ctx : WfIRContext OpCode)
+    (moduleOp : OperationPtr) (disableVerifiers timePasses : Bool) :
+    ExceptT String IO (WfIRContext OpCode) :=
+  match passes with
+  | [] => pure ctx
+  | (pass, options) :: passes => do
+    let ctx ← step pass options ctx moduleOp disableVerifiers timePasses
+    runFrom passes ctx moduleOp disableVerifiers timePasses
+
+/--
   Run each pass in the pipeline in order, verifying the IR after each pass.
   If `timePasses` is set, report the time taken by each pass and verification to stderr.
   Returns the final context on success, or an error message on failure.
 -/
+@[expose]
 def run (pipeline : PassPipeline OpCode)
     (ctx : WfIRContext OpCode)
     (moduleOp : OperationPtr)
     (disableVerifiers : Bool)
     (timePasses : Bool := false) :
-    ExceptT String IO (WfIRContext OpCode) := do
-  let mut currentCtx := ctx
-  for (pass, options) in pipeline.passes do
-    if h : moduleOp.InBounds currentCtx.raw then
-      let passStart ← IO.monoNanosNow
-      let ctx' ← try pass.run options currentCtx moduleOp h
-                 catch errMsg => throw s!"pass '{pass.name}' failed: {errMsg}"
-      if timePasses then reportTime pass.name passStart
-      if !disableVerifiers then
-        let verifyStart ← IO.monoNanosNow
-        if let .error errMsg := ctx'.verify moduleOp then
-          throw s!"verification failed after pass '{pass.name}': {errMsg}"
-        if timePasses then reportTime s!"verify after {pass.name}" verifyStart
-      currentCtx := ctx'
-    else
-      throw s!"module is not in bounds before pass '{pass.name}'"
-  return currentCtx
+    ExceptT String IO (WfIRContext OpCode) :=
+  runFrom pipeline.passes.toList ctx moduleOp disableVerifiers timePasses
 
 end PassPipeline
 
