@@ -1,6 +1,7 @@
 module
 
 public import Veir.Passes.InstructionSelection.Branches.Frame
+public import Veir.Passes.Pipeline.Soundness
 public import Veir.Passes.InstructionSelection.Branches.SimulationCTree
 
 import all Veir.Passes.InstructionSelection.RISCV64Branches
@@ -1927,7 +1928,7 @@ theorem ISelBrPass.checkInput_strict {ctx : WfIRContext OpCode} {root : Operatio
 /--
   The pass `isel-br-riscv64` refines a module it succeeds on, in either mode, under the
   hypotheses of `convertModule_isModuleRefinedBy`. The pass with its IO
-  (`ISelBrPass.impl`) returns what `ISelBrPass.run` does (`ISelBrPass.impl_eq_run`).
+  (`ISelBrPass.impl`) returns what `ISelBrPass.runVerified` does (`ISelBrPass.impl_eq_runVerified`).
 -/
 theorem ISelBrPass.run_isModuleRefinedBy {strict : Bool} {ctx ctx' : WfIRContext OpCode}
     {root : OperationPtr} (hVerified : ctx.Verified root)
@@ -2127,10 +2128,31 @@ theorem ISelBrPass.run_strict_isModuleRefinedByCTree {ctx ctx' : WfIRContext OpC
     (ISelBrPass.branchesLowerable_of_run h) hInput.2.1 (ISelBrPass.convertModule_eq_ok_of_run h)
     module
 
-/-- The pass, with its IO, returns what `ISelBrPass.run` does. -/
-theorem ISelBrPass.impl_eq_run (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (opIn : op.InBounds ctx.raw) :
-    ISelBrPass.impl strict ctx op opIn = ExceptT.mk (pure (ISelBrPass.run strict ctx op)) := by
+/--
+  In strict mode, `isel-br-riscv64` with the verification of its output is a sound pure pass:
+  it refines the module and, having verified it, leaves it verified.
+-/
+theorem ISelBrPass.runVerified_strict_sound : PurePass.Sound (ISelBrPass.runVerified true) := by
+  unfold PurePass.Sound
+  intro ctx ctx' moduleOp h
+  unfold ISelBrPass.runVerified at h
+  cases run : ISelBrPass.run true ctx moduleOp with
+  | error message => simp [run, Bind.bind, Except.bind] at h
+  | ok lowered =>
+    simp only [run, Bind.bind, Except.bind, ↓reduceIte] at h
+    cases verify : lowered.verify moduleOp with
+    | error message => simp [verify] at h
+    | ok u =>
+      cases u
+      simp only [verify, pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact ⟨ISelBrPass.run_strict_isModuleRefinedByCTree run moduleOp,
+        WfIRContext.verified_of_verify_eq_ok verify⟩
+
+/-- The pass, with its IO, returns what `ISelBrPass.runVerified` does. -/
+theorem ISelBrPass.impl_eq_runVerified (strict : Bool) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (opIn : op.InBounds ctx.raw) :
+    ISelBrPass.impl strict ctx op opIn = ExceptT.mk (pure (ISelBrPass.runVerified strict ctx op)) := by
   rw [ISelBrPass.impl]
 
 end Veir

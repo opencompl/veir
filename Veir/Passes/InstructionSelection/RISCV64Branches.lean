@@ -461,9 +461,17 @@ public def ISelBrPass.run (strict : Bool) (ctx : WfIRContext OpCode) (root : Ope
         throw "isel-br-riscv64: a branch operand does not fit a register"
   return ctx
 
+/-- `ISelBrPass.run`, and in strict mode the verification of its output, so that the next pass
+finds a verified module. -/
+public def ISelBrPass.runVerified (strict : Bool) (ctx : WfIRContext OpCode) (root : OperationPtr) :
+    Except String (WfIRContext OpCode) := do
+  let ctx ← ISelBrPass.run strict ctx root
+  if strict then ctx.verify root
+  return ctx
+
 public def ISelBrPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  ExceptT.mk (pure (ISelBrPass.run strict ctx op))
+  ExceptT.mk (pure (ISelBrPass.runVerified strict ctx op))
 
 public def IselBrRISCV64 : Pass OpCode :=
   { name := "isel-br-riscv64"

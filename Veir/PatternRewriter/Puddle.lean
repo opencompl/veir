@@ -8,3 +8,4 @@ public import Veir.PatternRewriter.Puddle.CTreeVerificationPreservation
 public import Veir.PatternRewriter.Puddle.CTreeGlobalSoundness
 public import Veir.PatternRewriter.Puddle.CTreeGreedyDriverSoundness
 public import Veir.PatternRewriter.Puddle.CTreeCheckedDriverSoundness
+public import Veir.PatternRewriter.Puddle.CTreePointwiseSoundness

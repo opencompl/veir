@@ -33,6 +33,10 @@ import Veir.Interpreter.CTreeRefinement.Refines
 import Veir.Dialects.ProvedMonotone
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
+import Veir.Passes.StrictDriver
+import Veir.Passes.Pipeline.Soundness
+import Veir.Passes.DCE.Validity
+import Veir.Passes.Pipeline.RISCV
 import Veir.Passes.InstructionSelection.Proofs.I32
 import Veir.Passes.InstructionSelection.Validity
 import Veir.Passes.InstructionSelection.Proofs.RISCV64

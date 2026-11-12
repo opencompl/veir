@@ -3,6 +3,7 @@ module
 public import Veir.PatternRewriter.Puddle.CTreeValidity
 public import Veir.PatternRewriter.Puddle.CTreeProofs
 public import Veir.Passes.CastsReconciliation.Reconciliation
+public import Veir.Passes.Pipeline.Soundness
 import all Veir.Passes.Legalization.Validity.Common
 import all Veir.Passes.CastsReconciliation.Reconciliation
 import all Veir.Interpreter.RuntimeValue.Conforms
@@ -267,4 +268,39 @@ theorem reg_i32_status : Status Unproven (reconcileRegIntExt 32 .zextw ()) :=
 theorem reg_int_shift_status : Status Unproven reconcileRegIntShift :=
   .unproven .createFailsOverWide
 
+/-! ## The strict pass -/
+
+public section
+
+/-- Every pattern the strict pass applies is valid. -/
+theorem reconcileStrictPatterns_valid :
+    ∀ rule ∈ reconcileStrictPatterns, Puddle.CTree.Pattern.Valid rule := by
+  intro rule member
+  simp only [reconcileStrictPatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
+    or_false] at member
+  rcases member with rfl | rfl | rfl | rfl | rfl | rfl
+  · exact reg_i64_valid
+  · exact mod_arith_int_valid
+  · exact cir_int_valid
+  · exact reg_i8_valid
+  · exact reg_i16_valid
+  · exact reg_i32_valid
+
+/-- The strict `reconcile-cast` pass refines the module and leaves it verified. -/
+theorem CastReconcilePass.runStrict_sound : CastReconcilePass.runStrict.Sound :=
+  strictContextPasses_sound fun pattern member => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at member
+    rcases member with rfl | rfl
+    · exact RewritePattern.PointwiseValid.greedy_compiled reconcileStrictPatterns_valid
+    · exact RewritePattern.PointwiseValid.empty
+
+/-- The pass with its IO, in strict mode, returns what `CastReconcilePass.runStrict` does. -/
+theorem CastReconcilePass.impl_eq_runStrict (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw) :
+    CastReconcilePass.impl true ctx op opIn =
+      ExceptT.mk (pure (CastReconcilePass.runStrict ctx op)) := by
+  rw [CastReconcilePass.impl]
+  rfl
+
+end
 end Veir.CastsReconciliation.CTreeProofs
