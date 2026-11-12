@@ -23,33 +23,33 @@ theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
     simp only [Array.size_singleton, Array.size_empty] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison] = #[.addr .poison] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p)] = #[.addr (.val p)] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -78,33 +78,33 @@ theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
     simp only [Array.size_singleton, Array.size_empty] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison] = #[.addr .poison] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p)] = #[.addr (.val p)] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -133,33 +133,33 @@ theorem lowerStore_gepConst_sw_of (store_refines : StorePrimitiveRefines 4) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
     simp only [Array.size_singleton, Array.size_empty] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison] = #[.addr .poison] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p)] = #[.addr (.val p)] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -189,33 +189,33 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
     simp only [Array.size_singleton, Array.size_empty] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison] = #[.addr .poison] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p)] = #[.addr (.val p)] ++ (#[] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -264,33 +264,33 @@ theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
-    simp only [List.size_toArray, List.length_cons, List.length_nil, Array.size_singleton, Array.size_empty] at this ⊢
+    simp only [List.size_toArray, List.length_cons, List.length_nil] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison, .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr .poison] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[index] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[index] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p), .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr (.val p)] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[index] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[index] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -319,33 +319,33 @@ theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
-    simp only [List.size_toArray, List.length_cons, List.length_nil, Array.size_singleton, Array.size_empty] at this ⊢
+    simp only [List.size_toArray, List.length_cons, List.length_nil] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison, .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr .poison] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[index] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[index] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p), .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr (.val p)] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[index] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[index] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -374,33 +374,33 @@ theorem lowerStore_gepIndex_sw_of (store_refines : StorePrimitiveRefines 4) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
-    simp only [List.size_toArray, List.length_cons, List.length_nil, Array.size_singleton, Array.size_empty] at this ⊢
+    simp only [List.size_toArray, List.length_cons, List.length_nil] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison, .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr .poison] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[index] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[index] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p), .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr (.val p)] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[index] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[index] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms
@@ -430,33 +430,33 @@ theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
   dsimp only [lowerStore, matchAddr, addrMemProps]
   simpPuddleValid
   simp [ctree_semantics, ←Attribute.integerType_eq_of, -UInt64.ofInt_add]
-  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address hinterp
+  intro ty width value conforms argType arg harg indexSign index verifiedIndex gepType gep verifiedGEP address before after hinterp
     props verified selected memory
-  change ∀ memory, Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] memory
-    .riscv64 = .ok (#[address], memory, none) at hinterp
+  change Llvm.interpretOp' .getelementptr gep #[gepType] #[arg, .int 64 (.val (BitVec.ofInt 64 index.value.value))] #[] before
+    .riscv64 = .ok (#[address], after, none) at hinterp
   obtain ⟨offset, hselect⟩ := Option.isSome_iff_exists.mp selected
   have hcount : (gep.rawConstantIndices.values.filter (· == -2147483648)).size ≤ (#[index] : Array GMIRConstantProperties).size := by
     have := verifiedGEP.llvm_gep_dynamic_count
-    simp only [List.size_toArray, List.length_cons, List.length_nil, Array.size_singleton, Array.size_empty] at this ⊢
+    simp only [List.size_toArray, List.length_cons, List.length_nil] at this ⊢
     omega
-  cases arg <;> try (have h := hinterp memory; simp [Llvm.interpretOp'] at h)
+  cases arg <;> try (have h := hinterp; simp [Llvm.interpretOp'] at h)
   rename_i pointer
   cases pointer with
   | poison =>
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr .poison, .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr .poison] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected_poison gep #[index] offset #[gepType] memory hcount hselect] at h
-      have hv : address = .addr .poison := by simpa using h.symm
+        interpretGEP_selected_poison gep #[index] offset #[gepType] before hcount hselect] at h
+      have hv : address = .addr .poison := by have := h.symm; simp at this; exact this.1
       subst address
       simp
   | val p =>
       let addr : Data.Pointer := ⟨UInt64.ofInt (p.address.toNat + offset)⟩
-      have h := hinterp memory
+      have h := hinterp
       rw [show #[RuntimeValue.addr (.val p), .int 64 (.val (BitVec.ofInt 64 index.value.value))] = #[.addr (.val p)] ++ (#[index] : Array GMIRConstantProperties).map
         (fun idx => RuntimeValue.int 64 (.val (BitVec.ofInt 64 idx.value.value))) from by simp,
-        interpretGEP_selected gep #[index] offset #[gepType] memory p hcount hselect] at h
-      have hv : address = .addr (.val addr) := by simpa [addr] using h.symm
+        interpretGEP_selected gep #[index] offset #[gepType] before p hcount hselect] at h
+      have hv : address = .addr (.val addr) := by have := h.symm; simp [-UInt64.ofInt_add] at this; exact this.1
       subst address
       obtain (⟨sign, rfl⟩ | ⟨pointer, rfl, wrong⟩) := memAccessWidth_cases width
       · simp only [RuntimeValue.Conforms.integerType] at conforms

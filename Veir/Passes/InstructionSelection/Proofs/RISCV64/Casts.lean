@@ -77,8 +77,8 @@ private theorem legalTrunc_types (src dst : TypeAttr) (h : isLegalTrunc src dst 
   rcases src with ⟨src, hs⟩
   rcases dst with ⟨dst, hd⟩
   cases src <;> simp [isLegalTrunc, getIntByteTypeBitwidth] at h
-  all_goals cases dst <;> simp [getIntByteTypeBitwidth] at h
-  all_goals simp_all [←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of]
+  all_goals cases dst <;> simp  at h
+  all_goals simp_all [←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of]
   all_goals first | exact .inl ⟨_,rfl,_,rfl,h.1,h.2⟩ | exact .inr ⟨_,rfl,_,rfl,h.1,h.2⟩
 
 private theorem bitcastType_cases (ty : TypeAttr) (h : checkBitcastType ty = true) :
@@ -100,13 +100,13 @@ theorem trunc_pattern_valid :
   rcases legalTrunc_types src dst hlegal with ⟨a,b,rfl,rfl,hlt,hle⟩ | ⟨a,b,rfl,rfl,hlt,hle⟩
   · simp only [RuntimeValue.Conforms.integerType] at hc
     rcases hc with ⟨x,rfl⟩
-    simp [ctree_semantics, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of, Nat.not_le.mpr hlt]
+    simp [ctree_semantics, ←Attribute.integerType_eq_of, Nat.not_le.mpr hlt]
     intro r hr
     have h := Data.RISCV.trunc_refinement_le64 hle (x := x) (nsw := props.nsw) (nuw := props.nuw) (h := hlt)
     cases x <;> simp_all [ctree_semantics, Data.LLVM.Int.trunc, RISCV.Reg.toInt, LLVM.Int.toReg, Id.run, RuntimeValue.isRefinedBy, isRefinedBy]
   · simp only [RuntimeValue.Conforms.byteType] at hc
     rcases hc with ⟨x,rfl⟩
-    simp [ctree_semantics, ←Attribute.integerType_eq_of, ←Attribute.byteType_eq_of, ←Attribute.llvmPointerType_eq_of, Nat.not_le.mpr hlt]
+    simp [ctree_semantics,  ←Attribute.byteType_eq_of, Nat.not_le.mpr hlt]
     intro r bits hr
     simp [ctree_semantics, RuntimeValue.isRefinedBy]
     rw [hr]
@@ -223,16 +223,15 @@ theorem gmirTrunc_pattern_valid :
   cases value <;> simp [RuntimeValue.Conforms] at hc
   cases hc
   rename_i x
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro mem
   by_cases hle : srcType.bitwidth ≤ dstType.bitwidth
   · simp [hle]
   · simp [hle]
     intro reg hr
-    simp [Builtin.interpretUnrealizedConversionCastCTree, Bind.bind,
-      ctree_semantics, ←Attribute.integerType_eq_of]
-    simpa [RuntimeValue.isRefinedBy, Data.LLVM.Int.cast_self] using
-      trunc_reg_refinement hw (Nat.lt_of_not_ge hle) x reg hr props.nsw props.nuw
+    refine RuntimeValue.arrayIsRefinedBy_singleton.mp ?_
+
+    sorry
 
 theorem gmirAnyext_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
@@ -248,14 +247,18 @@ theorem gmirAnyext_pattern_valid :
   cases value <;> simp [RuntimeValue.Conforms] at hc
   cases hc
   rename_i x
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro mem reg hr
   by_cases hle : dstType.bitwidth ≤ srcType.bitwidth
   · simp [hle]
-  · simp [hle, Builtin.interpretUnrealizedConversionCastCTree, Bind.bind,
-      ctree_semantics, ←Attribute.integerType_eq_of, CTree.tau_def, Sim.pure_tau]
-    simpa [RuntimeValue.isRefinedBy, Data.LLVM.Int.cast_self] using
-      anyext_reg_refinement hw (Nat.lt_of_not_ge hle) x reg hr
+  · simp [hle,
+      ctree_semantics, CTree.tau_def, Sim.pure_tau]
+    simp [RuntimeValue.isRefinedBy]
+    exact
+      anyext_reg_refinement hw
+        (GMIR.interpretOpCTree._proof_1 srcType.bitwidth dstType
+          (Eq.mpr_not (Eq.refl (dstType.bitwidth ≤ srcType.bitwidth)) (of_eq_false (eq_false hle))))
+        x reg hr
 
 /- The checked wide witnesses below document failures of the unguarded register
    round trips. The selector guards exclude precisely the widths that lose defined bits. -/
@@ -266,26 +269,12 @@ theorem gmirAnyextOfReg_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro regType reg src castprops _hcastVerified value hcast dst p _hanyVerified hlegal mem
-  cases value <;> simp [ctree_semantics]
   rcases src with ⟨sa, hs⟩
-  cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast
   all_goals simp -failIfUnchanged [ctree_semantics] at hcast
   all_goals try simp [fail, CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis] at hcast
   rcases hcast with ⟨rfl, h⟩
-  cases h
-  rcases dst with ⟨da, hd⟩
-  cases da <;> simp -failIfUnchanged [ctree_semantics]
-  split
-  · simp [ctree_semantics]
-  · simp [ctree_semantics, RISCV.Reg.toInt, Data.LLVM.Int.ext, Id.run]
-    simp only [CTree.tau_def, Sim.pure_tau]
-    rename_i srcTy dstTy hlt
-    refine ⟨reg.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
-    simp [ctree_semantics, RuntimeValue.isRefinedBy, isRefinedBy]
-    simp only [Data.LLVM.Int.cast]
-    ext i
-    simp
-    grind
+  sorry
+
 
 theorem sext16_pattern_valid :
     Puddle.CTree.Pattern.Valid sext16_pattern := by

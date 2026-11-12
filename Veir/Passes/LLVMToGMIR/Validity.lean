@@ -405,6 +405,8 @@ theorem byte_int_bitcast_valid : Puddle.CTree.Pattern.Valid lowerByteIntBitcast 
   proveLegalValid with
     first
     | exact byte_toInt_frozen ‹_› _ _
+    | (simp [Llvm.bitcastValue, isRefinedBy_refl]; done)
+    | (simp [Llvm.bitcastValue, RuntimeValue.isRefinedBy]; exact fun bits => byte_toInt_frozen ‹_› _ _)
     | (split <;> (try simp_all) <;> rename_i heq <;> split at heq <;> cases heq)
 
 /-! ## Loads
@@ -608,7 +610,7 @@ theorem static_alloca_valid : Puddle.CTree.Pattern.Valid lowerStaticAlloca_patte
   unfold lowerStaticAlloca_pattern lowerStaticAllocaOf
   simpPuddleValid
   simpLegalSemantics
-  intro a property hcount value mem mem' hcst type htype props hinalloca values hprops memory
+  intro a property hcount _ value mem mem' hcst type htype props hinalloca _ values hprops memory
   cases hv : property.value <;> simp [hv] at hcount hcst hprops
   rename_i cst
   obtain ⟨rfl, rfl⟩ := hcst
@@ -618,16 +620,16 @@ theorem static_alloca_gmir_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaG
   unfold lowerStaticAllocaGMIR_pattern lowerStaticAllocaOf
   simpPuddleValid
   simpLegalSemantics
-  intro a property type htype props hinalloca values hprops memory
+  intro a property _ type htype props hinalloca _ values hprops memory
   staticAllocaTail property.value.value
 
 theorem static_alloca_arith_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaArith_pattern := by
   unfold lowerStaticAllocaArith_pattern lowerStaticAllocaOf
   simpPuddleValid
   simpLegalSemantics
-  intro a property hcount value mem mem' hcst type htype props hinalloca values hprops memory
+  intro a property hcount _ value mem mem' hcst type htype props hinalloca _ values hprops memory
   cases property <;> simp at hcount hcst hprops
-  rename_i attr
+  rename_i attr _
   obtain ⟨rfl, rfl⟩ := hcst
   staticAllocaTail attr.value
 
@@ -636,7 +638,7 @@ theorem static_alloca_zero_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaZ
   unfold lowerStaticAllocaZero_pattern lowerStaticAllocaOf
   simpPuddleValid
   simpLegalSemantics
-  intro a type htype props hinalloca values hprops memory
+  intro a _ _ type htype props hinalloca _ values hprops memory
   obtain ⟨sp, hsp⟩ := Option.isSome_iff_exists.mp hprops
   obtain ⟨w, layout, hw, hquery, hsize, hsp_size⟩ := staticAllocaProperties?_some hsp
   have hwa : w = a := by grind [TypeAttr.of_def, Attribute.of_def]
@@ -645,6 +647,21 @@ theorem static_alloca_zero_valid : Puddle.CTree.Pattern.Valid lowerStaticAllocaZ
   have hu : ({ toBitVec := sp.size } : UInt64) = 0 := by rw [hsp_size]; simp
   simp only [hu]
   staticAllocaAlloc 0
+
+/-! ## Poison
+
+Both sides produce the poison of the result type; a byte poison is the wholly poison byte, which
+the cast of the integer poison back to the byte type also produces. -/
+
+theorem poison_valid : Puddle.CTree.Pattern.Valid lowerPoison := by
+  proveLegalValid with
+    first
+      | (simp [Data.LLVM.Int.mlir_poison])
+      | (exact poison_isRefinedBy _)
+      | (simp [LLT.ofType?] at *)
+
+theorem byte_poison_valid : Puddle.CTree.Pattern.Valid lowerBytePoison := by
+  proveLegalValid using isRefinedBy_refl
 
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern of `llvm-to-gmir`, in `llvmToGMIRPatternList` order. -/
