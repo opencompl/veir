@@ -318,17 +318,15 @@ theorem CTree.Pattern.Valid.runtimeEquations_of_resolver_history
         · exact False.elim (nonroot.1 equal)
         · exact dominance
       subst code
-      have nonterm : HasOpInfo.isTerminator (observed.getOpType! ctx.raw) = false := supported.1
+      have nonterm : HasOpInfo.isTerminator (observed.getOpType! ctx.raw) = false := by
+        simpa only using supported
       have inside : region.Ancestor observed ctx :=
         IRNode.Ancestor.of_getParentRegion!_eq_some (localScope.getOp observedGet)
       obtain ⟨args, values, before, after, argsGet, valuesGet, outcome⟩ :=
         history observed observedIn inside nonterm (.Before dominates) (.Before dominates)
-      have memoryEq := Veir.CTree.interpretOp'_memory_of_noEffects _ _ _ args _ before after values none _
-        (supported.2 isRoot (observed.getProperties! ctx.raw (observed.getOpType! ctx.raw))) nonterm outcome
-      subst after
       refine ⟨args.toList, lookup_list_of_array _ _ _ argsGet, ?_⟩
       intro _
-      refine ⟨values.toList, lookup_list_of_array _ _ _ valuesGet, before, ?_⟩
+      refine ⟨values.toList, lookup_list_of_array _ _ _ valuesGet, before, after, ?_⟩
       have successors := Veir.CTree.interpretOp'_successors_irrelevant
         (observed.getOpType! ctx.raw) (observed.getProperties! ctx.raw (observed.getOpType! ctx.raw))
         (observed.getResultTypes! ctx.raw) args (observed.getSuccessors! ctx.raw) #[] before
