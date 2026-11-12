@@ -25,11 +25,23 @@ import Veir.Passes.RISCVCombines.Validity
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
+import Veir.Dialects.CTreeMonotonicity
+import Veir.Interpreter.CTreeRefinement.CFGSim
+import Veir.Interpreter.CTreeRefinement.Normalization
+import Veir.Interpreter.CTreeRefinement.OpList
+import Veir.Dialects.ProvedMonotone
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
 import Veir.Passes.InstructionSelection.Proofs.I32
 import Veir.Passes.InstructionSelection.Validity
 import Veir.Passes.InstructionSelection.Proofs.RISCV64
+
+import Veir.Dialects.LLVM.Lemmas
+import Veir.Dialects.RISCV_Cf.Lemmas
+import Veir.Dialects.GMIR.Lemmas
+import Veir.Dialects.RV64.Lemmas
+import Veir.Passes.InstructionSelection.Branches.Pass
+import Veir.Passes.LLVMToGMIR.BranchPass
 import Veir.Passes.CastsReconciliation.Reconciliation
 import Veir.Passes.CastsReconciliation.Validity
 import Veir.Passes.Legalization.Proofs

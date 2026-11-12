@@ -582,11 +582,12 @@ private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
   The local rewrite comes after the patterns. It matches `llvm.getelementptr`, which no pattern
   matches, so its position does not change which rewrite applies to an operation.
 -/
-def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+def LLVMToGMIRPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) := do
-  -- Branches are translated by a separate step; `Veir.Passes.LLVMToGMIR.Validity` proves that the
-  -- gMIR branches interpret as the LLVM ones.
-  let ctx ← ExceptT.mk (pure (convertLLVMBranches ctx))
+  -- Branches are translated by a separate step, which is proved to refine the module; in strict
+  -- mode the step checks the assumptions of that proof. `Veir.Passes.LLVMToGMIR.Validity` proves
+  -- that the gMIR branches interpret as the LLVM ones.
+  let ctx ← ExceptT.mk (pure (LLVMToGMIRBranches.run strict ctx op))
   let pattern := RewritePattern.GreedyRewritePattern <|
     llvmToGMIRPatterns.map (·.run) ++ #[.fromLocalRewrite normalizeGEPIndices]
   match RewritePattern.applyToFunctions pattern ctx op with
@@ -600,6 +601,10 @@ def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"
     description := "Lower llvm dialect operations to the gmir dialect."
-    run := fun _ => LLVMToGMIRPass.impl }
+    options := .ofList [
+      ("strict", { description :=
+                     "Fail unless the branch translation is proved to refine the module.",
+                   defaultValue := false })]
+    run := fun options => LLVMToGMIRPass.impl ((options.get? "strict").getD false) }
 
 end Veir

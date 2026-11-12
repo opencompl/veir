@@ -1,5 +1,6 @@
 module
 
+public import Veir.Dialects.GMIR.Monotonicity
 public import Veir.Dialects.LLVM.Monotonicity
 public import Veir.Dialects.RISCV.Monotonicity
 public import Veir.Interpreter.CTreePrimitiveRefinement
