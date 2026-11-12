@@ -106,6 +106,8 @@ inductive Llvm where
 | intr__smin
 | intr__umax
 | intr__umin
+| intr__scmp
+| intr__ucmp
 | intr__abs
 | intr__sadd__sat
 | intr__uadd__sat
@@ -485,6 +487,7 @@ def Llvm.getEffects (op : Llvm) (props : Llvm.propertiesOf op) : MemoryEffects :
   | .freeze, _ | .bitcast, _
   | .inttoptr, _ | .ptrtoint, _
   | .intr__smax, _ | .intr__smin, _ | .intr__umax, _ | .intr__umin, _
+  | .intr__scmp, _ | .intr__ucmp, _
   | .intr__abs, _
   | .intr__vector__reduce__or, _
   | .intr__sadd__sat, _ | .intr__uadd__sat, _
@@ -547,6 +550,7 @@ def Llvm.propagatesPoison : Llvm → Bool
   | .intr__ctlz | .intr__cttz | .intr__ctpop | .intr__bswap
   | .intr__bitreverse | .intr__fshl | .intr__fshr
   | .intr__smax | .intr__smin | .intr__umax | .intr__umin | .intr__abs
+  | .intr__scmp | .intr__ucmp
   | .intr__vector__reduce__or
   | .intr__sadd__sat | .intr__uadd__sat | .intr__ssub__sat | .intr__usub__sat
   | .intr__sshl__sat | .intr__ushl__sat => true
@@ -785,6 +789,26 @@ def OperationPtr.verifyLLVMICmp {OpInfo : Type} [IsOpCode OpInfo]
   let _ ← op.verifyOperandTypesMatch ctx 0 1
     s!"{instrName}: Expected operands to have the same type"
   ((op.getResult 0).getType! ctx.raw).verifyI1 s!"{instrName}: Expected i1 result"
+
+/--
+`llvm.intr.scmp` and `llvm.intr.ucmp` compare two integers of the same type. The result is an
+integer of any width that can hold `-1`, `0`, and `1`, so at least `i2`.
+-/
+def OperationPtr.verifyLLVMThreeWayCmp {OpInfo : Type} [IsOpCode OpInfo]
+    (op : OperationPtr) (ctx : WfIRContext OpInfo)
+    (opIn : op.InBounds ctx.raw) : Except String PUnit := do
+  op.verifyPlainOpCounts ctx opIn 2 1
+  let instrName := String.fromUTF8! (IsOpCode.name (op.getOpType ctx.raw opIn))
+  ((op.getOperand! ctx.raw 0).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 0 to have integer type"
+  ((op.getOperand! ctx.raw 1).getType! ctx.raw).verifyIntegerType
+    s!"{instrName}: Expected operand 1 to have integer type"
+  let _ ← op.verifyOperandTypesMatch ctx 0 1
+    s!"{instrName}: Expected operands to have the same type"
+  let .integerType resultType := ((op.getResult 0).getType! ctx.raw).val
+    | throw s!"{instrName}: Expected integer result type"
+  if resultType.bitwidth < 2 then
+    throw s!"{instrName}: Expected result type to be at least i2"
 
 /-- The properties of a memory intrinsic, whichever of the three it is. -/
 private def memIntrinsicProperties {OpInfo : Type} [IsOpCode OpInfo]
@@ -1124,6 +1148,9 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
   | .intr__ssub__with__overflow | .intr__usub__with__overflow
   | .intr__smul__with__overflow | .intr__umul__with__overflow =>
     op.verifyLLVMArithWithOverflow ctx opIn
+  | .intr__scmp | .intr__ucmp => do
+    op.checkIsNonNullIntegerType ctx opIn
+    op.verifyLLVMThreeWayCmp ctx opIn
   | .lshr | .shl => do
     op.checkIsNonNullIntegerType ctx opIn
     op.verifyLLVMShift ctx opIn
@@ -1642,6 +1669,20 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     if h: bw' ≠ bw then none else
     let rhs := rhs.cast (by simp at h; exact h)
     return (#[.int bw (LLVM.Int.umin lhs rhs)], mem, none)
+  | .intr__scmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let [type] := resultTypes.toList | none
+    let .integerType resType := type.val | none
+    return (#[.int resType.bitwidth (LLVM.Int.scmp lhs rhs resType.bitwidth)], mem, none)
+  | .intr__ucmp => do
+    let [.int bw lhs, .int bw' rhs] := operands.toList | none
+    if h: bw' ≠ bw then none else
+    let rhs := rhs.cast (by simp at h; exact h)
+    let [type] := resultTypes.toList | none
+    let .integerType resType := type.val | none
+    return (#[.int resType.bitwidth (LLVM.Int.ucmp lhs rhs resType.bitwidth)], mem, none)
   | .intr__abs => do
     let [.int bw x] := operands.toList | none
     return (#[.int bw (LLVM.Int.abs x properties.is_int_min_poison)], mem, none)
