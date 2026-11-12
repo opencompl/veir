@@ -1,4 +1,5 @@
 // RUN: veir-opt %s -p=llvm-to-gmir | filecheck %s
+// RUN: veir-opt %s -p=llvm-to-gmir{strict=true} | filecheck %s
 
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "f", function_type = !llvm.func<i64 (i1, i64, i32)>}> ({
