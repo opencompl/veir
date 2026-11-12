@@ -144,7 +144,7 @@ theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
   proveLegalValid with
   (
     expose_names
-    simp [FreezeC] at x
+    simp only [FreezeC] at x
     veir_bv_normalize
     simp only [BitVec.setWidth_cast, forall_const, true_and]
     intro
