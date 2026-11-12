@@ -68,7 +68,7 @@ theorem inttoptr_tree (mem : MemoryState) :
 theorem inttoptr_historical_empty :
     Puddle.CTree.CanInterpretTo (.llvm .inttoptr) () #[pointerType] intOperand
       (.ok #[.addr (.val ⟨65536⟩)]) := by
-  refine ⟨MemoryState.empty, ?_⟩
+  refine ⟨MemoryState.empty, MemoryState.empty, ?_⟩
   rw [inttoptr_tree]
   exact .ret _
 
@@ -76,7 +76,7 @@ theorem inttoptr_historical_empty :
 theorem inttoptr_historical_allocated :
     Puddle.CTree.CanInterpretTo (.llvm .inttoptr) () #[pointerType] intOperand
       (.ok #[.addr (.val ⟨65536⟩)]) := by
-  refine ⟨allocated, ?_⟩
+  refine ⟨allocated, allocated, ?_⟩
   rw [inttoptr_tree]
   exact .ret _
 

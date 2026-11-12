@@ -352,21 +352,17 @@ theorem CTree.Pattern.Valid.runtimeEquations_of_historyIn {rule : Pattern OpCode
         · exact hd
       subst code
       have hterm : HasOpInfo.isTerminator (matched.getOpType! ctx.raw) = false := by
-        simpa only using hsupported.1
+        simpa only using hsupported
       have inside : region.Ancestor matched ctx :=
         IRNode.Ancestor.of_getParentRegion!_eq_some (localScope.getOp hmatched)
-      have heq := history matched hmatchedIn inside hterm (.Before hproper)
-      obtain ⟨args, values, memory, hargs, hvalues, hraw⟩ := heq.witness_of_memory_preserving
-        (fun args values before after hrun =>
-          Veir.CTree.interpretOp'_memory_of_noEffects _ _ _ args _ before after values none _
-            (hsupported.2 hisroot (matched.getProperties! ctx.raw (matched.getOpType! ctx.raw)))
-            hterm hrun)
+      obtain ⟨args, values, before, after, hargs, hvalues, hraw⟩ :=
+        history matched hmatchedIn inside hterm (.Before hproper)
       refine ⟨args.toList, lookup_list_of_array _ _ _ hargs, ?_⟩
       intro _
-      refine ⟨values.toList, lookup_list_of_array _ _ _ hvalues, memory, ?_⟩
+      refine ⟨values.toList, lookup_list_of_array _ _ _ hvalues, before, after, ?_⟩
       have hsucc := Veir.CTree.interpretOp'_successors_irrelevant
         (matched.getOpType! ctx.raw) (matched.getProperties! ctx.raw (matched.getOpType! ctx.raw))
-        (matched.getResultTypes! ctx.raw) args (matched.getSuccessors! ctx.raw) #[] memory
+        (matched.getResultTypes! ctx.raw) args (matched.getSuccessors! ctx.raw) #[] before
         (matched.getRegions! ctx.raw) hterm
       rw [hsucc] at hraw
       simpa only [Interp.map, Array.toArray_toList, Veir.CTree.interpretOp'] using hraw
