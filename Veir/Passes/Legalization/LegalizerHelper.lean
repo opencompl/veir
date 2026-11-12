@@ -51,8 +51,16 @@ def widenTypeGroup (opcode : GMIR) (typeIdx : TypeGroup) (extOpcode : GMIR) (wid
     else MatchProg.type (Attr := TypeAttr)
   Pattern.Builder
     (do
-      let operands ← info.inOperandList.mapM fun group => do MatchProg.value (← matchType group)
-      let resultTypes ← info.outOperandList.mapM matchType
+      /- One type per type group, as in LLVM's type indices: a match whose operands and results of
+      a group have different types would be rewritten wrongly, as the operation computes at the
+      width of its operands but the rewrite truncates to the type of each result. -/
+      let groups := (info.inOperandList ++ info.outOperandList).foldl
+        (fun groups group => if groups.contains group then groups else groups.push group) #[]
+      let types ← groups.mapM fun group => do return (group, ← matchType group)
+      let typeOf (group : TypeGroup) : Handle OpCode .type :=
+        ((types.find? (·.1 == group)).map (·.2)).getD default
+      let operands ← info.inOperandList.mapM fun group => MatchProg.value (typeOf group)
+      let resultTypes := info.outOperandList.map typeOf
       let root ← MatchProg.root (.gmir opcode) operands resultTypes
       return (operands, resultTypes, root.properties))
     (fun (operands, resultTypes, props) => do
@@ -87,6 +95,11 @@ def widenConstant (width : Nat) : Pattern OpCode :=
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
       let root ← MatchProg.root (.gmir .g_constant) #[] #[type]
+      -- The value is read at the width of its attribute, which the verifier ties to the result.
+      MatchProg.matchNative (type, root.properties) fun (type, props) =>
+        match type.val with
+        | .integerType type => props.value.type.bitwidth == type.bitwidth
+        | _ => false
       return (type, root))
     (fun (type, root) => do
       let wideType ← CreateProg.type (IntegerType.signless width)
@@ -317,7 +330,8 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
 private def matchOverflowing (opcode : GMIR) : MatchProg.Builder
     (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
   let type ← MatchProg.type (Attr := IntegerType)
-  let ovType ← MatchProg.type (Attr := IntegerType)
+  -- The overflow flag is an `i1`, as the verifier requires; the lowerings compute it with `g_icmp`.
+  let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
   let lhs ← MatchProg.value type
   let rhs ← MatchProg.value type
   let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
@@ -396,7 +410,8 @@ def widenScalarAddSubOverflow (opcode : GMIR) (width : Nat) : Pattern OpCode :=
   Pattern.Builder
     (do
       let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth < width)
-      let ovType ← MatchProg.type (Attr := IntegerType)
+      -- The overflow flag is an `i1`, as the verifier requires; it is recomputed with `g_icmp`.
+      let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type, ovType]
@@ -590,12 +605,8 @@ def lower? : GMIR → Option (Pattern OpCode)
   | .g_usube => lowerAddSubE false
   | _ => none
 
-/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
-def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
-    Option (LocalRewritePattern OpCode)
-  | .g_brcond, .type 0, width => widenBrcondCondition width
-  | opcode, typeIdx, width => Option.map Puddle.Pattern.interpret <|
-  match opcode, typeIdx, width with
+/-- The Puddle pattern that widens type group `typeIdx` of `opcode` to `width` bits, if any. -/
+def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)
   -- The high bits of the operands never reach the low bits of the result, so any extension is
   -- fine.
   | .g_add, .type 0, width => widenTypeGroup .g_add (.type 0) .g_anyext width clearNswNuwProperties
@@ -663,6 +674,12 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_saddo, .type 0, width => widenScalarAddSubOverflow .g_saddo width
   | .g_ssubo, .type 0, width => widenScalarAddSubOverflow .g_ssubo width
   | _, _, _ => none
+
+/-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
+def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
+    Option (LocalRewritePattern OpCode)
+  | .g_brcond, .type 0, width => widenBrcondCondition width
+  | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map Puddle.Pattern.interpret
 
 /-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/
 def narrowScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → Option (Pattern OpCode)

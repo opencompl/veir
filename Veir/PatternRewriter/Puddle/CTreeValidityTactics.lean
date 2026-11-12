@@ -35,7 +35,8 @@ elab "simpPuddleValid" : tactic => withMainContext do
   unless (← getMainTarget).isAppOf ``Pattern.Valid do
     throwError "expected a CTree pattern validity goal"
   evalTactic (← `(tactic| (
-    unfoldPuddleBuilder
+    /- The pattern may already be normalized, e.g. by `cbv`. -/
+    try unfoldPuddleBuilder
     constructor
     · conv => arg 1; cbv
       /- Eliminate empty-list quantifiers before unfolding opcode metadata. -/
