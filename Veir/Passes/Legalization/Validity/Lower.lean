@@ -148,8 +148,33 @@ theorem sext_anyext_inreg {w W : Nat} (h : w < W) (x : Data.LLVM.Int w) (msb : B
 
 /-- The matcher bounds the source width by `2 ^ 64`, so the `sz` of the `g_sext_inreg` reads back
 as the source width. -/
-theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
-  sorry
+-- theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
+--   proveLegalValid with
+--   (
+--     expose_names
+--     simp [FreezeC] at x
+--     veir_bv_normalize
+--     simp
+--     intro
+--     ext k hk
+--     simp [BitVec.getElem_signExtend, -BitVec.toNat_ofNat]
+--     split
+--     · split
+--       · simp [BitVec.getLsbD_append, show k < bitwidth by omega]
+--       · simp [BitVec.msb_setWidth, -BitVec.toNat_ofNat ]
+--         by_cases hlt : 0 < (BitVec.ofNat 64 bitwidth).toNat
+--         · simp [hlt, -BitVec.toNat_ofNat, BitVec.getLsbD_append]
+--           split
+--           · simp [← BitVec.getLsbD_eq_getElem, -BitVec.toNat_ofNat,]
+--             congr
+--             simp at *
+--             sorry
+--           ·
+--             sorry
+--         · simp [show bitwidth % 18446744073709551616 = 0 by omega]
+--           sorry
+--     · sorry
+--     )
 
 theorem lower_uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_uaddsat false true) := by
   proveLegalValid using Data.LLVM.uaddSat_minmax
