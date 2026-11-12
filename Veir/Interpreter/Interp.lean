@@ -106,6 +106,11 @@ theorem Interp.admissible_of_ub {α : Type} (P : Interp α → Prop) (hub : P (.
 @[simp, grind =] theorem Interp.liftOption_none : ((none : Option α) : Interp α) = .fail none := rfl
 @[simp, grind =] theorem Interp.liftOption_some (a : α) : ((some a : Option α) : Interp α) = .ok a := rfl
 
+/-- A bind succeeds iff both of its steps do. -/
+theorem Interp.bind_eq_ok_iff {α β : Type} (x : Interp α) (f : α → Interp β) (b : β) :
+    (x >>= f) = .ok b ↔ ∃ a, x = .ok a ∧ f a = .ok b := by
+  cases x <;> simp [Interp.bind_def]
+
 instance : LawfulMonad Interp :=
   LawfulMonad.mk' Interp
     (id_map := fun x => by cases x <;> rfl)
