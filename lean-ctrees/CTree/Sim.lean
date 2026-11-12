@@ -142,7 +142,7 @@ theorem MuSimF.tau_r (i' : C1In ⊕ C'In) (t : CTree E C α) (k' : (C1 ⊕ₑ C'
   · apply Star.once
     constructor
 
-theorem MuSimF.vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C α) (k' : E i → CTree E C' β) :
+theorem MuSimF.vis (i : EIn) [inh : Inhabited (E i)] (k : E i → CTree E C α) (k' : E i → CTree E C' β) :
     (∀ x, R.elem true (k x) (k' x)) →
     MuSimF RR R.elem true (CTree.vis i k) (CTree.vis i k') := by
   intros h
@@ -150,7 +150,7 @@ theorem MuSimF.vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C α) (k' : 
   constructor
   case left =>
     intros l t htr
-    have htr := trans_vis htr
+    have htr := trans_vis _ _ _ _ htr
     rcases htr with ⟨o, htr⟩
     cases htr
     exists (.obs (.eff i o))
@@ -166,7 +166,7 @@ theorem MuSimF.vis (i : EIn) [Inhabited (E i)] (k : E i → CTree E C α) (k' : 
       grind
   case right =>
     intros t' htr
-    have htr := trans_vis htr
+    have htr := trans_vis _ _ _ _ htr
     grind
 
 theorem MuSimF.ub {t : CTree E C α} (e : EIn) {k : E e → CTree E C' β} :
@@ -216,8 +216,8 @@ theorem ret (r : α) (r' : β) :
   case mp =>
     intros h
     have h := gfp_apply_ternary_rel _ _ _ _ h
-    --cases h
     -- FIXME lean bug
+    -- cases h
     sorry
   case mpr =>
     intros h
@@ -356,7 +356,10 @@ theorem iter {I I'} {RRi : I → I' → Prop} {RRo : α → β → Prop}
         grind
         apply MuSimF.empty'
 
-axiom interp {RR} (h : (i : EIn) → CTree F C (E i)) (t : CTree E C α) (u : CTree E C β) :
+axiom interp {RR}
+  (h : (i : EIn) → CTree F C (E i))
+  (preservesUB : UBE.isUB i → CTree.UB (UB := UBF) (h i))
+  (t : CTree E C α) (u : CTree E C β) :
   Sim RR t u →
   Sim RR (CTree.interp h t) (CTree.interp h u)
 

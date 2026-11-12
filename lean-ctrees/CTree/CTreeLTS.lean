@@ -17,13 +17,15 @@ variable {EIn FIn CIn C'In DIn : Type u}
   {E : EIn → Type u} {F : FIn → Type u} {C : CIn → Type u} {C' : C'In → Type u} {D : DIn → Type u}
   {α β : Type u} (RR : α → β → Prop)
 
-inductive CTree.Obs where
+inductive CTree.Obs : Type u where
 | eff i (e : E i)
+| effEmpty (i : EIn)
 | val (r : α)
 
 inductive CTree.Trans : label (@CTree.Obs _ E α) → CTree E C α → CTree E C α → Prop where
 | tau : Trans .tau (.tauG i k) (k x)
 | vis : Trans (.obs (.eff i x)) (.vis i k) (k x)
+| visEmpty i k : (E i → False) → Trans (.obs (.effEmpty i)) (.vis i k) .empty
 | ret : Trans (.obs (.val r)) (.ret r) .empty
 
 @[expose, reducible]
@@ -32,6 +34,7 @@ def CTree.lts (EIn CIn : Type u) (E : EIn → Type u) (C : CIn → Type u) (α :
 
 inductive CTree.Robs (RR : α → β → Prop) : @Obs EIn E α → @Obs EIn E β → Prop where
 | eff i (e : E i) : Robs RR (Obs.eff i e) (Obs.eff i e)
+| effEmpty i : Robs RR (.effEmpty i) (.effEmpty i)
 | val (r : α) (r' : β) : RR r r' → Robs RR (.val r) (.val r')
 
 @[refl]
@@ -44,6 +47,8 @@ theorem CTree.Robs.refl (RR : α → α → Prop) [h : Std.Refl RR] :
   case val =>
     constructor
     apply h.refl
+  case effEmpty i =>
+    constructor
 
 instance (α : Type u) (RR : α → α → Prop) [h : Std.Refl RR] : Std.Refl (CTree.Robs (E := E) RR) where
   refl := CTree.Robs.refl RR
@@ -69,6 +74,8 @@ theorem trans_empty : CTree.Trans l CTree.empty t' → False := by
   case vis =>
     grind
   case ret =>
+    grind
+  case visEmpty =>
     grind
 
 @[grind .]
@@ -101,8 +108,11 @@ theorem trans_tau' : CTree.Trans .tau (CTree.tauG i k) t' → exists o, t' = k o
     rw [ht']
     exists x
 
+--@[grind .]
+--theorem trans_vis : CTree.Trans l (CTree.vis i k) t' → (l = .obs (.effEmpty i) ∧ t' = .empty) ∨ exists o, l = .obs (.eff i o) := by
+
 @[grind .]
-theorem trans_vis : CTree.Trans l (CTree.vis i k) t' → exists o, l = .obs (.eff i o) := by
+theorem trans_vis i (k : E i → CTree E C α) l t' [inh : Inhabited (E i)] : CTree.Trans l (CTree.vis i k) t' → exists o, l = .obs (.eff i o) := by
   intros h
   generalize ht : CTree.vis i k = t at h
   cases h
@@ -114,6 +124,11 @@ theorem trans_vis : CTree.Trans l (CTree.vis i k) t' → exists o, l = .obs (.ef
     exists x
   case ret =>
     grind
+  case visEmpty i k h =>
+    have ht := vis_eq_vis _ _ _ _ ht
+    subst ht
+    have h := h inh.default
+    contradiction
 
 @[grind .]
 theorem trans_vis' : CTree.Trans (.obs (.eff i o)) (CTree.vis i k) t' → t' = k o := by
