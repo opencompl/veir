@@ -5,6 +5,7 @@ public import Veir.Dominance
 public import Veir.Verifier
 
 import Veir.Interpreter.Lemmas
+import Veir.Dialects.ResultsConform
 
 /-!
 # Equation Lemma and SSA Invariant
