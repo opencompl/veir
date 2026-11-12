@@ -29,6 +29,13 @@ def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
   | .registerType _, .llvmPointerType _  => true
   | _, _ => false
 
+/-- The `ptr -> reg -> ptr` round trip, which is assumed to refine the module (`ptr_reg_valid`): the
+cast to a register chooses the bits of a poison pointer, which the round trip returns as poison. -/
+def isRiscvPtrToRegCast (inputType interType : TypeAttr): Bool :=
+ match inputType.val, interType.val with
+  | .llvmPointerType _ , .registerType _ => true
+  | _, _ => false
+
 
 /- We reconcile cast from `!mod_arith.int< q: iN> to iM (and back) for any M -/
 def isPreservingModArithToIntCast (inputType interType : TypeAttr) : Bool :=
@@ -109,11 +116,13 @@ def reconcileRegIntShift : Pattern OpCode :=
       CreateProg.operation (.riscv .srli) #[left.res[0]!] #[regType] (.inr rightProps))
     (fun op => op)
 
-/-- The patterns of the pass, all proved valid (`Veir.Passes.CastsReconciliation.Validity`). The
-two-shift narrowing (`reconcileRegIntShift`, `createFailsOverWide`) is unproven, so not run. -/
+/-- The patterns of the pass, all proved valid (`Veir.Passes.CastsReconciliation.Validity`), but the
+`ptr -> reg -> ptr` round trip, which is assumed valid (`ptr_reg_valid`). The two-shift narrowing
+(`reconcileRegIntShift`, `createFailsOverWide`) is unproven, so not run. -/
 public def reconcilePatterns : Array (Pattern OpCode) :=
   #[reconcilePairingCast isRegToI64RoundTrip,
     reconcilePairingCast isRiscvRegToPtrCast,
+    reconcilePairingCast isRiscvPtrToRegCast,
     reconcilePairingCast isPreservingModArithToIntCast,
     reconcilePairingCast isCirToIntRoundTrip,
     reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (), reconcileRegIntExt 32 .zextw ()]

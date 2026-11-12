@@ -73,7 +73,7 @@ private def phiBlocks (ctx : IRContext OpCode) (root : OperationPtr) : List Bloc
   return blocks.reverse
 
 /-- Widens the block arguments in the functions under `root` as the block-argument rules ask. -/
-private def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
+def legalizeBlockArguments (info : LegalizerInfo) (ctx : WfIRContext OpCode)
     (root : OperationPtr) : Except String (WfIRContext OpCode) :=
   (phiBlocks ctx.raw root).foldlM (init := ctx) fun ctx block => do
     let args := (block.getArguments! ctx.raw).toList.zipIdx.filterMap fun (arg, i) => do
@@ -108,9 +108,9 @@ private def checkOperations (info : LegalizerInfo) (ctx : IRContext OpCode) :
 
 /-! ## Legalization
 
-The legalizer runs the rules of the registries, which are all proved to refine the module, through
-the module-filtered driver, and rejects what they cannot legalize. A narrow phi is rejected, since
-`legalizeBlockArguments` is unproven.
+The legalizer widens the narrow phis (`legalizeBlockArguments`, assumed to refine the module:
+`legalizeBlockArguments_sound`), then runs the rules of the registries, which are all proved to
+refine the module, through the module-filtered driver, and rejects what they cannot legalize.
 
 An artifact is not legalized while its source is still illegal. LLVM's legalizer legalizes all
 other instructions before it combines artifacts, and only legalizes the artifacts it cannot combine.
@@ -142,14 +142,15 @@ def legalizeRules (info : LegalizerInfo) (ctx : WfIRContext OpCode) (op : Operat
 def legalizePattern (info : LegalizerInfo) : RewritePattern OpCode :=
   RewritePattern.ofRules (legalizeRules info)
 
-/-- The legalizer, `pass` naming the pass in its errors: it checks the module and its phis,
-applies the rules to its functions, and fails if an operation is left illegal (the greedy rewriter
-does not report the operations it could not rewrite). -/
+/-- The legalizer, `pass` naming the pass in its errors: it checks the module, widens its phis,
+applies the rules to its functions, and fails if an operation or a phi is left illegal (the greedy
+rewriter does not report the operations it could not rewrite). -/
 def legalize (info : LegalizerInfo) (pass : String) : PurePass := fun ctx root => do
   checkModuleRoot pass ctx root
-  info.checkBlockArguments ctx.raw
+  let ctx ← info.legalizeBlockArguments ctx root
   let ctx ← applyToFunctionsChecked pass (legalizePattern info) ctx root
   info.checkOperations ctx.raw
+  info.checkBlockArguments ctx.raw
   return ctx
 
 end LegalizerInfo

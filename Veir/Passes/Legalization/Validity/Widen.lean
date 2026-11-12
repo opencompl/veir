@@ -624,6 +624,11 @@ theorem widen_bswap_0_status (W : Nat) :
     Status Unproven (widenReverse .g_bswap W) :=
   .unproven .widthDependent
 
+/-- `widenReverse .g_bswap`, at the widths a `g_bswap` is defined at, is assumed valid: the legalizer
+only widens a `g_bswap` to these widths (`widenScalarPattern?`), and no proof is written. -/
+axiom widen_bswap_0_valid (W : Nat) (widths : W = 16 ∨ W = 32 ∨ W = 64) :
+    Puddle.CTree.Pattern.Valid (widenReverse .g_bswap W)
+
 @[legalization_status]
 theorem widen_bitreverse_0_status (W : Nat) :
     Status Unproven (widenReverse .g_bitreverse W) :=

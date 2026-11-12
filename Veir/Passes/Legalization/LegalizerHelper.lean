@@ -589,8 +589,8 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
+  | .g_sext => lowerSext
   -- Unproven (`widthDependent`), so not run:
-  -- | .g_sext => lowerSext
   -- | .g_fshl => lowerFunnelShift true
   -- | .g_fshr => lowerFunnelShift false
   | .g_zext => lowerZext
@@ -661,8 +661,10 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
   | .g_cttz, .type 1, width => widenCttzSrc width
   -- Zero bits do not add to the count.
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
-  -- Unproven (`widthDependent`), so not run:
-  -- | .g_bswap, .type 0, width => widenReverse .g_bswap width
+  -- `g_bswap` is only defined at the widths 16, 32 and 64, so it is only widened to those
+  -- (`widen_bswap_0_valid`).
+  | .g_bswap, .type 0, width =>
+    if width = 16 ∨ width = 32 ∨ width = 64 then some (widenReverse .g_bswap width) else none
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
   -- Sign extension preserves the signed order, and also the unsigned order. For `g_umin` and
   -- `g_umax`, LLVM only sign-extends where it is cheaper than zero-extending (from `i32` on

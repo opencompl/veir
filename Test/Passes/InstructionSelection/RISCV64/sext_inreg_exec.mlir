@@ -1,8 +1,5 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | veir-interpret | filecheck %s
 
-// XFAIL: *
-// Needs `lowerSext`, commented out of the pass as unproven.
-
 // Check sign extension of negative and positive i7 values and i1 true,
 // including an i32 result, through the RISC-V pipeline.
 "builtin.module"() ({

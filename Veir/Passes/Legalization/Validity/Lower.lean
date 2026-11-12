@@ -140,41 +140,31 @@ private theorem ushlSat_lowering {w v : Nat} (x : Data.LLVM.Int w) (a : Data.LLV
 theorem lower_zext_valid : Puddle.CTree.Pattern.Valid lowerZext := by
   proveLegalValid using Data.LLVM.zext_and_anyext
 
-/- `lowerSext`: the high bits a `g_anyext` chooses are overwritten by the `g_sext_inreg` of the
-source width, so the result is the sign extension of the source whatever it chose. -/
--- theorem sext_anyext_inreg {w W : Nat} (h : w < W) (x : Data.LLVM.Int w) (msb : BitVec (W - w)) :
---     x.sext W h ⊒ ((x.ext W msb h).trunc w false false h).sext W h := by
---   sorry
-
-/-- The matcher bounds the source width by `2 ^ 64`, so the `sz` of the `g_sext_inreg` reads back
-as the source width. -/
--- theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
---   proveLegalValid with
---   (
---     expose_names
---     simp [FreezeC] at x
---     veir_bv_normalize
---     simp
---     intro
---     ext k hk
---     simp [BitVec.getElem_signExtend, -BitVec.toNat_ofNat]
---     split
---     · split
---       · simp [BitVec.getLsbD_append, show k < bitwidth by omega]
---       · simp [BitVec.msb_setWidth, -BitVec.toNat_ofNat ]
---         by_cases hlt : 0 < (BitVec.ofNat 64 bitwidth).toNat
---         · simp [hlt, -BitVec.toNat_ofNat, BitVec.getLsbD_append]
---           split
---           · simp [← BitVec.getLsbD_eq_getElem, -BitVec.toNat_ofNat,]
---             congr
---             simp at *
---             sorry
---           ·
---             sorry
---         · simp [show bitwidth % 18446744073709551616 = 0 by omega]
---           sorry
---     · sorry
---     )
+theorem lower_sext_valid : Puddle.CTree.Pattern.Valid lowerSext := by
+  proveLegalValid with
+  (
+    expose_names
+    simp [FreezeC] at x
+    veir_bv_normalize
+    simp only [BitVec.setWidth_cast, forall_const, true_and]
+    intro
+    ext k hk
+    simp only [BitVec.getElem_signExtend, BitVec.toNat_ofNat, Nat.reducePow,
+      BitVec.getElem_setWidth, dite_eq_ite]
+    rw [Nat.mod_eq_of_lt (by exact h)] at *
+    split
+    · simp only [BitVec.getLsbD_append]
+      split
+      · simp [BitVec.getLsbD_append, show k < bitwidth by omega]
+      · simp [← BitVec.getLsbD_eq_getElem]
+    · simp only [BitVec.msb_setWidth, BitVec.toNat_ofNat, Nat.reducePow]
+      rw [Nat.mod_eq_of_lt (by exact h)] at *
+      by_cases hzero : bitwidth = 0
+      · subst hzero
+        simp [BitVec.msb]
+      · simp [show 0 < bitwidth by omega, BitVec.getLsbD_append, BitVec.msb,
+          show bitwidth - 1 < bitwidth by omega, BitVec.getMsbD_eq_getLsbD, ← BitVec.getLsbD_eq_getElem]
+    )
 
 theorem lower_uaddsat_valid : Puddle.CTree.Pattern.Valid (lowerAddSubSatToMinMax .g_uaddsat false true) := by
   proveLegalValid using Data.LLVM.uaddSat_minmax
@@ -283,7 +273,7 @@ theorem narrow_sub_valid (W : Nat) : Puddle.CTree.Pattern.Valid (narrowAddSub fa
 @[legalization_status]
 theorem lower_sext_status :
     Status Unproven (lowerSext) :=
-  .unproven .widthDependent -- lower_sext_valid
+  .proven lower_sext_valid
 
 @[legalization_status]
 theorem lower_zext_status :

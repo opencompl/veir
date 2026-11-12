@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
-// XFAIL: *
-// Needs `lowerSext`, commented out of the pass as unproven.
-
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void ()>}> ({
     %lhs = "llvm.mlir.constant"() <{value = 1 : i8}> : () -> i8

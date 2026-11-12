@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
-// XFAIL: *
-// Needs `lowerSext`, commented out of the pass as unproven.
-
 // A zero extension of an `icmp` result needs no `andi`: `slt`/`sltu` already
 // produce 0 or 1, and the post-legalizer combiner drops the redundant `g_and`.
 // Each `icmp` also feeds a `sext`, so the `andi` cannot be folded into the only

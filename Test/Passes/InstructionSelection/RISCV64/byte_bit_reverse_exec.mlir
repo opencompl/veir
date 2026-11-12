@@ -1,6 +1,3 @@
-
-// XFAIL: *
-// Needs `widenReverse .g_bswap`, commented out of the pass as unproven.
 // Exercise high bits at every width; composed intrinsics also retain their inner results.
 // RUN: veir-interpret %s | filecheck %s
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t

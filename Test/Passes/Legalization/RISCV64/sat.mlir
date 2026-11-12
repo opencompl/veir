@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
-// XFAIL: *
-// Needs `lowerSext`, commented out of the pass as unproven.
-
 // As in LLVM's GlobalISel, the saturating operations are lowered with min and max where those are
 // legal (`i64`, with Zbb), and with an overflowing operation and a `g_select` otherwise. Compare
 // with LLVM's `test/CodeGen/RISCV/GlobalISel/legalizer/legalize-sat-rv64.mir`.

@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
-// XFAIL: *
-// Needs `widenReverse .g_bswap`, commented out of the pass as unproven.
-
 "builtin.module"() ({
     "func.func"()  <{function_type = (i64) -> (), sym_name = "foo"}> ({
     ^bb(%a: i64):

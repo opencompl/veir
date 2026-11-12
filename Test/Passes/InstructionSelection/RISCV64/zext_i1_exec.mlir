@@ -1,9 +1,6 @@
 // RUN: veir-interpret %s | filecheck %s --check-prefix=SRC
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 
-// XFAIL: *
-// Needs `widenBlockArguments`, commented out of the pass as unproven.
-
 // Zero-extending an `i1` block argument, as clang does for `a && b`, gives 1 after lowering.
 
 "builtin.module"() ({

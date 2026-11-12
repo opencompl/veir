@@ -1,8 +1,5 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
-// XFAIL: *
-// Needs `widenBlockArguments`, commented out of the pass as unproven.
-
 // A narrow call result is copied out of its register with a `g_trunc`. The legalizer folds it
 // with the `g_anyext` of the block argument, so the returned value needs no `zext.b`.
 

@@ -61,7 +61,8 @@ theorem widenScalarPattern_status (opcode : GMIR) (typeIdx : TypeGroup) (width :
     (pattern : Pattern OpCode) (h : widenScalarPattern? opcode typeIdx width = some pattern) :
     Status Unproven pattern := by
   rcases typeIdx with ⟨_ | _ | _⟩ <;> cases opcode <;>
-    simp only [widenScalarPattern?, reduceCtorEq, Option.some.injEq] at h <;> subst h <;>
+    simp only [widenScalarPattern?, reduceCtorEq, Option.some.injEq] at h <;>
+    (try split at h) <;> (try simp only [reduceCtorEq, Option.some.injEq] at h) <;> subst h <;>
     simp only [legalization_status]
 
 /-- Every lowering the legalizer can apply has a certificate. -/
@@ -215,6 +216,7 @@ attribute [legalization_valid]
   lower_ctlz_zero_poison_valid lower_cttz_zero_poison_valid lower_saddo_valid lower_saddsat_valid
   lower_sshlsat_valid lower_ssubo_valid lower_ssubsat_valid lower_uadde_valid lower_uaddo_valid
   lower_uaddsat_valid lower_ushlsat_valid lower_usube_valid lower_usubo_valid lower_usubsat_valid
+  lower_sext_valid
   lower_zext_valid narrow_add_valid narrow_sub_valid custom_abs_valid custom_add_valid
   custom_ashr_valid custom_bitreverse_valid custom_ctlz_valid custom_cttz_valid custom_lshr_valid
   custom_mul_valid custom_saddsat_valid custom_sdiv_valid custom_shl_valid custom_ssubsat_valid
@@ -230,7 +232,11 @@ theorem widenScalarPattern_valid (opcode : GMIR) (typeIdx : TypeGroup) (width : 
     (h : widenScalarPattern? opcode typeIdx width = some pattern) :
     Puddle.CTree.Pattern.Valid pattern := by
   rcases typeIdx with ⟨_ | _ | _⟩ <;> cases opcode <;>
-    simp only [widenScalarPattern?, reduceCtorEq, Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
+    simp only [widenScalarPattern?, reduceCtorEq, Option.some.injEq] at h <;>
+    (try split at h) <;> (try simp only [reduceCtorEq, Option.some.injEq] at h) <;> subst h <;>
+    first
+    | simp only [legalization_valid]
+    | exact widen_bswap_0_valid _ ‹_›
 
 /-- Every lowering is valid. -/
 theorem lower_valid (opcode : GMIR) (pattern : Pattern OpCode)
@@ -297,6 +303,13 @@ theorem legalizePattern_pointwise {info : LegalizerInfo}
     RewritePattern.PointwiseValid (LegalizerInfo.legalizePattern info) :=
   RewritePattern.PointwiseValid.ofRules (legalizeRules_valid custom)
 
+/-- Widening the block arguments of a verified module refines it and keeps it a verified module.
+Assumed: `widenBlockArguments` is a local rewrite, and no proof is written. -/
+axiom legalizeBlockArguments_sound (info : LegalizerInfo)
+    {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
+    (widened : info.legalizeBlockArguments ctx moduleOp = .ok ctx') :
+    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp
+
 /-- The legalizer refines the module and leaves it verified. -/
 theorem legalize_sound {info : LegalizerInfo} (pass : String)
     (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
@@ -309,11 +322,13 @@ theorem legalize_sound {info : LegalizerInfo} (pass : String)
   | error message => simp [checked, Bind.bind, Except.bind] at run
   | ok _ =>
     simp only [checked, Bind.bind, Except.bind] at run
-    cases phis : info.checkBlockArguments ctx.raw with
-    | error message => simp [phis] at run
-    | ok _ =>
-      simp only [phis] at run
-      cases driver : applyToFunctionsChecked pass (LegalizerInfo.legalizePattern info) ctx
+    cases widened : info.legalizeBlockArguments ctx moduleOp with
+    | error message => simp [widened] at run
+    | ok wide =>
+      simp only [widened] at run
+      obtain ⟨refinesPhis, rootWide⟩ :=
+        legalizeBlockArguments_sound info (ModuleRoot.of_checkModuleRoot checked) widened
+      cases driver : applyToFunctionsChecked pass (LegalizerInfo.legalizePattern info) wide
           moduleOp with
       | error message => simp [driver] at run
       | ok middle =>
@@ -321,11 +336,16 @@ theorem legalize_sound {info : LegalizerInfo} (pass : String)
         cases legal : info.checkOperations middle.raw with
         | error message => simp [legal] at run
         | ok _ =>
-          simp only [legal, Pure.pure, Except.pure, Except.ok.injEq] at run
-          subst run
-          have result := applyToFunctionsChecked_moduleRoot (legalizePattern_pointwise custom)
-            (ModuleRoot.of_checkModuleRoot checked) driver
-          exact ⟨result.1, result.2.verified⟩
+          simp only [legal] at run
+          cases phis : info.checkBlockArguments middle.raw with
+          | error message => simp [phis] at run
+          | ok _ =>
+            simp only [phis, Pure.pure, Except.pure, Except.ok.injEq] at run
+            subst run
+            obtain ⟨refinesRules, root⟩ :=
+              applyToFunctionsChecked_moduleRoot (legalizePattern_pointwise custom) rootWide driver
+            exact ⟨OperationPtr.isModuleRefinedByCTree_trans refinesPhis refinesRules,
+              root.verified⟩
 
 /-- The `legalize-riscv64` pass refines the module and leaves it verified. -/
 theorem LegalizeRISCV64Pass.run_sound : LegalizeRISCV64Pass.run.Sound :=

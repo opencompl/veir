@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
-// XFAIL: *
-// Needs `widenBlockArguments`, commented out of the pass as unproven.
-
 // `i64` and pointer block arguments are legal, and narrower integers are widened to `i64`.
 
 "builtin.module"() ({

@@ -1,8 +1,5 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
-// XFAIL: *
-// Needs `lowerSext`, commented out of the pass as unproven.
-
 // ABI lowering must expose argument and call-result registers before instruction
 // selection handles g_anyext. Otherwise selecting g_anyext inserts an iN -> reg
 // cast, and ABI lowering later completes a reg -> iN -> reg round trip that

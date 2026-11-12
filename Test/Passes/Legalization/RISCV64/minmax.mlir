@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
-// XFAIL: *
-// Needs `lowerSext`, commented out of the pass as unproven.
-
 "builtin.module"() ({
   "func.func"() <{function_type = (i64, i32, i8) -> (), sym_name = "main"}> ({
   ^bb0(%x_i64: i64, %x_i32: i32, %x_i8: i8):

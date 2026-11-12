@@ -4,9 +4,6 @@
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
-// XFAIL: *
-// Needs `widenReverse .g_bswap`, commented out of the pass as unproven.
-
 "builtin.module"() ({
   "func.func"() <{sym_name = "main", function_type = () -> (i32, i32, i32, i8, i8, i8, i8, i32, i32, i8, i8, i32, i16, i32, i8)}> ({
     %x32 = "llvm.mlir.constant"() <{value = 0x00f0e100 : i32}> : () -> i32

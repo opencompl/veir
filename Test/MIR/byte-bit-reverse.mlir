@@ -1,9 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
 
-// XFAIL: *
-// Needs `widenReverse .g_bswap`, commented out of the pass as unproven.
-
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "bitreverse_8", function_type = !llvm.func<i8 (i8)>}> ({
   ^bb0(%x: i8):
