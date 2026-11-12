@@ -156,14 +156,120 @@ def LowersFunction (f : ResolvedFunction) (op : OperationPtr) : Prop :=
       MatchesOp ctx ret Llvm.return #[] #[v] #[] ()) ∧
     ops.filter (·.getOpType! ctx.raw != ofDialect OpCode Llvm.mlir__constant) = defs ++ [ret]
 
-/-- Only the module reachable from the root is specified; `Dom` orders definitions before uses. -/
+/-- `Corresponds args insts ty val v`: the SSA value `v` computes the resolved operand `val`,
+found by following `v`'s def-use edges and `val`'s instruction indices in lockstep. -/
+inductive Corresponds (args : Array ValuePtr) (insts : List ResolvedAST) :
+    LLType → ResolvedValue → ValuePtr → Prop where
+  | param : args[i]? = some v → Corresponds args insts ty (.ref (.param i)) v
+  | const : MatchesOp ctx c Llvm.mlir__constant #[lowerType (.int w)] #[] #[]
+        (LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt n (.signless w)))) →
+      Corresponds args insts (.int w) (.intConst n) (.opResult (c.getResult 0))
+  | bin : insts[i]? = some (.bin opc ty l r) →
+      MatchesOp ctx op (binOpcode opc) #[lowerType ty] #[vl, vr] #[] default →
+      Corresponds args insts ty l vl → Corresponds args insts ty r vr →
+      Corresponds args insts ty (.ref (.inst i)) (.opResult (op.getResult 0))
+
+/-- Alternative to `LowersFunction`: the returned value, and every instruction, corresponds
+to a tree of ops. Sharing is not specified: an instruction may be lowered by several ops. -/
+def LowersFunction' (f : ResolvedFunction) (op : OperationPtr) : Prop :=
+  ∃ region block, ∃ ops : List OperationPtr, ∃ ret v,
+    MatchesOp ctx op Llvm.func #[] #[] #[region]
+      (LLVMFuncProperties.mk ⟨f.header.name.toUTF8⟩
+        { inputs := f.header.params.toArray.map (fun p => (lowerType p.ty).val)
+          outputs := #[(lowerType f.header.retType).val] } .empty) ∧
+    region.BlockChain ctx.raw #[block] ∧ block.OpChain ctx.raw ops.toArray ∧
+    block.getArgumentTypes! ctx.raw = f.header.params.toArray.map (lowerType ·.ty) ∧
+    Corresponds ctx (block.getArguments! ctx.raw) f.insts f.header.retType f.result v ∧
+    MatchesOp ctx ret Llvm.return #[] #[v] #[] () ∧ ops.getLast? = .some ret
+
+
+abbrev ValueMap := ValueId → Option ValuePtr
+
+def OperandMatches (ctx : WfIRContext OpCode) (values : ValueMap) :
+    LLType → ResolvedValue → ValuePtr → Prop
+  | _, .ref id, v => values id = some v
+  | .int w, .intConst n, v =>
+      ∃ c, v = .opResult (c.getResult 0) ∧
+        MatchesOp ctx c Llvm.mlir__constant #[lowerType (.int w)] #[] #[]
+          (LLVMConstantProperties.mk
+            (.integer (IntegerAttr.ofInt n (.signless w))))
+
+-- An ordinary instruction is then checked locally:
+
+def InstMatches (ctx : WfIRContext OpCode) (values : ValueMap)
+    (id : ValueId) (inst : ResolvedAST) (op : OperationPtr) : Prop :=
+  values id = some (.opResult (op.getResult 0)) ∧
+  match inst with
+  | .bin opc ty lhs rhs =>
+      ∃ vl vr,
+        OperandMatches ctx values ty lhs vl ∧
+        OperandMatches ctx values ty rhs vr ∧
+        MatchesOp ctx op (binOpcode opc) #[lowerType ty] #[vl, vr] #[] default
+
+/-- Alternative to `LowersFunction'` using a shared value map.
+We don't care about dominance.
+We don't care about instruction order.
+ -/
+def LowersFunction'' (f : ResolvedFunction) (op : OperationPtr) : Prop :=
+  ∃ region block, ∃ ops : List OperationPtr, ∃ defs ret v, ∃ values : ValueMap,
+    MatchesOp ctx op Llvm.func #[] #[] #[region]
+      (LLVMFuncProperties.mk ⟨f.header.name.toUTF8⟩
+        { inputs := f.header.params.toArray.map (fun p => (lowerType p.ty).val)
+          outputs := #[(lowerType f.header.retType).val] } .empty) ∧
+    region.BlockChain ctx.raw #[block] ∧ block.OpChain ctx.raw ops.toArray ∧
+    block.getArgumentTypes! ctx.raw = f.header.params.toArray.map (lowerType ·.ty) ∧
+    (∀ i, values (.param i) = (block.getArguments! ctx.raw)[i]?) ∧
+    ResolvesList (fun (inst, i) => InstMatches ctx values (.inst i) inst)
+      f.insts.zipIdx defs ∧
+    (∀ op ∈ defs, op ∈ ops) ∧
+    ret ∈ ops ∧
+    OperandMatches ctx values f.header.retType f.result v ∧
+    MatchesOp ctx ret Llvm.return #[] #[v] #[] ()
+
+/-- `OperandTile values ty val v cs`: `val` denotes `v`, and `cs` are the ops materialised
+for it: none for a reference, one `mlir.constant` for a literal. -/
+def OperandTile (values : ValueMap) : LLType → ResolvedValue → ValuePtr → List OperationPtr → Prop
+  | _, .ref id, v, cs => values id = some v ∧ cs = []
+  | .int w, .intConst n, v, cs => ∃ c, cs = [c] ∧ v = .opResult (c.getResult 0) ∧
+      MatchesOp ctx c Llvm.mlir__constant #[lowerType (.int w)] #[] #[]
+        (LLVMConstantProperties.mk (.integer (IntegerAttr.ofInt n (.signless w))))
+
+/-- `LowersInstTile values id inst tile`: `inst`, named `id`, lowers to exactly the ops `tile`:
+the constants of its operands, left to right, followed by its defining op. -/
+def LowersInstTile (values : ValueMap) (id : ValueId) : ResolvedAST → List OperationPtr → Prop
+  | .bin opc ty l r, tile => ∃ vl vr cl cr op, tile = cl ++ cr ++ [op] ∧
+      OperandTile ctx values ty l vl cl ∧ OperandTile ctx values ty r vr cr ∧
+      values id = some (.opResult (op.getResult 0)) ∧
+      MatchesOp ctx op (binOpcode opc) #[lowerType ty] #[vl, vr] #[] default
+
+/-- Alternative to `LowersFunction''` in which each instruction lowers to a tile of ops, and the
+body block is exactly the tiles, then the return value's constants, then the return.
+Unlike `LowersFunction''`, this fixes the order of every op, but still not dominance. -/
+def LowersFunctionTiles (f : ResolvedFunction) (op : OperationPtr) : Prop :=
+  ∃ region block, ∃ tiles : List (List OperationPtr), ∃ cs ret v, ∃ values : ValueMap,
+    MatchesOp ctx op Llvm.func #[] #[] #[region]
+      (LLVMFuncProperties.mk ⟨f.header.name.toUTF8⟩
+        { inputs := f.header.params.toArray.map (fun p => (lowerType p.ty).val)
+          outputs := #[(lowerType f.header.retType).val] } .empty) ∧
+    region.BlockChain ctx.raw #[block] ∧
+    block.getArgumentTypes! ctx.raw = f.header.params.toArray.map (lowerType ·.ty) ∧
+    (∀ i, values (.param i) = (block.getArguments! ctx.raw)[i]?) ∧
+    ResolvesList (fun (inst, i) => LowersInstTile ctx values (.inst i) inst) f.insts.zipIdx tiles ∧
+    OperandTile ctx values f.header.retType f.result v cs ∧
+    MatchesOp ctx ret Llvm.return #[] #[v] #[] () ∧
+    block.OpChain ctx.raw (tiles.flatten ++ cs ++ [ret]).toArray
+
+
+/-- Only the module reachable from the root is specified;  We don't require Dominance -/
 def LowersModule (m : ResolvedModule) (root : OperationPtr) : Prop :=
   ∃ (region : RegionPtr) (block : BlockPtr) (funcs : List OperationPtr),
     MatchesOp ctx root Builtin.module #[] #[] #[region] default ∧
     region.BlockChain ctx.raw #[block] ∧
     block.OpChain ctx.raw funcs.toArray ∧
-    root.getParent! ctx.raw = none ∧ ctx.Dom (.operation root) ∧
-    block.getArgumentTypes! ctx.raw = #[] ∧ ResolvesList (LowersFunction ctx) m.funcs funcs
+    root.getParent! ctx.raw = none ∧
+    block.getArgumentTypes! ctx.raw = #[] ∧ ResolvesList (LowersFunction'' ctx) m.funcs funcs
+
+
 
 end Specification
 
@@ -225,4 +331,5 @@ info: "builtin.module"() ({
 
 #eval (lowerModule resolvedDeMorganModule).map (·.1.raw)
 theorem lowerModule_sound : lowerModule m = .ok (ctx, root) → LowersModule ctx m root := sorry
- end Veir.LLVMLowering
+
+end Veir.LLVMLowering
