@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
-public import Veir.Passes.StrictDriver
+public import Veir.Passes.CheckedDriver
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
 import Veir.Passes.Matching.GMIR.Basic
@@ -209,12 +209,6 @@ def lowerLifetime (llvmOp : Llvm) : Pattern OpCode :=
       return ())
     pure
     (fun () => ⟨#[]⟩)
-
-/-- Erase `llvm.intr.lifetime.start`. -/
-def lifetimeStart : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__start).compile
-
-/-- Erase `llvm.intr.lifetime.end`. -/
-def lifetimeEnd : Puddle.CompiledPattern OpCode := (lowerLifetime .intr__lifetime__end).compile
 
 /-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
 private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
@@ -622,17 +616,6 @@ def getelementptrGeneral (rewriter : PatternRewriter OpCode) (op : OperationPtr)
 -/
 
 
-/-- llvm.intr.fshl with identical data operands is a rotate-left: -> riscv.rol (riscv.rolw for i32).
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshl64 : Puddle.CompiledPattern OpCode := fshl64_pattern.compile
-
-def fshl32 : Puddle.CompiledPattern OpCode := fshl32_pattern.compile
-
-/-- llvm.intr.fshr with identical data operands is a rotate-right: -> riscv.ror (riscv.rorw for i32).
-    The general (distinct-operand) funnel shift is left unselected. -/
-def fshr64 : Puddle.CompiledPattern OpCode := fshr64_pattern.compile
-
-def fshr32 : Puddle.CompiledPattern OpCode := fshr32_pattern.compile
 /--
   `llvm.intr.fshl`/`llvm.intr.fshr` (`rotateLeft` set/unset) on `bw`-bit values with identical
   data operands and a constant shift amount is a constant rotate: -> `riscv.rori` (`riscv.roriw`
@@ -687,23 +670,6 @@ def lowerFshConst (rotateLeft : Bool) (bw : Nat) (throughTrunc : Bool := false) 
           #[roriOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
-
-/-- llvm.intr.fshr with identical data operands and a constant shift amount is a
-    constant rotate-right: -> riscv.rori (mirrors `PatGprImm<rotr, RORI>`). -/
-def fshrConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst false 64).compile
-
-def fshrConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst false 32).compile
-
-def fshrConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst false 32 true).compile
-
-/-- llvm.intr.fshl with identical data operands and a constant shift amount is a
-    constant rotate-left. There is no `roli`, so (like LLVM) it lowers to
-    `riscv.rori` with the negated immediate `(64 - amt) mod 64`. -/
-def fshlConst64 : Puddle.CompiledPattern OpCode := (lowerFshConst true 64).compile
-
-def fshlConst32 : Puddle.CompiledPattern OpCode := (lowerFshConst true 32).compile
-
-def fshlConst32Trunc : Puddle.CompiledPattern OpCode := (lowerFshConst true 32 true).compile
 
 /-! ## General (distinct-operand) funnel shift
 
@@ -786,12 +752,6 @@ def lowerFshlGeneral (bw : Nat) : Pattern OpCode :=
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- General `llvm.intr.fshl` (`i64`) -> shift/or expansion (see `lowerFshlGeneral`). -/
-def fshlGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 64).compile
-
-/-- General `llvm.intr.fshl` (`i32`) -> shift/or expansion (see `lowerFshlGeneral`). -/
-def fshlGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshlGeneral 32).compile
-
 /-- General `llvm.intr.fshr x y z` -> `((x << 1) << ~z) | (y >> z)` (see the
     section comment), for `bw`-bit values. The i32 form uses the `w` shifts. -/
 def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
@@ -851,13 +811,6 @@ def lowerFshrGeneral (bw : Nat) : Pattern OpCode :=
       return castBackOp)
     (fun castBackOp => castBackOp)
 
-/-- General `llvm.intr.fshr` (`i64`) -> shift/or expansion (see `lowerFshrGeneral`). -/
-def fshrGeneral64 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 64).compile
-
-/-- General `llvm.intr.fshr` (`i32`) -> shift/or expansion (see `lowerFshrGeneral`). -/
-def fshrGeneral32 : Puddle.CompiledPattern OpCode := (lowerFshrGeneral 32).compile
-
-
 /-- gmir.g_poison -> riscv.li 0 -/
 def gmirPoison_pattern : Pattern OpCode :=
   Pattern.Builder
@@ -890,9 +843,6 @@ def zeroConst_pattern : Pattern OpCode :=
           #[liOp.res[0]!] #[resType]
       return castBackOp)
     (fun castBackOp => castBackOp)
-
-/-- llvm.mlir.zero of an integer up to 64 bits or a pointer -> riscv.li 0 -/
-def zeroConst : Puddle.CompiledPattern OpCode := zeroConst_pattern.compile
 
 /-- gmir.g_poison -> riscv.li 0 -/
 def gmirPoison : Puddle.CompiledPattern OpCode := gmirPoison_pattern.compile
@@ -1088,11 +1038,6 @@ def memIntrinsicInline_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
   let fill := memFill ctx.raw isMemset accesses operands[1]!
   (memIntrinsicInline_pattern isMemset accesses fill).interpret ctx op
 
-/-- llvm.intr.memcpy / llvm.intr.memset -> loads and stores, or a libcall. -/
-def memIntrinsic : RewritePattern OpCode :=
-  .GreedyRewritePattern <| memIntrinsicCalls.map (·.run) ++
-    #[.fromLocalRewrite memIntrinsicInline_local]
-
 /-!
 An integer of 3, 5, 6 or 7 bytes fits no single `l*`/`s*` instruction, so it is accessed in
 power-of-two pieces, as in LLVM's `LegalizerHelper::lowerLoad`/`lowerStore`.
@@ -1156,13 +1101,6 @@ def splitStore_pattern (bytes : Nat) : Pattern OpCode :=
           storeProps piece addrCast.res[0]!
       return ())
     (fun () => ⟨#[]⟩)
-
-/-- The split loads and stores, for the integers of 3, 5, 6 and 7 bytes. -/
-def splitLoad : Array (Puddle.CompiledPattern OpCode) :=
-  #[3, 5, 6, 7].map (splitLoad_pattern · |>.compile)
-
-def splitStore : Array (Puddle.CompiledPattern OpCode) :=
-  #[3, 5, 6, 7].map (splitStore_pattern · |>.compile)
 
 /-! # gMIR Lowering Patterns
 
@@ -1333,9 +1271,6 @@ def gmirSelectZeroOfSetccPatterns : Array (Pattern OpCode) :=
       #[Data.LLVM.IntPred.ne, .eq].map fun pred =>
         gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs
 
-def gmirSelectZeroOfSetcc : Array (Puddle.CompiledPattern OpCode) :=
-  gmirSelectZeroOfSetccPatterns.map (·.compile)
-
 /-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
 def gmirSelectZeroPatterns : Array (Pattern OpCode) :=
   #[true, false].map gmirSelectZero_pattern
@@ -1376,8 +1311,6 @@ def gmirSelect_pattern : Pattern OpCode :=
           #[eqzOp.res[0]!, nezOp.res[0]!] #[regType] orProps
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[orOp.res[0]!] #[type])
     (fun castBackOp => castBackOp)
-
-def gmirSelect : Puddle.CompiledPattern OpCode := gmirSelect_pattern.compile
 
 /-- `gmir.g_add` (`i64`) -> `riscv.add`. -/
 def gmirAdd_pattern : Pattern OpCode :=
@@ -1442,14 +1375,8 @@ def gmirAnyextOfReg_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[r] #[resType])
     (fun castOp => castOp)
 
-def gmirAdd : Puddle.CompiledPattern OpCode := gmirAdd_pattern.compile
-def gmirSub : Puddle.CompiledPattern OpCode := gmirSub_pattern.compile
-def gmirTrunc : Puddle.CompiledPattern OpCode := gmirTrunc_pattern.compile
 def gmirAnyext : Puddle.CompiledPattern OpCode := gmirAnyext_pattern.compile
 def gmirAnyextOfReg : Puddle.CompiledPattern OpCode := gmirAnyextOfReg_pattern.compile
-def gmirShl : Puddle.CompiledPattern OpCode := gmirShl_pattern.compile
-def gmirLshr : Puddle.CompiledPattern OpCode := gmirLshr_pattern.compile
-def gmirAshr : Puddle.CompiledPattern OpCode := gmirAshr_pattern.compile
 
 /--
   RISC-V lowerings with Puddle for the integer-extension operations (`sext`/`zext`): match a
@@ -1525,34 +1452,11 @@ def sextInRegShift_pattern : Pattern OpCode :=
       CreateProg.operation (.builtin .unrealized_conversion_cast) #[right.res[0]!] #[resType])
     (fun castBackOp => castBackOp)
 
-def sextInReg8 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 8 .sextb ()).compile
-def sextInReg16 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 16 .sexth ()).compile
-def sextInReg32 : Puddle.CompiledPattern OpCode := (sextInRegExt_pattern 32 .sextw ()).compile
-def sextInRegShift : Puddle.CompiledPattern OpCode := sextInRegShift_pattern.compile
-
 /-- `gmir.g_zext` (`i16` operand) -> `riscv.zexth`. -/
 def zext16_pattern : Pattern OpCode := lowerExt .g_zext 16 .zexth ()
 
 /-- `gmir.g_zext` (`i32` operand) -> `riscv.zextw`. -/
 def zext32_pattern : Pattern OpCode := lowerExt .g_zext 32 .zextw ()
-
-/--
-  gmir.g_sext %x `i16` to `i64` -> riscv.sexth %x
-  gmir.g_sext %x `i16` to `i32` -> riscv.sexth %x
-  gmir.g_sext %x `i32` to `i64` -> riscv.sextw %x
--/
-def sext16 : Puddle.CompiledPattern OpCode := sext16_pattern.compile
-
-def sext32 : Puddle.CompiledPattern OpCode := sext32_pattern.compile
-
-/--
-  gmir.g_zext %x `i16` to `i64` -> riscv.zexth %x
-  gmir.g_zext %x `i16` to `i32` -> riscv.zexth %x
-  gmir.g_zext %x `i32` to `i64` -> riscv.zextw %x
--/
-def zext16 : Puddle.CompiledPattern OpCode := zext16_pattern.compile
-
-def zext32 : Puddle.CompiledPattern OpCode := zext32_pattern.compile
 
 /-- `gmir.g_and` (`i64`) -> `riscv.and`. -/
 def gmirAnd_pattern : Pattern OpCode :=
@@ -1565,10 +1469,6 @@ def gmirOr_pattern : Pattern OpCode :=
 /-- `gmir.g_xor` (`i64`) -> `riscv.xor`. -/
 def gmirXor_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_xor) (·.bitwidth = 64) .xor () (guard := matchLegal .g_xor)
-
-def gmirAnd : Puddle.CompiledPattern OpCode := gmirAnd_pattern.compile
-def gmirOr : Puddle.CompiledPattern OpCode := gmirOr_pattern.compile
-def gmirXor : Puddle.CompiledPattern OpCode := gmirXor_pattern.compile
 
 /-- Cast `operands` to registers, apply `riscvOp`, and cast its result back to `type`. -/
 def createRegOp (type : Handle OpCode .type) (operands : Array (Handle OpCode .value))
@@ -1653,18 +1553,6 @@ def gmirRiscvSrliw_pattern : Pattern OpCode :=
 def gmirRiscvSraiw_pattern : Pattern OpCode :=
   lowerBinaryImm (.gmir_riscv .g_sraw) .sraiw rfl 0 31
 
-def gmirAddi : Puddle.CompiledPattern OpCode := gmirAddi_pattern.compile
-def gmirAndi : Puddle.CompiledPattern OpCode := gmirAndi_pattern.compile
-def gmirOri : Puddle.CompiledPattern OpCode := gmirOri_pattern.compile
-def gmirXori : Puddle.CompiledPattern OpCode := gmirXori_pattern.compile
-def gmirSlli : Puddle.CompiledPattern OpCode := gmirSlli_pattern.compile
-def gmirSrli : Puddle.CompiledPattern OpCode := gmirSrli_pattern.compile
-def gmirSrai : Puddle.CompiledPattern OpCode := gmirSrai_pattern.compile
-def gmirRiscvAddiw : Puddle.CompiledPattern OpCode := gmirRiscvAddiw_pattern.compile
-def gmirRiscvSlliw : Puddle.CompiledPattern OpCode := gmirRiscvSlliw_pattern.compile
-def gmirRiscvSrliw : Puddle.CompiledPattern OpCode := gmirRiscvSrliw_pattern.compile
-def gmirRiscvSraiw : Puddle.CompiledPattern OpCode := gmirRiscvSraiw_pattern.compile
-
 /-! ## Zbs single-bit immediate selection
 
   These mirror the Zbs mask patterns in `RISCVInstrInfoZb.td`: `bseti`/`binvi`/`bclri`
@@ -1728,10 +1616,6 @@ def gmirBinvi_pattern : Pattern OpCode := gmirSingleBit_pattern .g_xor .binvi rf
 
 /-- `gmir.g_and` (`i64`) with a single-cleared-bit constant rhs -> `riscv.bclri`. -/
 def gmirBclri_pattern : Pattern OpCode := gmirSingleBit_pattern .g_and .bclri rfl true
-
-def gmirBseti : Puddle.CompiledPattern OpCode := gmirBseti_pattern.compile
-def gmirBinvi : Puddle.CompiledPattern OpCode := gmirBinvi_pattern.compile
-def gmirBclri : Puddle.CompiledPattern OpCode := gmirBclri_pattern.compile
 
 /-! ## Composed patterns
 
@@ -1846,8 +1730,6 @@ def gmirComposedPatterns : Array (Pattern OpCode) :=
       gmirBinopNot_pattern .g_xor .xnor () notLhs]
   binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++ #[gmirBexti_pattern, gmirSlliuw_pattern]
 
-def gmirComposed : Array (Puddle.CompiledPattern OpCode) := gmirComposedPatterns.map (·.compile)
-
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_mul) (·.bitwidth = 64) .mul () (guard := matchLegal .g_mul)
@@ -1867,12 +1749,6 @@ def gmirSrem_pattern : Pattern OpCode :=
 /-- `gmir.g_urem` (`i64`) -> `riscv.remu`. -/
 def gmirUrem_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_urem) (·.bitwidth = 64) .remu () (guard := matchLegal .g_urem)
-
-def gmirMul : Puddle.CompiledPattern OpCode := gmirMul_pattern.compile
-def gmirSdiv : Puddle.CompiledPattern OpCode := gmirSdiv_pattern.compile
-def gmirUdiv : Puddle.CompiledPattern OpCode := gmirUdiv_pattern.compile
-def gmirSrem : Puddle.CompiledPattern OpCode := gmirSrem_pattern.compile
-def gmirUrem : Puddle.CompiledPattern OpCode := gmirUrem_pattern.compile
 
 /-- `gmir_riscv.g_addw` (`i64`) -> `riscv.addw`. -/
 def gmirRiscvAddw_pattern : Pattern OpCode :=
@@ -1917,18 +1793,6 @@ def gmirRiscvClzw_pattern : Pattern OpCode :=
 /-- `gmir_riscv.g_ctzw` (`i64`) -> `riscv.ctzw`. -/
 def gmirRiscvCtzw_pattern : Pattern OpCode :=
   lowerUnary (.gmir_riscv .g_ctzw) 64 .ctzw ()
-
-def gmirRiscvAddw : Puddle.CompiledPattern OpCode := gmirRiscvAddw_pattern.compile
-def gmirRiscvSubw : Puddle.CompiledPattern OpCode := gmirRiscvSubw_pattern.compile
-def gmirRiscvMulw : Puddle.CompiledPattern OpCode := gmirRiscvMulw_pattern.compile
-def gmirRiscvDivw : Puddle.CompiledPattern OpCode := gmirRiscvDivw_pattern.compile
-def gmirRiscvDivuw : Puddle.CompiledPattern OpCode := gmirRiscvDivuw_pattern.compile
-def gmirRiscvRemuw : Puddle.CompiledPattern OpCode := gmirRiscvRemuw_pattern.compile
-def gmirRiscvSllw : Puddle.CompiledPattern OpCode := gmirRiscvSllw_pattern.compile
-def gmirRiscvSrlw : Puddle.CompiledPattern OpCode := gmirRiscvSrlw_pattern.compile
-def gmirRiscvSraw : Puddle.CompiledPattern OpCode := gmirRiscvSraw_pattern.compile
-def gmirRiscvClzw : Puddle.CompiledPattern OpCode := gmirRiscvClzw_pattern.compile
-def gmirRiscvCtzw : Puddle.CompiledPattern OpCode := gmirRiscvCtzw_pattern.compile
 
 /-- `gmir.g_constant` (`i64`) -> `riscv.li`. -/
 def gmirConstant_pattern : Pattern OpCode :=
@@ -2025,19 +1889,6 @@ def gmirUmax_pattern : Pattern OpCode :=
 /-- `gmir.g_umin` (`i64`) -> `riscv.minu`. -/
 def gmirUmin_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_umin) (·.bitwidth = 64) .minu () (guard := matchLegal .g_umin)
-
-def gmirSmax : Puddle.CompiledPattern OpCode := gmirSmax_pattern.compile
-def gmirSmin : Puddle.CompiledPattern OpCode := gmirSmin_pattern.compile
-def gmirUmax : Puddle.CompiledPattern OpCode := gmirUmax_pattern.compile
-def gmirUmin : Puddle.CompiledPattern OpCode := gmirUmin_pattern.compile
-
-def gmirCtlz : Puddle.CompiledPattern OpCode := gmirCtlz_pattern.compile
-def gmirCttz : Puddle.CompiledPattern OpCode := gmirCttz_pattern.compile
-def gmirCtpop : Puddle.CompiledPattern OpCode := gmirCtpop_pattern.compile
-def gmirCpopw : Puddle.CompiledPattern OpCode := gmirCpopw_pattern.compile
-def gmirBswap : Puddle.CompiledPattern OpCode := gmirBswap_pattern.compile
-def gmirBrev8 : Puddle.CompiledPattern OpCode := gmirBrev8_pattern.compile
-def gmirBitreverse : Puddle.CompiledPattern OpCode := gmirBitreverse_pattern.compile
 
 /-! ### `gmir.icmp` lowering
 
@@ -2154,8 +2005,6 @@ def gmirIcmpPatterns : Array (Pattern OpCode) :=
   let generic := preds.map (gmirIcmp_pattern · false)
   peepholes ++ generic
 
-def gmirIcmp : Array (Puddle.CompiledPattern OpCode) := gmirIcmpPatterns.map (·.compile)
-
 /--
   The immediate of the `riscv.slti`/`riscv.sltiu` that `gmir.g_icmp pred x, c` (`i64`) is lowered
   to:
@@ -2216,21 +2065,22 @@ def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
 def gmirSltiPatterns : Array (Pattern OpCode) :=
   #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map gmirSlti_pattern
 
-def gmirSlti : Array (Puddle.CompiledPattern OpCode) := gmirSltiPatterns.map (·.compile)
+/-! # Pass implementation
 
-/-! # Strict pass
+The pass runs, through the module-filtered driver, three selection loops whose patterns are all
+proved to refine the module (`Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass`). The
+memory-intrinsic lowerings (the libcall fallback has no semantics, the inline expansion no proof
+yet), the split loads and stores and the general `getelementptr` lowering, whose address lemmas are
+not written, are unproven and no loop runs them: an input that needs one of those keeps the
+operation unselected. -/
 
-The strict pass runs, through the module-filtered driver, the patterns of the three selection
-loops, which are all proved to refine the module. The memory-intrinsic lowerings (the libcall
-fallback has no semantics, the inline expansion no proof yet), the split loads and stores and the
-general `getelementptr` lowering, whose address lemmas are not written, are unproven and no loop
-runs them: an input that needs one of those keeps the operation unselected. -/
+/-- The composed loop: select expressions of several gMIR operations into one instruction, before
+the later loops select their inner operations. -/
+public def iselComposedPatterns : Array (Pattern OpCode) := gmirComposedPatterns
 
-/-- The composed loop of the strict pass. -/
-public def iselComposedStrict : Array (Pattern OpCode) := gmirComposedPatterns
-
-/-- The early loop of the strict pass. -/
-public def iselEarlyStrict : Array (Pattern OpCode) :=
+/-- The early loop: fold composed intrinsics and inspect constants before the per-op lowerings
+consume them. -/
+public def iselEarlyPatterns : Array (Pattern OpCode) :=
   #[lowerLifetime .intr__lifetime__start, lowerLifetime .intr__lifetime__end] ++
   loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ gmirSelectZeroOfSetccPatterns ++
   gmirSelectZeroPatterns ++ #[
@@ -2242,8 +2092,8 @@ public def iselEarlyStrict : Array (Pattern OpCode) :=
     gmirCpopw_pattern, gmirBseti_pattern, gmirBinvi_pattern, gmirBclri_pattern] ++
   gmirSltiPatterns
 
-/-- The main loop of the strict pass. -/
-public def iselMainStrict : Array (Pattern OpCode) :=
+/-- The main loop: the per-op lowerings. -/
+public def iselMainPatterns : Array (Pattern OpCode) :=
   #[gmirSelect_pattern, constant_pattern, addressof_pattern,
     sext32_pattern, sext16_pattern, sextInRegExt_pattern 8 .sextb (),
     sextInRegExt_pattern 16 .sexth (), sextInRegExt_pattern 32 .sextw (), sextInRegShift_pattern,
@@ -2265,72 +2115,20 @@ public def iselMainStrict : Array (Pattern OpCode) :=
     gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern] ++
   gmirIcmpPatterns
 
-/-- The strict pass: the three loops over the proved patterns, through the module-filtered
-driver. Its soundness is `ISelPass.runStrict_sound`. -/
-public def ISelPass.runStrict : PurePass :=
-  strictFunctionsPasses "isel-riscv64" [
-    RewritePattern.GreedyRewritePattern (iselComposedStrict.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern (iselEarlyStrict.map fun rule => rule.compile.run),
-    RewritePattern.GreedyRewritePattern (iselMainStrict.map fun rule => rule.compile.run)]
+/-- The pass: the three loops, through the module-filtered driver. Its soundness is
+`ISelPass.run_sound`. -/
+public def ISelPass.run : PurePass :=
+  checkedFunctionsPasses "isel-riscv64" [
+    RewritePattern.GreedyRewritePattern (iselComposedPatterns.map fun rule => rule.compile.run),
+    RewritePattern.GreedyRewritePattern (iselEarlyPatterns.map fun rule => rule.compile.run),
+    RewritePattern.GreedyRewritePattern (iselMainPatterns.map fun rule => rule.compile.run)]
 
-/-! # Pass implementation -/
-
-public def ISelPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  if strict then ExceptT.mk (pure (ISelPass.runStrict ctx op)) else do
-  /- Composed loop: select expressions of several gMIR operations into one instruction, before
-     the later loops select their inner operations. -/
-  let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
-  let ctx ← match RewritePattern.applyToFunctions composed ctx op with
-  | none => throw "Error while applying composed instruction-selection patterns"
-  | some ctx => pure ctx
-  /- Early loop: fold composed intrinsics and inspect constants before the per-op
-     lowerings consume them. -/
-  -- `memIntrinsic`, `splitLoad` and `splitStore` are unproven, so not run:
-  -- `#[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ splitLoad.map (·.run) ++
-  --  splitStore.map (·.run) ++`.
-  let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
-    store.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
-    fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
-    fshlConst32Trunc.run, fshrConst32Trunc.run,
-    gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
-    gmirRiscvAddiw.run, gmirRiscvSlliw.run, gmirRiscvSrliw.run, gmirRiscvSraiw.run,
-    gmirCpopw.run, gmirBseti.run, gmirBinvi.run, gmirBclri.run] ++ gmirSlti.map (·.run)
-  let ctx ← match RewritePattern.applyToFunctions early ctx op with
-  | none => throw "Error while applying early memory-lowering patterns"
-  | some ctx => pure ctx
-  /- Main loop: the existing per-op lowerings. -/
-  let pattern := RewritePattern.GreedyRewritePattern <|
-    #[gmirSelect.run,
-    constant.run, addressof.run] ++
-    #[
-    sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
-    zext32.run, zext16.run, trunc.run,
-    bitcast.run] ++
-    -- `getelementptrGeneral` is unproven, so not run: `++ #[getelementptrGeneral]`.
-    load.map (·.run) ++ gmirLoad.map (·.run) ++ store.map (·.run) ++ #[
-    fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
-    gmirPoison.run, zeroConst.run, freeze.run,
-    gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,
-    gmirAnd.run, gmirOr.run, gmirXor.run,
-    gmirMul.run, gmirSdiv.run, gmirUdiv.run, gmirSrem.run, gmirUrem.run,
-    gmirRiscvAddw.run, gmirRiscvSubw.run, gmirRiscvMulw.run,
-    gmirRiscvDivw.run, gmirRiscvDivuw.run, gmirRiscvRemuw.run, gmirRiscvSllw.run, gmirRiscvSrlw.run,
-    gmirRiscvSraw.run, gmirRiscvClzw.run, gmirRiscvCtzw.run,
-    gmirConstant.run,
-    gmirCtlz.run, gmirCttz.run, gmirCtpop.run, gmirBswap.run, gmirBrev8.run, gmirBitreverse.run,
-    gmirSmax.run, gmirSmin.run, gmirUmax.run, gmirUmin.run] ++
-    gmirIcmp.map (·.run)
-  match RewritePattern.applyToFunctions pattern ctx op with
-  | none => throw "Error while applying main instruction-selection patterns"
-  | some ctx => pure ctx
+public def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (ISelPass.run ctx op))
 
 public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
     description :=
       "Lower LLVM IR to RISCV 64 assembly instruction selection pass."
-    options := .ofList [
-      ("strict", { description := "Only apply the selections proved to refine the module.",
-                   defaultValue := false })]
-    run := fun options => ISelPass.impl ((options.get? "strict").getD false) }
+    run := fun _ => ISelPass.impl }

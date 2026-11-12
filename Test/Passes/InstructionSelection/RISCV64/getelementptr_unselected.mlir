@@ -1,9 +1,7 @@
-// RUN: veir-opt %s -p=isel-riscv64{strict} | filecheck %s
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
-// Both modes of the pass only run the selections proved to refine the module. The
-// `getelementptr` lowering is not one of them, so it is left unselected, while the
-// `gmir.g_add` next to it is selected as usual.
+// The pass only runs the selections proved to refine the module. The `getelementptr` lowering is
+// not one of them, so it is left unselected, while the `gmir.g_add` next to it is selected as usual.
 
 // CHECK: "llvm.getelementptr"
 // CHECK: "riscv.add"

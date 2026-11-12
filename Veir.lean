@@ -34,7 +34,7 @@ import Veir.Interpreter.CTreeRefinement.Refines
 import Veir.Dialects.ProvedMonotone
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
-import Veir.Passes.StrictDriver
+import Veir.Passes.CheckedDriver
 import Veir.Passes.Pipeline.Soundness
 import Veir.Passes.DCE.Validity
 import Veir.Passes.LLVMToGMIR.Soundness
@@ -43,7 +43,7 @@ import Veir.Passes.Pipeline.RISCV
 import Veir.Passes.InstructionSelection.Proofs.I32
 import Veir.Passes.InstructionSelection.Validity
 import Veir.Passes.InstructionSelection.Proofs.RISCV64
-import Veir.Passes.InstructionSelection.Proofs.RISCV64.Strict
+import Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass
 
 import Veir.Dialects.LLVM.Lemmas
 import Veir.Dialects.RISCV_Cf.Lemmas

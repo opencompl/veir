@@ -158,13 +158,13 @@ theorem preLegalizerPatterns_valid :
     ∀ pattern ∈ preLegalizerPatterns, Puddle.CTree.Pattern.Valid pattern := by
   simp [preLegalizerPatterns, selectOfConstantsPatterns, selectIntoBinopPatterns, combine_valid]
 
-/-! ### The strict combiner passes -/
+/-! ### The combiner passes -/
 
-/-- Every pattern the strict post-legalizer combiner applies is valid. -/
-theorem postLegalizerStrictPatterns_valid :
-    ∀ pattern ∈ postLegalizerStrictPatterns, Puddle.CTree.Pattern.Valid pattern := by
+/-- Every pattern the post-legalizer combiner applies is valid. -/
+theorem postLegalizerPatterns_valid :
+    ∀ pattern ∈ postLegalizerPatterns, Puddle.CTree.Pattern.Valid pattern := by
   intro pattern member
-  simp only [postLegalizerStrictPatterns, Array.mem_append, List.mem_toArray, List.mem_cons,
+  simp only [postLegalizerPatterns, Array.mem_append, List.mem_toArray, List.mem_cons,
     List.not_mem_nil, or_false] at member
   rcases member with ((combine | select) | rfl | rfl) | redundant
   · exact combinePatterns_valid pattern combine
@@ -173,36 +173,33 @@ theorem postLegalizerStrictPatterns_valid :
   · exact (sub_to_add_redundant_and_valid riscv64LegalizerInfo).2
   · exact redundantAndSelectPatterns_valid pattern redundant
 
-/-- The strict pre-legalizer combiner refines the module and leaves it verified. -/
-theorem PreLegalizerCombinerRISCV64Pass.runStrict_sound :
-    PreLegalizerCombinerRISCV64Pass.runStrict.Sound :=
-  strictFunctionsPass_sound
+/-- The pre-legalizer combiner refines the module and leaves it verified. -/
+theorem PreLegalizerCombinerRISCV64Pass.run_sound : PreLegalizerCombinerRISCV64Pass.run.Sound :=
+  checkedFunctionsPass_sound
     (RewritePattern.PointwiseValid.greedy_compiled preLegalizerPatterns_valid)
 
-/-- The strict post-legalizer combiner refines the module and leaves it verified. -/
-theorem PostLegalizerCombinerRISCV64Pass.runStrict_sound :
-    PostLegalizerCombinerRISCV64Pass.runStrict.Sound :=
-  strictFunctionsPass_sound
-    (RewritePattern.PointwiseValid.greedy_compiled postLegalizerStrictPatterns_valid)
+/-- The post-legalizer combiner refines the module and leaves it verified. -/
+theorem PostLegalizerCombinerRISCV64Pass.run_sound :
+    PostLegalizerCombinerRISCV64Pass.run.Sound :=
+  checkedFunctionsPass_sound
+    (RewritePattern.PointwiseValid.greedy_compiled postLegalizerPatterns_valid)
 
-theorem PreLegalizerCombinerRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext OpCode)
+theorem PreLegalizerCombinerRISCV64Pass.impl_eq_run (ctx : WfIRContext OpCode)
     (op : OperationPtr) (opIn : op.InBounds ctx.raw) :
-    PreLegalizerCombinerRISCV64Pass.impl true ctx op opIn =
-      ExceptT.mk (pure (PreLegalizerCombinerRISCV64Pass.runStrict ctx op)) := by
+    PreLegalizerCombinerRISCV64Pass.impl ctx op opIn =
+      ExceptT.mk (pure (PreLegalizerCombinerRISCV64Pass.run ctx op)) := by
   rw [PreLegalizerCombinerRISCV64Pass.impl]
-  rfl
 
-theorem PostLegalizerCombinerRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext OpCode)
+theorem PostLegalizerCombinerRISCV64Pass.impl_eq_run (ctx : WfIRContext OpCode)
     (op : OperationPtr) (opIn : op.InBounds ctx.raw) :
-    PostLegalizerCombinerRISCV64Pass.impl true ctx op opIn =
-      ExceptT.mk (pure (PostLegalizerCombinerRISCV64Pass.runStrict ctx op)) := by
+    PostLegalizerCombinerRISCV64Pass.impl ctx op opIn =
+      ExceptT.mk (pure (PostLegalizerCombinerRISCV64Pass.run ctx op)) := by
   rw [PostLegalizerCombinerRISCV64Pass.impl]
-  rfl
 
-/-! ## The strict legalizer
+/-! ## The legalizer
 
 The registries only hold rules proved valid (the unproven ones are commented out), so every rule
-the strict legalizer chooses is valid, and it is sound. -/
+the legalizer chooses is valid, and it is sound. -/
 
 attribute [legalization_valid]
   widen_abs_0_valid widen_add_0_valid widen_and_0_valid widen_ashr_0_valid widen_ashr_1_valid
@@ -262,14 +259,14 @@ theorem legalizeCustom_valid (opcode : GMIR) (pattern : Pattern OpCode)
   cases opcode <;>
     simp only [riscv64LegalizerInfo, reduceCtorEq, Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
 
-/-- The rule the strict legalizer chooses for an operation is valid. -/
-theorem legalizeInstrChoiceStrict_valid {info : LegalizerInfo}
+/-- The rule the legalizer chooses for an operation is valid. -/
+theorem legalizeInstrChoice_valid {info : LegalizerInfo}
     (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
       Puddle.CTree.Pattern.Valid pattern)
     (ctx : WfIRContext OpCode) (op : OperationPtr) (opcode : GMIR) (pattern : Pattern OpCode)
-    (h : LegalizerInfo.legalizeInstrChoiceStrict info ctx op opcode = some pattern) :
+    (h : LegalizerInfo.legalizeInstrChoice info ctx op opcode = some pattern) :
     Puddle.CTree.Pattern.Valid pattern := by
-  unfold LegalizerInfo.legalizeInstrChoiceStrict at h
+  unfold LegalizerInfo.legalizeInstrChoice at h
   split at h <;> (try split at h) <;>
     first
     | exact absurd h (by simp)
@@ -278,35 +275,36 @@ theorem legalizeInstrChoiceStrict_valid {info : LegalizerInfo}
     | exact lower_valid _ _ h
     | exact custom _ _ h
 
-/-- Every rule the strict legalizer tries at an operation is valid. -/
-theorem legalizeStrictRules_valid {info : LegalizerInfo}
+/-- Every rule the legalizer tries at an operation is valid. -/
+theorem legalizeRules_valid {info : LegalizerInfo}
     (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
       Puddle.CTree.Pattern.Valid pattern)
     (ctx : WfIRContext OpCode) (op : OperationPtr) (pattern : Pattern OpCode)
-    (member : pattern ∈ LegalizerInfo.legalizeStrictRules info ctx op) :
+    (member : pattern ∈ LegalizerInfo.legalizeRules info ctx op) :
     Puddle.CTree.Pattern.Valid pattern := by
-  unfold LegalizerInfo.legalizeStrictRules at member
+  unfold LegalizerInfo.legalizeRules at member
   split at member
   · exact (List.not_mem_nil member).elim
   · rcases List.mem_append.mp member with combine | chosen
     · exact tryCombineInstruction_valid _ pattern combine
-    · exact legalizeInstrChoiceStrict_valid custom ctx op _ pattern
+    · exact legalizeInstrChoice_valid custom ctx op _ pattern
         (Option.mem_toList.mp chosen)
 
-/-- The pattern of the strict legalizer is pointwise valid. -/
-theorem legalizeStrictPattern_pointwise {info : LegalizerInfo}
+/-- The pattern of the legalizer is pointwise valid. -/
+theorem legalizePattern_pointwise {info : LegalizerInfo}
     (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
       Puddle.CTree.Pattern.Valid pattern) :
-    RewritePattern.PointwiseValid (LegalizerInfo.legalizeStrictPattern info) :=
-  RewritePattern.PointwiseValid.ofRules (legalizeStrictRules_valid custom)
+    RewritePattern.PointwiseValid (LegalizerInfo.legalizePattern info) :=
+  RewritePattern.PointwiseValid.ofRules (legalizeRules_valid custom)
 
-/-- The strict legalizer refines the module and leaves it verified. -/
-theorem legalizeStrict_sound {info : LegalizerInfo} (pass : String)
-    (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern → Puddle.CTree.Pattern.Valid pattern) :
-    (info.legalizeStrict pass).Sound := by
+/-- The legalizer refines the module and leaves it verified. -/
+theorem legalize_sound {info : LegalizerInfo} (pass : String)
+    (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
+      Puddle.CTree.Pattern.Valid pattern) :
+    (info.legalize pass).Sound := by
   unfold PurePass.Sound
   intro ctx ctx' moduleOp run
-  unfold LegalizerInfo.legalizeStrict at run
+  unfold LegalizerInfo.legalize at run
   cases checked : checkModuleRoot pass ctx moduleOp with
   | error message => simp [checked, Bind.bind, Except.bind] at run
   | ok _ =>
@@ -315,7 +313,7 @@ theorem legalizeStrict_sound {info : LegalizerInfo} (pass : String)
     | error message => simp [phis] at run
     | ok _ =>
       simp only [phis] at run
-      cases driver : applyToFunctionsStrict pass (LegalizerInfo.legalizeStrictPattern info) ctx
+      cases driver : applyToFunctionsChecked pass (LegalizerInfo.legalizePattern info) ctx
           moduleOp with
       | error message => simp [driver] at run
       | ok middle =>
@@ -325,21 +323,19 @@ theorem legalizeStrict_sound {info : LegalizerInfo} (pass : String)
         | ok _ =>
           simp only [legal, Pure.pure, Except.pure, Except.ok.injEq] at run
           subst run
-          have result := applyToFunctionsStrict_moduleRoot (legalizeStrictPattern_pointwise custom)
+          have result := applyToFunctionsChecked_moduleRoot (legalizePattern_pointwise custom)
             (ModuleRoot.of_checkModuleRoot checked) driver
           exact ⟨result.1, result.2.verified⟩
 
-/-- The strict `legalize-riscv64` pass refines the module and leaves it verified. -/
-theorem LegalizeRISCV64Pass.runStrict_sound : LegalizeRISCV64Pass.runStrict.Sound :=
-  legalizeStrict_sound "legalize-riscv64" legalizeCustom_valid
+/-- The `legalize-riscv64` pass refines the module and leaves it verified. -/
+theorem LegalizeRISCV64Pass.run_sound : LegalizeRISCV64Pass.run.Sound :=
+  legalize_sound "legalize-riscv64" legalizeCustom_valid
 
-/-- The pass with its IO, in strict mode, returns what `LegalizeRISCV64Pass.runStrict` does. -/
-theorem LegalizeRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext OpCode) (op : OperationPtr)
+/-- The pass with its IO returns what `LegalizeRISCV64Pass.run` does. -/
+theorem LegalizeRISCV64Pass.impl_eq_run (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) :
-    LegalizeRISCV64Pass.impl true ctx op opIn =
-      ExceptT.mk (pure (LegalizeRISCV64Pass.runStrict ctx op)) := by
+    LegalizeRISCV64Pass.impl ctx op opIn = ExceptT.mk (pure (LegalizeRISCV64Pass.run ctx op)) := by
   rw [LegalizeRISCV64Pass.impl]
-  rfl
 
 end
 

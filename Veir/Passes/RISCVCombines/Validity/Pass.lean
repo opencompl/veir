@@ -11,10 +11,10 @@ import all Veir.Passes.RISCVCombines.Validity.Store
 import all Veir.Passes.RISCVCombines.Validity.Load
 
 /-!
-# Soundness of the strict `riscv-combine` pass
+# Soundness of the `riscv-combine` pass
 
-Every entry of `combinePatternsStrict` is pointwise valid, by the validity proof of its pattern
-or, for the combines that try several patterns, of each of them. The strict pass is then sound.
+Every entry of `combinePatterns` is pointwise valid, by the validity proof of its pattern or, for
+the combines that try several patterns, of each of them. The pass is then sound.
 -/
 
 namespace Veir.RISCV.CTreeProofs
@@ -54,12 +54,12 @@ theorem drop_ext_of_bitwise_false_pointwise {ext dst : Riscv}
 
 public section
 
-/-- Every combine of the strict pass is pointwise valid. -/
-theorem combinePatternsStrict_pointwise :
-    ∀ pattern ∈ combinePatternsStrict.map (·.run), PointwiseValid pattern := by
+/-- Every combine of the pass is pointwise valid. -/
+theorem combinePatterns_pointwise :
+    ∀ pattern ∈ combinePatterns.map (·.run), PointwiseValid pattern := by
   intro pattern member
   obtain ⟨entry, entryMember, rfl⟩ := Array.mem_map.mp member
-  simp only [combinePatternsStrict, List.mem_toArray, List.mem_cons, List.not_mem_nil,
+  simp only [combinePatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at entryMember
   rcases entryMember with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact PointwiseValid.compile packh_low_bytes_valid
@@ -329,16 +329,15 @@ theorem combinePatternsStrict_pointwise :
   · exact PointwiseValid.compile sexth_li_low16_valid
   · exact PointwiseValid.compile li_zero_to_x0_valid
 
-/-- The strict `riscv-combine` pass refines the module and leaves it verified. -/
-theorem Combine.runStrict_sound : Combine.runStrict.Sound :=
-  strictContextPass_sound (PointwiseValid.greedy combinePatternsStrict_pointwise)
+/-- The `riscv-combine` pass refines the module and leaves it verified. -/
+theorem Combine.run_sound : Combine.run.Sound :=
+  checkedContextPass_sound (PointwiseValid.greedy combinePatterns_pointwise)
 
-/-- The pass with its IO, in strict mode, returns what `Combine.runStrict` does. -/
-theorem Combine.impl_eq_runStrict (ctx : WfIRContext OpCode) (op : OperationPtr)
+/-- The pass with its IO returns what `Combine.run` does. -/
+theorem Combine.impl_eq_run (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) :
-    Combine.impl true ctx op opIn = ExceptT.mk (pure (Combine.runStrict ctx op)) := by
+    Combine.impl ctx op opIn = ExceptT.mk (pure (Combine.run ctx op)) := by
   rw [Combine.impl]
-  rfl
 
 end
 end Veir.RISCV.CTreeProofs

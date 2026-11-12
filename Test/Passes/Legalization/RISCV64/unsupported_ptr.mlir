@@ -9,4 +9,6 @@
   }) : () -> ()
 }) : () -> ()
 
-// CHECK: unable to legalize gmir.g_add: no legalization rule matches
+// The pass checks that its input verifies before it legalizes anything, so an addition of
+// pointers is rejected by the verifier.
+// CHECK: legalize-riscv64: the module does not verify: gmir.g_add: Expected operand 0 to have integer type

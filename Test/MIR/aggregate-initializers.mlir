@@ -1,9 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
 
-// XFAIL: *
-// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
-
 "builtin.module"() ({
   "llvm.mlir.global"() <{global_type = !llvm.struct<"Outer", (i64, !llvm.struct<packed (i16, !llvm.ptr)>, !llvm.array<2 x i32>)>, linkage = #llvm.linkage<external>, sym_name = "zero_struct", alignment = 8 : i64}> ({
     %zero = "llvm.mlir.zero"() : () -> !llvm.struct<"Outer", (i64, !llvm.struct<packed (i16, !llvm.ptr)>, !llvm.array<2 x i32>)>

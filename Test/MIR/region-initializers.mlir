@@ -2,9 +2,6 @@
 // RUN: filecheck %s --input-file=%t --check-prefix=IR
 // RUN: veir2mir %t | filecheck %s
 
-// XFAIL: *
-// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
-
 // Lowering applies to functions only: initializer regions stay LLVM operations,
 // so `veir2mir` can turn them back into constants of the stub IR module.
 

@@ -76,8 +76,6 @@ def passGroups : Std.HashMap String String :=
         "mod-arith-to-arith{barrett pow2-width},cse,coerce-mod-arith-function-boundaries{pow2-width},reconcile-cast,canonicalize,cse,dce"
     |>.insert "riscv"
         "llvm-to-gmir,call-lowering-riscv64,prelegalizer-combiner-riscv64,legalize-riscv64,postlegalizer-combiner-riscv64,isel-br-riscv64,isel-riscv64,reconcile-cast,riscv-combine,dce"
-    |>.insert "riscv-strict"
-        "llvm-to-gmir{strict},call-lowering-riscv64,prelegalizer-combiner-riscv64{strict},legalize-riscv64{strict},postlegalizer-combiner-riscv64{strict},isel-br-riscv64{strict},isel-riscv64{strict},reconcile-cast{strict},riscv-combine{strict},dce{strict}"
     |>.insert "cir"
         "cir-to-std,cse,coerce-cir-function-boundaries,reconcile-cast,canonicalize,cse,dce"
 

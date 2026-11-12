@@ -19,10 +19,10 @@ import all Veir.Passes.InstructionSelection.Proofs.RISCV64.Shifts
 import all Veir.Passes.InstructionSelection.Proofs.RISCV64.StorePatterns
 
 /-!
-# Soundness of the strict `isel-riscv64` pass
+# Soundness of the `isel-riscv64` pass
 
-Every pattern of the three strict selection loops is valid, by the validity theorem of its
-instance; the strict pass is then sound.
+Every pattern of the three selection loops is valid, by the validity theorem of its instance; the
+pass is then sound.
 -/
 
 namespace Veir.RISCV64Proofs
@@ -181,14 +181,14 @@ theorem gmirComposedPatterns_valid :
 
 public section
 
-/-- Every pattern of the composed loop of the strict pass is valid. -/
-theorem iselComposedStrict_valid : ∀ pattern ∈ iselComposedStrict, Pattern.Valid pattern :=
+/-- Every pattern of the composed loop is valid. -/
+theorem iselComposedPatterns_valid : ∀ pattern ∈ iselComposedPatterns, Pattern.Valid pattern :=
   gmirComposedPatterns_valid
 
-/-- Every pattern of the early loop of the strict pass is valid. -/
-theorem iselEarlyStrict_valid : ∀ pattern ∈ iselEarlyStrict, Pattern.Valid pattern := by
+/-- Every pattern of the early loop is valid. -/
+theorem iselEarlyPatterns_valid : ∀ pattern ∈ iselEarlyPatterns, Pattern.Valid pattern := by
   intro pattern member
-  simp only [iselEarlyStrict, Array.mem_append, List.mem_toArray, List.mem_cons, List.not_mem_nil,
+  simp only [iselEarlyPatterns, Array.mem_append, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at member
   rcases member with
     (((((((rfl | rfl) | load) | gmirLoad) | store) | setcc) | zero) |
@@ -224,10 +224,10 @@ theorem iselEarlyStrict_valid : ∀ pattern ∈ iselEarlyStrict, Pattern.Valid p
   · exact gmirBclri_pattern_valid
   · exact gmirSltiPatterns_valid pattern slti
 
-/-- Every pattern of the main loop of the strict pass is valid. -/
-theorem iselMainStrict_valid : ∀ pattern ∈ iselMainStrict, Pattern.Valid pattern := by
+/-- Every pattern of the main loop is valid. -/
+theorem iselMainPatterns_valid : ∀ pattern ∈ iselMainPatterns, Pattern.Valid pattern := by
   intro pattern member
-  simp only [iselMainStrict, Array.mem_append, List.mem_toArray, List.mem_cons, List.not_mem_nil,
+  simp only [iselMainPatterns, Array.mem_append, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at member
   rcases member with
     (((((rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) | load) |
@@ -303,21 +303,20 @@ theorem iselMainStrict_valid : ∀ pattern ∈ iselMainStrict, Pattern.Valid pat
   · exact gmirUmin_pattern_valid
   · exact gmirIcmpPatterns_valid pattern icmp
 
-/-- The strict `isel-riscv64` pass refines the module and leaves it verified. -/
-theorem ISelPass.runStrict_sound : ISelPass.runStrict.Sound :=
-  strictFunctionsPasses_sound fun pattern member => by
+/-- The `isel-riscv64` pass refines the module and leaves it verified. -/
+theorem ISelPass.run_sound : ISelPass.run.Sound :=
+  checkedFunctionsPasses_sound fun pattern member => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at member
     rcases member with rfl | rfl | rfl
-    · exact PointwiseValid.greedy_compiled iselComposedStrict_valid
-    · exact PointwiseValid.greedy_compiled iselEarlyStrict_valid
-    · exact PointwiseValid.greedy_compiled iselMainStrict_valid
+    · exact PointwiseValid.greedy_compiled iselComposedPatterns_valid
+    · exact PointwiseValid.greedy_compiled iselEarlyPatterns_valid
+    · exact PointwiseValid.greedy_compiled iselMainPatterns_valid
 
-/-- The pass with its IO, in strict mode, returns what `ISelPass.runStrict` does. -/
-theorem ISelPass.impl_eq_runStrict (ctx : WfIRContext OpCode) (op : OperationPtr)
+/-- The pass with its IO returns what `ISelPass.run` does. -/
+theorem ISelPass.impl_eq_run (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) :
-    ISelPass.impl true ctx op opIn = ExceptT.mk (pure (ISelPass.runStrict ctx op)) := by
+    ISelPass.impl ctx op opIn = ExceptT.mk (pure (ISelPass.run ctx op)) := by
   rw [ISelPass.impl]
-  rfl
 
 end
 end Veir.RISCV64Proofs

@@ -308,23 +308,18 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
-/-- The strict pass: the legalizations, all proved valid, through the module-filtered driver. Its
-soundness is `LegalizeRISCV64Pass.runStrict_sound`. -/
-def LegalizeRISCV64Pass.runStrict : PurePass :=
-  riscv64LegalizerInfo.legalizeStrict "legalize-riscv64"
+/-- The pass: the legalizations, all proved valid, through the module-filtered driver. Its
+soundness is `LegalizeRISCV64Pass.run_sound`. -/
+def LegalizeRISCV64Pass.run : PurePass := riscv64LegalizerInfo.legalize "legalize-riscv64"
 
-def LegalizeRISCV64Pass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+def LegalizeRISCV64Pass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  ExceptT.mk (pure (if strict then LegalizeRISCV64Pass.runStrict ctx op
-    else riscv64LegalizerInfo.legalize ctx op))
+  ExceptT.mk (pure (LegalizeRISCV64Pass.run ctx op))
 
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    options := .ofList [
-      ("strict", { description := "Only apply the legalizations proved to refine the module.",
-                   defaultValue := false })]
-    run := fun options => LegalizeRISCV64Pass.impl ((options.get? "strict").getD false) }
+    run := fun _ => LegalizeRISCV64Pass.impl }
 
 end
 

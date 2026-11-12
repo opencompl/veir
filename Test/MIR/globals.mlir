@@ -1,9 +1,6 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
 
-// XFAIL: *
-// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
-
 // `llvm.mlir.addressof` lowers to `riscv.la`, printed as `PseudoLLA`. Each
 // global becomes a stub IR global for `llc` to emit: an integer or string
 // `value` is its initializer, and a global without one is an external

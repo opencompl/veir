@@ -128,8 +128,8 @@ public section
 inductive Unproven where
   /-- The `ptr -> reg -> ptr` round trip freezes a poison pointer: the cast to a register chooses
   its bits, so the source yields a defined pointer, while the rewrite returns the poison pointer
-  itself. This is the reason `i64 -> reg -> i64` is not reconciled. The `reg -> ptr -> reg` round
-  trip, which the same pattern matches, is the identity. -/
+  itself. This is the reason `i64 -> reg -> i64` is not reconciled, and why `isRiscvRegToPtrCast`
+  only matches the `reg -> ptr -> reg` round trip, which is the identity. -/
   | freezesPoisonPointer
   /-- The matcher accepts a register round trip through an integer of any width but 0, 8, 16 and
   32, while the replacement is only created below width 64, so that over-wide casts keep making
@@ -183,11 +183,10 @@ theorem srli_slli_eq {w : Nat} (h0 : w ≠ 0) (h : w < 64) (r : Data.RISCV.Reg) 
   rcases b with ⟨b, _⟩
   cases a <;> cases b <;> simp [isRegToI64RoundTrip, -Attribute.integerType_eq_of]
 
-/-- The pointer/register round trips, in either order. -/
+/-- The register round trip through a pointer. -/
 @[local simp] theorem isRiscvRegToPtrCast_iff (a b : TypeAttr) :
     isRiscvRegToPtrCast a b = true ↔
-      ((∃ p, a.val = .llvmPointerType p) ∧ ∃ r, b.val = .registerType r) ∨
-        ((∃ r, a.val = .registerType r) ∧ ∃ p, b.val = .llvmPointerType p) := by
+      (∃ r, a.val = .registerType r) ∧ ∃ p, b.val = .llvmPointerType p := by
   rcases a with ⟨a, _⟩
   rcases b with ⟨b, _⟩
   cases a <;> cases b <;> simp [isRiscvRegToPtrCast, -Attribute.integerType_eq_of]
@@ -221,6 +220,12 @@ theorem reg_i64_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRegTo
 attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
   conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
   conforms_of_val_cirBoolType in
+theorem reg_ptr_valid : Puddle.CTree.Pattern.Valid (reconcilePairingCast isRiscvRegToPtrCast) := by
+  proveLegalValid using isRefinedBy_refl
+
+attribute [local simp] conforms_of_val_registerType conforms_of_val_integerType
+  conforms_of_val_llvmPointerType conforms_of_val_modArithType conforms_of_val_cirIntType
+  conforms_of_val_cirBoolType in
 theorem mod_arith_int_valid :
     Puddle.CTree.Pattern.Valid (reconcilePairingCast isPreservingModArithToIntCast) := by
   proveLegalValid using isRefinedBy_refl
@@ -247,7 +252,7 @@ theorem reg_i64_status : Status Unproven (reconcilePairingCast isRegToI64RoundTr
   .proven reg_i64_valid
 
 theorem reg_ptr_status : Status Unproven (reconcilePairingCast isRiscvRegToPtrCast) :=
-  .unproven .freezesPoisonPointer
+  .proven reg_ptr_valid
 
 theorem mod_arith_int_status :
     Status Unproven (reconcilePairingCast isPreservingModArithToIntCast) :=
@@ -268,39 +273,38 @@ theorem reg_i32_status : Status Unproven (reconcileRegIntExt 32 .zextw ()) :=
 theorem reg_int_shift_status : Status Unproven reconcileRegIntShift :=
   .unproven .createFailsOverWide
 
-/-! ## The strict pass -/
+/-! ## The pass -/
 
 public section
 
-/-- Every pattern the strict pass applies is valid. -/
-theorem reconcileStrictPatterns_valid :
-    ∀ rule ∈ reconcileStrictPatterns, Puddle.CTree.Pattern.Valid rule := by
+/-- Every pattern the pass applies is valid. -/
+theorem reconcilePatterns_valid :
+    ∀ rule ∈ reconcilePatterns, Puddle.CTree.Pattern.Valid rule := by
   intro rule member
-  simp only [reconcileStrictPatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
+  simp only [reconcilePatterns, List.mem_toArray, List.mem_cons, List.not_mem_nil,
     or_false] at member
-  rcases member with rfl | rfl | rfl | rfl | rfl | rfl
+  rcases member with rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact reg_i64_valid
+  · exact reg_ptr_valid
   · exact mod_arith_int_valid
   · exact cir_int_valid
   · exact reg_i8_valid
   · exact reg_i16_valid
   · exact reg_i32_valid
 
-/-- The strict `reconcile-cast` pass refines the module and leaves it verified. -/
-theorem CastReconcilePass.runStrict_sound : CastReconcilePass.runStrict.Sound :=
-  strictContextPasses_sound fun pattern member => by
+/-- The `reconcile-cast` pass refines the module and leaves it verified. -/
+theorem CastReconcilePass.run_sound : CastReconcilePass.run.Sound :=
+  checkedContextPasses_sound fun pattern member => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at member
     rcases member with rfl | rfl
-    · exact RewritePattern.PointwiseValid.greedy_compiled reconcileStrictPatterns_valid
+    · exact RewritePattern.PointwiseValid.greedy_compiled reconcilePatterns_valid
     · exact RewritePattern.PointwiseValid.empty
 
-/-- The pass with its IO, in strict mode, returns what `CastReconcilePass.runStrict` does. -/
-theorem CastReconcilePass.impl_eq_runStrict (ctx : WfIRContext OpCode) (op : OperationPtr)
+/-- The pass with its IO returns what `CastReconcilePass.run` does. -/
+theorem CastReconcilePass.impl_eq_run (ctx : WfIRContext OpCode) (op : OperationPtr)
     (opIn : op.InBounds ctx.raw) :
-    CastReconcilePass.impl true ctx op opIn =
-      ExceptT.mk (pure (CastReconcilePass.runStrict ctx op)) := by
+    CastReconcilePass.impl ctx op opIn = ExceptT.mk (pure (CastReconcilePass.run ctx op)) := by
   rw [CastReconcilePass.impl]
-  rfl
 
 end
 end Veir.CastsReconciliation.CTreeProofs

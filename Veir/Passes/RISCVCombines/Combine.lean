@@ -1,7 +1,7 @@
 module
 
 public import Veir.Pass
-public import Veir.Passes.StrictDriver
+public import Veir.Passes.CheckedDriver
 public import Veir.PatternRewriter.Basic
 import Veir.Passes.Matching
 import Veir.PatternRewriter.Puddle.Builders
@@ -1160,179 +1160,11 @@ def sextb_li_low8 := ext_li_range .sextb (-128) 128
 /-- `riscv.sexth (riscv.li v) -> riscv.li v` when `-2^15 ≤ v < 2^15`. -/
 def sexth_li_low16 := ext_li_range .sexth (-32768) 32768
 
-/-- Keep the compiled patterns as closed data so their matchers and rewrite closures are
-initialized once and reused for every operation. -/
-private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
-    #[ packh_low_bytes
-     , packh_low_bytes_commuted
-     , packh_high_bytes
-     , packh_high_bytes_commuted
-     , zextb_lbu
-     , andi_255_lbu
-     , add_li_to_addi
-     , add_li_to_addi_commuted
-     , zextw_slliw_lbu 8
-     , zextw_slliw_lbu 16
-     , zextw_slliw_lbu 24
-     , right_identity_zero_add
-     , srl_sra_signbit
-     , srlw_sraw_signbit
-     , drop_slli_srli_slt
-     , drop_slli_srli_sltu
-     , drop_slli_srli_slti
-     , drop_slli_srli_sltiu
-     , drop_slli_srli_seqz
-     , drop_slli_srli_snez
-     , drop_slli_srli_sltz
-     , drop_slli_srli_sgtz
-     , drop_andi_one_srli
-     , zextw_zextw
-     , zextw_zextb
-     , drop_shift_amount_mask .sll 63
-     , drop_shift_amount_mask .srl 63
-     , drop_shift_amount_mask .sra 63
-     , drop_shift_amount_mask .sllw 31
-     , drop_shift_amount_mask .srlw 31
-     , drop_shift_amount_mask .sraw 31
-     , drop_zextw_shift_amount .sll
-     , drop_zextw_shift_amount .srl
-     , drop_zextw_shift_amount .sra
-     , drop_zextw_addw
-     , drop_zextw_addiw
-     , drop_zextw_roriw
-     , drop_zextw_srliw
-     , drop_zextw_subw
-     , drop_zextw_mulw
-     , drop_zextw_divw
-     , drop_zextw_divuw
-     , drop_zextw_remw
-     , drop_zextw_remuw
-     , drop_zextw_sllw
-     , drop_zextw_srlw
-     , drop_zextw_sraw
-     , drop_zextw_rolw
-     , drop_zextw_rorw
-     , drop_zextw_sraiw
-     , drop_zextw_slliuw
-     , drop_zextw_clzw
-     , drop_zextw_ctzw
-     , drop_zextw_cpopw
-     , drop_zextw_sextw
-     , zextw_and
-     , zextw_or
-     , zextw_xor
-     , drop_zextw_sw
-     -- Unproven, so not run: `, zextw_x0`
-     , zextw_li_low32
-     , sextw_sextw
-     , drop_sextw_addw
-     , drop_sextw_addiw
-     , drop_sextw_roriw
-     , drop_sextw_srliw
-     , drop_sextw_subw
-     , drop_sextw_mulw
-     , drop_sextw_divw
-     , drop_sextw_divuw
-     , drop_sextw_remw
-     , drop_sextw_remuw
-     , drop_sextw_sllw
-     , drop_sextw_srlw
-     , drop_sextw_sraw
-     , drop_sextw_rolw
-     , drop_sextw_rorw
-     , drop_sextw_sraiw
-     , drop_sextw_slliuw
-     , drop_sextw_clzw
-     , drop_sextw_ctzw
-     , drop_sextw_cpopw
-     , drop_sextw_zextw
-     , sextw_and
-     , sextw_or
-     , sextw_xor
-     , drop_sextw_sw
-     -- Unproven, so not run: `, sextw_x0`
-     , sextw_li_low32
-     , sextw_lw
-     , sextw_lh
-     , sextw_lb
-     , sextw_lhu
-     , sextw_lbu
-     , sextw_addw
-     , sextw_addiw
-     , sextw_subw
-     , sextw_mulw
-     , sextw_divw
-     , sextw_divuw
-     , sextw_remw
-     , sextw_remuw
-     , sextw_sllw
-     , sextw_slliw
-     , sextw_srlw
-     , sextw_srliw
-     , sextw_sraw
-     , sextw_sraiw
-     , sextw_rolw
-     , sextw_rorw
-     , sextw_roriw
-     , sextw_clzw
-     , sextw_ctzw
-     , sextw_cpopw
-     , sextw_packw
-     , sextw_slt
-     , sextw_sltu
-     , sextw_slti
-     , sextw_sltiu
-     , sextw_clz
-     , sextw_ctz
-     , sextw_cpop
-     , sextw_bext
-     , sextw_bexti
-     , sextw_sextb
-     , sextw_sexth
-     , sextw_zexth
-     , sextw_packh
-     , sextw_lui
-     , sextw_srai
-     , sextw_srli
-     , sextw_andi
-     , sextw_ori
-     , zextb_zextb
-     , zexth_zexth
-     , sextb_sextb
-     , sexth_sexth
-     , zextb_and
-     , zextb_or
-     , zextb_xor
-     , zexth_and
-     , zexth_or
-     , zexth_xor
-     , sextb_and
-     , sextb_or
-     , sextb_xor
-     , sexth_and
-     , sexth_or
-     , sexth_xor
-     , drop_zexth_sh
-     , drop_sexth_sh
-     , drop_zextb_sb
-     , drop_sextb_sb
-     , drop_zextw_sb
-     , drop_sextw_sb
-     -- Unproven, so not run: `, zextb_x0`
-     -- Unproven, so not run: `, zexth_x0`
-     -- Unproven, so not run: `, sextb_x0`
-     -- Unproven, so not run: `, sexth_x0`
-     , zextb_li_low8
-     , zexth_li_low16
-     , sextb_li_low8
-     , sexth_li_low16
-     , li_zero_to_x0
-     ,
-     ]
-
-/-- The combines proved to refine the module (`Veir.Passes.RISCVCombines.Validity.Strict`): every
-combine of `combinePatterns` but the six `riscv.<ext> x0 -> x0` ones. -/
-public def combinePatternsStrict : Array (Puddle.CompiledPattern OpCode) :=
+/-- The combines of the pass, all proved to refine the module
+(`Veir.Passes.RISCVCombines.Validity.Pass`), kept as compiled patterns, closed data whose matchers
+and rewrite closures are initialized once and reused for every operation. The six
+`riscv.<ext> x0 -> x0` combines (`ext_x0`) are unproven, so not run. -/
+public def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
     #[ packh_low_bytes
      , packh_low_bytes_commuted
      , packh_high_bytes
@@ -1493,24 +1325,17 @@ public def combinePatternsStrict : Array (Puddle.CompiledPattern OpCode) :=
      , li_zero_to_x0
      ]
 
-/-- The strict pass: the proved combines, through the module-filtered driver. Its soundness is
-`Combine.runStrict_sound`. -/
-public def Combine.runStrict : PurePass :=
-  strictContextPass "riscv-combine"
-    (RewritePattern.GreedyRewritePattern (combinePatternsStrict.map (·.run)))
+/-- The pass: the combines, through the module-filtered driver. Its soundness is
+`Combine.run_sound`. -/
+public def Combine.run : PurePass :=
+  checkedContextPass "riscv-combine"
+    (RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run)))
 
-public def Combine.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
-    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  if strict then ExceptT.mk (pure (Combine.runStrict ctx op)) else do
-    let pattern := RewritePattern.GreedyRewritePattern (combinePatterns.map (·.run))
-    match RewritePattern.applyInContext pattern ctx op with
-    | none => throw "Error while applying pattern rewrites"
-    | some ctx => pure ctx
+public def Combine.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
+    ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (Combine.run ctx op))
 
 public def Combine : Pass OpCode :=
   { name := "riscv-combine"
     description := "GlobalISel RISCV combines"
-    options := .ofList [
-      ("strict", { description := "Only apply the combines proved to refine the module.",
-                   defaultValue := false })]
-    run := fun options => Combine.impl ((options.get? "strict").getD false) }
+    run := fun _ => Combine.impl }

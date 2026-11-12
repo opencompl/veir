@@ -6,9 +6,6 @@
 // RUN: veir-interpret %t | filecheck %s --check-prefix=EXEC
 // RUN: veir2mir %t | filecheck %s --check-prefix=MIR
 
-// XFAIL: *
-// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
-
 // ABSENT: "builtin.module"
 // ABSENT-NOT: llvm.intr.lifetime
 // ABSENT-NOT: llvm.mlir.poison

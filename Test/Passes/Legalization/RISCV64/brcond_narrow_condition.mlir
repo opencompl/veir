@@ -1,4 +1,3 @@
-// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64{strict} | filecheck %s
 // RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64 | filecheck %s
 
 // The legalizer does not widen branch conditions, which `isel-br-riscv64` accepts at any width,

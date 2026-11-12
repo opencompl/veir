@@ -6,9 +6,6 @@
 // RUN: filecheck %s --input-file=%t
 // RUN: filecheck %s --input-file=%t --check-prefix=ABSENT
 
-// XFAIL: *
-// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
-
 // ABSENT: "builtin.module"
 // ABSENT-NOT: llvm.alloca
 // ABSENT-NOT: builtin.unrealized_conversion_cast

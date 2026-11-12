@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Puddle.Definitions
-public import Veir.Passes.StrictDriver
+public import Veir.Passes.CheckedDriver
 import Veir.Passes.Legalization.LegalizerInfo
 import Veir.DataLayout.RISCV64
 import Veir.Interfaces.ConstantLikeInterfaces
@@ -577,51 +577,26 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,
   lowerStaticAllocaZero_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
 
-/-- The patterns of the strict pass: all of `llvmToGMIRPatternList`, which are proved valid
-(`Veir.Passes.LLVMToGMIR.Validity`). -/
-public def llvmToGMIRStrictPatternList : List (Puddle.Pattern OpCode) := llvmToGMIRPatternList
-
-/-- The strict pass: the branch step with its checks, then the proved patterns through the
-module-filtered driver, then the erasure of the dead casts by the driver. `normalizeGEPIndices` is
-not run. Its soundness is `LLVMToGMIRPass.runStrict_sound`. -/
-public def LLVMToGMIRPass.runStrict : PurePass := fun ctx moduleOp => do
+/-- The pass: the branch step (`LLVMToGMIRBranches.run`, which checks what its refinement proof
+assumes), then the patterns of `llvmToGMIRPatternList`, all proved valid
+(`Veir.Passes.LLVMToGMIR.Validity`), through the module-filtered driver, then the erasure by the
+driver of the dead casts a pattern leaves behind. `normalizeGEPIndices` and `eliminateDeadOp` are
+unproven, so not run. Its soundness is `LLVMToGMIRPass.run_sound`. -/
+public def LLVMToGMIRPass.run : PurePass := fun ctx moduleOp => do
   let ctx ← LLVMToGMIRBranches.run true ctx moduleOp
   checkModuleRoot "llvm-to-gmir" ctx moduleOp
-  let ctx ← applyToFunctionsStrict "llvm-to-gmir"
+  let ctx ← applyToFunctionsChecked "llvm-to-gmir"
     (RewritePattern.GreedyRewritePattern
-      (llvmToGMIRStrictPatternList.map fun rule => rule.compile.run).toArray) ctx moduleOp
-  applyInContextStrict "llvm-to-gmir" (RewritePattern.GreedyRewritePattern #[]) ctx moduleOp
+      (llvmToGMIRPatternList.map fun rule => rule.compile.run).toArray) ctx moduleOp
+  applyInContextChecked "llvm-to-gmir" (RewritePattern.GreedyRewritePattern #[]) ctx moduleOp
 
-/-- The compiled patterns of `llvmToGMIRPatternList`. -/
-private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
-  (llvmToGMIRPatternList.map (·.compile)).toArray
-
-public def LLVMToGMIRPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+public def LLVMToGMIRPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  if strict then ExceptT.mk (pure (LLVMToGMIRPass.runStrict ctx op)) else do
-    -- Branches are translated by a separate step, which is proved to refine the module.
-    -- `Veir.Passes.LLVMToGMIR.Validity` proves that the gMIR branches interpret as the LLVM ones.
-    let ctx ← ExceptT.mk (pure (LLVMToGMIRBranches.run false ctx op))
-    -- `normalizeGEPIndices` is unproven, so not run:
-    -- `llvmToGMIRPatterns.map (·.run) ++ #[.fromLocalRewrite normalizeGEPIndices]`.
-    let pattern := RewritePattern.GreedyRewritePattern (llvmToGMIRPatterns.map (·.run))
-    match RewritePattern.applyToFunctions pattern ctx op with
-    | none => throw "Error while applying llvm-to-gmir translation"
-    | some ctx =>
-      -- A local rewrite may only erase the matched cast, so the folded first cast is left dead;
-      -- the driver erases it. `eliminateDeadOp`, which also erases allocating operations, is
-      -- unproven, so not run.
-      match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[]) ctx op with
-      | none => throw "Error while applying DCE after llvm-to-gmir translation"
-      | some ctx => pure ctx
+  ExceptT.mk (pure (LLVMToGMIRPass.run ctx op))
 
 public def LLVMToGMIRPass : Pass OpCode :=
   { name := "llvm-to-gmir"
     description := "Lower llvm dialect operations to the gmir dialect."
-    options := .ofList [
-      ("strict", { description :=
-                     "Only run the rewrites proved to refine the module, and check what they assume.",
-                   defaultValue := false })]
-    run := fun options => LLVMToGMIRPass.impl ((options.get? "strict").getD false) }
+    run := fun _ => LLVMToGMIRPass.impl }
 
 end Veir

@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Puddle.Builders
-public import Veir.Passes.StrictDriver
+public import Veir.Passes.CheckedDriver
 import Veir.Passes.DCE.dce
 import Veir.PatternRewriter.Puddle.Execution
 
@@ -26,7 +26,6 @@ def isRegToI64RoundTrip (inputType interType : TypeAttr): Bool :=
 -/
 def isRiscvRegToPtrCast (inputType interType : TypeAttr): Bool :=
  match inputType.val, interType.val with
-  | .llvmPointerType _ , .registerType _ => true
   | .registerType _, .llvmPointerType _  => true
   | _, _ => false
 
@@ -73,11 +72,6 @@ public def reconcilePairingCast (legal : TypeAttr → TypeAttr → Bool) : Patte
     pure
     (fun input => input)
 
-def reconcileRegToI64 := (reconcilePairingCast isRegToI64RoundTrip).compile
-def reconcileRegToPtr := (reconcilePairingCast isRiscvRegToPtrCast).compile
-def reconcileModArithToInt := (reconcilePairingCast isPreservingModArithToIntCast).compile
-def reconcileCirToInt := (reconcilePairingCast isCirToIntRoundTrip).compile
-
 /-- Match an unallocated-register round trip through an integer of an accepted width. -/
 def matchRegIntCast (widthMatches : Nat → Bool) :
     MatchProg.Builder (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value) := do
@@ -115,50 +109,28 @@ def reconcileRegIntShift : Pattern OpCode :=
       CreateProg.operation (.riscv .srli) #[left.res[0]!] #[regType] (.inr rightProps))
     (fun op => op)
 
-private def reconcileRegIntCasts : Array (CompiledPattern OpCode) :=
-  #[reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (),
-    reconcileRegIntExt 32 .zextw ()
-    -- Unproven (`createFailsOverWide`), so not run: `, reconcileRegIntShift`
-    ].map (·.compile)
-
-
-/-- The patterns of the pass that are proved valid (`Veir.Passes.CastsReconciliation.Validity`):
-every pattern but the register-to-pointer round trip and the two-shift narrowing. -/
-public def reconcileStrictPatterns : Array (Pattern OpCode) :=
+/-- The patterns of the pass, all proved valid (`Veir.Passes.CastsReconciliation.Validity`). The
+two-shift narrowing (`reconcileRegIntShift`, `createFailsOverWide`) is unproven, so not run. -/
+public def reconcilePatterns : Array (Pattern OpCode) :=
   #[reconcilePairingCast isRegToI64RoundTrip,
+    reconcilePairingCast isRiscvRegToPtrCast,
     reconcilePairingCast isPreservingModArithToIntCast,
     reconcilePairingCast isCirToIntRoundTrip,
     reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (), reconcileRegIntExt 32 .zextw ()]
 
-/-- The strict pass: the proved patterns, then the erasure of the dead parent casts by the
-driver. Its soundness is `CastReconcilePass.runStrict_sound`. -/
-public def CastReconcilePass.runStrict : PurePass :=
-  strictContextPasses "reconcile-cast"
-    [RewritePattern.GreedyRewritePattern (reconcileStrictPatterns.map (fun rule => rule.compile.run)),
+/-- The pass: the patterns, then the erasure of the dead parent casts by the driver (a pattern
+can only erase the operation it matched). `eliminateDeadOp`, which also erases allocating
+operations, is unproven, so not run. Its soundness is `CastReconcilePass.run_sound`. -/
+public def CastReconcilePass.run : PurePass :=
+  checkedContextPasses "reconcile-cast"
+    [RewritePattern.GreedyRewritePattern (reconcilePatterns.map (fun rule => rule.compile.run)),
      RewritePattern.GreedyRewritePattern #[]]
 
-public def CastReconcilePass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+public def CastReconcilePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
-  if strict then ExceptT.mk (pure (CastReconcilePass.runStrict ctx op)) else do
-    let pattern := RewritePattern.GreedyRewritePattern <| #[
-      reconcileRegToI64.run,
-      -- Unproven (`freezesPoisonPointer`), so not run: `reconcileRegToPtr.run,`
-      reconcileModArithToInt.run,
-      reconcileCirToInt.run] ++ reconcileRegIntCasts.map (·.run)
-    match RewritePattern.applyInContext pattern ctx op with
-    | none => throw "Error while applying cast reconciliation"
-    -- The patterns leave the (now dead) parent casts behind: `LocalRewritePattern` can only erase
-    -- the matched operation. The driver erases them here so the pass is self-contained.
-    -- `eliminateDeadOp`, which also erases allocating operations, is unproven, so not run.
-    | some ctx =>
-      match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[]) ctx op with
-      | none => throw "Error while applying DCE after cast reconciliation"
-      | some ctx => pure ctx
+  ExceptT.mk (pure (CastReconcilePass.run ctx op))
 
 public def CastReconcilePass : Pass OpCode :=
   { name := "reconcile-cast"
     description := "Reconcile round trips of casts that return to their own input type."
-    options := .ofList [
-      ("strict", { description := "Only apply the patterns proved to refine the module.",
-                   defaultValue := false })]
-    run := fun options => CastReconcilePass.impl ((options.get? "strict").getD false) }
+    run := fun _ => CastReconcilePass.impl }

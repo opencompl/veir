@@ -3,9 +3,6 @@
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 // RUN: not grep -E '"llvm\.(load|store)"' %t
 
-// XFAIL: *
-// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
-
 // Pointers are loaded from stack slots and stored back swapped, then one is
 // copied through a third slot. The selected code must reach the same objects
 // the LLVM-level program does, with every pointer access selected to

@@ -1,8 +1,5 @@
 // RUN: veir-opt %s -p=call-lowering-riscv64,reconcile-cast | filecheck %s
 
-// XFAIL: *
-// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
-
 // call-lowering-riscv64 coerces LLVM functions' register-width arguments and
 // return values to `!riscv.reg`, inserting bridging casts and rewriting `function_type`,
 // regardless of whether the body has actually been lowered by instruction selection yet

@@ -1,8 +1,5 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
-// XFAIL: *
-// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
-
 // ABI attributes on either parameters or results prevent boundary lowering.
 // In particular, byval and nest pointers must not become ordinary register arguments.
 // `signext` and `zeroext` are lowered (see abi_ext.mlir).

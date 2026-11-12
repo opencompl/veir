@@ -5,11 +5,11 @@ public import Veir.PatternRewriter.Puddle.CheckedExecution
 public import Veir.Verifier
 
 /-!
-# Pure passes and strict rewrite drivers
+# Pure passes and checked rewrite drivers
 
 A pass of the pipeline, stripped of its `IO` wrapper, is a function from a context and its module
-to a context or an error (`PurePass`). The strict mode of a pass is such a function: it checks that
-its input is a verified module, then runs only rewrites that are proved valid, through the
+to a context or an error (`PurePass`). The checked drivers build such functions: they check that
+the input is a verified module, then run the rewrites, which are all proved valid, through the
 module-filtered drivers. `Veir.Passes.Pipeline.Soundness` proves these drivers sound.
 -/
 
@@ -40,7 +40,7 @@ def checkModuleRoot (pass : String) (ctx : WfIRContext OpCode) (moduleOp : Opera
 
 /-- Apply a pattern to the functions of the module through the filtered driver. -/
 @[expose]
-def applyToFunctionsStrict (pass : String) (pattern : RewritePattern OpCode)
+def applyToFunctionsChecked (pass : String) (pattern : RewritePattern OpCode)
     (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) (maxRounds : Nat := 10) :
     Except String (WfIRContext OpCode) :=
   match pattern.applyToFunctionsIf (Puddle.rootEligible moduleOp) ctx moduleOp maxRounds with
@@ -49,7 +49,7 @@ def applyToFunctionsStrict (pass : String) (pattern : RewritePattern OpCode)
 
 /-- Apply a pattern everywhere in the module through the filtered driver. -/
 @[expose]
-def applyInContextStrict (pass : String) (pattern : RewritePattern OpCode)
+def applyInContextChecked (pass : String) (pattern : RewritePattern OpCode)
     (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) (maxRounds : Nat := 10) :
     Except String (WfIRContext OpCode) :=
   match pattern.applyInContextIf (Puddle.rootEligible moduleOp) ctx moduleOp maxRounds with
@@ -58,45 +58,45 @@ def applyInContextStrict (pass : String) (pattern : RewritePattern OpCode)
 
 /-- Apply the patterns in order, each everywhere in the module. -/
 @[expose]
-def applyPhasesStrict (pass : String) (phases : List (RewritePattern OpCode))
+def applyPhasesChecked (pass : String) (phases : List (RewritePattern OpCode))
     (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) : Except String (WfIRContext OpCode) :=
-  phases.foldlM (fun ctx pattern => applyInContextStrict pass pattern ctx moduleOp) ctx
+  phases.foldlM (fun ctx pattern => applyInContextChecked pass pattern ctx moduleOp) ctx
 
 /-- Apply the patterns in order, each to the functions of the module. -/
 @[expose]
-def applyFunctionPhasesStrict (pass : String) (phases : List (RewritePattern OpCode))
+def applyFunctionPhasesChecked (pass : String) (phases : List (RewritePattern OpCode))
     (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) : Except String (WfIRContext OpCode) :=
-  phases.foldlM (fun ctx pattern => applyToFunctionsStrict pass pattern ctx moduleOp) ctx
+  phases.foldlM (fun ctx pattern => applyToFunctionsChecked pass pattern ctx moduleOp) ctx
 
 /-- A pass that checks its input and applies a pattern to the functions. -/
 @[expose]
-def strictFunctionsPass (pass : String) (pattern : RewritePattern OpCode)
+def checkedFunctionsPass (pass : String) (pattern : RewritePattern OpCode)
     (maxRounds : Nat := 10) : PurePass :=
   fun ctx moduleOp => do
     checkModuleRoot pass ctx moduleOp
-    applyToFunctionsStrict pass pattern ctx moduleOp maxRounds
+    applyToFunctionsChecked pass pattern ctx moduleOp maxRounds
 
 /-- A pass that checks its input and applies a pattern everywhere. -/
 @[expose]
-def strictContextPass (pass : String) (pattern : RewritePattern OpCode)
+def checkedContextPass (pass : String) (pattern : RewritePattern OpCode)
     (maxRounds : Nat := 10) : PurePass :=
   fun ctx moduleOp => do
     checkModuleRoot pass ctx moduleOp
-    applyInContextStrict pass pattern ctx moduleOp maxRounds
+    applyInContextChecked pass pattern ctx moduleOp maxRounds
 
 /-- A pass that checks its input and applies the patterns in order, each to the functions. -/
 @[expose]
-def strictFunctionsPasses (pass : String) (phases : List (RewritePattern OpCode)) : PurePass :=
+def checkedFunctionsPasses (pass : String) (phases : List (RewritePattern OpCode)) : PurePass :=
   fun ctx moduleOp => do
     checkModuleRoot pass ctx moduleOp
-    applyFunctionPhasesStrict pass phases ctx moduleOp
+    applyFunctionPhasesChecked pass phases ctx moduleOp
 
 /-- A pass that checks its input and applies the patterns in order, each everywhere. -/
 @[expose]
-def strictContextPasses (pass : String) (phases : List (RewritePattern OpCode)) : PurePass :=
+def checkedContextPasses (pass : String) (phases : List (RewritePattern OpCode)) : PurePass :=
   fun ctx moduleOp => do
     checkModuleRoot pass ctx moduleOp
-    applyPhasesStrict pass phases ctx moduleOp
+    applyPhasesChecked pass phases ctx moduleOp
 
 end Veir
 end

@@ -1,11 +1,8 @@
-// RUN: not veir-opt %s -p=llvm-to-gmir{strict=true} 2>&1 | filecheck %s
-// RUN: veir-opt %s -p=llvm-to-gmir | filecheck %s --check-prefix=LAX
+// RUN: not veir-opt %s -p=llvm-to-gmir 2>&1 | filecheck %s
 
-// In strict mode, the pass fails on a module with an operation that the
-// refinement proof of the branch translation does not cover, here `arith`.
+// The pass fails on a module with an operation that the refinement proof of the
+// branch translation does not cover, here `arith`.
 // CHECK: llvm-to-gmir: the refinement proof does not cover an operation of the module
-
-// LAX: "gmir.g_br"
 
 "builtin.module"() ({
   "func.func"() <{"function_type" = () -> (i64), "sym_name" = "f"}> ({
