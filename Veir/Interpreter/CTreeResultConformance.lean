@@ -45,7 +45,7 @@ theorem Llvm.interpretOpCTree_result_shape
   unfold Llvm.interpretOpCTree at h
   split at h
   · repeat first | split at h
-    all_goals simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff, Veir.fail, CTree.trigger_def] at h
+    all_goals simp [ PureOrErr.CanInterpretTo.map_iff, Veir.fail, CTree.trigger_def] at h
     all_goals simp_all [Llvm.interpretOp', Bind.bind, Pure.pure]
     all_goals try simp_all
     all_goals try rcases h with ⟨⟨choice, rfl⟩, _, _⟩

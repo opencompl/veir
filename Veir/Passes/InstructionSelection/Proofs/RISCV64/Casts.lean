@@ -267,9 +267,8 @@ theorem gmirAnyextOfReg_pattern_valid :
   unfold gmirAnyextOfReg_pattern
   simpPuddleValid
   simp [ctree_semantics]
-  intro regType reg x hreg _hzero src _castprops _hcastVerified value mem mem' hcast dst p
+  intro regType reg src _castprops _hcastVerified value mem mem' hcast dst p
     _hanyVerified hlegal memory
-  subst hreg
   cases value <;> simp [ctree_semantics]
   rcases src with ⟨sa, hs⟩
   cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast
@@ -284,7 +283,7 @@ theorem gmirAnyextOfReg_pattern_valid :
   · simp [ctree_semantics, RISCV.Reg.toInt, Data.LLVM.Int.ext, Id.run]
     simp only [CTree.tau_def, Sim.pure_tau]
     rename_i srcTy dstTy hlt
-    refine ⟨x.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
+    refine ⟨reg.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
     simp [ctree_semantics, RuntimeValue.isRefinedBy, isRefinedBy]
     simp only [Data.LLVM.Int.cast]
     ext i

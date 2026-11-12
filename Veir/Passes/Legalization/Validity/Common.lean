@@ -155,13 +155,6 @@ macro "proveLegalValid" "with" closer:tacticSeq : tactic => `(tactic| (
     Data.LLVM.selectNonzero_zext, isRefinedBy_refl])
   all_goals ($closer)))
 
-/-- Print the normalized goals of a gMIR pattern validity proof. Used to state local lemmas. -/
-macro "probeLegalValid" : tactic => `(tactic| (
-  conv => arg 1; cbv
-  simpPuddleValid
-  simpLegalSemantics
-  normalizeLegalValid
-  trace_state
-  all_goals sorry))
+
 
 end Veir.Legalization.CTreeProofs

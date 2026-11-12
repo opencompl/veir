@@ -75,10 +75,10 @@ attribute [-simp]
   Attribute.pdlAttributeType_eq_of Attribute.pdlOperationType_eq_of Attribute.pdlValueType_eq_of Attribute.pdlTypeType_eq_of
   Attribute.matchOptionalType_eq_of Attribute.seqClockType_eq_of Attribute.seqFirMemType_eq_of Attribute.smtSortType_eq_of
 
-/-- Only a register conforms to a register type, and only zero to `x0`. -/
+/-- Only a register conforms to a register type. -/
 theorem conforms_of_val_registerType {v : RuntimeValue} {t : TypeAttr}
     {r : RegisterType} (h : t.val = .registerType r) :
-    v.Conforms t ↔ (match v with | .reg val => r.index = some 0 → val = ⟨0#64⟩ | _ => False) := by
+    v.Conforms t ↔ (match v with | .reg _ => True | _ => False) := by
   rcases t with ⟨attr, _⟩
   subst h
   cases v <;> simp [RuntimeValue.Conforms]

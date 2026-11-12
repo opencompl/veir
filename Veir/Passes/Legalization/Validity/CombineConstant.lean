@@ -108,17 +108,6 @@ macro "normalizeTypedConstants" : tactic => `(tactic| (
   all_goals (try simp_all)
   normalizeLegalValid))
 
-/-- Print the normalized goals of a combine that matches constants. -/
-macro "probeConstValid" : tactic => `(tactic| (
-  conv => arg 1; cbv
-  simpPuddleValid
-  simpLegalSemantics
-  normalizeLegalValid
-  normalizeConstants
-  trace_state
-  all_goals sorry))
-
-
 /-! ### Shifts by a matched zero
 
 `shiftAmount` is private to the gMIR semantics, so these lemmas are stated here. -/

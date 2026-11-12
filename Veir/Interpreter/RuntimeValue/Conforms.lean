@@ -27,8 +27,7 @@ def Conforms (val : RuntimeValue) (ty : TypeAttr) : Prop :=
   | .byte bw _, ⟨.byteType byteType, _⟩ => byteType.bitwidth = bw
   | .int bw _, ⟨.modArithType modArithType, _⟩ => modArithType.modulus.type.bitwidth = bw
   | .int bw _, ⟨.indexType _, _⟩ => bw = IndexType.bitwidth
-  /- The hard-wired zero register `x0` always reads as zero. -/
-  | .reg val, ⟨.registerType regType, _⟩ => regType.index = some 0 → val = ⟨0#64⟩
+  | .reg _, ⟨.registerType _, _⟩ => True
   | .addr _, ⟨.llvmPointerType _, _⟩ => True
   | .felt fieldType value, ⟨.feltType expectedType, _⟩ =>
     fieldType = expectedType ∧ FeltSemantics.IsCanonical fieldType value
@@ -76,9 +75,9 @@ theorem Conforms.indexType :
 @[simp, grind =]
 theorem Conforms.registerType :
     Conforms runtimeValue (.of RegisterType regType) ↔
-    ∃ val, runtimeValue = .reg val ∧ (regType.index = some 0 → val = ⟨0#64⟩) := by
+    ∃ val, runtimeValue = .reg val := by
   simp only [TypeAttr.of_def, Attribute.of_def, IsAttr.inject, Conforms]
-  cases runtimeValue <;> grind
+  grind
 
 @[simp, grind =]
 theorem Conforms.llvmPointerType :

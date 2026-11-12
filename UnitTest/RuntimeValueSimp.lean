@@ -19,8 +19,7 @@ example (operands : Array RuntimeValue) (i : IntegerType) (b : LLVM.ByteType)
     (felt : FeltType) :
     ArrayConforms operands #[.of IntegerType i, .of LLVM.ByteType b, .of FloatType f,
       .of ModArithType m, .of RegisterType r, .of LLVM.PointerType p, .of FeltType felt] ↔
-    ∃ vi vb vf vm vr, (r.index = some 0 → vr = ⟨0#64⟩) ∧ ∃ vp vfelt,
-      Data.FeltSemantics.IsCanonical felt vfelt ∧
+    ∃ vi vb vf vm vr vp vfelt, Data.FeltSemantics.IsCanonical felt vfelt ∧
       operands = #[.int i.bitwidth vi, .byte b.bitwidth vb, .float f vf,
         .int m.modulus.type.bitwidth vm, .reg vr, .addr vp, .felt felt vfelt] := by
   simp
