@@ -130,19 +130,42 @@ def Comb.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
     op.verifyPlainOpCounts ctx opIn 3 1
     pure ()
 
+/-- Every operand as an `LLVM.Int` at one common width, or `none` if they disagree or if any is
+not an integer. The shape every width-preserving `comb` operation needs. -/
+private def Comb.sameWidthOperands (operands : Array RuntimeValue) :
+    Option ((w : Nat) × List (Data.LLVM.Int w)) := do
+  let l : List _ := operands.toList
+  -- `operands[0]?` rather than `l[0]!`: a variadic `comb` operation with no operands is
+  -- malformed, and must be refused rather than panic.
+  let some (first : RuntimeValue) := operands[0]? | none
+  let .int w _ := first | none
+  let some nl := l.mapM (
+      fun e => do
+        let .int w' val := e | none
+        if h : w' ≠ w then none else
+        return val.cast (by simpa using h)) | none
+  return ⟨w, nl⟩
+
+/-- Interpret one `comb` operation.
+
+`resultTypes` is taken even though nothing uses it yet: the operations whose result width is not
+determined by their operands -- `extract` and `replicate` -- are the reason the signature has it,
+and threading it from the start keeps the one call site in `Veir.interpretOp'` stable. -/
 def Comb.interpretOp' (opType : Veir.Comb) (properties : propertiesOf opType)
+    (_resultTypes : Array TypeAttr)
     (operands : Array RuntimeValue) (_blockOperands : Array BlockPtr)
     : Option ((Array RuntimeValue) × Option ControlFlowAction) :=
   match opType with
-  | .add => do
-    let l : List _ := operands.toList
-    let .int w fst := l[0]! | none
-    let some nl := l.mapM (
-        fun e => do
-          let .int w' val := e | none
-          if h : w' ≠ w then none else
-          return val.cast (by simpa using h)) | none
-    return (#[.int w (Veir.Data.Comb.add nl)], none)
+  | .add => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+               return (#[.int w (Veir.Data.Comb.add l)], none)
+  | .mul => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+               return (#[.int w (Veir.Data.Comb.mul l)], none)
+  | .and => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+               return (#[.int w (Veir.Data.Comb.and l)], none)
+  | .or => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+              return (#[.int w (Veir.Data.Comb.or l)], none)
+  | .xor => do let ⟨w, l⟩ ← Comb.sameWidthOperands operands
+               return (#[.int w (Veir.Data.Comb.xor l)], none)
   | _ => none
 
 instance : HasOpInfo Comb where
