@@ -23,7 +23,9 @@ public def DCEPass.runStrict : PurePass :=
 public def DCEPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
   if strict then ExceptT.mk (pure (DCEPass.runStrict ctx op)) else do
-    let pattern := RewritePattern.GreedyRewritePattern #[eliminateDeadOp]
+    -- `eliminateDeadOp`, which also erases allocating operations, is unproven, so not run:
+    -- the driver erases the dead operations that do not allocate.
+    let pattern := RewritePattern.GreedyRewritePattern #[]
     match RewritePattern.applyInContext pattern ctx op with
     | none => throw "Error while applying DCE"
     | some ctx => pure ctx

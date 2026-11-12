@@ -2,6 +2,9 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 // RUN: veir-opt %s -p=riscv | filecheck %s --check-prefix=ISEL
 
+// XFAIL: *
+// Needs `widenBrcondCondition`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<i64 ()>}> ({
     ^entry():

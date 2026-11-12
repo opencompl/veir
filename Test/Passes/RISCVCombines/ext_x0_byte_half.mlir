@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=riscv-combine | filecheck %s
 
+// XFAIL: *
+// Needs `ext_x0 combines`, commented out of the pass as unproven.
+
 // Byte- and half-word mirrors of `zextw_x0`/`sextw_x0`: any extension of the
 // hard-wired zero register `x0` (which reads as 0) is a no-op.
 

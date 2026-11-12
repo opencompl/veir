@@ -3,6 +3,9 @@
 // RUN: veir-interpret %t >> %t
 // RUN: filecheck %s < %t
 
+// XFAIL: *
+// Needs `lowerSext`, commented out of the pass as unproven.
+
 // `i8` divisions by a power of two become shifts before legalization, including by `-2^7`.
 // `sdiv` rounds toward zero, so `0xff / 2` is 0.
 

@@ -164,8 +164,9 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
   | .g_anyext => [
       combineAnyExtOfTruncSame,
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
-      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
-      combineAnyExtOfAnyExt]
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)
+      -- Unproven (`rechoosesMatchedChoice`), so not run: `, combineAnyExtOfAnyExt`
+      ]
   | .g_zext => [combineZExtOfTruncOfICmp, combineExtOfTruncOfConstant false]
   | .g_sext => [combineExtOfTruncOfConstant true]
   | .g_trunc => [combineTruncOfTrunc]

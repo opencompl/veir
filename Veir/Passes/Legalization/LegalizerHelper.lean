@@ -589,10 +589,11 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
 
 /-- The pattern that lowers `opcode`, if it can be lowered. -/
 def lower? : GMIR → Option (Pattern OpCode)
-  | .g_sext => lowerSext
+  -- Unproven (`widthDependent`), so not run:
+  -- | .g_sext => lowerSext
+  -- | .g_fshl => lowerFunnelShift true
+  -- | .g_fshr => lowerFunnelShift false
   | .g_zext => lowerZext
-  | .g_fshl => lowerFunnelShift true
-  | .g_fshr => lowerFunnelShift false
   | .g_ctlz_zero_poison => lowerZeroPoisonCount .g_ctlz_zero_poison .g_ctlz
   | .g_cttz_zero_poison => lowerZeroPoisonCount .g_cttz_zero_poison .g_cttz
   | .g_uaddsat => lowerAddSubSatToMinMax .g_uaddsat false true
@@ -660,7 +661,8 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
   | .g_cttz, .type 1, width => widenCttzSrc width
   -- Zero bits do not add to the count.
   | .g_ctpop, .type 1, width => widenTypeGroup .g_ctpop (.type 1) .g_zext width
-  | .g_bswap, .type 0, width => widenReverse .g_bswap width
+  -- Unproven (`widthDependent`), so not run:
+  -- | .g_bswap, .type 0, width => widenReverse .g_bswap width
   | .g_bitreverse, .type 0, width => widenReverse .g_bitreverse width
   -- Sign extension preserves the signed order, and also the unsigned order. For `g_umin` and
   -- `g_umax`, LLVM only sign-extends where it is cheaper than zero-extending (from `i32` on
@@ -682,7 +684,8 @@ def widenScalarPattern? : GMIR → (typeIdx : TypeGroup) → (width : Nat) → O
 /-- Widens type group `typeIdx` of `opcode` to `width` bits. -/
 def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
     Option (LocalRewritePattern OpCode)
-  | .g_brcond, .type 0, width => widenBrcondCondition width
+  -- `widenBrcondCondition` is unproven, so not run:
+  -- | .g_brcond, .type 0, width => widenBrcondCondition width
   | opcode, typeIdx, width => (widenScalarPattern? opcode typeIdx width).map Puddle.Pattern.interpret
 
 /-- Narrows type group `typeIdx` of `opcode` to `width` bits. -/

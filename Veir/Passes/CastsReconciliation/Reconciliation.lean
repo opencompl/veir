@@ -117,7 +117,9 @@ def reconcileRegIntShift : Pattern OpCode :=
 
 private def reconcileRegIntCasts : Array (CompiledPattern OpCode) :=
   #[reconcileRegIntExt 8 .zextb (), reconcileRegIntExt 16 .zexth (),
-    reconcileRegIntExt 32 .zextw (), reconcileRegIntShift].map (·.compile)
+    reconcileRegIntExt 32 .zextw ()
+    -- Unproven (`createFailsOverWide`), so not run: `, reconcileRegIntShift`
+    ].map (·.compile)
 
 
 /-- The patterns of the pass that are proved valid (`Veir.Passes.CastsReconciliation.Validity`):
@@ -140,15 +142,16 @@ public def CastReconcilePass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op
   if strict then ExceptT.mk (pure (CastReconcilePass.runStrict ctx op)) else do
     let pattern := RewritePattern.GreedyRewritePattern <| #[
       reconcileRegToI64.run,
-      reconcileRegToPtr.run,
+      -- Unproven (`freezesPoisonPointer`), so not run: `reconcileRegToPtr.run,`
       reconcileModArithToInt.run,
       reconcileCirToInt.run] ++ reconcileRegIntCasts.map (·.run)
     match RewritePattern.applyInContext pattern ctx op with
     | none => throw "Error while applying cast reconciliation"
     -- The patterns leave the (now dead) parent casts behind: `LocalRewritePattern` can only erase
-    -- the matched operation. Clean them up here so the pass is self-contained.
+    -- the matched operation. The driver erases them here so the pass is self-contained.
+    -- `eliminateDeadOp`, which also erases allocating operations, is unproven, so not run.
     | some ctx =>
-      match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
+      match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[]) ctx op with
       | none => throw "Error while applying DCE after cast reconciliation"
       | some ctx => pure ctx
 

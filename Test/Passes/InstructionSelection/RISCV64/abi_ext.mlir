@@ -1,5 +1,8 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv | filecheck %s
 
+// XFAIL: *
+// Needs `lowerSext`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "ret_sext_i1", function_type = !llvm.func<i1 (i1)>, res_attrs = [{llvm.signext}]}> ({
   ^bb0(%x: i1):

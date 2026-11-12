@@ -280,9 +280,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_br => [
       .alwaysLegal,
     ]
+    -- The condition is not widened, as `widenBrcondCondition` is unproven, and
+    -- `isel-br-riscv64` accepts a condition of any width up to 64 bits.
     | .g_brcond => [
-      .legalFor [s64],
-      .minScalar (.type 0) 64,
+      .alwaysLegal,
+      -- .legalFor [s64],
+      -- .minScalar (.type 0) 64,
     ]
     | _ => []
   legalizeCustom
@@ -305,19 +308,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
-/-- The rules of the strict legalizer: those of `riscv64LegalizerInfo`, with `g_brcond` legal at
-every width, since the strict legalizer does not widen branch conditions and `isel-br-riscv64`
-accepts a narrow condition. -/
-def riscv64LegalizerInfoStrict : LegalizerInfo :=
-  { riscv64LegalizerInfo with
-    rules := fun
-      | .g_brcond => [.alwaysLegal]
-      | opcode => riscv64LegalizerInfo.rules opcode }
-
-/-- The strict pass: the proved legalizations, through the module-filtered driver. Its soundness
-is `LegalizeRISCV64Pass.runStrict_sound`. -/
+/-- The strict pass: the legalizations, all proved valid, through the module-filtered driver. Its
+soundness is `LegalizeRISCV64Pass.runStrict_sound`. -/
 def LegalizeRISCV64Pass.runStrict : PurePass :=
-  riscv64LegalizerInfoStrict.legalizeStrict "legalize-riscv64"
+  riscv64LegalizerInfo.legalizeStrict "legalize-riscv64"
 
 def LegalizeRISCV64Pass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=

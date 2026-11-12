@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=reconcile-cast | filecheck %s
 
+// XFAIL: *
+// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
+
 "builtin.module"() ({
 
     "func.func"()  <{function_type = (i64) -> (), sym_name = "f0"}> ({

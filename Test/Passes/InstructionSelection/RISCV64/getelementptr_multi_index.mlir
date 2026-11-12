@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
+// XFAIL: *
+// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
+
 // {i8, [3 x [5 x i64]], i64}: array at offset 8, final field at 128.
 "builtin.module"() ({
   "func.func"() <{sym_name = "mixed_indices", function_type = (!llvm.ptr, i64, i32) -> ()}> ({

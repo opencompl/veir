@@ -28,8 +28,8 @@ def postLegalizerStrictPatterns : Array (Puddle.Pattern OpCode) :=
   combinePatterns ++ selectPatterns riscv64LegalizerInfo ++
     #[sub_to_add_pattern riscv64LegalizerInfo, redundant_and_pattern] ++ redundantAndSelectPatterns
 
-/-- The strict pass: the Puddle patterns, all proved valid, through the module-filtered driver;
-`commutativeConstantRHS` is not run. Its soundness is
+/-- The strict pass: the Puddle patterns, all proved valid, through the module-filtered driver.
+Its soundness is
 `PostLegalizerCombinerRISCV64Pass.runStrict_sound`. -/
 def PostLegalizerCombinerRISCV64Pass.runStrict : PurePass :=
   strictFunctionsPass "postlegalizer-combiner-riscv64"
@@ -41,7 +41,8 @@ def PostLegalizerCombinerRISCV64Pass.impl (strict : Bool) (ctx : WfIRContext OpC
     let pattern := RewritePattern.GreedyRewritePattern <|
       (combines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
       #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run] ++
-      redundant_and_select.map (·.run) ++ #[commutativeConstantRHS]
+      -- `commutativeConstantRHS` is unproven, so not run: `++ #[commutativeConstantRHS]`.
+      redundant_and_select.map (·.run)
     match RewritePattern.applyToFunctions pattern ctx op with
     | none => throw "Error while applying the post-legalizer combines"
     | some ctx => pure ctx

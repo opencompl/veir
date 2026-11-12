@@ -148,7 +148,8 @@ them remains illegal.
 -/
 def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : OperationPtr) :
     Except String (WfIRContext OpCode) := do
-  let ctx ← info.legalizeBlockArguments ctx root
+  -- `legalizeBlockArguments` is unproven, so not run: a narrow phi is rejected instead.
+  info.checkBlockArguments ctx.raw
   -- As in LLVM, an artifact is combined before it is legalized.
   -- TODO: Use a proper worklist for artifacts.
   let pattern := RewritePattern.GreedyRewritePattern
@@ -163,41 +164,18 @@ def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : Operation
 
 /-! ## Strict legalization
 
-The strict legalizer runs, through the module-filtered driver, only the rules proved to refine the
-module, and rejects what they cannot legalize. It does not widen block arguments (it rejects narrow
-phis) nor branch conditions, which are local rewrites without a proof, and it skips the four rules
-without a validity certificate: `widenReverse .g_bswap`, `lowerSext`, `lowerFunnelShift` and
-`combineAnyExtOfAnyExt`. -/
-
-/-- The widening rules proved valid: those of `widenScalarPattern?` but the `g_bswap` one. -/
-def widenScalarPatternStrict? (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat) :
-    Option (Puddle.Pattern OpCode) :=
-  match opcode with
-  | .g_bswap => none
-  | opcode => widenScalarPattern? opcode typeIdx width
-
-/-- The lowerings proved valid: those of `lower?` but the sign extension and the funnel shifts. -/
-def lowerStrict? : GMIR → Option (Puddle.Pattern OpCode)
-  | .g_sext | .g_fshl | .g_fshr => none
-  | opcode => lower? opcode
-
-/-- The artifact combines proved valid: those of `tryCombineInstruction` but
-`combineAnyExtOfAnyExt`. -/
-def tryCombineInstructionStrict : GMIR → List (Puddle.Pattern OpCode)
-  | .g_anyext => [
-      combineAnyExtOfTruncSame,
-      combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
-      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)]
-  | opcode => tryCombineInstruction opcode
+The strict legalizer runs the rules of the registries, which are all proved to refine the module,
+through the module-filtered driver, and rejects what they cannot legalize: a narrow phi, as the
+default legalizer does since `legalizeBlockArguments` is unproven. -/
 
 /-- The proved rule that legalizes `op`, an `opcode`, chosen as `legalizeInstrStep` chooses it. -/
 def legalizeInstrChoiceStrict (info : LegalizerInfo) (ctx : WfIRContext OpCode)
     (op : OperationPtr) (opcode : GMIR) : Option (Puddle.Pattern OpCode) :=
   if isArtifact opcode && hasIllegalSource info ctx.raw op then none else
   match info.getAction ctx.raw op opcode with
-  | .widenScalar typeIdx width => widenScalarPatternStrict? opcode typeIdx width
+  | .widenScalar typeIdx width => widenScalarPattern? opcode typeIdx width
   | .narrowScalar typeIdx width => narrowScalar? opcode typeIdx width
-  | .lower => lowerStrict? opcode
+  | .lower => lower? opcode
   | .custom => info.legalizeCustom opcode
   | .legal | .unsupported => none
 
@@ -208,7 +186,7 @@ def legalizeStrictRules (info : LegalizerInfo) (ctx : WfIRContext OpCode) (op : 
   match toDialect? GMIR (op.getOpType! ctx.raw) with
   | none => []
   | some opcode =>
-    tryCombineInstructionStrict opcode ++ (legalizeInstrChoiceStrict info ctx op opcode).toList
+    tryCombineInstruction opcode ++ (legalizeInstrChoiceStrict info ctx op opcode).toList
 
 /-- The pattern of the strict legalizer: combine an artifact away, else legalize the operation. -/
 def legalizeStrictPattern (info : LegalizerInfo) : RewritePattern OpCode :=

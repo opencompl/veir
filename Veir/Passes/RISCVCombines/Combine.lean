@@ -1222,7 +1222,7 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , zextw_or
      , zextw_xor
      , drop_zextw_sw
-     , zextw_x0
+     -- Unproven, so not run: `, zextw_x0`
      , zextw_li_low32
      , sextw_sextw
      , drop_sextw_addw
@@ -1250,7 +1250,7 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , sextw_or
      , sextw_xor
      , drop_sextw_sw
-     , sextw_x0
+     -- Unproven, so not run: `, sextw_x0`
      , sextw_li_low32
      , sextw_lw
      , sextw_lh
@@ -1318,10 +1318,10 @@ private def combinePatterns : Array (Puddle.CompiledPattern OpCode) :=
      , drop_sextb_sb
      , drop_zextw_sb
      , drop_sextw_sb
-     , zextb_x0
-     , zexth_x0
-     , sextb_x0
-     , sexth_x0
+     -- Unproven, so not run: `, zextb_x0`
+     -- Unproven, so not run: `, zexth_x0`
+     -- Unproven, so not run: `, sextb_x0`
+     -- Unproven, so not run: `, sexth_x0`
      , zextb_li_low8
      , zexth_li_low16
      , sextb_li_low8

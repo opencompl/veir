@@ -1,14 +1,12 @@
 // RUN: veir-opt %s -p=isel-riscv64{strict} | filecheck %s
-// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s --check-prefix=LAX
+// RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
-// The strict pass only runs the selections proved to refine the module. The
-// `getelementptr` lowering is not one of them, so it is left unselected, while
-// the `gmir.g_add` next to it is selected as usual.
+// Both modes of the pass only run the selections proved to refine the module. The
+// `getelementptr` lowering is not one of them, so it is left unselected, while the
+// `gmir.g_add` next to it is selected as usual.
 
 // CHECK: "llvm.getelementptr"
 // CHECK: "riscv.add"
-// LAX-NOT: "llvm.getelementptr"
-// LAX: "riscv.add"
 
 "builtin.module"() ({
   "func.func"() <{function_type = (!llvm.ptr, i64, i64) -> (!llvm.ptr, i64), sym_name = "f"}> ({

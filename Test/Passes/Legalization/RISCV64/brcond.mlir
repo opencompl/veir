@@ -1,6 +1,9 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 // RUN: veir-opt %s -p=legalize-riscv64,postlegalizer-combiner-riscv64 | filecheck %s --check-prefix=COMBINE
 
+// XFAIL: *
+// Needs `widenBrcondCondition`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "f", function_type = !llvm.func<i64 (i32, i32, i1)>}> ({
   ^bb0(%x: i32, %y: i32, %c: i1):

@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `widenReverse .g_bswap`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "func.func"() <{function_type = (i64, i32, i16, i8, i5) -> (), sym_name = "main"}> ({
   ^bb0(%x_i64: i64, %x_i32: i32, %x_i16: i16, %x_i8: i8, %x_i5: i5):

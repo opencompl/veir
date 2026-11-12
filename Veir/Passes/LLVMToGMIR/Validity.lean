@@ -709,8 +709,9 @@ public def llvmToGMIRCertificates : Puddle.CTree.Certificates Unproven llvmToGMI
   .proven poison_valid <|
   .proven byte_poison_valid <|
   .proven byte_trunc_valid <|
-  .unproven .allPoisonByte <| -- byte_shl
-  .unproven .allPoisonByte <| -- byte_lshr
+  -- The byte shifts, unproven (`allPoisonByte`), are commented out of the pass:
+  -- .unproven .allPoisonByte <| -- byte_shl
+  -- .unproven .allPoisonByte <| -- byte_lshr
   .proven byte_int_bitcast_valid <|
   .proven static_alloca_valid <|
   .proven static_alloca_gmir_valid <|

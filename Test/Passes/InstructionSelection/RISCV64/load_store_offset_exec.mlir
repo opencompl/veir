@@ -2,6 +2,9 @@
 // RUN: veir-opt %s --print-op-generic -p=riscv > %t && veir-interpret %t | filecheck %s
 // RUN: filecheck %s --check-prefix=ISEL --input-file=%t
 
+// XFAIL: *
+// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
+
 // A store and a load through a constant `getelementptr` (index 3 of an i64
 // array = 24 bytes) both fold that offset into the RISC-V offset field. The
 // selected code must observe the same value the LLVM-level program does, and

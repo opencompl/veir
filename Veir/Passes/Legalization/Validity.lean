@@ -201,9 +201,8 @@ theorem PostLegalizerCombinerRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext Op
 
 /-! ## The strict legalizer
 
-The strict registries (`LegalizerInfo.widenScalarPatternStrict?`, `lowerStrict?` and
-`tryCombineInstructionStrict`) leave out the rules whose status is `unproven`, so every rule they
-return is valid, and the strict legalizer is sound. -/
+The registries only hold rules proved valid (the unproven ones are commented out), so every rule
+the strict legalizer chooses is valid, and it is sound. -/
 
 attribute [legalization_valid]
   widen_abs_0_valid widen_add_0_valid widen_and_0_valid widen_ashr_0_valid widen_ashr_1_valid
@@ -228,20 +227,19 @@ attribute [legalization_valid]
   artifact_unmerge_merge_valid artifact_zext_trunc_constant_valid artifact_zext_trunc_icmp_valid
 
 set_option maxHeartbeats 4000000 in
-/-- Every strict widening rule, at every target width, is valid. -/
-theorem widenScalarPatternStrict_valid (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat)
+/-- Every widening rule, at every target width, is valid. -/
+theorem widenScalarPattern_valid (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat)
     (pattern : Pattern OpCode)
-    (h : LegalizerInfo.widenScalarPatternStrict? opcode typeIdx width = some pattern) :
+    (h : widenScalarPattern? opcode typeIdx width = some pattern) :
     Puddle.CTree.Pattern.Valid pattern := by
   rcases typeIdx with ⟨_ | _ | _⟩ <;> cases opcode <;>
-    simp only [LegalizerInfo.widenScalarPatternStrict?, widenScalarPattern?, reduceCtorEq,
-      Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
+    simp only [widenScalarPattern?, reduceCtorEq, Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
 
-/-- Every strict lowering is valid. -/
-theorem lowerStrict_valid (opcode : GMIR) (pattern : Pattern OpCode)
-    (h : LegalizerInfo.lowerStrict? opcode = some pattern) : Puddle.CTree.Pattern.Valid pattern := by
+/-- Every lowering is valid. -/
+theorem lower_valid (opcode : GMIR) (pattern : Pattern OpCode)
+    (h : lower? opcode = some pattern) : Puddle.CTree.Pattern.Valid pattern := by
   cases opcode <;>
-    simp only [LegalizerInfo.lowerStrict?, lower?, reduceCtorEq, Option.some.injEq] at h <;>
+    simp only [lower?, reduceCtorEq, Option.some.injEq] at h <;>
     subst h <;> simp only [legalization_valid]
 
 /-- Every narrowing, at every width, is valid. -/
@@ -252,19 +250,17 @@ theorem narrowScalar_valid (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat)
     simp only [narrowScalar?, reduceCtorEq, Option.some.injEq] at h <;> subst h <;>
     simp only [legalization_valid]
 
-/-- Every strict artifact combine is valid. -/
-theorem tryCombineInstructionStrict_valid (opcode : GMIR) :
-    ∀ pattern ∈ LegalizerInfo.tryCombineInstructionStrict opcode, Puddle.CTree.Pattern.Valid pattern := by
-  cases opcode <;>
-    simp [LegalizerInfo.tryCombineInstructionStrict, tryCombineInstruction, legalization_valid]
+/-- Every artifact combine is valid. -/
+theorem tryCombineInstruction_valid (opcode : GMIR) :
+    ∀ pattern ∈ tryCombineInstruction opcode, Puddle.CTree.Pattern.Valid pattern := by
+  cases opcode <;> simp [tryCombineInstruction, legalization_valid]
 
 /-- Every RISC-V custom legalization is valid. -/
 theorem legalizeCustom_valid (opcode : GMIR) (pattern : Pattern OpCode)
-    (h : riscv64LegalizerInfoStrict.legalizeCustom opcode = some pattern) :
+    (h : riscv64LegalizerInfo.legalizeCustom opcode = some pattern) :
     Puddle.CTree.Pattern.Valid pattern := by
   cases opcode <;>
-    simp only [riscv64LegalizerInfoStrict, riscv64LegalizerInfo, reduceCtorEq,
-      Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
+    simp only [riscv64LegalizerInfo, reduceCtorEq, Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
 
 /-- The rule the strict legalizer chooses for an operation is valid. -/
 theorem legalizeInstrChoiceStrict_valid {info : LegalizerInfo}
@@ -277,9 +273,9 @@ theorem legalizeInstrChoiceStrict_valid {info : LegalizerInfo}
   split at h <;> (try split at h) <;>
     first
     | exact absurd h (by simp)
-    | exact widenScalarPatternStrict_valid _ _ _ _ h
+    | exact widenScalarPattern_valid _ _ _ _ h
     | exact narrowScalar_valid _ _ _ _ h
-    | exact lowerStrict_valid _ _ h
+    | exact lower_valid _ _ h
     | exact custom _ _ h
 
 /-- Every rule the strict legalizer tries at an operation is valid. -/
@@ -293,7 +289,7 @@ theorem legalizeStrictRules_valid {info : LegalizerInfo}
   split at member
   · exact (List.not_mem_nil member).elim
   · rcases List.mem_append.mp member with combine | chosen
-    · exact tryCombineInstructionStrict_valid _ pattern combine
+    · exact tryCombineInstruction_valid _ pattern combine
     · exact legalizeInstrChoiceStrict_valid custom ctx op _ pattern
         (Option.mem_toList.mp chosen)
 

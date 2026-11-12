@@ -1,6 +1,9 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
 
+// XFAIL: *
+// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
+
 // Identified structs can be printed inline in the stub IR: the name is not
 // needed by machine operands, but nesting, arrays and packed layout must survive.
 "builtin.module"() ({

@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
+// XFAIL: *
+// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
+
 // A `llvm.getelementptr` with a constant index is absorbed into the signed
 // 12-bit offset field of the load or store that uses it, mirroring the
 // `isBaseWithConstantOffset` case of LLVM's `SelectAddrRegImm`. The gep itself

@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=llvm-to-gmir | filecheck %s
 
+// XFAIL: *
+// Needs `lowerByteShift`, commented out of the pass as unproven.
+
 "builtin.module"() ({
   "llvm.func"() <{sym_name = "main", function_type = !llvm.func<void (!llvm.byte<16>)>}> ({
     ^bb0(%byte: !llvm.byte<16>):

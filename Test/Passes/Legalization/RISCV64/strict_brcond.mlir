@@ -1,13 +1,11 @@
 // RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64{strict} | filecheck %s
-// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64 | filecheck %s --check-prefix=LAX
+// RUN: veir-opt %s -p=llvm-to-gmir,legalize-riscv64 | filecheck %s
 
-// The strict legalizer does not widen branch conditions, which `isel-br-riscv64` accepts at any
-// width, so the `g_brcond` keeps its `i1` condition; the `i32` add is legalized as usual.
+// The legalizer does not widen branch conditions, which `isel-br-riscv64` accepts at any width,
+// so the `g_brcond` keeps its `i1` condition; the `i32` add is legalized as usual.
 
 // CHECK: "gmir_riscv.g_addw"(%{{.*}}, %{{.*}}) : (i64, i64) -> i64
 // CHECK: "gmir.g_brcond"(%{{.*}}) [^{{.*}}, ^{{.*}}] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i1) -> ()
-
-// LAX: "gmir.g_brcond"(%{{.*}}) [^{{.*}}, ^{{.*}}] <{"operandSegmentSizes" = array<i32: 1, 0, 0>}> : (i64) -> ()
 
 "builtin.module"() ({
   "func.func"() <{sym_name = "f", function_type = (i32, i1) -> i32}> ({

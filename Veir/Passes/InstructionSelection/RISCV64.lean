@@ -2220,11 +2220,11 @@ def gmirSlti : Array (Puddle.CompiledPattern OpCode) := gmirSltiPatterns.map (·
 
 /-! # Strict pass
 
-The strict pass runs, through the module-filtered driver, exactly the patterns of the three
-selection loops that are proved to refine the module: everything except the memory-intrinsic
-lowerings (the libcall fallback has no semantics, the inline expansion no proof yet), the split
-loads and stores and the general `getelementptr` lowering, whose address lemmas are not written.
-An input that needs one of those keeps the operation unselected. -/
+The strict pass runs, through the module-filtered driver, the patterns of the three selection
+loops, which are all proved to refine the module. The memory-intrinsic lowerings (the libcall
+fallback has no semantics, the inline expansion no proof yet), the split loads and stores and the
+general `getelementptr` lowering, whose address lemmas are not written, are unproven and no loop
+runs them: an input that needs one of those keeps the operation unselected. -/
 
 /-- The composed loop of the strict pass. -/
 public def iselComposedStrict : Array (Pattern OpCode) := gmirComposedPatterns
@@ -2286,9 +2286,11 @@ public def ISelPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : Operat
   | some ctx => pure ctx
   /- Early loop: fold composed intrinsics and inspect constants before the per-op
      lowerings consume them. -/
+  -- `memIntrinsic`, `splitLoad` and `splitStore` are unproven, so not run:
+  -- `#[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ splitLoad.map (·.run) ++
+  --  splitStore.map (·.run) ++`.
   let early := RewritePattern.GreedyRewritePattern <|
-    #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic] ++ splitLoad.map (·.run) ++
-    splitStore.map (·.run) ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
+    #[lifetimeStart.run, lifetimeEnd.run] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
     store.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
@@ -2306,7 +2308,8 @@ public def ISelPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : Operat
     sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
-    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
+    -- `getelementptrGeneral` is unproven, so not run: `++ #[getelementptrGeneral]`.
+    load.map (·.run) ++ gmirLoad.map (·.run) ++ store.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     gmirPoison.run, zeroConst.run, freeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,

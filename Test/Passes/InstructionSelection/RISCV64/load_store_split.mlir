@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `split loads and stores (splitLoad, splitStore)`, commented out of the pass as unproven.
+
 // Integers of 3, 5, 6 and 7 bytes are accessed in power-of-two pieces, widest
 // first, and a volatile access keeps the flag on every piece.
 

@@ -571,37 +571,15 @@ public def llvmToGMIRPatternList : List (Puddle.Pattern OpCode) := [
   lowerCount .intr__ctpop .g_ctpop id,
   lowerIntegerConstant, lowerPoison, lowerBytePoison,
   lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
-  lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr, lowerByteIntBitcast,
-  lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,
-  lowerStaticAllocaZero_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
-
-/-- The patterns of `llvmToGMIRPatternList` that are proved valid
-(`Veir.Passes.LLVMToGMIR.Validity`): all but the two byte shifts, in the same order. -/
-public def llvmToGMIRStrictPatternList : List (Puddle.Pattern OpCode) := [
-  lowerBinop .add .g_add, lowerBinop .sub .g_sub, lowerIcmp, lowerSelect,
-  lowerIntegerCast .sext .g_sext, lowerIntegerCast .zext .g_zext, lowerIntegerCast .trunc .g_trunc,
-  lowerBinop .and .g_and, lowerBinop .or .g_or, lowerBinop .xor .g_xor,
-  lowerBinop .shl .g_shl, lowerBinop .lshr .g_lshr, lowerBinop .ashr .g_ashr,
-  lowerBinop .mul .g_mul, lowerBinop .sdiv .g_sdiv, lowerBinop .udiv .g_udiv,
-  lowerBinop .srem .g_srem, lowerBinop .urem .g_urem,
-  lowerUnop .intr__bswap .g_bswap id, lowerUnop .intr__bitreverse .g_bitreverse id,
-  lowerBinop .intr__smax .g_smax, lowerBinop .intr__smin .g_smin,
-  lowerBinop .intr__umax .g_umax, lowerBinop .intr__umin .g_umin,
-  lowerUnop .intr__abs .g_abs (fun _ => ()),
-  lowerFunnelShiftIntrinsic .intr__fshl .g_fshl, lowerFunnelShiftIntrinsic .intr__fshr .g_fshr,
-  lowerBinop .intr__sadd__sat .g_saddsat, lowerBinop .intr__uadd__sat .g_uaddsat,
-  lowerBinop .intr__ssub__sat .g_ssubsat, lowerBinop .intr__usub__sat .g_usubsat,
-  lowerBinop .intr__sshl__sat .g_sshlsat, lowerBinop .intr__ushl__sat .g_ushlsat,
-  lowerCount .intr__ctlz .g_ctlz (fun _ => ()) (!·.is_zero_poison),
-  lowerCount .intr__cttz .g_cttz (fun _ => ()) (!·.is_zero_poison),
-  lowerCount .intr__ctlz .g_ctlz_zero_poison (fun _ => ()) (·.is_zero_poison),
-  lowerCount .intr__cttz .g_cttz_zero_poison (fun _ => ()) (·.is_zero_poison),
-  lowerCount .intr__ctpop .g_ctpop id,
-  lowerIntegerConstant, lowerPoison, lowerBytePoison,
-  lowerUnaryByteOp .trunc .g_trunc (fun _ => ⟨false, false⟩),
+  -- Unproven (`allPoisonByte`), so not run:
+  -- lowerByteShift .shl .g_shl, lowerByteShift .lshr .g_lshr,
   lowerByteIntBitcast,
   lowerStaticAlloca_pattern, lowerStaticAllocaGMIR_pattern, lowerStaticAllocaArith_pattern,
   lowerStaticAllocaZero_pattern, lowerLoad_pattern, reconcilePairingCast isIntToByteRoundTrip]
+
+/-- The patterns of the strict pass: all of `llvmToGMIRPatternList`, which are proved valid
+(`Veir.Passes.LLVMToGMIR.Validity`). -/
+public def llvmToGMIRStrictPatternList : List (Puddle.Pattern OpCode) := llvmToGMIRPatternList
 
 /-- The strict pass: the branch step with its checks, then the proved patterns through the
 module-filtered driver, then the erasure of the dead casts by the driver. `normalizeGEPIndices` is
@@ -618,23 +596,22 @@ public def LLVMToGMIRPass.runStrict : PurePass := fun ctx moduleOp => do
 private def llvmToGMIRPatterns : Array (Puddle.CompiledPattern OpCode) :=
   (llvmToGMIRPatternList.map (·.compile)).toArray
 
-/-
-  The local rewrite comes after the patterns. It matches `llvm.getelementptr`, which no pattern
-  matches, so its position does not change which rewrite applies to an operation.
--/
 public def LLVMToGMIRPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
     (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
   if strict then ExceptT.mk (pure (LLVMToGMIRPass.runStrict ctx op)) else do
     -- Branches are translated by a separate step, which is proved to refine the module.
     -- `Veir.Passes.LLVMToGMIR.Validity` proves that the gMIR branches interpret as the LLVM ones.
     let ctx ← ExceptT.mk (pure (LLVMToGMIRBranches.run false ctx op))
-    let pattern := RewritePattern.GreedyRewritePattern <|
-      llvmToGMIRPatterns.map (·.run) ++ #[.fromLocalRewrite normalizeGEPIndices]
+    -- `normalizeGEPIndices` is unproven, so not run:
+    -- `llvmToGMIRPatterns.map (·.run) ++ #[.fromLocalRewrite normalizeGEPIndices]`.
+    let pattern := RewritePattern.GreedyRewritePattern (llvmToGMIRPatterns.map (·.run))
     match RewritePattern.applyToFunctions pattern ctx op with
     | none => throw "Error while applying llvm-to-gmir translation"
     | some ctx =>
-      -- A local rewrite may only erase the matched cast, so the folded first cast is left dead.
-      match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[eliminateDeadOp]) ctx op with
+      -- A local rewrite may only erase the matched cast, so the folded first cast is left dead;
+      -- the driver erases it. `eliminateDeadOp`, which also erases allocating operations, is
+      -- unproven, so not run.
+      match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern #[]) ctx op with
       | none => throw "Error while applying DCE after llvm-to-gmir translation"
       | some ctx => pure ctx
 

@@ -1,6 +1,9 @@
 // RUN: veir-opt %s -p=riscv > %t
 // RUN: veir2mir %t | filecheck %s
 
+// XFAIL: *
+// Needs `reconcileRegToPtr`, commented out of the pass as unproven.
+
 // A stack cell holding two i64s. The argument is stored into both slots, both
 // slots are read back, and the sum is returned. After `-p=riscv` the cell is a
 // single 16-byte `riscv_stack.alloca` addressed at offsets 0 and 8, which is

@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=llvm-to-gmir,prelegalizer-combiner-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `dropAssume`, commented out of the pass as unproven.
+
 // `llvm.intr.assume` only adds UB, so the pre-legalizer combiner drops it.
 "builtin.module"() ({
   "func.func"() <{function_type = (i1) -> (), sym_name = "assume"}> ({

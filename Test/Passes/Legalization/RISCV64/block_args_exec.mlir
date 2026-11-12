@@ -4,6 +4,9 @@
 // RUN: filecheck %s --check-prefix=ASM < %t
 // RUN: veir-interpret %t | filecheck %s
 
+// XFAIL: *
+// Needs `widenBlockArguments`, commented out of the pass as unproven.
+
 // The loop-carried i32 and i8 values and the i8 exit value are widened to i64, so they need no
 // extension at the branches.
 
