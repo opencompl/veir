@@ -200,3 +200,39 @@ error: `pbv_decide` found a potentially spurious counterexample.
 #guard_msgs(error, substring := true) in
 example (p : Nat) (a : CexBVPair p) (hp : p ≤ 4) : a.fst + 1 = a.fst := by
   pbv_decide 16
+
+-- Leading and trailing zeros differ
+/--
+error: `pbv_decide` found a counterexample
+-/
+#guard_msgs(error, substring := true) in
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.clz = x.ctz := by
+  pbv_decide 8
+
+-- Reverse is not the identity
+/--
+error: `pbv_decide` found a counterexample
+-/
+#guard_msgs(error, substring := true) in
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    x.reverse = x := by
+  pbv_decide 8
+
+-- Zero extension keeps the trailing zeros only of nonzero values
+/--
+error: `pbv_decide` found a counterexample
+-/
+#guard_msgs(error, substring := true) in
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x.zeroExtend 8).ctz = x.ctz.zeroExtend 8 := by
+  pbv_decide 8
+
+-- Zero extension adds leading zeros
+/--
+error: `pbv_decide` found a counterexample
+-/
+#guard_msgs(error, substring := true) in
+example {w : Nat} (x : BitVec w) (hw : w ≤ 8) :
+    (x.zeroExtend 8).clz = x.clz.zeroExtend 8 := by
+  pbv_decide 8
