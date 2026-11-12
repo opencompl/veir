@@ -637,6 +637,13 @@ SIMPLE_INTRINSICS = {
     "llvm.intr.ushl.sat": ("ushl.sat", 2),
 }
 
+# Three-way comparisons: two operands of one type, and a result of any width.
+# The intrinsic is overloaded on both, as `@llvm.scmp.<result>.<operand>`.
+CMP_INTRINSICS = {
+    "llvm.intr.scmp": "scmp",
+    "llvm.intr.ucmp": "ucmp",
+}
+
 # ctlz/cttz take their single value operand plus an i1 `is_zero_poison` immarg.
 ZERO_POISON_INTRINSICS = {
     "llvm.intr.ctlz": "ctlz",
@@ -705,6 +712,17 @@ def translate_intrinsic(
         args = ", ".join(f"{typ} {llvm_value(o, aliases)}" for o in op.operands)
         declarations.add(f"declare {typ} @llvm.{base}.{typ}({', '.join([typ] * arity)})")
         return [f"  {out_result} = call {typ} @llvm.{base}.{typ}({args})"]
+
+    if name in CMP_INTRINSICS:
+        base = CMP_INTRINSICS[name]
+        require_operands(op, 2)
+        if op.operand_types[0] != op.operand_types[1]:
+            raise Error(f"{name} operand types must match")
+        typ = convert_type(op.operand_types[0])
+        res = convert_type(dst_type)
+        args = ", ".join(f"{typ} {llvm_value(o, aliases)}" for o in op.operands)
+        declarations.add(f"declare {res} @llvm.{base}.{res}.{typ}({typ}, {typ})")
+        return [f"  {out_result} = call {res} @llvm.{base}.{res}.{typ}({args})"]
 
     if name in ZERO_POISON_INTRINSICS:
         base = ZERO_POISON_INTRINSICS[name]
