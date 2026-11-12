@@ -136,4 +136,23 @@ theorem li_zero_to_x0_valid :
     RuntimeValue.isRefinedBy, ControlFlowAction.optionIsRefinedBy, Data.RISCV.li_zero_to_x0,
     -Attribute.registerType_eq_of]
 
+/-- `riscv.<ext>` of `x0`, which reads as zero, is `x0`. -/
+theorem zextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextw) := by
+  proveCombineValid using Data.RISCV.zextw_x0
+
+theorem sextw_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextw) := by
+  proveCombineValid using Data.RISCV.sextw_x0
+
+theorem zextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zextb) := by
+  proveCombineValid using Data.RISCV.zextb_x0
+
+theorem zexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .zexth) := by
+  proveCombineValid using Data.RISCV.zexth_x0
+
+theorem sextb_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sextb) := by
+  proveCombineValid using Data.RISCV.sextb_x0
+
+theorem sexth_x0_valid : Puddle.CTree.Pattern.Valid (ext_x0_pattern .sexth) := by
+  proveCombineValid using Data.RISCV.sexth_x0
+
 end Veir.RISCV.CTreeProofs

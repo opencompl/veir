@@ -8,7 +8,7 @@ import all Veir.Passes.RISCVCombines.Validity.Bitwise
 import all Veir.Passes.RISCVCombines.Validity.SignExtending
 import all Veir.Passes.RISCVCombines.Validity.LowWord
 import all Veir.Passes.RISCVCombines.Validity.Store
-import Veir.Passes.RISCVCombines.Validity.Remaining
+import all Veir.Passes.RISCVCombines.Validity.Load
 
 /-!
 # CTree validity of the RISC-V combines
@@ -31,14 +31,9 @@ open Puddle
 
 public section
 
-/-- Why a registered combine pattern has no CTree validity proof. -/
+/-- Why a registered combine pattern has no CTree validity proof. Every combine is currently
+proven, so there is no reason yet; one is added here with a combine that cannot be proven. -/
 inductive Unproven where
-  /-- It matches a load as a non-root operation, and `Puddle.CTree.Pattern.Supported` requires
-  non-root matched operations to be pure. -/
-  | matchesLoad
-  /-- It relies on `x0` reading as zero, but `RuntimeValue.Conforms` lets a value of the `x0`
-  register type be any register, so the rewrite does not hold in the semantic model. -/
-  | readsX0
   deriving Repr, DecidableEq
 
 /-- A certificate for each pattern of a list, in order: a CTree validity proof, or the reason why
@@ -100,17 +95,17 @@ end Certificates
 set_option maxRecDepth 100000 in
 /-- A certificate for every pattern `riscv-combine` runs, in `combinePatternList` order. -/
 def combineCertificates : Certificates combinePatternList :=
-  .unproven .matchesLoad <| -- packh_low_bytes
-  .unproven .matchesLoad <| -- packh_low_bytes_commuted
-  .unproven .matchesLoad <| -- packh_high_bytes
-  .unproven .matchesLoad <| -- packh_high_bytes_commuted
-  .unproven .matchesLoad <| -- zextb_lbu
-  .unproven .matchesLoad <| -- andi_255_lbu
+  .proven packh_low_bytes_valid <|
+  .proven packh_low_bytes_commuted_valid <|
+  .proven packh_high_bytes_valid <|
+  .proven packh_high_bytes_commuted_valid <|
+  .proven zextb_lbu_valid <|
+  .proven andi_255_lbu_valid <|
   .proven add_li_to_addi_valid <|
   .proven add_li_to_addi_commuted_valid <|
-  .unproven .matchesLoad <| -- zextw_slliw_lbu 8
-  .unproven .matchesLoad <| -- zextw_slliw_lbu 16
-  .unproven .matchesLoad <| -- zextw_slliw_lbu 24
+  .proven zextw_slliw_lbu_8_valid <|
+  .proven zextw_slliw_lbu_16_valid <|
+  .proven zextw_slliw_lbu_24_valid <|
   .proven right_identity_zero_add_valid <|
   .proven srl_sra_signbit_valid <|
   .proven srlw_sraw_signbit_valid <|
@@ -172,7 +167,7 @@ def combineCertificates : Certificates combinePatternList :=
   .proven zextw_or_valid <|
   .proven zextw_xor_valid <|
   .proven drop_zextw_sw_valid <|
-  .unproven .readsX0 <| -- zextw_x0
+  .proven zextw_x0_valid <|
   .proven zextw_li_low32_valid <|
   .proven sextw_sextw_valid <|
   .proven drop_sextw_addw_rs1_valid <|
@@ -212,13 +207,13 @@ def combineCertificates : Certificates combinePatternList :=
   .proven sextw_or_valid <|
   .proven sextw_xor_valid <|
   .proven drop_sextw_sw_valid <|
-  .unproven .readsX0 <| -- sextw_x0
+  .proven sextw_x0_valid <|
   .proven sextw_li_low32_valid <|
-  .unproven .matchesLoad <| -- sextw_lw
-  .unproven .matchesLoad <| -- sextw_lh
-  .unproven .matchesLoad <| -- sextw_lb
-  .unproven .matchesLoad <| -- sextw_lhu
-  .unproven .matchesLoad <| -- sextw_lbu
+  .proven sextw_lw_valid <|
+  .proven sextw_lh_valid <|
+  .proven sextw_lb_valid <|
+  .proven sextw_lhu_valid <|
+  .proven sextw_lbu_valid <|
   .proven sextw_addw_valid <|
   .proven sextw_addiw_valid <|
   .proven sextw_subw_valid <|
@@ -282,10 +277,10 @@ def combineCertificates : Certificates combinePatternList :=
   .proven drop_sextb_sb_valid <|
   .proven drop_zextw_sb_valid <|
   .proven drop_sextw_sb_valid <|
-  .unproven .readsX0 <| -- zextb_x0
-  .unproven .readsX0 <| -- zexth_x0
-  .unproven .readsX0 <| -- sextb_x0
-  .unproven .readsX0 <| -- sexth_x0
+  .proven zextb_x0_valid <|
+  .proven zexth_x0_valid <|
+  .proven sextb_x0_valid <|
+  .proven sexth_x0_valid <|
   .proven zextb_li_low8_valid <|
   .proven zexth_li_low16_valid <|
   .proven sextb_li_low8_valid <|
@@ -304,6 +299,15 @@ theorem combineCertificates_valid (pattern : Pattern OpCode)
     (h : pattern ∈ combineCertificates.provenPatterns) :
     Puddle.CTree.Pattern.Valid pattern :=
   combineCertificates.valid pattern h
+
+/-- Every pattern `riscv-combine` runs satisfies the CTree validity predicate: no reason for a
+pattern to be unproven exists. -/
+theorem combinePatternList_valid (pattern : Pattern OpCode) (h : pattern ∈ combinePatternList) :
+    Puddle.CTree.Pattern.Valid pattern := by
+  rcases combinePatternList_certified pattern h with h | h
+  · exact combineCertificates_valid pattern h
+  · obtain ⟨⟨_, reason⟩, -, -⟩ := List.mem_map.mp h
+    nomatch reason
 
 end
 
