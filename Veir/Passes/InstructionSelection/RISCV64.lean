@@ -1241,15 +1241,25 @@ def gmirLshr_pattern : Pattern OpCode :=
 def gmirAshr_pattern : Pattern OpCode :=
   lowerBinary (.gmir .g_ashr) (·.bitwidth = 64) .sra () (guard := matchLegal .g_ashr)
 
-/-- `gmir.g_trunc` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
+/-- `gmir.g_trunc` -> a cast through `!riscv.reg` when the result fits in a register.
+The operand may be wider: truncation only needs the low result bits. -/
 def gmirTrunc_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_trunc) fun opType resType properties =>
-    riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
+    match opType.val, resType.val with
+    | .integerType _, .integerType dst =>
+      decide (dst.bitwidth ≤ 64) &&
+        riscv64LegalizerInfo.isLegal .g_trunc #[resType, opType] properties
+    | _, _ => false
 
-/-- `gmir.g_anyext` -> a cast through `!riscv.reg`, since LLVM selects it as a copy. -/
+/-- `gmir.g_anyext` -> a cast through `!riscv.reg` when the operand fits in a register.
+The result may be wider: the additional bits may all be chosen as zero. -/
 def gmirAnyext_pattern : Pattern OpCode :=
   lowerRegCast (.gmir .g_anyext) fun opType resType properties =>
-    riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
+    match opType.val, resType.val with
+    | .integerType src, .integerType _ =>
+      decide (src.bitwidth ≤ 64) &&
+        riscv64LegalizerInfo.isLegal .g_anyext #[resType, opType] properties
+    | _, _ => false
 
 /--
   `gmir.g_anyext` of a cast from `!riscv.reg` -> a cast of that register to the result type.
