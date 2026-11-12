@@ -198,7 +198,7 @@ def widenReverse (opcode : GMIR) (width : Nat) (srcWidth : Nat → Bool := fun _
 at zero and refines it, as in LLVM's `LegalizerHelper::lowerBitCount`. -/
 def lowerZeroPoisonCount (opcode defined : GMIR) : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary opcode)
+    (matchUnary opcode (· ≤ 64) (· ≤ 64))
     (fun (_, resType, src) => CreateProg.operation (.gmir defined) #[src] #[resType])
     (fun op => op)
 
@@ -222,7 +222,7 @@ def lowerSext : Pattern OpCode :=
 is what LLVM's artifact combiner makes of a `g_zext` of a `g_trunc`. -/
 def lowerZext : Pattern OpCode :=
   Pattern.Builder
-    (matchUnary .g_zext)
+    (matchUnary .g_zext (· ≤ 64) (· ≤ 64))
     (fun (srcType, resType, src) => do
       let ext ← CreateProg.operation (.gmir .g_anyext) #[src] #[resType]
       let mask ← widthConstant srcType resType (2 ^ · - 1)
@@ -263,8 +263,8 @@ def lowerFunnelShift (isLeft : Bool) : Pattern OpCode :=
   let opcode : GMIR := if isLeft then .g_fshl else .g_fshr
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amtType ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let amtType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let z ← MatchProg.value amtType
@@ -305,7 +305,7 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
   let baseOp : GMIR := if isAdd then .g_add else .g_sub
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -344,7 +344,7 @@ def lowerAddSubSatToMinMax (opcode : GMIR) (isSigned isAdd : Bool) : Pattern OpC
 /-- Matches the overflowing `opcode`, returning its result type, overflow type and operands. -/
 private def matchOverflowing (opcode : GMIR) : MatchProg.Builder
     (Handle OpCode .type × Handle OpCode .type × Handle OpCode .value × Handle OpCode .value) := do
-  let type ← MatchProg.type (Attr := IntegerType)
+  let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
   -- The overflow flag is an `i1`, as the verifier requires; the lowerings compute it with `g_icmp`.
   let ovType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
   let lhs ← MatchProg.value type
@@ -539,7 +539,7 @@ def lowerAddSubSatToAddoSubo (opcode : GMIR) (isSigned isAdd : Bool) : Pattern O
     | true, false => .g_ssubo
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]
@@ -573,8 +573,8 @@ def lowerShlSat (isSigned : Bool) : Pattern OpCode :=
   let shiftBack : GMIR := if isSigned then .g_ashr else .g_lshr
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amtType ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
+      let amtType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ 64)
       let lhs ← MatchProg.value type
       let rhs ← MatchProg.value amtType
       let _ ← MatchProg.root (.gmir opcode) #[lhs, rhs] #[type]

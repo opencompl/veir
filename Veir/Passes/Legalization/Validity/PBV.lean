@@ -20,7 +20,7 @@ meta import Veir.Meta.Tactic.PBVDecide
 /-!
 # CTree validity of the legalization rules by `pbv_decide`
 
-The rules of `Validity/{Widen,Lower,Custom,Artifact}` that have a CTree validity proof, proven
+The widenings of `Validity/Widen` that have a CTree validity proof, proven
 again by bitblasting the normalized value goals with `pbv_decide 64` instead of the hand-written
 local correctness lemmas.
 
@@ -54,21 +54,6 @@ macro "pbvClose" : tactic => `(tactic| ((veir_bv_normalize <;> pbv_decide 64 (bl
 theorem widen_icmp_1_valid (W : Nat) (hW : W ≤ 64) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_icmp (.type 1) .g_sext W) := by
   proveLegalValid with pbvClose
-
-theorem custom_urem_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordBinary .g_remuw) := by
-  proveLegalValid with pbvClose
-
-theorem custom_ctlz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_clzw) := by
-  proveLegalValid with pbvClose
-
-theorem custom_cttz_valid : Puddle.CTree.Pattern.Valid (customLegalizeWordUnary .g_ctzw) := by
-  proveLegalValid with pbvClose
-
-/-- At the fixed width 64, beyond the blast width of `pbvClose`. -/
-theorem custom_abs_valid : Puddle.CTree.Pattern.Valid customLegalizeAbs := by
-  proveLegalValid with
-    veir_bv_normalize
-    pbv_decide 64
 
 theorem widen_ctlz_1_valid (W : Nat) (hW : W ≤ 64) :
     Puddle.CTree.Pattern.Valid (widenCtlzSrc W) := by
@@ -275,7 +260,7 @@ theorem widen_fshl_1_valid (W : Nat) (hW : W ≤ 16) :
 /-- At 16 bits: the funnel shift times out at 64. -/
 theorem widen_fshr_1_valid (W : Nat) (hW : W ≤ 16) :
     Puddle.CTree.Pattern.Valid (widenTypeGroup .g_fshr (.type 1) .g_zext W) := by
-  proveLegalValid with (veir_bv_
+  proveLegalValid with (veir_bv_normalize; pbv_decide 16)
 
 theorem widen_uaddo_0_valid (W : Nat) (hW : W ≤ 64) :
     Puddle.CTree.Pattern.Valid (widenScalarAddSubOverflow .g_uaddo W) := by

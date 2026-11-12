@@ -17,6 +17,8 @@ namespace Veir
 
 open Puddle
 
+abbrev widthBound := 64
+
 /--
 Matches `g_anyext (g_trunc x)` where the type of `x` and the result type satisfy `relation`.
 Returns `x` and the result type.
@@ -101,9 +103,9 @@ known zeros; both use known bits, which we do not have. The constant is the case
 def combineExtOfTruncOfConstant (signed : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
-      let narrowType ← MatchProg.type (Attr := IntegerType)
+      let narrowType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[constant.res[0]!] #[narrowType]
       MatchProg.matchNative (type, narrowType, constant.properties) fun (type, narrowType, c) =>
         match type.val, narrowType.val with
@@ -127,11 +129,11 @@ Combines `g_trunc (g_trunc x)` to `g_trunc x`. As in LLVM, the new `g_trunc` has
 def combineTruncOfTrunc : Pattern OpCode :=
   Pattern.Builder
     (do
-      let srcType ← MatchProg.type (Attr := IntegerType)
+      let srcType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
       let x ← MatchProg.value srcType
-      let midType ← MatchProg.type (Attr := IntegerType)
+      let midType ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
       let inner ← MatchProg.operation (.gmir .g_trunc) #[x] #[midType]
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (·.bitwidth ≤ widthBound)
       let _ ← MatchProg.root (.gmir .g_trunc) #[inner.res[0]!] #[type]
       return (x, type))
     (fun (x, type) => CreateProg.operation (.gmir .g_trunc) #[x] #[type])
