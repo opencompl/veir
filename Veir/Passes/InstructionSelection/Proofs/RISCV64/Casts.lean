@@ -229,9 +229,8 @@ theorem gmirTrunc_pattern_valid :
   · simp [hle]
   · simp [hle]
     intro reg hr
-    refine RuntimeValue.arrayIsRefinedBy_singleton.mp ?_
-
-    sorry
+    simpa [RuntimeValue.isRefinedBy, RISCV.Reg.toInt] using
+      trunc_reg_refinement hw (Nat.lt_of_not_ge hle) x reg hr props.nsw props.nuw
 
 theorem gmirAnyext_pattern_valid :
     Puddle.CTree.Pattern.Valid gmirAnyext_pattern := by
@@ -268,12 +267,29 @@ theorem gmirAnyextOfReg_pattern_valid :
   unfold gmirAnyextOfReg_pattern
   simpPuddleValid
   simp [ctree_semantics]
-  intro regType reg src castprops _hcastVerified value hcast dst p _hanyVerified hlegal mem
+  intro regType reg x hreg _hzero src _castprops _hcastVerified value mem mem' hcast dst p
+    _hanyVerified hlegal memory
+  subst hreg
+  cases value <;> simp [ctree_semantics]
   rcases src with ⟨sa, hs⟩
+  cases sa <;> dsimp [Builtin.interpretUnrealizedConversionCastCTree] at hcast
   all_goals simp -failIfUnchanged [ctree_semantics] at hcast
   all_goals try simp [fail, CTree.trigger_def, Bind.bind, _root_.CTree.CTree.bind_vis] at hcast
-  rcases hcast with ⟨rfl, h⟩
-  sorry
+  rcases hcast with ⟨⟨rfl, h⟩, rfl⟩
+  cases h
+  rcases dst with ⟨da, hd⟩
+  cases da <;> simp -failIfUnchanged [ctree_semantics]
+  split
+  · simp [ctree_semantics]
+  · simp [ctree_semantics, RISCV.Reg.toInt, Data.LLVM.Int.ext, Id.run]
+    simp only [CTree.tau_def, Sim.pure_tau]
+    rename_i srcTy dstTy hlt
+    refine ⟨x.val.extractLsb' srcTy.bitwidth (dstTy.bitwidth - srcTy.bitwidth), ?_⟩
+    simp [ctree_semantics, RuntimeValue.isRefinedBy, isRefinedBy]
+    simp only [Data.LLVM.Int.cast]
+    ext i
+    simp
+    grind
 
 
 theorem sext16_pattern_valid :
