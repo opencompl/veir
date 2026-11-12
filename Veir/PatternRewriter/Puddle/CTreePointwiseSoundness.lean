@@ -4,6 +4,7 @@ public import Veir.PatternRewriter.Puddle.CheckedExecutionLemmas
 public import Veir.PatternRewriter.FilteredDriverLemmas
 public import Veir.PatternRewriter.CTreeDeadCode
 public import Veir.PatternRewriter.GreedyLemmas
+public import Veir.PatternRewriter.Choice
 import all Veir.PatternRewriter.Puddle.CheckedExecution
 import all Veir.PatternRewriter.Puddle.CTreeGreedySoundness
 import all Veir.PatternRewriter.CTreeDeadCode
@@ -106,65 +107,14 @@ theorem PointwiseValid.greedy_compiled {rules : Array (Puddle.Pattern OpCode)}
     obtain ⟨rule, ruleMember, rfl⟩ := Array.mem_map.mp memberOf
     exact PointwiseValid.compile (valid rule ruleMember)
 
-/-- A pattern that chooses, from the context and the operation, which pattern to run. -/
-def ofChoice (choose : WfIRContext OpCode → OperationPtr → RewritePattern OpCode) :
-    RewritePattern OpCode :=
-  fun rewriter op opIn => choose rewriter.ctx op rewriter op opIn
-
-/-- Choosing among pointwise valid patterns is pointwise valid. -/
-theorem PointwiseValid.ofChoice {choose : WfIRContext OpCode → OperationPtr → RewritePattern OpCode}
-    (valid : ∀ ctx op, PointwiseValid (choose ctx op)) : PointwiseValid (ofChoice choose) :=
-  fun rootIn hroot adm run => valid _ _ rootIn hroot adm run
-
-/-- The pattern that matches nothing. -/
-def noop : RewritePattern OpCode :=
-  fun rewriter _ _ => some { rewriter with hasDoneAction := false }
-
-theorem PointwiseValid.noop : PointwiseValid noop := by
-  intro moduleOp root rewriter result rootIn hroot _ run
-  cases run
-  exact ⟨OperationPtr.isModuleRefinedByCTree_refl hroot.verified moduleOp, hroot, fun _ => rfl⟩
-
-/-- A local rewrite that interprets the Puddle rule chosen from the context and the operation,
-and matches nothing when no rule is chosen. -/
-def _root_.Veir.LocalRewritePattern.ofRule
-    (choose : WfIRContext OpCode → OperationPtr → Option (Puddle.Pattern OpCode)) :
-    LocalRewritePattern OpCode :=
-  fun ctx op =>
-    match choose ctx op with
-    | some rule => Puddle.Pattern.interpret rule ctx op
-    | none => some (ctx, none)
-
-/-- Interpreting a chosen rule is running its compilation. -/
-theorem fromLocalRewrite_ofRule
-    (choose : WfIRContext OpCode → OperationPtr → Option (Puddle.Pattern OpCode)) :
-    fromLocalRewrite (LocalRewritePattern.ofRule choose) =
-      ofChoice fun ctx op =>
-        match choose ctx op with
-        | some rule => rule.compile.run
-        | none => noop := by
-  funext rewriter op opIn
-  simp only [ofChoice]
-  cases chosen : choose rewriter.ctx op with
-  | some rule =>
-    show fromLocalRewrite (LocalRewritePattern.ofRule choose) rewriter op opIn =
-      fromLocalRewrite (Puddle.Pattern.interpret rule) rewriter op opIn
-    simp only [fromLocalRewrite, LocalRewritePattern.ofRule, chosen]
-  | none =>
-    show fromLocalRewrite (LocalRewritePattern.ofRule choose) rewriter op opIn = noop rewriter op opIn
-    simp only [fromLocalRewrite, LocalRewritePattern.ofRule, noop, chosen]
-    rfl
-
-/-- Choosing a valid rule per operation is pointwise valid. -/
-theorem PointwiseValid.ofRule
-    {choose : WfIRContext OpCode → OperationPtr → Option (Puddle.Pattern OpCode)}
-    (valid : ∀ ctx op rule, choose ctx op = some rule → Pattern.Valid rule) :
-    PointwiseValid (fromLocalRewrite (LocalRewritePattern.ofRule choose)) := by
-  rw [fromLocalRewrite_ofRule]
-  refine PointwiseValid.ofChoice fun ctx op => ?_
-  cases chosen : choose ctx op with
-  | some rule => exact PointwiseValid.compile (valid ctx op rule chosen)
-  | none => exact PointwiseValid.noop
+/-- Choosing valid rules per operation is pointwise valid. -/
+theorem PointwiseValid.ofRules
+    {choose : WfIRContext OpCode → OperationPtr → List (Puddle.Pattern OpCode)}
+    (valid : ∀ ctx op rule, rule ∈ choose ctx op → Pattern.Valid rule) :
+    PointwiseValid (ofRules choose) :=
+  fun rootIn hroot adm run =>
+    PointwiseValid.greedy_compiled (fun rule member => valid _ _ rule (List.mem_toArray.mp member))
+      rootIn hroot adm run
 
 /-! ## The filtered drivers -/
 

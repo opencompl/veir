@@ -34,6 +34,9 @@ opcode metadata to `simp` with local attributes (see `Validity/Basic.lean`). Eac
 `Veir.Passes.Legalization.Validity`. -/
 register_simp_attr legalization_status
 
+/-- The validity proofs of the legalization rules, by which the strict registries are certified. -/
+register_simp_attr legalization_valid
+
 /-- The `Pattern.Valid` proof of each gMIR combine, looked up by the theorems of
 `Veir.Passes.Legalization.Validity` that every combine of the combiner passes is valid. -/
 register_simp_attr combine_valid

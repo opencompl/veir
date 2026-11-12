@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
-import Veir.Passes.Legalization.Legalizer
+public import Veir.Passes.Legalization.Legalizer
 import Veir.Passes.Legalization.LegalizerHelper
 
 /-!
@@ -305,10 +305,32 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
+/-- The rules of the strict legalizer: those of `riscv64LegalizerInfo`, with `g_brcond` legal at
+every width, since the strict legalizer does not widen branch conditions and `isel-br-riscv64`
+accepts a narrow condition. -/
+def riscv64LegalizerInfoStrict : LegalizerInfo :=
+  { riscv64LegalizerInfo with
+    rules := fun
+      | .g_brcond => [.alwaysLegal]
+      | opcode => riscv64LegalizerInfo.rules opcode }
+
+/-- The strict pass: the proved legalizations, through the module-filtered driver. Its soundness
+is `LegalizeRISCV64Pass.runStrict_sound`. -/
+def LegalizeRISCV64Pass.runStrict : PurePass :=
+  riscv64LegalizerInfoStrict.legalizeStrict "legalize-riscv64"
+
+def LegalizeRISCV64Pass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (if strict then LegalizeRISCV64Pass.runStrict ctx op
+    else riscv64LegalizerInfo.legalize ctx op))
+
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    run := fun _ ctx op _ => riscv64LegalizerInfo.legalize ctx op }
+    options := .ofList [
+      ("strict", { description := "Only apply the legalizations proved to refine the module.",
+                   defaultValue := false })]
+    run := fun options => LegalizeRISCV64Pass.impl ((options.get? "strict").getD false) }
 
 end
 

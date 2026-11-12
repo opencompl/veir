@@ -1,9 +1,11 @@
 module
 
 public import Veir.Passes.Legalization.LegalizerInfo
+public import Veir.Passes.StrictDriver
+public import Veir.PatternRewriter.Choice
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Legalization.LegalizerHelper
-import Veir.Passes.Legalization.LegalizationArtifactCombiner
+import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import Veir.PatternRewriter.Puddle.Execution
 import Veir.Interfaces.ControlFlowInterfaces
 
@@ -129,6 +131,17 @@ private def checkBlockArguments (info : LegalizerInfo) (ctx : IRContext OpCode) 
       | none | some .legal => pure ()
       | some action => throw (illegalReason s!"a block argument of type {type}" #[type] action)
 
+/-- Fails if a gMIR operation in `ctx` is not legal. -/
+private def checkOperations (info : LegalizerInfo) (ctx : IRContext OpCode) :
+    Except String Unit :=
+  ctx.forOpsDepM fun op _ => do
+    let some opcode := toDialect? GMIR (op.getOpType! ctx) | return
+    match info.getAction ctx op opcode with
+    | .legal => pure ()
+    | action =>
+      let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx))
+      throw (illegalReason name (opcode.getTypeGroupTypes! op ctx) action)
+
 /--
 Legalizes the block arguments and all GMIR operations in the functions under `root`. Fails if one of
 them remains illegal.
@@ -144,14 +157,70 @@ def legalize (info : LegalizerInfo) (ctx : WfIRContext OpCode) (root : Operation
     | throw "error while applying legalization"
   -- The greedy rewriter does not report the operations it could not rewrite, so we check the
   -- legality of every operation afterwards.
-  ctx.raw.forOpsDepM fun op _ => do
-    let some opcode := toDialect? GMIR (op.getOpType! ctx.raw) | return
-    match info.getAction ctx.raw op opcode with
-    | .legal => pure ()
-    | action =>
-      let name := String.fromUTF8! (IsOpCode.name (op.getOpType! ctx.raw))
-      throw (illegalReason name (opcode.getTypeGroupTypes! op ctx.raw) action)
+  info.checkOperations ctx.raw
   info.checkBlockArguments ctx.raw
+  return ctx
+
+/-! ## Strict legalization
+
+The strict legalizer runs, through the module-filtered driver, only the rules proved to refine the
+module, and rejects what they cannot legalize. It does not widen block arguments (it rejects narrow
+phis) nor branch conditions, which are local rewrites without a proof, and it skips the four rules
+without a validity certificate: `widenReverse .g_bswap`, `lowerSext`, `lowerFunnelShift` and
+`combineAnyExtOfAnyExt`. -/
+
+/-- The widening rules proved valid: those of `widenScalarPattern?` but the `g_bswap` one. -/
+def widenScalarPatternStrict? (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat) :
+    Option (Puddle.Pattern OpCode) :=
+  match opcode with
+  | .g_bswap => none
+  | opcode => widenScalarPattern? opcode typeIdx width
+
+/-- The lowerings proved valid: those of `lower?` but the sign extension and the funnel shifts. -/
+def lowerStrict? : GMIR → Option (Puddle.Pattern OpCode)
+  | .g_sext | .g_fshl | .g_fshr => none
+  | opcode => lower? opcode
+
+/-- The artifact combines proved valid: those of `tryCombineInstruction` but
+`combineAnyExtOfAnyExt`. -/
+def tryCombineInstructionStrict : GMIR → List (Puddle.Pattern OpCode)
+  | .g_anyext => [
+      combineAnyExtOfTruncSame,
+      combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)]
+  | opcode => tryCombineInstruction opcode
+
+/-- The proved rule that legalizes `op`, an `opcode`, chosen as `legalizeInstrStep` chooses it. -/
+def legalizeInstrChoiceStrict (info : LegalizerInfo) (ctx : WfIRContext OpCode)
+    (op : OperationPtr) (opcode : GMIR) : Option (Puddle.Pattern OpCode) :=
+  if isArtifact opcode && hasIllegalSource info ctx.raw op then none else
+  match info.getAction ctx.raw op opcode with
+  | .widenScalar typeIdx width => widenScalarPatternStrict? opcode typeIdx width
+  | .narrowScalar typeIdx width => narrowScalar? opcode typeIdx width
+  | .lower => lowerStrict? opcode
+  | .custom => info.legalizeCustom opcode
+  | .legal | .unsupported => none
+
+/-- The proved rules the strict legalizer tries at `op`, in order: the artifact combines, as
+`combineArtifactStep` tries them, then the legalization rule. -/
+def legalizeStrictRules (info : LegalizerInfo) (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    List (Puddle.Pattern OpCode) :=
+  match toDialect? GMIR (op.getOpType! ctx.raw) with
+  | none => []
+  | some opcode =>
+    tryCombineInstructionStrict opcode ++ (legalizeInstrChoiceStrict info ctx op opcode).toList
+
+/-- The pattern of the strict legalizer: combine an artifact away, else legalize the operation. -/
+def legalizeStrictPattern (info : LegalizerInfo) : RewritePattern OpCode :=
+  RewritePattern.ofRules (legalizeStrictRules info)
+
+/-- The strict legalizer, `pass` naming the pass in its errors: it checks the module and its phis,
+applies the proved rules to its functions, and fails if an operation is left illegal. -/
+def legalizeStrict (info : LegalizerInfo) (pass : String) : PurePass := fun ctx root => do
+  checkModuleRoot pass ctx root
+  info.checkBlockArguments ctx.raw
+  let ctx ← applyToFunctionsStrict pass (legalizeStrictPattern info) ctx root
+  info.checkOperations ctx.raw
   return ctx
 
 end LegalizerInfo

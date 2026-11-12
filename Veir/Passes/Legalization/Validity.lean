@@ -22,6 +22,7 @@ import all Veir.Passes.Legalization.Validity.CombineConstant
 import all Veir.Passes.Legalization.CombinerHelper
 import all Veir.Passes.Legalization.LegalizationArtifactCombiner
 import all Veir.Passes.Legalization.RISCV64LegalizerInfo
+import all Veir.Passes.Legalization.Legalizer
 
 /-!
 # CTree validity of the legalization rules
@@ -196,6 +197,152 @@ theorem PostLegalizerCombinerRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext Op
     PostLegalizerCombinerRISCV64Pass.impl true ctx op opIn =
       ExceptT.mk (pure (PostLegalizerCombinerRISCV64Pass.runStrict ctx op)) := by
   rw [PostLegalizerCombinerRISCV64Pass.impl]
+  rfl
+
+/-! ## The strict legalizer
+
+The strict registries (`LegalizerInfo.widenScalarPatternStrict?`, `lowerStrict?` and
+`tryCombineInstructionStrict`) leave out the rules whose status is `unproven`, so every rule they
+return is valid, and the strict legalizer is sound. -/
+
+attribute [legalization_valid]
+  widen_abs_0_valid widen_add_0_valid widen_and_0_valid widen_ashr_0_valid widen_ashr_1_valid
+  widen_bitreverse_0_valid widen_constant_0_valid widen_ctlz_0_valid widen_ctlz_1_valid
+  widen_ctpop_0_valid widen_ctpop_1_valid widen_cttz_0_valid widen_cttz_1_valid
+  widen_fshl_1_valid widen_fshr_1_valid widen_icmp_0_valid widen_icmp_1_valid widen_load_0_valid
+  widen_lshr_0_valid widen_lshr_1_valid widen_mul_0_valid widen_or_0_valid widen_poison_0_valid
+  widen_saddo_0_valid widen_sdiv_0_valid widen_select_0_valid widen_select_1_valid
+  widen_sext_inreg_0_valid widen_shl_0_valid widen_shl_1_valid widen_smax_0_valid
+  widen_smin_0_valid widen_srem_0_valid widen_ssubo_0_valid widen_sub_0_valid widen_uaddo_0_valid
+  widen_usubo_0_valid
+  widen_udiv_0_valid widen_umax_0_valid widen_umin_0_valid widen_urem_0_valid widen_xor_0_valid
+  lower_ctlz_zero_poison_valid lower_cttz_zero_poison_valid lower_saddo_valid lower_saddsat_valid
+  lower_sshlsat_valid lower_ssubo_valid lower_ssubsat_valid lower_uadde_valid lower_uaddo_valid
+  lower_uaddsat_valid lower_ushlsat_valid lower_usube_valid lower_usubo_valid lower_usubsat_valid
+  lower_zext_valid narrow_add_valid narrow_sub_valid custom_abs_valid custom_add_valid
+  custom_ashr_valid custom_bitreverse_valid custom_ctlz_valid custom_cttz_valid custom_lshr_valid
+  custom_mul_valid custom_saddsat_valid custom_sdiv_valid custom_shl_valid custom_ssubsat_valid
+  custom_sub_valid custom_uaddsat_valid custom_udiv_valid custom_urem_valid custom_usubsat_valid
+  artifact_anyext_trunc_narrower_valid artifact_anyext_trunc_same_valid
+  artifact_anyext_trunc_wider_valid artifact_sext_trunc_constant_valid artifact_trunc_trunc_valid
+  artifact_unmerge_merge_valid artifact_zext_trunc_constant_valid artifact_zext_trunc_icmp_valid
+
+set_option maxHeartbeats 4000000 in
+/-- Every strict widening rule, at every target width, is valid. -/
+theorem widenScalarPatternStrict_valid (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat)
+    (pattern : Pattern OpCode)
+    (h : LegalizerInfo.widenScalarPatternStrict? opcode typeIdx width = some pattern) :
+    Puddle.CTree.Pattern.Valid pattern := by
+  rcases typeIdx with ⟨_ | _ | _⟩ <;> cases opcode <;>
+    simp only [LegalizerInfo.widenScalarPatternStrict?, widenScalarPattern?, reduceCtorEq,
+      Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
+
+/-- Every strict lowering is valid. -/
+theorem lowerStrict_valid (opcode : GMIR) (pattern : Pattern OpCode)
+    (h : LegalizerInfo.lowerStrict? opcode = some pattern) : Puddle.CTree.Pattern.Valid pattern := by
+  cases opcode <;>
+    simp only [LegalizerInfo.lowerStrict?, lower?, reduceCtorEq, Option.some.injEq] at h <;>
+    subst h <;> simp only [legalization_valid]
+
+/-- Every narrowing, at every width, is valid. -/
+theorem narrowScalar_valid (opcode : GMIR) (typeIdx : TypeGroup) (width : Nat)
+    (pattern : Pattern OpCode) (h : narrowScalar? opcode typeIdx width = some pattern) :
+    Puddle.CTree.Pattern.Valid pattern := by
+  rcases typeIdx with ⟨_ | _⟩ <;> cases opcode <;>
+    simp only [narrowScalar?, reduceCtorEq, Option.some.injEq] at h <;> subst h <;>
+    simp only [legalization_valid]
+
+/-- Every strict artifact combine is valid. -/
+theorem tryCombineInstructionStrict_valid (opcode : GMIR) :
+    ∀ pattern ∈ LegalizerInfo.tryCombineInstructionStrict opcode, Puddle.CTree.Pattern.Valid pattern := by
+  cases opcode <;>
+    simp [LegalizerInfo.tryCombineInstructionStrict, tryCombineInstruction, legalization_valid]
+
+/-- Every RISC-V custom legalization is valid. -/
+theorem legalizeCustom_valid (opcode : GMIR) (pattern : Pattern OpCode)
+    (h : riscv64LegalizerInfoStrict.legalizeCustom opcode = some pattern) :
+    Puddle.CTree.Pattern.Valid pattern := by
+  cases opcode <;>
+    simp only [riscv64LegalizerInfoStrict, riscv64LegalizerInfo, reduceCtorEq,
+      Option.some.injEq] at h <;> subst h <;> simp only [legalization_valid]
+
+/-- The rule the strict legalizer chooses for an operation is valid. -/
+theorem legalizeInstrChoiceStrict_valid {info : LegalizerInfo}
+    (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
+      Puddle.CTree.Pattern.Valid pattern)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) (opcode : GMIR) (pattern : Pattern OpCode)
+    (h : LegalizerInfo.legalizeInstrChoiceStrict info ctx op opcode = some pattern) :
+    Puddle.CTree.Pattern.Valid pattern := by
+  unfold LegalizerInfo.legalizeInstrChoiceStrict at h
+  split at h <;> (try split at h) <;>
+    first
+    | exact absurd h (by simp)
+    | exact widenScalarPatternStrict_valid _ _ _ _ h
+    | exact narrowScalar_valid _ _ _ _ h
+    | exact lowerStrict_valid _ _ h
+    | exact custom _ _ h
+
+/-- Every rule the strict legalizer tries at an operation is valid. -/
+theorem legalizeStrictRules_valid {info : LegalizerInfo}
+    (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
+      Puddle.CTree.Pattern.Valid pattern)
+    (ctx : WfIRContext OpCode) (op : OperationPtr) (pattern : Pattern OpCode)
+    (member : pattern ∈ LegalizerInfo.legalizeStrictRules info ctx op) :
+    Puddle.CTree.Pattern.Valid pattern := by
+  unfold LegalizerInfo.legalizeStrictRules at member
+  split at member
+  · exact (List.not_mem_nil member).elim
+  · rcases List.mem_append.mp member with combine | chosen
+    · exact tryCombineInstructionStrict_valid _ pattern combine
+    · exact legalizeInstrChoiceStrict_valid custom ctx op _ pattern
+        (Option.mem_toList.mp chosen)
+
+/-- The pattern of the strict legalizer is pointwise valid. -/
+theorem legalizeStrictPattern_pointwise {info : LegalizerInfo}
+    (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern →
+      Puddle.CTree.Pattern.Valid pattern) :
+    RewritePattern.PointwiseValid (LegalizerInfo.legalizeStrictPattern info) :=
+  RewritePattern.PointwiseValid.ofRules (legalizeStrictRules_valid custom)
+
+/-- The strict legalizer refines the module and leaves it verified. -/
+theorem legalizeStrict_sound {info : LegalizerInfo} (pass : String)
+    (custom : ∀ opcode pattern, info.legalizeCustom opcode = some pattern → Puddle.CTree.Pattern.Valid pattern) :
+    (info.legalizeStrict pass).Sound := by
+  unfold PurePass.Sound
+  intro ctx ctx' moduleOp run
+  unfold LegalizerInfo.legalizeStrict at run
+  cases checked : checkModuleRoot pass ctx moduleOp with
+  | error message => simp [checked, Bind.bind, Except.bind] at run
+  | ok _ =>
+    simp only [checked, Bind.bind, Except.bind] at run
+    cases phis : info.checkBlockArguments ctx.raw with
+    | error message => simp [phis] at run
+    | ok _ =>
+      simp only [phis] at run
+      cases driver : applyToFunctionsStrict pass (LegalizerInfo.legalizeStrictPattern info) ctx
+          moduleOp with
+      | error message => simp [driver] at run
+      | ok middle =>
+        simp only [driver] at run
+        cases legal : info.checkOperations middle.raw with
+        | error message => simp [legal] at run
+        | ok _ =>
+          simp only [legal, Pure.pure, Except.pure, Except.ok.injEq] at run
+          subst run
+          have result := applyToFunctionsStrict_moduleRoot (legalizeStrictPattern_pointwise custom)
+            (ModuleRoot.of_checkModuleRoot checked) driver
+          exact ⟨result.1, result.2.verified⟩
+
+/-- The strict `legalize-riscv64` pass refines the module and leaves it verified. -/
+theorem LegalizeRISCV64Pass.runStrict_sound : LegalizeRISCV64Pass.runStrict.Sound :=
+  legalizeStrict_sound "legalize-riscv64" legalizeCustom_valid
+
+/-- The pass with its IO, in strict mode, returns what `LegalizeRISCV64Pass.runStrict` does. -/
+theorem LegalizeRISCV64Pass.impl_eq_runStrict (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (opIn : op.InBounds ctx.raw) :
+    LegalizeRISCV64Pass.impl true ctx op opIn =
+      ExceptT.mk (pure (LegalizeRISCV64Pass.runStrict ctx op)) := by
+  rw [LegalizeRISCV64Pass.impl]
   rfl
 
 end
