@@ -137,6 +137,10 @@ def riscv64LegalizerInfo : LegalizerInfo where
       .minScalar (.type 1) 64,
       .minScalar (.type 0) 64,
     ]
+    -- As in LLVM's RISCVLegalizerInfo, lower to comparisons and boolean arithmetic.
+    | .g_scmp | .g_ucmp => [
+      .lower,
+    ]
     -- LLVM is also legal for `s32` and for floating point.
     | .g_select => [
       .legalForTypePairs [(s64, s64), (p0, s64)],

@@ -1,4 +1,5 @@
 // RUN: veir-interpret %s | filecheck %s
+// RUN: veir-opt %s --print-op-generic -p=legalize-riscv64 | veir-interpret | filecheck %s
 
 // The result width of `g_ucmp` is independent of its operand width.
 
