@@ -27,6 +27,8 @@
   %smax = "gmir.g_smax"(%a, %b) : (i32, i32) -> i32
   %umin = "gmir.g_umin"(%a, %b) : (i32, i32) -> i32
   %umax = "gmir.g_umax"(%a, %b) : (i32, i32) -> i32
+  %scmp = "gmir.g_scmp"(%a, %b) : (i32, i32) -> i8
+  %ucmp = "gmir.g_ucmp"(%c, %c) : (i64, i64) -> i2
   %abs = "gmir.g_abs"(%a) : (i32) -> i32
   %select = "gmir.g_select"(%c, %d, %d) : (i64, i8, i8) -> i8
   %ctlz = "gmir.g_ctlz"(%a) : (i32) -> i8
@@ -73,6 +75,8 @@
 // CHECK: "gmir.g_smax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_umin"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
 // CHECK: "gmir.g_umax"(%{{.*}}, %{{.*}}) : (i32, i32) -> i32
+// CHECK: "gmir.g_scmp"(%{{.*}}, %{{.*}}) : (i32, i32) -> i8
+// CHECK: "gmir.g_ucmp"(%{{.*}}, %{{.*}}) : (i64, i64) -> i2
 // CHECK: "gmir.g_abs"(%{{.*}}) : (i32) -> i32
 // CHECK: "gmir.g_select"(%{{.*}}, %{{.*}}, %{{.*}}) : (i64, i8, i8) -> i8
 // CHECK: "gmir.g_ctlz"(%{{.*}}) : (i32) -> i8
