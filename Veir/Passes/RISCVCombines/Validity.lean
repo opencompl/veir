@@ -7,6 +7,7 @@ import all Veir.Passes.RISCVCombines.Validity.SignExtending
 import all Veir.Passes.RISCVCombines.Validity.LowWord
 import all Veir.Passes.RISCVCombines.Validity.Store
 import all Veir.Passes.RISCVCombines.Validity.Load
+public import Veir.Passes.RISCVCombines.Validity.Strict
 
 /-!
 # CTree validity of the RISC-V combines
