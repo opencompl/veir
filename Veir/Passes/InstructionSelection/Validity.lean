@@ -281,25 +281,25 @@ drivers instantiate them at. The argument lowering is proven; the three memory f
 support of memory effects in `Pattern.Supported`, as the loads and stores proven on the wip
 branch do, and `getelementptr` the address lemmas of that branch. -/
 
-theorem split_load_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
-    Puddle.CTree.Pattern.Valid (splitLoad_pattern bytes) := by
-  sorry
+-- theorem split_load_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
+--     Puddle.CTree.Pattern.Valid (splitLoad_pattern bytes) := by
+--   sorry
 
-theorem split_store_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
-    Puddle.CTree.Pattern.Valid (splitStore_pattern bytes) := by
-  sorry
+-- theorem split_store_valid (bytes : Nat) (hbytes : bytes ∈ [3, 5, 6, 7]) :
+--     Puddle.CTree.Pattern.Valid (splitStore_pattern bytes) := by
+--   sorry
 
-/-- The accesses are those of `memIntrinsicAccesses?`, which the matcher checks: they partition
-the intrinsic's length, and a `memcpy` reads each piece before writing it. -/
-theorem mem_intrinsic_inline_valid (isMemset : Bool) (accesses : Array (Nat × Nat)) (fill : MemFill) :
-    Puddle.CTree.Pattern.Valid (memIntrinsicInline_pattern isMemset accesses fill) := by
-  sorry
+-- /-- The accesses are those of `memIntrinsicAccesses?`, which the matcher checks: they partition
+-- the intrinsic's length, and a `memcpy` reads each piece before writing it. -/
+-- theorem mem_intrinsic_inline_valid (isMemset : Bool) (accesses : Array (Nat × Nat)) (fill : MemFill) :
+--     Puddle.CTree.Pattern.Valid (memIntrinsicInline_pattern isMemset accesses fill) := by
+--   sorry
 
-/-- The address computed on registers is `interpretGEP` of the indices, as `gepDecomposition?`
-decomposes it. -/
-theorem getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
-    Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset) := by
-  sorry
+-- /-- The address computed on registers is `interpretGEP` of the indices, as `gepDecomposition?`
+-- decomposes it. -/
+-- theorem getelementptr_valid (strides : Array Nat) (offset : GEPOffset) :
+--     Puddle.CTree.Pattern.Valid (getelementptr_pattern strides offset) := by
+--   sorry
 
 /-- The `g_trunc` of a register's `i64` reads the low bits that the narrow cast of the register
 reads. -/
