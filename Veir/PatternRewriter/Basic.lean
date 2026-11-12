@@ -415,6 +415,8 @@ abbrev LocalRewritePattern (OpInfo : Type) [HasOpInfo OpInfo] :=
 
 def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : RewritePattern OpInfo :=
   fun rewriter op _opInBounds => do
+    -- Read the old results before the pattern consumes the context so it can update in place.
+    let oldResults := op.getResults! rewriter.ctx.raw
     match pattern rewriter.ctx op with
     -- error while applying pattern
     | none => none
@@ -422,6 +424,9 @@ def RewritePattern.fromLocalRewrite (pattern : LocalRewritePattern OpInfo) : Rew
     | some (newCtx, none) => return {rewriter with ctx := newCtx, hasDoneAction := false}
     -- match and rewrite
     | some (newCtx, some (newOps, newRes)) =>
+      guard (newRes.size = op.getNumResults! newCtx.raw)
+      -- Cyclic SSA in unreachable code can alias a replacement with an old root result.
+      guard (∀ value ∈ newRes, value ∉ oldResults)
       let mut rewriter := { rewriter with ctx := newCtx, hasDoneAction := true }
       for newOp in newOps do
         rewriter := rewriter.insertOp! newOp (InsertPoint.before op)
