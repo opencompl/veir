@@ -4,8 +4,15 @@ import all Std.Data.ByteSlice
 
 public import Std.Data.ExtHashSet
 public import Veir.Meta.Tactic.BVNormalizeSimp
+meta import Std.Tactic.BVDecide
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
+
+/- `bv_decide` realizes its helpers for an enum-like type lazily, in whichever module first proves
+a goal mentioning it, and exports them from there. Two modules that do so independently cannot be
+imported together ("environment already contains `PUnit.enumToBitVec`"). Proving one such goal
+here, upstream of every proof, gives them all the same copy. -/
+theorem Unit.eq_unit_bv (u : Unit) : u = () := by bv_decide
 
 /--
   We compare `ByteArray`s by with lexicographic ordering.
