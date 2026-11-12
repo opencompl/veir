@@ -283,7 +283,7 @@ theorem narrow_sub_valid (W : Nat) : Puddle.CTree.Pattern.Valid (narrowAddSub fa
 @[legalization_status]
 theorem lower_sext_status :
     Status Unproven (lowerSext) :=
-  .proven lower_sext_valid
+  .unproven .widthDependent -- lower_sext_valid
 
 @[legalization_status]
 theorem lower_zext_status :
