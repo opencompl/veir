@@ -126,7 +126,7 @@ theorem Riscv.interpretOp'_memory_of_noEffects
     (effects : Riscv.getEffects code properties = .none)
     (h : Riscv.interpretOp' code properties types operands successors before = .ok (results, after, action)) :
     after = before := by
-  cases code <;> simp [Riscv.getEffects, MemoryEffects.none, MemoryEffects.unknown, MemoryEffects.allocate,
+  cases code <;> simp [Riscv.getEffects, MemoryEffects.none, 
     MemoryEffects.read, MemoryEffects.write, MemoryEffects.readWrite] at effects
   all_goals try { contradiction }
   all_goals
@@ -147,7 +147,7 @@ theorem GMIR.interpretOp'_memory_of_noEffects
     (effects : GMIR.getEffects code properties = .none)
     (h : GMIR.interpretOp' code properties types operands successors before = .ok (results, after, action)) :
     after = before := by
-  cases code <;> simp [GMIR.getEffects, MemoryEffects.none, MemoryEffects.unknown, MemoryEffects.allocate,
+  cases code <;> simp [GMIR.getEffects, MemoryEffects.none, 
     MemoryEffects.read, MemoryEffects.write, MemoryEffects.readWrite] at effects
   all_goals try { contradiction }
   all_goals
@@ -168,8 +168,7 @@ theorem GMIR_RISCV.interpretOp'_memory_of_noEffects
     (effects : GMIR_RISCV.getEffects code properties = .none)
     (h : GMIR_RISCV.interpretOp' code properties types operands successors before = .ok (results, after, action)) :
     after = before := by
-  cases code <;> simp [GMIR_RISCV.getEffects, MemoryEffects.none, MemoryEffects.unknown, MemoryEffects.allocate,
-    MemoryEffects.read, MemoryEffects.write, MemoryEffects.readWrite] at effects
+  cases code <;> simp [GMIR_RISCV.getEffects, MemoryEffects.none] at effects
   all_goals try { contradiction }
   all_goals
     try simp only [GMIR_RISCV.interpretOp'] at h
@@ -184,7 +183,7 @@ theorem GMIR_RISCV.interpretOp'_memory_of_noEffects
       | cases h; rfl
       | contradiction
       | split at *
-      | simp only [Bind.bind, Pure.pure] at *
+      | simp only [Pure.pure] at *
   all_goals try grind
 
 set_option maxHeartbeats 2000000 in
@@ -251,12 +250,10 @@ set_option maxHeartbeats 1000000 in
   split at h
   · repeat first
       | split at h
-      | simp only [CTree.choose_def, CTree.tau_def, Bind.bind, _root_.CTree.CTree.bind_tau,
-          _root_.CTree.CTree.bind_ret, Pure.pure, Veir.fail, CTree.trigger_def,
-          _root_.CTree.CTree.bind_vis, PureOrErr.CanInterpretTo.tauG_iff,
-          PureOrErr.CanInterpretTo.pure_iff] at h
+      | simp only [
+          Pure.pure] at h
       | rcases h with ⟨_, h⟩
-    all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, Veir.fail, CTree.trigger_def] at h
+    all_goals try simp [Veir.fail, CTree.trigger_def] at h
     all_goals grind
   · exact Llvm.interpretOp'_memory_of_noEffects code properties types operands successors
       before after results action .riscv64 effects nonterm ((liftedInterp_ok_iff _ _).mp h)
@@ -277,7 +274,7 @@ theorem GMIR.interpretOpCTree_memory_of_noEffects
       | simp only [CTree.tau_def, PureOrErr.CanInterpretTo.tauG_iff, CTree.ret_pure,
           PureOrErr.CanInterpretTo.pure_iff] at h
       | rcases h with ⟨_, h⟩
-    all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, Veir.fail, CTree.trigger_def] at h
+    all_goals try simp [Veir.fail, CTree.trigger_def] at h
     all_goals grind
   · simp only [GMIR.getEffects] at effects
     split at effects <;> contradiction
@@ -296,13 +293,12 @@ theorem Builtin.interpretOpCTree_memory
   simp only [Builtin.interpretUnrealizedConversionCastCTree] at h
   repeat first
     | split at h
-    | simp only [Builtin.byteToIntCTree, CTree.choose_def, CTree.tau_def, Bind.bind,
-        _root_.CTree.CTree.bind_tau, _root_.CTree.CTree.bind_ret,
-        Veir.fail, CTree.trigger_def, _root_.CTree.CTree.bind_vis,
-        PureOrErr.CanInterpretTo.tauG_iff, CTree.ret_pure,
+    | simp only [
+        
+        
         PureOrErr.CanInterpretTo.pure_iff] at h
     | rcases h with ⟨_, h⟩
-  all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, Veir.fail, CTree.trigger_def] at h
+  all_goals try simp [Veir.fail, CTree.trigger_def] at h
   all_goals grind
 
 /-- Empty effect summaries preserve the actual historical memory on successful opcode execution. -/

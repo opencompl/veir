@@ -68,14 +68,13 @@ theorem addressof_pattern_valid :
   obtain ⟨p, rfl⟩ := verified.llvm_addressof_result_type
   intro _ memory
   cases hglobal : memory.pointerToGlobal props.global_name.value with
-  | none => simp [hglobal]
+  | none => simp
   | some pointer =>
     rcases pointer with ⟨address⟩
-    simp [ctree_semantics, hglobal, Builtin.interpretUnrealizedConversionCastCTree,
+    simp [ctree_semantics, Builtin.interpretUnrealizedConversionCastCTree,
       Attribute.of_def, -Attribute.llvmPointerType_eq_of, MemoryState.ptrFromInt,
       MemoryState.decode, Data.LLVM.Ptr.toInt, LLVM.Int.toReg,
-      RISCV.Reg.toInt, RuntimeValue.isRefinedBy, MemoryState.isRefinedBy_refl,
-      Data.LLVM.Ptr.isRefinedBy, Data.Pointer.isRefinedBy]
+      RISCV.Reg.toInt, MemoryState.isRefinedBy_refl]
 
 /- No validity theorem is exported for the call fallbacks: the checked
 `memcpyCall_semantics_counterexample` and `memsetCall_semantics_counterexample`

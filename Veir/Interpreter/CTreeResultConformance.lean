@@ -34,6 +34,8 @@ private theorem liftedInterp_ok_iff (value : Interp α) (result : α) :
 private theorem singleton_get (value : α) [Inhabited α] : (#[value])[0]! = value := by simp
 
 set_option maxHeartbeats 1000000 in
+-- The simp arguments of the conformance case splits are each needed on some of the goals.
+set_option linter.unusedSimpArgs false in
 theorem Llvm.interpretOpCTree_result_shape
     (code : Llvm) (properties : propertiesOf code) (types : Array TypeAttr)
     (operands : Array RuntimeValue) (successors : Array BlockPtr)
@@ -47,7 +49,7 @@ theorem Llvm.interpretOpCTree_result_shape
   split at h
   · repeat first | split at h
     all_goals simp [ PureOrErr.CanInterpretTo.map_iff, Veir.fail, CTree.trigger_def] at h
-    all_goals simp_all [Llvm.interpretOp', Bind.bind, Pure.pure]
+    all_goals simp_all [Llvm.interpretOp', Pure.pure]
     all_goals try simp_all
     all_goals try rcases h with ⟨⟨choice, rfl⟩, _, _⟩
     all_goals intro ts conf
@@ -58,10 +60,11 @@ theorem Llvm.interpretOpCTree_result_shape
       rcases conf with ⟨size, conf⟩
       refine ⟨size, ?_⟩
       cases hty : ts[0]! with
-      | mk val verified => cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] using conf
+      | mk val verified => cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
   · exact ⟨results, (liftedInterp_ok_iff _ _).mp h, fun _ ht => ht⟩
 
 set_option maxHeartbeats 1000000 in
+set_option linter.unusedSimpArgs false in
 theorem GMIR.interpretOpCTree_result_shape
     (code : GMIR) (properties : propertiesOf code) (types : Array TypeAttr)
     (operands : Array RuntimeValue) (successors : Array BlockPtr)
@@ -74,9 +77,9 @@ theorem GMIR.interpretOpCTree_result_shape
   unfold GMIR.interpretOpCTree at h
   split at h
   · repeat first | split at h
-    all_goals simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
+    all_goals simp [
       Veir.fail, CTree.trigger_def] at h
-    all_goals simp_all only [GMIR.interpretOp', Bind.bind, Pure.pure, Attribute.of_def, IsAttr.inject]
+    all_goals simp_all only [GMIR.interpretOp', Pure.pure]
     all_goals try simp_all
     all_goals try rcases h with ⟨⟨choice, rfl⟩, _, _⟩
     all_goals intro ts conf
@@ -87,7 +90,7 @@ theorem GMIR.interpretOpCTree_result_shape
       rcases conf with ⟨size, conf⟩
       refine ⟨size, ?_⟩
       cases hty : ts[0]! with
-      | mk val verified => cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] using conf
+      | mk val verified => cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
   · simp only [Bind.bind, PureOrErr.CanInterpretTo.bind_iff] at h
     simp only [liftedInterp_ok_iff, reduceCtorEq, and_false, or_false] at h
     obtain ⟨⟨deterministic, memory, control⟩, hdet, h⟩ := h
@@ -108,8 +111,8 @@ theorem GMIR.interpretOpCTree_result_shape
         refine ⟨size, ?_⟩
         cases hty : ts[0]! with
         | mk val verified =>
-          cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def,
-            Attribute.of_def, IsAttr.inject] using conf
+          cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def,
+            Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
       · simp only [PureOrErr.CanInterpretTo.pure_iff] at h
         cases h
         exact ⟨_, hdet, fun _ ht => ht⟩
@@ -120,6 +123,7 @@ theorem GMIR.interpretOpCTree_result_shape
 
 set_option maxRecDepth 4000 in
 set_option maxHeartbeats 1000000 in
+set_option linter.unusedSimpArgs false in
 theorem Builtin.interpretOpCTree_result_shape
     (code : Builtin) (properties : propertiesOf code) (types : Array TypeAttr)
     (operands : Array RuntimeValue) (successors : Array BlockPtr)
@@ -132,18 +136,17 @@ theorem Builtin.interpretOpCTree_result_shape
   unfold Builtin.interpretOpCTree at h
   simp only [Builtin.interpretUnrealizedConversionCastCTree] at h
   all_goals repeat split at h
-  all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
+  all_goals try simp [PureOrErr.CanInterpretTo.map_iff,
       Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
+  all_goals repeat split at h
+  all_goals try simp [PureOrErr.CanInterpretTo.map_iff] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
       Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
   all_goals repeat split at h
   all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
       Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
-  all_goals repeat split at h
-  all_goals try simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-      Veir.fail, CTree.trigger_def, Builtin.byteToIntCTree] at h
-  all_goals simp_all only [Veir.interpretOp', Bind.bind, Pure.pure, Attribute.of_def, IsAttr.inject]
+  all_goals simp_all only [Veir.interpretOp', Bind.bind, Pure.pure]
   all_goals try
     obtain ⟨choice, choices, hresults, hmemory, haction⟩ := h
     obtain ⟨bits, hbits⟩ := choices
@@ -164,7 +167,7 @@ theorem Builtin.interpretOpCTree_result_shape
     rcases conf with ⟨size, conf⟩
     refine ⟨size, ?_⟩
     cases hty : ts[0]! with
-      | mk val verified => cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] using conf
+      | mk val verified => cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def, Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
 
 private theorem loadByte_load_exists (memory : MemoryState) (pointer : Data.Pointer)
     (bytes : Nat) (value : Data.LLVM.Byte (8 * bytes))
@@ -177,6 +180,7 @@ private theorem loadByte_load_exists (memory : MemoryState) (pointer : Data.Poin
     cases hl : memory.load pointer bytes.toUInt64 <;>
     simp_all [Bind.bind, Pure.pure]
 
+set_option linter.unusedSimpArgs false in
 private theorem register_result_shape (left right : Data.RISCV.Reg) :
     RuntimeValue.ResultShapeRefines #[.reg left] #[.reg right] := by
   intro ts conf
@@ -186,8 +190,8 @@ private theorem register_result_shape (left right : Data.RISCV.Reg) :
   refine ⟨size, ?_⟩
   cases hty : ts[0]! with
   | mk val verified =>
-    cases val <;> simpa only [RuntimeValue.Conforms, hty, TypeAttr.of_def,
-      Attribute.of_def, IsAttr.inject] using conf
+    cases val <;> simp only [RuntimeValue.Conforms, hty, TypeAttr.of_def,
+      Attribute.of_def, IsAttr.inject] at conf ⊢ <;> exact conf
 
 set_option maxHeartbeats 1000000 in
 theorem Riscv.interpretOpCTree_result_shape
@@ -206,8 +210,8 @@ theorem Riscv.interpretOpCTree_result_shape
     | skip
   all_goals unfold riscvLoadCTree at h
   all_goals split at h
-  all_goals simp [PureOrErr.CanInterpretTo.bind_iff, PureOrErr.CanInterpretTo.map_iff,
-    Veir.fail, CTree.trigger_def, liftedInterp_ok_iff, Bind.bind] at h
+  all_goals simp [PureOrErr.CanInterpretTo.bind_iff, 
+    Veir.fail, CTree.trigger_def, Bind.bind] at h
   all_goals obtain ⟨loaded, hload, ⟨bits, hresults⟩, hmemory, haction⟩ := h
   all_goals first
     | obtain ⟨raw, hraw⟩ := loadByte_load_exists before _ 8 loaded hload

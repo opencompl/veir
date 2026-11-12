@@ -170,7 +170,7 @@ theorem bitcast_pattern_valid :
   all_goals intros
   all_goals cases x <;> simp_all [ctree_semantics, RuntimeValue.isRefinedBy,
     Data.LLVM.Byte.fromInt, Data.LLVM.Byte.toInt, Data.LLVM.Ptr.toInt,
-    Data.LLVM.Ptr.toByte, MemoryState.ptrFromInt, MemoryState.decode]
+    Data.LLVM.Ptr.toByte]
   all_goals try (split <;> simp_all [isRefinedBy])
   all_goals try (ext i; simp [Data.LLVM.Byte.allPoison]; all_goals veir_bv_decide)
   all_goals rename_i reg bits val poison hp hr

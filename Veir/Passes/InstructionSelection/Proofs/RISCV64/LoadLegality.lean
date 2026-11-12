@@ -103,8 +103,7 @@ theorem isLegal_g_load_pointer_size (dst : LLVM.PointerType) (src : TypeAttr)
     cases hs : LLT.ofType? src <;>
       simp [LegalityQuery.ofTypes?, Array.mapM, ↓Array.mapM.map, hd, hs] at hq
     cases hq
-    simp only [LegalityQuery.getLLT!, getElem!_pos, List.getElem_toArray,
-      List.getElem_cons_zero, List.getElem_cons_succ] at htypes
+    simp only [LegalityQuery.getLLT!] at htypes
     rcases htypes.1.1 with impossible | hp
     · cases impossible
     · exact htypes.2 hp

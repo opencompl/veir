@@ -40,8 +40,8 @@ private theorem rawStore1 (memory : MemoryState) (p : Data.Pointer) (v poison : 
       (do memory.checkAccess p 1
           return {memory with bytes := memory.bytes.insert p.address ⟨v, poison⟩}) := by
   unfold MemoryState.store
-  simp only [ByteArray.size, Array.size_push, Array.size_empty]
-  simp [Std.Rco.forIn'_eq_if, ByteArray.getElem_eq_getElem_data]
+  simp only [ByteArray.size]
+  simp [ByteArray.getElem_eq_getElem_data]
 
 private theorem rawStore_refines (memory : MemoryState) (p : Data.Pointer)
     (n : Nat) (hn : n = 1 ∨ n = 2 ∨ n = 4 ∨ n = 8)
@@ -55,16 +55,16 @@ private theorem rawStore_refines (memory : MemoryState) (p : Data.Pointer)
   unfold MemoryState.store
   simp only [hsv, htv]
   cases hc : memory.checkAccess p n.toUInt64 <;>
-    simp only [hc, Interp.bind_ok, Interp.bind_ub, Interp.bind_fail, Interp.isRefinedBy]
+    simp only [Interp.bind_ok, Interp.bind_ub, Interp.bind_fail, Interp.isRefinedBy]
   rcases hn with rfl | rfl | rfl | rfl
-  all_goals simp +zetaDelta [hsv, htv, Std.Rco.forIn'_eq_if]
+  all_goals simp +zetaDelta [hsv, htv]
   all_goals simp -failIfUnchanged only [List.range'_succ, List.range'_zero, List.forIn'_cons,
     List.forIn'_nil, Interp.bind_ok, Interp.pure_eq]
   all_goals refine ⟨⟨rfl, ?_⟩, rfl⟩
   all_goals intro key
   all_goals simp only [MemoryState.byte, Std.ExtHashMap.getD_insert]
   all_goals repeat' first
-    | split <;> simp_all -failIfUnchanged only [ite_true, ite_false]
+    | split <;> simp_all -failIfUnchanged only []
     | exact hb _ (by veir_bv_decide)
     | exact MemoryByte.isRefinedBy_refl _
 
@@ -99,10 +99,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte]
       all_goals veir_bv_decide
     · unfold MemoryState.storeBits
       apply rawStore_refines memory p 2 (.inr (.inl rfl))
@@ -116,10 +116,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte, ↓reduceIte]
       all_goals veir_bv_decide
     · unfold MemoryState.storeBits
       apply rawStore_refines memory p 4 (.inr (.inr (.inl rfl)))
@@ -133,10 +133,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte, ↓reduceIte]
       all_goals veir_bv_decide
     · unfold MemoryState.storeBits
       apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
@@ -150,10 +150,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte, ↓reduceIte]
       all_goals veir_bv_decide
   case poison =>
     rcases hn with rfl | rfl | rfl | rfl
@@ -169,10 +169,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte]
       all_goals veir_bv_decide
     · unfold MemoryState.empoison
       apply rawStore_refines memory p 2 (.inr (.inl rfl))
@@ -186,10 +186,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte, ↓reduceIte]
       all_goals veir_bv_decide
     · unfold MemoryState.empoison
       apply rawStore_refines memory p 4 (.inr (.inr (.inl rfl)))
@@ -203,10 +203,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte, ↓reduceIte]
       all_goals veir_bv_decide
     · unfold MemoryState.empoison
       apply rawStore_refines memory p 8 (.inr (.inr (.inr rfl)))
@@ -220,10 +220,10 @@ theorem llvmStoreInt_refines (memory : MemoryState) (p : Data.Pointer)
       all_goals simp only [ByteArray.getElem_extract]
       all_goals simp [ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
         Nat.fold_succ, Nat.fold_zero, Nat.min_def, ByteArray.getElem_eq_getElem_data,
-        Array.size_empty, Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
-      all_goals simp -failIfUnchanged [getElem!, Array.size_empty]
+        Array.size_push, Array.getElem_push, UInt64.toByteArrayLE, MemoryByte.isRefinedBy]
+      all_goals simp -failIfUnchanged []
       all_goals veir_bv_normalize
-      all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Array.size_empty, Array.size_push, Nat.lt_irrefl, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+      all_goals simp -failIfUnchanged only [emptyArray_size, Nat.lt_irrefl, ↓reduceDIte, ↓reduceIte]
       all_goals veir_bv_decide
 
 private theorem llvmStorePtr_toInt_refines (memory : MemoryState) (p : Data.Pointer)
@@ -248,9 +248,9 @@ private theorem llvmStorePtr_toInt_refines (memory : MemoryState) (p : Data.Poin
     all_goals simp [Data.LLVM.Ptr.toByte, Data.LLVM.Byte.fromUInt64, MemoryByte.isRefinedBy,
       UInt64.toByteArrayLE, ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
       Nat.fold_succ, Nat.fold_zero, ByteArray.getElem_eq_getElem_data, Array.getElem_push,
-      emptyArray_size, emptyCapacity_size]
+      emptyArray_size]
     all_goals veir_bv_normalize
-    all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+    all_goals simp -failIfUnchanged only []
     all_goals veir_bv_decide
   case poison =>
     unfold MemoryState.storeByte64
@@ -262,9 +262,9 @@ private theorem llvmStorePtr_toInt_refines (memory : MemoryState) (p : Data.Poin
     all_goals simp [Data.LLVM.Ptr.toByte, Data.LLVM.Byte.allPoison, MemoryByte.isRefinedBy,
       UInt64.toByteArrayLE, ByteArray.replicate, ByteArray.extend, ByteArray.emptyWithCapacity,
       Nat.fold_succ, Nat.fold_zero, ByteArray.getElem_eq_getElem_data, Array.getElem_push,
-      emptyArray_size, emptyCapacity_size]
+      emptyArray_size]
     all_goals veir_bv_normalize
-    all_goals simp -failIfUnchanged only [emptyArray_size, emptyCapacity_size, Nat.not_lt_zero, ↓reduceDIte, ↓reduceIte]
+    all_goals simp -failIfUnchanged only []
     all_goals change (255 : UInt8) ||| _ = 255
     all_goals veir_bv_decide
 

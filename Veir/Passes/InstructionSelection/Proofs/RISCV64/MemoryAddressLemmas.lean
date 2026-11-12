@@ -67,8 +67,8 @@ private theorem forIn_state_map (xs : List α) (f : σ → τ)
   | cons a xs ih =>
     simp only [List.forIn_cons, h]
     cases he : step a init with
-    | none => simp [he]
-    | some s => cases s <;> simp [he, mapStep, ih]
+    | none => simp
+    | some s => cases s <;> simp [mapStep, ih]
 
 private def gepStep (layout : DataLayout) (index : GEPIndex α)
     (s : Int × Array (α × Nat) × Attribute) : Option (ForInStep (Int × Array (α × Nat) × Attribute)) := do
@@ -100,12 +100,12 @@ private theorem gepStep_map (f : α → β) (layout : DataLayout) (index : GEPIn
       (gepStep layout index s).map (mapStep (mapGepState f)) := by
   rcases s with ⟨offset, dynamic, ty⟩
   cases ty <;> cases index <;>
-    simp only [gepStep, mapIndex, mapGepState, mapStep, Array.map_push,
-      Option.map_bind, Option.map_some, Option.map_none, pure, Option.pure_def]
+    simp only [gepStep, mapIndex, mapGepState, 
+      Option.map_none, pure]
   all_goals rename_i type value
   all_goals cases type
-  all_goals simp only [mapGepState, mapStep, Option.map_bind, Option.map_some,
-    Array.map_push, bind, Option.bind]
+  all_goals simp only [
+    bind, Option.bind]
   all_goals split <;> simp_all only [Option.map_none, Option.map_some,
     mapStep, mapGepState, Array.map_push]
 
@@ -114,7 +114,7 @@ private theorem gepOffsets_map (f : α → β) (layout : DataLayout)
     layout.gepOffsets ty (xs.map (mapIndex f)) =
       (layout.gepOffsets ty xs).map
         (fun (offset, dynamic) => (offset, dynamic.map (fun (a, n) => (f a, n)))) := by
-  simp only [gepOffsets_forIn, Array.forIn_map, ←Array.forIn_toList]
+  simp only [gepOffsets_forIn, ←Array.forIn_toList]
   simp only [Array.toList_map, List.forIn_map]
   let init : Int × Array (α × Nat) × Attribute :=
     (0, #[], .llvmArrayType {size := 0, type := ty})
@@ -241,12 +241,12 @@ theorem selectAddrRegImm_decomposition (gep : GetelementptrProperties)
   | some parts =>
     rcases parts with ⟨base, dynamic⟩
     simp only [hparts, Option.map_some, bind, Option.bind] at hselect
-    simp only [Array.foldl_map' rfl, Array.foldl_map] at hselect
+    simp only [Array.foldl_map] at hselect
     by_cases bounds : -2048 ≤ dynamic.foldl (fun n (b, stride) => n + b.toInt * stride) base ∧
         dynamic.foldl (fun n (b, stride) => n + b.toInt * stride) base ≤ 2047
-    · simp [guard, bounds, pure, bind, Option.bind] at hselect
+    · simp [guard, bounds, pure] at hselect
       exact ⟨base, dynamic, rfl, hselect, hselect ▸ bounds⟩
-    · simp [guard, bounds, pure, bind, Option.bind] at hselect
+    · simp [guard, bounds, pure] at hselect
 
 private theorem selectedGEP_positions (gep : GetelementptrProperties)
     (idxs : Array GMIRConstantProperties) (off : Int)
@@ -312,13 +312,13 @@ private theorem interpretGEP_selected_ptr (gep : GetelementptrProperties)
     (by simpa using hcount)
   have hscaled := Array.mapM_pure (m := Option) (xs := dynamic)
     (f := fun pair => (constantBits idxs)[pair.1]!.toInt * (pair.2 : Int))
-  simp only [pure, Option.pure_def] at hscaled
+  simp only [pure] at hscaled
   dsimp only at hsum
   simp only [Array.size_map] at hsum
   dsimp only [operands] at hindices
   cases ptr <;>
     simp [Llvm.interpretOp', hpos, gepOffsets_map, hparts, hindices,
-      Array.mapM_map, hscaled, Array.map_map, Function.comp_def,
+      Array.mapM_map, hscaled, Function.comp_def,
       hsum, Int.add_assoc, -UInt64.ofInt_add]
 
 /-- The selected immediate computes the same address as the matched constant-index GEP. -/

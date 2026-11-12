@@ -53,7 +53,7 @@ theorem gmirSelectZeroOfSetcc_valid (zeroFalse neq zeroRhs : Bool) :
           simp [ctree_semantics, ←Attribute.integerType_eq_of, hp] at hcmp hzero
           subst cmp
           subst zero
-          simp [ctree_semantics, ←Attribute.integerType_eq_of, zeroMatch]
+          simp [ctree_semantics, zeroMatch]
           intro rv hv ra ha rb hb
           cases a <;> cases b <;> cases v <;> simp_all [RuntimeValue.isRefinedBy]
           all_goals veir_bv_normalize
@@ -99,7 +99,7 @@ theorem gmirSelectZeroOfSetcc_valid (zeroFalse neq zeroRhs : Bool) :
           simp [ctree_semantics, ←Attribute.integerType_eq_of, hp] at hcmp hzero
           subst cmp
           subst zero
-          simp [ctree_semantics, ←Attribute.integerType_eq_of, zeroMatch]
+          simp [ctree_semantics, zeroMatch]
           intro rv hv ra ha
           cases a <;> cases v <;> simp_all [RuntimeValue.isRefinedBy]
           all_goals veir_bv_normalize

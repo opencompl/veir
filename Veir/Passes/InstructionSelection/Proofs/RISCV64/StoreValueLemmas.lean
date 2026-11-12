@@ -47,6 +47,6 @@ theorem rawStore_sim (memory source : MemoryState) (p : Data.Pointer) (data : By
       (pure (#[], source, none) : Tree _) := by
   cases h : memory.store p data <;> rw [h] at href
   all_goals simp only [Interp.isRefinedBy] at href
-  all_goals simp [h, ctree_semantics, href]
+  all_goals simp [ctree_semantics, href]
 
 end Veir

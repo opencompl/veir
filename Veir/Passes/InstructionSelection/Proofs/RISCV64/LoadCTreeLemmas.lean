@@ -106,7 +106,7 @@ theorem llvmLoad_pointer_loadByte (memory : MemoryState) (p : Data.Pointer)
   · simp [MemoryState.ptrOfByte, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy,
       MemoryState.ptrFromInt, MemoryState.decode, Data.LLVM.Byte.toUInt64, hz]
   · simp [MemoryState.ptrOfByte, RuntimeValue.isRefinedBy, Data.LLVM.Ptr.isRefinedBy,
-      Data.LLVM.Byte.toUInt64, hz]
+      hz]
 
 def loadResolvedBits (b : Data.LLVM.Byte w) (choice : BitVec w) (ext : LoadExtension) : BitVec 64 :=
   let bits := b.val ||| (b.poison &&& choice)

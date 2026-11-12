@@ -210,7 +210,7 @@ The resolver may be the variable state of the rewritten program. -/
 theorem ValueResolver.CTreeEquationLemmaIn.successor_entry
     {resolve updated : ValueResolver} {ctx : WfIRContext OpCode}
     {region : RegionPtr} {rewriteRoot : OperationPtr} {block succ : BlockPtr} {irRoot : IRNode}
-    (ctxDom : ctx.Dom irRoot) (blockIn : block.InBounds ctx.raw)
+    (ctxDom : ctx.Dom irRoot) (_blockIn : block.InBounds ctx.raw)
     (blockParent : block.getParent! ctx.raw = some region)
     (succParent : succ.getParent! ctx.raw = some region)
     (ssa : region.hasSSADominance ctx) (successor : succ ∈ block.getSuccessors! ctx.raw)

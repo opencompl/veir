@@ -312,7 +312,7 @@ theorem fshlGeneral64_valid :
   obtain ⟨a, rfl⟩ := ha
   obtain ⟨b, rfl⟩ := hb
   obtain ⟨c, rfl⟩ := hc
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro x hx y hy z hz
   cases a <;> cases b <;> cases c <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]
@@ -330,7 +330,7 @@ theorem fshlGeneral32_valid :
   obtain ⟨a, rfl⟩ := ha
   obtain ⟨b, rfl⟩ := hb
   obtain ⟨c, rfl⟩ := hc
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro x hx y hy z hz
   cases a <;> cases b <;> cases c <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]
@@ -348,7 +348,7 @@ theorem fshrGeneral64_valid :
   obtain ⟨a, rfl⟩ := ha
   obtain ⟨b, rfl⟩ := hb
   obtain ⟨c, rfl⟩ := hc
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro x hx y hy z hz
   cases a <;> cases b <;> cases c <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]
@@ -366,7 +366,7 @@ theorem fshrGeneral32_valid :
   obtain ⟨a, rfl⟩ := ha
   obtain ⟨b, rfl⟩ := hb
   obtain ⟨c, rfl⟩ := hc
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro x hx y hy z hz
   cases a <;> cases b <;> cases c <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals simp -failIfUnchanged only [RISCVImmediateProperties.immField]

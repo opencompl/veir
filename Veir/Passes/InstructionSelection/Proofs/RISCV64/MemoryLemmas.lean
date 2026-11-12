@@ -29,23 +29,23 @@ theorem memAccessWidth_cases {type : TypeAttr} {bytes : Nat}
     (∃ pointer : LLVM.PointerType, type = TypeAttr.of LLVM.PointerType pointer ∧ bytes = 8) := by
   rcases type with ⟨attr, ht⟩
   cases attr <;> simp only [memAccessWidth?] at h <;>
-    simp only [Option.bind_eq_bind, Option.bind_none, Option.bind_some,
-      Option.pure_def, Option.map_none, Option.map_some] at h <;> try contradiction
+    simp only [Option.bind_eq_bind, Option.bind_none, 
+      Option.pure_def] at h <;> try contradiction
   case integerType t =>
     rcases t with ⟨w, sign⟩
     by_cases hm : w % 8 = 0
     · by_cases hz : w = 0
-      · simp [failure, instAlternativeOption, guard, hm, hz, DataLayout.getTypeSize, DataLayout.riscv64,
+      · simp [failure, guard, hz, DataLayout.getTypeSize, DataLayout.riscv64,
           DataLayout.queryRISCV64, -Attribute.integerType_eq_of] at h
-      · simp [failure, instAlternativeOption, guard, hm, hz, DataLayout.getTypeSize, DataLayout.riscv64,
+      · simp [failure, guard, hm, hz, DataLayout.getTypeSize, DataLayout.riscv64,
           DataLayout.queryRISCV64, DataLayout.scalarInfo, -Attribute.integerType_eq_of] at h
         split at h
         · simp only [Option.bind_some, Option.some.injEq] at h
           have hw : w = 8 * bytes := by omega
           subst w
           exact .inl ⟨sign, rfl⟩
-        · simp [failure, instAlternativeOption] at h
-    · simp [failure, instAlternativeOption, guard, hm] at h
+        · simp at h
+    · simp [failure, guard, hm] at h
   case llvmPointerType p =>
     have hb : 8 = bytes := by
       simpa [DataLayout.getTypeSize, DataLayout.riscv64, DataLayout.queryRISCV64,

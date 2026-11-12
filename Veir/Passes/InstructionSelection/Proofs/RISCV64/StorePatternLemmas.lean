@@ -36,7 +36,7 @@ theorem lowerStore_reg_sb_of (store_refines : StorePrimitiveRefines 1) :
       simp only [Data.LLVM.Ptr.toInt, RuntimeValue.storedType]
       cases ha : p.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
           (Attribute.of IntegerType (IntegerType.signless 8))) <;> simp [ha, ctree_semantics]
-      cases hs : memory.llvmStore p (.int 8 x) <;> simp [hs, ctree_semantics]
+      cases hs : memory.llvmStore p (.int 8 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨8, sign⟩) (.int 8 x) rv width
         (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
@@ -64,7 +64,7 @@ theorem lowerStore_reg_sh_of (store_refines : StorePrimitiveRefines 2) :
       simp only [Data.LLVM.Ptr.toInt, RuntimeValue.storedType]
       cases ha : p.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
           (Attribute.of IntegerType (IntegerType.signless 16))) <;> simp [ha, ctree_semantics]
-      cases hs : memory.llvmStore p (.int 16 x) <;> simp [hs, ctree_semantics]
+      cases hs : memory.llvmStore p (.int 16 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨16, sign⟩) (.int 16 x) rv width
         (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
@@ -92,7 +92,7 @@ theorem lowerStore_reg_sw_of (store_refines : StorePrimitiveRefines 4) :
       simp only [Data.LLVM.Ptr.toInt, RuntimeValue.storedType]
       cases ha : p.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
           (Attribute.of IntegerType (IntegerType.signless 32))) <;> simp [ha, ctree_semantics]
-      cases hs : memory.llvmStore p (.int 32 x) <;> simp [hs, ctree_semantics]
+      cases hs : memory.llvmStore p (.int 32 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨32, sign⟩) (.int 32 x) rv width
         (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
@@ -121,7 +121,7 @@ theorem lowerStore_reg_sd_of (store_refines : StorePrimitiveRefines 8) :
       simp only [Data.LLVM.Ptr.toInt, RuntimeValue.storedType]
       cases ha : p.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
           (Attribute.of IntegerType (IntegerType.signless 64))) <;> simp [ha, ctree_semantics]
-      cases hs : memory.llvmStore p (.int 64 x) <;> simp [hs, ctree_semantics]
+      cases hs : memory.llvmStore p (.int 64 x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of IntegerType ⟨64, sign⟩) (.int 64 x) rv width
         (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy])
@@ -140,11 +140,11 @@ theorem lowerStore_reg_sd_of (store_refines : StorePrimitiveRefines 8) :
       simp only [Data.LLVM.Ptr.toInt, RuntimeValue.storedType]
       cases ha : p.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
           (Attribute.of LLVM.PointerType LLVM.PointerType.mk)) <;> simp [ha, ctree_semantics]
-      cases hs : memory.llvmStore p (.addr x) <;> simp [hs, ctree_semantics]
+      cases hs : memory.llvmStore p (.addr x) <;> simp [ctree_semantics]
       intro ra hra rv hrv
       have href := store_refines memory p (TypeAttr.of LLVM.PointerType pointer) (.addr x) rv width
         (by simp) (by cases x <;> simp_all [StoreValueRefines, Data.LLVM.Ptr.isRefinedBy,
-          Data.Pointer.isRefinedBy, Data.LLVM.Ptr.toInt])
+          Data.Pointer.isRefinedBy])
       rw [hs] at href
       rw [store_fullWidth] at href
       simpa [hra, riscvEffectiveAddr, RISCVMemProperties.imm12, MemoryState.decode,

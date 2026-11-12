@@ -84,7 +84,7 @@ theorem gmirSelect_pattern_valid :
   unfold gmirSelect_pattern
   simp only [matchLegal]
   simpPuddleValid
-  simp [ctree_semantics, ←Attribute.integerType_eq_of]
+  simp [ctree_semantics]
   intro dst ct c t ht f hf p _verified legal
   obtain ⟨hd, ⟨cs, hc⟩⟩ := isLegal_g_select_types dst (TypeAttr.of IntegerType ct) p legal
   have hct : ct = ⟨64, cs⟩ := by exact IsTypeAttr.of_injective hc
@@ -158,7 +158,7 @@ theorem gmirIcmp_ne_zero_pattern_valid :
     subst b
     simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
     intro x hx y hy
-    cases a <;> simp_all [RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
+    cases a <;> simp_all [RuntimeValue.isRefinedBy, mkRISCVImm]
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
@@ -174,7 +174,7 @@ theorem gmirIcmp_ne_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
     intro x hx y hy
     cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
-    all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals simp -failIfUnchanged only [mkRISCVImm]
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
@@ -190,7 +190,7 @@ theorem gmirIcmp_slt_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
     intro x hx y hy
     cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
-    all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals simp -failIfUnchanged only []
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
@@ -206,7 +206,7 @@ theorem gmirIcmp_sgt_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
     intro x hx y hy
     cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
-    all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals simp -failIfUnchanged only []
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
@@ -222,7 +222,7 @@ theorem gmirIcmp_ult_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
     intro x hx y hy
     cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
-    all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals simp -failIfUnchanged only []
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
@@ -238,7 +238,7 @@ theorem gmirIcmp_ugt_pattern_valid :
     simp [ctree_semantics, ←Attribute.integerType_eq_of, hp]
     intro x hx y hy
     cases a <;> cases b <;> simp_all [RuntimeValue.isRefinedBy]
-    all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+    all_goals simp -failIfUnchanged only []
     all_goals veir_bv_decide
   · cases a <;> cases b <;> simp_all [ctree_semantics]
 
@@ -314,12 +314,8 @@ private theorem sltiImm_field {pred : Data.LLVM.IntPred} {c imm : Int}
     simp only [sltiImm?, Option.filter_eq_some_iff, Bool.and_eq_true, decide_eq_true_eq] at h
     exact h.2
   have wrap : imm.bmod (2 ^ 64) = imm := Int.bmod_eq_of_le
-    (Int.le_trans (by
-      have h : (-9223372036854775808#65).sle (-2048#65) := by veir_bv_decide
-      simpa [BitVec.sle_iff_toInt_le] using h) range.1)
-    (Int.lt_of_le_of_lt range.2 (by
-      have h : (2047#65).slt (9223372036854775808#65) := by veir_bv_decide
-      simpa [BitVec.slt_iff_toInt_lt] using h))
+    (Int.le_trans (by simp) range.1)
+    (Int.lt_of_le_of_lt range.2 (by simp))
   apply mkRISCVImm_signExtend_12
   · simpa [wrap] using range.1
   · simpa [wrap] using range.2
@@ -339,7 +335,7 @@ theorem gmirSlti_slt_pattern_valid :
   all_goals rw [sltiImm_field himm]
   all_goals simp only [sltiImm?, Option.filter_eq_some_iff, Option.some.injEq] at himm
   all_goals rw [←himm.1, BitVec.ofInt_toInt]
-  all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+  all_goals simp -failIfUnchanged only []
   all_goals veir_bv_decide
 
 theorem gmirSlti_ult_pattern_valid :
@@ -357,7 +353,7 @@ theorem gmirSlti_ult_pattern_valid :
   all_goals rw [sltiImm_field himm]
   all_goals simp only [sltiImm?, Option.filter_eq_some_iff, Option.some.injEq] at himm
   all_goals rw [←himm.1, BitVec.ofInt_toInt]
-  all_goals simp -failIfUnchanged only [mkRISCVImm, RISCVImmediateProperties.immField]
+  all_goals simp -failIfUnchanged only []
   all_goals veir_bv_decide
 
 theorem gmirSlti_sge_pattern_valid :
@@ -436,7 +432,7 @@ theorem gmirSlti_ule_pattern_valid :
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
   all_goals veir_bv_normalize
   all_goals rw [sltiImm_field himm]
-  all_goals simp only [sltiImm?, Option.filter_eq_some_iff, Option.some.injEq] at himm
+  all_goals simp only [sltiImm?, Option.filter_eq_some_iff] at himm
   all_goals
     have hn : (BitVec.ofInt 64 c.value).toInt ≠ -1 := by
       intro h
@@ -444,7 +440,7 @@ theorem gmirSlti_ule_pattern_valid :
     have hb : BitVec.ofInt 64 c.value ≠ (-1#64) := by
       intro h
       simp [h] at hn
-    simp only [if_neg hn, Option.some.injEq] at himm
+    simp only [ite_eq_right hn, Option.some.injEq] at himm
     rw [←himm.1, BitVec.ofInt_add, BitVec.ofInt_toInt]
     veir_bv_decide
 

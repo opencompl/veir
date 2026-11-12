@@ -57,8 +57,8 @@ theorem lowerStore_gepConst_sb_of (store_refines : StorePrimitiveRefines 1) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 8))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 8 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 8 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -112,8 +112,8 @@ theorem lowerStore_gepConst_sh_of (store_refines : StorePrimitiveRefines 2) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 16))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 16 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 16 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -167,8 +167,8 @@ theorem lowerStore_gepConst_sw_of (store_refines : StorePrimitiveRefines 4) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 32))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 32 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 32 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -223,8 +223,8 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 64))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 64 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 64 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -243,7 +243,7 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of LLVM.PointerType LLVM.PointerType.mk)) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.addr x) <;> simp [hs, ctree_semantics]
+        cases hs : memory.llvmStore addr (.addr x) <;> simp [ctree_semantics]
         simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
@@ -253,7 +253,7 @@ theorem lowerStore_gepConst_sd_of (store_refines : StorePrimitiveRefines 8) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of LLVM.PointerType pointer) (.addr x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy, Data.LLVM.Ptr.toInt])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines])
         rw [hs] at href
         rw [store_fullWidth] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using
@@ -298,8 +298,8 @@ theorem lowerStore_gepIndex_sb_of (store_refines : StorePrimitiveRefines 1) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 8))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 8 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 8 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -353,8 +353,8 @@ theorem lowerStore_gepIndex_sh_of (store_refines : StorePrimitiveRefines 2) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 16))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 16 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 16 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -408,8 +408,8 @@ theorem lowerStore_gepIndex_sw_of (store_refines : StorePrimitiveRefines 4) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 32))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 32 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 32 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -464,8 +464,8 @@ theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of IntegerType (IntegerType.signless 64))) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.int 64 x) <;> simp [hs, ctree_semantics]
-        simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
+        cases hs : memory.llvmStore addr (.int 64 x) <;> simp [ctree_semantics]
+        simp [hselect, ctree_semantics]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
             ({ value := BitVec.ofInt 64 offset, volatile_ := props.volatile_ } : RISCVMemProperties).imm12 =
@@ -484,7 +484,7 @@ theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
         simp only [RuntimeValue.storedType]
         cases ha : addr.checkAlignment (Llvm.accessAlignment DataLayout.riscv64 props.alignment
             (Attribute.of LLVM.PointerType LLVM.PointerType.mk)) <;> simp [ha, ctree_semantics]
-        cases hs : memory.llvmStore addr (.addr x) <;> simp [hs, ctree_semantics]
+        cases hs : memory.llvmStore addr (.addr x) <;> simp [ctree_semantics]
         simp [hselect, ctree_semantics, Data.LLVM.Ptr.toInt]
         intro ra hra rv hrv
         have heffective : riscvEffectiveAddr ra.val
@@ -494,7 +494,7 @@ theorem lowerStore_gepIndex_sd_of (store_refines : StorePrimitiveRefines 8) :
           rw [pointer_add_offset]
           simp [hra, selectedOffset_signExtend gep #[index] offset hcount hselect]
         have href := store_refines memory addr (TypeAttr.of LLVM.PointerType pointer) (.addr x) rv width
-          (by simp) (by cases x <;> simp_all [StoreValueRefines, isRefinedBy, Data.LLVM.Ptr.toInt])
+          (by simp) (by cases x <;> simp_all [StoreValueRefines])
         rw [hs] at href
         rw [store_fullWidth] at href
         simpa [heffective, MemoryState.decode, OperationResult.isRefinedBy] using

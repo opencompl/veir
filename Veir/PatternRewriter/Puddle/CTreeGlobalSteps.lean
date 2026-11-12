@@ -56,7 +56,7 @@ theorem rewriteCFGInvariant_block_step
   | none =>
     have failed : Veir.CTree.interpretCFGCore.iter (.inl (sourceBlock, sourceArgs)) sourceState = fail := by
       simp only [Veir.CTree.interpretCFGCore.iter, sourceSet]
-      split <;> simp [bind_fail]
+      split <;> simp
     rw [failed]
     exact sim_fail _ _
   | some sourceVariables =>
@@ -67,7 +67,7 @@ theorem rewriteCFGInvariant_block_step
       have failed : Veir.CTree.interpretCFGCore.iter (.inl (sourceBlock, sourceArgs)) sourceState = fail := by
         simp only [Veir.CTree.interpretCFGCore.iter, sourceSet]
         repeat split
-        all_goals simp_all [bind_fail]
+        all_goals simp_all
       rw [failed]
       exact sim_fail _ _
     | some sourceFirst =>

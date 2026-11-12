@@ -62,7 +62,7 @@ theorem gmirBseti_pattern_valid :
   rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
-  simp only [Bool.false_eq_true, ite_false, ite_true] at mask
+  simp only [Bool.false_eq_true, ite_false] at mask
   simp [ctree_semantics, himm]
   intro x hx
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
@@ -77,7 +77,7 @@ theorem gmirBinvi_pattern_valid :
   rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
-  simp only [Bool.false_eq_true, ite_false, ite_true] at mask
+  simp only [Bool.false_eq_true, ite_false] at mask
   simp [ctree_semantics, himm]
   intro x hx
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
@@ -92,7 +92,7 @@ theorem gmirBclri_pattern_valid :
   rintro ss a ⟨c⟩ accepted verifiedConstant p verifiedRoot legal
   obtain ⟨imm, himm⟩ := Option.isSome_iff_exists.mp accepted
   have mask := singleBitImm_mask himm
-  simp only [Bool.false_eq_true, ite_false, ite_true] at mask
+  simp only [ite_true] at mask
   simp [ctree_semantics, himm]
   intro x hx
   cases a <;> simp_all [RuntimeValue.isRefinedBy]
@@ -337,7 +337,7 @@ theorem gmirCpopw_pattern_valid :
   | val x =>
       have hv := hv x rfl
       by_cases hn : p.nneg = true ∧ x.msb = true <;>
-        simp [hn, hv, RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.zext,
+        simp [hn, RuntimeValue.isRefinedBy, resizeCount, Data.LLVM.Int.zext,
           Data.LLVM.Int.ctpop, isRefinedBy, Id.run, pure] <;>
         veir_bv_decide
 

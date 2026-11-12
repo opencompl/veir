@@ -51,9 +51,9 @@ theorem gmirPoison_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro ⟨attr, hattr⟩
-  cases attr <;> simp [icmpTypeWidth?, ctree_semantics, RuntimeValue.isRefinedBy,
-    Data.LLVM.Int.mlir_poison, Data.RISCV.val_li, MemoryState.ptrFromInt,
-    MemoryState.decode, Data.LLVM.Ptr.null, Data.Pointer.null, Data.LLVM.Ptr.isRefinedBy]
+  cases attr <;> simp [ctree_semantics, RuntimeValue.isRefinedBy,
+    Data.RISCV.val_li, MemoryState.ptrFromInt,
+    MemoryState.decode, Data.LLVM.Ptr.isRefinedBy]
 
 theorem zeroConst_pattern_valid :
     Puddle.CTree.Pattern.Valid zeroConst_pattern := by
@@ -61,10 +61,12 @@ theorem zeroConst_pattern_valid :
   simpPuddleValid
   simp [ctree_semantics]
   intro ⟨attr, hattr⟩
-  cases attr <;> simp [icmpTypeWidth?, ctree_semantics, RuntimeValue.isRefinedBy,
-    Data.LLVM.Int.mlir_poison, Data.RISCV.val_li, MemoryState.ptrFromInt,
-    MemoryState.decode, Data.LLVM.Ptr.null, Data.Pointer.null, Data.LLVM.Ptr.isRefinedBy]
+  cases attr <;> simp [icmpTypeWidth?, ctree_semantics, 
+    Data.RISCV.val_li, MemoryState.ptrFromInt,
+    MemoryState.decode, Data.LLVM.Ptr.null, Data.Pointer.null]
 
+-- The simp arguments below are each needed on some of the goals the `cases` produce.
+set_option linter.unusedSimpArgs false in
 theorem freeze_pattern_valid :
     Puddle.CTree.Pattern.Valid freeze_pattern := by
   unfold freeze_pattern

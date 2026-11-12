@@ -59,7 +59,7 @@ theorem interpretOp'_no_action_of_nonterm
     by_cases gep : code = .getelementptr
     · subst code
       exact Llvm.interpretOp'_gep_no_action properties types operands successors before after results action .riscv64 h
-    · cases code <;> simp_all only [OpCode.isTerminator, Llvm.isTerminator]
+    · cases code <;> simp_all only [OpCode.isTerminator]
       all_goals simp only [Veir.interpretOp', Llvm.interpretOp'] at h
       all_goals
         repeat first
@@ -71,8 +71,7 @@ theorem interpretOp'_no_action_of_nonterm
     first
     | solve | simp [Veir.interpretOp', liftM, monadLift, MonadLift.monadLift] at h
     | rename_i code
-      cases code <;> simp_all only [OpCode.isTerminator, Func.isTerminator, Cir.isTerminator,
-        Riscv_Cf.isTerminator, Cf.isTerminator, GMIR.isTerminator]
+      cases code <;> simp_all only [OpCode.isTerminator]
       all_goals simp only [Veir.interpretOp', Arith.interpretOp', Riscv.interpretOp',
         Riscv_Cf.interpretOp', Riscv_Stack.interpretOp', Rv64.interpretOp', Cf.interpretOp',
         ModArith.interpretOp', HW.interpretOp', Comb.interpretOp', GMIR.interpretOp',
@@ -84,7 +83,7 @@ theorem interpretOp'_no_action_of_nonterm
           | split at h
           | simp only [Bind.bind, Pure.pure, liftM, monadLift, MonadLift.monadLift] at h
       all_goals
-        try simp_all only [Bind.bind, Pure.pure, liftM, monadLift, MonadLift.monadLift, Option.bind]
+        try simp_all only [Option.bind]
         repeat first
           | solve | simp_all
           | split at *

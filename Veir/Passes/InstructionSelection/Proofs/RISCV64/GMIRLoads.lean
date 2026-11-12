@@ -70,11 +70,11 @@ theorem gmirLoad_integer_sim (memory : MemoryState) (p : Data.Pointer)
   subst size
   rcases hbytes with rfl | rfl | rfl | rfl
   all_goals
-    simp only [GMIR.interpretOpCTree, GMIR.interpretOp', ←Attribute.integerType_eq_of]
+    simp only [GMIR.interpretOpCTree, GMIR.interpretOp']
     cases ha : p.checkAlignment alignment.toNat <;>
-      simp [ha, monadLift, MonadLift.monadLift, Bind.bind, ctree_semantics, ←Attribute.integerType_eq_of]
+      simp [monadLift, MonadLift.monadLift, Bind.bind, ctree_semantics, ←Attribute.integerType_eq_of]
     cases hl : memory.intLoad p _ <;>
-      simp [hl, monadLift, MonadLift.monadLift, Bind.bind, ctree_semantics, ←Attribute.integerType_eq_of]
+      simp [ctree_semantics]
     rename_i value
     obtain ⟨b,hload,href⟩ := (by
       first
@@ -84,7 +84,7 @@ theorem gmirLoad_integer_sim (memory : MemoryState) (p : Data.Pointer)
       | exact intLoad_loadByte memory p 8 value hl)
     simp [gmirLoad_target, MemoryState.decode, hload, ctree_semantics,
       ←Attribute.integerType_eq_of, Builtin.interpretUnrealizedConversionCastCTree,
-      Functor.map, Bind.bind, CTree.choose_def, CTree.tau_def]
+      Bind.bind, CTree.choose_def, CTree.tau_def]
     intro choice
     have href := href choice
     have href' : value ⊒ Data.LLVM.Int.val ((loadResolvedBits b choice ext).setWidth _) := by
@@ -92,10 +92,10 @@ theorem gmirLoad_integer_sim (memory : MemoryState) (p : Data.Pointer)
     clear href
     generalize loadResolvedBits b choice ext = bits at *
     cases value <;> simp_all [ctree_semantics, isRefinedBy]
-    all_goals simp [CTree.tau_def, Sim.pure_tau, ctree_semantics, RISCV.Reg.toInt,
-      Data.LLVM.Int.zext, Data.LLVM.Int.trunc, Data.LLVM.Int.ext, RuntimeValue.isRefinedBy, isRefinedBy]
+    all_goals simp [ctree_semantics, RISCV.Reg.toInt,
+      Data.LLVM.Int.trunc, Data.LLVM.Int.ext, RuntimeValue.isRefinedBy, isRefinedBy]
     all_goals refine ⟨loadHighBits bits, ?_⟩
-    all_goals simp [Id.run, isRefinedBy, loadHighBits]
+    all_goals simp [Id.run, loadHighBits]
     all_goals veir_bv_decide
 
 theorem gmirLoad_pointer_sim (memory : MemoryState) (p : Data.Pointer)
@@ -106,19 +106,18 @@ theorem gmirLoad_pointer_sim (memory : MemoryState) (p : Data.Pointer)
       (gmirLoad_target memory p.address.toBitVec (TypeAttr.of LLVM.PointerType ptr) 8 ext)
       (GMIR.interpretOpCTree .g_load props #[TypeAttr.of LLVM.PointerType ptr]
         #[RuntimeValue.addr (.val p)] #[] memory) := by
-  simp only [GMIR.interpretOpCTree, GMIR.interpretOp', ←Attribute.llvmPointerType_eq_of]
+  simp only [GMIR.interpretOpCTree, GMIR.interpretOp']
   cases ha : p.checkAlignment props.alignment.toNat <;>
-    simp [ha, monadLift, MonadLift.monadLift, Bind.bind, ctree_semantics,
+    simp [monadLift, MonadLift.monadLift, Bind.bind, ctree_semantics,
       ←Attribute.llvmPointerType_eq_of]
   cases hl : memory.llvmLoad p (TypeAttr.of LLVM.PointerType ptr) <;>
-    simp [hl, monadLift, MonadLift.monadLift, Bind.bind, ctree_semantics,
-      ←Attribute.llvmPointerType_eq_of]
+    simp [ctree_semantics]
   rename_i value
   obtain ⟨b, hload, href⟩ := llvmLoad_pointer_loadByte memory p ptr value hl
   cases value <;> simp [RuntimeValue.isRefinedBy] at href
   simp [gmirLoad_target, MemoryState.decode, hload, ctree_semantics,
     Builtin.interpretUnrealizedConversionCastCTree, ←Attribute.llvmPointerType_eq_of,
-    Bind.bind, Functor.map, CTree.choose_def, CTree.tau_def]
+    Bind.bind, CTree.choose_def, CTree.tau_def]
   cases ext <;> simpa [loadResolvedBits, ctree_semantics, RuntimeValue.isRefinedBy] using href
 
 
@@ -152,7 +151,7 @@ theorem gmirLoad_target_expanded (memory : MemoryState) (imm : BitVec 12) (reg :
       CTree.bind (CTree.bind x f) g = CTree.bind x (fun x => CTree.bind (f x) g) :=
     _root_.CTree.bind_assoc x f g
   simp [riscvLoadCTree, gmirLoad_target, riscvEffectiveAddr, loadResolvedBits,
-    Functor.map, Bind.bind, hassoc]
+    Bind.bind, hassoc]
   rfl
 
 

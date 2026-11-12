@@ -267,7 +267,7 @@ theorem Pattern.fromLocalRewrite_next_redirect
         subst nextOp
         apply predecessor
         exact IRContext.WellFormed.OperationPtr_prev!_eq_some_of_next!_eq_some opIn rewriter.ctx.wellFormed sourceNext
-      simp only [Option.bind_some, redirectedOperation, if_neg notRoot]
+      simp only [Option.bind_some, redirectedOperation, ite_eq_right notRoot]
 
 /-- Ordinary original instructions take one step in each batching schedule. -/
 theorem Pattern.surviving_batch_counts
