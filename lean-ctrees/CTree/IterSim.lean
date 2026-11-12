@@ -34,7 +34,7 @@ theorem bind_approx_congr {A B : Type u} (n : Nat) (tree : CTree E C A)
 
 /-- Guarding recursive calls by a silent step makes the loop equation unique,
 independently of the order-theoretic construction used to define `iter`. -/
-theorem iter_unique {I X : Type u} (body : I → CTree E C (I ⊕ X))
+theorem iter_unique' {I X : Type u} (body : I → CTree E C (I ⊕ X))
     (solution : I → CTree E C X)
     (equation : ∀ i, solution i = (body i >>= fun result => match result with
       | .inl j => CTree.tau1 (solution j)
@@ -163,7 +163,7 @@ theorem interp_mrec_iter_eq {FIn I X : Type u} {F : FIn → Type u}
         match ← interp_mrec handler (body j) with
         | .inl k => CTree.tau1 (pure (.inl k))
         | .inr x => pure (.inr x)) i := by
-  refine iter_unique _ (fun j => interp_mrec handler (iter.{u, u} body j)) ?_ i
+  refine iter_unique' _ (fun j => interp_mrec handler (iter.{u, u} body j)) ?_ i
   intro j
   rw [iter.eq_def, interp_mrec_bind, bind_assoc]
   congr 1
@@ -269,7 +269,7 @@ theorem iter_guardedSteps_eq {I X : Type u} (body : I → CTree E C (I ⊕ X))
     (batchSize : I → Nat) (positive : ∀ i, 0 < batchSize i) (i : I) :
     iter.{u, u} (fun i => iterGuardedSteps body (batchSize i) i) i = iter.{u, u} body i := by
   symm
-  apply iter_unique
+  apply iter_unique'
   intro j
   obtain ⟨n, hn⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.ne_of_gt (positive j))
   simpa only [hn, Nat.succ_eq_add_one] using iter_unroll_guardedSteps body n j

@@ -588,7 +588,8 @@ macro "staticAllocaAlloc" u:term : tactic => `(tactic| (
   obtain ⟨ptrTy, hp⟩ : ∃ ptrTy, type.val = Attribute.llvmPointerType ptrTy := by
     revert htype; split <;> simp_all
   simp [hp, RuntimeValue.isRefinedBy, RuntimeValue.arrayIsRefinedBy, LLVM.Int.toReg, Data.LLVM.Ptr.toInt]
-  simpa [Data.LLVM.Ptr.toInt, Data.LLVM.Ptr.isRefinedBy] using ptrFromInt_toInt mem' addr))
+  -- `MemoryState.ptrFromInt_val` (#2059) lets the simp above close the goal already.
+  try simpa [Data.LLVM.Ptr.toInt, Data.LLVM.Ptr.isRefinedBy] using ptrFromInt_toInt mem' addr))
 
 set_option hygiene false in
 /-- Close a static alloca goal once the count `cnt` and the matched constant are fixed. -/

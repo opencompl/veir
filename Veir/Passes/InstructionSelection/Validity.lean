@@ -53,8 +53,8 @@ the semantics (`normalizeIselValid`):
   matchers accept since the legalizer marks both operations `alwaysLegal`.
 * `memIntrinsicCallPattern` lowers to a `riscv_cf.call`, which the interpreter cannot run
   (`memcpy_call_fails`, `memset_call_fails`).
-* `unreachable_pattern` rewrites a terminator, which `Pattern.Valid` does not support
-  (`unreachable_unsupported`).
+* `llvm.unreachable` is no longer rewritten by a pattern: the branch lowering of `isel-br-riscv64`
+  fails on it (#2059), so there is nothing to certify.
 
 The remaining Puddle patterns, which their drivers instantiate at parameters computed from the
 matched operation (the split loads and stores, the inline memory intrinsics, `getelementptr` and
@@ -121,8 +121,7 @@ inductive Unproven where
   intrinsic it replaces has semantics (`memcpy_call_fails`, `memset_call_fails`): a target that
   fails is not a refinement. -/
   | callWithoutSemantics
-  /-- The pattern rewrites a terminator, which `Pattern.Supported` excludes
-  (`unreachable_unsupported`). -/
+  /-- The pattern rewrites a terminator, which `Pattern.Supported` excludes. -/
   | terminator
   deriving Repr, DecidableEq
 
@@ -230,13 +229,6 @@ theorem memset_call_fails :
     Riscv_Cf.interpretOp' .call ⟨some ⟨"@memset"⟩⟩ #[] #[.reg ⟨0⟩, .reg ⟨0⟩, .reg ⟨0⟩] #[] = Interp.fail none :=
   ⟨rfl, rfl⟩
 
-/-- `llvm.unreachable` is a terminator, so `Pattern.Valid` does not support its pattern. -/
-theorem unreachable_unsupported : ¬ CTree.Pattern.Supported unreachable_pattern := by
-  unfold unreachable_pattern
-  conv => arg 1; cbv
-  simp only [CTree.Pattern.Supported, List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true]
-  simp [get_effects, is_terminator]
-
 /-! ## Status of the patterns without a validity proof -/
 
 theorem memcpy_call_status : Status Unproven (memIntrinsicCallPattern false) :=
@@ -270,8 +262,6 @@ theorem gmir_anyext_valid_of_narrow (narrow : AnyextRoundTrip) :
   exact narrow _ _ _
 
 theorem gmir_anyext_status : Status Unproven gmirAnyext_pattern := .unproven .wideOperand
-
-theorem unreachable_status : Status Unproven unreachable_pattern := .unproven .terminator
 
 /-! ## The remaining rewrites
 
@@ -319,11 +309,14 @@ theorem formal_argument_valid : Puddle.CTree.Pattern.Valid lowerFormalArgument_p
     | (exfalso; omega)
     | exact toInt_trunc_toInt _ _ _
 
--- /-- The branch lowering of `isel-br-riscv64` rewrites terminators and block arguments, which no
--- local rewrite statement covers, so its obligation is that every function of the module is
--- refined by its lowering: the casts to registers before each branch and back at each block
--- argument are the identity on the values that reach the block, and a fused compare-and-branch
--- tests what the `g_icmp` it replaces computed. -/
+/- The branch lowering of `isel-br-riscv64` rewrites terminators and block arguments, which no
+local rewrite statement covers, so its obligation is that every function of the module is
+refined by its lowering: the casts to registers before each branch and back at each block
+argument are the identity on the values that reach the block, and a fused compare-and-branch
+tests what the `g_icmp` it replaces computed. #2059 proves this at the module level, under the
+hypotheses that the module verifies, that its branches are lowerable and that every opcode is
+proved monotone: `convertModule_isModuleRefinedBy` and `ISelBrPass.run_strict_isModuleRefinedBy` in
+`Veir.Passes.InstructionSelection.Branches.Pass`. -/
 -- theorem convertModule_refines {ctx ctx' : WfIRContext OpCode} (h : convertModule ctx = .ok ctx')
 --     (op : OperationPtr) (opIn : op.InBounds ctx.raw) (opIn' : op.InBounds ctx'.raw)
 --     (hfunc : (FunctionOp.of? op ctx.raw).isSome) :

@@ -2,6 +2,7 @@ module
 
 public import Veir.Interpreter.CTreeOpcodeLemmas
 public import Veir.Interpreter.Lemmas
+import Veir.Dialects.ResultsConform
 import all Veir.Interpreter.CTree
 import all Veir.Interpreter.CTreeInterpreter
 import all Veir.Interpreter.Basic

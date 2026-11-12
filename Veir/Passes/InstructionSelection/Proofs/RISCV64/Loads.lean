@@ -186,8 +186,8 @@ theorem lowerLoad_gepConst_lbu_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 1 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -242,8 +242,8 @@ theorem lowerLoad_gepConst_lh_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 2 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -298,8 +298,8 @@ theorem lowerLoad_gepConst_lw_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 4 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -354,8 +354,8 @@ theorem lowerLoad_gepConst_ld_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 8 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -374,8 +374,8 @@ theorem lowerLoad_gepConst_ld_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_pointer_loadByte memory addr pointer value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -429,8 +429,8 @@ theorem lowerLoad_gepIndex_lbu_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 1 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -486,8 +486,8 @@ theorem lowerLoad_gepIndex_lh_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 2 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -544,8 +544,8 @@ theorem lowerLoad_gepIndex_lw_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 4 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -601,8 +601,8 @@ theorem lowerLoad_gepIndex_ld_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_integer_loadByte memory addr sign 8 (by simp) value hl
         have heffective : riscvEffectiveAddr reg.val
@@ -621,8 +621,8 @@ theorem lowerLoad_gepIndex_ld_valid :
           simp [ctree_semantics]
         rename_i value
         intro reg hreg
-        simp only [Data.LLVM.Ptr.toInt] at hreg
-        simp only [Data.LLVM.Int.val.injEq] at hreg
+        try simp only [Data.LLVM.Ptr.toInt] at hreg
+        try simp only [Data.LLVM.Int.val.injEq] at hreg
         have hr := hreg
         obtain ⟨bits, hload, href⟩ := llvmLoad_pointer_loadByte memory addr pointer value hl
         have heffective : riscvEffectiveAddr reg.val
