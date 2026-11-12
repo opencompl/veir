@@ -56,10 +56,10 @@ theorem gmirSlli_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
-  subst value
+  obtain ⟨rfl, rfl⟩ := heval
   simp [ctree_semantics, RuntimeValue.isRefinedBy]
   simp only [mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 63)) = true := by
@@ -75,10 +75,10 @@ theorem gmirSrli_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
-  subst value
+  obtain ⟨rfl, rfl⟩ := heval
   simp [ctree_semantics, RuntimeValue.isRefinedBy]
   simp only [mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 63)) = true := by
@@ -94,10 +94,10 @@ theorem gmirSrai_pattern_valid :
   simp only [lowerBinaryImm, matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s a ⟨c⟩ _hconstant value heval p _hverified hlegal hrange mem
+  intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval p _hverified hlegal hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
-  subst value
+  obtain ⟨rfl, rfl⟩ := heval
   simp [ctree_semantics, RuntimeValue.isRefinedBy]
   simp only [mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 63)) = true := by
@@ -113,10 +113,10 @@ theorem gmirRiscvSlliw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
+  intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
-  subst value
+  obtain ⟨rfl, rfl⟩ := heval
   simp [ctree_semantics, RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 31)) = true := by
     simpa only [BitVec.toInt_ofInt] using hrange
@@ -132,10 +132,10 @@ theorem gmirRiscvSrliw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
+  intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
-  subst value
+  obtain ⟨rfl, rfl⟩ := heval
   simp [ctree_semantics, RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 31)) = true := by
     simpa only [BitVec.toInt_ofInt] using hrange
@@ -151,10 +151,10 @@ theorem gmirRiscvSraiw_pattern_valid :
   simp only [lowerBinaryImm, createRegOp]
   simpPuddleValid
   simp [ctree_semantics, GMIR_RISCV.base]
-  intro s a ⟨c⟩ _hconstant value heval props _hverified hrange mem
+  intro s a ⟨c⟩ _hconstant value mem₀ mem₁ heval props _hverified hrange mem
   simp only [←Attribute.integerType_eq_of] at heval
   simp at heval
-  subst value
+  obtain ⟨rfl, rfl⟩ := heval
   simp [ctree_semantics, RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 31)) = true := by
     simpa only [BitVec.toInt_ofInt] using hrange
@@ -170,11 +170,11 @@ theorem gmirSlliuw_pattern_valid :
   simp only [matchLegal, createRegOp]
   simpPuddleValid
   simp [ctree_semantics]
-  intro s t a p _hzext value heval ⟨c⟩ hrange _hconstant other hc q _hverified hlegal mem
+  intro s t a p _hzext value mem₀ mem₁ heval ⟨c⟩ hrange _hconstant other mem₂ mem₃ hc q _hverified hlegal mem
   simp only [←Attribute.integerType_eq_of] at heval hc
   simp at heval hc
-  subst value
-  subst other
+  obtain ⟨rfl, rfl⟩ := heval
+  obtain ⟨rfl, rfl⟩ := hc
   simp [ctree_semantics, RuntimeValue.isRefinedBy, mkRISCVImm, RISCVImmediateProperties.immField]
   have hr : (decide (0 ≤ (BitVec.ofInt 64 c.value).toInt) && decide ((BitVec.ofInt 64 c.value).toInt ≤ 31)) = true := by
     simpa only [BitVec.toInt_ofInt] using hrange
