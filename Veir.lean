@@ -41,6 +41,7 @@ import Veir.Passes.Pipeline.RISCV
 import Veir.Passes.InstructionSelection.Proofs.I32
 import Veir.Passes.InstructionSelection.Validity
 import Veir.Passes.InstructionSelection.Proofs.RISCV64
+import Veir.Passes.InstructionSelection.Proofs.RISCV64.Strict
 
 import Veir.Dialects.LLVM.Lemmas
 import Veir.Dialects.RISCV_Cf.Lemmas

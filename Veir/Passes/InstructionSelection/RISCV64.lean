@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+public import Veir.Passes.StrictDriver
 import Veir.DataLayout.RISCV64
 import Veir.IR.SymbolRef
 import Veir.Passes.Matching.GMIR.Basic
@@ -424,10 +425,11 @@ def lowerLoad (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   would do; like LLVM (`LdPat<extloadi8, LBU>`), take `lbu`, whose result `riscv-combine`
   can then use for a zero-extension without a mask.
 -/
-def load : Array (Puddle.CompiledPattern OpCode) :=
+def loadPatterns : Array (Pattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw,
-      lowerLoad mode 8 .ld].map (·.compile)
+    #[lowerLoad mode 1 .lbu, lowerLoad mode 2 .lh, lowerLoad mode 4 .lw, lowerLoad mode 8 .ld]
+
+def load : Array (Puddle.CompiledPattern OpCode) := loadPatterns.map (·.compile)
 
 /--
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8), for a
@@ -467,10 +469,11 @@ def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8).
   The patterns folding a constant `getelementptr` offset into the immediate come first.
 -/
-def store : Array (Puddle.CompiledPattern OpCode) :=
+def storePatterns : Array (Pattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
-    #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw,
-      lowerStore mode 8 .sd].map (·.compile)
+    #[lowerStore mode 1 .sb, lowerStore mode 2 .sh, lowerStore mode 4 .sw, lowerStore mode 8 .sd]
+
+def store : Array (Puddle.CompiledPattern OpCode) := storePatterns.map (·.compile)
 
 /-- How the constant offset of a `getelementptr` is added to its address register. -/
 inductive GEPOffset where
@@ -1200,10 +1203,12 @@ def gmirLoad_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
   The `gmirLoad_pattern`s. A widened `g_load` is an any-extending load, which LLVM selects as `lbu`,
   `lh` and `lw` (`LdPat<extloadi8, LBU>`, `LdPat<extloadi16, LH>`, `LdPat<extloadi32, LW, i64>`).
 -/
-def gmirLoad : Array (Puddle.CompiledPattern OpCode) :=
+def gmirLoadPatterns : Array (Pattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
     #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
-      gmirLoad_pattern mode 8 .ld].map (·.compile)
+      gmirLoad_pattern mode 8 .ld]
+
+def gmirLoad : Array (Puddle.CompiledPattern OpCode) := gmirLoadPatterns.map (·.compile)
 
 /-! ## Zicond branchless `g_select` lowering
 
@@ -1322,15 +1327,20 @@ def gmirSelectZeroOfSetcc_pattern (zeroFalse : Bool) (pred : Data.LLVM.IntPred) 
 
 /-- The zero-arm `gmir.g_select` patterns on an equality `gmir.g_icmp` (see
     `gmirSelectZeroOfSetcc_pattern`), the zero-`rhs` ones first. -/
-def gmirSelectZeroOfSetcc : Array (Puddle.CompiledPattern OpCode) :=
+def gmirSelectZeroOfSetccPatterns : Array (Pattern OpCode) :=
   #[true, false].flatMap fun zeroRhs =>
     #[true, false].flatMap fun zeroFalse =>
       #[Data.LLVM.IntPred.ne, .eq].map fun pred =>
-        (gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs).compile
+        gmirSelectZeroOfSetcc_pattern zeroFalse pred zeroRhs
+
+def gmirSelectZeroOfSetcc : Array (Puddle.CompiledPattern OpCode) :=
+  gmirSelectZeroOfSetccPatterns.map (·.compile)
 
 /-- The zero-arm `gmir.g_select` patterns (see `gmirSelectZero_pattern`). -/
-def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) :=
-  #[true, false].map (gmirSelectZero_pattern · |>.compile)
+def gmirSelectZeroPatterns : Array (Pattern OpCode) :=
+  #[true, false].map gmirSelectZero_pattern
+
+def gmirSelectZero : Array (Puddle.CompiledPattern OpCode) := gmirSelectZeroPatterns.map (·.compile)
 
 /--
   General branchless select:
@@ -1830,12 +1840,13 @@ def gmirSlliuw_pattern : Pattern OpCode :=
     (fun castBackOp => castBackOp)
 
 /-- The composed patterns, in the order they are tried. -/
-def gmirComposed : Array (Puddle.CompiledPattern OpCode) :=
+def gmirComposedPatterns : Array (Pattern OpCode) :=
   let binopNot := #[false, true].flatMap fun notLhs =>
     #[gmirBinopNot_pattern .g_and .andn () notLhs, gmirBinopNot_pattern .g_or .orn () notLhs,
       gmirBinopNot_pattern .g_xor .xnor () notLhs]
-  (binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++
-    #[gmirBexti_pattern, gmirSlliuw_pattern]).map (·.compile)
+  binopNot ++ (List.range 8).toArray.map gmirOrcb_pattern ++ #[gmirBexti_pattern, gmirSlliuw_pattern]
+
+def gmirComposed : Array (Puddle.CompiledPattern OpCode) := gmirComposedPatterns.map (·.compile)
 
 /-- `gmir.g_mul` (`i64`) -> `riscv.mul`. -/
 def gmirMul_pattern : Pattern OpCode :=
@@ -2136,12 +2147,14 @@ def gmirIcmp_pattern (pred : Data.LLVM.IntPred) (zeroRhs : Bool) : Pattern OpCod
   `gmir.g_icmp` -> riscv comparison sequence. The `eq`/`ne`-against-zero
   peepholes come first so they take priority over the generic arms.
 -/
-def gmirIcmp : Array (Puddle.CompiledPattern OpCode) :=
+def gmirIcmpPatterns : Array (Pattern OpCode) :=
   let preds : Array Data.LLVM.IntPred :=
     #[.eq, .ne, .slt, .sgt, .ult, .ugt, .sge, .sle, .uge, .ule]
   let peepholes := #[Data.LLVM.IntPred.eq, .ne].map (gmirIcmp_pattern · true)
   let generic := preds.map (gmirIcmp_pattern · false)
-  (peepholes ++ generic).map (·.compile)
+  peepholes ++ generic
+
+def gmirIcmp : Array (Puddle.CompiledPattern OpCode) := gmirIcmpPatterns.map (·.compile)
 
 /--
   The immediate of the `riscv.slti`/`riscv.sltiu` that `gmir.g_icmp pred x, c` (`i64`) is lowered
@@ -2200,13 +2213,71 @@ def gmirSlti_pattern (pred : Data.LLVM.IntPred) : Pattern OpCode :=
     (fun castBackOp => castBackOp)
 
 /-- The `slti`/`sltiu` selections of `gmir.g_icmp` (see `gmirSlti_pattern`). -/
-def gmirSlti : Array (Puddle.CompiledPattern OpCode) :=
-  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map (gmirSlti_pattern · |>.compile)
+def gmirSltiPatterns : Array (Pattern OpCode) :=
+  #[Data.LLVM.IntPred.slt, .ult, .sge, .uge, .sle, .ule].map gmirSlti_pattern
+
+def gmirSlti : Array (Puddle.CompiledPattern OpCode) := gmirSltiPatterns.map (·.compile)
+
+/-! # Strict pass
+
+The strict pass runs, through the module-filtered driver, exactly the patterns of the three
+selection loops that are proved to refine the module: everything except the memory-intrinsic
+lowerings (the libcall fallback has no semantics, the inline expansion no proof yet), the split
+loads and stores and the general `getelementptr` lowering, whose address lemmas are not written.
+An input that needs one of those keeps the operation unselected. -/
+
+/-- The composed loop of the strict pass. -/
+public def iselComposedStrict : Array (Pattern OpCode) := gmirComposedPatterns
+
+/-- The early loop of the strict pass. -/
+public def iselEarlyStrict : Array (Pattern OpCode) :=
+  #[lowerLifetime .intr__lifetime__start, lowerLifetime .intr__lifetime__end] ++
+  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ gmirSelectZeroOfSetccPatterns ++
+  gmirSelectZeroPatterns ++ #[
+    lowerFshConst true 64, lowerFshConst true 32, lowerFshConst false 64, lowerFshConst false 32,
+    lowerFshConst true 32 true, lowerFshConst false 32 true,
+    gmirAddi_pattern, gmirAndi_pattern, gmirOri_pattern, gmirXori_pattern, gmirSlli_pattern,
+    gmirSrli_pattern, gmirSrai_pattern,
+    gmirRiscvAddiw_pattern, gmirRiscvSlliw_pattern, gmirRiscvSrliw_pattern, gmirRiscvSraiw_pattern,
+    gmirCpopw_pattern, gmirBseti_pattern, gmirBinvi_pattern, gmirBclri_pattern] ++
+  gmirSltiPatterns
+
+/-- The main loop of the strict pass. -/
+public def iselMainStrict : Array (Pattern OpCode) :=
+  #[gmirSelect_pattern, constant_pattern, addressof_pattern,
+    sext32_pattern, sext16_pattern, sextInRegExt_pattern 8 .sextb (),
+    sextInRegExt_pattern 16 .sexth (), sextInRegExt_pattern 32 .sextw (), sextInRegShift_pattern,
+    zext32_pattern, zext16_pattern, trunc_pattern, bitcast_pattern] ++
+  loadPatterns ++ gmirLoadPatterns ++ storePatterns ++ #[
+    fshl64_pattern, fshl32_pattern, fshr64_pattern, fshr32_pattern, lowerFshlGeneral 64,
+    lowerFshlGeneral 32, lowerFshrGeneral 64, lowerFshrGeneral 32,
+    gmirPoison_pattern, zeroConst_pattern, freeze_pattern,
+    gmirAdd_pattern, gmirSub_pattern, gmirTrunc_pattern, gmirAnyextOfReg_pattern,
+    gmirAnyext_pattern, gmirShl_pattern, gmirLshr_pattern, gmirAshr_pattern,
+    gmirAnd_pattern, gmirOr_pattern, gmirXor_pattern,
+    gmirMul_pattern, gmirSdiv_pattern, gmirUdiv_pattern, gmirSrem_pattern, gmirUrem_pattern,
+    gmirRiscvAddw_pattern, gmirRiscvSubw_pattern, gmirRiscvMulw_pattern,
+    gmirRiscvDivw_pattern, gmirRiscvDivuw_pattern, gmirRiscvRemuw_pattern, gmirRiscvSllw_pattern,
+    gmirRiscvSrlw_pattern, gmirRiscvSraw_pattern, gmirRiscvClzw_pattern, gmirRiscvCtzw_pattern,
+    gmirConstant_pattern,
+    gmirCtlz_pattern, gmirCttz_pattern, gmirCtpop_pattern, gmirBswap_pattern, gmirBrev8_pattern,
+    gmirBitreverse_pattern,
+    gmirSmax_pattern, gmirSmin_pattern, gmirUmax_pattern, gmirUmin_pattern] ++
+  gmirIcmpPatterns
+
+/-- The strict pass: the three loops over the proved patterns, through the module-filtered
+driver. Its soundness is `ISelPass.runStrict_sound`. -/
+public def ISelPass.runStrict : PurePass :=
+  strictFunctionsPasses "isel-riscv64" [
+    RewritePattern.GreedyRewritePattern (iselComposedStrict.map fun rule => rule.compile.run),
+    RewritePattern.GreedyRewritePattern (iselEarlyStrict.map fun rule => rule.compile.run),
+    RewritePattern.GreedyRewritePattern (iselMainStrict.map fun rule => rule.compile.run)]
 
 /-! # Pass implementation -/
 
-def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
-    ExceptT String IO (WfIRContext OpCode) := do
+public def ISelPass.impl (strict : Bool) (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  if strict then ExceptT.mk (pure (ISelPass.runStrict ctx op)) else do
   /- Composed loop: select expressions of several gMIR operations into one instruction, before
      the later loops select their inner operations. -/
   let composed := RewritePattern.GreedyRewritePattern <| gmirComposed.map (·.run)
@@ -2256,4 +2327,7 @@ public def IselRISCV64 : Pass OpCode :=
   { name := "isel-riscv64"
     description :=
       "Lower LLVM IR to RISCV 64 assembly instruction selection pass."
-    run := fun _ => ISelPass.impl }
+    options := .ofList [
+      ("strict", { description := "Only apply the selections proved to refine the module.",
+                   defaultValue := false })]
+    run := fun options => ISelPass.impl ((options.get? "strict").getD false) }

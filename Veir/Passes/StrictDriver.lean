@@ -62,6 +62,12 @@ def applyPhasesStrict (pass : String) (phases : List (RewritePattern OpCode))
     (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) : Except String (WfIRContext OpCode) :=
   phases.foldlM (fun ctx pattern => applyInContextStrict pass pattern ctx moduleOp) ctx
 
+/-- Apply the patterns in order, each to the functions of the module. -/
+@[expose]
+def applyFunctionPhasesStrict (pass : String) (phases : List (RewritePattern OpCode))
+    (ctx : WfIRContext OpCode) (moduleOp : OperationPtr) : Except String (WfIRContext OpCode) :=
+  phases.foldlM (fun ctx pattern => applyToFunctionsStrict pass pattern ctx moduleOp) ctx
+
 /-- A pass that checks its input and applies a pattern to the functions. -/
 @[expose]
 def strictFunctionsPass (pass : String) (pattern : RewritePattern OpCode)
@@ -77,6 +83,13 @@ def strictContextPass (pass : String) (pattern : RewritePattern OpCode)
   fun ctx moduleOp => do
     checkModuleRoot pass ctx moduleOp
     applyInContextStrict pass pattern ctx moduleOp maxRounds
+
+/-- A pass that checks its input and applies the patterns in order, each to the functions. -/
+@[expose]
+def strictFunctionsPasses (pass : String) (phases : List (RewritePattern OpCode)) : PurePass :=
+  fun ctx moduleOp => do
+    checkModuleRoot pass ctx moduleOp
+    applyFunctionPhasesStrict pass phases ctx moduleOp
 
 /-- A pass that checks its input and applies the patterns in order, each everywhere. -/
 @[expose]

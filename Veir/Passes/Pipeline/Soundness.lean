@@ -140,6 +140,29 @@ theorem applyPhasesStrict_moduleRoot {pass : String} {phases : List (RewritePatt
         ih (fun pattern member => valid pattern (List.mem_cons_of_mem _ member)) rootMiddle run
       exact ⟨OperationPtr.isModuleRefinedByCTree_trans refines refines', root'⟩
 
+theorem applyFunctionPhasesStrict_moduleRoot {pass : String} {phases : List (RewritePattern OpCode)}
+    (valid : ∀ pattern ∈ phases, RewritePattern.PointwiseValid pattern)
+    {ctx ctx' : WfIRContext OpCode} {moduleOp : OperationPtr} (root : ModuleRoot ctx moduleOp)
+    (run : applyFunctionPhasesStrict pass phases ctx moduleOp = .ok ctx') :
+    moduleOp.isModuleRefinedByCTree ctx moduleOp ctx' ∧ ModuleRoot ctx' moduleOp := by
+  induction phases generalizing ctx with
+  | nil =>
+    cases run
+    exact ⟨OperationPtr.isModuleRefinedByCTree_refl root.verified moduleOp, root⟩
+  | cons pattern phases ih =>
+    change (applyToFunctionsStrict pass pattern ctx moduleOp >>= fun ctx =>
+      applyFunctionPhasesStrict pass phases ctx moduleOp) = .ok ctx' at run
+    cases first : applyToFunctionsStrict pass pattern ctx moduleOp with
+    | error message => simp [first, Bind.bind, Except.bind] at run
+    | ok middle =>
+      rw [first] at run
+      simp only [Bind.bind, Except.bind] at run
+      obtain ⟨refines, rootMiddle⟩ :=
+        applyToFunctionsStrict_moduleRoot (valid pattern (List.mem_cons_self ..)) root first
+      obtain ⟨refines', root'⟩ :=
+        ih (fun pattern member => valid pattern (List.mem_cons_of_mem _ member)) rootMiddle run
+      exact ⟨OperationPtr.isModuleRefinedByCTree_trans refines refines', root'⟩
+
 theorem strictFunctionsPass_sound {pass : String} {pattern : RewritePattern OpCode}
     (valid : RewritePattern.PointwiseValid pattern) {maxRounds : Nat} :
     (strictFunctionsPass pass pattern maxRounds).Sound := by
@@ -164,6 +187,20 @@ theorem strictContextPass_sound {pass : String} {pattern : RewritePattern OpCode
   | ok _ =>
     simp only [checked, Bind.bind, Except.bind] at run
     have result := applyInContextStrict_moduleRoot valid (ModuleRoot.of_checkModuleRoot checked) run
+    exact ⟨result.1, result.2.verified⟩
+
+theorem strictFunctionsPasses_sound {pass : String} {phases : List (RewritePattern OpCode)}
+    (valid : ∀ pattern ∈ phases, RewritePattern.PointwiseValid pattern) :
+    (strictFunctionsPasses pass phases).Sound := by
+  unfold PurePass.Sound
+  intro ctx ctx' moduleOp run
+  unfold strictFunctionsPasses at run
+  cases checked : checkModuleRoot pass ctx moduleOp with
+  | error message => simp [checked, Bind.bind, Except.bind] at run
+  | ok _ =>
+    simp only [checked, Bind.bind, Except.bind] at run
+    have result :=
+      applyFunctionPhasesStrict_moduleRoot valid (ModuleRoot.of_checkModuleRoot checked) run
     exact ⟨result.1, result.2.verified⟩
 
 theorem strictContextPasses_sound {pass : String} {phases : List (RewritePattern OpCode)}
