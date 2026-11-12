@@ -3,6 +3,7 @@ module
 public import Veir.Data.LLVM.Int.Basic
 public import Veir.Data.LLVM.Int.Bitblast
 public import Veir.Data.LLVM.Byte.Basic
+public import Veir.Data.LLVM.Byte.Refinement
 public import Veir.Data.RISCV.Reg.Basic
 
 import all Veir.Data.LLVM.Int.Bitblast
@@ -99,6 +100,28 @@ theorem LLVM.Byte.isRefinedBy_toByte_toReg {w : Nat} (hw : w ≤ 64) (b : Veir.D
     b ⊒ RISCV.Reg.toByte (LLVM.Byte.toReg b) w := by
   grind [LLVM.Byte.toReg, BitVec.setWidth_setWidth_of_le _ hw]
 
+/--
+  Resolving the poison bits of a byte to the bits of a resolved refinement of it
+  gives that resolved refinement: the bits that are not poison already agree.
+-/
+theorem LLVM.Byte.resolve_of_isRefinedBy {w : Nat} {b b' : Veir.Data.LLVM.Byte w} (h : b ⊒ b')
+    (bits : BitVec w) :
+    b.val ||| (b.poison &&& (b'.val ||| (b'.poison &&& bits))) =
+      b'.val ||| (b'.poison &&& bits) := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  have hb := congrArg (·.getLsbD i) b.h
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and] at hb ⊢
+  rcases Veir.Data.LLVM.Byte.getLsbD_of_isRefinedBy h hi with h₁ | ⟨h₂, h₃⟩ <;> simp_all
+
+/-- A refinement of a byte is poison only where the byte is. -/
+theorem LLVM.Byte.poison_eq_allOnes_of_isRefinedBy {w : Nat} {b b' : Veir.Data.LLVM.Byte w}
+    (h : b ⊒ b') (h' : b'.poison = BitVec.allOnes w) : b.poison = BitVec.allOnes w := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rcases Veir.Data.LLVM.Byte.getLsbD_of_isRefinedBy h hi with h₁ | ⟨_, h₃⟩
+  · simp [h₁, hi]
+  · simp [h', hi] at h₃
 /--
   Cast `LLVM.Byte` to `LLVM.Int`. The result is poison only if every bit is poison, otherwise
   poison bits become zero.
