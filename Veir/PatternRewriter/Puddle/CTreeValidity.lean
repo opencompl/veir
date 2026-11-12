@@ -29,15 +29,14 @@ This section defines the predicate `Pattern.Supported` that specify what kind of
 allowed in a Puddle pattern.
 -/
 
-/-- Every non-root match is pure; the root and creation operations may have memory effects.
-No operation should be a terminators. -/
+/-- No operation should be a terminator. Every operation may have memory effects: a pattern only
+reuses the results of the operations it matches below its root, so they keep running as before, and
+`CanInterpretTo` only assumes that they ran in some memory. -/
 @[expose]
 def Pattern.Supported (rule : Pattern OpCode) : Prop :=
   (∀ decl ∈ rule.matcher.decls,
     match decl with
-    | .operation opCode _ _ _ _ handle _ _ =>
-      HasOpInfo.isTerminator opCode = false ∧
-        (handle ≠ rule.matcher.rootHandle → ∀ property, HasOpInfo.getEffects opCode property = .none)
+    | .operation opCode .. => HasOpInfo.isTerminator opCode = false
     | _ => True) ∧
   (∀ decl ∈ rule.creation.decls,
     match decl with
@@ -52,17 +51,20 @@ remains in scope both in the updated assignment and in the final proposition.
 -/
 
 /--
-The predicate of possible outcomes of a pure operation. This definition only makes sense for
-operations that have `PureOrErr` semantics.
+The predicate of possible outcomes of an operation matched below the root: it produced `results`
+when it ran in some memory, which it may have changed. A pure operation produces the same results in
+every memory, but an operation reading memory, such as a load, does not, and the pattern only reuses
+the results of the run it matched. This definition only makes sense for operations that have
+`PureOrErr` semantics.
 -/
 @[expose]
 def CanInterpretTo (opCode : OpCode) (property : propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (results : Interp (Array RuntimeValue)) : Prop :=
-  ∃ memory,
+  ∃ memory memory',
     PureOrErr.CanInterpretTo
       (Veir.CTree.interpretOp' opCode property resultTypes operands #[] memory)
-      (results.map (·, memory, none))
+      (results.map (·, memory', none))
 
 /--
 Collect the constraints of a matching declaration on the given assignment,

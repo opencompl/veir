@@ -33,11 +33,26 @@ public section
 
 /-! ### Helpers -/
 
-/-- Match a `g_constant` of `type` whose properties satisfy `pred`. -/
+/--
+Matches an integer type of at most 64 bits, with the further `matcher` if any. These are the
+integer types the RISC-V 64 legalizer leaves: its legal types are `s64` and the narrower types
+its extensions and truncations read and write. The combines that run after legalization match
+their types with it, so that their local correctness lemmas can be stated for widths up to 64 and
+decided by `pbv_decide`.
+-/
+def matchLegalInt (matcher : IntegerType → Bool := fun _ => true) :
+    MatchProg.Builder (Handle OpCode .type) :=
+  MatchProg.type (Attr := IntegerType) fun type => type.bitwidth ≤ 64 && matcher type
+
+/-- Match a `g_constant` of `type` whose properties satisfy `pred`. The constant's attribute has
+`type`, as the verifier requires, so `pred` reads the constant at the width of its result. -/
 def matchConstant (type : Handle OpCode .type)
     (pred : GMIRConstantProperties → Bool := fun _ => true) :
-    MatchProg.Builder (OpHandle (.gmir .g_constant)) :=
-  MatchProg.operation (.gmir .g_constant) #[] #[type] pred
+    MatchProg.Builder (OpHandle (.gmir .g_constant)) := do
+  let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type] pred
+  MatchProg.matchNative (type, constant.properties) fun (type, props) =>
+    .integerType props.value.type == type.val
+  return constant
 
 /-! ### sub_to_add : (sub x, C) → (add x, -C) -/
 
@@ -51,7 +66,7 @@ https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ec
 def sub_to_add_pattern (info : LegalizerInfo) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let constant ← matchConstant type
       let root ← MatchProg.root (.gmir .g_sub) #[x, constant.res[0]!] #[type]
@@ -88,7 +103,7 @@ def redundant_and_pattern : Pattern OpCode :=
       let operandType ← MatchProg.type (Attr := TypeAttr)
       let lhs ← MatchProg.value operandType
       let rhs ← MatchProg.value operandType
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[type]
       let constant ← matchConstant type (·.value.value % 2 = 1)
       let _ ← MatchProg.root (.gmir .g_and) #[icmp.res[0]!, constant.res[0]!] #[type]
@@ -125,8 +140,8 @@ https://github.com/llvm/llvm-project/blob/bcb89020f2953e414ff525cbf04e9c35be50ec
 def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let c ← MatchProg.value condType
       let t ← matchBoolArm type tArm
       let f ← matchBoolArm type fArm
@@ -136,10 +151,14 @@ def redundant_and_select_pattern (tArm fArm : BoolArm) : Pattern OpCode :=
       return select.res[0]!)
     pure (fun x => x)
 
+/-- The `redundant_and` patterns of a `g_select` of booleans, one for each kind of arm. -/
+def redundantAndSelectPatterns : Array (Pattern OpCode) :=
+  #[(BoolArm.icmp, BoolArm.icmp), (.icmp, .constant), (.constant, .icmp), (.constant, .constant)].map
+    fun (t, f) => redundant_and_select_pattern t f
+
 /-- The `redundant_and` combines of a `g_select` of booleans, one for each kind of arm. -/
 def redundant_and_select : Array (CompiledPattern OpCode) :=
-  #[(BoolArm.icmp, BoolArm.icmp), (.icmp, .constant), (.constant, .icmp), (.constant, .constant)].map
-    fun (t, f) => (redundant_and_select_pattern t f).compile
+  redundantAndSelectPatterns.map (·.compile)
 
 /-! ### identity_combines -/
 
@@ -147,8 +166,8 @@ def redundant_and_select : Array (CompiledPattern OpCode) :=
 def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let rhsType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let rhsType ← matchLegalInt
       let x ← MatchProg.value type
       let zero ← matchConstant rhsType (·.bits = 0)
       let _ ← MatchProg.root (.gmir opcode) #[x, zero.res[0]!] #[type]
@@ -159,7 +178,7 @@ def right_identity_zero_pattern (opcode : GMIR) : Pattern OpCode :=
 def right_identity_one_int_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let one ← matchConstant type (·.bits.toNat = 1)
       let _ ← MatchProg.root (.gmir .g_mul) #[x, one.res[0]!] #[type]
@@ -170,7 +189,7 @@ def right_identity_one_int_pattern : Pattern OpCode :=
 def binop_same_val_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[x, x] #[type]
       return x)
@@ -180,7 +199,7 @@ def binop_same_val_pattern (opcode : GMIR) : Pattern OpCode :=
 def same_val_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let _ ← MatchProg.root (.gmir opcode) #[x, x] #[type]
       return type)
@@ -190,7 +209,7 @@ def same_val_zero_pattern (opcode : GMIR) : Pattern OpCode :=
 def binop_right_to_zero_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
       let _ ← MatchProg.root (.gmir .g_mul) #[x, zero.res[0]!] #[type]
@@ -201,8 +220,8 @@ def binop_right_to_zero_pattern : Pattern OpCode :=
 def binop_left_to_zero_pattern (opcode : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let rhsType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let rhsType ← matchLegalInt
       let x ← MatchProg.value rhsType
       let zero ← matchConstant type (·.bits = 0)
       let _ ← MatchProg.root (.gmir opcode) #[zero.res[0]!, x] #[type]
@@ -213,7 +232,7 @@ def binop_left_to_zero_pattern (opcode : GMIR) : Pattern OpCode :=
 def add_sub_reg_0_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let sub ← MatchProg.operation (.gmir .g_sub) #[y, x] #[type]
@@ -225,7 +244,7 @@ def add_sub_reg_0_pattern : Pattern OpCode :=
 def add_sub_reg_1_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let sub ← MatchProg.operation (.gmir .g_sub) #[y, x] #[type]
@@ -239,7 +258,7 @@ def add_sub_reg_1_pattern : Pattern OpCode :=
 def sub_add_reg_x_add_y_sub_y_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let add ← MatchProg.operation (.gmir .g_add) #[x, y] #[type]
@@ -251,7 +270,7 @@ def sub_add_reg_x_add_y_sub_y_pattern : Pattern OpCode :=
 def sub_add_reg_x_add_y_sub_x_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let add ← MatchProg.operation (.gmir .g_add) #[x, y] #[type]
@@ -263,7 +282,7 @@ def sub_add_reg_x_add_y_sub_x_pattern : Pattern OpCode :=
 def sub_add_reg_negate_pattern (xFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let add ← MatchProg.operation (.gmir .g_add) (if xFirst then #[x, y] else #[y, x]) #[type]
@@ -284,7 +303,7 @@ original ones did not, as in LLVM, which builds them without flags.
 def sub_minus_one_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
       let _ ← MatchProg.root (.gmir .g_sub) #[allOnes.res[0]!, x] #[type]
@@ -296,7 +315,7 @@ def sub_minus_one_pattern : Pattern OpCode :=
 def APlusBMinusCMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -311,7 +330,7 @@ def APlusBMinusCMinusB_pattern : Pattern OpCode :=
 def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -326,7 +345,7 @@ def AMinusBMinusCMinusC_pattern : Pattern OpCode :=
 def ZeroMinusAPlusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
@@ -340,7 +359,7 @@ def ZeroMinusAPlusB_pattern : Pattern OpCode :=
 def APlusZeroMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
@@ -354,7 +373,7 @@ def APlusZeroMinusB_pattern : Pattern OpCode :=
 def AMinusBPlusCMinusA_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -369,7 +388,7 @@ def AMinusBPlusCMinusA_pattern : Pattern OpCode :=
 def AMinusBPlusBMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -385,7 +404,7 @@ def AMinusBPlusBMinusC_pattern : Pattern OpCode :=
 def APlusBMinusAPlusC_pattern (aFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -400,7 +419,7 @@ def APlusBMinusAPlusC_pattern (aFirst : Bool) : Pattern OpCode :=
 def AMinusZeroMinusB_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let zero ← matchConstant type (·.bits = 0)
@@ -414,7 +433,7 @@ def AMinusZeroMinusB_pattern : Pattern OpCode :=
 def AMinusBMinusA_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let sub ← MatchProg.operation (.gmir .g_sub) #[a, b] #[type]
@@ -426,7 +445,7 @@ def AMinusBMinusA_pattern : Pattern OpCode :=
 def AMinusBMinusC_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value type
@@ -442,7 +461,7 @@ def AMinusBMinusC_pattern : Pattern OpCode :=
 def sub_one_from_sub_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let one ← matchConstant type (·.bits.toInt = 1)
@@ -465,7 +484,7 @@ def constant_reassoc_pattern (root inner result : GMIR) (constFirst constOuterLe
     (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let c₁ ← matchConstant type
       let c₂ ← matchConstant type
@@ -507,7 +526,7 @@ def AMinusC1PlusC2_pattern : Pattern OpCode :=
 def sub_of_mul_const_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let x ← MatchProg.value type
       let c ← matchConstant type
@@ -525,7 +544,7 @@ def sub_of_mul_const_pattern : Pattern OpCode :=
 def mul_by_neg_one_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
       let root ← MatchProg.root (.gmir .g_mul) #[x, allOnes.res[0]!] #[type]
@@ -541,7 +560,7 @@ def mul_by_neg_one_pattern : Pattern OpCode :=
 def mulo_by_2_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let two ← matchConstant type (·.bits.toInt = 2)
       let root ← MatchProg.root (.gmir .g_mul) #[x, two.res[0]!] #[type]
@@ -557,8 +576,8 @@ def mulo_by_2_pattern : Pattern OpCode :=
 def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amountType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let amountType ← matchLegalInt
       let a ← MatchProg.value type
       let b ← MatchProg.value type
       let c ← MatchProg.value amountType
@@ -578,7 +597,7 @@ def add_shift_pattern (shiftFirst : Bool) : Pattern OpCode :=
 def NotAPlusNegOne_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
       let add ← MatchProg.operation (.gmir .g_add) #[x, allOnes.res[0]!] #[type]
@@ -602,8 +621,8 @@ example, `(x << z) | (y << z)` can be disjoint while `x | y` is not.
 def hoist_logic_op_pattern (logic hand : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let zType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let zType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let z ← MatchProg.value zType
@@ -622,7 +641,7 @@ def hoist_logic_op_pattern (logic hand : GMIR) : Pattern OpCode :=
 def xor_of_and_with_same_reg_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let and ← MatchProg.operation (.gmir .g_and) #[x, y] #[type]
@@ -639,7 +658,7 @@ def xor_of_and_with_same_reg_pattern : Pattern OpCode :=
 def or_and_xor_to_or_pattern (outer inner : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
@@ -655,7 +674,7 @@ def or_and_xor_to_or_pattern (outer inner : GMIR) : Pattern OpCode :=
 def or_and_xor_to_xor_or_pattern (outer inner : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let allOnes ← matchConstant type (·.bits = -1)
@@ -671,7 +690,7 @@ def or_and_xor_to_xor_or_pattern (outer inner : GMIR) : Pattern OpCode :=
 def combine_or_of_and_pattern (andLeft xFirst : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let and ← MatchProg.operation (.gmir .g_and) (if xFirst then #[x, y] else #[y, x]) #[type]
@@ -687,7 +706,7 @@ def combine_or_of_and_pattern (andLeft xFirst : Bool) : Pattern OpCode :=
 def simplify_neg_minmax_pattern (minmax opposite : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let a ← MatchProg.value type
       let innerZero ← matchConstant type (·.bits = 0)
       let neg ← MatchProg.operation (.gmir .g_sub) #[innerZero.res[0]!, a] #[type]
@@ -710,8 +729,8 @@ def swapIntPred : Data.LLVM.IntPred → Data.LLVM.IntPred
 def canonicalize_icmp_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let resType ← matchLegalInt
       let x ← MatchProg.value type
       let c ← matchConstant type
       let root ← MatchProg.root (.gmir .g_icmp) #[c.res[0]!, x] #[resType]
@@ -729,8 +748,8 @@ def canonicalize_icmp_pattern : Pattern OpCode :=
 def not_cmp_fold_pattern (pred inverse : Data.LLVM.IntPred) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let opType ← MatchProg.type (Attr := IntegerType)
-      let type ← MatchProg.type (Attr := IntegerType)
+      let opType ← matchLegalInt
+      let type ← matchLegalInt
       let x ← MatchProg.value opType
       let y ← MatchProg.value opType
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[x, y] #[type] (·.predicate = pred)
@@ -748,8 +767,8 @@ def redundant_binop_in_equality_pattern (opcode : GMIR) (pred : Data.LLVM.IntPre
     Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let resType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let binop ← MatchProg.operation (.gmir opcode) #[x, y] #[type]
@@ -766,8 +785,8 @@ def redundant_binop_in_equality_pattern (opcode : GMIR) (pred : Data.LLVM.IntPre
 def double_icmp_zero_pattern (logic : GMIR) (pred : Data.LLVM.IntPred) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let opType ← MatchProg.type (Attr := IntegerType)
-      let type ← MatchProg.type (Attr := IntegerType)
+      let opType ← matchLegalInt
+      let type ← matchLegalInt
       let x ← MatchProg.value opType
       let y ← MatchProg.value opType
       let zeroX ← matchConstant opType (·.bits = 0)
@@ -789,8 +808,8 @@ def double_icmp_zero_pattern (logic : GMIR) (pred : Data.LLVM.IntPred) : Pattern
 def trunc_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let wideType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let wideType ← matchLegalInt
       let x ← MatchProg.value type
       let extOp ← MatchProg.operation (.gmir ext) #[x] #[wideType]
       let _ ← MatchProg.root (.gmir .g_trunc) #[extOp.res[0]!] #[type]
@@ -802,9 +821,9 @@ def trunc_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
 def ext_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let midType ← MatchProg.type (Attr := IntegerType)
-      let resType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let midType ← matchLegalInt
+      let resType ← matchLegalInt
       let x ← MatchProg.value type
       let inner ← MatchProg.operation (.gmir ext) #[x] #[midType]
       let _ ← MatchProg.root (.gmir ext) #[inner.res[0]!] #[resType]
@@ -819,8 +838,8 @@ def ext_of_ext_pattern (ext : GMIR) : Pattern OpCode :=
 def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let amountType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let amountType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value amountType
       let inner ← MatchProg.operation (.gmir .g_bitreverse) #[x] #[type]
@@ -831,7 +850,8 @@ def bitreverse_shift_pattern (shift opposite : GMIR) : Pattern OpCode :=
     (fun op => op)
 
 /-- Match the funnel shift `fsh x, y, amt` whose amount `amt` is a `g_constant`, returning `x`, `y`,
-    the amount's type and properties, and the result type. -/
+    the amount's type and properties, and the result type. The result has the type of `x`, as in
+    LLVM: the funnel shift takes its amount modulo that width. -/
 def matchFunnelShiftConstAmt (fsh : GMIR) :
     MatchProg.Builder (Handle OpCode .value × Handle OpCode .value ×
       Handle OpCode .type × Handle OpCode (.prop (.gmir .g_constant)) ×
@@ -842,9 +862,8 @@ def matchFunnelShiftConstAmt (fsh : GMIR) :
   let y ← MatchProg.value yType
   let amtType ← MatchProg.type (Attr := TypeAttr)
   let amt ← matchConstant amtType
-  let resultType ← MatchProg.type (Attr := TypeAttr)
-  let _ ← MatchProg.root (.gmir fsh) #[x, y, amt.res[0]!] #[resultType]
-  return (x, y, amtType, amt.properties, resultType)
+  let _ ← MatchProg.root (.gmir fsh) #[x, y, amt.res[0]!] #[xType]
+  return (x, y, amtType, amt.properties, xType)
 
 /-! ### funnel_shift_{right,left}_zero :  fshr x, y, 0 → y ,  fshl x, y, 0 → x -/
 
@@ -1026,7 +1045,7 @@ def sdiv_by_pow2_pattern (negative : Bool) : Pattern OpCode :=
 def mul_to_shl_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let c ← matchConstant type (·.log2?.isSome)
       let root ← MatchProg.root (.gmir .g_mul) #[x, c.res[0]!] #[type]
@@ -1042,7 +1061,7 @@ def mul_to_shl_pattern : Pattern OpCode :=
 def urem_pow2_to_mask_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let x ← MatchProg.value type
       let c ← matchConstant type (·.log2?.isSome)
       let _ ← MatchProg.root (.gmir .g_urem) #[x, c.res[0]!] #[type]
@@ -1058,7 +1077,7 @@ def urem_pow2_to_mask_pattern : Pattern OpCode :=
 def constant_fold_binop_pattern (opcode : GMIR) (fold : Int → Int → Int) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
       let c₁ ← matchConstant type
       let c₂ ← matchConstant type
       let _ ← MatchProg.root (.gmir opcode) #[c₁.res[0]!, c₂.res[0]!] #[type]
@@ -1080,8 +1099,8 @@ the same way, so its `tryFoldSelectOfConstants` runs before legalization, in
 def select_same_val_pattern : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let c ← MatchProg.value condType
       let x ← MatchProg.value type
       let _ ← MatchProg.root (.gmir .g_select) #[c, x, x] #[type]
@@ -1093,8 +1112,8 @@ def select_same_val_pattern : Pattern OpCode :=
 def select_constant_cmp_pattern (nonzero : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let c ← matchConstant condType fun c => (c.bits != 0) == nonzero
@@ -1107,8 +1126,8 @@ def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) 
     Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let condType ← matchLegalInt
       let x ← MatchProg.value type
       let y ← MatchProg.value type
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[x, y] #[condType] (·.predicate = pred)
@@ -1125,9 +1144,9 @@ def select_to_iminmax_pattern (info : LegalizerInfo) (pred : Data.LLVM.IntPred) 
 def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
-      let srcType ← MatchProg.type (Attr := IntegerType)
-      let condType ← MatchProg.type (Attr := IntegerType)
+      let type ← matchLegalInt
+      let srcType ← matchLegalInt
+      let condType ← matchLegalInt
       let c ← MatchProg.value condType
       let x ← MatchProg.value srcType
       let y ← MatchProg.value srcType
@@ -1142,15 +1161,17 @@ def select_of_cast_pattern (info : LegalizerInfo) (cast : GMIR) : Pattern OpCode
       CreateProg.operation (.gmir .g_select) #[c, castX.res[0]!, castY.res[0]!] #[type])
     (fun op => op)
 
-/-- The select combines, which take the `LegalizerInfo` of the target. -/
-def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
-  let patterns : Array (Pattern OpCode) :=
+/-- The select patterns, which take the `LegalizerInfo` of the target. -/
+def selectPatterns (info : LegalizerInfo) : Array (Pattern OpCode) :=
   #[select_same_val_pattern, select_constant_cmp_pattern true, select_constant_cmp_pattern false] ++
   #[(Data.LLVM.IntPred.ugt, GMIR.g_umax), (.uge, .g_umax), (.sgt, .g_smax), (.sge, .g_smax),
     (.ult, .g_umin), (.ule, .g_umin), (.slt, .g_smin), (.sle, .g_smin)].map
       (fun (pred, minmax) => select_to_iminmax_pattern info pred minmax) ++
   #[select_of_cast_pattern info .g_zext, select_of_cast_pattern info .g_trunc]
-  patterns.map (·.compile)
+
+/-- The select combines, which take the `LegalizerInfo` of the target. -/
+def selectCombines (info : LegalizerInfo) : Array (CompiledPattern OpCode) :=
+  (selectPatterns info).map (·.compile)
 
 /-! ### match_selects : `tryFoldSelectOfConstants`
 
@@ -1199,62 +1220,94 @@ def createLog2 (type : Handle OpCode .type) (c : Handle OpCode (.prop (.gmir .g_
     CreateProg.Builder CreatedOpHandle :=
   createConstantWith type c fun c => c.ulog2?.get!
 
-/-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
+/-- `c ? 1 : 0` → `zext c` -/
+def select_one_zero_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isOne && f.isZero)
+    fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type]
+
+/-- `c ? -1 : 0` → `sext c` -/
+def select_allOnes_zero_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
+    fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type]
+
+/-- `c ? 0 : 1` → `zext (not c)` -/
+def select_zero_one_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isZero && f.isOne)
+    fun (type, condType, c, _, _, _) => do
+      let notC ← createNot condType c
+      CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
+
+/-- `c ? 0 : -1` → `sext (not c)` -/
+def select_zero_allOnes_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
+    fun (type, condType, c, _, _, _) => do
+      let notC ← createNot condType c
+      CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
+
+/-- `c ? C : C - 1` → `add (zext c), C - 1` -/
+def select_succ_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
+    fun (type, _, c, f, _, _) => do
+      let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+      CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type]
+
+/-- `c ? C : C + 1` → `add (sext c), C + 1` -/
+def select_pred_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
+    fun (type, _, c, f, _, _) => do
+      let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+      CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type]
+
+/-- `c ? 2^k : 0` → `shl (zext c), k` -/
+def select_pow2_zero_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
+    fun (type, _, c, _, t, _) => do
+      let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
+      let k ← createLog2 type t
+      CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type]
+
+/-- `c ? 0 : 2^k` → `shl (zext (not c)), k` -/
+def select_zero_pow2_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
+    fun (type, condType, c, _, _, f) => do
+      let notC ← createNot condType c
+      let ext ← CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
+      let k ← createLog2 type f
+      CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type]
+
+/-- `c ? -1 : C` → `or (sext c), C` -/
+def select_allOnes_const_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun t _ => t.isAllOnes)
+    fun (type, _, c, f, _, _) => do
+      let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
+      CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type]
+
+/-- `c ? C : -1` → `or (sext (not c)), C` -/
+def select_const_allOnes_pattern : Pattern OpCode :=
+  select_of_constants_pattern (fun _ f => f.isAllOnes)
+    fun (type, condType, c, _, t, _) => do
+      let notC ← createNot condType c
+      let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
+      let constant ← createConstantWith type t fun t => t.value.value
+      CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]
+
+/-- The patterns of `tryFoldSelectOfConstants`, in LLVM's order. The patterns overlap: for example,
     `c ? 1 : 0` also has the form `c ? C : C - 1`, and the first match wins. -/
+def selectOfConstantsPatterns : Array (Pattern OpCode) := #[
+  select_one_zero_pattern,
+  select_allOnes_zero_pattern,
+  select_zero_one_pattern,
+  select_zero_allOnes_pattern,
+  select_succ_pattern,
+  select_pred_pattern,
+  select_pow2_zero_pattern,
+  select_zero_pow2_pattern,
+  select_allOnes_const_pattern,
+  select_const_allOnes_pattern]
+
+/-- The combines of `tryFoldSelectOfConstants`, in LLVM's order. -/
 def selectOfConstantsCombines : Array (CompiledPattern OpCode) :=
-  let patterns : Array (Pattern OpCode) := #[
-    -- `c ? 1 : 0` → `zext c`
-    select_of_constants_pattern (fun t f => t.isOne && f.isZero)
-      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_zext) #[c] #[type],
-    -- `c ? -1 : 0` → `sext c`
-    select_of_constants_pattern (fun t f => t.isAllOnes && f.isZero)
-      fun (type, _, c, _, _, _) => CreateProg.operation (.gmir .g_sext) #[c] #[type],
-    -- `c ? 0 : 1` → `zext (not c)`
-    select_of_constants_pattern (fun t f => t.isZero && f.isOne)
-      fun (type, condType, c, _, _, _) => do
-        let notC ← createNot condType c
-        CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type],
-    -- `c ? 0 : -1` → `sext (not c)`
-    select_of_constants_pattern (fun t f => t.isZero && f.isAllOnes)
-      fun (type, condType, c, _, _, _) => do
-        let notC ← createNot condType c
-        CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type],
-    -- `c ? C : C - 1` → `add (zext c), C - 1`
-    select_of_constants_pattern (fun t f => t.isOffsetOf f 1)
-      fun (type, _, c, f, _, _) => do
-        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
-        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
-    -- `c ? C : C + 1` → `add (sext c), C + 1`
-    select_of_constants_pattern (fun t f => t.isOffsetOf f (-1))
-      fun (type, _, c, f, _, _) => do
-        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
-        CreateProg.operation (.gmir .g_add) #[ext.res[0]!, f] #[type],
-    -- `c ? 2^k : 0` → `shl (zext c), k`
-    select_of_constants_pattern (fun t f => t.ulog2?.isSome && f.isZero)
-      fun (type, _, c, _, t, _) => do
-        let ext ← CreateProg.operation (.gmir .g_zext) #[c] #[type]
-        let k ← createLog2 type t
-        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
-    -- `c ? 0 : 2^k` → `shl (zext (not c)), k`
-    select_of_constants_pattern (fun t f => t.isZero && f.ulog2?.isSome)
-      fun (type, condType, c, _, _, f) => do
-        let notC ← createNot condType c
-        let ext ← CreateProg.operation (.gmir .g_zext) #[notC.res[0]!] #[type]
-        let k ← createLog2 type f
-        CreateProg.operation (.gmir .g_shl) #[ext.res[0]!, k.res[0]!] #[type],
-    -- `c ? -1 : C` → `or (sext c), C`
-    select_of_constants_pattern (fun t _ => t.isAllOnes)
-      fun (type, _, c, f, _, _) => do
-        let ext ← CreateProg.operation (.gmir .g_sext) #[c] #[type]
-        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, f] #[type],
-    -- `c ? C : -1` → `or (sext (not c)), C`
-    select_of_constants_pattern (fun _ f => f.isAllOnes)
-      fun (type, condType, c, _, t, _) => do
-        let notC ← createNot condType c
-        let ext ← CreateProg.operation (.gmir .g_sext) #[notC.res[0]!] #[type]
-        let constant ← createConstantWith type t fun t => t.value.value
-        CreateProg.operation (.gmir .g_or) #[ext.res[0]!, constant.res[0]!] #[type]]
-  patterns.map (·.compile)
+  selectOfConstantsPatterns.map (·.compile)
 
 /-! ### Selects of a binary operation on the other arm
 
@@ -1275,11 +1328,12 @@ also runs when it does not.
 -/
 
 /-- `c ? (op x, K) : x` → `op x, (c ? K : 0)`, and with the arms of the `g_select` exchanged when
-    `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. -/
+    `swapped` is set, `c ? x : (op x, K)` → `op x, (c ? 0 : K)`. The values are not `i0`, where a
+    shift by the created `0` is out of range. -/
 def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode :=
   Pattern.Builder
     (do
-      let type ← MatchProg.type (Attr := IntegerType)
+      let type ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
       let condType ← MatchProg.type (Attr := IntegerType) (·.bitwidth = 1)
       let c ← MatchProg.value condType
       let x ← MatchProg.value type
@@ -1295,16 +1349,19 @@ def select_into_binop_pattern (opcode : GMIR) (swapped : Bool) : Pattern OpCode 
       CreateProg.operation (.gmir opcode) #[x, select.res[0]!] #[type])
     (fun op => op)
 
+/-- The patterns of `select_into_binop_pattern`. -/
+def selectIntoBinopPatterns : Array (Pattern OpCode) :=
+  #[GMIR.g_shl, .g_lshr, .g_ashr, .g_sub, .g_add, .g_or, .g_xor].flatMap fun opcode =>
+    #[false, true].map (select_into_binop_pattern opcode ·)
+
 /-- The combines of `select_into_binop_pattern`. -/
 def selectIntoBinopCombines : Array (CompiledPattern OpCode) :=
-  (#[GMIR.g_shl, .g_lshr, .g_ashr, .g_sub, .g_add, .g_or, .g_xor].flatMap fun opcode =>
-    #[false, true].map (select_into_binop_pattern opcode ·)).map (·.compile)
+  selectIntoBinopPatterns.map (·.compile)
 
 /-! ### Combine list -/
 
-/-- The combines above, in the order the combiner tries them. -/
-def combines : Array (CompiledPattern OpCode) :=
-  let patterns : Array (Pattern OpCode) :=
+/-- The patterns above, in the order the combiner tries them. -/
+def combinePatterns : Array (Pattern OpCode) :=
   (#[GMIR.g_shl, .g_lshr, .g_ashr, .g_and].flatMap fun hand =>
       #[GMIR.g_and, .g_or, .g_xor].map (hoist_logic_op_pattern · hand)) ++
   #[sub_add_reg_x_add_y_sub_y_pattern, sub_add_reg_x_add_y_sub_x_pattern,
@@ -1345,17 +1402,27 @@ def combines : Array (CompiledPattern OpCode) :=
     APlusZeroMinusB_pattern, AMinusBPlusCMinusA_pattern, AMinusBPlusBMinusC_pattern,
     APlusBMinusAPlusC_pattern true, APlusBMinusAPlusC_pattern false, AMinusZeroMinusB_pattern,
     AMinusBMinusA_pattern]
-  patterns.map (·.compile)
+
+/-- The combines above, in the order the combiner tries them. -/
+def combines : Array (CompiledPattern OpCode) :=
+  combinePatterns.map (·.compile)
+
+/-- The patterns that run before RISC-V 64 legalization. -/
+def preLegalizerPatterns : Array (Pattern OpCode) :=
+  #[udiv_by_pow2_pattern] ++
+    (#[false, true].flatMap fun negative =>
+      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]) ++
+  selectOfConstantsPatterns ++ selectIntoBinopPatterns ++
+  #[funnel_shift_zero_pattern .g_fshr true, funnel_shift_zero_pattern .g_fshl false,
+    funnel_shift_overshift_pattern .g_fshl, funnel_shift_overshift_pattern .g_fshr,
+    funnel_shift_or_shift_pattern .g_fshl .g_shl true true,
+    funnel_shift_or_shift_pattern .g_fshl .g_shl true false,
+    funnel_shift_or_shift_pattern .g_fshr .g_lshr false true,
+    funnel_shift_or_shift_pattern .g_fshr .g_lshr false false]
 
 /-- The combines that run before RISC-V 64 legalization. -/
 def preLegalizerCombines : Array (CompiledPattern OpCode) :=
-  (#[udiv_by_pow2_pattern] ++
-    #[false, true].flatMap fun negative =>
-      #[sdiv_exact_by_pow2_pattern negative, sdiv_by_pow2_pattern negative]).map (·.compile) ++
-  selectOfConstantsCombines ++ selectIntoBinopCombines ++
-  #[funnel_shift_right_zero, funnel_shift_left_zero, funnel_shift_overshift_l,
-    funnel_shift_overshift_r, funnel_shift_or_shift_to_funnel_shift_left,
-    funnel_shift_or_shift_to_funnel_shift_right]
+  preLegalizerPatterns.map (·.compile)
 
 end
 
