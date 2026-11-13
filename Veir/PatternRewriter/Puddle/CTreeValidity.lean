@@ -52,18 +52,20 @@ remains in scope both in the updated assignment and in the final proposition.
 -/
 
 /--
-The predicate of possible outcomes of a pure operation. This definition only makes sense for
-operations that have `PureOrErr` semantics.
+The predicate of possible outcomes of an operation matched below the root: it produced `results`
+when it ran in some memory, which it may have changed. A pure operation produces the same results in
+every memory, but an operation reading memory, such as a load, does not, and the pattern only reuses
+the results of the run it matched. This definition only makes sense for operations that have
+`PureOrErr` semantics.
 -/
 @[expose]
 def CanInterpretTo (opCode : OpCode) (property : propertiesOf opCode)
     (resultTypes : Array TypeAttr) (operands : Array RuntimeValue)
     (results : Interp (Array RuntimeValue)) : Prop :=
-  ∃ memory,
+  ∃ memory memory',
     PureOrErr.CanInterpretTo
       (Veir.CTree.interpretOp' opCode property resultTypes operands #[] memory)
-      (results.map (·, memory, none))
-
+      (results.map (·, memory', none))
 /--
 Collect the constraints of a matching declaration on the given assignment,
 and call the continuation with the updated assignment.
