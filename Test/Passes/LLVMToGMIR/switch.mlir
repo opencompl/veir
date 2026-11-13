@@ -7,31 +7,33 @@
 // CHECK-NEXT: ^[[DEFAULT]](%{{.*}} : i64):
 // CHECK-NEXT: "llvm.return"
 
-// Each case is tested in source order, at the original width. The two adjacent cases that
-// share a destination still forward their different arguments. The last false edge is default.
+// Cases are tested in signed ascending order, as LLVM's IRTranslator does at -O0, at the
+// original width. The cases that share a destination still forward their different arguments.
+// The last false edge is default.
 // CHECK: "sym_name" = "chain"
 // CHECK: ^{{.*}}(%[[KEY:[a-z0-9_]+]] : i8, %[[A:[a-z0-9_]+]] : i64, %[[B:[a-z0-9_]+]] : i64):
-// CHECK-NEXT: %[[K0:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = 5 : i8}>
+// CHECK-NEXT: %[[K0:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = -1 : i8}>
 // CHECK-NEXT: %[[C0:[a-z0-9_]+]] = "gmir.g_icmp"(%[[KEY]], %[[K0]]) <{"predicate" = 0 : i64}> : (i8, i8) -> i1
-// CHECK-NEXT: "gmir.g_brcond"(%[[C0]], %[[A]], %[[B]]) [^[[CASE:[0-9]+]], ^[[NEXT0:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 2, 0>}>
+// CHECK-NEXT: "gmir.g_brcond"(%[[C0]], %[[A]], %[[A]]) [^[[CASE:[0-9]+]], ^[[NEXT0:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 2, 0>}>
 // CHECK-NEXT: ^[[NEXT0]]():
-// CHECK-NEXT: %[[K1:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = 6 : i8}>
+// CHECK-NEXT: %[[K1:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = 5 : i8}>
 // CHECK-NEXT: %[[C1:[a-z0-9_]+]] = "gmir.g_icmp"(%[[KEY]], %[[K1]]) <{"predicate" = 0 : i64}>
-// CHECK-NEXT: "gmir.g_brcond"(%[[C1]], %[[B]], %[[A]]) [^[[CASE]], ^[[NEXT1:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 2, 0>}>
+// CHECK-NEXT: "gmir.g_brcond"(%[[C1]], %[[A]], %[[B]]) [^[[CASE]], ^[[NEXT1:[0-9]+]]] <{"operandSegmentSizes" = array<i32: 1, 2, 0>}>
 // CHECK-NEXT: ^[[NEXT1]]():
-// CHECK-NEXT: %[[K2:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = -1 : i8}>
+// CHECK-NEXT: %[[K2:[a-z0-9_]+]] = "gmir.g_constant"() <{"value" = 6 : i8}>
 // CHECK-NEXT: %[[C2:[a-z0-9_]+]] = "gmir.g_icmp"(%[[KEY]], %[[K2]]) <{"predicate" = 0 : i64}>
-// CHECK-NEXT: "gmir.g_brcond"(%[[C2]], %[[A]], %[[A]], %[[B]], %[[B]]) [^[[CASE]], ^[[CASE]]] <{"operandSegmentSizes" = array<i32: 1, 2, 2>}>
+// CHECK-NEXT: "gmir.g_brcond"(%[[C2]], %[[B]], %[[A]], %[[B]], %[[B]]) [^[[CASE]], ^[[CASE]]] <{"operandSegmentSizes" = array<i32: 1, 2, 2>}>
 // CHECK-NEXT: ^[[CASE]](%{{.*}} : i64, %{{.*}} : i64):
 
 // A switch in the last block appends its continuation blocks. A wide switch can be translated
-// even when the target legalizer cannot handle its comparisons yet.
+// even when the target legalizer cannot handle its comparisons yet. Case values above the
+// signed maximum are read as negative and sorted first.
 // CHECK: "sym_name" = "last_block"
-// CHECK: "gmir.g_constant"() <{"value" = 18446744073709551616 : i128}>
+// CHECK: "gmir.g_constant"() <{"value" = -1 : i128}>
 // CHECK-NEXT: %{{.*}} = "gmir.g_icmp"({{.*}}) <{"predicate" = 0 : i64}> : (i128, i128) -> i1
 // CHECK-NEXT: "gmir.g_brcond"
 // CHECK-NEXT: ^{{.*}}():
-// CHECK-NEXT: %{{.*}} = "gmir.g_constant"() <{"value" = -1 : i128}>
+// CHECK-NEXT: %{{.*}} = "gmir.g_constant"() <{"value" = 18446744073709551616 : i128}>
 // CHECK-NEXT: %{{.*}} = "gmir.g_icmp"
 // CHECK-NEXT: "gmir.g_brcond"
 
