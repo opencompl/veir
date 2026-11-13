@@ -398,22 +398,23 @@ def load : Array (Puddle.CompiledPattern OpCode) :=
       lowerLoad mode 8 .ld].map (·.compile)
 
 /--
-  llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8), for a
-  `width`-byte store with `riscvOp`. The address is split as in `lowerLoad`.
+  Lower the store `accessOp` to `riscvOp` if `guard` accepts its value type, address type and
+  properties. The address is split as in `lowerLoadOf`.
 -/
-def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+def lowerStoreOf (accessOp : OpCode) (volatile : propertiesOf accessOp → Bool)
+    (guard : Handle OpCode .type → Handle OpCode .type → Handle OpCode (.prop accessOp) →
+      MatchProg.Builder Unit) (mode : AddrMode) (riscvOp : Riscv)
     (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
     Pattern OpCode :=
   Pattern.Builder
     (do
-      /- support `i64`, `i32`, `i16`, `i8` and `!llvm.ptr` (the stored value type) -/
       let valType ← MatchProg.type (Attr := TypeAttr)
-          (fun t => memAccessWidth? t = some width)
       let val ← MatchProg.value valType
       let baseType ← MatchProg.type (Attr := TypeAttr)
       let base ← MatchProg.value baseType
       let (addr, gep?) ← matchAddr mode base
-      let root ← MatchProg.root (.llvm .store) #[val, addr] #[]
+      let root ← MatchProg.root accessOp #[val, addr] #[]
+      guard valType baseType root.properties
       return (val, base, gep?, root.properties))
     (fun (val, base, gep?, storeProps) => do
       let regType ← CreateProg.type (RegisterType.mk none)
@@ -424,12 +425,21 @@ def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
       let valCastOp ← CreateProg.operation (.builtin .unrealized_conversion_cast)
           #[val] #[regType]
       /- The store writes the low `width` bytes of the value register. -/
-      let memProps ←
-        addrMemProps riscvOp h (accessOp := .llvm .store) (·.volatile_) gep? storeProps
+      let memProps ← addrMemProps riscvOp h (accessOp := accessOp) volatile gep? storeProps
       let _ ← CreateProg.operation (.riscv riscvOp)
           #[valCastOp.res[0]!, baseCastOp.res[0]!] #[] memProps
       return ())
     (fun () => ⟨#[]⟩)
+
+/--
+  llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8), for a
+  `width`-byte store with `riscvOp`. The address is split as in `lowerLoad`.
+-/
+def lowerStore (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  lowerStoreOf (.llvm .store) (·.volatile_) (mode := mode) (riscvOp := riscvOp) (h := h)
+    fun valType _ _ => MatchProg.matchNative valType fun type => memAccessWidth? type = some width
 
 /--
   llvm.store -> riscv.sd (i64, ptr) / riscv.sw (i32) / riscv.sh (i16) / riscv.sb (i8).
@@ -1051,6 +1061,25 @@ def gmirLoad : Array (Puddle.CompiledPattern OpCode) :=
   #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
     #[gmirLoad_pattern mode 1 .lbu, gmirLoad_pattern mode 2 .lh, gmirLoad_pattern mode 4 .lw,
       gmirLoad_pattern mode 8 .ld].map (·.compile)
+
+/--
+  gmir.g_store -> riscv.sd / riscv.sw / riscv.sh / riscv.sb, for a legal `width`-byte store.
+  Like `g_store`, `sb`, `sh` and `sw` only write the low `width` bytes of the value.
+-/
+def gmirStore_pattern (mode : AddrMode) (width : Nat) (riscvOp : Riscv)
+    (h : propertiesOf (OpCode.riscv riscvOp) = RISCVMemProperties := by rfl) :
+    Pattern OpCode :=
+  lowerStoreOf (.gmir .g_store) (·.volatile_) (mode := mode) (riscvOp := riscvOp) (h := h)
+    fun valType addrType mmo => do
+      matchLegal .g_store valType mmo (type₁ := addrType)
+      MatchProg.matchNative mmo fun mmo => mmo.size.toNat = 8 * width
+
+/-- The `gmirStore_pattern`s, as LLVM's `StPat<truncstorei8, SB>`, `StPat<truncstorei16, SH>` and
+  `StPat<truncstorei32, SW, i64>`. -/
+def gmirStore : Array (Puddle.CompiledPattern OpCode) :=
+  #[AddrMode.gepIndex, .gepConst, .reg].flatMap fun mode =>
+    #[gmirStore_pattern mode 1 .sb, gmirStore_pattern mode 2 .sh, gmirStore_pattern mode 4 .sw,
+      gmirStore_pattern mode 8 .sd].map (·.compile)
 
 /-! ## Zicond branchless `g_select` lowering
 
@@ -2065,7 +2094,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   let early := RewritePattern.GreedyRewritePattern <|
     #[lifetimeStart.run, lifetimeEnd.run, memIntrinsic, .fromLocalRewrite splitLoad_local,
     .fromLocalRewrite splitStore_local] ++ load.map (·.run) ++ gmirLoad.map (·.run) ++
-    store.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++ gmirSelectZero.map (·.run) ++ #[
+    store.map (·.run) ++ gmirStore.map (·.run) ++ gmirSelectZeroOfSetcc.map (·.run) ++
+    gmirSelectZero.map (·.run) ++ #[
     fshlConst64.run, fshlConst32.run, fshrConst64.run, fshrConst32.run,
     fshlConst32Trunc.run, fshrConst32Trunc.run,
     gmirAddi.run, gmirAndi.run, gmirOri.run, gmirXori.run, gmirSlli.run, gmirSrli.run, gmirSrai.run,
@@ -2082,7 +2112,8 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
     sext32.run, sext16.run, sextInReg8.run, sextInReg16.run, sextInReg32.run, sextInRegShift.run,
     zext32.run, zext16.run, trunc.run,
     bitcast.run] ++
-    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++ #[
+    load.map (·.run) ++ gmirLoad.map (·.run) ++ #[getelementptrGeneral] ++ store.map (·.run) ++
+    gmirStore.map (·.run) ++ #[
     fshl64.run, fshl32.run, fshr64.run, fshr32.run, fshlGeneral64.run, fshlGeneral32.run, fshrGeneral64.run, fshrGeneral32.run,
     gmirPoison.run, zeroConst.run, gmirFreeze.run,
     gmirAdd.run, gmirSub.run, gmirTrunc.run, gmirAnyextOfReg.run, gmirAnyext.run, gmirShl.run, gmirLshr.run, gmirAshr.run,

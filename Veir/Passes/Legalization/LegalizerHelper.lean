@@ -671,6 +671,8 @@ def widenScalar? : GMIR → (typeIdx : TypeGroup) → (width : Nat) →
   | .g_freeze, .type 0, width => widenTypeGroup .g_freeze (.type 0) .g_anyext width
   -- The memory size is kept, so the wide load is any-extended.
   | .g_load, .type 0, width => widenTypeGroup .g_load (.type 0) .g_anyext width
+  -- The store keeps its size, so it only writes the low bits of the wide value.
+  | .g_store, .type 0, width => widenTypeGroup .g_store (.type 0) .g_anyext width
   -- `g_sext_inreg` only reads the low `sz` bits, so any extension is fine.
   | .g_sext_inreg, .type 0, width => widenTypeGroup .g_sext_inreg (.type 0) .g_anyext width
   -- The count fits in the wide result, so the result is just truncated back.
