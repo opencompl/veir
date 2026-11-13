@@ -88,7 +88,6 @@ axiom trans_rel {R₁ R₂ R₃ : Type u} {RS : R₁ → R₂ → Prop} {RT : R�
     Sim RS t u → Sim RT u v →
     Sim (fun x z => ∃ y, RS x y ∧ RT y z) t v
 
-
 axiom iter {I I'} {RRi : I → I' → Prop} {RRo : X → Y → Prop}
     (body : I → CTree E C (I ⊕ X)) (body' : I' → CTree E C (I' ⊕ Y)) i i' :
   RRi i i' →
