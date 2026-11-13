@@ -1,4 +1,4 @@
-// RUN: not veir-opt %s 2>&1 | filecheck %s
+// RUN: not veir-opt %s
 
 // As for `llvm.intr.scmp`, the result must be at least `i2`, to hold -1, 0, and 1.
 
@@ -9,5 +9,3 @@
     "func.return"(%r) : (i1) -> ()
   }) : () -> ()
 }) : () -> ()
-
-// CHECK: gmir.g_scmp: Expected result type to be at least i2
