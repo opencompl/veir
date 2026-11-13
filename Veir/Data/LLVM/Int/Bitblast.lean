@@ -971,4 +971,3 @@ theorem neg_twoPow_sub_eq_intMin {w : Nat} :
 theorem twoPow_sub_one_eq_intMin {w : Nat} :
     LLVM.Int.constant w (2 ^ (w - 1) - 1) = LLVM.Int.constant w ((BitVec.intMax w).toInt) := by
   simp [veir_bv_normalize]
-

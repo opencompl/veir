@@ -3,6 +3,7 @@ module
 public import Veir.Data.PBV.Lemmas
 public import Veir.Data.PBV.Mask
 public meta import Veir.Meta.Tactic.PBVDecide.PBVPushSimp
+public import Veir.ForLean
 
 /-! # Rewriting a parametric expression into a concrete, single-width one.
 
@@ -123,17 +124,21 @@ namespace Veir.Data.PBV
 public section
 
 attribute [pbv_push] signBitOfMask_eq BitVec.setWidth_zero BitVec.ofNat_eq_ofNat
-  BitVec.setWidth_cast BitVec.shiftLeftZeroExtend_eq BitVec.setWidth_and Nat.sub_zero
-  BitVec.extractLsb BitVec.ofInt_natCast BitVec.ofNat_toNat BitVec.umod_eq
-  BitVec.ofInt_toInt
+  BitVec.setWidth_cast BitVec.setWidth_and Nat.sub_zero
+  BitVec.ofInt_natCast BitVec.ofNat_toNat BitVec.umod_eq
+  BitVec.ofInt_toInt BitVec.ofNat_add
+
+attribute [pbv_unfold] BitVec.ofNat_mul BitVec.ofInt_sub'
+  BitVec.ofInt_min_toInt BitVec.ofInt_max_toInt
 
 attribute [pbv_push low] BitVec.setWidth_eq
 
 -- Operations that unfold into supported ones. `x[i]` is rewritten to `x.getLsbD i`, which
--- `getLsbD_eq_setWidth_ushiftRight` pushes.
-attribute [pbv_push] BitVec.abs_eq BitVec.fill_eq BitVec.rotateLeft_def BitVec.rotateRight_def
-  Nat.mod_self
-attribute [pbv_push ←] BitVec.getLsbD_eq_getElem
+-- `getLsbD_eq_setWidth_ushiftRight` pushes. They are applied before reification (`pbv_unfold`),
+-- and again while pushing, for the terms that only appear then.
+attribute [pbv_push, pbv_unfold] BitVec.abs_eq BitVec.fill_eq BitVec.rotateLeft_def
+  BitVec.rotateRight_def Nat.mod_self BitVec.extractLsb BitVec.shiftLeftZeroExtend_eq
+attribute [pbv_push ←, pbv_unfold ←] BitVec.getLsbD_eq_getElem
 
 /-- Introducing `setWidth o` at the root.
 `o` must be the first binder, since it should be bound to the concrete width
@@ -584,7 +589,7 @@ The signed overflows are unfolded into `msb`s, which `msb_eq_and_signBitOfMask_n
 Otherwise `bv_decide` would unfold them only after pushing, leaving `msb`s at the parametric width.
 -/
 
-attribute [pbv_push] BitVec.saddOverflow_eq BitVec.ssubOverflow_eq
+attribute [pbv_push, pbv_unfold] BitVec.saddOverflow_eq BitVec.ssubOverflow_eq
 
 /-- A mask is non-zero exactly when its width is. -/
 theorem maskOfWidth_ne_zero_iff {o w : Nat} (h : w ≤ o) : maskOfWidth o w ≠ 0#o ↔ 0 < w := by
@@ -705,59 +710,6 @@ theorem ofNat_nat_sub_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o) 
   rw [hshift]
   exact (cpop_eq_width_of_maskOfWidth (by omega) rfl).symm
 
-/-- The difference of two width variables is the difference of their masks' popcounts.
-This takes priority over `ofNat_nat_sub_of_maskOfWidth`, which would shift by the `Nat` `w`. -/
-@[pbv_push high]
-theorem ofNat_sub_of_maskOfWidth {o t w : Nat} {mt mw : BitVec o} (ht : t ≤ o) (hw : w ≤ o)
-    (hmt : mt = maskOfWidth o t) (hmw : mw = maskOfWidth o w) :
-    BitVec.ofNat o (t - w) = bif mw.ule mt then mt.cpop - mw.cpop else 0#o := by
-  rw [cpop_eq_width_of_maskOfWidth ht hmt, cpop_eq_width_of_maskOfWidth hw hmw]
-  have ho : o < 2 ^ o := Nat.lt_two_pow_self
-  have hle : mw.ule mt = decide (w ≤ t) := by
-    subst hmt hmw
-    rw [BitVec.ule_eq_decide, toNat_maskOfWidth hw, toNat_maskOfWidth ht]
-    have := Nat.one_le_two_pow (n := w); have := Nat.one_le_two_pow (n := t)
-    simp only [decide_eq_decide]
-    rw [Nat.sub_le_sub_iff_right (by omega), Nat.pow_le_pow_iff_right (by decide)]
-  rw [hle]
-  by_cases h : w ≤ t
-  · simp only [h, decide_true, Bool.cond_true]
-    apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_sub_of_le (by rw [BitVec.le_def]; simp [Nat.mod_eq_of_lt (by omega : w < 2 ^ o), Nat.mod_eq_of_lt (by omega : t < 2 ^ o)]; omega)]
-    simp [Nat.mod_eq_of_lt (by omega : w < 2 ^ o), Nat.mod_eq_of_lt (by omega : t < 2 ^ o), Nat.mod_eq_of_lt (by omega : t - w < 2 ^ o)]
-  · simp only [h, decide_false, Bool.cond_false]
-    rw [Nat.sub_eq_zero_of_le (by omega)]
-
-/-- The mask of a difference of two width variables, for widths that have no mask variable of their
-own. Like `ofNat_sub_of_maskOfWidth`, it takes priority over the `Nat` shift of
-`maskOfWidth_sub_eq_ushiftRight`. -/
-@[pbv_push high]
-theorem maskOfWidth_sub_eq_ushiftRight_cpop {o t n : Nat} {mt mn : BitVec o} (ht : t ≤ o)
-    (hn : n ≤ o) (hmt : mt = maskOfWidth o t) (hmn : mn = maskOfWidth o n) :
-    maskOfWidth o (t - n) = mt >>> mn.cpop := by
-  rw [BitVec.ushiftRight_eq', cpop_eq_width_of_maskOfWidth hn hmn, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt hn Nat.lt_two_pow_self)]
-  subst hmt
-  ext i hi
-  simp only [BitVec.getElem_ushiftRight, getLsbD_maskOfWidth, getElem_maskOfWidth]
-  grind
-
-/-- The mask of a width variable minus a literal. -/
-@[pbv_push]
-theorem maskOfWidth_sub_eq_ushiftRight {o t n : Nat} {mt : BitVec o} (ht : t ≤ o)
-    (hmt : mt = maskOfWidth o t) :
-    maskOfWidth o (t - n) = mt >>> n := by
-  subst hmt
-  ext i hi
-  simp only [BitVec.getElem_ushiftRight, getLsbD_maskOfWidth, getElem_maskOfWidth]
-  grind
-
-/-! ### `Nat` shift amounts
-
-Shifts by a `Nat` become shifts by `BitVec.ofNatClamp o n`; these push the amounts that
-mention width variables. The `% w` ones come from `rotateLeft`/`rotateRight`.
--/
-
 /-- A `Nat` shift by a width variable minus a constant. -/
 @[pbv_push]
 theorem ofNatClamp_nat_sub_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o)
@@ -767,17 +719,9 @@ theorem ofNatClamp_nat_sub_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w �
   rw [BitVec.ofNatClamp_eq_ofNat (by omega)]
   exact ofNat_nat_sub_of_maskOfWidth h hm
 
-/-- A `Nat` shift by the difference of two width variables. -/
-@[pbv_push high]
-theorem ofNatClamp_sub_of_maskOfWidth {o t w : Nat} {mt mw : BitVec o} (ht : t ≤ o) (hw : w ≤ o)
-    (hmt : mt = maskOfWidth o t) (hmw : mw = maskOfWidth o w) :
-    BitVec.ofNatClamp o (t - w) = bif mw.ule mt then mt.cpop - mw.cpop else 0#o := by
-  have ho : o < 2 ^ o := Nat.lt_two_pow_self
-  rw [BitVec.ofNatClamp_eq_ofNat (by omega)]
-  exact ofNat_sub_of_maskOfWidth ht hw hmt hmw
-
 /-- `ofNatClamp_ofNat_mod_of_maskOfWidth` for any `n`. Not a push lemma: for a variable `n`,
 the width `n + o` is not concrete. -/
+@[pbv_push]
 theorem ofNatClamp_mod_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o)
     (hm : m = maskOfWidth o w) :
     BitVec.ofNatClamp o (n % w) =
@@ -796,18 +740,6 @@ theorem ofNatClamp_mod_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o)
     apply BitVec.eq_of_toNat_eq
     simp [BitVec.toNat_umod, BitVec.toNat_setWidth, Nat.mod_eq_of_lt hn, Nat.mod_eq_of_lt (by omega : w < 2 ^ o),
       Nat.mod_eq_of_lt hwo, Nat.mod_eq_of_lt (by omega : n % w < 2 ^ o)]
-
-/-- A rotation amount `n % w` for a numeral `n`. The remainder is computed at width `n + o`,
-which is concrete and wide enough to hold both `n` and `w`. Restricting `n` to numerals keeps
-that width concrete. -/
-@[pbv_push]
-theorem ofNatClamp_ofNat_mod_of_maskOfWidth {o w n : Nat} {m : BitVec o} (h : w ≤ o)
-    (hm : m = maskOfWidth o w) :
-    BitVec.ofNatClamp o ((no_index (OfNat.ofNat n : Nat)) % w) =
-      bif m == 0#o then BitVec.ofNatClamp o (OfNat.ofNat n)
-      else ((BitVec.ofNat (OfNat.ofNat n + o) (OfNat.ofNat n)) %
-        (m.cpop.setWidth (OfNat.ofNat n + o))).setWidth o :=
-  ofNatClamp_mod_of_maskOfWidth h hm
 
 /-- The complementary rotation amount `w - n % w`. -/
 @[pbv_push high]
