@@ -646,8 +646,9 @@ private def Llvm.getSwitchSuccessorIndexForOperands?
     Option Nat := do
   let some (.int bitwidth (.val value)) ← operands[0]? | none
   let caseValues ← props.caseValues? bitwidth
-  for i in [0:caseValues.size] do
-    if value = BitVec.ofInt bitwidth caseValues[i]! then
+  let key := value.toNat
+  for i in [0:caseValues.bits.size] do
+    if key = caseValues.bits[i]! then
       return i + 1
   some 0
 
@@ -1239,9 +1240,8 @@ def Llvm.verifyLocalInvariants {OpInfo : Type} [IsOpCode OpInfo]
             {caseSegments.size} {intType} value(s), but got {attr}"
     /- Case values must be distinct at the condition's width, as in LLVM IR. Upstream MLIR
        accepts duplicates, but such a switch cannot be translated to LLVM IR. -/
-    let mut seen : Std.HashSet Int := {}
-    for v in caseValues do
-      let key := v % (2 ^ intType.bitwidth : Int)
+    let mut seen : Std.HashSet Nat := {}
+    for v in caseValues.values, key in caseValues.bits do
       if seen.contains key then
         throw s!"llvm.switch: duplicate case value {v}"
       seen := seen.insert key
@@ -1799,11 +1799,12 @@ def Llvm.interpretOp' (opType : Veir.Llvm) (properties : propertiesOf opType)
     | .int bw (.val v) =>
       /- A case value per case, or the switch cannot be read. -/
       let some caseValues := properties.caseValues? bw | none
+      let key := v.toNat
       let mut base := 1 + defaultSize
       for i in [0:caseSegments.size] do
         let some (countInt : Int) := caseSegments[i]? | none
         let count := countInt.toNat
-        if v = BitVec.ofInt bw caseValues[i]! then
+        if key = caseValues.bits[i]! then
           let some dest := blockOperands[i + 1]? | none
           return (#[], mem, some (.branch (operands.extract base (base + count)) dest))
         base := base + count
