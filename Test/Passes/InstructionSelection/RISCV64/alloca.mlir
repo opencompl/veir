@@ -62,15 +62,13 @@
     "llvm.return"() : () -> ()
   }) : () -> ()
 
-  // Any supported constant-like integer count is sufficient.
+  // Any supported constant-like integer count is sufficient (an `arith.constant` count is
+  // covered by `alloca_arith_count.mlir`, as `arith` is outside the refinement proof).
   "func.func"() <{sym_name = "constant_like", function_type = () -> ()}> ({
-    %two = "arith.constant"() <{value = 2 : i32}> : () -> i32
     %zero = "llvm.mlir.zero"() : () -> i64
-    %a = "llvm.alloca"(%two) <{elem_type = i64}> : (i32) -> !llvm.ptr
-    // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 16 : i64}>
     %b = "llvm.alloca"(%zero) <{elem_type = i64}> : (i64) -> !llvm.ptr
     // CHECK: "riscv_stack.alloca"() <{"alignment" = 8 : i64, "size" = 0 : i64}>
-    "test.test"(%a, %b) : (!llvm.ptr, !llvm.ptr) -> ()
+    "test.test"(%b) : (!llvm.ptr) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 }) : () -> ()

@@ -82,6 +82,8 @@ public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Uni
   let (_, g) ← g.introNP (getIntrosSize (← instantiateMVars (← g.getType)))
   -- Split conjunctions
   let g ← g.casesAnd
+  -- Keep the untranslated goal, to check counterexamples against it
+  let origGoal := g
   let (ldeclsToRevert, reifiedState) ← ReifyM.run <| reifyWidths g
   -- Revert all ldecls
   let (_, g) ← g.revert ldeclsToRevert.keys.toArray
@@ -96,7 +98,7 @@ public meta def runPbvDecide (g : MVarId) (ctx : PbvDecideContext) : TacticM Uni
                 else pure translated.subgoals
 
   if ctx.config.bv_decide then
-    closeWithBvDecide g translated
+    closeWithBvDecide g translated origGoal
     replaceMainGoal subgoals
   else
     replaceMainGoal <| g :: subgoals

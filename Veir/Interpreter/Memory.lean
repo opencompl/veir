@@ -135,6 +135,11 @@ def MemoryState.checkAccess (mem : MemoryState) (p : Pointer) (size : UInt64) : 
 def Data.Pointer.checkAlignment (p : Pointer) (alignment : Nat) : Interp Unit :=
   if alignment = 0 ∨ p.address.toNat % alignment = 0 then return () else Interp.ub none
 
+/-- The alignment of a refinement of a pointer is that of the pointer. -/
+theorem Data.Pointer.checkAlignment_of_isRefinedBy {p p' : Data.Pointer} (h : p ⊒ p')
+    (alignment : Nat) : p'.checkAlignment alignment = p.checkAlignment alignment := by
+  simp only [Data.Pointer.checkAlignment, h.address_eq]
+
 /--
   Store raw bytes to the given address in memory,
   and set the corresponding poison bits as requested (by default, unset).
@@ -164,6 +169,12 @@ def MemoryState.ptrOfByte (mem : MemoryState) (b : Data.LLVM.Byte 64) : Ptr :=
 def MemoryState.ptrFromInt (mem : MemoryState) : Data.LLVM.Int 64 → Ptr
   | .val v => .val (mem.decode (UInt64.ofBitVec v))
   | .poison => .poison
+
+/-- An address is the pointer to it, in any memory. -/
+@[simp]
+theorem MemoryState.ptrFromInt_val (mem : MemoryState) (v : BitVec 64) :
+    mem.ptrFromInt (.val v) = .val ⟨UInt64.ofBitVec v⟩ := by
+  simp [MemoryState.ptrFromInt, MemoryState.decode]
 
 /--
   Store the `w` bits of `val` in `w / 8` bytes at `p`, with the bits set in `poison` poison.
@@ -239,6 +250,12 @@ def MemoryState.loadByte (mem : MemoryState) (p : Pointer) (w : Nat)
   let val := (← mem.load p size).toBitVecLE w
   return ⟨val &&& ~~~poison, poison, by ext; simp⟩
 
+/-- A store that succeeds through a pointer stores the same through a refinement of it. -/
+theorem MemoryState.llvmStore_of_isRefinedBy_of_ok {mem mem' : MemoryState} {p p' : Pointer}
+    {v : RuntimeValue} (hp : p ⊒ p') (h : mem.llvmStore p v = .ok mem') :
+    mem.llvmStore p' v = .ok mem' := by
+  rwa [Pointer.isRefinedBy_iff.mp hp]
+
 /--
   Load an LLVM value from the given memory address.
   Yields UB if access is out of bounds or the address is 0.
@@ -288,6 +305,14 @@ def MemoryState.llvmLoad (mem : MemoryState) (p : Pointer) (type : TypeAttr)
   | _ => none
 
 /--
+  A load that succeeds through a pointer loads the same through a refinement of it.
+-/
+theorem MemoryState.llvmLoad_of_isRefinedBy_of_ok {mem : MemoryState} {p p' : Pointer}
+    {type : TypeAttr} {v : RuntimeValue} (hp : p ⊒ p') (h : mem.llvmLoad p type = .ok v) :
+    mem.llvmLoad p' type = .ok v := by
+  rwa [Pointer.isRefinedBy_iff.mp hp]
+
+/--
   Loads a `w`-bit integer from `p`. It is poison if any bit is, as an integer `llvmLoad`, so
   translating `llvm.load` to `g_load` is exact, and splitting a `g_load` is a refinement.
   Yields UB if the access is out of bounds or `p` is null.
@@ -326,6 +351,30 @@ def MemoryState.memcpy (mem : MemoryState) (dst src : Pointer) (len : Nat)
   for i in [0:len] do
     mem ← mem.llvmStore (dst.addBytes i) (← mem.llvmLoad (src.addBytes i) byte8Type)
   return mem
+
+/-- A copy that succeeds through two pointers copies the same through refinements of them. -/
+theorem MemoryState.memcpy_of_isRefinedBy_of_ok {mem mem' : MemoryState}
+    {dst dst' src src' : Pointer} {len : Nat} (hd : dst ⊒ dst') (hs : src ⊒ src')
+    (h : mem.memcpy dst src len = .ok mem') : mem.memcpy dst' src' len = .ok mem' := by
+  revert h
+  unfold MemoryState.memcpy
+  simp only [hd.address_eq, hs.address_eq]
+  split
+  · simp
+  · intro h
+    simp only [bind_pure] at h ⊢
+    refine Interp.forIn_range_eq_ok _ (fun i m r hr => ?_) h
+    -- Each step loads through the source and stores through the destination.
+    rcases hl : m.llvmLoad (src.addBytes i) byte8Type with _ | _ | v <;> rw [hl] at hr
+    · simp at hr
+    · simp at hr
+    rw [MemoryState.llvmLoad_of_isRefinedBy_of_ok (hs.addBytes i) hl]
+    simp only [Interp.bind_ok] at hr ⊢
+    rcases hst : m.llvmStore (dst.addBytes i) v with _ | _ | x <;> rw [hst] at hr
+    · simp at hr
+    · simp at hr
+    rw [MemoryState.llvmStore_of_isRefinedBy_of_ok (hd.addBytes i) hst]
+    exact hr
 
 /--
   `llvm.intr.memmove`: copy `len` bytes, poison bits included, from `src` to `dst`.

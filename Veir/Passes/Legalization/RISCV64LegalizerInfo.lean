@@ -2,7 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.Passes.Legalization.LegalizerInfo
-import Veir.Passes.Legalization.Legalizer
+public import Veir.Passes.Legalization.Legalizer
 import Veir.Passes.Legalization.LegalizerHelper
 
 /-!
@@ -280,9 +280,12 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_br => [
       .alwaysLegal,
     ]
+    -- The condition is not widened, as `widenBrcondCondition` is unproven, and
+    -- `isel-br-riscv64` accepts a condition of any width up to 64 bits.
     | .g_brcond => [
-      .legalFor [s64],
-      .minScalar (.type 0) 64,
+      .alwaysLegal,
+      -- .legalFor [s64],
+      -- .minScalar (.type 0) 64,
     ]
     | _ => []
   legalizeCustom
@@ -305,10 +308,18 @@ def riscv64LegalizerInfo : LegalizerInfo where
     | .g_ssubsat => lowerAddSubSatToAddoSubo .g_ssubsat true false
     | _ => none
 
+/-- The pass: the legalizations, all proved valid, through the module-filtered driver. Its
+soundness is `LegalizeRISCV64Pass.run_sound`. -/
+def LegalizeRISCV64Pass.run : PurePass := riscv64LegalizerInfo.legalize "legalize-riscv64"
+
+def LegalizeRISCV64Pass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (LegalizeRISCV64Pass.run ctx op))
+
 def LegalizeRISCV64Pass : Pass OpCode :=
   { name := "legalize-riscv64"
     description := "Legalize gMIR operations for RISC-V 64."
-    run := fun _ ctx op _ => riscv64LegalizerInfo.legalize ctx op }
+    run := fun _ => LegalizeRISCV64Pass.impl }
 
 end
 

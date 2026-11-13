@@ -78,7 +78,8 @@ def combineZExtOfTruncOfICmp : Pattern OpCode :=
       let rhs ← MatchProg.value operandType
       let wideType ← MatchProg.type (Attr := IntegerType)
       let icmp ← MatchProg.operation (.gmir .g_icmp) #[lhs, rhs] #[wideType]
-      let narrowType ← MatchProg.type (Attr := IntegerType)
+      -- The verifier rejects `i0`, to which the truncation would drop the bit of the `g_icmp`.
+      let narrowType ← MatchProg.type (Attr := IntegerType) (0 < ·.bitwidth)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[icmp.res[0]!] #[narrowType]
       let type ← MatchProg.type (Attr := IntegerType)
       MatchProg.matchNative (wideType, type) fun (wideType, type) =>
@@ -104,15 +105,17 @@ def combineExtOfTruncOfConstant (signed : Bool) : Pattern OpCode :=
       let constant ← MatchProg.operation (.gmir .g_constant) #[] #[type]
       let narrowType ← MatchProg.type (Attr := IntegerType)
       let trunc ← MatchProg.operation (.gmir .g_trunc) #[constant.res[0]!] #[narrowType]
-      MatchProg.matchNative (narrowType, constant.properties) fun (narrowType, c) =>
-        match narrowType.val with
-        | .integerType narrowType =>
+      MatchProg.matchNative (type, narrowType, constant.properties) fun (type, narrowType, c) =>
+        match type.val, narrowType.val with
+        | .integerType type, .integerType narrowType =>
+          -- The bits are read at the width of the attribute, which the verifier ties to the result.
           let width := narrowType.bitwidth
+          c.value.type.bitwidth == type.bitwidth &&
           if signed then
             0 < width && -2 ^ (width - 1) ≤ c.bits.toInt && c.bits.toInt < 2 ^ (width - 1)
           else
             c.bits.toNat < 2 ^ width
-        | _ => false
+        | _, _ => false
       let _ ← MatchProg.root (.gmir (if signed then .g_sext else .g_zext))
         #[trunc.res[0]!] #[type]
       return constant.res[0]!)
@@ -161,8 +164,9 @@ def tryCombineInstruction : GMIR → List (Pattern OpCode)
   | .g_anyext => [
       combineAnyExtOfTruncSame,
       combineAnyExtOfTruncToCast .g_trunc (·.bitwidth > ·.bitwidth),
-      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth),
-      combineAnyExtOfAnyExt]
+      combineAnyExtOfTruncToCast .g_anyext (·.bitwidth < ·.bitwidth)
+      -- Unproven (`rechoosesMatchedChoice`), so not run: `, combineAnyExtOfAnyExt`
+      ]
   | .g_zext => [combineZExtOfTruncOfICmp, combineExtOfTruncOfConstant false]
   | .g_sext => [combineExtOfTruncOfConstant true]
   | .g_trunc => [combineTruncOfTrunc]

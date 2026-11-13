@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=riscv-combine | filecheck %s
 
+// XFAIL: *
+// Needs `ext_x0 combines`, commented out of the pass as unproven.
+
 // `riscv.sextw` of the hard-wired zero register `x0` is a no-op: `x0` always
 // reads as 0, and 0 is its own sign-extension.
 

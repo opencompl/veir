@@ -68,7 +68,7 @@ def availablePasses : Std.HashMap String (Pass OpCode) :=
   in place to its member passes. If a name is both a pass and a group, the pass wins.
 -/
 def passGroups : Std.HashMap String String :=
-  (Std.HashMap.emptyWithCapacity 2)
+  (Std.HashMap.emptyWithCapacity 8)
     |>.insert "O" "canonicalize,instcombine,cse,dce"
     |>.insert "mod-arith"
         "mod-arith-to-arith{barrett},cse,coerce-mod-arith-function-boundaries,reconcile-cast,canonicalize,cse,dce"

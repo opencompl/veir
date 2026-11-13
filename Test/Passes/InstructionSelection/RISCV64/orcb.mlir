@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=riscv | filecheck %s
 
+// XFAIL: *
+// Needs `commutativeConstantRHS`, commented out of the pass as unproven.
+
 // `sub (shl M (8 - Y)) (lshr M Y)`, where `M = and %z (0x0101_0101_0101_0101 <<< Y)`,
 // fuses into `riscv.orcb M` (LLVM's combineSubShiftToOrcB). The `and` with the
 // per-byte bit-`Y` mask is what makes the rewrite sound without known bits. Each

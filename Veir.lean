@@ -15,20 +15,47 @@ import Veir.GlobalOpInfo
 import Veir.Printer
 import Veir.PatternRewriter.Basic
 import Veir.PatternRewriter.CTreeDeadCode
+import Veir.PatternRewriter.Choice
 import Veir.PatternRewriter.Puddle
 import Veir.Interfaces.FoldInterfaces
 import Veir.Interfaces.ControlFlowInterfaces
 import Veir.Passes.ArithToLLVM.Proofs
 import Veir.Passes.Canonicalize.Proofs
 import Veir.Passes.RISCVCombines.Proofs
+import Veir.Passes.RISCVCombines.Validity
 import Veir.Benchmarks
 import Veir.Parser.Lexer
 import Veir.Interpreter
+import Veir.Dialects.CTreeMonotonicity
+import Veir.Interpreter.CTreeRefinement.CFGSim
+import Veir.Interpreter.CTreeRefinement.Normalization
+import Veir.Interpreter.CTreeRefinement.OpList
+import Veir.Interpreter.CTreeRefinement.Refines
+import Veir.Dialects.ProvedMonotone
 import Veir.Dominance
 import Veir.Passes.InstructionSelection.Proofs
+import Veir.Passes.CheckedDriver
+import Veir.Passes.Pipeline.Soundness
+import Veir.Passes.DCE.Validity
+import Veir.Passes.LLVMToGMIR.Soundness
+import Veir.Passes.Pipeline.Bridge
+import Veir.Passes.Pipeline.RISCV
 import Veir.Passes.InstructionSelection.Proofs.I32
+import Veir.Passes.InstructionSelection.Validity
+import Veir.Passes.InstructionSelection.Proofs.RISCV64
+import Veir.Passes.InstructionSelection.Proofs.RISCV64.Pass
+
+import Veir.Dialects.LLVM.Lemmas
+import Veir.Dialects.RISCV_Cf.Lemmas
+import Veir.Dialects.GMIR.Lemmas
+import Veir.Dialects.RV64.Lemmas
+import Veir.Passes.InstructionSelection.Branches.Pass
+import Veir.Passes.LLVMToGMIR.BranchPass
 import Veir.Passes.CastsReconciliation.Reconciliation
+import Veir.Passes.CastsReconciliation.Validity
 import Veir.Passes.Legalization.Proofs
+import Veir.Passes.Legalization.Validity
+import Veir.Passes.LLVMToGMIR.Validity
 
 -- FIXME: These modules are otherwise orphans and would not be compiled.
 import Veir.Analysis.DataFlow.SparseFact
@@ -40,3 +67,6 @@ import Veir.Data.FP.ExtRat
 import Veir.Data.FP.FP
 import Veir.Interfaces
 import Veir.Dialects.LLVM.Interpreter
+import Veir.Dialects.Builtin.CastRefinement
+import Veir.Dialects.LLVM.FreezeRefinement
+import Veir.Interpreter.CTreePointerCasts

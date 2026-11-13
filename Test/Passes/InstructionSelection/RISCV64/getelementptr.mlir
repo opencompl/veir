@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `getelementptr lowering (getelementptrGeneral, normalizeGEPIndices)`, commented out of the pass as unproven.
+
 // `llvm.getelementptr` lowers to `ptr + idx * scale` for each dynamic index,
 // where `scale` is the allocation size (ABI stride) of the type it steps over,
 // plus the constant offset of its constant indices.

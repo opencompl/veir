@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=isel-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `memIntrinsic`, commented out of the pass as unproven.
+
 // A constant-length memcpy/memset that takes at most 8 accesses, each no wider
 // than the known alignment, is expanded into loads and stores. Anything else
 // becomes a call to the C library function.

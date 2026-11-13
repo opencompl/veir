@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=legalize-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `lowerFunnelShift`, commented out of the pass as unproven.
+
 // Funnel shifts narrower than `i64` are lowered to shifts by `z % w` and `w - 1 - z % w`, which
 // are then widened like any other shift.
 

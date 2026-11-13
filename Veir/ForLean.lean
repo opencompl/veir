@@ -1,9 +1,18 @@
 module
 
+import all Std.Data.ByteSlice
+
 public import Std.Data.ExtHashSet
 public import Veir.Meta.Tactic.BVNormalizeSimp
+meta import Std.Tactic.BVDecide
 import all Init.Data.Array.Basic -- unfold [Array.popWhile] in Array.getElem?_popWhile_of_false
 public section
+
+/- `bv_decide` realizes its helpers for an enum-like type lazily, in whichever module first proves
+a goal mentioning it, and exports them from there. Two modules that do so independently cannot be
+imported together ("environment already contains `PUnit.enumToBitVec`"). Proving one such goal
+here, upstream of every proof, gives them all the same copy. -/
+theorem Unit.eq_unit_bv (u : Unit) : u = () := by bv_decide
 
 /--
   We compare `ByteArray`s by with lexicographic ordering.
@@ -113,6 +122,55 @@ def getD (ba : ByteArray) (i : Nat) (default : UInt8) : UInt8 :=
     a read of a known size has a literal width, which `bv_decide` requires. -/
 def toBitVecLE (ba : ByteArray) (w : Nat) : BitVec w :=
   ba.toByteSlice.foldr (fun b acc => acc <<< 8 ||| b.toBitVec.setWidth w) 0
+
+/-- The slice fold of a whole byte array stops at its end. -/
+private theorem foldrM_loop_end {β : Type} (f : UInt8 → β → β) (ba : ByteArray) (i : Nat) (acc : β)
+    (hi : ¬ i < ba.size) :
+    ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice i acc = pure acc := by
+  rw [ByteSlice.foldrM.loop]
+  simp [ByteArray.toByteSlice, ByteSlice.size, ByteSlice.stop, ByteSlice.start, hi]
+
+/-- One step of the slice fold of a whole byte array. -/
+private theorem foldrM_loop_succ {β : Type} (f : UInt8 → β → β) (ba : ByteArray) (i : Nat) (acc : β)
+    (hi : i < ba.size) :
+    ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice i acc =
+      ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice (i + 1)
+        (f (ba[ba.size - 1 - i]'(by omega)) acc) := by
+  conv => lhs; rw [ByteSlice.foldrM.loop]
+  simp [ByteArray.toByteSlice, ByteSlice.size, ByteSlice.stop, ByteSlice.start, hi,
+    ByteSlice.instGetElemNatUInt8LtSize, ByteSlice.get, ByteSlice.byteArray]
+
+/-- The slice fold of a whole byte array, from index `i` on, as the fold of a list. -/
+private theorem foldrM_loop_toByteSlice {β : Type} (f : UInt8 → β → β) (ba : ByteArray) :
+    ∀ (k i : Nat) (acc : β), ba.size - i = k →
+    ByteSlice.foldrM.loop (m := Id) (fun a b => pure (f a b)) ba.toByteSlice i acc =
+      (ba.data.toList.take k).foldr f acc := by
+  intro k
+  induction k with
+  | zero =>
+    intro i acc hk
+    rw [foldrM_loop_end f ba i acc (by omega)]
+    rfl
+  | succ k ih =>
+    intro i acc hk
+    rw [foldrM_loop_succ f ba i acc (by omega), ih (i + 1) _ (by omega)]
+    have hlt : k < ba.data.toList.length := by simp; omega
+    rw [List.take_add_one, List.getElem?_eq_getElem hlt]
+    simp only [List.foldr_append, Array.getElem_toList]
+    congr 2
+    rw [ByteArray.getElem_eq_getElem_data]
+    congr 1
+    omega
+
+/-- `toBitVecLE` is a fold over the bytes, from the most significant one. -/
+theorem toBitVecLE_eq_foldr (ba : ByteArray) (w : Nat) :
+    ba.toBitVecLE w =
+      ba.data.toList.foldr (fun (b : UInt8) (acc : BitVec w) => acc <<< 8 ||| b.toBitVec.setWidth w)
+        (0 : BitVec w) := by
+  simp only [ByteArray.toBitVecLE, ByteSlice.foldr, ByteSlice.foldrM]
+  rw [foldrM_loop_toByteSlice _ ba ba.size 0 0 (by omega)]
+  simp [List.take_of_length_le]
+  rfl
 
 end ByteArray
 
@@ -618,6 +676,24 @@ theorem sub_eq_append {w : Nat} (x y : BitVec (w + w)) :
   -- The borrow and the high half of `y` are subtracted and added back.
   rw [sub_sub, BitVec.add_assoc, sub_add_cancel, setWidth_eq_extractLsb' (by omega),
     extractLsb'_append_extractLsb']
+
+/-- Powers of two written as `Int` constants are `twoPow`s, which `pbv_decide` can push. -/
+@[veir_bv_normalize]
+theorem ofInt_two_pow (n k : Nat) : BitVec.ofInt n ((2 : Int) ^ k) = BitVec.twoPow n k := by
+  rw [show (2 : Int) ^ k = ((2 ^ k : Nat) : Int) by simp, BitVec.ofInt_natCast]
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_twoPow]
+
+@[veir_bv_normalize]
+theorem ofInt_two_pow_sub_one (n k : Nat) :
+    BitVec.ofInt n ((2 : Int) ^ k - 1) = BitVec.twoPow n k - 1#n := by
+  rw [Int.sub_eq_add_neg, BitVec.ofInt_add, ofInt_two_pow, BitVec.ofInt_neg, BitVec.sub_eq_add_neg]
+  rfl
+
+@[veir_bv_normalize]
+theorem ofInt_neg_two_pow (n k : Nat) :
+    BitVec.ofInt n (-(2 : Int) ^ k) = -BitVec.twoPow n k := by
+  rw [BitVec.ofInt_neg, ofInt_two_pow]
 
 @[veir_bv_normalize]
 theorem udiv_one_shl {w₁ w₂ : Nat} (x : BitVec w₁) (k : BitVec w₂) :

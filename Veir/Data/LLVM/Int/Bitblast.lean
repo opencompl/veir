@@ -162,6 +162,46 @@ theorem getValue_sub {w : Nat} (x y : Int w) {nsw nuw : Bool} (h : (sub x y nsw 
   grind
 
 @[veir_bv_normalize, grind =]
+theorem isPoison_uaddOverflowFlag {w : Nat} (x y : Int w) :
+    (uaddOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_uaddOverflowFlag {w : Nat} (x y : Int w) (h : (uaddOverflowFlag x y).isPoison = false) :
+    (uaddOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.uaddOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_uaddOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_saddOverflowFlag {w : Nat} (x y : Int w) :
+    (saddOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_saddOverflowFlag {w : Nat} (x y : Int w) (h : (saddOverflowFlag x y).isPoison = false) :
+    (saddOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.saddOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_saddOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_usubOverflowFlag {w : Nat} (x y : Int w) :
+    (usubOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_usubOverflowFlag {w : Nat} (x y : Int w) (h : (usubOverflowFlag x y).isPoison = false) :
+    (usubOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.usubOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_usubOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
+theorem isPoison_ssubOverflowFlag {w : Nat} (x y : Int w) :
+    (ssubOverflowFlag x y).isPoison = (x.isPoison || y.isPoison) := by
+  cases x <;> cases y <;> rfl
+
+@[veir_bv_normalize, grind =]
+theorem getValue_ssubOverflowFlag {w : Nat} (x y : Int w) (h : (ssubOverflowFlag x y).isPoison = false) :
+    (ssubOverflowFlag x y).getValue h = BitVec.ofBool (BitVec.ssubOverflow x.getValue y.getValue) := by
+  cases x <;> cases y <;> first | rfl | (rw [isPoison_ssubOverflowFlag] at h; simp [isPoison] at h)
+
+@[veir_bv_normalize, grind =]
 theorem isPoison_mul {w : Nat} (x y : Int w) {nsw nuw : Bool} :
     (mul x y nsw nuw).isPoison =
       if h : x.isPoison = true ∨ y.isPoison = true then true
@@ -945,3 +985,9 @@ theorem neg_twoPow_sub_eq_intMin {w : Nat} :
 theorem twoPow_sub_one_eq_intMin {w : Nat} :
     LLVM.Int.constant w (2 ^ (w - 1) - 1) = LLVM.Int.constant w ((BitVec.intMax w).toInt) := by
   simp [veir_bv_normalize]
+
+@[veir_bv_normalize]
+theorem ofInt_two_pow_eq_setWidth_allones {v w : Nat} :
+    BitVec.ofInt v (2^w - 1) = (BitVec.allOnes w).setWidth v := by
+  apply BitVec.eq_of_toInt_eq
+  simp [Int.ofNat_sub (by grind : 1 ≤ 2^w)]

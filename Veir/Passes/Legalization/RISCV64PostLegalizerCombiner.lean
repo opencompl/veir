@@ -1,6 +1,7 @@
 module
 
 public import Veir.Pass
+public import Veir.Passes.CheckedDriver
 import Veir.PatternRewriter.Basic
 import Veir.Passes.Canonicalize
 import Veir.Passes.Legalization.CombinerHelper
@@ -21,19 +22,27 @@ namespace Veir
 
 public section
 
+/-- The Puddle patterns of the pass, in the order it tries them. The combines come before
+`sub_to_add`, which would otherwise rewrite the subtractions some of them match. -/
+def postLegalizerPatterns : Array (Puddle.Pattern OpCode) :=
+  combinePatterns ++ selectPatterns riscv64LegalizerInfo ++
+    #[sub_to_add_pattern riscv64LegalizerInfo, redundant_and_pattern] ++ redundantAndSelectPatterns
+
+/-- The pass: the Puddle patterns, all proved valid, through the module-filtered driver.
+`commutativeConstantRHS` is unproven, so not run. Its soundness is
+`PostLegalizerCombinerRISCV64Pass.run_sound`. -/
+def PostLegalizerCombinerRISCV64Pass.run : PurePass :=
+  checkedFunctionsPass "postlegalizer-combiner-riscv64"
+    (RewritePattern.GreedyRewritePattern (postLegalizerPatterns.map fun rule => rule.compile.run))
+
+def PostLegalizerCombinerRISCV64Pass.impl (ctx : WfIRContext OpCode) (op : OperationPtr)
+    (_ : op.InBounds ctx.raw) : ExceptT String IO (WfIRContext OpCode) :=
+  ExceptT.mk (pure (PostLegalizerCombinerRISCV64Pass.run ctx op))
+
 def PostLegalizerCombinerRISCV64Pass : Pass OpCode :=
   { name := "postlegalizer-combiner-riscv64"
     description := "Combine legalized gMIR operations for RISC-V 64."
-    run := fun _ ctx op _ => do
-      -- The combines come before `sub_to_add`, which would otherwise rewrite the subtractions
-      -- some of them match.
-      let pattern := RewritePattern.GreedyRewritePattern <|
-        (combines ++ selectCombines riscv64LegalizerInfo).map (·.run) ++
-        #[(sub_to_add riscv64LegalizerInfo).run, redundant_and.run] ++
-        redundant_and_select.map (·.run) ++ #[commutativeConstantRHS]
-      match RewritePattern.applyToFunctions pattern ctx op with
-      | none => throw "Error while applying the post-legalizer combines"
-      | some ctx => pure ctx }
+    run := fun _ => PostLegalizerCombinerRISCV64Pass.impl }
 
 end
 

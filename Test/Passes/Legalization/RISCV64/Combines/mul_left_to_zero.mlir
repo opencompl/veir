@@ -1,5 +1,8 @@
 // RUN: veir-opt %s -p=postlegalizer-combiner-riscv64 | filecheck %s
 
+// XFAIL: *
+// Needs `commutativeConstantRHS`, commented out of the pass as unproven.
+
 // `mul 0, x` is `0`: multiplying by zero is always zero.
 
 "builtin.module"() ({

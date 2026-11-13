@@ -153,7 +153,7 @@
 
     "func.func"()  <{function_type = (!llvm.ptr) -> (), sym_name = "f11"}> ({
       ^1(%0 : !llvm.ptr):
-        // ptr -> reg -> ptr (64-bit)
+        // ptr -> reg -> ptr (64-bit): folded away under the assumption `ptr_reg_valid`.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!llvm.ptr) -> !riscv.reg
         %2 = "builtin.unrealized_conversion_cast"(%1) : (!riscv.reg) -> !llvm.ptr
         "test.test"(%2) : (!llvm.ptr) -> ()
@@ -215,13 +215,14 @@
 
     "func.func"()  <{function_type = (!riscv.reg) -> (), sym_name = "f16"}> ({
       ^1(%0 : !riscv.reg):
-        // reg -> i14 -> reg : should not be folded away.
+        // reg -> i14 -> reg : left alone. The two-shift narrowing (`reconcileRegIntShift`) is
+        // unproven (`createFailsOverWide`), so the pass does not run it.
         %1 = "builtin.unrealized_conversion_cast"(%0) : (!riscv.reg) -> i14
         %2 = "builtin.unrealized_conversion_cast"(%1) : (i14) -> !riscv.reg
         "test.test"(%2) : (!riscv.reg) -> ()
         // CHECK:        func.func @f16([[ARG:%.*]]: !riscv.reg) {
-        // CHECK-NEXT:   %[[C1:.*]] = "riscv.slli"([[ARG]]) <{"value" = 50 : i64}> : (!riscv.reg) -> !riscv.reg
-        // CHECK-NEXT:   %[[C2:.*]] = "riscv.srli"(%[[C1]]) <{"value" = 50 : i64}> : (!riscv.reg) -> !riscv.reg
+        // CHECK-NEXT:   %[[C1:.*]] = "builtin.unrealized_conversion_cast"([[ARG]]) : (!riscv.reg) -> i14
+        // CHECK-NEXT:   %[[C2:.*]] = "builtin.unrealized_conversion_cast"(%[[C1]]) : (i14) -> !riscv.reg
         // CHECK-NEXT:   "test.test"(%[[C2]]) : (!riscv.reg) -> ()
         "func.return"() : () -> ()
     }) : () -> ()
