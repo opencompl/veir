@@ -10,7 +10,6 @@ meta import Std.Tactic.BVDecide.Reflect
 
 import Veir.ForLean
 import all Veir.Data.LLVM.Int.Basic
-import all Veir.Data.Refinement
 import all Veir.Dialects.GMIR.Semantics
 import all Veir.Dialects.GMIR.OpInfo
 import all Veir.Dialects.GMIR_RISCV.Semantics
@@ -99,7 +98,7 @@ Prove the correctness of widening `g_poison`: truncating a wide poison, whatever
 -/
 theorem poison_widening {w n : Nat} (h : n < w) (nsw nuw : Bool) :
     (LLVM.Int.poison : LLVM.Int n) ⊒ LLVM.Int.trunc (LLVM.Int.poison : LLVM.Int w) n nsw nuw h :=
-  poison_isRefinedBy _
+  LLVM.Int.poison_isRefinedBy _
 
 /--
 Prove `combineExtOfTruncOfConstant true` at every width: truncating a constant that fits in the
@@ -175,7 +174,7 @@ theorem select_widen_values (n m wc : Nat) (h : n < m) (c : LLVM.Int wc) (x y : 
         (GMIR.selectNonzero c (LLVM.Int.ext x m ext h) (LLVM.Int.ext y m ext' h))
         n false false h := by
   cases c with
-  | poison => simp [GMIR.selectNonzero, LLVM.Int.trunc, Id.run, isRefinedBy]
+  | poison => simp [GMIR.selectNonzero, LLVM.Int.trunc, Id.run, LLVM.Int.isRefinedBy]
   | val c =>
     simp only [GMIR.selectNonzero, Id.run]
     split
@@ -189,7 +188,7 @@ zero-extended condition is nonzero exactly when the condition is.
 theorem select_widen_cond (n m w : Nat) (h : n < m) (c : LLVM.Int n) (x y : LLVM.Int w) :
     GMIR.selectNonzero c x y ⊒ GMIR.selectNonzero (LLVM.Int.zext c m false h) x y := by
   cases c with
-  | poison => simp [GMIR.selectNonzero, LLVM.Int.zext, Id.run, isRefinedBy]
+  | poison => simp [GMIR.selectNonzero, LLVM.Int.zext, Id.run, LLVM.Int.isRefinedBy]
   | val c =>
     have hz : c.setWidth m = 0#m ↔ c = 0#n := by
       constructor
@@ -317,7 +316,7 @@ private theorem selectNonzero_refines {w : Nat} (c : LLVM.Int 1) (x y : LLVM.Int
     (h1 : c = .val 1#1 → x ⊒ r) (h0 : c = .val 0#1 → y ⊒ r) :
     GMIR.selectNonzero c x y ⊒ r := by
   cases c with
-  | poison => simp [GMIR.selectNonzero, Id.run, hp, isRefinedBy]
+  | poison => simp [GMIR.selectNonzero, Id.run, hp, LLVM.Int.isRefinedBy]
   | val c =>
     rcases BitVec.eq_zero_or_eq_one c with rfl | rfl
     · simpa [GMIR.selectNonzero, Id.run] using h0 rfl
@@ -332,7 +331,7 @@ local macro "select_const_tac" : tactic =>
       BitVec.setWidth_ofNat_one_eq_ofNat_one_of_lt, BitVec.signExtend, BitVec.ofInt_neg,
       BitVec.twoPow_eq, BitVec.add_comm, BitVec.sub_eq_add_neg, BitVec.neg_one_eq_allOnes,
       LLVM.Int.xor, LLVM.Int.zext, LLVM.Int.sext, LLVM.Int.add, LLVM.Int.shl, LLVM.Int.or,
-      LLVM.Int.constant, Id.run, isRefinedBy]))
+      LLVM.Int.constant, Id.run, LLVM.Int.isRefinedBy]))
 
 /-- Prove the correctness of combining `c ? 1 : 0` to `zext c`. -/
 theorem select_one_zero {w : Nat} (h : 1 < w) (c : LLVM.Int 1) :
@@ -426,7 +425,7 @@ private theorem zero_shift_in_range {w : Nat} (hw : 0 < w) :
 local macro "select_binop_tac" : tactic =>
   `(tactic| (cases ‹LLVM.Int _› <;> try cases ‹LLVM.Int _›) <;>
     grind [LLVM.Int.shl, LLVM.Int.lshr, LLVM.Int.ashr, LLVM.Int.sub, LLVM.Int.add, LLVM.Int.or,
-      LLVM.Int.xor, LLVM.Int.constant, Id.run, pure, isRefinedBy])
+      LLVM.Int.xor, LLVM.Int.constant, Id.run, pure, LLVM.Int.isRefinedBy])
 
 /-- Closes a side condition of `select_into_binop` for a shift, given `0 < w`. -/
 local macro "select_shift_tac" hw:term : tactic =>
@@ -476,7 +475,7 @@ theorem select_into_xor {w : Nat} (c : LLVM.Int 1) (x k : LLVM.Int w) :
       LLVM.Int.xor x (GMIR.selectNonzero c k (LLVM.Int.constant w 0)) :=
   select_into_binop LLVM.Int.xor LLVM.Int.xor c x k
     (by select_binop_tac) (by select_binop_tac)
-    (by cases x <;> simp [LLVM.Int.xor, LLVM.Int.constant, Id.run, isRefinedBy])
+    (by cases x <;> simp [LLVM.Int.xor, LLVM.Int.constant, Id.run, LLVM.Int.isRefinedBy])
 
 /-! ### Word operations -/
 
@@ -655,13 +654,13 @@ private theorem add_narrowing {w : Nat} (x y : LLVM.Int (w + w)) (nsw nuw : Bool
       let (hi, _) := uaddWithCarry xHi yHi (LLVM.Int.uaddOverflowFlag xLo yLo)
       mergeValues (LLVM.Int.add xLo yLo) hi := by
   -- Without its flags, the `g_add` is equal to its narrowing.
-  refine isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
+  refine LLVM.Int.isRefinedBy_trans (add_isRefinedBy_add x y nsw nuw) ?_
   cases x <;> cases y
   case val.val x y =>
     simp [LLVM.Int.add, LLVM.Int.uaddOverflowFlag, unmergeValues, uaddWithCarry, mergeValues,
       Id.run, BitVec.add_eq_append]
   -- A poison operand makes both sides poison.
-  all_goals exact poison_isRefinedBy _
+  all_goals exact LLVM.Int.poison_isRefinedBy _
 
 /--
 Prove the correctness of narrowing `g_sub` to a `g_usubo` of the low halves of its operands, and a
@@ -674,13 +673,13 @@ private theorem sub_narrowing {w : Nat} (x y : LLVM.Int (w + w)) (nsw nuw : Bool
       let (hi, _) := usubWithBorrow xHi yHi (LLVM.Int.usubOverflowFlag xLo yLo)
       mergeValues (LLVM.Int.sub xLo yLo) hi := by
   -- Without its flags, the `g_sub` is equal to its narrowing.
-  refine isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
+  refine LLVM.Int.isRefinedBy_trans (sub_isRefinedBy_sub x y nsw nuw) ?_
   cases x <;> cases y
   case val.val x y =>
     simp [LLVM.Int.sub, LLVM.Int.usubOverflowFlag, unmergeValues, usubWithBorrow, mergeValues,
       Id.run, BitVec.sub_eq_append]
   -- A poison operand makes both sides poison.
-  all_goals exact poison_isRefinedBy _
+  all_goals exact LLVM.Int.poison_isRefinedBy _
 
 /--
 Prove the correctness of combining `g_unmerge_values (g_merge_values lo hi)` to `lo` and `hi`, at

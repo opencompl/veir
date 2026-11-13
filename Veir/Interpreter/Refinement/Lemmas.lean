@@ -136,7 +136,7 @@ theorem Interp.isRefinedBy_refl_operationResult
 theorem RuntimeValue.isRefinedBy_trans {v₁ v₂ v₃ : RuntimeValue}
     (h12 : v₁ ⊒ v₂) (h23 : v₂ ⊒ v₃) : v₁ ⊒ v₃ := by
   cases v₁ <;>
-    grind [RuntimeValue.isRefinedBy, isRefinedBy_trans,
+    grind [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_trans,
       cases RuntimeValue, LLVM.Byte.isRefinedBy_trans]
 
 theorem MemoryByte.isRefinedBy_trans {b1 b2 b3 : MemoryByte}
@@ -252,7 +252,7 @@ theorem RuntimeValue.addr_val_isRefinedBy_iff {p : Data.Pointer} {tv : RuntimeVa
 @[simp]
 theorem RuntimeValue.int_val_isRefinedBy_iff {bw : Nat} {v : BitVec bw} {tv : RuntimeValue} :
     RuntimeValue.int bw (.val v) ⊒ tv ↔ tv = RuntimeValue.int bw (.val v) := by
-  cases tv <;> grind [RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq, cases Data.LLVM.Int]
+  cases tv <;> grind [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_eq, cases Data.LLVM.Int]
 
 /-- A runtime value `tv` that refines a register runtime value `v` is equal to it. -/
 theorem RuntimeValue.reg_of_isRefinedBy {v : Data.RISCV.Reg} {tv : RuntimeValue}
@@ -375,7 +375,7 @@ theorem RuntimeValue.glb?_isRefinedBy {c d m : RuntimeValue} (h : c.glb? d = som
       subst hw
       simp only [Data.LLVM.Int.cast_self] at h
       split at h <;> (try split at h) <;> cases h <;>
-        simp_all [RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq, Data.LLVM.Int.cast_self]
+        simp_all [RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_eq, Data.LLVM.Int.cast_self]
     · cases h
   case byte.byte w x w' y =>
     split at h
@@ -408,7 +408,7 @@ theorem RuntimeValue.glb?_greatest {c d e : RuntimeValue} (hc : c ⊒ e) (hd : d
     obtain ⟨rfl, hx⟩ := hc; obtain ⟨rfl, hy⟩ := hd
     simp only [Data.LLVM.Int.cast_self] at hx hy
     cases x <;> cases y <;> cases z <;>
-      simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy, _root_.isRefinedBy_eq,
+      simp_all [RuntimeValue.glb?, RuntimeValue.isRefinedBy, LLVM.Int.isRefinedBy_eq,
         Data.LLVM.Int.cast_self]
   case byte.byte.byte w x w' y we z =>
     obtain ⟨rfl, hx⟩ := hc; obtain ⟨rfl, hy⟩ := hd
@@ -435,7 +435,7 @@ theorem RuntimeValue.isRefinedBy_antisymm {c d : RuntimeValue} (h₁ : c ⊒ d) 
   case int.int w x w' y =>
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Data.LLVM.Int.cast_self] at h₁ h₂
-    cases x <;> cases y <;> simp_all [_root_.isRefinedBy_eq]
+    cases x <;> cases y <;> simp_all [LLVM.Int.isRefinedBy_eq]
   case byte.byte w x w' y =>
     obtain ⟨rfl, h₁⟩ := h₁; obtain ⟨_, h₂⟩ := h₂
     simp only [Byte.cast_self] at h₁ h₂
